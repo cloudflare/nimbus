@@ -5,7 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@9.0.0",
   "scripts": {
-    "build": "pnpm -r --workspace-concurrency=1 build",
+    "build": "pnpm -r build",
     "dev": "pnpm --filter nimbus-starter-source dev",
     "build:templates": "node packages/create-nimbus-docs/scripts/copy-template.mjs",
     "templates:check": "node scripts/templates-check.mjs",

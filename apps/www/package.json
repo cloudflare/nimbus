@@ -7,11 +7,11 @@
   "scripts": {
     "generate-registry": "tsx scripts/generate-registry.ts",
     "dev": "pnpm run generate-registry && astro dev",
-    "build": "pnpm --filter nimbus-docs build && pnpm run generate-registry && astro build",
+    "build": "pnpm run generate-registry && astro build",
     "preview": "astro preview",
     "typecheck": "astro check",
     "preview:cf": "wrangler dev",
-    "predeploy": "astro check && pnpm run build",
+    "predeploy": "pnpm --filter nimbus-docs build && astro check && pnpm run build",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
