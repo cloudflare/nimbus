@@ -1,0 +1,69 @@
+---
+title: Frontmatter
+description: Every frontmatter field the docs schema understands, with types and defaults.
+aiGenerated: true
+sidebar:
+  order: 3
+---
+
+Frontmatter is validated against a Zod schema at build time, with errors written for content authors — missing fields are named and offending values echoed back. Only `title` is required.
+
+## Fields
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `title` | string | — | **Required.** Page title and default sidebar label. |
+| `description` | string | — | Meta description and search snippet. |
+| `mode` | `"doc"` \| `"custom"` | `"doc"` | `custom` drops all docs chrome. |
+| `sidebar` | `false` \| object | — | `false` hides the page from the rail. See below. |
+| `head` | array | `[]` | Extra `<head>` elements; merged with `config.head`. |
+| `banner` | object | — | Top-of-page banner — see [Banners](/styling/banners). |
+| `draft` | boolean | `false` | Excluded from production builds and the agent index. |
+| `noindex` | boolean | `false` | Emits `<meta name="robots" content="noindex">`. |
+| `searchable` | boolean | derives from `noindex` | Include in the site search index. |
+| `tableOfContents` | `false` \| object | — | `{ minHeadingLevel, maxHeadingLevel }` (default 2–3). |
+| `lastUpdated` | date | — | Overrides the git-derived date. |
+| `socialImage` | string | — | Per-page OG image (path or URL). |
+| `prev` / `next` | string \| object \| `false` | — | Override or disable pagination links. |
+| `previousSlug` | string \| string[] | — | Versioning rename hatch — see [Redirects](/navigation/redirects). |
+| `external_link` | URL \| `/path` | — | Rewrite the sidebar link target. |
+
+## The `sidebar` object
+
+```yaml
+sidebar:
+  order: 2
+  label: Quickstart           # overrides title in the rail
+  badge:
+    text: New
+    variant: tip              # default | info | note | success | tip | warning | caution | danger
+  hidden: false               # keep the page but hide it from the rail
+  hideChildren: false         # collapse a section to a single link
+  group:                      # when this page is a directory index.mdx
+    label: Getting started
+    badge: Beta
+```
+
+## Example
+
+```yaml
+---
+title: Configuration
+description: Every option defineConfig accepts.
+sidebar:
+  order: 9
+  badge:
+    text: Reference
+    variant: info
+tableOfContents:
+  maxHeadingLevel: 2
+---
+```
+
+## Removed keys
+
+Some older keys now throw a guided migration error rather than failing silently:
+
+- `template` → `mode` (`splash` → `custom`)
+- `pagefind` → `searchable`
+- `llms`, `aiDeprioritize`, `hero` — removed; use `noindex` or compose in the body.

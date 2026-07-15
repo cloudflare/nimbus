@@ -1,0 +1,31 @@
+---
+/**
+ * Showcase — hero preview pair used at the top of a component MDX body.
+ *
+ * Renders a rendered-component stage on top of a syntax-highlighted source
+ * block. Anchored by the preceding `## Preview` markdown heading in the
+ * MDX body — no id needed here.
+ */
+import { Code as AstroCode } from "astro:components";
+import PreviewStage from "./PreviewStage.astro";
+import { Code } from "@/components/ui/code";
+
+type CodeProps = Parameters<typeof AstroCode>[0];
+
+interface Props {
+  code: string;
+  lang?: CodeProps["lang"];
+  minHeight?: string;
+}
+
+const { code, lang = "tsx", minHeight = "9rem" } = Astro.props;
+---
+
+<div class="flex flex-col">
+  <PreviewStage minHeight={minHeight} connected>
+    <slot />
+  </PreviewStage>
+  <div class="nb-showcase-pair-code">
+    <Code code={code} lang={lang} raw />
+  </div>
+</div>

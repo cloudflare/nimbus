@@ -1,0 +1,73 @@
+---
+title: Markdown and MDX
+description: Write content in Markdown or MDX, use components without imports, and let the build catch broken tags.
+aiGenerated: true
+sidebar:
+  order: 2
+---
+
+Content is Markdown (`.md`) or MDX (`.mdx`). MDX lets you drop components straight into prose — cards, tabs, steps, asides, and anything you build.
+
+## The components registry
+
+Components listed in `src/components.ts` are available in every MDX file **without an import**:
+
+```ts title="src/components.ts"
+import { Aside } from "./components/ui/aside";
+import { Card } from "./components/ui/card";
+import { CardGrid } from "./components/ui/card-grid";
+
+export const components = {
+  Aside,
+  Card,
+  CardGrid,
+};
+```
+
+```mdx
+<CardGrid>
+  <Card title="Fast">Built on Astro.</Card>
+</CardGrid>
+```
+
+Anything not in the registry must be imported at the top of the file:
+
+```mdx
+import { FileTree } from "@/components/ui/file-tree";
+
+<FileTree>
+- src/
+</FileTree>
+```
+
+## Build-time validation
+
+A pre-build content pass checks every PascalCase tag in `src/content/**/*.mdx` against the registry plus per-file imports. Unknown components, lowercase usages, and missing imports **fail the build** instead of silently rendering as literal text on the deployed page. Opt out with `validateMdx: false` in the integration options.
+
+## Admonitions
+
+Fenced `:::` directives rewrite to `<Aside>` before the compiler runs:
+
+```md
+:::tip
+This becomes an Aside.
+:::
+```
+
+Built-in types: `note`, `info`, `tip`, `caution`, `warning`, `important`, `danger`. Add synonyms with `admonitions: { typeAliases: { heads: "tip" } }`. `Aside` must be in your components registry (the default starter exports it).
+
+## The Sätteri constraint
+
+Nimbus wires the Rust-based **Sätteri** markdown processor by default for speed. Consequence: remark/rehype plugins attached via `mdx({ remarkPlugins })` silently no-op. Framework validators that would normally be remark plugins run as pre-build content passes instead.
+
+If you depend on the unified ecosystem (custom remark plugins, Mermaid, math), swap the processor:
+
+```ts title="astro.config.ts"
+import { unified } from "@astrojs/markdown-remark";
+
+nimbus(config, {
+  markdown: { processor: unified({ remarkPlugins: [/* … */] }) },
+});
+```
+
+This trades the Sätteri performance win for plugin extensibility.

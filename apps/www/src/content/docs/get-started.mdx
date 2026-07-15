@@ -1,0 +1,50 @@
+---
+title: Get started
+description: Build docs on Astro where humans and agents are both first-class — and you own every file.
+audience: human
+aiGenerated: true
+sidebar:
+  order: 0
+  badge:
+    text: Start here
+    variant: tip
+---
+
+Nimbus builds documentation sites on Astro. It ships the invisible plumbing as an npm package and writes the visible parts — layouts, components, styles, content — into your repo as real files you own from day one.
+
+## What makes it different
+
+- **You own all your code.** The scaffolder writes layouts, components, and styles once and steps back. No upstream theme to fork around, no API to wait on. Edit any file.
+- **Humans and agents are first-class.** Every page ships a `.md` alternate, `/llms.txt` indexes the site, and JSON-LD lands in every head — so the agent web can read your docs as well as a browser can.
+- **Build with agents.** `nimbus-docs add` installs from a registry in two modes: components copy as files, features hand off a recipe a coding agent reads and applies.
+
+## Quickstart
+
+<PackageManagers pkg="nimbus-docs" type="create" />
+
+Pick a directory name when prompted, choose a template and a deploy target, then:
+
+```sh
+cd my-docs
+pnpm install
+pnpm dev
+```
+
+Open the URL it prints and edit anything under `src/` — the dev server reloads.
+
+## Where to go next
+
+<CardGrid>
+  <Card title="Install" icon="ph:download-simple">
+    Scaffold a site and learn what lands in your repo — see [Installation](/installation).
+  </Card>
+  <Card title="Project structure" icon="ph:tree-structure">
+    The files you own, the package boundary, and how the tree becomes the site — see [Project structure](/project-structure).
+  </Card>
+  <Card title="Browse components" icon="ph:squares-four">
+    Every UI component, every variant, with copy-paste examples — at [/components](/components).
+  </Card>
+  <Card title="Add from the registry" icon="ph:package">
+    `nimbus-docs add <slug>` copies a component into your repo — see [Adding components](/adding-components).
+  </Card>
+</CardGrid>

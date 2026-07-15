@@ -1,0 +1,54 @@
+---
+title: Linting
+description: Catch authoring-quality issues with nimbus-docs lint — human output, JSON for agents, and auto-fixes.
+aiGenerated: true
+sidebar:
+  order: 7
+---
+
+A docs site whose content drifts in quality undermines its own product. Nimbus treats authoring quality the way a code linter treats source — a set of rules you run on demand.
+
+## Two layers
+
+Pre-build **validators** run automatically and gate the build only when the issue would break the site — config shape, frontmatter schema, [MDX components](/writing/markdown-and-mdx), duplicate routes.
+
+The **lint engine** is the on-demand authoring-quality layer. Rules have stable ids like `nimbus/single-h1` and `nimbus/bare-url`. The build is **never** gated by lint findings — drafts still render, warnings stay loud but unblocking.
+
+## Run it
+
+```bash
+nimbus-docs lint
+```
+
+Flags:
+
+```bash
+nimbus-docs lint --format=json            # agent-readable diagnostics
+nimbus-docs lint --rule=nimbus/single-h1  # run one rule
+nimbus-docs lint --fix                     # apply auto-fixes in place
+nimbus-docs lint --quiet                   # errors only
+```
+
+It walks `src/content/`, runs each authoring rule you've enabled, and exits non-zero when any `error`-severity finding survives.
+
+## Configure severities
+
+Severity overrides live with the integration. Map a rule to `"error"`, `"warn"`, or `"off"`:
+
+```ts title="astro.config.ts"
+nimbus(config, {
+  rules: {
+    "nimbus/single-h1": "error",
+    "nimbus/bare-url": "warn",
+  },
+  collections: {
+    partials: { rules: { "nimbus/single-h1": "off" } },
+  },
+});
+```
+
+Per-collection `rules` shallow-merge over the top-level set. Authoring rules are **off by default** — omitting `rules` entirely runs none of them; you opt in per rule.
+
+## In-file disables
+
+Turn rules off for a single file with `nimbusDisableRules` frontmatter or inline comments — no config required. The severities authored above are materialized to `.nimbus/lint.json` so the standalone CLI reads the same config the integration does.

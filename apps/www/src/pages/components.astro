@@ -1,0 +1,587 @@
+---
+/**
+ * /components — landing grid of every UI component.
+ *
+ * Each card shows one variant of the component (interactive); the title
+ * row links to /components/<slug> for the full showcase. Link-style
+ * components inside cards use `href="#"` so previews don't navigate
+ * away.
+ */
+import { Icon } from "astro-icon/components";
+import DocsLayout from "@/layouts/DocsLayout.astro";
+import { getSidebar } from "nimbus-docs";
+
+import { Accordion, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Aside } from "@/components/ui/aside";
+import { Badge } from "@/components/ui/badge";
+import { Banner } from "@/components/ui/banner";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Code } from "@/components/ui/code";
+import { CodeGroup } from "@/components/ui/code-group";
+import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
+import { Embed } from "@/components/ui/embed";
+import { FileTree } from "@/components/ui/file-tree";
+import { Frame } from "@/components/ui/frame";
+import { LayerCard, LayerCardHeader, LayerCardContent } from "@/components/ui/layer-card";
+import { LinkButton } from "@/components/ui/link-button";
+import { LinkCard } from "@/components/ui/link-card";
+import { PackageManagers } from "@/components/ui/package-managers";
+import { PageActions } from "@/components/ui/page-actions";
+import { Pagination } from "@/components/ui/pagination";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { SearchTrigger } from "@/components/ui/search";
+import { Sidebar as SidebarPreview } from "@/components/ui/sidebar";
+import { Step, Steps } from "@/components/ui/steps";
+import { Tabs, TabItem } from "@/components/ui/tabs";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { TOC } from "@/components/ui/toc";
+
+export const prerender = true;
+
+const sidebar = await getSidebar("/components");
+
+const helloSample = `function hello(name) {
+  return \`Hi, \${name}\`;
+}`;
+const tsSample = `type User = { id: string };`;
+const jsSample = `// inferred`;
+---
+
+<DocsLayout
+  title="Components"
+  description="Every component, one variant per card. Click a title for the full showcase."
+  sidebar={sidebar}
+  headings={[]}
+  mode="custom"
+  breadcrumbs={[]}
+  prevNext={{ prev: undefined, next: undefined }}
+>
+  <div class="nb-cmp-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+    {/* Accordion */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full">
+          <Accordion>
+            <AccordionTrigger>What is Nimbus?</AccordionTrigger>
+            <AccordionContent>
+              <span class="text-sm text-muted-foreground">Docs you own, agents can act on.</span>
+            </AccordionContent>
+          </Accordion>
+        </div>
+      </div>
+      <a href="/components/accordion" class="nb-cmp-link">
+        <span>Accordion</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Aside */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full">
+          <Aside type="tip">
+            Asides support <strong>rich content</strong>.
+          </Aside>
+        </div>
+      </div>
+      <a href="/components/aside" class="nb-cmp-link">
+        <span>Aside</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Badge */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        {/* Outer container centers the group in the card; inner
+            `justify-start` makes wrapped rows align left, not center. */}
+        <div class="mx-auto w-fit max-w-full">
+          <div class="flex flex-wrap items-center justify-start gap-2">
+            <Badge text="Stable" variant="success" size="medium" />
+            <Badge text="Beta" variant="info" size="medium" />
+            <Badge text="Deprecated" variant="warning" size="medium" />
+          </div>
+        </div>
+      </div>
+      <a href="/components/badge" class="nb-cmp-link">
+        <span>Badge</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Banner */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full">
+          <Banner type="tip" content="Heads-up — this is a Banner component." />
+        </div>
+      </div>
+      <a href="/components/banner" class="nb-cmp-link">
+        <span>Banner</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Breadcrumbs */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full">
+          <Breadcrumbs
+            items={[
+              { label: "Home", href: "#" },
+              { label: "Docs", href: "#" },
+              { label: "Components", href: "#" },
+            ]}
+          />
+        </div>
+      </div>
+      <a href="/components/breadcrumbs" class="nb-cmp-link">
+        <span>Breadcrumbs</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Button */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="flex flex-wrap items-center justify-center gap-3">
+          <Button variant="primary">Primary</Button>
+          <Button variant="secondary">Secondary</Button>
+        </div>
+      </div>
+      <a href="/components/button" class="nb-cmp-link">
+        <span>Button</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Card */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full max-w-xs">
+          <Card title="Edit anywhere" icon="ph:pencil-simple">
+            Components live in your repo.
+          </Card>
+        </div>
+      </div>
+      <a href="/components/card" class="nb-cmp-link">
+        <span>Card</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Code */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full">
+          <Code code={helloSample} lang="ts" meta='title="hello.ts"' />
+        </div>
+      </div>
+      <a href="/components/code" class="nb-cmp-link">
+        <span>Code</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* CodeGroup */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full">
+          <CodeGroup titles={["TypeScript", "JavaScript"]}>
+            <Code code={tsSample} lang="ts" />
+            <Code code={jsSample} lang="js" />
+          </CodeGroup>
+        </div>
+      </div>
+      <a href="/components/code-group" class="nb-cmp-link">
+        <span>CodeGroup</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Dialog */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="flex flex-col items-center gap-2">
+          <button
+            type="button"
+            onclick="document.getElementById('grid-demo-dialog').showModal()"
+            class="inline-flex items-center justify-center px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
+          >
+            Open dialog
+          </button>
+          <Dialog id="grid-demo-dialog">
+            <DialogContent class="max-w-sm">
+              <div class="p-6 flex flex-col gap-3">
+                <h3 class="text-base font-semibold text-foreground">Dialog</h3>
+                <p class="text-sm text-muted-foreground">Modal over the page.</p>
+                <div class="flex justify-end gap-2 mt-2">
+                  <DialogClose class="px-3 py-1.5 rounded-md border border-border text-sm hover:bg-accent transition-colors cursor-pointer">Close</DialogClose>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+      <a href="/components/dialog" class="nb-cmp-link">
+        <span>Dialog</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Embed */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full max-w-sm">
+          <Embed
+            src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+            title="Demo video"
+            ratio="16/9"
+            allowfullscreen
+          />
+        </div>
+      </div>
+      <a href="/components/embed" class="nb-cmp-link">
+        <span>Embed</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* FileTree */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full overflow-hidden text-xs">
+          <FileTree>
+            <ul>
+              <li>
+                src/
+                <ul>
+                  <li>page.astro</li>
+                </ul>
+              </li>
+              <li>config.ts</li>
+            </ul>
+          </FileTree>
+        </div>
+      </div>
+      <a href="/components/file-tree" class="nb-cmp-link">
+        <span>FileTree</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Frame */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full max-w-xs">
+          <Frame caption="A photograph">
+            <div class="w-full aspect-video bg-muted"></div>
+          </Frame>
+        </div>
+      </div>
+      <a href="/components/frame" class="nb-cmp-link">
+        <span>Frame</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* LayerCard */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full max-w-sm">
+          <LayerCard>
+            <LayerCardHeader>
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                  Build #427
+                </span>
+                <span class="text-xs px-1.5 py-0.5 rounded-full bg-success-muted text-success font-medium">
+                  passing
+                </span>
+              </div>
+            </LayerCardHeader>
+            <LayerCardContent>
+              <div class="flex flex-col gap-2">
+                <p class="text-sm text-foreground font-medium">Deployed to production</p>
+                <div class="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span>2m 14s</span>
+                  <span>·</span>
+                  <span>17/17 jobs</span>
+                  <span>·</span>
+                  <span>main</span>
+                </div>
+              </div>
+            </LayerCardContent>
+          </LayerCard>
+        </div>
+      </div>
+      <a href="/components/layer-card" class="nb-cmp-link">
+        <span>LayerCard</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* LinkButton */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="flex flex-wrap items-center justify-center gap-3">
+          <LinkButton href="#" variant="primary">Primary</LinkButton>
+          <LinkButton href="#" variant="secondary">Secondary</LinkButton>
+        </div>
+      </div>
+      <a href="/components/link-button" class="nb-cmp-link">
+        <span>LinkButton</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* LinkCard */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full max-w-sm">
+          <LinkCard
+            title="Getting started"
+            description="Scaffold a docs site in one command."
+            href="#"
+          />
+        </div>
+      </div>
+      <a href="/components/link-card" class="nb-cmp-link">
+        <span>LinkCard</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* PackageManagers */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full max-w-sm">
+          <PackageManagers pkg="nimbus-docs" type="add" />
+        </div>
+      </div>
+      <a href="/components/package-managers" class="nb-cmp-link">
+        <span>PackageManagers</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* PageActions */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full max-w-sm">
+          <PageActions markdownUrl="#" />
+        </div>
+      </div>
+      <a href="/components/page-actions" class="nb-cmp-link">
+        <span>PageActions</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Pagination */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full">
+          <Pagination
+            prevNext={{
+              prev: { label: "Getting started", href: "#" },
+              next: { label: "Configuration", href: "#" },
+            }}
+          />
+        </div>
+      </div>
+      <a href="/components/pagination" class="nb-cmp-link">
+        <span>Pagination</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Popover */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <Popover>
+          <PopoverTrigger class="inline-flex items-center px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer">
+            Open popover
+          </PopoverTrigger>
+          <PopoverContent placement="bottom-start" class="text-sm text-foreground">
+            Anchored content.
+          </PopoverContent>
+        </Popover>
+      </div>
+      <a href="/components/popover" class="nb-cmp-link">
+        <span>Popover</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Search */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <SearchTrigger />
+      </div>
+      <a href="/components/search" class="nb-cmp-link">
+        <span>Search</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Sidebar */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full text-left">
+          <SidebarPreview
+            items={[
+              { type: "link", label: "Overview", href: "#", order: 0 },
+              {
+                type: "group",
+                label: "Components",
+                order: 1,
+                children: [
+                  { type: "link", label: "Badge", href: "#", order: 0 },
+                  { type: "link", label: "Steps", href: "#", order: 1 },
+                ],
+              },
+            ]}
+          />
+        </div>
+      </div>
+      <a href="/components/sidebar" class="nb-cmp-link">
+        <span>Sidebar</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Steps */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full">
+          <Steps>
+            <Step title="Install">Run create command.</Step>
+            <Step title="Edit">Change anything in src/.</Step>
+          </Steps>
+        </div>
+      </div>
+      <a href="/components/steps" class="nb-cmp-link">
+        <span>Steps</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* Tabs */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full">
+          <Tabs>
+            <TabItem label="One">First panel.</TabItem>
+            <TabItem label="Two">Second panel.</TabItem>
+            <TabItem label="Three">Third panel.</TabItem>
+          </Tabs>
+        </div>
+      </div>
+      <a href="/components/tabs" class="nb-cmp-link">
+        <span>Tabs</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* ThemeToggle */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="rounded-md border border-border bg-card">
+          <ThemeToggle />
+        </div>
+      </div>
+      <a href="/components/theme-toggle" class="nb-cmp-link">
+        <span>ThemeToggle</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+
+    {/* TOC */}
+    <div class="nb-cmp-card group/card">
+      <div class="nb-cmp-preview">
+        <div class="w-full text-left">
+          <TOC
+            headings={[
+              { depth: 2, text: "Getting started", slug: "getting-started" },
+              { depth: 2, text: "Configuration", slug: "configuration" },
+              { depth: 3, text: "Sidebar", slug: "sidebar" },
+              { depth: 3, text: "Search", slug: "search" },
+              { depth: 2, text: "Deployment", slug: "deployment" },
+            ]}
+          />
+        </div>
+      </div>
+      <a href="/components/toc" class="nb-cmp-link">
+        <span>TOC</span>
+        <Icon name="ph:arrow-right" class="w-4 h-4 opacity-50 group-hover/card:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+  </div>
+</DocsLayout>
+
+<style is:global>
+  /* Grid reaches the main column edges directly. Top + left borders
+     come from the site header (bottom) and sidebar (right) — drawing
+     them here too would double up the 1px line. Each card draws right
+     + bottom so adjacent cards share a single 1px line internally. */
+  .nb-cmp-grid {
+    background: var(--nb-card);
+  }
+  .nb-cmp-card {
+    border-right: 1px solid var(--nb-border);
+    border-bottom: 1px solid var(--nb-border);
+    display: flex;
+    /* Reverse so the label (last in DOM) renders above the preview.
+       Reading order: name → its rendered preview below. */
+    flex-direction: column-reverse;
+    transition: background 0.15s ease;
+  }
+  .nb-cmp-preview {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    min-height: 12rem;
+  }
+  .nb-cmp-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    /* Border lives below the label (between label and preview) — using
+       border-bottom keeps the same visual line that border-top gave us
+       in column order. */
+    border-bottom: 1px solid var(--nb-border);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--nb-foreground);
+    text-decoration: none;
+    background: var(--nb-background);
+    transition: background 0.15s ease;
+  }
+  .nb-cmp-link:hover {
+    /* Tinted hover that reads against the card bg in both modes —
+       muted at 60% gives a noticeable surface change without the
+       washed-out feel of plain `accent`. */
+    background: color-mix(in oklch, var(--nb-muted) 60%, transparent);
+  }
+</style>
+
+<script>
+  // Preview cards intentionally use href="#" for link-style components
+  // (Breadcrumbs, LinkCard, LinkButton, Pagination, Sidebar, TOC, Aside
+  // rich-text). Without this, clicking those would scroll to top. The
+  // outer .nb-cmp-link to /components/<slug> still navigates normally.
+  document.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement | null;
+    const link = target?.closest("a");
+    if (!link) return;
+    if (!link.closest(".nb-cmp-preview")) return;
+    if (link.getAttribute("href") !== "#") return;
+    e.preventDefault();
+  });
+</script>

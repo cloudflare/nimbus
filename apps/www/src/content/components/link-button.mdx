@@ -1,0 +1,47 @@
+---
+title: LinkButton
+tagline: "Link styled as a button — primary, secondary, and minimal variants in three sizes."
+props:
+  - name: href
+    type: string
+    required: true
+    description: Target URL.
+  - name: variant
+    type: '"primary" | "secondary" | "minimal"'
+    defaultValue: '"primary"'
+    description: Visual treatment.
+  - name: size
+    type: '"sm" | "md" | "lg"'
+    defaultValue: '"md"'
+    description: Relative scale; affects padding and font size.
+  - name: icon
+    type: boolean
+    description: Render a trailing chevron that nudges on hover.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { LinkButton } from "@/components/ui/link-button";
+
+## Preview
+
+<Showcase code={`<LinkButton href="#" variant="primary">Get started</LinkButton>`}>
+  <div class="w-full text-center">
+    <LinkButton href="#" variant="primary">Get started</LinkButton>
+  </div>
+</Showcase>
+
+## Examples
+
+### Variants and sizes
+
+Three intents × three sizes — pick one per call site.
+
+<Example code={`<LinkButton href="#" variant="primary">Primary</LinkButton>
+<LinkButton href="#" variant="secondary">Secondary</LinkButton>
+<LinkButton href="#" variant="minimal">Minimal</LinkButton>`} contentClass="w-full">
+  <div class="flex flex-wrap items-center justify-center gap-3">
+    <LinkButton href="#" variant="primary">Primary</LinkButton>
+    <LinkButton href="#" variant="secondary">Secondary</LinkButton>
+    <LinkButton href="#" variant="minimal">Minimal</LinkButton>
+  </div>
+</Example>

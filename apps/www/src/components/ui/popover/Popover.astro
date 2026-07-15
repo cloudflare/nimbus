@@ -1,0 +1,109 @@
+---
+/**
+ * Popover — anchored floating content. Compose with PopoverTrigger +
+ * PopoverContent. Built on the native Popover API; positioned via JS
+ * at open time and on scroll/resize.
+ */
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+
+type Props = HTMLAttributes<"div">;
+
+const { class: className, ...attrs } = Astro.props;
+// Deterministic ID — per-page counter on Astro.locals. See PackageManagers
+// for the rationale.
+const localsAny = Astro.locals as Record<string, unknown>;
+const counters =
+  (localsAny.__nbCounters as Map<string, number>) ??
+  (localsAny.__nbCounters = new Map<string, number>());
+const n = (counters.get("popover") ?? 0) + 1;
+counters.set("popover", n);
+const popoverId = `popover-${n.toString(16).padStart(8, "0")}`;
+---
+
+<div class={cn("relative inline-block", className)} data-popover-root data-popover-id={popoverId} {...attrs}>
+  <slot />
+</div>
+
+<script>
+  type Placement = "bottom-start" | "bottom-end" | "top-start" | "top-end";
+
+  const GAP = 4;
+  const VIEWPORT_PADDING = 8;
+
+  function anchor(trigger: HTMLElement, content: HTMLElement) {
+    const placement = (content.dataset.placement as Placement | undefined) ?? "bottom-start";
+    const triggerRect = trigger.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    let top: number;
+    if (placement.startsWith("bottom")) {
+      top = triggerRect.bottom + GAP;
+      if (top + contentRect.height > vh - VIEWPORT_PADDING) {
+        top = Math.max(VIEWPORT_PADDING, triggerRect.top - GAP - contentRect.height);
+      }
+    } else {
+      top = triggerRect.top - GAP - contentRect.height;
+      if (top < VIEWPORT_PADDING) {
+        top = Math.min(vh - contentRect.height - VIEWPORT_PADDING, triggerRect.bottom + GAP);
+      }
+    }
+
+    let left: number;
+    if (placement.endsWith("end")) {
+      left = triggerRect.right - contentRect.width;
+    } else {
+      left = triggerRect.left;
+    }
+    left = Math.max(
+      VIEWPORT_PADDING,
+      Math.min(left, vw - contentRect.width - VIEWPORT_PADDING),
+    );
+
+    content.style.top = `${top}px`;
+    content.style.left = `${left}px`;
+  }
+
+  function initPopovers() {
+    document.querySelectorAll<HTMLElement>("[data-popover-root]").forEach((root) => {
+      if (root.hasAttribute("data-initialized")) return;
+      root.setAttribute("data-initialized", "true");
+
+      const id = root.dataset.popoverId!;
+      const trigger = root.querySelector<HTMLButtonElement>("[data-popover-trigger]");
+      const content = root.querySelector<HTMLElement>("[data-popover-content]");
+
+      if (!trigger || !content) return;
+
+      content.id = id;
+      content.setAttribute("popover", "auto");
+      trigger.setAttribute("popovertarget", id);
+      trigger.setAttribute("aria-expanded", "false");
+
+      let reposition: (() => void) | null = null;
+
+      content.addEventListener("toggle", (e) => {
+        const isOpen = (e as ToggleEvent).newState === "open";
+        trigger.setAttribute("aria-expanded", String(isOpen));
+
+        if (isOpen) {
+          // Anchor twice — initial measurement, then once layout settles.
+          anchor(trigger, content);
+          requestAnimationFrame(() => anchor(trigger, content));
+
+          reposition = () => anchor(trigger, content);
+          window.addEventListener("scroll", reposition, { passive: true, capture: true });
+          window.addEventListener("resize", reposition, { passive: true });
+        } else if (reposition) {
+          window.removeEventListener("scroll", reposition, { capture: true });
+          window.removeEventListener("resize", reposition);
+          reposition = null;
+        }
+      });
+    });
+  }
+  initPopovers();
+  document.addEventListener("astro:page-load", initPopovers);
+</script>

@@ -1,0 +1,47 @@
+---
+title: Banner
+tagline: "Announcement strip — semantic types, sanitised HTML content, optional persistent dismiss."
+props:
+  - name: content
+    type: string
+    required: true
+    description: HTML string (sanitised) rendered as the banner body.
+  - name: type
+    type: '"note" | "tip" | "caution" | "danger"'
+    defaultValue: '"note"'
+    description: Visual treatment that conveys intent.
+  - name: dismissible
+    type: "{ id: string; days?: number }"
+    description: Show a close button; persists dismissal to localStorage under the given id for the given number of days.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { Banner } from "@/components/ui/banner";
+
+## Preview
+
+<Showcase code={`<Banner type="tip" content="We're hiring — say hi at <a href='#'>jobs@nimbus.dev</a>." />`}>
+  <div class="w-full max-w-md text-left">
+    <Banner type="tip" content="We're hiring — say hi at <a href='#'>jobs@nimbus.dev</a>." />
+  </div>
+</Showcase>
+
+## Examples
+
+### Dismissible
+
+Set `dismissible` to add a close button. The dismissal persists across page loads.
+
+<Example code={`<Banner
+  type="caution"
+  content="Maintenance window: API reads are read-only from 18:00 UTC."
+  dismissible={{ id: "maint-2026-06", days: 1 }}
+/>`} contentClass="w-full">
+  <div class="w-full">
+    <Banner
+      type="caution"
+      content="Maintenance window: API reads are read-only from 18:00 UTC."
+      dismissible={{ id: "demo-banner", days: 1 }}
+    />
+  </div>
+</Example>

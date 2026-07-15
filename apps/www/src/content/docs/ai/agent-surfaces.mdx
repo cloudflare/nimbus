@@ -1,0 +1,41 @@
+---
+title: Agent surfaces
+description: The Markdown alternates, llms.txt index, and structured data every Nimbus site ships for agent readers.
+aiGenerated: true
+sidebar:
+  order: 1
+---
+
+Documentation is no longer read only by people. Every Nimbus site ships agent-readable surfaces alongside the HTML — defaults, not add-ons.
+
+## What ships
+
+- **A Markdown alternate for every page** at `/<slug>/index.md` — clean Markdown rendered from the page body, with a `Source:` line.
+- **A site index at `/llms.txt`** — names every published page and links to its Markdown alternate.
+- **Per-section indexes at `/<section>/llms.txt`** — each top-level group and collection (e.g. a `blog` or a docs version) gets its own index.
+- **JSON-LD in every page head** — structured data so search and agent tools recognize what they're looking at.
+- **`/robots.txt` and a sitemap** — wired automatically when `site` is set.
+
+```text title="/llms.txt"
+# Nimbus
+
+A way to build documentation sites on top of Astro.
+
+## Pages
+- [Get started](https://nimbus-docs.com/get-started/index.md)
+- [Installation](https://nimbus-docs.com/installation/index.md)
+```
+
+## How pages are indexed
+
+Indexing is multi-collection by default and schema-tolerant — every collection registered in `src/content.config.ts` (except `partials` and reserved names) is walked, reading `title` and `description` when present. There is no per-page opt-in; all published pages are listed.
+
+To keep a page **out** of the agent index, set `draft: true` (excluded entirely) or `noindex: true`. A page that should never be agent-readable belongs outside the content collection altogether.
+
+## AGENT.md
+
+The scaffolder writes an `AGENT.md` at the project root — the same context a coding agent reads when working in your repo. It's a real file you maintain; keep it in sync with your project's conventions.
+
+## Why it matters
+
+The cost of being a dead end on the agent web is real and growing. Because these surfaces are defaults, a Nimbus site is legible to agents the day it ships — see [Metadata and SEO](/ai/metadata-and-seo) for the human-search side.

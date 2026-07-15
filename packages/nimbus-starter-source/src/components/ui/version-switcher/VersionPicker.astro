@@ -1,0 +1,236 @@
+---
+/**
+ * VersionPicker — picker for switching between docs versions.
+ *
+ * Registry component (`nimbus-docs add version-switcher`). User-owned
+ * after install; the framework owns only the data layer the picker
+ * reads from (`getVersions`, `getVersionAlternates`, `getCurrentVersion`).
+ *
+ * Behavior:
+ *   - Renders nothing when the site is unversioned (no `versions` block
+ *     in nimbus.config.ts) or only one version is configured.
+ *   - Lists every version in `versions.all` order; hidden versions are
+ *     excluded.
+ *   - Each entry's href tries to land the reader on the same logical
+ *     page in the target version (computed from the build-time
+ *     alternates table). When no sibling exists in the target version,
+ *     falls back to that version's URL prefix root (`/` for current,
+ *     `/<v>/` for others). That fallback may 404 unless the user has
+ *     scaffolded an index — document this on a new version's cut.
+ *   - Deprecated versions show a `deprecated` badge inline.
+ *   - Current version is highlighted; clicking it is a no-op navigation.
+ *   - Responsive: a `variant="header"` mode renders a desktop dropdown
+ *     (popover) visible at `md` and up; `variant="sidebar"` renders an
+ *     inline labeled section meant to live inside the mobile sidebar
+ *     drawer (visible below `md`).
+ *
+ * Props:
+ *   - `collection` (optional) — Astro collection id for the current
+ *     page. Pass `entry.collection` from your route.
+ *   - `entryId` (optional) — Astro entry id for the current page.
+ *     Drives per-version `href` computation via the alternates table.
+ *   - `variant` (optional, default `"header"`) — `"header"` for the
+ *     desktop popover dropdown; `"sidebar"` for the inline mobile list
+ *     placed inside the sidebar drawer. Both modes are CSS-gated so
+ *     you can drop both into your layout and let the breakpoint pick.
+ */
+import { Icon } from "astro-icon/components";
+import {
+  getCurrentVersion,
+  getVersionAlternates,
+  getVersionLandingUrl,
+  getVersions,
+} from "nimbus-docs";
+import { Popover, PopoverContent, PopoverTrigger } from "../popover";
+
+interface Props {
+  collection?: string;
+  entryId?: string;
+  variant?: "header" | "sidebar";
+}
+
+const { collection, entryId, variant = "header" } = Astro.props;
+
+const versions = await getVersions();
+
+// Build the per-version href list. Render nothing if versioning is off
+// or only one version is configured — no point showing a one-entry
+// dropdown.
+let entries: {
+  version: string;
+  href: string;
+  isCurrent: boolean;
+  isActive: boolean;
+  isDeprecated: boolean;
+}[] = [];
+let activeLabel = "";
+
+if (versions && versions.all.length >= 2) {
+  const currentPageVersion =
+    collection ? await getCurrentVersion(collection) : null;
+  const record =
+    collection && entryId
+      ? await getVersionAlternates(collection, entryId)
+      : null;
+
+  // Quick lookup: for each version, do we have a same-logical-page URL?
+  const alternateByVersion = new Map<string, string>();
+  if (record) {
+    alternateByVersion.set(record.self.version, record.self.url);
+    for (const alt of record.alternates) alternateByVersion.set(alt.version, alt.url);
+  }
+
+  const visible = versions.all.filter((v) => !versions.hidden.includes(v));
+
+  // Resolve a guaranteed-existing landing URL per version, used as the
+  // fallback when the current page has no same-logical-page sibling.
+  // Without this, clicking "v0" from a page with no v0 counterpart
+  // (e.g. the home page) lands on `/v0/`, which 404s unless the user
+  // hand-built a v0 landing route. The helper walks the version's
+  // indexed entries and returns a real entry's URL.
+  const landingByVersion = new Map<string, string | null>(
+    await Promise.all(
+      visible.map(async (v) => [v, await getVersionLandingUrl(v)] as const),
+    ),
+  );
+
+  entries = visible
+    // Drop entries with no resolvable destination — that version has
+    // no indexed pages, so there's nowhere to send the reader. Two
+    // exceptions are always kept:
+    //   - The currently-active version (reader is already on a page
+    //     in it; the picker entry is a no-op nav).
+    //   - The current version overall (the home page `/` is the
+    //     canonical landing and is shipped by the starter).
+    .filter((v) =>
+      v === currentPageVersion ||
+      v === versions.current ||
+      landingByVersion.get(v) != null,
+    )
+    .map((v) => {
+      const isCurrent = v === versions.current;
+      const isActive = v === currentPageVersion;
+      const isDeprecated = versions.deprecated.includes(v);
+
+      let href: string;
+      const altHref = alternateByVersion.get(v);
+      if (isActive) {
+        // No-op nav: stay on this page.
+        href = Astro.url.pathname;
+      } else if (altHref) {
+        href = altHref;
+      } else if (isCurrent) {
+        // Current version always lands at the site root. `/` is the
+        // canonical "go to current" target — readers expect the home
+        // page, not a deep link into the first-by-URL indexed entry.
+        href = "/";
+      } else {
+        // Older version — use the resolved landing URL (real entry,
+        // not the bare URL prefix that would 404).
+        const landing = landingByVersion.get(v);
+        href = landing ?? `/${v}/`;
+      }
+
+      return { version: v, href, isCurrent, isActive, isDeprecated };
+    });
+
+  const activeEntry = entries.find((e) => e.isActive);
+  activeLabel = activeEntry
+    ? activeEntry.version
+    : (versions.current ?? "");
+}
+---
+
+{entries.length >= 2 && variant === "header" && (
+  <Popover class="hidden md:inline-block">
+    <PopoverTrigger
+      class="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[0.8125rem] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors data-[expanded=true]:bg-accent data-[expanded=true]:text-foreground"
+      aria-label={`Switch docs version (current: ${activeLabel})`}
+    >
+      <Icon name="ph:git-branch" class="w-3.5 h-3.5" />
+      <span>{activeLabel}</span>
+      <Icon name="ph:caret-down" class="w-3 h-3 opacity-60" />
+    </PopoverTrigger>
+    <PopoverContent placement="bottom-end" class="min-w-[12rem] p-1">
+      <ul class="flex flex-col list-none m-0 p-0" role="listbox" aria-label="Docs versions">
+        {entries.map((entry) => (
+          <li>
+            <a
+              href={entry.href}
+              role="option"
+              aria-current={entry.isActive ? "page" : undefined}
+              aria-selected={entry.isActive}
+              class:list={[
+                "flex items-center justify-between gap-3 px-3 py-2 rounded-md text-sm no-underline transition-colors",
+                entry.isActive
+                  ? "bg-accent text-foreground font-medium"
+                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+              ]}
+            >
+              <span class="flex items-center gap-2">
+                <span>{entry.version}</span>
+                {entry.isCurrent && (
+                  <span class="text-[0.6875rem] uppercase tracking-wide text-muted-foreground/70">
+                    latest
+                  </span>
+                )}
+              </span>
+              {entry.isDeprecated && (
+                <span class="text-[0.6875rem] uppercase tracking-wide font-mono px-1.5 py-0.5 rounded-md bg-warning/15 text-warning border border-warning/20">
+                  deprecated
+                </span>
+              )}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </PopoverContent>
+  </Popover>
+)}
+
+{entries.length >= 2 && variant === "sidebar" && (
+  <section
+    class="md:hidden mb-4 pb-4 border-b border-border"
+    aria-labelledby="version-picker-label"
+  >
+    <h3
+      id="version-picker-label"
+      class="flex items-center gap-1.5 text-[0.6875rem] uppercase tracking-wide font-semibold text-muted-foreground/80 mb-2 px-2"
+    >
+      <Icon name="ph:git-branch" class="w-3 h-3" />
+      Version
+    </h3>
+    <ul class="flex flex-col list-none m-0 p-0" role="listbox" aria-label="Docs versions">
+      {entries.map((entry) => (
+        <li>
+          <a
+            href={entry.href}
+            role="option"
+            aria-current={entry.isActive ? "page" : undefined}
+            aria-selected={entry.isActive}
+            class:list={[
+              "flex items-center justify-between gap-3 px-3 py-2 rounded-md text-sm no-underline transition-colors",
+              entry.isActive
+                ? "bg-accent text-foreground font-medium"
+                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+            ]}
+          >
+            <span class="flex items-center gap-2">
+              <span>{entry.version}</span>
+              {entry.isCurrent && (
+                <span class="text-[0.6875rem] uppercase tracking-wide text-muted-foreground/70">
+                  latest
+                </span>
+              )}
+            </span>
+            {entry.isDeprecated && (
+              <span class="text-[0.6875rem] uppercase tracking-wide font-mono px-1.5 py-0.5 rounded-md bg-warning/15 text-warning border border-warning/20">
+                deprecated
+              </span>
+            )}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+)}

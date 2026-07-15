@@ -1,0 +1,105 @@
+---
+title: Accordion
+tagline: "Disclosure cards — chevron + title row that expands to reveal content. Group several to render as one bordered card."
+props:
+  - name: open
+    type: boolean
+    defaultValue: "false"
+    description: Accordion prop. Render expanded by default.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import {
+  Accordion,
+  AccordionTrigger,
+  AccordionContent,
+  AccordionGroup,
+} from "@/components/ui/accordion";
+
+## Preview
+
+<Showcase code={`<AccordionGroup>
+  <Accordion>
+    <AccordionTrigger>What is Nimbus?</AccordionTrigger>
+    <AccordionContent>
+      A docs framework where components copy into your repo and pages ship a markdown alternate for agents.
+    </AccordionContent>
+  </Accordion>
+  <Accordion>
+    <AccordionTrigger>How do I install a component?</AccordionTrigger>
+    <AccordionContent>
+      Run \`nimbus-docs add <slug>\` — the component plus its registry dependencies are copied into \`src/components/ui/\`.
+    </AccordionContent>
+  </Accordion>
+  <Accordion>
+    <AccordionTrigger>Can I edit the components?</AccordionTrigger>
+    <AccordionContent>
+      Yes — they live in your repo. Edit Tailwind classes, layout, or props with no upstream API to break.
+    </AccordionContent>
+  </Accordion>
+</AccordionGroup>`}>
+  <div class="w-[32rem] max-w-full text-left">
+    <AccordionGroup>
+      <Accordion>
+        <AccordionTrigger>What is Nimbus?</AccordionTrigger>
+        <AccordionContent>
+          A docs framework where components copy into your repo and pages ship a markdown alternate for agents.
+        </AccordionContent>
+      </Accordion>
+      <Accordion>
+        <AccordionTrigger>How do I install a component?</AccordionTrigger>
+        <AccordionContent>
+          Run <code>nimbus-docs add &lt;slug&gt;</code> — the component plus its registry dependencies are copied into <code>src/components/ui/</code>.
+        </AccordionContent>
+      </Accordion>
+      <Accordion>
+        <AccordionTrigger>Can I edit the components?</AccordionTrigger>
+        <AccordionContent>
+          Yes — they live in your repo. Edit Tailwind classes, layout, or props with no upstream API to break.
+        </AccordionContent>
+      </Accordion>
+    </AccordionGroup>
+  </div>
+</Showcase>
+
+## Examples
+
+### Solo
+
+A single standalone Accordion — useful when the disclosure isn't part of a list.
+
+<Example code={`<Accordion>
+  <AccordionTrigger>Why does Nimbus ship a markdown alternate?</AccordionTrigger>
+  <AccordionContent>
+    Agents read the .md siblings without parsing HTML chrome. Every page in \`src/content/docs/\` gets one for free.
+  </AccordionContent>
+</Accordion>`} contentClass="w-full">
+  <div class="w-full">
+    <Accordion>
+      <AccordionTrigger>Why does Nimbus ship a markdown alternate?</AccordionTrigger>
+      <AccordionContent>
+        Agents read the .md siblings without parsing HTML chrome. Every page in <code>src/content/docs/</code> gets one for free.
+      </AccordionContent>
+    </Accordion>
+  </div>
+</Example>
+
+### Default open
+
+Pass `open` on an Accordion to start expanded.
+
+<Example code={`<Accordion open>
+  <AccordionTrigger>Already open</AccordionTrigger>
+  <AccordionContent>
+    Useful when the first item carries the most important answer.
+  </AccordionContent>
+</Accordion>`} contentClass="w-full">
+  <div class="w-full">
+    <Accordion open>
+      <AccordionTrigger>Already open</AccordionTrigger>
+      <AccordionContent>
+        Useful when the first item carries the most important answer.
+      </AccordionContent>
+    </Accordion>
+  </div>
+</Example>

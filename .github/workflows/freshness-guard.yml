@@ -1,0 +1,25 @@
+name: Freshness guard
+
+# Makes independent versioning honest (MONO-4 work item 9): a starter edit or a
+# nimbus-docs minor+ bump only reaches users through a create-nimbus-docs
+# release, so require a CLI changeset when one is needed.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          # Need the base branch present locally to diff against it.
+          fetch-depth: 0
+
+      - name: Require a create-nimbus-docs changeset when templates change
+        run: node scripts/freshness-guard.mjs
+        env:
+          BASE_REF: ${{ github.base_ref }}

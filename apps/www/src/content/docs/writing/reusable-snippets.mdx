@@ -1,0 +1,53 @@
+---
+title: Reusable snippets
+description: Write content once as a partial and include it anywhere with Render.
+aiGenerated: true
+sidebar:
+  order: 5
+---
+
+Partials are reusable content fragments. Write a snippet once, include it in many pages, and edit it in one place.
+
+## Write a partial
+
+Partials live in `src/content/partials/` as `.md` or `.mdx`, registered as a collection in `src/content.config.ts`:
+
+```ts title="src/content.config.ts"
+import { partialsCollection } from "nimbus-docs/content";
+
+export const collections = {
+  partials: defineCollection(partialsCollection()),
+};
+```
+
+```md title="src/content/partials/install-note.md"
+Nimbus requires Node 20 or later and any package manager.
+```
+
+## Include it
+
+`<Render>` is in the default registry. Reference a partial by its id — the path under `src/content/partials/` without the extension:
+
+```mdx
+<Render file="install-note" />
+<Render file="workers/setup" />
+```
+
+If the id doesn't resolve, the build fails with a "did you mean…" suggestion and a list of available partials.
+
+## Parameters
+
+Declare accepted params in the partial's frontmatter — suffix optional ones with `?`. They arrive as props:
+
+```md title="src/content/partials/runtime-note.md"
+---
+params: [runtime, version?]
+---
+This page targets the {props.runtime} runtime.
+```
+
+```mdx
+<Render file="runtime-note" params={{ runtime: "node" }} />
+```
+
+Missing required params and unexpected param names both fail the build with a clear message — partials are a typed contract, not string interpolation.

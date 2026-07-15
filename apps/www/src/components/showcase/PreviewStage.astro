@@ -1,0 +1,78 @@
+---
+/**
+ * PreviewStage — canvas that hosts a rendered component preview.
+ * Dotted-grid background; tokens inherit so light/dark just work.
+ */
+import { cn } from "@/lib/cn";
+
+interface Props {
+  /** Optional fixed height for the canvas; defaults to a responsive minimum. */
+  minHeight?: string;
+  /** Extra classes applied to the canvas inner container. */
+  contentClass?: string;
+  /**
+   * When true, drop the bottom border-radius so the stage visually merges
+   * with a code block placed directly below it.
+   */
+  connected?: boolean;
+}
+
+const { minHeight = "20rem", contentClass, connected = false } = Astro.props;
+const radiusClass = connected ? "rounded-t-lg" : "rounded-lg";
+---
+
+<div class={`relative overflow-hidden border border-border bg-card ${radiusClass}`}>
+  {/* `items-stretch` lets the inner flex column grow with tall content
+      (accordion groups, file trees) so the stage extends rather than
+      center-clipping. The inner column then centers smaller content
+      vertically against the `min-height`, keeping the look for short
+      previews. */}
+  <div
+    class="nb-stage-surface flex items-stretch justify-center px-6 py-8 lg:px-10 lg:py-10"
+    style={`min-height: ${minHeight};`}
+  >
+    {/* `min-w-0` lets the inner column shrink below its content's intrinsic
+        width so child `max-w-full` rules (e.g. accordion's `w-[32rem]
+        max-w-full`) resolve against the stage's available width instead of
+        the child's natural width — otherwise the column grows past the
+        stage and `overflow-hidden` clips the example on narrow viewports. */}
+    <div class={cn("relative z-[1] flex min-w-0 flex-col justify-center", contentClass)}>
+      <slot />
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Dotted grid + radial vignette. Light uses border-strong at ~65%; dark
+     uses the softer border token at ~55% so the contrast against the very
+     dark background doesn't make the dots pop. */
+  .nb-stage-surface {
+    background-color: var(--nb-background);
+    background-image:
+      radial-gradient(
+        ellipse 60% 60% at 50% 40%,
+        transparent 0%,
+        color-mix(in oklch, var(--nb-background) 60%, transparent) 100%
+      ),
+      radial-gradient(
+        circle at 1px 1px,
+        color-mix(in oklch, var(--nb-border-strong) 65%, transparent) 1px,
+        transparent 0
+      );
+    background-size: 100% 100%, 14px 14px;
+    background-position: 0 0, 0 0;
+  }
+  :global([data-mode="dark"]) .nb-stage-surface {
+    background-image:
+      radial-gradient(
+        ellipse 60% 60% at 50% 40%,
+        transparent 0%,
+        color-mix(in oklch, var(--nb-background) 60%, transparent) 100%
+      ),
+      radial-gradient(
+        circle at 1px 1px,
+        color-mix(in oklch, var(--nb-border) 55%, transparent) 1px,
+        transparent 0
+      );
+  }
+</style>

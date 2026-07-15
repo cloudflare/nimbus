@@ -1,0 +1,71 @@
+---
+title: Configuration
+description: Every option defineConfig and the Nimbus integration accept.
+aiGenerated: true
+sidebar:
+  order: 9
+  badge:
+    text: Reference
+    variant: info
+---
+
+Nimbus is configured in `astro.config.ts`. `defineConfig` (re-exported as `defineNimbusConfig`) types the site config; the `nimbus()` integration takes that config plus build-time options.
+
+```ts title="astro.config.ts"
+import { defineConfig } from "astro/config";
+import nimbus, { defineConfig as defineNimbusConfig } from "nimbus-docs";
+
+const config = defineNimbusConfig({
+  site: "https://docs.example.com",
+  title: "Acme",
+  description: "Build with Acme.",
+  github: "https://github.com/acme/docs",
+  editPattern: "https://github.com/acme/docs/edit/main/{path}",
+  sidebar: { items: [/* … */] },
+});
+
+export default defineConfig({
+  integrations: [nimbus(config, { /* options */ })],
+});
+```
+
+## Site config
+
+| Field | Type | Notes |
+|---|---|---|
+| `site` | string | **Required.** Canonical site URL. Bridged to Astro's `site`. |
+| `title` | string | **Required.** Site title and metadata fallback. |
+| `description` | string | Default meta description. |
+| `locale` | string | Document language (e.g. `"en"`). |
+| `homeLabel` | string | Label for the "Home" breadcrumb. |
+| `github` | string \| null | Repo URL for the header link; `null` hides it. |
+| `editPattern` | string \| null | Edit-link pattern; `{path}` is the page path. |
+| `socialImage` / `socialImageAlt` | string | OG fallback image and alt. See [Metadata and SEO](/ai/metadata-and-seo). |
+| `head` | array | Site-wide `<head>` elements. |
+| `sidebar` | object | Rail config — see [Sidebar](/navigation/sidebar). |
+| `features` | object | `sidebar` / `tableOfContents` kill switches. See [Layouts](/styling/layouts). |
+| `search` | object \| `false` | Search backend. See [Search](/navigation/search). |
+| `versions` | object | Versioning manifest — each version is its own content collection. |
+
+## Integration options
+
+The second argument to `nimbus()` controls build behavior:
+
+| Option | Default | Notes |
+|---|---|---|
+| `validateMdx` | `true` | PascalCase tag validation. `false` to skip; object to override paths. See [Markdown and MDX](/writing/markdown-and-mdx). |
+| `admonitions` | `true` | `:::type` → `<Aside>` rewrite; object adds `typeAliases`. |
+| `markdown.processor` | Sätteri | Swap to `unified(...)` for remark/rehype plugins. |
+| `sitemap` | enabled when `site` set | `false` to disable. |
+| `mdx` | — | Options forwarded to `@astrojs/mdx`. |
+| `rules` | `off` (opt-in) | Authoring-lint severities — each rule is off until you enable it. See [Linting](/writing/linting). |
+| `collections` | — | Per-collection lint overrides. |
+| `incrementalBuilds` | `false` | Opt in to skip re-rendering MDX unchanged since the last build. Cache lives under Astro's `cacheDir`; a config/component/version change forces a full cold rebuild. Set `NIMBUS_CACHE_NAMESPACE` to isolate PR from main builds. |
+| `partialResolver` | — | Resolve a component tag to the partial file it embeds, for incremental change-tracking. Required only when `incrementalBuilds: true`; ignored otherwise. |
+
+```ts
+nimbus(config, {
+  validateMdx: true,
+  rules: { "nimbus/single-h1": "error", "nimbus/bare-url": "warn" },
+});
+```

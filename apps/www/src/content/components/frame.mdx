@@ -1,0 +1,71 @@
+---
+title: Frame
+tagline: "Bordered, padded wrapper for screenshots and media — with optional caption."
+props:
+  - name: caption
+    type: string
+    description: Caption rendered centred below the media.
+  - name: aspect
+    type: string
+    description: 'Lock the media area to a ratio (e.g. "16/9", "4/3", "1/1"). Inner media is `object-fit: cover`-ed to fill.'
+  - name: src
+    type: ImageMetadata | string
+    description: "Imported image — routed through Astro's image pipeline (modern formats, responsive srcset, lazy loading, no layout shift). A string path or URL renders a plain lazy `<img>`. Omit to use the slot."
+  - name: alt
+    type: string
+    description: Alt text for `src`. Use `""` for decorative images.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { Frame } from "@/components/ui/frame";
+
+## Preview
+
+<Showcase code={`<Frame caption="The Nimbus showcase page">
+  <img src="/assets/showcase.png" alt="Screenshot of the component showcase page" />
+</Frame>`}>
+  <div class="w-[28rem] max-w-full text-left">
+    <Frame caption="The Nimbus showcase page">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" class="w-full h-auto" aria-hidden="true">
+        <rect width="400" height="200" fill="oklch(0.145 0 0)" />
+      </svg>
+    </Frame>
+  </div>
+</Showcase>
+
+## Examples
+
+### Aspect ratio
+
+Lock the frame to a fixed ratio. Common choices: 16/9 (video), 4/3 (classic), 1/1 (square), 21/9 (ultrawide).
+
+<Example code={`<Frame aspect="16/9" caption="16 / 9">
+  <img src="/assets/hero.png" alt="Hero" />
+</Frame>
+
+<Frame aspect="4/3" caption="4 / 3">
+  <img src="/assets/screenshot.png" alt="Screenshot" />
+</Frame>
+
+<Frame aspect="1/1" caption="1 / 1">
+  <img src="/assets/avatar.png" alt="Avatar" />
+</Frame>
+
+<Frame aspect="21/9" caption="21 / 9">
+  <img src="/assets/banner.png" alt="Banner" />
+</Frame>`} contentClass="w-full">
+  <div class="w-full max-w-md mx-auto flex flex-col gap-3">
+    <Frame aspect="16/9" caption="16 / 9">
+      <div class="w-full h-full" style="background-color: oklch(0.145 0 0);"></div>
+    </Frame>
+    <Frame aspect="4/3" caption="4 / 3">
+      <div class="w-full h-full" style="background-color: oklch(0.145 0 0);"></div>
+    </Frame>
+    <Frame aspect="1/1" caption="1 / 1">
+      <div class="w-full h-full" style="background-color: oklch(0.145 0 0);"></div>
+    </Frame>
+    <Frame aspect="21/9" caption="21 / 9">
+      <div class="w-full h-full" style="background-color: oklch(0.145 0 0);"></div>
+    </Frame>
+  </div>
+</Example>

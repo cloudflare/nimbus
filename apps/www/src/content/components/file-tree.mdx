@@ -1,0 +1,170 @@
+---
+title: FileTree
+tagline: "Collapsible directory tree authored as a nested markdown list — folders, files, highlights, and placeholder rows."
+props: []
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { FileTree } from "@/components/ui/file-tree";
+
+## Preview
+
+<Showcase code={`<FileTree>
+- src/
+  - components/
+    - ui/
+      - **Badge.astro**
+      - Card.astro
+  - content/
+    - docs/
+      - index.mdx
+  - styles/
+    - globals.css
+- package.json
+- astro.config.mjs
+</FileTree>`}>
+  <div class="w-[32rem] max-w-full text-left">
+    <FileTree>
+      <ul>
+        <li>
+          src/
+          <ul>
+            <li>
+              components/
+              <ul>
+                <li>
+                  ui/
+                  <ul>
+                    <li><strong>Badge.astro</strong></li>
+                    <li>Card.astro</li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li>
+              content/
+              <ul>
+                <li>
+                  docs/
+                  <ul>
+                    <li>index.mdx</li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li>
+              styles/
+              <ul>
+                <li>globals.css</li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li>package.json</li>
+        <li>astro.config.mjs</li>
+      </ul>
+    </FileTree>
+  </div>
+</Showcase>
+
+## Examples
+
+### Flat
+
+A single-level list — top-level files only, no nested directories.
+
+<Example code={`<FileTree>
+- README.md
+- package.json
+- astro.config.mjs
+- tsconfig.json
+</FileTree>`} contentClass="w-full">
+  <div class="w-full">
+    <FileTree>
+      <ul>
+        <li>README.md</li>
+        <li>package.json</li>
+        <li>astro.config.mjs</li>
+        <li>tsconfig.json</li>
+      </ul>
+    </FileTree>
+  </div>
+</Example>
+
+### Nested
+
+Trailing `/` marks a directory; nest a list inside the row to add children.
+
+<Example code={`<FileTree>
+- src/
+  - components/
+    - Header.astro
+    - Footer.astro
+  - pages/
+    - index.astro
+</FileTree>`} contentClass="w-full">
+  <div class="w-full">
+    <FileTree>
+      <ul>
+        <li>
+          src/
+          <ul>
+            <li>
+              components/
+              <ul>
+                <li>Header.astro</li>
+                <li>Footer.astro</li>
+              </ul>
+            </li>
+            <li>
+              pages/
+              <ul>
+                <li>index.astro</li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </FileTree>
+  </div>
+</Example>
+
+### Highlight and placeholder
+
+Wrap an entry in `**...**` to highlight it. Use `...` (on its own row) for an elided placeholder.
+
+<Example code={`<FileTree>
+- src/
+  - components/
+    - **Header.astro**
+    - Footer.astro
+    - ...
+  - pages/
+    - ...
+</FileTree>`} contentClass="w-full">
+  <div class="w-full">
+    <FileTree>
+      <ul>
+        <li>
+          src/
+          <ul>
+            <li>
+              components/
+              <ul>
+                <li><strong>Header.astro</strong></li>
+                <li>Footer.astro</li>
+                <li>...</li>
+              </ul>
+            </li>
+            <li>
+              pages/
+              <ul>
+                <li>...</li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </FileTree>
+  </div>
+</Example>

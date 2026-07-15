@@ -1,0 +1,65 @@
+---
+title: LinkCard
+tagline: "Link-styled card with title, optional description, and trailing chevron that nudges on hover."
+props:
+  - name: title
+    type: string
+    required: true
+    description: Heading rendered as the card label.
+  - name: description
+    type: string
+    description: Optional subtitle below the title.
+  - name: href
+    type: string
+    required: true
+    description: Target URL — the entire card becomes the link.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { LinkCard } from "@/components/ui/link-card";
+
+## Preview
+
+<Showcase code={`<LinkCard
+  title="Getting started"
+  description="Five-minute intro to scaffolding a docs site."
+  href="#"
+/>`}>
+  <div class="w-full max-w-md text-left">
+    <LinkCard
+      title="Getting started"
+      description="Five-minute intro to scaffolding a docs site."
+      href="#"
+    />
+  </div>
+</Showcase>
+
+## Examples
+
+### Title only
+
+Skip the description when the title is self-explanatory.
+
+<Example code={`<LinkCard title="Changelog" href="#" />`} contentClass="w-full">
+  <div class="w-full">
+    <LinkCard title="Changelog" href="#" />
+  </div>
+</Example>
+
+### With description
+
+Add a description to clarify what the reader gets by following the link.
+
+<Example code={`<LinkCard
+  title="API reference"
+  description="Every endpoint, parameter, and response shape."
+  href="#"
+/>`} contentClass="w-full">
+  <div class="w-full">
+    <LinkCard
+      title="API reference"
+      description="Every endpoint, parameter, and response shape."
+      href="#"
+    />
+  </div>
+</Example>

@@ -1,0 +1,21 @@
+---
+title: PageActions
+tagline: "Per-page actions row — Copy page (Markdown) and View as Markdown, plus optional Updated date."
+props:
+  - name: markdownUrl
+    type: string
+    description: URL of the page's `.md` alternate. Enables the copy + view buttons.
+  - name: lastUpdated
+    type: Date
+    description: 'If set, renders an "Updated <date>" line in the same row.'
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import { PageActions } from "@/components/ui/page-actions";
+
+## Preview
+
+<Showcase code={`<PageActions markdownUrl="/page.md" />`}>
+  <div class="w-full max-w-md text-left">
+    <PageActions markdownUrl="/components/page-actions/index.md" />
+  </div>
+</Showcase>

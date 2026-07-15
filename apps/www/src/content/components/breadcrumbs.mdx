@@ -1,0 +1,66 @@
+---
+title: Breadcrumbs
+tagline: "Hierarchical trail to the current page — collapses long paths with an ellipsis."
+props:
+  - name: items
+    type: "Array<{ label: string; href: string }>"
+    required: true
+    description: Trail items in document order. The last entry is rendered as the current page.
+  - name: maxVisible
+    type: number
+    defaultValue: "4"
+    description: Cap on visible items before middle entries collapse into an ellipsis.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+
+## Preview
+
+<Showcase code={`<Breadcrumbs
+  items={[
+    { label: "Home", href: "/" },
+    { label: "Components", href: "/components" },
+    { label: "Breadcrumbs", href: "/components/breadcrumbs" },
+  ]}
+/>`}>
+  <div class="w-full text-left">
+    <Breadcrumbs
+      items={[
+        { label: "Home", href: "/" },
+        { label: "Components", href: "/components" },
+        { label: "Breadcrumbs", href: "/components/breadcrumbs" },
+      ]}
+    />
+  </div>
+</Showcase>
+
+## Examples
+
+### Long path
+
+Past `maxVisible`, middle entries collapse to an ellipsis.
+
+<Example code={`<Breadcrumbs
+  maxVisible={3}
+  items={[
+    { label: "Docs", href: "/" },
+    { label: "Reference", href: "/ref" },
+    { label: "API", href: "/ref/api" },
+    { label: "Payments", href: "/ref/api/payments" },
+    { label: "Webhooks", href: "/ref/api/payments/webhooks" },
+  ]}
+/>`} contentClass="w-full">
+  <div class="w-full">
+    <Breadcrumbs
+      maxVisible={3}
+      items={[
+        { label: "Docs", href: "/" },
+        { label: "Reference", href: "/ref" },
+        { label: "API", href: "/ref/api" },
+        { label: "Payments", href: "/ref/api/payments" },
+        { label: "Webhooks", href: "/ref/api/payments/webhooks" },
+      ]}
+    />
+  </div>
+</Example>

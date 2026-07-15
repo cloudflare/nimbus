@@ -1,0 +1,53 @@
+{
+  "name": "create-nimbus-docs",
+  "version": "0.1.15",
+  "private": false,
+  "type": "module",
+  "description": "Scaffold a new Nimbus docs site. Used via `pnpm create nimbus-docs` / `npm create nimbus-docs`.",
+  "keywords": [
+    "astro",
+    "documentation",
+    "docs",
+    "scaffold",
+    "create",
+    "nimbus"
+  ],
+  "homepage": "https://nimbus-docs.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MohamedH1998/nimbus-docs.git",
+    "directory": "packages/create-nimbus-docs"
+  },
+  "bugs": {
+    "url": "https://github.com/MohamedH1998/nimbus-docs/issues"
+  },
+  "license": "MIT",
+  "author": "Mohamed Hassan",
+  "bin": {
+    "create-nimbus-docs": "./dist/index.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "node --import tsx --test \"test/**/*.test.ts\"",
+    "prepack": "tsdown"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.9.1",
+    "giget": "^3.3.0",
+    "mri": "^1.2.0"
+  },
+  "devDependencies": {
+    "@types/mri": "^1.1.4",
+    "@types/node": "^20.17.0",
+    "tsdown": "^0.20.3",
+    "tsx": "^4.22.3",
+    "typescript": "^5.8.3"
+  }
+}

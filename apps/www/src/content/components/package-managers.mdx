@@ -1,0 +1,52 @@
+---
+title: PackageManagers
+tagline: "Tabbed code block — one tab per package manager (npm, yarn, pnpm, bun). Tabs sync across instances on the page."
+props:
+  - name: pkg
+    type: string
+    description: Package name to install/run.
+  - name: type
+    type: '"add" | "create" | "dlx" | "exec" | "install" | "remove" | "run"'
+    defaultValue: '"add"'
+    description: Command shape; each manager's equivalent is generated.
+  - name: args
+    type: string
+    description: Extra arguments appended to the command.
+  - name: dev
+    type: boolean
+    description: Mark as a dev dependency for add/install commands.
+  - name: comment
+    type: string
+    description: Optional comment line prepended above the command.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { PackageManagers } from "@/components/ui/package-managers";
+
+## Preview
+
+<Showcase code={`<PackageManagers pkg="nimbus-docs" type="add" />`}>
+  <div class="w-full max-w-md text-left">
+    <PackageManagers pkg="nimbus-docs" type="add" />
+  </div>
+</Showcase>
+
+## Examples
+
+### dlx with args
+
+Use type="dlx" to invoke a CLI without installing — useful for scaffolders.
+
+<Example code={`<PackageManagers
+  pkg="create-astro@latest"
+  type="dlx"
+  comment="Scaffold a new project"
+/>`} contentClass="w-full">
+  <div class="w-full">
+    <PackageManagers
+      pkg="create-astro@latest"
+      type="dlx"
+      comment="Scaffold a new project"
+    />
+  </div>
+</Example>

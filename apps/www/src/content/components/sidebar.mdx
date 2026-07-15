@@ -1,0 +1,54 @@
+---
+title: Sidebar
+tagline: "Recursive navigation tree — collapsible groups, persistent open state, scroll restoration."
+props:
+  - name: items
+    type: SidebarItem[]
+    required: true
+    description: "Tree of links and groups. Built by `getSidebar()` from collection content."
+  - name: persist
+    type: boolean
+    description: Persist open/scroll state to sessionStorage across navigations.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import { Sidebar } from "@/components/ui/sidebar";
+
+## Preview
+
+<Showcase code={`<Sidebar
+  items={[
+    { type: "link", label: "Overview", href: "/", order: 0 },
+    { type: "group", label: "Components", order: 1, children: [
+      { type: "link", label: "Badge", href: "/components/badge", order: 0 },
+      { type: "link", label: "Steps", href: "/components/steps", order: 1 },
+    ]},
+  ]}
+  persist
+/>`}>
+  <div class="w-full max-w-xs text-left">
+    <Sidebar
+      items={[
+        { type: "link", label: "Overview", href: "#", order: 0 },
+        {
+          type: "group",
+          label: "Components",
+          order: 1,
+          children: [
+            { type: "link", label: "Badge", href: "#", order: 0 },
+            { type: "link", label: "Steps", href: "#", order: 1 },
+            { type: "link", label: "Tabs", href: "#", order: 2, isCurrent: true },
+          ],
+        },
+        {
+          type: "group",
+          label: "Guides",
+          order: 2,
+          collapsed: true,
+          children: [
+            { type: "link", label: "Authentication", href: "#", order: 0 },
+          ],
+        },
+      ]}
+    />
+  </div>
+</Showcase>

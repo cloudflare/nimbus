@@ -1,0 +1,42 @@
+---
+title: CardGrid
+tagline: "Responsive 1–2 column grid for Card lists — drops to a single column on narrow viewports."
+props: []
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import { Card } from "@/components/ui/card";
+import { CardGrid } from "@/components/ui/card-grid";
+
+## Preview
+
+<Showcase code={`<CardGrid>
+  <Card title="Fast" icon="ph:lightning">
+    Static output. Pagefind search. No runtime tax.
+  </Card>
+  <Card title="Owned" icon="ph:package">
+    Components copy into your repo. Edit freely.
+  </Card>
+  <Card title="Agent-first" icon="ph:robot">
+    Markdown alternates and llms.txt out of the box.
+  </Card>
+  <Card title="Composable" icon="ph:puzzle-piece">
+    Install only what you need via \`nimbus-docs add\`.
+  </Card>
+</CardGrid>`}>
+  <div class="w-full text-left">
+    <CardGrid>
+      <Card title="Fast" icon="ph:lightning">
+        Static output. Pagefind search. No runtime tax.
+      </Card>
+      <Card title="Owned" icon="ph:package">
+        Components copy into your repo. Edit freely.
+      </Card>
+      <Card title="Agent-first" icon="ph:robot">
+        Markdown alternates and llms.txt out of the box.
+      </Card>
+      <Card title="Composable" icon="ph:puzzle-piece">
+        Install only what you need.
+      </Card>
+    </CardGrid>
+  </div>
+</Showcase>

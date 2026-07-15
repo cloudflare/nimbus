@@ -1,0 +1,208 @@
+---
+title: Philosophy
+description: Some of the opinions behind Nimbus, what we believe documentation should look like in a world where humans and agents are both creators and consumers.
+audience: human
+sidebar:
+  order: 0
+---
+import { FileTree } from "@/components/ui/file-tree";
+import { Tabs, TabItem } from "@/components/ui/tabs";
+import { PrimitivesDiagram } from "@/components/react/diagram-showcase/PrimitivesDiagram";
+import { PingPongDemo } from "@/components/react/diagram-showcase/PingPongDemo";
+
+## You own all your code
+
+Layouts, components, content, styles — every visible piece of your site lives in your repo. The scaffolder writes them once and steps back. From there, the project is yours: edit any file, restructure any directory, change any default. No upstream API to wait on, no opinionated theme to fork around.
+
+Coding agents work the same way you do. When nothing important hides behind an import boundary, an agent can reason about the repo far better.
+
+<FileTree>
+- my-docs/
+  - src/
+    - components/
+    - content/docs/
+    - layouts/
+    - pages/
+    - styles/
+      - globals.css
+    - components.ts
+  - astro.config.mjs
+  - package.json
+</FileTree>
+
+## Interactive content, fully yours
+
+Documentation worth reading often needs to *show* mechanism — how a request flows, how state nests, where a wire docks. Either you adopt a pre-styled component library and inherit its look, or you build the interactive bits from scratch. Nimbus splits the problem.
+
+`nimbus-docs/react` ships a headless `<Diagram>` wrapper plus composable hooks — `usePhase`, `useMeasure`, `useTabIndicator`, `useDiagram`. The wrapper owns the things that are tedious to get right: off-screen pausing, reduced-motion respect, keyboard shortcuts, error boundaries, cross-island coordination. It renders nothing visible itself.
+
+<PrimitivesDiagram client:visible />
+
+The smallest meaningful example — `usePhase` walks two steps, the rendered nodes light up in turn. `<DiagramControls>` is installed via the registry; everything else comes from `nimbus-docs/react`.
+
+<Tabs>
+  <TabItem label="Preview">
+    <PingPongDemo client:visible />
+  </TabItem>
+  <TabItem label="Code">
+    ```tsx
+    import { Diagram, usePhase } from "nimbus-docs/react";
+    import { DiagramControls } from "@/components/react/diagram";
+
+    function PingPong() {
+      const { current } = usePhase({
+        steps: [{ id: "left", hold: 1500 }, { id: "right", hold: 1500 }],
+        loop: true,
+      });
+      return (
+        <div className="flex items-center justify-center gap-12 py-12">
+          <Node label="Left" active={current === "left"} />
+          <Node label="Right" active={current === "right"} />
+        </div>
+      );
+    }
+
+    export function Demo() {
+      return (
+        <Diagram label="Ping-pong">
+          <DiagramControls />
+          <PingPong />
+        </Diagram>
+      );
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+Action bars, tabs, and play/pause controls install on demand into `src/components/react/diagram/` — edit, restyle, or replace freely; the hooks keep working. Sites that never author an interactive card pay nothing.
+
+## Human and agent first
+
+Documentation is no longer read only by people, and as a result every Nimbus site ships several surfaces alongside the HTML:
+
+- A Markdown alternate for every page at `/<slug>/index.md`
+- A site-level index at `/llms.txt`, naming every page
+- JSON-LD in every page's head, giving search and agent tools enough structured data to recognise what they're looking at
+
+```text
+# Nimbus
+
+A way to build documentation sites on top of Astro.
+
+## Pages
+- [Getting started](https://nimbus-docs.com/get-started/index.md)
+- [Installation](https://nimbus-docs.com/installation/index.md)
+- [CLI](https://nimbus-docs.com/cli/index.md)
+```
+
+These surfaces are defaults, not add-ons. The cost of being a dead end on the agent web is real, and it grows.
+
+## Agentic authoring
+
+Adding Nimbus default components or features is done with `nimbus-docs add`. It works differently depending on what you're adding. Components and utilities copy as files — `registry:ui` and `registry:lib` slugs resolve their dependencies and land in your repo. Features hand off as prompts — a `registry:feature` slug is a markdown recipe the coding agent in your environment reads, adapts to your project, and applies.
+
+<PackageManagers pkg="nimbus-docs" type="dlx" args="add 404-page" />
+
+The split between the two modes is the one question that matters: which kind of change actually wants a coding agent in the loop, and which is better as a file copy.
+
+## Authoring quality is first-class
+
+A docs site whose content drifts in quality undermines its own product. Nimbus treats authoring quality the way a code linter treats source — a layered set of validators, each catching a different class of mistake.
+
+Pre-build validators run automatically and gate the build only when the issue would actually break the site:
+
+- **Config validation** — `defineConfig` is checked for shape and required fields; errors echo the offending value back to you
+- **Frontmatter schema validation** — Zod-typed schemas catch missing or malformed fields per collection, with editor-friendly error messages
+- **MDX component validation** — a pre-build content pass catches lowercase usages, unregistered components, and missing imports
+- **Registry validation** — `src/components.ts` is parsed and checked against actual MDX usage at build time
+
+The lint engine adds an on-demand authoring-quality layer. Rules have stable identifiers like `nimbus/single-h1` and `nimbus/bare-url`, configured in `astro.config.ts` alongside the rest of your Nimbus integration. Run `nimbus-docs lint` for human output, `--format json` for diagnostics an agent can read, `--fix` to apply auto-fixes. The build is never gated by lint findings — drafts still render, warnings stay loud but unblocking.
+
+```ts title="astro.config.ts" {6-9}
+import { defineConfig } from "astro/config";
+
+export default defineConfig({
+  integrations: [
+    nimbus(nimbusConfig, {
+      rules: {
+        "nimbus/single-h1": "error",
+        "nimbus/bare-url": "warn",
+      },
+    }),
+  ],
+});
+```
+
+Component-prop validation against TypeScript signatures lands post-v1.
+
+## Readable is the floor
+
+Every Nimbus site already ships the surfaces agents read — a Markdown twin per page, an `llms.txt` index, structured data in the head. A year ago that set a docs tool apart; today it's table stakes. The interesting line sits further out.
+
+*Everyone made docs readable by agents. Nimbus makes docs writable, maintainable, and operable by them — end to end, on a codebase you fully own.*
+
+The precondition is the first principle on this page. When every file lives in your repo and nothing important hides behind an import boundary, an agent can do more than read your docs — it can change them safely, because it can see the whole of what it's touching. A vendor's themed runtime can be scraped by an agent; it can't be rewritten by one.
+
+That's why features arrive as runbooks rather than code you wire up by hand. `nimbus-docs add` detects when it's running inside a coding agent and pipes it a structured playbook — discover the project, confirm a plan, execute, then *verify the build still passes* and check whether the feature was already installed before touching a file. Installation stops being a copy-paste chore and becomes a conversation your agent owns from start to finish.
+
+```bash
+# inside a coding agent, the runbook pipes straight in
+nimbus-docs add new-version
+
+# from a human shell, hand it to the agent of your choice
+nimbus-docs add new-version --print | claude
+```
+
+## Provenance is a primitive
+
+The moment agents start drafting pages, the question stops being *can a machine read this* and becomes *who wrote this, and has a human checked it.* Nimbus answers that in the schema, not by convention.
+
+The default is inverted: agent-facing is assumed, so `audience: "human"` is the deliberate flag for a page written first for people. `aiGenerated` marks a page an agent drafted but no human has reviewed yet — the layout surfaces an "awaiting review" label until someone signs off. The origin and review state of every page travel with the page itself.
+
+```yaml title="src/content/docs/new-endpoint.mdx"
+---
+title: New endpoint
+aiGenerated: true   # drafted by an agent — shows "awaiting review" until a human clears it
+---
+```
+
+Provenance only pays off if drift gets caught. The lint engine emits versioned JSON carrying character-precise fixes that `--fix` applies in place, and the scaffolded `AGENT.md` ships an audit runbook with a fixed diagnostic format — so an agent can sweep the whole site and report back in a shape another tool can parse:
+
+```text
+- [error] src/content/docs/cli.mdx:42 — broken internal link "/instal" — did you mean "/installation"?
+- [warn]  src/content/docs/registry.mdx:8 — link text "here" isn't meaningful out of context.
+Summary: 1 error, 1 warning.
+```
+
+The docs become something an agent can keep correct over time — maintained and operable, not just published — on a repo that's yours, not a vendor's.
+
+## The tree is the truth
+
+There is no second config to maintain alongside your content. The directory structure under `src/content/` is the URL structure. The directory structure is also the sidebar. Move a file and its entry moves with it; delete a file and the entry disappears. Frontmatter handles the fine-grain knobs — order, badges, draft state — but the shape of the tree comes from the filesystem itself.
+
+<FileTree>
+- src/content/docs/
+  - getting-started.mdx
+  - guides/
+    - styling.mdx
+    - deploying.mdx
+  - reference/
+    - api.mdx
+</FileTree>
+
+The result is a single source of truth for what pages exist. The site can't drift from its own contents, because its contents are the site.
+
+## Versions are just collections
+
+Most docs tools bolt versioning on as a special case — parallel filesystems, URL rewrites, custom routing. Nimbus does it with a primitive it already has: multi-collection content.
+
+Each version is its own content collection, with the same schema. A `docs-v2/` collection is a v2 site; a `docs-v3/` collection is v3. Routes and sidebars pick up each version independently. The version picker is a thin layer on top.
+
+<FileTree>
+- src/content/
+  - docs/
+  - docs-v2/
+  - docs-v3/
+</FileTree>
+
+The same primitive handles internationalisation (a `docs-fr/` collection is a French site) and per-product splits (a `docs-api/` collection sits next to `docs-cli/`). When you need versions, you already have most of what you need; you didn't pay for it earlier.

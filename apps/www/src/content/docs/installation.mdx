@@ -1,0 +1,69 @@
+---
+title: Installation
+description: Scaffold a Nimbus site in one command — Cloudflare, Vercel, Netlify, or static.
+audience: human
+sidebar:
+  order: 1
+---
+import { FileTree } from "@/components/ui/file-tree";
+
+One command sets up a project with layouts, components, content schemas, search, sitemap, OG images, and a markdown alternate for every page.
+
+## Requirements
+
+- **Node** 20 or later
+- **A package manager** — npm, pnpm, yarn, or bun
+- **Git** — for edit links and last-updated dates
+
+## Scaffold
+
+<PackageManagers pkg="nimbus-docs" type="create" />
+
+Pick a directory name, then choose your preferences:
+
+<Steps>
+  <Step title="Template">
+    Two choices — **full** (core components, demo content, populated theme tokens) or **empty** (the minimum to run, ready for your own content).
+  </Step>
+  <Step title="Deploy target">
+    Cloudflare ships with `wrangler.jsonc` pre-wired. Vercel, Netlify, and "Static" produce the same Astro static output — pick the one that matches your host.
+  </Step>
+  <Step title="Install dependencies">
+    The scaffolder runs your package manager automatically. Skip if you want to edit `package.json` first.
+  </Step>
+</Steps>
+
+## What lands in your repo
+
+<FileTree>
+- my-docs/
+  - src/
+    - components/
+      - ui/
+    - content/
+      - docs/
+    - pages/
+    - styles/
+      - globals.css
+    - components.ts
+  - astro.config.mjs
+  - package.json
+</FileTree>
+
+The `nimbus-docs` npm package ships the invisible plumbing (integration, data helpers, schemas). Everything visible — components under `src/components/`, MDX content under `src/content/docs/`, routes under `src/pages/`, design tokens in `src/styles/globals.css`, and the MDX globals registry at `src/components.ts` — copies into your repo and is yours to edit.
+
+## Run
+
+<PackageManagers pkg="dev" type="run" />
+
+Then open the printed URL.
+
+## Build and deploy
+
+<PackageManagers pkg="build" type="run" />
+
+The output is a regular Astro static build. Deploy `dist/` to any host. Cloudflare scaffolds include the right `wrangler.jsonc` so `wrangler deploy` works without further setup.
+
+<Aside type="tip">
+  After scaffolding, run `nimbus-docs add <slug>` to install components from the registry. See [Adding components](/adding-components) for the workflow.
+</Aside>

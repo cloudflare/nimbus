@@ -1,0 +1,121 @@
+---
+/**
+ * Frame — bordered, padded wrapper for screenshots/media with caption.
+ *
+ *   <Frame caption="Settings panel">
+ *     <img src="/screenshot.png" alt="…" />
+ *   </Frame>
+ *
+ *   <Frame aspect="16/9">
+ *     <iframe src="https://www.youtube.com/embed/…" />
+ *   </Frame>
+ *
+ * Optimized path — pass an imported image via `src` and it routes
+ * through Astro's image pipeline (modern formats, responsive srcset,
+ * lazy loading, intrinsic dimensions → no layout shift):
+ *
+ *   import shot from "../assets/settings.png";
+ *   <Frame src={shot} alt="Settings panel" caption="Settings panel" />
+ *
+ * A string `src` (public-dir or remote URL) renders a plain lazy <img>.
+ */
+import { cn } from "@/lib/cn";
+import { Image } from "astro:assets";
+import type { ImageMetadata } from "astro";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"figure"> {
+  caption?: string;
+  /** Lock the media area to a ratio (e.g. "16/9", "4/3", "1/1"). */
+  aspect?: string;
+  /** Imported image (optimized) or string path/URL (plain lazy img). */
+  src?: ImageMetadata | string;
+  /** Alt text for `src`. Required when `src` is set; "" for decorative. */
+  alt?: string;
+}
+
+const { caption, aspect, src, alt, class: className, ...attrs } = Astro.props;
+
+// The docs content column tops out around 768px; serve smaller
+// candidates below that and never upscale past the source.
+const widths = (image: ImageMetadata) =>
+  [480, 768, 1200].filter((w) => w < image.width).concat(image.width);
+const sizes = "(min-width: 768px) 768px, 100vw";
+---
+
+<figure
+  class={cn("frame", className)}
+  data-frame-aspect={aspect}
+  style={aspect ? `--frame-aspect: ${aspect};` : undefined}
+  {...attrs}
+>
+  <div class="frame-media">
+    {
+      src ? (
+        typeof src === "string" ? (
+          <img src={src} alt={alt ?? ""} loading="lazy" decoding="async" />
+        ) : (
+          <Image src={src} alt={alt ?? ""} widths={widths(src)} sizes={sizes} />
+        )
+      ) : (
+        <slot />
+      )
+    }
+  </div>
+  {caption && <figcaption class="frame-caption">{caption}</figcaption>}
+</figure>
+
+<style>
+  .frame {
+    margin: 1.5rem 0;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    background: var(--nb-muted);
+    border: 1px solid var(--nb-border);
+  }
+
+  .frame-media {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    border-radius: 0.5rem;
+  }
+
+  .frame-media :global(img),
+  .frame-media :global(video),
+  .frame-media :global(svg) {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0;
+    border-radius: 0.5rem;
+  }
+
+  /* Aspect-locked variant — locks the media box to the given ratio and
+     absolutely positions any direct child so it fills (img / video /
+     iframe / svg / div / etc). */
+  .frame[data-frame-aspect] .frame-media {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: var(--frame-aspect);
+  }
+
+  .frame[data-frame-aspect] .frame-media > :global(*) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 0.5rem;
+  }
+
+  .frame-caption {
+    margin-top: 0.75rem;
+    text-align: center;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--nb-muted-foreground);
+  }
+</style>

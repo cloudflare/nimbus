@@ -1,0 +1,75 @@
+name: Mirror check
+
+# MONO-5 AC (drift proof): a `templates-v<version>` tag must be byte-identical
+# to a fresh generator run at the SAME source the release cut it from. The
+# generator is deterministic, so any difference means either the sync shipped
+# stale output or someone bypassed the branch ruleset and hand-edited the branch.
+#
+# Same-repo, no cross-repo read token: the source lives on `main` at the
+# changesets tag `create-nimbus-docs@<version>`; the output lives at
+# `templates-v<version>` on the orphan branch. We regenerate from the former and
+# diff against the latter.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "create-nimbus-docs version to check (e.g. 0.2.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source at the changesets tag
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: create-nimbus-docs@${{ inputs.version }}
+          path: monorepo
+
+      - name: Checkout templates output at the templates tag
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: templates-v${{ inputs.version }}
+          path: templates
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+
+      - name: Regenerate from source and diff against the templates tag
+        run: |
+          set -euo pipefail
+          cd monorepo
+          pnpm install --frozen-lockfile
+          node packages/create-nimbus-docs/scripts/copy-template.mjs --out "${RUNNER_TEMP}/generated"
+          cd ..
+          diffs=0
+          for dir in "${RUNNER_TEMP}"/generated/*/; do
+            name="$(basename "$dir")"
+            if [ ! -d "templates/${name}" ]; then
+              echo "::error::variant ${name} exists in generator output but not at templates-v${{ inputs.version }}"
+              diffs=1
+              continue
+            fi
+            if ! diff -r "$dir" "templates/${name}"; then
+              echo "::error::${name} differs from the generator output for ${{ inputs.version }}"
+              diffs=1
+            fi
+          done
+          # Catch variant dirs present on the branch but no longer generated.
+          # README.md / LICENSE are files (not matched by */) so they're ignored.
+          for dir in templates/*/; do
+            name="$(basename "$dir")"
+            case "$name" in .github) continue;; esac
+            [ -d "${RUNNER_TEMP}/generated/${name}" ] || { echo "::error::variant ${name} on the branch is not produced by the generator"; diffs=1; }
+          done
+          if [ "$diffs" -ne 0 ]; then exit 1; fi
+          echo "ok: templates-v${{ inputs.version }} mirrors the generator at create-nimbus-docs@${{ inputs.version }}"

@@ -1,0 +1,88 @@
+---
+title: Tabs
+tagline: "Tabbed content panels — Starlight-compatible authoring, optional cross-instance sync via syncKey."
+props:
+  - name: syncKey
+    type: string
+    description: Tabs instances with the same syncKey mirror selection across the page via localStorage.
+  - name: label
+    type: string
+    required: true
+    description: TabItem prop. Read by the client to synthesise the matching trigger button.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { Tabs, TabItem } from "@/components/ui/tabs";
+
+## Preview
+
+<Showcase code={`<Tabs>
+  <TabItem label="Overview">
+    Tabs group related content so the reader sees one panel at a time.
+  </TabItem>
+  <TabItem label="Install">
+    Run \`nimbus-docs add tabs\` to copy the component into your repo.
+  </TabItem>
+  <TabItem label="Configure">
+    Pass a \`syncKey\` to mirror tab state across instances on the page.
+  </TabItem>
+</Tabs>`}>
+  <div class="w-full max-w-md text-left">
+    <Tabs>
+      <TabItem label="Overview">
+        Tabs group related content so the reader sees one panel at a time.
+      </TabItem>
+      <TabItem label="Install">
+        Run <code>nimbus-docs add tabs</code> to copy the component into your repo.
+      </TabItem>
+      <TabItem label="Configure">
+        Pass a <code>syncKey</code> to mirror tab state across instances on the page.
+      </TabItem>
+    </Tabs>
+  </div>
+</Showcase>
+
+## Examples
+
+### Basic
+
+Three tabs with text bodies — triggers are synthesised from each `label` prop.
+
+<Example code={`<Tabs>
+  <TabItem label="One">First panel content.</TabItem>
+  <TabItem label="Two">Second panel content.</TabItem>
+  <TabItem label="Three">Third panel content.</TabItem>
+</Tabs>`} contentClass="w-full">
+  <div class="w-full">
+    <Tabs>
+      <TabItem label="One">First panel content.</TabItem>
+      <TabItem label="Two">Second panel content.</TabItem>
+      <TabItem label="Three">Third panel content.</TabItem>
+    </Tabs>
+  </div>
+</Example>
+
+### Synced
+
+Two Tabs instances with the same `syncKey` mirror each other — pick a tab once, every matching instance follows.
+
+<Example code={`<Tabs syncKey="lang">
+  <TabItem label="TypeScript">type User = { id: string };</TabItem>
+  <TabItem label="JavaScript">// inferred at runtime</TabItem>
+</Tabs>
+
+<Tabs syncKey="lang">
+  <TabItem label="TypeScript">function load(id: string) { ... }</TabItem>
+  <TabItem label="JavaScript">function load(id) { ... }</TabItem>
+</Tabs>`} contentClass="w-full">
+  <div class="w-full flex flex-col gap-4">
+    <Tabs syncKey="lang-demo">
+      <TabItem label="TypeScript"><code>type User = {`{ id: string }`};</code></TabItem>
+      <TabItem label="JavaScript"><code>// inferred at runtime</code></TabItem>
+    </Tabs>
+    <Tabs syncKey="lang-demo">
+      <TabItem label="TypeScript"><code>function load(id: string) {`{ ... }`}</code></TabItem>
+      <TabItem label="JavaScript"><code>function load(id) {`{ ... }`}</code></TabItem>
+    </Tabs>
+  </div>
+</Example>

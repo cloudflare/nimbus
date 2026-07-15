@@ -1,0 +1,18 @@
+---
+title: Search
+tagline: "Site search dialog — Pagefind-backed full-text search with keyboard shortcuts and zero-result hints."
+props: []
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import { SearchTrigger, SearchDialog } from "@/components/ui/search";
+
+## Preview
+
+<Showcase code={`<SearchTrigger />
+
+<SearchDialog />`}>
+  <div class="w-full text-center">
+    <SearchTrigger />
+    <p class="text-xs text-muted-foreground mt-3">Click the trigger above or press <kbd class="font-mono px-1.5 py-0.5 rounded bg-muted">⌘ K</kbd> to open the dialog.</p>
+  </div>
+</Showcase>

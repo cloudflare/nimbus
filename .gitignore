@@ -1,0 +1,28 @@
+node_modules
+dist
+.astro
+.turbo
+.nimbus
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+
+# Per-developer editor / MCP config — local paths, not for the repo.
+.mcp.json
+.claude/
+opencode.jsonc
+
+# Local inspection workspace — scaffolded fresh by `pnpm local`.
+examples/
+
+# Generated registry output — fully derived from apps/www/registry/manifests.ts
+# and examples/starter/src/. Regenerate via `pnpm --filter @nimbus/www generate-registry`.
+apps/www/public/registry/
+
+# Generated template variants — derived from packages/nimbus-starter-source/ via
+# copy-template.mjs (MONO-4). No longer shipped in the CLI tarball; generated on
+# demand for local dev (`pnpm local`), release verify, and the templates-repo
+# sync. Regenerate via `pnpm build:templates`.
+.generated/

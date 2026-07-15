@@ -1,0 +1,28 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { LinkButton } from "@/components/ui/link-button";
+import { config } from "virtual:nimbus/config";
+---
+
+<BaseLayout
+  title={`404 — Page not found · ${config.title}`}
+  description="The page you are looking for does not exist or has moved."
+  noindex
+>
+  <main
+    id="main-content"
+    class="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-2xl flex-col items-start justify-center gap-6 px-6 py-24"
+  >
+    <p class="font-mono text-sm text-muted-foreground">404</p>
+    <h1 class="text-4xl font-semibold tracking-tight text-foreground">
+      Page not found
+    </h1>
+    <p class="text-base text-muted-foreground">
+      The page you are looking for does not exist or has moved.
+    </p>
+    <div class="mt-2 flex flex-wrap gap-3">
+      <LinkButton href="/" variant="primary" icon>Back to home</LinkButton>
+      <LinkButton href="/components" variant="secondary">Browse components</LinkButton>
+    </div>
+  </main>
+</BaseLayout>

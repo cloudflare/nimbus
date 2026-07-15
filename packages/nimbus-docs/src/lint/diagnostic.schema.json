@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://nimbus-docs.com/schema/lint-diagnostic.json",
+  "title": "Nimbus lint output",
+  "description": "The JSON shape emitted by `nimbus-docs lint --format=json`.",
+  "type": "object",
+  "required": ["version", "summary", "diagnostics"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "summary": {
+      "type": "object",
+      "required": ["errors", "warnings", "total", "files"],
+      "additionalProperties": false,
+      "properties": {
+        "errors": { "type": "integer", "minimum": 0 },
+        "warnings": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 },
+        "files": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    }
+  },
+  "$defs": {
+    "diagnostic": {
+      "type": "object",
+      "required": ["code", "severity", "source", "message", "file", "line", "column"],
+      "additionalProperties": false,
+      "properties": {
+        "code": { "type": "string", "pattern": "^nimbus/" },
+        "severity": { "enum": ["error", "warn"] },
+        "source": { "enum": ["docs-compiler", "vale"] },
+        "message": { "type": "string" },
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "endColumn": { "type": "integer", "minimum": 1 },
+        "fix": {
+          "type": "object",
+          "required": ["description", "edits"],
+          "additionalProperties": false,
+          "properties": {
+            "description": { "type": "string" },
+            "edits": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["range", "text"],
+                "additionalProperties": false,
+                "properties": {
+                  "range": {
+                    "type": "array",
+                    "items": { "type": "integer", "minimum": 0 },
+                    "minItems": 2,
+                    "maxItems": 2
+                  },
+                  "text": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

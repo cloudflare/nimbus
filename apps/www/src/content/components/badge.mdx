@@ -1,0 +1,86 @@
+---
+title: Badge
+tagline: "Compact status pill for tagging, categorisation, and inline emphasis."
+props:
+  - name: text
+    type: string
+    required: true
+    description: Label rendered inside the badge.
+  - name: variant
+    type: '"default" | "info" | "note" | "success" | "tip" | "warning" | "caution" | "danger"'
+    defaultValue: '"default"'
+    description: "Visual treatment that conveys intent. Starlight aliases collapse onto the four canonical pairs: note→info, tip→success, caution→warning."
+  - name: size
+    type: '"small" | "medium" | "large"'
+    defaultValue: '"small"'
+    description: Relative scale; affects padding and font size.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { Badge } from "@/components/ui/badge";
+
+## Preview
+
+<Showcase code={`<Badge text="Default" />
+<Badge text="Info" variant="info" />
+<Badge text="Success" variant="success" />
+<Badge text="Warning" variant="warning" />
+<Badge text="Danger" variant="danger" />`}>
+  <div class="flex flex-wrap items-center justify-center gap-3">
+    <Badge text="Default" size="medium" />
+    <Badge text="Info" variant="info" size="medium" />
+    <Badge text="Success" variant="success" size="medium" />
+    <Badge text="Warning" variant="warning" size="medium" />
+    <Badge text="Danger" variant="danger" size="medium" />
+  </div>
+</Showcase>
+
+## Examples
+
+### Variants
+
+Each variant signals a different intent. Aliases collapse onto the canonical four.
+
+<Example code={`<Badge text="Stable" variant="success" />
+<Badge text="Beta" variant="info" />
+<Badge text="Deprecated" variant="warning" />
+<Badge text="Breaking" variant="danger" />`} minHeight="6rem">
+  <div class="flex flex-wrap items-center justify-center gap-3">
+    <Badge text="Stable" variant="success" size="medium" />
+    <Badge text="Beta" variant="info" size="medium" />
+    <Badge text="Deprecated" variant="warning" size="medium" />
+    <Badge text="Breaking" variant="danger" size="medium" />
+  </div>
+</Example>
+
+### Sizes
+
+Three scales for use beside body text, headings, or display copy.
+
+<Example code={`<Badge text="Small" size="small" />
+<Badge text="Medium" size="medium" />
+<Badge text="Large" size="large" />`} minHeight="6rem">
+  <div class="flex flex-wrap items-center justify-center gap-3">
+    <Badge text="Small" variant="info" size="small" />
+    <Badge text="Medium" variant="info" size="medium" />
+    <Badge text="Large" variant="info" size="large" />
+  </div>
+</Example>
+
+### In context
+
+Paired with text to mark status without breaking reading flow.
+
+<Example mdxTag code={`## Payments API <Badge text="v2.1" variant="info" size="medium" />
+
+The Payments API has reached general availability.`}>
+  <div class="max-w-md text-left">
+    <h4 class="flex items-center gap-2 text-lg font-semibold text-foreground mb-2">
+      Payments API
+      <Badge text="v2.1" variant="info" size="medium" />
+    </h4>
+    <p class="text-sm text-muted-foreground leading-relaxed">
+      The Payments API has reached general availability.
+    </p>
+  </div>
+</Example>

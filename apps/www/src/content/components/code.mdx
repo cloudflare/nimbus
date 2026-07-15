@@ -1,0 +1,142 @@
+---
+title: Code
+tagline: "Syntax-highlighted code block — Shiki transformers add filename frames, line highlights, diff, focus, error/warning notation, and word highlights."
+props:
+  - name: code
+    type: string
+    required: true
+    description: Source string to highlight.
+  - name: lang
+    type: string
+    required: true
+    description: 'Language identifier (e.g. "ts", "tsx", "bash").'
+  - name: meta
+    type: string
+    description: 'Shiki meta — e.g. `title="src/foo.ts" {1,3-5}` for filename + highlight.'
+  - name: lineNumbers
+    type: boolean
+    defaultValue: "false"
+    description: Render a gutter with line numbers.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { Code } from "@/components/ui/code";
+
+export const helloSample = `export function hello(name: string) {
+  return \`Hello, \${name}!\`;
+}`;
+
+export const filenameSample = `export function validateToken(token: string) {
+  return token.length > 0 && token.startsWith("sk_");
+}`;
+
+export const highlightSample = `export function Button({ children }) {
+  return (
+    <button className="btn">
+      {children}
+    </button>
+  );
+}`;
+
+export const diffSample = `function sum(a: number, b: number) {
+  return a - b; // [!code --]
+  return a + b; // [!code ++]
+}`;
+
+export const focusSample = `function main() {
+  const config = loadConfig(); // [!code focus]
+  const db = connect(config);
+  return db;
+}`;
+
+export const errorSample = `function divide(a: number, b: number) {
+  if (b === 0) throw new Error("divide by zero"); // [!code warning]
+  return a / b;
+  return null; // [!code error]
+}`;
+
+export const wordSample = `// [!code word:async]
+async function load(id: string) {
+  const res = await fetch(\`/api/\${id}\`);
+  return await res.json();
+}`;
+
+## Preview
+
+<Showcase code={'```ts title="src/lib/hello.ts"\nexport function hello(name: string) {\n  return `Hello, ${name}!`;\n}\n```'}>
+  <div class="w-full max-w-md text-left">
+    <Code code={helloSample} lang="ts" meta='title="src/lib/hello.ts"' />
+  </div>
+</Showcase>
+
+## Examples
+
+### Filename
+
+Pass `title="path/to/file"` in the meta to render a file-frame above the block.
+
+<Example code={'```ts title="src/lib/auth.ts"\nexport function validateToken(token: string) {\n  return token.length > 0 && token.startsWith("sk_");\n}\n```'} lang="md" contentClass="w-full">
+  <div class="w-full">
+    <Code code={filenameSample} lang="ts" meta='title="src/lib/auth.ts"' />
+  </div>
+</Example>
+
+### Line highlight
+
+Use `{N}` or `{N-M}` in the meta to highlight specific lines.
+
+<Example code={'```tsx {3-5}\nexport function Button({ children }) {\n  return (\n    <button className="btn">\n      {children}\n    </button>\n  );\n}\n```'} lang="md" contentClass="w-full">
+  <div class="w-full">
+    <Code code={highlightSample} lang="tsx" meta="{3-5}" />
+  </div>
+</Example>
+
+### Diff
+
+Mark added / removed lines with `// [!code ++]` and `// [!code --]`.
+
+<Example code={'```ts\nfunction sum(a: number, b: number) {\n  return a - b; // [!code --]\n  return a + b; // [!code ++]\n}\n```'} lang="md" contentClass="w-full">
+  <div class="w-full">
+    <Code code={diffSample} lang="ts" />
+  </div>
+</Example>
+
+### Focus
+
+Dim the surrounding code with `// [!code focus]` on the line(s) that matter.
+
+<Example code={'```ts\nfunction main() {\n  const config = loadConfig(); // [!code focus]\n  const db = connect(config);\n  return db;\n}\n```'} lang="md" contentClass="w-full">
+  <div class="w-full">
+    <Code code={focusSample} lang="ts" />
+  </div>
+</Example>
+
+### Error and warning
+
+Annotate problem lines with `// [!code error]` or `// [!code warning]`.
+
+<Example code={'```ts\nfunction divide(a: number, b: number) {\n  if (b === 0) throw new Error("divide by zero"); // [!code warning]\n  return a / b;\n  return null; // [!code error]\n}\n```'} lang="md" contentClass="w-full">
+  <div class="w-full">
+    <Code code={errorSample} lang="ts" />
+  </div>
+</Example>
+
+### Line numbers
+
+Pass `lineNumbers` to render a gutter — numbers are CSS counters on Shiki's per-line spans, so they stay in sync with whatever other transformers run.
+
+<Example code={'```tsx lineNumbers\nexport function Button({ children }) {\n  return (\n    <button className="btn">\n      {children}\n    </button>\n  );\n}\n```'} lang="md" contentClass="w-full">
+  <div class="w-full">
+    <Code code={highlightSample} lang="tsx" lineNumbers />
+  </div>
+</Example>
+
+### Word highlight
+
+Highlight a specific token everywhere it appears with `// [!code word:term]`.
+
+<Example code={'```ts\n// [!code word:async]\nasync function load(id: string) {\n  const res = await fetch(`/api/${id}`);\n  return await res.json();\n}\n```'} lang="md" contentClass="w-full">
+  <div class="w-full">
+    <Code code={wordSample} lang="ts" />
+  </div>
+</Example>

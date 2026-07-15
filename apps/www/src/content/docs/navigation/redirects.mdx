@@ -1,0 +1,49 @@
+---
+title: Redirects
+description: Point old URLs at new ones — sidebar rewrites, renamed pages, and host-level redirects.
+aiGenerated: true
+sidebar:
+  order: 3
+---
+
+Three mechanisms cover the common cases: rewriting a sidebar link, renaming a page across versions, and host-level URL redirects.
+
+## Rewrite a sidebar link
+
+`external_link` changes where the sidebar links a page without moving where it builds. Point a deprecated entry at its replacement, or send an entry off-site:
+
+```yaml
+---
+title: Old guide
+external_link: /guides/new-guide
+---
+```
+
+It accepts an absolute URL (`https://…`) or a site-absolute path (`/foo/bar`). The page still builds at its own path; only the rail link changes. Absolute URLs render with `target="_blank"`.
+
+## Renamed pages across versions
+
+When a page's slug changes between versions, declare the old slug on the new page so the two are linked as the same logical page and a canonical URL is emitted:
+
+```yaml
+---
+title: Configuration
+previousSlug: config        # was /config in v1, now /configuration
+---
+```
+
+`previousSlug` accepts a string or an array (for renames across several versions). Nimbus also auto-generates redirects from old-version URLs whose slug no longer exists to their current-version sibling.
+
+## Host-level redirects
+
+For permanent URL moves, use Astro's built-in `redirects` config — Nimbus merges its version redirects with yours, and your hand-written entries win on conflict:
+
+```ts title="astro.config.ts"
+export default defineConfig({
+  redirects: {
+    "/old-path": "/new-path",
+  },
+});
+```
+
+On static hosts these compile to redirect files; on Cloudflare and other adapters they become native redirect rules.

@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  # Recovery path for a half-failed release (emdash parity): publish whatever is
+  # pending without re-running generate/verify/sync. Use when a run died after
+  # the templates branch was synced + tagged but before npm publish completed.
+  workflow_dispatch:
+    inputs:
+      publish_only:
+        description: "Forced publish-only (skip generate/verify/sync; publish + push tags)"
+        type: boolean
+        default: false
+
+# Serialize releases: never let two runs race on the Version Packages PR or npm.
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+# Default-deny; the release job opts into exactly what it needs.
+permissions: {}
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the Version Packages PR branch, git tags, and the templates branch/tag
+      pull-requests: write # open/update the Version Packages PR
+      id-token: write # npm publish provenance (OIDC)
+      actions: write # belt-and-suspenders; the App token's own Actions:write (see prereqs) is what actually authorizes release.mjs's verify-smoke dispatch
+    steps:
+      # A GitHub App installation token, not GITHUB_TOKEN. Two reasons:
+      #   1. App-authored "Version packages" PRs trigger CI; GITHUB_TOKEN-authored
+      #      ones are suppressed by GitHub and would merge with zero checks.
+      #   2. release.mjs pushes the orphan `templates` branch + `templates-v*` tag
+      #      and dispatches the in-repo verify workflow — both in THIS repo, via
+      #      the job's contents:write / actions:write above. Since MONO-5 there is
+      #      no second repo, so the token is scoped to the monorepo only.
+      # Secrets APP_ID / APP_PRIVATE_KEY belong to the nimbus-docs bot App.
+      - name: Mint App token
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            nimbus-docs
+
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0 # changesets needs full history to tag
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: true
+
+      # No `version:` here — the root package.json `packageManager` field is the
+      # single source of truth (pinning both can error on action-setup v4).
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      # 0.x major-release guard: a stray `major` changeset must not publish
+      # 1.0.0 unattended. Runs on the pinned Node (after setup-node) and before
+      # `changeset version` consumes the changesets.
+      - name: Guard against an unattended 1.0.0
+        run: node scripts/check-no-major.mjs
+
+      - run: pnpm install --frozen-lockfile
+
+      # Build only what gets published. The root `build` also builds the private
+      # @nimbus/www site + starter source; a failure there must not block the npm
+      # release. release.mjs re-verifies the templates against the packed bits.
+      - run: pnpm --filter nimbus-docs --filter create-nimbus-docs build
+
+      # Forced recovery path (workflow_dispatch, publish_only=true). Bypasses
+      # changesets/action, so release.mjs pushes tags itself (git push --tags).
+      - name: Publish-only (recovery)
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_only
+        run: node scripts/release.mjs publish-only
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"
+
+      # Normal path. On a push with pending changesets, opens/updates the
+      # "Version packages" PR. When that PR is merged (no changesets remain), the
+      # `publish` command runs release.mjs, which: fail-safe release detection →
+      # generate → verify (against the packed nimbus-docs) → sync + tag the
+      # orphan `templates` branch as `templates-v<ver>` (BEFORE publish) →
+      # publish nimbus-docs before the CLI → changeset publish → changeset tag →
+      # dispatch the in-repo verify smoke for the new tag.
+      #
+      # Prerequisites (one-time, outside this file):
+      #   - Repo setting: Settings → Actions → General → "Allow GitHub Actions
+      #     to create and approve pull requests" must be ON (App-authored PRs
+      #     still need the org/repo toggle), or the PR step fails.
+      #   - Secret NPM_TOKEN: an npm automation/granular token with publish
+      #     rights to nimbus-docs and create-nimbus-docs.
+      #   - Secrets APP_ID / APP_PRIVATE_KEY for the bot App, installed on the
+      #     monorepo only. The App must grant Contents: read & write (branch +
+      #     tag push) and Actions: read & write (smoke dispatch) — the minted
+      #     token inherits the App's permissions, so a missing Actions grant is
+      #     what makes the best-effort smoke dispatch 403 silently.
+      #   - Ref protection (rulesets on this repo, see the MONO-5 ticket):
+      #     branch `templates` — restrict updates, bypass = the bot App;
+      #     tag `templates-v*` — (a) restrict creation, bypass = the bot App,
+      #     (b) block update + deletion with an EMPTY bypass list (nobody,
+      #     including the App, moves a published tag). Bypass is per-ruleset, so
+      #     these are two separate tag rulesets.
+      #   - NPM_CONFIG_PROVENANCE requires a PUBLIC GitHub repo whose URL matches
+      #     each package's `repository.url`. Going public is also the hard
+      #     requirement for unauthenticated giget scaffolds (this design cannot
+      #     expose templates without exposing source) — flip it public (after a
+      #     full-history secret scan), or drop this env line + `id-token: write`,
+      #     before the first real release.
+      - name: Create Version packages PR or publish
+        if: "!(github.event_name == 'workflow_dispatch' && inputs.publish_only)"
+        uses: changesets/action@3841a0683d3cfa6dae0f9bb335290003010fe3f0 # v1.9.0
+        with:
+          version: pnpm changeset version
+          publish: node scripts/release.mjs publish
+          commit: "Version packages"
+          title: "Version packages"
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"

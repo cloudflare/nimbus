@@ -1,0 +1,62 @@
+---
+title: Collapsible
+tagline: "Single disclosure — trigger that toggles an animated content panel."
+props:
+  - name: open
+    type: boolean
+    defaultValue: "false"
+    description: Render expanded by default.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
+
+## Preview
+
+<Showcase code={`<Collapsible>
+  <CollapsibleTrigger>What's inside?</CollapsibleTrigger>
+  <CollapsibleContent>
+    Anything — text, code, components. The container animates open and closed.
+  </CollapsibleContent>
+</Collapsible>`}>
+  <div class="w-full max-w-md text-left">
+    <Collapsible class="rounded-lg ring ring-border overflow-hidden bg-card">
+      <CollapsibleTrigger class="w-full flex items-center justify-between px-5 py-3.5 text-sm font-medium hover:bg-accent transition-colors">
+        What's inside?
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div class="px-5 pb-5 pt-1 text-sm text-muted-foreground">
+          Anything — text, code, components. The container animates open and closed.
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  </div>
+</Showcase>
+
+## Examples
+
+### Default open
+
+Pass `open` to start in the expanded state.
+
+<Example code={`<Collapsible open>
+  <CollapsibleTrigger>Already open</CollapsibleTrigger>
+  <CollapsibleContent>The panel is visible on first render.</CollapsibleContent>
+</Collapsible>`} contentClass="w-full">
+  <div class="w-full">
+    <Collapsible open class="rounded-lg ring ring-border overflow-hidden bg-card">
+      <CollapsibleTrigger class="w-full flex items-center justify-between px-5 py-3.5 text-sm font-medium hover:bg-accent transition-colors">
+        Already open
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div class="px-5 pb-5 pt-1 text-sm text-muted-foreground">
+          The panel is visible on first render.
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  </div>
+</Example>

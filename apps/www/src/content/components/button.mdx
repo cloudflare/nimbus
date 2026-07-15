@@ -1,0 +1,107 @@
+---
+title: Button
+tagline: "Action trigger with variant, size, and shape options. Shares its styling with LinkButton."
+props:
+  - name: variant
+    type: '"primary" | "secondary" | "ghost" | "destructive" | "secondary-destructive" | "outline"'
+    defaultValue: '"secondary"'
+    description: Visual treatment.
+  - name: size
+    type: '"xs" | "sm" | "base" | "lg"'
+    defaultValue: '"base"'
+    description: Relative scale; affects padding and font size.
+  - name: shape
+    type: '"base" | "square" | "circle"'
+    defaultValue: '"base"'
+    description: 'Use "square" or "circle" for icon-only buttons (pass an aria-label).'
+  - name: icon
+    type: string
+    description: Iconify name rendered before the label, e.g. "ph:plus".
+  - name: loading
+    type: boolean
+    defaultValue: "false"
+    description: Show a spinner and disable interaction.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { Button } from "@/components/ui/button";
+
+## Preview
+
+<Showcase code={`<Button variant="primary">Save</Button>`}>
+  <div class="w-full text-center">
+    <Button variant="primary">Save</Button>
+  </div>
+</Showcase>
+
+## Examples
+
+### Variants
+
+Six intents for different levels of emphasis and risk.
+
+<Example code={`<Button variant="primary">Primary</Button>
+<Button variant="secondary">Secondary</Button>
+<Button variant="ghost">Ghost</Button>
+<Button variant="outline">Outline</Button>
+<Button variant="destructive">Destructive</Button>
+<Button variant="secondary-destructive">Secondary destructive</Button>`} contentClass="w-full">
+  <div class="flex flex-wrap items-center justify-center gap-3">
+    <Button variant="primary">Primary</Button>
+    <Button variant="secondary">Secondary</Button>
+    <Button variant="ghost">Ghost</Button>
+    <Button variant="outline">Outline</Button>
+    <Button variant="destructive">Destructive</Button>
+    <Button variant="secondary-destructive">Secondary destructive</Button>
+  </div>
+</Example>
+
+### Sizes
+
+Four scales, from compact toolbars to prominent calls to action.
+
+<Example code={`<Button size="xs">Extra small</Button>
+<Button size="sm">Small</Button>
+<Button size="base">Base</Button>
+<Button size="lg">Large</Button>`} contentClass="w-full">
+  <div class="flex flex-wrap items-center justify-center gap-3">
+    <Button size="xs">Extra small</Button>
+    <Button size="sm">Small</Button>
+    <Button size="base">Base</Button>
+    <Button size="lg">Large</Button>
+  </div>
+</Example>
+
+### With an icon
+
+Pass an Iconify name to `icon` to render a leading glyph.
+
+<Example code={`<Button variant="primary" icon="ph:plus">Create</Button>
+<Button variant="secondary" icon="ph:download-simple">Download</Button>`} contentClass="w-full">
+  <div class="flex flex-wrap items-center justify-center gap-3">
+    <Button variant="primary" icon="ph:plus">Create</Button>
+    <Button variant="secondary" icon="ph:download-simple">Download</Button>
+  </div>
+</Example>
+
+### Icon-only
+
+Use `shape="square"` or `shape="circle"` for icon-only buttons, and always pass an `aria-label`.
+
+<Example code={`<Button shape="square" icon="ph:gear" aria-label="Settings" />
+<Button shape="circle" icon="ph:heart" aria-label="Like" />`} contentClass="w-full">
+  <div class="flex flex-wrap items-center justify-center gap-3">
+    <Button shape="square" icon="ph:gear" aria-label="Settings" />
+    <Button shape="circle" icon="ph:heart" aria-label="Like" />
+  </div>
+</Example>
+
+### Loading
+
+`loading` swaps the icon for a spinner and disables the button.
+
+<Example code={`<Button variant="primary" loading>Saving…</Button>`} contentClass="w-full">
+  <div class="flex flex-wrap items-center justify-center gap-3">
+    <Button variant="primary" loading>Saving…</Button>
+  </div>
+</Example>

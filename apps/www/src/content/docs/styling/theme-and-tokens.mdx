@@ -1,0 +1,51 @@
+---
+title: Theme and tokens
+description: Customize colors, spacing, and type through the design tokens in globals.css.
+aiGenerated: true
+sidebar:
+  order: 1
+---
+
+The whole visual system lives in `src/styles/globals.css` — a flat set of CSS custom properties (`--nb-*`) exposed to Tailwind. It's the one file you edit to rebrand a site.
+
+## Design tokens
+
+Tokens are defined as custom properties and surfaced to Tailwind through an `@theme` block, so utilities like `bg-card`, `text-foreground`, and `border-border` resolve to them. Colors use `oklch` for perceptual uniformity.
+
+```css title="src/styles/globals.css"
+:root {
+  --nb-background: oklch(0.99 0 0);
+  --nb-foreground: oklch(0.21 0 0);
+  --nb-primary: oklch(0.145 0 0);
+  --nb-border: oklch(0.935 0 0);
+  /* status: --nb-info / --nb-success / --nb-warning / --nb-danger */
+}
+```
+
+Surfaces are paired with a foreground for contrast (`card` / `card-foreground`), and names are functional — `primary` (action), `accent` (hover surface), `muted` (de-emphasized) — not visual. Change a value here and it propagates everywhere that token is used.
+
+## Dark mode
+
+Dark mode is driven by a `[data-mode="dark"]` attribute on `<html>`, which the theme toggle flips. Tailwind's `dark:` variant is wired to the same signal, so `dark:bg-card` works without re-stating the selector. Override any token inside the dark block:
+
+```css
+[data-mode="dark"] {
+  --nb-background: oklch(0.21 0 0);
+  --nb-foreground: oklch(0.97 0 0);
+}
+```
+
+Code blocks follow automatically — Shiki emits both light and dark themes as CSS variables and the attribute selects between them ([Code blocks](/writing/code-blocks)).
+
+## Layout and type
+
+The same file holds layout and typography tokens — rail widths, content measure, and the self-hosted font stacks:
+
+```css
+--nb-sidebar-width: 18.75rem;
+--nb-toc-width: 18rem;
+--nb-content-max: 43.5rem;
+--nb-font-sans: "Inter Variable", system-ui, sans-serif;
+```
+
+Prose styling lives alongside in `src/styles/prose.css`. Both are yours to edit.

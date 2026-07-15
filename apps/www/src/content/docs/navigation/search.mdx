@@ -1,0 +1,41 @@
+---
+title: Search
+description: Full-text search with Pagefind out of the box, or wire your own provider.
+aiGenerated: true
+sidebar:
+  order: 2
+---
+
+Search ships on by default, backed by [Pagefind](https://pagefind.app/) — a static, index-at-build-time engine. No configuration is required.
+
+## How it works
+
+After `astro build`, Nimbus runs Pagefind over the output `dist/` and writes a search index alongside your pages. The index is served statically, so search works on any host with no backend.
+
+Install Pagefind as a dev dependency so the build step can find it:
+
+<PackageManagers pkg="pagefind" type="add" />
+
+## Controlling what's indexed
+
+A page's search inclusion derives from `noindex` unless you set `searchable` explicitly:
+
+```yaml
+---
+title: Internal note
+noindex: true        # out of search engines…
+searchable: true     # …but still findable in site search
+---
+```
+
+`draft: true` pages are never indexed. See [Frontmatter](/writing/frontmatter).
+
+## Disabling or replacing search
+
+Turn the framework search plumbing off entirely:
+
+```ts title="astro.config.ts"
+nimbus({ /* … */, search: false });
+```
+
+Or keep the UI but supply your own backend (Algolia, a hosted service) by implementing the `SearchProvider` interface and setting `search: { provider: "custom" }` — Nimbus then skips the Pagefind build step and lets your code render results.

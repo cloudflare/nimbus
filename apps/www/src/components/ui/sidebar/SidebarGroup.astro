@@ -1,0 +1,80 @@
+---
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import SidebarLink from "./SidebarLink.astro";
+import { Badge } from "@/components/ui/badge";
+import type { SidebarItem, SidebarBadge } from "nimbus-docs/types";
+
+interface Props extends HTMLAttributes<"div"> {
+  label: string;
+  items: SidebarItem[];
+  collapsed?: boolean;
+  badge?: SidebarBadge;
+}
+
+const { label, items, collapsed, badge, class: className, ...attrs } = Astro.props;
+function hasActiveDescendant(items: SidebarItem[]): boolean {
+  return items.some((item) =>
+    item.type === "link"
+      ? Boolean(item.isCurrent)
+      : item.type === "group"
+        ? hasActiveDescendant(item.children)
+        : false,
+  );
+}
+
+const hasActive = hasActiveDescendant(items);
+const isOpen = Boolean(hasActive || collapsed === false || collapsed === undefined);
+---
+
+<Collapsible
+  class={cn("group/accordion", className)}
+  open={isOpen}
+  data-nb-sidebar-group
+  {...attrs}
+>
+  <CollapsibleTrigger
+    class={cn(
+      "group/expander flex min-h-[2rem] items-center justify-between rounded-lg px-3 py-1 text-[0.8125rem] no-underline transition-colors duration-150 focus-visible:outline-offset-[-2px]",
+      "hover:bg-accent hover:text-foreground",
+      hasActive ? "font-semibold text-foreground" : "font-medium text-muted-foreground",
+    )}
+    data-nb-sidebar-group-label
+    data-nb-state={isOpen ? "open" : "closed"}
+    aria-expanded={isOpen ? "true" : "false"}
+  >
+    <span class="flex items-center gap-2">
+      {label}
+      {badge &&
+        (typeof badge === "string" ? (
+          <Badge text={badge} />
+        ) : (
+          <Badge text={badge.text} variant={badge.variant} />
+        ))}
+    </span>
+    <svg
+      viewBox="0 0 256 256"
+      fill="currentColor"
+      aria-hidden="true"
+      class="ml-auto -mr-px shrink-0 w-4 h-4 text-muted-foreground transition-transform duration-[250ms] ease-[cubic-bezier(0.87,0,0.13,1)] group-hover/expander:text-foreground group-data-[nb-state=open]/expander:rotate-90"
+    >
+      <path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"></path>
+    </svg>
+  </CollapsibleTrigger>
+  <CollapsibleContent data-nb-state={isOpen ? "open" : "closed"}>
+    <ul class="mt-0.5 ml-3 list-none border-l border-border p-0 pl-2 flex flex-col gap-px">
+      {items.map((item) => (
+        <li class="break-words">
+          {item.type === "group" ? (
+            <Astro.self label={item.label} items={item.children} collapsed={item.collapsed} badge={item.badge} />
+          ) : item.type === "external" ? (
+            <SidebarLink label={item.label} href={item.href} badge={item.badge} target="_blank" rel="noopener" />
+          ) : (
+            <SidebarLink label={item.label} href={item.href} isCurrent={item.isCurrent} badge={item.badge} />
+          )}
+        </li>
+      ))}
+    </ul>
+  </CollapsibleContent>
+</Collapsible>

@@ -1,0 +1,19 @@
+---
+/**
+ * Callout — backwards-compatible alias for Aside.
+ * Prefer using <Aside> in new code.
+ */
+import Aside from "../aside/Aside.astro";
+
+interface Props {
+  type?: "note" | "tip" | "caution" | "danger";
+  title?: string;
+  class?: string;
+}
+
+const { type, title, ...rest } = Astro.props;
+---
+
+<Aside type={type} title={title} {...rest}>
+  <slot />
+</Aside>

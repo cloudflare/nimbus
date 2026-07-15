@@ -1,0 +1,56 @@
+---
+title: Code blocks
+description: Syntax highlighting, titles, line notations, and package-manager tabs.
+aiGenerated: true
+sidebar:
+  order: 4
+---
+
+Fenced code blocks are highlighted at build time with Shiki, configured for dual light/dark themes so blocks switch with the site theme — no client-side highlighter ships.
+
+## Titles and highlighting
+
+Add a title and highlight lines in the fence meta:
+
+````md
+```ts title="astro.config.ts" {2,4-5}
+import { defineConfig } from "astro/config";
+import nimbus from "nimbus-docs";
+
+export default defineConfig({
+  integrations: [nimbus(config)],
+});
+```
+````
+
+## Notations
+
+Inline comment notations mark diffs, highlights, focus, and errors:
+
+```ts
+const ok = true;        // [!code highlight]
+const removed = false;  // [!code --]
+const added = true;     // [!code ++]
+const focused = 1;      // [!code focus]
+const broken = err;     // [!code error]
+```
+
+These come from the default Shiki transformer chain. If you render code through the `Code` component, pass the same chain via `defaultCodeTransformers` exported from `nimbus-docs`.
+
+## Language aliases
+
+Common shorthand fences are mapped so they don't fall through to plaintext: `curl` and `console` → `bash`, `shellsession` → `shellscript`. Extend the set through Astro's `markdown.shikiConfig.langAlias`.
+
+## Package-manager tabs
+
+`<PackageManagers>` renders one command across npm, pnpm, yarn, and bun. It's in the default registry, so no import is needed:
+
+```mdx
+<PackageManagers pkg="nimbus-docs" type="dlx" args="add badge" />
+```
+
+- `type="create"` → `npm create …`
+- `type="run"` → `npm run …`
+- `type="dlx"` → `npx` / `pnpm dlx` / etc.
+
+For multiple languages of the same example, install the `code-group` component from the registry — see [Adding components](/adding-components).

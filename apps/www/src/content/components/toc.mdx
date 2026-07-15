@@ -1,0 +1,35 @@
+---
+title: TOC
+tagline: "On-this-page navigation — scroll-spy with animated active indicator and depth-aware indentation."
+props:
+  - name: headings
+    type: TOCItem[]
+    required: true
+    description: "Flat list of `{ depth, text, slug }` — usually from `getTOC(entry)`."
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import { TOC } from "@/components/ui/toc";
+
+## Preview
+
+<Showcase code={`<TOC
+  headings={[
+    { depth: 2, text: "Getting started", slug: "getting-started" },
+    { depth: 2, text: "Configuration", slug: "configuration" },
+    { depth: 3, text: "Sidebar", slug: "sidebar" },
+    { depth: 3, text: "Search", slug: "search" },
+    { depth: 2, text: "Deployment", slug: "deployment" },
+  ]}
+/>`}>
+  <div class="w-full max-w-xs text-left">
+    <TOC
+      headings={[
+        { depth: 2, text: "Getting started", slug: "getting-started" },
+        { depth: 2, text: "Configuration", slug: "configuration" },
+        { depth: 3, text: "Sidebar", slug: "sidebar" },
+        { depth: 3, text: "Search", slug: "search" },
+        { depth: 2, text: "Deployment", slug: "deployment" },
+      ]}
+    />
+  </div>
+</Showcase>

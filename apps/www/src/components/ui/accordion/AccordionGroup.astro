@@ -1,0 +1,27 @@
+---
+/**
+ * AccordionGroup — wraps a stack of <Accordion>s as one bordered card.
+ *
+ *   <AccordionGroup>
+ *     <Accordion>…</Accordion>
+ *     <Accordion>…</Accordion>
+ *   </AccordionGroup>
+ */
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+
+type Props = HTMLAttributes<"div">;
+
+const { class: className, ...attrs } = Astro.props;
+---
+
+<div
+  data-nb-accordion-group
+  class={cn(
+    "my-4 overflow-hidden rounded-lg bg-card ring ring-border",
+    className,
+  )}
+  {...attrs}
+>
+  <slot />
+</div>

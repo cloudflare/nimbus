@@ -1,0 +1,41 @@
+---
+title: Banners
+description: Show an announcement at the top of a page, optionally dismissible.
+aiGenerated: true
+sidebar:
+  order: 3
+---
+
+A banner is a strip at the top of a page for announcements — a new release, a migration notice, a deprecation warning. Declare it in frontmatter.
+
+## Basic banner
+
+```yaml
+---
+title: Workers
+banner:
+  content: This API is in beta and may change.
+  type: caution
+---
+```
+
+`type` is one of `note`, `tip`, `caution`, `danger` and styles the strip accordingly. `content` is plain text.
+
+## Dismissible banners
+
+Add `dismissible` to let readers close the banner; their choice is remembered:
+
+```yaml
+banner:
+  content: v2 is out — see the migration guide.
+  type: tip
+  dismissible:
+    id: v2-release      # stable id; bump it when the message changes
+    days: 7             # how long the dismissal sticks (default: forever)
+```
+
+The `id` is how Nimbus remembers a dismissal. Change the message meaningfully? Bump the `id` so the banner shows again.
+
+## Site-wide notices
+
+`banner` is per-page. For a notice on every page, render the `Banner` component in your `BaseLayout`, or add a persistent element through the `head` config — see [Layouts](/styling/layouts) and [Configuration](/configuration).

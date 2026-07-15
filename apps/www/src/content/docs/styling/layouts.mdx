@@ -1,0 +1,54 @@
+---
+title: Layouts
+description: The page shells Nimbus ships, and how to turn columns off per page or site-wide.
+aiGenerated: true
+sidebar:
+  order: 2
+---
+
+Layouts are user-owned `.astro` files in `src/layouts/`. The scaffolder writes them; you edit them freely.
+
+## The shells
+
+- **`BaseLayout`** — the outer shell: `<html>`, `<head>`, theme bootstrap, font preloads, metadata. Everything renders inside it.
+- **`DocsLayout`** — the docs page shape: sidebar rail, content column, table of contents, breadcrumbs, prev/next. The default for content pages.
+- **`ShowcaseLayout`** — the component-showcase shape used by the `/components` collection.
+
+Because they're your files, the way to remove a piece of chrome is to delete it from the layout — drop `<Pagination />` from `DocsLayout` and it's gone site-wide.
+
+## Per-page toggles
+
+Frontmatter turns individual columns off without touching the layout:
+
+```yaml
+---
+title: Wide page
+sidebar: false           # hide the sidebar rail
+tableOfContents: false   # hide the TOC column
+---
+```
+
+For a page with no docs chrome at all — a landing or marketing page — use `mode: custom`:
+
+```yaml
+---
+title: Welcome
+mode: custom
+---
+```
+
+## Site-wide toggles
+
+The `features` block in your Nimbus config kills a column everywhere. The merge is AND — a column renders only when both the site-wide flag and the per-page field agree:
+
+```ts title="astro.config.ts"
+nimbus({
+  /* … */
+  features: {
+    sidebar: true,
+    tableOfContents: false,   // no TOC on any page
+  },
+});
+```
+
+There's no per-page opt-in to override a site-wide `false`: turn a column off site-wide and it stays off.

@@ -1,0 +1,66 @@
+---
+/**
+ * Code — syntax-highlighted code block from a string prop.
+ *
+ *   <Code code={generated} lang="ts" />
+ *   <Code code={...} lang="ts" meta='title="src/foo.ts" {1,3-5}' />
+ *   <Code code={...} lang="md" raw />  ← source-display mode
+ *
+ * `raw` mode drops the notation transformers (// [!code ++], etc.) so
+ * the code renders literally — useful when the block is showing the
+ * source of another rendered example and the notation comments are
+ * meant to appear as text, not as red/green diff stripes.
+ */
+import { Code as AstroCode } from "astro:components";
+import { defaultCodeTransformers } from "nimbus-docs";
+import type { ShikiTransformer } from "shiki";
+
+type AstroCodeProps = Parameters<typeof AstroCode>[0];
+interface Props extends AstroCodeProps {
+  /**
+   * Render the source literally — skip the notation transformers that
+   * interpret `// [!code ++]`, `// [!code focus]`, etc. Keeps title
+   * frame, language tag, and base syntax highlighting.
+   */
+  raw?: boolean;
+  /**
+   * Render gutter line numbers. Numbers come from a CSS counter on
+   * `.line` (Shiki's per-line span), so they stay in sync regardless
+   * of which other transformers run.
+   */
+  lineNumbers?: boolean;
+}
+
+const { raw = false, lineNumbers = false, ...rest } = Astro.props as Props;
+const rawProps = rest as AstroCodeProps;
+const themed = "theme" in rawProps || "themes" in rawProps
+  ? rawProps
+  : {
+      ...rawProps,
+      themes: { light: "github-light", dark: "github-dark" },
+      defaultColor: false,
+    };
+const baseTransformers = raw
+  ? defaultCodeTransformers().filter((t) => !t.name?.includes(":notation-"))
+  : defaultCodeTransformers();
+const lineNumbersTransformer: ShikiTransformer = {
+  name: "nimbus:line-numbers",
+  pre(node) {
+    node.properties = node.properties ?? {};
+    node.properties["data-nb-line-numbers"] = "true";
+  },
+};
+// Run the line-numbers transformer BEFORE the default chain so the
+// `data-nb-line-numbers` attribute lands on the pre before
+// `titleAndLangTransformer` wraps it in a figure — once the pre has been
+// returned-as-figure, downstream `pre` hooks no longer reach it.
+const transformers = lineNumbers
+  ? [lineNumbersTransformer, ...baseTransformers]
+  : baseTransformers;
+const props = {
+  ...themed,
+  transformers: [...transformers, ...(themed.transformers ?? [])],
+};
+---
+
+<AstroCode {...props} />

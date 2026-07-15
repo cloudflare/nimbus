@@ -1,0 +1,102 @@
+---
+title: Dialog
+tagline: "Modal overlay built on the native <dialog> element — scroll-lock and backdrop dismiss handled automatically."
+props:
+  - name: id
+    type: string
+    description: Dialog prop. Used to target the modal via `document.getElementById(id).showModal()`.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
+
+## Preview
+
+<Showcase code={`<button onclick="document.getElementById('demo').showModal()">Open dialog</button>
+
+<Dialog id="demo">
+  <DialogContent class="max-w-md">
+    <div class="p-6 flex flex-col gap-3">
+      <h3 class="text-base font-semibold">Confirm deploy</h3>
+      <p class="text-sm text-muted-foreground">Production will rebuild from the current main branch.</p>
+      <div class="flex justify-end gap-2 mt-2">
+        <DialogClose class="px-3 py-1.5 rounded-md border border-border text-sm">Cancel</DialogClose>
+        <DialogClose class="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm">Deploy</DialogClose>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>`}>
+  <div class="w-full text-left flex flex-col items-center gap-3">
+    <button
+      type="button"
+      onclick="document.getElementById('demo-dialog').showModal()"
+      class="inline-flex items-center justify-center px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
+    >
+      Open dialog
+    </button>
+    <p class="text-xs text-muted-foreground">Modal opens over the page; click backdrop or Cancel to dismiss.</p>
+    <Dialog id="demo-dialog">
+      <DialogContent class="max-w-md">
+        <div class="p-6 flex flex-col gap-3">
+          <h3 class="text-base font-semibold text-foreground">Confirm deploy</h3>
+          <p class="text-sm text-muted-foreground">Production will rebuild from the current main branch.</p>
+          <div class="flex justify-end gap-2 mt-2">
+            <DialogClose class="px-3 py-1.5 rounded-md border border-border text-sm hover:bg-accent transition-colors cursor-pointer">
+              Cancel
+            </DialogClose>
+            <DialogClose class="px-3 py-1.5 rounded-md bg-foreground text-background text-sm hover:opacity-90 transition-opacity cursor-pointer">
+              Deploy
+            </DialogClose>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  </div>
+</Showcase>
+
+## Examples
+
+### Confirmation
+
+A simple confirm/cancel dialog with two DialogClose buttons styled as actions.
+
+<Example code={`<button onclick="document.getElementById('confirm').showModal()">Delete project</button>
+
+<Dialog id="confirm">
+  <DialogContent class="max-w-sm">
+    <div class="p-6">
+      <h3 class="text-base font-semibold mb-2">Are you sure?</h3>
+      <p class="text-sm text-muted-foreground mb-4">This can't be undone.</p>
+      <div class="flex justify-end gap-2">
+        <DialogClose class="px-3 py-1.5 rounded-md border border-border text-sm">Cancel</DialogClose>
+        <DialogClose class="px-3 py-1.5 rounded-md bg-danger text-white text-sm">Delete</DialogClose>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>`} contentClass="w-full">
+  <div class="w-full text-left flex flex-col items-center gap-3">
+    <button
+      type="button"
+      onclick="document.getElementById('demo-confirm').showModal()"
+      class="inline-flex items-center justify-center px-4 py-2 rounded-md bg-danger text-white text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
+    >
+      Delete project
+    </button>
+    <Dialog id="demo-confirm">
+      <DialogContent class="max-w-sm">
+        <div class="p-6">
+          <h3 class="text-base font-semibold text-foreground mb-2">Are you sure?</h3>
+          <p class="text-sm text-muted-foreground mb-4">This can't be undone.</p>
+          <div class="flex justify-end gap-2">
+            <DialogClose class="px-3 py-1.5 rounded-md border border-border text-sm hover:bg-accent transition-colors cursor-pointer">
+              Cancel
+            </DialogClose>
+            <DialogClose class="px-3 py-1.5 rounded-md bg-danger text-white text-sm hover:opacity-90 transition-opacity cursor-pointer">
+              Delete
+            </DialogClose>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  </div>
+</Example>

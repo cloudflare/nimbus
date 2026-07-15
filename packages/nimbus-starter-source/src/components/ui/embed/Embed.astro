@@ -1,0 +1,49 @@
+---
+/**
+ * Embed — responsive iframe wrapper (YouTube, Loom, Figma, etc.).
+ *
+ *   <Embed src="https://youtube.com/embed/…" title="Demo" />
+ *   <Embed src="…" title="Wide" ratio="21/9" />
+ *
+ * Defaults to 16:9; override via `ratio`.
+ */
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends Omit<HTMLAttributes<"iframe">, "title"> {
+  src: string;
+  title: string;
+  /** CSS aspect-ratio value. Default "16/9". */
+  ratio?: string;
+  /** Allow attribute for the iframe. */
+  allow?: string;
+  /** allowfullscreen attribute. Default true. */
+  allowfullscreen?: boolean;
+}
+
+const {
+  src,
+  title,
+  ratio = "16/9",
+  allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture",
+  allowfullscreen = true,
+  class: className,
+  ...attrs
+} = Astro.props;
+---
+
+<div
+  class={cn("embed my-4 overflow-hidden rounded-lg border border-border bg-muted", className)}
+  style={`aspect-ratio: ${ratio};`}
+>
+  <iframe
+    src={src}
+    title={title}
+    loading="lazy"
+    allow={allow}
+    allowfullscreen={allowfullscreen}
+    referrerpolicy="strict-origin-when-cross-origin"
+    class="block h-full w-full border-0"
+    {...attrs}
+  />
+</div>

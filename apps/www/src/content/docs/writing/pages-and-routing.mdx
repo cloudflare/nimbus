@@ -1,0 +1,60 @@
+---
+title: Pages and routing
+description: How the filesystem under src/content/docs becomes your routes and sidebar.
+aiGenerated: true
+sidebar:
+  order: 1
+---
+import { FileTree } from "@/components/ui/file-tree";
+
+A page is a `.md` or `.mdx` file under `src/content/docs/`. Its path on disk is its URL and its place in the [sidebar](/navigation/sidebar) — there is no separate routing or navigation config.
+
+## File to URL
+
+| File | URL |
+|---|---|
+| `src/content/docs/get-started.mdx` | `/get-started` |
+| `src/content/docs/guides/styling.mdx` | `/guides/styling` |
+| `src/content/docs/guides/index.mdx` | `/guides` |
+
+Slugs are lowercased and folder `index` files collapse to the directory URL. A directory's `index.mdx` becomes the landing page for that section.
+
+<FileTree>
+- src/content/docs/
+  - introduction.mdx
+  - guides/
+    - index.mdx
+    - styling.mdx
+</FileTree>
+
+## Page modes
+
+Every page renders inside `DocsLayout` by default — sidebar, table of contents, breadcrumbs, prev/next. Opt a page out of all chrome with `mode`:
+
+```yaml
+---
+title: Welcome
+mode: custom
+---
+```
+
+`mode: custom` is for landing pages and bespoke layouts. Per-column toggles (`sidebar: false`, `tableOfContents: false`) turn off individual pieces without going fully custom — see [Layouts](/styling/layouts).
+
+## Drafts
+
+`draft: true` keeps a page out of production builds and the agent index, while still rendering under `astro dev` (treated as `noindex`). Use it for work in progress.
+
+```yaml
+---
+title: Experimental feature
+draft: true
+---
+```
+
+## Redirecting a sidebar entry
+
+`external_link` rewrites where the sidebar links a page without changing where it builds — useful for pointing an entry at another section or an off-site URL. See [Redirects](/navigation/redirects).
+
+## Other collections
+
+`src/content/docs/` is the primary collection, mounted at the site root. Additional collections (a `blog`, an `api`, a versioned `docs-v2`) mount under their own URL namespace. Register them in `src/content.config.ts` with the factories from `nimbus-docs/content`.

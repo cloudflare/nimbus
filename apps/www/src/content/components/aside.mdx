@@ -1,0 +1,84 @@
+---
+title: Aside
+tagline: "Boxed callout for inline emphasis — note, tip, caution, and danger variants out of the box."
+props:
+  - name: type
+    type: '"note" | "tip" | "caution" | "danger"'
+    defaultValue: '"note"'
+    description: Visual treatment that conveys the callout's intent.
+  - name: title
+    type: string
+    description: Optional heading override. Defaults to the capitalised type label.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { Aside } from "@/components/ui/aside";
+
+## Preview
+
+<Showcase code={`<Aside type="note">
+  Asides support **rich content**, [links](#), and \`inline code\`.
+</Aside>`}>
+  <div class="w-full max-w-md text-left">
+    <Aside type="note">
+      Asides support <strong>rich content</strong>, <a href="#">links</a>, and <code>inline code</code>.
+    </Aside>
+  </div>
+</Showcase>
+
+## Examples
+
+### Types
+
+Four canonical variants for the most common callout intents.
+
+<Example code={`<Aside type="note">Default note.</Aside>
+<Aside type="tip">Pro tip.</Aside>
+<Aside type="caution">Heads-up.</Aside>
+<Aside type="danger">Critical.</Aside>`} contentClass="w-full">
+  <div class="flex flex-col gap-2">
+    <Aside type="note">Note body.</Aside>
+    <Aside type="tip">Tip body.</Aside>
+    <Aside type="caution">Caution body.</Aside>
+    <Aside type="danger">Danger body.</Aside>
+  </div>
+</Example>
+
+### Custom title
+
+Override the heading without losing the icon and color.
+
+<Example code={`<Aside type="tip" title="Worth knowing">
+  Asides accept any heading. Useful when "Tip" doesn't fit your voice.
+</Aside>`}>
+  <div class="w-full max-w-md">
+    <Aside type="tip" title="Worth knowing">
+      Asides accept any heading. Useful when "Tip" doesn't fit your voice.
+    </Aside>
+  </div>
+</Example>
+
+### In context
+
+<Example mdxTag code={`## Versioned docs
+
+Use a collection prefix to add a new version.
+
+<Aside type="tip" title="On the way">
+  Versioned docs land in v1.1 — see the [roadmap](/features) for status.
+</Aside>
+
+Each version gets its own sidebar.`}>
+  <div class="max-w-md text-left flex flex-col gap-3">
+    <h4 class="text-lg font-semibold text-foreground">Versioned docs</h4>
+    <p class="text-sm text-muted-foreground leading-relaxed">
+      Use a collection prefix to add a new version.
+    </p>
+    <Aside type="tip" title="On the way">
+      Versioned docs land in v1.1 — see the <a href="#">roadmap</a> for status.
+    </Aside>
+    <p class="text-sm text-muted-foreground leading-relaxed">
+      Each version gets its own sidebar.
+    </p>
+  </div>
+</Example>

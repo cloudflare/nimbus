@@ -1,0 +1,103 @@
+---
+title: Steps
+tagline: "Numbered, sequenced instructions — circle markers with auto-counting and connecting lines."
+props:
+  - name: start
+    type: number
+    description: Offsets the step counter — useful for splitting long flows across page sections.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { Steps, Step } from "@/components/ui/steps";
+
+## Preview
+
+<Showcase code={`<Steps>
+  <Step title="Install">
+    Run \`nimbus-docs add steps\` to copy the component into your repo.
+  </Step>
+  <Step title="Compose">
+    Wrap a series of \`<Step>\` blocks. Numbers and connectors are automatic.
+  </Step>
+  <Step title="Author">
+    Use markdown body — code, links, asides all work inside each step.
+  </Step>
+</Steps>`}>
+  <div class="w-full max-w-md text-left">
+    <Steps>
+      <Step title="Install">
+        Run <code>nimbus-docs add steps</code> to copy the component into your repo.
+      </Step>
+      <Step title="Compose">
+        Wrap a series of <code>&lt;Step&gt;</code> blocks. Numbers and connectors are automatic.
+      </Step>
+      <Step title="Author">
+        Use markdown body — code, links, asides all work inside each step.
+      </Step>
+    </Steps>
+  </div>
+</Showcase>
+
+## Examples
+
+### Basic
+
+Three Steps with text bodies — counting and connecting lines are automatic.
+
+<Example code={`<Steps>
+  <Step>Clone the repository.</Step>
+  <Step>Install dependencies with \`pnpm install\`.</Step>
+  <Step>Run the dev server with \`pnpm dev\`.</Step>
+</Steps>`} contentClass="w-full">
+  <div class="w-full">
+    <Steps>
+      <Step>Clone the repository.</Step>
+      <Step>Install dependencies with <code>pnpm install</code>.</Step>
+      <Step>Run the dev server with <code>pnpm dev</code>.</Step>
+    </Steps>
+  </div>
+</Example>
+
+### With titles
+
+Add a `title` prop for bold lead text, then body content below.
+
+<Example code={`<Steps>
+  <Step title="Install">
+    Add the package to your project.
+  </Step>
+  <Step title="Configure">
+    Edit \`config.json\` to match your environment.
+  </Step>
+  <Step title="Run">
+    Start the dev server and open localhost.
+  </Step>
+</Steps>`} contentClass="w-full">
+  <div class="w-full">
+    <Steps>
+      <Step title="Install">Add the package to your project.</Step>
+      <Step title="Configure">Edit <code>config.json</code> to match your environment.</Step>
+      <Step title="Run">Start the dev server and open localhost.</Step>
+    </Steps>
+  </div>
+</Example>
+
+### Custom start
+
+Use `start` to continue numbering across a split flow.
+
+<Example code={`<Steps start={5}>
+  <Step title="Deploy">
+    Push to main; CI builds and deploys.
+  </Step>
+  <Step title="Verify">
+    Open the deployed URL and confirm the staging banner.
+  </Step>
+</Steps>`} contentClass="w-full">
+  <div class="w-full">
+    <Steps start={5}>
+      <Step title="Deploy">Push to main; CI builds and deploys.</Step>
+      <Step title="Verify">Open the deployed URL and confirm the staging banner.</Step>
+    </Steps>
+  </div>
+</Example>

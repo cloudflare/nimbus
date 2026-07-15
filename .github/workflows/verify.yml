@@ -1,0 +1,69 @@
+name: Verify templates
+
+# Post-publish smoke (MONO-5): scaffold every variant straight from a
+# `templates-v*` tag on the orphan `templates` branch and build it against the
+# now-live npm packages. The release job dispatches this with the freshly-pushed
+# tag (needs actions:write on the App token); it can also be run by hand.
+#
+# The tag's tree is templates-only (variant dirs + README + LICENSE), so
+# checking it out here yields exactly what a giget scaffold would download.
+# Fresh npm publishes can lag registry reads by up to a minute, so install is
+# retried with backoff before the job is allowed to fail.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Templates tag to verify (e.g. templates-v0.2.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+
+      - name: Install + build every variant (retry for registry propagation)
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          any=0
+          for dir in */; do
+            case "$dir" in .github/) continue;; esac
+            [ -f "${dir}package.json" ] || continue
+            any=1
+            echo "::group::verify ${dir}"
+            (
+              cd "$dir"
+              installed=0
+              for i in 1 2 3 4 5; do
+                if pnpm install --no-frozen-lockfile; then installed=1; break; fi
+                wait=$((i * 15))
+                echo "install failed (attempt ${i}); waiting ${wait}s for npm propagation…"
+                sleep "$wait"
+              done
+              if [ "$installed" -ne 1 ]; then
+                echo "::error::${dir} failed to install after retries"
+                exit 1
+              fi
+              pnpm build
+            )
+            echo "::endgroup::"
+          done
+          if [ "$any" -eq 0 ]; then
+            echo "::error::no variant directories found at ${{ inputs.tag }}"
+            exit 1
+          fi

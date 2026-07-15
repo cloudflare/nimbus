@@ -1,0 +1,47 @@
+---
+title: Registry
+description: Where nimbus-docs add finds installable components, utilities, and features.
+sidebar:
+  order: 3
+---
+
+The registry is what `nimbus-docs add` reads from. Three types of entries — components and utilities copy as files; features hand off a recipe to a coding agent.
+
+## Three types
+
+- **`registry:ui`** — UI components. Copied into `src/components/ui/<slug>/`. Examples: Badge, Card, Steps.
+- **`registry:lib`** — Standalone utilities. Copied to specific paths. Example: `cn` → `src/lib/cn.ts`.
+- **`registry:feature`** — Agent-handoff recipes. Nothing copies; the CLI prints markdown the agent reads, adapts to your project, and applies. Example: 404-page.
+
+## Anatomy of an entry
+
+```ts
+badge: {
+  type: "registry:ui",
+  title: "Badge",
+  description: "Small status / category pill.",
+  registryDependencies: ["cn"],
+},
+```
+
+- **`type`** — `registry:ui`, `registry:lib`, or `registry:feature`.
+- **`registryDependencies`** — other slugs the CLI must install first. Walked transitively.
+- **`dependencies`** — npm packages added to `package.json`.
+
+## Install graph
+
+When you run `nimbus-docs add accordion`, the CLI walks the slug's dependency graph:
+
+```
+accordion
+├── collapsible
+└── cn
+```
+
+It installs `collapsible` and `cn` before `accordion`. Each lands at the path declared in the manifest. Duplicates are skipped.
+
+Features don't have an install graph — the recipe is self-contained markdown the agent applies inside your existing layout.
+
+## Browse the registry
+
+Every shipped component has a showcase page at [`/components`](/components) — preview, copy-paste MDX, prop reference, and a one-line install command.

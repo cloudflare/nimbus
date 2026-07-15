@@ -1,0 +1,50 @@
+---
+/**
+ * Accordion — disclosure card with chevron + title row.
+ *
+ *   <Accordion>
+ *     <AccordionTrigger>What is Nimbus?</AccordionTrigger>
+ *     <AccordionContent>A docs framework.</AccordionContent>
+ *   </Accordion>
+ *
+ * Wrap multiple in <AccordionGroup> to render as one bordered card.
+ */
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+import Collapsible from "../collapsible/Collapsible.astro";
+
+interface Props extends HTMLAttributes<"div"> {
+  /** Start expanded. Default false. */
+  open?: boolean;
+}
+
+const { open = false, class: className, ...attrs } = Astro.props;
+---
+
+<Collapsible
+  open={open}
+  data-nb-accordion
+  class={cn(
+    "nb-accordion my-3 overflow-hidden rounded-lg bg-card ring ring-border",
+    className,
+  )}
+  {...attrs}
+>
+  <slot />
+</Collapsible>
+
+<style>
+  /* Inside AccordionGroup, drop per-item chrome — the group owns it.
+     Selectors are fully :global() because the .nb-accordion class is on
+     a Collapsible-rendered element, not an Accordion-rendered one — so
+     Astro's per-component scope hash wouldn't match. */
+  :global([data-nb-accordion-group] .nb-accordion) {
+    margin: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  :global([data-nb-accordion-group] .nb-accordion:not(:first-of-type)) {
+    border-top: 1px solid var(--nb-border);
+  }
+</style>

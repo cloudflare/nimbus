@@ -1,0 +1,67 @@
+---
+title: Metadata and SEO
+description: Titles, descriptions, Open Graph images, sitemaps, and per-page head control.
+aiGenerated: true
+sidebar:
+  order: 2
+---
+
+Nimbus handles the metadata baseline automatically and gives you per-page and site-wide control where you need it.
+
+## Titles and descriptions
+
+`title` and `description` frontmatter populate `<title>` and `<meta name="description">`, and feed the search snippet and agent index. Site-wide fallbacks come from the Nimbus config:
+
+```ts title="astro.config.ts"
+nimbus({
+  site: "https://docs.example.com",
+  title: "Acme",
+  description: "Build with Acme.",
+});
+```
+
+## Open Graph images
+
+Set a site-wide fallback card and alt text, then override per page:
+
+```ts
+nimbus({
+  /* … */
+  socialImage: "/og.png",
+  socialImageAlt: "Acme documentation",
+});
+```
+
+```yaml
+---
+title: Pricing
+socialImage: /og/pricing.png
+---
+```
+
+Nimbus also ships an OG image route, so pages without an explicit image get a generated card.
+
+## Sitemap and robots
+
+When `site` is set, the sitemap integration and `/robots.txt` are wired automatically. Disable the sitemap with `sitemap: false` in the integration options.
+
+## Per-page and site-wide head
+
+Add elements to `<head>` site-wide via `config.head`, or per page via frontmatter — the two are merged:
+
+```yaml
+---
+title: Analytics-tracked page
+head:
+  - tag: meta
+    attrs: { name: "robots", content: "noindex" }
+  - tag: link
+    attrs: { rel: "canonical", href: "https://example.com/canonical" }
+---
+```
+
+Valid tags: `meta`, `link`, `script`, `style`, `title`, `noscript`, `base`. To exclude a page from crawlers without hand-writing the tag, use `noindex: true`.
+
+## Canonical URLs
+
+On versioned sites, Nimbus emits `<link rel="canonical">` pointing older versions at the current one, plus `<link rel="alternate">` between siblings — driven by `previousSlug`.

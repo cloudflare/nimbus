@@ -1,0 +1,31 @@
+---
+title: Popover
+tagline: "Anchored floating content — native Popover API, repositions on scroll and resize."
+props:
+  - name: placement
+    type: '"bottom-start" | "bottom-end" | "top-start" | "top-end"'
+    defaultValue: '"bottom-start"'
+    description: PopoverContent prop. Where the floating panel anchors relative to the trigger.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+
+## Preview
+
+<Showcase code={`<Popover>
+  <PopoverTrigger>Open</PopoverTrigger>
+  <PopoverContent placement="bottom-start">
+    Anchored content positioned next to the trigger.
+  </PopoverContent>
+</Popover>`}>
+  <div class="w-full text-center">
+    <Popover>
+      <PopoverTrigger class="inline-flex items-center px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer">
+        Open popover
+      </PopoverTrigger>
+      <PopoverContent placement="bottom-start" class="text-sm text-foreground">
+        Anchored content positioned next to the trigger.
+      </PopoverContent>
+    </Popover>
+  </div>
+</Showcase>

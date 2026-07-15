@@ -1,0 +1,93 @@
+---
+title: CodeGroup
+tagline: "Tabbed code blocks — one tab per snippet. Selection syncs across the page; useful for showing the same operation across languages or runtimes."
+props:
+  - name: titles
+    type: string[]
+    description: Tab labels in order. Defaults to language ids when omitted.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { Code } from "@/components/ui/code";
+import { CodeGroup } from "@/components/ui/code-group";
+
+export const tsLoad = `function load(id: string) {
+  return fetch(\`/api/\${id}\`);
+}`;
+
+export const jsLoad = `function load(id) {
+  return fetch(\`/api/\${id}\`);
+}`;
+
+export const curlSample = `curl -X POST https://api.example.com/charge \\
+  -H "Authorization: Bearer $KEY"`;
+
+export const nodeSample = `await fetch("https://api.example.com/charge", {
+  method: "POST",
+  headers: { Authorization: \`Bearer \${KEY}\` },
+});`;
+
+export const pythonSample = `import requests
+requests.post(
+    "https://api.example.com/charge",
+    headers={"Authorization": f"Bearer {KEY}"},
+)`;
+
+export const serverSample = `export const POST = async ({ request }) => {
+  return new Response("ok");
+};`;
+
+export const clientSample = `await fetch("/api", { method: "POST" });`;
+
+## Preview
+
+<Showcase code={'<CodeGroup titles={["TypeScript", "JavaScript"]}>\n```ts\nfunction load(id: string) {\n  return fetch(`/api/${id}`);\n}\n```\n\n```js\nfunction load(id) {\n  return fetch(`/api/${id}`);\n}\n```\n</CodeGroup>'}>
+  <div class="w-full max-w-md text-left">
+    <CodeGroup titles={["TypeScript", "JavaScript"]}>
+      <Code code={tsLoad} lang="ts" />
+      <Code code={jsLoad} lang="js" />
+    </CodeGroup>
+  </div>
+</Showcase>
+
+## Examples
+
+### Auto tab labels
+
+Omit `titles` and tabs fall back to the language identifier of each block.
+
+<Example code={'<CodeGroup>\n```bash\nnpm install astro\n```\n\n```sh\npnpm add astro\n```\n</CodeGroup>'} lang="md" contentClass="w-full">
+  <div class="w-full">
+    <CodeGroup>
+      <Code code={`npm install astro`} lang="bash" />
+      <Code code={`pnpm add astro`} lang="sh" />
+    </CodeGroup>
+  </div>
+</Example>
+
+### Mixed languages
+
+Useful for showing the same operation across runtimes — request examples are the canonical case.
+
+<Example code={'<CodeGroup titles={["cURL", "Node", "Python"]}>\n```bash\ncurl -X POST https://api.example.com/charge \\\n  -H "Authorization: Bearer $KEY"\n```\n\n```js\nawait fetch("https://api.example.com/charge", {\n  method: "POST",\n  headers: { Authorization: `Bearer ${KEY}` },\n});\n```\n\n```py\nimport requests\nrequests.post(\n    "https://api.example.com/charge",\n    headers={"Authorization": f"Bearer {KEY}"},\n)\n```\n</CodeGroup>'} lang="md" contentClass="w-full">
+  <div class="w-full">
+    <CodeGroup titles={["cURL", "Node", "Python"]}>
+      <Code code={curlSample} lang="bash" />
+      <Code code={nodeSample} lang="js" />
+      <Code code={pythonSample} lang="py" />
+    </CodeGroup>
+  </div>
+</Example>
+
+### With filename frames
+
+Each tab can carry its own filename via the `title="…"` meta.
+
+<Example code={'<CodeGroup titles={["Server", "Client"]}>\n```ts title="src/server.ts"\nexport const POST = async ({ request }) => {\n  return new Response("ok");\n};\n```\n\n```tsx title="src/client.tsx"\nawait fetch("/api", { method: "POST" });\n```\n</CodeGroup>'} lang="md" contentClass="w-full">
+  <div class="w-full">
+    <CodeGroup titles={["Server", "Client"]}>
+      <Code code={serverSample} lang="ts" meta='title="src/server.ts"' />
+      <Code code={clientSample} lang="tsx" meta='title="src/client.tsx"' />
+    </CodeGroup>
+  </div>
+</Example>

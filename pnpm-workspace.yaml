@@ -1,0 +1,12 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+  - "examples/*"
+  - "!**/template/**"
+  - "!**/dist/**"
+  - "!**/node_modules/**"
+  # Gitignored local sandboxes (see .gitignore). They're scaffolded fresh
+  # via `pnpm local` / `pnpm create nimbus-docs` and aren't part of the
+  # framework's lockfile. Excluding them here keeps `pnpm install` from
+  # injecting their importers into pnpm-lock.yaml.
+  - "!examples/local"

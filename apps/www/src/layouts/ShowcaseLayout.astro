@@ -1,0 +1,120 @@
+---
+/**
+ * ShowcaseLayout — three-column chrome for the component showcase route.
+ *
+ * Left: components sidebar (grouped by category).
+ * Right: section TOC.
+ * Center: the showcase content (hero, preview stage, sections).
+ *
+ * Reuses the docs Sidebar + TOC components so the chrome matches the rest
+ * of the site; the distinctive showcase treatment lives in the content,
+ * not the frame.
+ */
+import { Icon } from "astro-icon/components";
+import BaseLayout from "./BaseLayout.astro";
+import Header from "@/components/Header.astro";
+import { Sidebar, SidebarFilter } from "@/components/ui/sidebar";
+import { TOC } from "@/components/ui/toc";
+import type { BasePageProps } from "nimbus-docs/types";
+import type { SidebarItem, TOCItem } from "nimbus-docs/types";
+
+interface Props extends BasePageProps {
+  sidebar: SidebarItem[];
+  headings: TOCItem[];
+}
+
+const { sidebar, headings, ...baseProps } = Astro.props;
+---
+
+<BaseLayout {...baseProps}>
+  <div class="flex flex-col min-h-screen">
+    <Header />
+
+    <div class="flex-1 mx-auto w-full">
+      <div class="flex">
+        <aside
+          id="desktop-sidebar"
+          class="hidden lg:flex w-(--nb-sidebar-width) shrink-0 border-r border-border sticky top-14 h-[calc(100vh-3.5rem)] flex-col overflow-y-auto relative"
+        >
+          <nav class="px-4 pb-12 pt-5 flex-1">
+            <SidebarFilter />
+            <Sidebar items={sidebar} persist />
+          </nav>
+          <div class="pointer-events-none sticky bottom-0 h-8 bg-gradient-to-t from-base to-transparent" />
+        </aside>
+
+        <main id="main-content" transition:name="nb-content" class="flex-1 min-w-0">
+          <slot />
+        </main>
+
+        <aside data-nb-toc-scroll-host class="hidden xl:block w-(--nb-toc-width) shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
+          <div class="pt-6 pb-8 pl-8 pr-6">
+            <TOC headings={headings} />
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  {/* Mobile sidebar — mirrors DocsLayout's pattern. */}
+  <dialog
+    data-mobile-sidebar
+    data-state="closed"
+    class="group fixed inset-0 m-0 h-full w-full max-h-full max-w-full border-0 bg-transparent p-0 data-[state=open]:bg-black/40 data-[state=closing]:bg-black/40"
+    aria-label="Components navigation"
+  >
+    <div data-mobile-sidebar-panel class="h-full w-(--nb-sidebar-width) max-w-[85vw] -translate-x-full overflow-y-auto bg-card shadow-lg transition-transform duration-250 ease-out group-data-[state=open]:translate-x-0 motion-reduce:transition-none">
+      <div class="sticky top-0 z-[1] flex items-center justify-between border-b border-border bg-card px-4 py-3">
+        <span class="font-semibold text-sm text-foreground">Components</span>
+        <button data-close-sidebar class="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label="Close sidebar">
+          <Icon name="ph:x" class="w-5 h-5" />
+        </button>
+      </div>
+      <nav class="px-4 pb-8 pt-5">
+        <SidebarFilter />
+        <Sidebar items={sidebar} />
+      </nav>
+    </div>
+  </dialog>
+
+  <script>
+    import { lockScroll, unlockScroll } from "nimbus-docs/client";
+
+    const dialog = document.querySelector<HTMLDialogElement>("[data-mobile-sidebar]");
+    const menuBtn = document.querySelector<HTMLElement>("[data-menu-btn]");
+    const CLOSE_DURATION_MS = 250;
+
+    if (dialog && menuBtn) {
+      let closeTimer: ReturnType<typeof setTimeout> | undefined;
+
+      const openSidebar = () => {
+        if (closeTimer) { clearTimeout(closeTimer); closeTimer = undefined; }
+        if (dialog.open) return;
+        dialog.showModal();
+        dialog.dataset.state = "closed";
+        lockScroll();
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => { dialog.dataset.state = "open"; });
+        });
+        dialog.querySelector<HTMLElement>("[data-close-sidebar]")?.focus();
+      };
+
+      const closeSidebar = () => {
+        if (!dialog.open || dialog.dataset.state === "closing") return;
+        dialog.dataset.state = "closing";
+        closeTimer = setTimeout(() => dialog.close(), CLOSE_DURATION_MS);
+      };
+
+      menuBtn.addEventListener("click", openSidebar);
+      dialog.addEventListener("cancel", (e) => { e.preventDefault(); closeSidebar(); });
+      dialog.addEventListener("close", () => {
+        if (closeTimer) { clearTimeout(closeTimer); closeTimer = undefined; }
+        dialog.dataset.state = "closed";
+        unlockScroll();
+        menuBtn.focus();
+      });
+      dialog.querySelector("[data-close-sidebar]")?.addEventListener("click", closeSidebar);
+      dialog.addEventListener("click", (e) => { if (e.target === dialog) closeSidebar(); });
+    }
+  </script>
+</BaseLayout>

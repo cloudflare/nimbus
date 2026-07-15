@@ -1,0 +1,25 @@
+---
+title: LayerCard
+tagline: "Two-layer card — recessed header above a raised content panel. Used internally by PackageManagers."
+props: []
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import { LayerCard, LayerCardHeader, LayerCardContent } from "@/components/ui/layer-card";
+
+## Preview
+
+<Showcase code={`<LayerCard>
+  <LayerCardHeader>Build status</LayerCardHeader>
+  <LayerCardContent>Passing on 17 / 17 jobs · 2m 14s</LayerCardContent>
+</LayerCard>`}>
+  <div class="w-full max-w-md text-left">
+    <LayerCard>
+      <LayerCardHeader>
+        <span class="text-xs font-mono uppercase tracking-wider text-muted-foreground">Build status</span>
+      </LayerCardHeader>
+      <LayerCardContent>
+        <span class="text-sm text-foreground">Passing on 17 / 17 jobs · 2m 14s</span>
+      </LayerCardContent>
+    </LayerCard>
+  </div>
+</Showcase>

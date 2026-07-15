@@ -1,0 +1,72 @@
+---
+title: Interactive content
+description: Author bespoke interactive diagrams on a headless React wrapper that owns the tedious lifecycle.
+aiGenerated: true
+sidebar:
+  order: 6
+---
+import { Tabs, TabItem } from "@/components/ui/tabs";
+import { PrimitivesDiagram } from "@/components/react/diagram-showcase/PrimitivesDiagram";
+import { PingPongDemo } from "@/components/react/diagram-showcase/PingPongDemo";
+
+Documentation often needs to *show* mechanism — how a request flows, how state nests, where a wire docks. Nimbus splits the problem: the framework owns the tedious lifecycle, you own the render.
+
+## The headless wrapper
+
+`nimbus-docs/react` ships a headless `<Diagram>` wrapper plus composable hooks — `usePhase`, `useMeasure`, `useTabIndicator`, `useDiagram`. The wrapper handles what's tedious to get right: off-screen pausing, reduced-motion respect, keyboard shortcuts, error boundaries, and cross-island coordination. It renders nothing visible itself.
+
+<PrimitivesDiagram client:visible />
+
+The smallest meaningful example — `usePhase` walks two steps and the rendered nodes light up in turn.
+
+<Tabs>
+  <TabItem label="Preview">
+    <PingPongDemo client:visible />
+  </TabItem>
+  <TabItem label="Code">
+    ```tsx
+    import { Diagram, usePhase } from "nimbus-docs/react";
+    import { DiagramControls } from "@/components/react/diagram";
+
+    function PingPong() {
+      const { current } = usePhase({
+        steps: [{ id: "left", hold: 1500 }, { id: "right", hold: 1500 }],
+        loop: true,
+      });
+      return (
+        <div className="flex items-center justify-center gap-12 py-12">
+          <Node label="Left" active={current === "left"} />
+          <Node label="Right" active={current === "right"} />
+        </div>
+      );
+    }
+
+    export function Demo() {
+      return (
+        <Diagram label="Ping-pong">
+          <DiagramControls />
+          <PingPong />
+        </Diagram>
+      );
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+## Chrome is yours
+
+Action bars, tab groups, and play/pause controls are **visual chrome you own**. They install on demand into `src/components/react/diagram/` via the registry:
+
+<PackageManagers pkg="nimbus-docs" type="dlx" args="add diagram" />
+
+Edit, restyle, or replace them freely — the hooks keep working. Sites that never author an interactive card pay nothing: `react` and `react-dom` are optional peer dependencies, loaded only when you import `nimbus-docs/react`.
+
+## The boundary
+
+| Layer | Owner | What |
+|---|---|---|
+| `<Diagram>` + hooks | `nimbus-docs/react` | Lifecycle, state, off-screen pause, reduced motion, keyboard, error boundary. |
+| Chrome | You (registry) | Action bar, controls, tab indicators — copied into your repo. |
+| The render | You | Geometry, layout, the semantic claim the diagram makes. |
+
+The framework owns behaviour; you own appearance. Embed the result in MDX with a `client:visible` directive so it hydrates when scrolled into view.

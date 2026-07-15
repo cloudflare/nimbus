@@ -1,0 +1,55 @@
+---
+title: Embed
+tagline: "Iframe wrapper with ratio lock and sensible defaults for video, maps, and embeds."
+props:
+  - name: src
+    type: string
+    required: true
+    description: URL to embed inside the iframe.
+  - name: title
+    type: string
+    required: true
+    description: Accessible name for the iframe.
+  - name: ratio
+    type: string
+    defaultValue: '"16/9"'
+    description: 'CSS aspect ratio (e.g. "16/9", "4/3", "1/1").'
+  - name: allow
+    type: string
+    description: Permissions policy passed to the iframe.
+  - name: allowfullscreen
+    type: boolean
+    description: Allow the embedded content to enter fullscreen.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { Embed } from "@/components/ui/embed";
+
+## Preview
+
+<Showcase code={`<Embed
+  src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+  title="Demo video"
+  ratio="16/9"
+  allowfullscreen
+/>`}>
+  <div class="w-[28rem] max-w-full text-left">
+    <Embed src="about:blank" title="Demo embed" ratio="16/9" />
+  </div>
+</Showcase>
+
+## Examples
+
+### Custom ratio
+
+Pass any CSS aspect-ratio string — useful for square previews or ultrawide content.
+
+<Example code={`<Embed
+  src="https://example.com/preview"
+  title="Square preview"
+  ratio="1/1"
+/>`} contentClass="w-full">
+  <div class="w-full max-w-xs mx-auto">
+    <Embed src="about:blank" title="Square preview" ratio="1/1" />
+  </div>
+</Example>

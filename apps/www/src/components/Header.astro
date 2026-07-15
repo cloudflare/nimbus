@@ -1,0 +1,93 @@
+---
+import { Icon } from "astro-icon/components";
+import { ThemeToggle } from "./ui/theme-toggle";
+import { SearchTrigger } from "./ui/search";
+import { config } from "virtual:nimbus/config";
+import { getSidebarSections } from "nimbus-docs";
+import { Image } from "astro:assets";
+
+interface Props {
+  /** Astro collection id for the current page, forwarded from DocsLayout. */
+  collection?: string;
+  /** Astro entry id for the current page, forwarded from DocsLayout. */
+  entryId?: string;
+  /**
+   * Whether the page has a sidebar to open. When `false`, the mobile menu
+   * button is hidden — pages that opted out via `sidebar: false` shouldn't
+   * show a button that opens an empty dialog. Default `true`.
+   */
+  showSidebar?: boolean;
+}
+
+const { collection, entryId, showSidebar = true } = Astro.props;
+
+// Normalize trailing slash so isActive matches sidebar hrefs.
+const currentSlug = Astro.url.pathname.replace(/\/$/, "") || "/";
+const sections = await getSidebarSections(currentSlug, { collection });
+const showSections = sections.length >= 1;
+---
+
+<header
+  class="sticky top-0 z-30 border-b border-border bg-card/80 backdrop-blur-lg"
+>
+  <div class="mx-auto flex items-center justify-between h-14 px-4 lg:px-6">
+    <div class="flex items-center gap-3">
+      <a href="/" class="flex items-center group">
+        <div class="flex items-center justify-center w-14">
+          <Image src="/logo.svg" alt="Nimbus" width={100} height={100} class="dark:invert" />
+        </div>
+      </a>
+
+      {
+        showSections && (
+          <nav
+            aria-label="Sections"
+            class="hidden md:flex items-center gap-1 ml-4 pl-4 border-l border-border h-6"
+          >
+            {sections.map((section) => (
+              <a
+                href={section.href}
+                aria-current={section.isActive ? "page" : undefined}
+                class:list={[
+                  "px-2 py-1 rounded-md text-[0.8125rem] font-medium no-underline transition-colors",
+                  section.isActive
+                    ? "text-foreground bg-accent"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/60",
+                ]}
+              >
+                {section.label}
+              </a>
+            ))}
+          </nav>
+        )
+      }
+    </div>
+
+    <div class="flex items-center gap-2">
+      {config.search !== false && <SearchTrigger />}
+      {
+        config.github && (
+          <a
+            href={config.github}
+            class="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            aria-label="GitHub"
+            target="_blank"
+            rel="noopener"
+          >
+            <Icon name="ph:github-logo" class="w-4 h-4" />
+          </a>
+        )
+      }
+      <ThemeToggle />
+      {showSidebar && (
+        <button
+          data-menu-btn
+          class="lg:hidden flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent transition-colors"
+          aria-label="Open navigation"
+        >
+          <Icon name="ph:list" class="w-5 h-5 text-muted-foreground" />
+        </button>
+      )}
+    </div>
+  </div>
+</header>

@@ -1,0 +1,58 @@
+---
+title: Project structure
+description: What the scaffolder writes into your repo, the line between your files and the framework, and how the tree becomes the site.
+audience: human
+aiGenerated: true
+sidebar:
+  order: 2
+---
+import { FileTree } from "@/components/ui/file-tree";
+
+A scaffolded Nimbus project is a regular Astro project. Everything visible lives in your repo as real files; the framework ships the plumbing as a dependency.
+
+## What lands in your repo
+
+<FileTree>
+- my-docs/
+  - src/
+    - components/
+      - ui/
+    - content/
+      - docs/
+    - layouts/
+    - pages/
+    - styles/
+      - globals.css
+    - components.ts
+  - astro.config.mjs
+  - package.json
+</FileTree>
+
+- **`src/components/`** — UI components, yours to edit or replace.
+- **`src/content/docs/`** — your MDX content. The tree here is the site (see below).
+- **`src/layouts/`** — page shells (`BaseLayout`, `DocsLayout`).
+- **`src/pages/`** — routes, including the catch-all that renders docs and the agent surfaces.
+- **`src/styles/globals.css`** — design tokens and Tailwind layers.
+- **`src/components.ts`** — the [MDX globals registry](/writing/markdown-and-mdx).
+
+## The framework boundary
+
+The `nimbus-docs` package is the invisible half — the Astro integration, data helpers (`getSidebar`, `getPrevNext`, `getTOC`), content schemas, and the agent-surface routes. You import it; you don't fork it.
+
+Everything else is yours. There is no upstream theme to override and no API to break — coding agents reason about the repo more easily when nothing important hides behind an import boundary.
+
+## The tree is the truth
+
+The directory structure under `src/content/docs/` is the URL structure **and** the sidebar. Move a file and its route and sidebar entry move with it; delete a file and both disappear. Frontmatter handles the fine grain — order, badges, draft state — but the shape of the site comes from the filesystem.
+
+<FileTree>
+- src/content/docs/
+  - introduction.mdx
+  - guides/
+    - styling.mdx
+    - deploying.mdx
+  - reference/
+    - api.mdx
+</FileTree>
+
+There is no second navigation config to keep in sync. The site can't drift from its own contents, because its contents are the site. See [Pages and routing](/writing/pages-and-routing) for the details.

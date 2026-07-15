@@ -1,0 +1,97 @@
+---
+title: CLI
+description: The nimbus-docs CLI — list what's available, add it to your project, lint your content.
+sidebar:
+  order: 2
+---
+
+The `nimbus-docs` CLI does three things: list what's in the registry, install it, and lint your MDX content.
+
+## `nimbus-docs list`
+
+Lists every installable component, utility, and feature.
+
+<PackageManagers pkg="nimbus-docs" type="dlx" args="list" />
+
+Filter by type:
+
+```bash
+nimbus-docs list --type ui
+nimbus-docs list --type lib
+nimbus-docs list --type feature
+```
+
+Running `nimbus-docs add` with no slug shows the same list.
+
+## `nimbus-docs add <slug>`
+
+Two install modes — the CLI picks based on the slug's type.
+
+### Components and utilities
+
+For `registry:ui` and `registry:lib` slugs, the CLI resolves dependencies, copies files into your repo, and installs any npm packages they need.
+
+<PackageManagers pkg="nimbus-docs" type="dlx" args="add badge" />
+
+<Steps>
+  <Step title="Resolve dependencies">
+    Walks the slug's `registryDependencies` and any npm `dependencies` it needs.
+  </Step>
+  <Step title="Copy files">
+    Drops each file into the right path under `src/components/ui/`, `src/lib/`, or wherever the entry declares.
+  </Step>
+  <Step title="Update package.json">
+    Adds npm dependencies if they're not already present.
+  </Step>
+</Steps>
+
+Pass `--yes` to skip overwrite prompts:
+
+```bash
+nimbus-docs add badge --yes
+```
+
+Once installed, the component lives in your repo. Edit freely — there's no upstream API to break.
+
+### Features
+
+For `registry:feature` slugs, there's nothing to copy. The recipe is a markdown prompt the agent reads, adapts to your project, and applies.
+
+```bash
+nimbus-docs add 404-page
+```
+
+If the CLI detects a coding agent in the environment, it prints the recipe to stdout for the agent to consume. Otherwise it prints pipe instructions you can run yourself:
+
+```bash
+nimbus-docs add 404-page --print | claude
+nimbus-docs add 404-page --print | codex
+```
+
+Use `--print` to force the markdown output, skipping detection.
+
+## `nimbus-docs lint`
+
+Walks `src/content/`, runs each authoring rule you've enabled, prints diagnostics, and exits non-zero when any `error`-severity finding survives. The build is never gated by lint — drafts that fail lint still render under `astro dev`.
+
+```bash
+nimbus-docs lint
+```
+
+Flags:
+
+```bash
+nimbus-docs lint --format=json          # agent-readable diagnostics
+nimbus-docs lint --rule=nimbus/single-h1  # run one rule only
+nimbus-docs lint --fix                  # apply auto-fixes in place
+nimbus-docs lint --quiet                # errors only, suppress warnings
+```
+
+Severity overrides live with the integration (`nimbus(config, { rules })`); in-file disables (`nimbusDisableRules` frontmatter, inline comments) work with no config.
+
+## Help and version
+
+```bash
+nimbus-docs --help
+nimbus-docs --version
+```

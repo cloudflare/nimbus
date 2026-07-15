@@ -1,0 +1,18 @@
+---
+title: ThemeToggle
+tagline: "Light / dark switcher — persists to localStorage, syncs across tabs, no FOUC."
+props: []
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+
+## Preview
+
+<Showcase code={`<ThemeToggle />`}>
+  <div class="w-full text-center flex flex-col items-center gap-3">
+    <div class="rounded-md border border-border bg-card">
+      <ThemeToggle />
+    </div>
+    <p class="text-xs text-muted-foreground">Click to flip between light and dark. Persists across navigation.</p>
+  </div>
+</Showcase>

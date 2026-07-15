@@ -1,0 +1,52 @@
+---
+/**
+ * Example — single entry in the examples gallery inside a component MDX body.
+ *
+ * Pair a rendered slot with optional source code. Heading + prose (the title
+ * and description) live in the surrounding MDX so Astro extracts them into
+ * the page's heading metadata for the TOC.
+ *
+ * Omit `code` for "in context" demos where the rendered slot is the whole
+ * point. Set `mdxTag` to label the source block as MDX rather than TSX.
+ */
+import { Code as AstroCode } from "astro:components";
+import PreviewStage from "./PreviewStage.astro";
+import { Code } from "@/components/ui/code";
+
+type CodeProps = Parameters<typeof AstroCode>[0];
+
+interface Props {
+  code?: string;
+  lang?: CodeProps["lang"];
+  minHeight?: string;
+  contentClass?: string;
+  /** Visually label the source block as MDX (cosmetic only). */
+  mdxTag?: boolean;
+}
+
+const {
+  code,
+  lang = "tsx",
+  minHeight = "0",
+  contentClass,
+  mdxTag = false,
+} = Astro.props;
+const codeWrapperClass = mdxTag
+  ? "nb-showcase-pair-code nb-showcase-mdx-tag"
+  : "nb-showcase-pair-code";
+---
+
+<div class="scroll-mt-20 flex flex-col">
+  <PreviewStage
+    minHeight={minHeight}
+    connected={!!code}
+    contentClass={contentClass}
+  >
+    <slot />
+  </PreviewStage>
+  {code && (
+    <div class={codeWrapperClass}>
+      <Code code={code} lang={lang} raw />
+    </div>
+  )}
+</div>

@@ -1,0 +1,49 @@
+---
+title: Pagination
+tagline: "Previous / next links at the bottom of a doc page — driven by the sidebar tree."
+props:
+  - name: prevNext
+    type: "{ prev?: { label: string; href: string }; next?: { label: string; href: string } }"
+    description: Sibling page references. Either side can be omitted (first / last page).
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { Pagination } from "@/components/ui/pagination";
+
+## Preview
+
+<Showcase code={`<Pagination
+  prevNext={{
+    prev: { label: "Getting started", href: "/getting-started" },
+    next: { label: "Configuration", href: "/configuration" },
+  }}
+/>`}>
+  <div class="w-full text-left">
+    <Pagination
+      prevNext={{
+        prev: { label: "Getting started", href: "#" },
+        next: { label: "Configuration", href: "#" },
+      }}
+    />
+  </div>
+</Showcase>
+
+## Examples
+
+### First page
+
+Omit `prev` to indicate the start of a section.
+
+<Example code={`<Pagination
+  prevNext={{
+    next: { label: "Installation", href: "/installation" },
+  }}
+/>`} contentClass="w-full">
+  <div class="w-full">
+    <Pagination
+      prevNext={{
+        next: { label: "Installation", href: "#" },
+      }}
+    />
+  </div>
+</Example>
