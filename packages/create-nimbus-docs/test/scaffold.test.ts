@@ -1,15 +1,14 @@
 /**
  * Tests for `scaffold()` — the destructive filesystem half of
- * create-nimbus-docs. Covers the paths that were previously untested despite
- * doing `cpSync` / `rmSync` / `writeFileSync` work: happy path, target-exists
- * abort, cwd containment, and mid-copy rollback.
+ * create-nimbus-docs. Covers happy path, target-exists abort, cwd
+ * containment, and mid-copy rollback.
  *
  * The interactive prompt flow (ctrl-C mid-prompt) lives in `prompts.ts` and is
  * a single `p.isCancel(...) → process.exit(0)` guard per prompt; it isn't
  * exercised here because doing so requires mocking @clack/prompts' stdin.
  *
  * Windows path handling (drive-letter absolutes, `\` separators) is not
- * covered — see PROD-3 for the cross-OS CI matrix that would run this on
+ * covered — a cross-OS CI matrix would run this on
  * windows-latest.
  */
 
@@ -169,7 +168,7 @@ test("rolls back the partial directory when a transform fails mid-scaffold", asy
         err instanceof ScaffoldError && /Could not scaffold/.test(err.message),
     );
 
-    // AC-1: the half-written target is removed so a re-run isn't blocked.
+    // The half-written target is removed so a re-run isn't blocked.
     assert.equal(
       fs.existsSync(path.join(cwd, "my-docs")),
       false,

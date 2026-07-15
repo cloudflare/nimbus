@@ -3,12 +3,12 @@
  *
  * Regression focus: a directive nested inside indented JSX (e.g. `:::note`
  * inside a `<TabItem>` that itself sits inside a list item) must emit an
- * `<Aside>` at the SAME indentation. The OLD transform emitted it flush-left
- * at column 0, which dedented out of the enclosing element and orphaned its
- * closing tag — `@mdx-js/mdx` then threw
- * "Expected a closing tag for `<TabItem>`". The e2e test below compiles the
- * transformed output through the real MDX compiler to prove this; the string
- * tests pin the exact indentation behavior that fixes it.
+ * `<Aside>` at the SAME indentation. Emitting it flush-left at column 0
+ * would dedent out of the enclosing element and orphan its closing tag,
+ * making `@mdx-js/mdx` throw "Expected a closing tag for `<TabItem>`". The
+ * e2e test below compiles the transformed output through the real MDX
+ * compiler to prove this; the string tests pin the exact indentation
+ * behavior.
  */
 
 import assert from "node:assert/strict";
@@ -42,7 +42,7 @@ const NESTED_NOTE_IN_TAB = `<Tabs> <TabItem label="Dashboard">
 `;
 
 // ---------------------------------------------------------------------------
-// E2E: the actual fix — output must compile through @mdx-js/mdx
+// E2E: output must compile through @mdx-js/mdx
 // ---------------------------------------------------------------------------
 
 test("e2e: nested note-in-tab output compiles through @mdx-js/mdx", async () => {
@@ -52,9 +52,9 @@ test("e2e: nested note-in-tab output compiles through @mdx-js/mdx", async () => 
 });
 
 test("e2e: the OLD flush-left emit would fail to compile (proves the test is real)", async () => {
-  // Reconstruct what the OLD transform produced: the Aside dedented to
-  // column 0 inside the indented TabItem. This MUST throw, otherwise the
-  // e2e test above proves nothing.
+  // Reconstruct a flush-left emit: the Aside dedented to column 0 inside the
+  // indented TabItem. This MUST throw, otherwise the e2e test above proves
+  // nothing.
   const oldStyle = NESTED_NOTE_IN_TAB.replace(
     /[ \t]*:::note\n\n([\s\S]*?)\n[ \t]*:::/,
     '\n\n<Aside type="note">\n\n$1\n\n</Aside>\n\n',
@@ -63,7 +63,7 @@ test("e2e: the OLD flush-left emit would fail to compile (proves the test is rea
 });
 
 // ---------------------------------------------------------------------------
-// Indentation behavior (string-level) — these FAIL on the old flush-left code
+// Indentation behavior (string-level)
 // ---------------------------------------------------------------------------
 
 test("indented note is re-indented to the directive's depth (fails on old code)", () => {
@@ -79,12 +79,12 @@ test("indented note is re-indented to the directive's depth (fails on old code)"
     "",
   ].join("\n");
   const out = transformAdmonitions(src);
-  // Aside + closing tag at the directive's 8-space indent (old code: column 0).
+  // Aside + closing tag at the directive's 8-space indent.
   assert.match(out, /\n {8}<Aside type="note">/);
   assert.match(out, /\n {8}<\/Aside>/);
-  // Body kept at exactly 8 spaces — not flush-left (old) and not over-indented.
+  // Body kept at exactly 8 spaces — not flush-left and not over-indented.
   assert.match(out, /\n {8}Inside note\./);
-  // No column-0 Aside leaked out of the TabItem (the old bug).
+  // No column-0 Aside leaked out of the TabItem.
   assert.doesNotMatch(out, /\n<Aside/);
 });
 
@@ -109,7 +109,7 @@ test("multi-line body preserves relative nesting without becoming a code block",
 });
 
 // ---------------------------------------------------------------------------
-// Line-anchoring (the load-bearing regex change) — untested before
+// Line-anchoring behavior
 // ---------------------------------------------------------------------------
 
 test("a mid-line `:::` is not treated as an opener", () => {
@@ -124,7 +124,7 @@ test("a closer with trailing text on its line does not close the directive", () 
 });
 
 // ---------------------------------------------------------------------------
-// Documented guarantees — were unverified
+// Documented guarantees
 // ---------------------------------------------------------------------------
 
 test("transform is idempotent", () => {
@@ -153,7 +153,7 @@ test("adjacent admonitions do not merge", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Regression guards (these pass on old code too — not proof of the fix)
+// Baseline behavior guards
 // ---------------------------------------------------------------------------
 
 test("flush-left block admonition still emits flush-left", () => {

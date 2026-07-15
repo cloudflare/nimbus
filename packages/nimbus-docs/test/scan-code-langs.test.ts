@@ -21,9 +21,8 @@ async function scan(body: string, langAlias?: Record<string, string>) {
 }
 
 test("ignores inline triple-backtick code (CommonMark: backticks in the info string)", async () => {
-  // The blocker case, at line start so it trips the old `^[ \t]*```` anchor:
-  // the old regex captured `calendar-notification`; the `[^\n`]*$` clause now
-  // rejects it (a closing backtick follows → inline code, not a fence).
+  // Line-start triple backticks: the `[^\n`]*$` clause rejects this because a
+  // closing backtick follows → inline code, not a fence.
   const langs = await scan("```calendar-notification@google.com``` is the address.\n");
   assert.deepEqual(langs, []);
 });
@@ -31,7 +30,7 @@ test("ignores inline triple-backtick code (CommonMark: backticks in the info str
 test("ignores inline triple-backtick even when the token is a real language", async () => {
   // Isolates the regex clause from the filter: `js` is known, so the filter
   // would keep it — only the info-string-backtick rejection drops this inline
-  // code. Line starts with the backticks so the old regex would have matched.
+  // code.
   const langs = await scan("```js``` is shorthand, used inline.\n");
   assert.deepEqual(langs, []);
 });

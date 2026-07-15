@@ -3,9 +3,9 @@ name: Release
 on:
   push:
     branches: [main]
-  # Recovery path for a half-failed release (emdash parity): publish whatever is
-  # pending without re-running generate/verify/sync. Use when a run died after
-  # the templates branch was synced + tagged but before npm publish completed.
+  # Recovery path for a half-failed release: publish whatever is pending without
+  # re-running generate/verify/sync (use when a run died after the templates
+  # branch was synced + tagged but before npm publish completed).
   workflow_dispatch:
     inputs:
       publish_only:
@@ -27,16 +27,13 @@ jobs:
       contents: write # push the Version Packages PR branch, git tags, and the templates branch/tag
       pull-requests: write # open/update the Version Packages PR
       id-token: write # npm publish provenance (OIDC)
-      actions: write # belt-and-suspenders; the App token's own Actions:write (see prereqs) is what actually authorizes release.mjs's verify-smoke dispatch
+      actions: write # the App token's own Actions:write authorizes release.mjs's verify-smoke dispatch
     steps:
-      # A GitHub App installation token, not GITHUB_TOKEN. Two reasons:
-      #   1. App-authored "Version packages" PRs trigger CI; GITHUB_TOKEN-authored
-      #      ones are suppressed by GitHub and would merge with zero checks.
-      #   2. release.mjs pushes the orphan `templates` branch + `templates-v*` tag
-      #      and dispatches the in-repo verify workflow — both in THIS repo, via
-      #      the job's contents:write / actions:write above. Since MONO-5 there is
-      #      no second repo, so the token is scoped to the monorepo only.
-      # Secrets APP_ID / APP_PRIVATE_KEY belong to the nimbus-docs bot App.
+      # A GitHub App installation token, not GITHUB_TOKEN: App-authored "Version
+      # packages" PRs trigger CI (GITHUB_TOKEN-authored ones are suppressed), and
+      # release.mjs pushes the `templates` branch + `templates-v*` tag and
+      # dispatches the verify workflow using the job permissions above.
+      # Secrets APP_ID / APP_PRIVATE_KEY belong to the bot App.
       - name: Mint App token
         id: app-token
         uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
@@ -106,7 +103,7 @@ jobs:
       #     tag push) and Actions: read & write (smoke dispatch) — the minted
       #     token inherits the App's permissions, so a missing Actions grant is
       #     what makes the best-effort smoke dispatch 403 silently.
-      #   - Ref protection (rulesets on this repo, see the MONO-5 ticket):
+      #   - Ref protection (rulesets on this repo):
       #     branch `templates` — restrict updates, bypass = the bot App;
       #     tag `templates-v*` — (a) restrict creation, bypass = the bot App,
       #     (b) block update + deletion with an EMPTY bypass list (nobody,

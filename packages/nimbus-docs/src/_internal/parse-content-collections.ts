@@ -41,9 +41,7 @@ import {
 } from "./parse-object-literal.js";
 
 // Locate the start of the `export const collections = {` declaration; the
-// matching close brace is found by walking braces (the original regex-only
-// match stopped at the first nested `\n\s*}` and missed entries declared
-// after any deeply nested object literal).
+// matching close brace is found by walking braces.
 const EXPORT_PREFIX_PATTERN =
   /export\s+const\s+collections\s*(?::\s*[^=]+)?=\s*\{/;
 

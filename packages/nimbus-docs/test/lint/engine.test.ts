@@ -38,10 +38,10 @@ description: A valid description.
 `;
 
 test("authoring rules are off by default — opt-in posture", () => {
-  // A file that would trip multiple rules at the old "default error" setting
-  // (no description, two H1s, no code-block language) must produce zero
-  // diagnostics under the bare framework default. The project opts into
-  // what it wants in `astro.config.ts`.
+  // A file that would trip multiple rules if they were on (no description,
+  // two H1s, no code-block language) must produce zero diagnostics under the
+  // bare framework default. The project opts into what it wants in
+  // `astro.config.ts`.
   const src = `---
 title: Bare
 ---

@@ -1,5 +1,5 @@
 /**
- * Phase 6 + 7 pure cores:
+ * Pure cores:
  *  - deriveTransformCtx: sectionSlug/module/indexEntryId derivation.
  *  - composeRouteBreadcrumbs: trail append + dedup-by-href (the AI/Models
  *    same-URL collapse).
@@ -12,7 +12,7 @@ import { buildSidebarTree, deriveTransformCtx } from "../src/_internal/sidebar.j
 import { composeRouteBreadcrumbs } from "../src/_internal/navigation.js";
 import { lpEntries, lpConfig } from "./fixtures/nav.js";
 
-// --- Phase 6: deriveTransformCtx ------------------------------------------
+// --- deriveTransformCtx ---------------------------------------------------
 
 test("transform ctx: index-less section → indexEntryId undefined, module=seg1", () => {
   const slug = "/learning-paths/workers/series/intro";
@@ -36,7 +36,7 @@ test("transform ctx: indexed section → indexEntryId is the landing id", () => 
   assert.equal(ctx.indexEntryId, "kv");
 });
 
-// --- Phase 7: composeRouteBreadcrumbs -------------------------------------
+// --- composeRouteBreadcrumbs ----------------------------------------------
 
 test("appends a non-interactive leaf (no href ⇒ current)", () => {
   const section = [

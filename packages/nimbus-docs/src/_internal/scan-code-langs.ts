@@ -22,7 +22,7 @@ const FENCE_RE = /^[ \t]*```([a-zA-Z][a-zA-Z0-9_+\-]*)[^\n`]*$/gm;
 
 // Grammars Shiki can resolve (bundled ids + aliases). Tokens outside this set
 // are dropped before reaching Shiki, which throws on grammars it can't load;
-// such code renders as plaintext instead, matching Expressive Code.
+// such code renders as plaintext instead.
 const SHIKI_KNOWN = new Set<string>(
   bundledLanguagesInfo.flatMap((l) => [l.id, ...(l.aliases ?? [])]),
 );

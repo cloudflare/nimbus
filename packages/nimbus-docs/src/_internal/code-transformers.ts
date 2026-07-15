@@ -13,11 +13,7 @@
  *     `// [!code …]` comments inside the code body and are kept as-is.
  *   - `nimbusMetaTransformer()` — a single Nimbus-owned transformer that
  *     owns ALL fence-meta semantics (the bit after the language token in
- *     ```` ```ts title="x" {1,3} ins={2} "needle" wrap ````). It replaces
- *     the stock `transformerMetaHighlight` + `transformerMetaWordHighlight`
- *     which double-fired, hijacked the first `{}` of any meta (so `ins={}`
- *     / `del={}` / `collapse={}` were mis-read as plain highlights), failed
- *     on spaced ranges, and only understood `/word/` (never EC's `"word"`).
+ *     ```` ```ts title="x" {1,3} ins={2} "needle" wrap ````).
  *     See `parseNimbusMeta` for the full grammar and precedence rules.
  *   - `titleAndLangTransformer()` — wraps the `<pre>` in a `<figure>` with
  *     an optional `<figcaption class="nb-code-title">` and a `data-nb-lang`
@@ -267,8 +263,7 @@ export function defaultCodeTransformers(
  * Nimbus-owned fence-meta transformer. Owns bare-brace highlight
  * (space-tolerant), `ins=`/`del=` (brace + quoted-string forms),
  * quoted-search word highlight, `wrap`, `collapse` (neutral), and a
- * `frame=` hook. Replaces the stock meta-highlight + meta-word-highlight
- * transformers, which double-fired and hijacked braces.
+ * `frame=` hook.
  */
 export function nimbusMetaTransformer(): ShikiTransformer {
   function getMeta(ctx: { meta?: unknown; options: { meta?: { __raw?: string } } }): NimbusMeta {
@@ -282,9 +277,8 @@ export function nimbusMetaTransformer(): ShikiTransformer {
   return {
     name: "nimbus:meta",
 
-    // Quoted search words are applied as decorations over the raw source —
-    // same mechanism the stock word-highlight uses for `/word/`, but reading
-    // EC's `"word"` form. Decorations split tokens cleanly on the hast.
+    // Quoted search words are applied as decorations over the raw source.
+    // Decorations split tokens cleanly on the hast.
     preprocess(code, options) {
       if (!this.options.meta?.__raw) return;
       const meta = getMeta(this);

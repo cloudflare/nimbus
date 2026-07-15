@@ -33,10 +33,7 @@ import {
 } from "./parse-object-literal.js";
 
 // Locate the start of the `export const components = {` declaration; the
-// matching close brace is found by walking braces. An earlier regex-only
-// approach captured up to the first `\n\s*}`, so it stopped short on any
-// entry declared after a nested object literal (e.g. a component registered
-// with an options object) and dropped every name that followed.
+// matching close brace is found by walking braces.
 const EXPORT_PREFIX_PATTERN =
   /export\s+const\s+components\s*(?::\s*[^=]+)?=\s*\{/;
 

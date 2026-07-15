@@ -163,8 +163,8 @@ export async function emitIncrementalSitemap(
   }
   urls.sort();
 
-  // Apply the user serializer to every URL. CF's pattern: attach
-  // git-sourced lastmod. Returning null/undefined drops the entry.
+  // Apply the user serializer to every URL. Returning null/undefined drops
+  // the entry.
   const items: SitemapItem[] = [];
   for (const url of urls) {
     let item: SitemapItem | null | undefined = { url };

@@ -1,22 +1,13 @@
 #!/usr/bin/env node
 /**
- * PR-time template check (MONO-4 work item 8) — replaces the old pack-smoke.
- *
- * Since the CLI tarball no longer carries templates, the failure mode this
- * guards is a *generation-breaking* edit to the canonical source or the
- * generator: without this, such an edit stays invisible until a release tries
- * to sync and blows up weeks later. So on any PR touching the starter source,
+ * PR-time template check — guards against a generation-breaking edit to the
+ * canonical source or the generator. On any PR touching the starter source,
  * the generator, or the scaffolder, CI:
  *
  *   1. generates every variant,
- *   2. scaffolds one via the real scaffolder's `--template-dir` path (the
- *      offline sibling of the giget path — exercises the same transforms), and
+ *   2. scaffolds one via the scaffolder's `--template-dir` path, and
  *   3. builds it against the current workspace `nimbus-docs` (packed, so the
  *      scaffold resolves the in-repo code, not whatever is on npm).
- *
- * This is complementary to `release.mjs`'s pre-publish verify: that copies
- * generator output directly and builds every variant against the exact bits
- * being released; this exercises the scaffolder end to end on one variant.
  */
 
 import { spawnSync } from "node:child_process";

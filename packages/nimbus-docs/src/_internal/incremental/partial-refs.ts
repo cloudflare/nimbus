@@ -198,7 +198,6 @@ export async function buildPartialRegistry(
   }
 
   // Pass 1: read every partial file, extract its direct partial refs.
-  // `skipNodeModules:false` + lenient preserve the old `walkPartials` behavior.
   for await (const { abs: filePath } of walkFiles(partialsRoot, {
     extensions: [".mdx", ".md"],
     skipNodeModules: false,

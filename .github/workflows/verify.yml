@@ -1,6 +1,6 @@
 name: Verify templates
 
-# Post-publish smoke (MONO-5): scaffold every variant straight from a
+# Post-publish smoke: scaffold every variant straight from a
 # `templates-v*` tag on the orphan `templates` branch and build it against the
 # now-live npm packages. The release job dispatches this with the freshly-pushed
 # tag (needs actions:write on the App token); it can also be run by hand.

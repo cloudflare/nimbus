@@ -1,6 +1,6 @@
 /**
- * Phase 5 — isolate.boundaries: descend a section-scoped tree to a module
- * sub-rail. Phase 6 ctx (module/indexEntryId) is exercised via getSidebar
+ * isolate.boundaries: descend a section-scoped tree to a module
+ * sub-rail. Module/indexEntryId ctx is exercised via getSidebar
  * elsewhere; here we test the pure isolation primitive.
  */
 

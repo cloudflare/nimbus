@@ -91,12 +91,7 @@ const prevNextSchema = z
   .optional();
 
 // Head elements: every HTML tag that's valid as a direct child of <head>.
-// The earlier enum was meta/link/script/style only, which rejected the
-// equally-valid `title`, `noscript`, and `base` — needed on a page that
-// overrides the browser tab title via
-// `head: [{ tag: title, content: "Overview" }]`. Keeping it an enum (vs.
-// a free `z.string()`) so typos still fail loudly, just over the full
-// real set rather than a curated subset.
+// Kept as an enum (vs. a free `z.string()`) so typos still fail loudly.
 const headElementSchema = z.object({
   tag: z.enum(["meta", "link", "script", "style", "title", "noscript", "base"], {
     error:

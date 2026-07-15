@@ -38,8 +38,6 @@ test("nested generics (<Name<…>>) are not flagged", async () => {
 });
 
 test("a stray/odd backtick does not cascade onto later inline code", async () => {
-  // Regression: cross-line inline-code matching used to make backtick
-  // pairing global, so one stray backtick exposed a later `<Component>`.
   const body =
     fm + "A lone ` backtick in prose.\n\nLater a `<Markdown>` mention in code.\n";
   const failures = await scan({ "stray.mdx": body });

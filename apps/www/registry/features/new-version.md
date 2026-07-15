@@ -551,11 +551,11 @@ recover in this priority order:**
    GitHub repo (the registry hosts the same content):
 
    ```sh
-   curl -fsSL https://raw.githubusercontent.com/anomalyco/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/VersionPicker.astro \
+   curl -fsSL https://raw.githubusercontent.com/cloudflare/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/VersionPicker.astro \
      -o src/components/ui/version-switcher/VersionPicker.astro
-   curl -fsSL https://raw.githubusercontent.com/anomalyco/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/index.ts \
+   curl -fsSL https://raw.githubusercontent.com/cloudflare/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/index.ts \
      -o src/components/ui/version-switcher/index.ts
-   curl -fsSL https://raw.githubusercontent.com/anomalyco/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/README.md \
+   curl -fsSL https://raw.githubusercontent.com/cloudflare/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/README.md \
      -o src/components/ui/version-switcher/README.md
    ```
 

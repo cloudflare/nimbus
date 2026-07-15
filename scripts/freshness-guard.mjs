@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Freshness guard (MONO-4 work item 9).
+ * Freshness guard.
  *
  * Independent versioning + immutable tags mean a starter edit is INVISIBLE to
  * users until a `create-nimbus-docs` release re-syncs the templates branch and

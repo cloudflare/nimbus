@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/@changesets/config@3.1.4/schema.json",
   "changelog": [
     "@changesets/changelog-github",
-    { "repo": "MohamedH1998/nimbus-docs" }
+    { "repo": "cloudflare/nimbus" }
   ],
   "commit": false,
   "fixed": [],

@@ -134,7 +134,7 @@ export const internalLink: Rule = {
       // Normalize first, then match `ignore` against the post-base form.
       // Authors write patterns relative to the site root (`/api/**`),
       // matching them against the raw URL would miss `/docs/api/foo` on a
-      // site with `base: "/docs"` — the bug the original ordering had.
+      // site with `base: "/docs"`.
       const normalized = normalizeForLookup(url, truth.base);
       if (matchesAnyIgnore(normalized, ignore)) continue;
       if (isUnderOpaqueNamespace(normalized, truth.opaqueNamespaces)) continue;

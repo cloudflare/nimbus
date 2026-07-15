@@ -2,12 +2,6 @@
  * Tests for `parseComponentsRegistry` — the text-level reader the MDX
  * validator uses to learn which PascalCase globals the user registered in
  * `src/components.ts`, without executing the file.
- *
- * The headline regression: the old regex-only parser captured up to the
- * first `\n\s*}`, so any entry declared after a multi-line nested object
- * literal was dropped — and a dropped name means the validator falsely flags
- * a genuinely-registered component as unregistered. The brace-walking rewrite
- * fixes that; several cases below pin it.
  */
 
 import assert from "node:assert/strict";
@@ -48,9 +42,6 @@ export const components = {
 });
 
 test("captures entries declared after a multi-line nested object literal", async () => {
-  // The core regression. `Config`'s value spans a multi-line object, whose
-  // closing `\n  })` is exactly what the old non-greedy regex terminated on —
-  // dropping `Aside` and `Tabs` entirely.
   await withTempFile(
     `
 export const components = {

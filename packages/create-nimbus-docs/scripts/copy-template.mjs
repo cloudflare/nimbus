@@ -16,7 +16,7 @@
  * content/docs/ override lives. Generator logic stays here; what-to-filter
  * stays in the manifest.
  *
- * Output destination is a parameter, not a constant. Since MONO-4 the CLI
+ * Output destination is a parameter, not a constant. The CLI
  * tarball ships no templates; the variants are generated on demand into:
  *
  *   - a temp dir the release job verifies then syncs to the templates branch,

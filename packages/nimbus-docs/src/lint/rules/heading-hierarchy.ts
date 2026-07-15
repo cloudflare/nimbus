@@ -5,9 +5,8 @@
  *
  * Detection is delegated to `remark-lint-heading-increment` via the
  * adapter. The wrapper re-walks the tree at each reported position to
- * find the offending heading and its predecessor, then constructs the
- * dynamic message ("h2 to h4 — use h3 instead") the hand-rolled rule
- * emitted.
+ * find the offending heading and its predecessor, then constructs a
+ * dynamic message ("h2 to h4 — use h3 instead").
  */
 
 import remarkLintHeadingIncrement from "remark-lint-heading-increment";

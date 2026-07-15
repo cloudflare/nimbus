@@ -100,11 +100,6 @@ export const collections = {
 });
 
 test("parseCollectionBases resolves shorthand entries to their local declaration's base override", async () => {
-  // Regression for the reviewer's Medium finding: shorthand `{ docs }`
-  // referencing a `const docs = defineCollection(docsCollection({ base:
-  // "documentation" }));` must still pick up the base. The earlier
-  // version only scanned the entry's value text (which is empty for
-  // shorthand), so it silently fell back to `"docs"`.
   await withTempConfig(
     `
 import { defineCollection } from "astro:content";
@@ -183,12 +178,8 @@ export const collections = { docs };
 });
 
 test("parseCollectionBases honors ASI — semicolonless shorthand doesn't bleed into the next statement", async () => {
-  // Regression: without `;`, the captured value used to extend into the
-  // following `export const collections = { …, blog: …({ base: "posts" }) }`
-  // statement, and the regex would pick up the `base: "posts"` from `blog`'s
-  // entry — silently mismapping `docs` → `posts`. The walker has to honor
-  // ASI: stop at the first top-level newline after the value has produced
-  // non-whitespace content.
+  // The walker must honor ASI: stop at the first top-level newline after the
+  // value has produced non-whitespace content.
   await withTempConfig(
     `
 import { docsCollection } from "nimbus-docs/content"

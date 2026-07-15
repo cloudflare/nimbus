@@ -20,7 +20,7 @@ const { entry, Content, headings } = await getDocsPageProps(Astro);
 
 const currentSlug = Astro.url.pathname.replace(/\/$/, "") || "/";
 
-// Chrome AND-merge — see canonical starter for the full rationale.
+// Chrome AND-merge.
 // Column renders only when ALL THREE agree: not in custom mode, site-wide
 // feature flag on, per-page frontmatter not opted out.
 const isCustom = entry.data.mode === "custom";

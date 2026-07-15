@@ -1,5 +1,5 @@
 /**
- * Phase 4 — getSectionTitle(slug, resolver): rail/breadcrumb divergence,
+ * getSectionTitle(slug, resolver): rail/breadcrumb divergence,
  * seg0/seg1 derivation, async resolver, and undefined fallthrough.
  */
 

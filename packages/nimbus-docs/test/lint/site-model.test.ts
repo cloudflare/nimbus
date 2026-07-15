@@ -203,9 +203,9 @@ test("findDuplicateRoutes treats unregistered version collections as ordinary co
 });
 
 test("findDuplicateRoutes catches page-vs-content collisions", () => {
-  // The High-priority reviewer finding: `src/pages/search.astro` and
-  // `src/content/docs/search.mdx` both serve `/search`. Astro silently
-  // shadows; pre-build dup-detection needs to see *both* sources.
+  // `src/pages/search.astro` and `src/content/docs/search.mdx` both serve
+  // `/search`. Astro silently shadows; pre-build dup-detection needs to see
+  // *both* sources.
   const dups = findDuplicateRoutes([
     contentOwner("docs", "search"),
     { url: "/search", source: "src/pages/search.astro" },
@@ -352,10 +352,10 @@ test("enumerateStaticPageRoutes lowercases segments to match Astro's joinSegment
 // ---------------------------------------------------------------------------
 
 test("enumerateEntriesByBase walks each collection at its configured base, tags with the key", () => {
-  // Regression for the Medium reviewer finding: a `docsCollection({ base:
-  // "documentation" })` puts content at `src/content/documentation/` but
-  // registers as collection `docs`. Walking with the (key→base) map
-  // ensures entries get tagged with the registered key, not the folder.
+  // A `docsCollection({ base: "documentation" })` puts content at
+  // `src/content/documentation/` but registers as collection `docs`. Walking
+  // with the (key→base) map ensures entries get tagged with the registered
+  // key, not the folder.
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-bases-"));
   try {
     fs.mkdirSync(path.join(root, "documentation"), { recursive: true });

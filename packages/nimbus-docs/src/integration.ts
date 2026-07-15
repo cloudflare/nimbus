@@ -912,7 +912,7 @@ export function nimbus(
           await snapshotAssetsToCache(incrementalCtx, distDir);
           await finaliseIncrementalContext(incrementalCtx);
         } else {
-          // Non-incremental path — same logic as before.
+          // Non-incremental path.
           materializeRouteTruthFromPages(
             projectRootForBuild,
             astroBaseForBuild,

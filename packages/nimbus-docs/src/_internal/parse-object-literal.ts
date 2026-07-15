@@ -5,9 +5,8 @@
  * Shared by `parse-components-registry.ts` (reads `src/components.ts`) and
  * `parse-content-collections.ts` (reads `src/content.config.ts`). Both need
  * the same three operations — strip comments, find a matching brace, split
- * top-level commas — and an earlier divergence (a non-greedy regex in the
- * components parser) meant one of them silently mis-parsed literals with
- * nested objects. Extracting the primitives keeps the two parsers in lockstep.
+ * top-level commas — so the primitives live here to keep the two parsers in
+ * lockstep.
  */
 
 /**

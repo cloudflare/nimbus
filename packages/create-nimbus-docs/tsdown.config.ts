@@ -5,8 +5,7 @@ const pkg = JSON.parse(
   readFileSync(new URL("./package.json", import.meta.url), "utf-8"),
 ) as { version: string; engines?: { node?: string } };
 
-// The scaffolder no longer ships templates (MONO-4), so the minimum Node is
-// taken from this package's own `engines.node` rather than a template's.
+// Minimum Node is taken from this package's own `engines.node`.
 const minNodeVersion = pkg.engines?.node?.replace(/^>=/, "") ?? "20.0.0";
 
 export default defineConfig({

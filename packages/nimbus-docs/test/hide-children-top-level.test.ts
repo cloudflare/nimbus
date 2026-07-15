@@ -1,5 +1,5 @@
 /**
- * Phase 8 — top-level `hideChildren` frontmatter (Starlight compat).
+ * Top-level `hideChildren` frontmatter.
  * The nested `sidebar.hideChildren` must keep working unchanged.
  *
  * `hideChildren` collapses a group whose `_indexId` entry declares it.

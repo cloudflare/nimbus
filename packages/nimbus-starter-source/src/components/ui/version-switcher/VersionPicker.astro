@@ -1,39 +1,5 @@
 ---
-/**
- * VersionPicker — picker for switching between docs versions.
- *
- * Registry component (`nimbus-docs add version-switcher`). User-owned
- * after install; the framework owns only the data layer the picker
- * reads from (`getVersions`, `getVersionAlternates`, `getCurrentVersion`).
- *
- * Behavior:
- *   - Renders nothing when the site is unversioned (no `versions` block
- *     in nimbus.config.ts) or only one version is configured.
- *   - Lists every version in `versions.all` order; hidden versions are
- *     excluded.
- *   - Each entry's href tries to land the reader on the same logical
- *     page in the target version (computed from the build-time
- *     alternates table). When no sibling exists in the target version,
- *     falls back to that version's URL prefix root (`/` for current,
- *     `/<v>/` for others). That fallback may 404 unless the user has
- *     scaffolded an index — document this on a new version's cut.
- *   - Deprecated versions show a `deprecated` badge inline.
- *   - Current version is highlighted; clicking it is a no-op navigation.
- *   - Responsive: a `variant="header"` mode renders a desktop dropdown
- *     (popover) visible at `md` and up; `variant="sidebar"` renders an
- *     inline labeled section meant to live inside the mobile sidebar
- *     drawer (visible below `md`).
- *
- * Props:
- *   - `collection` (optional) — Astro collection id for the current
- *     page. Pass `entry.collection` from your route.
- *   - `entryId` (optional) — Astro entry id for the current page.
- *     Drives per-version `href` computation via the alternates table.
- *   - `variant` (optional, default `"header"`) — `"header"` for the
- *     desktop popover dropdown; `"sidebar"` for the inline mobile list
- *     placed inside the sidebar drawer. Both modes are CSS-gated so
- *     you can drop both into your layout and let the breakpoint pick.
- */
+/** Picker for switching between docs versions. */
 import { Icon } from "astro-icon/components";
 import {
   getCurrentVersion,
@@ -53,9 +19,6 @@ const { collection, entryId, variant = "header" } = Astro.props;
 
 const versions = await getVersions();
 
-// Build the per-version href list. Render nothing if versioning is off
-// or only one version is configured — no point showing a one-entry
-// dropdown.
 let entries: {
   version: string;
   href: string;
@@ -73,7 +36,6 @@ if (versions && versions.all.length >= 2) {
       ? await getVersionAlternates(collection, entryId)
       : null;
 
-  // Quick lookup: for each version, do we have a same-logical-page URL?
   const alternateByVersion = new Map<string, string>();
   if (record) {
     alternateByVersion.set(record.self.version, record.self.url);
@@ -82,12 +44,7 @@ if (versions && versions.all.length >= 2) {
 
   const visible = versions.all.filter((v) => !versions.hidden.includes(v));
 
-  // Resolve a guaranteed-existing landing URL per version, used as the
-  // fallback when the current page has no same-logical-page sibling.
-  // Without this, clicking "v0" from a page with no v0 counterpart
-  // (e.g. the home page) lands on `/v0/`, which 404s unless the user
-  // hand-built a v0 landing route. The helper walks the version's
-  // indexed entries and returns a real entry's URL.
+  // Fallback landing URL per version, used when the current page has no same-logical-page sibling.
   const landingByVersion = new Map<string, string | null>(
     await Promise.all(
       visible.map(async (v) => [v, await getVersionLandingUrl(v)] as const),

@@ -197,11 +197,10 @@ export function formatShadowedRoutes(dups: DuplicateGroup[]): string {
  * Considered "static" iff the path has no dynamic segments (`[id]`,
  * `[...slug]`). Dynamic routes are skipped because their emitted URLs come
  * from `getStaticPaths` at build time — we can't know them statically, so
- * we can't detect collisions involving them pre-build. The opaque-namespace
- * pattern from earlier drafts (mark a whole namespace as un-checkable)
- * doesn't apply here: dup-detection only catches *exact* URL collisions,
- * and any catch-all owned by the framework's docs renderer collides with a
- * content entry the *content* enumeration also catches.
+ * we can't detect collisions involving them pre-build. Dup-detection only
+ * catches *exact* URL collisions, and any catch-all owned by the
+ * framework's docs renderer collides with a content entry the *content*
+ * enumeration also catches.
  *
  * URL normalization: lowercase each segment + strip a trailing `/index`,
  * matching Astro's `joinSegments` behavior for static routes. Underscore-

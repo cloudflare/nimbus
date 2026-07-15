@@ -8,7 +8,7 @@ const nimbusConfig = defineNimbusConfig({
   title: "Nimbus",
   description: "The modern way to write docs in the AI era.",
   locale: "en",
-  github: "https://github.com/MohamedH1998/nimbus-docs",
+  github: "https://github.com/cloudflare/nimbus",
   socialImageAlt: "Nimbus documentation preview",
   sidebar: {
     items: [

@@ -10,7 +10,7 @@ interface Props extends HTMLAttributes<"span"> {
 
 const { text, variant = "default", size = "small", class: className, ...attrs } = Astro.props;
 
-// note→info, tip→success, caution→warning: Starlight-compatible aliases
+// note→info, tip→success, caution→warning: variant aliases
 const variantClass: Record<string, string> = {
   default: "bg-accent text-muted-foreground",
   info:    "bg-info-muted text-info",

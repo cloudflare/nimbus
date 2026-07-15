@@ -130,9 +130,8 @@ export { defaultCodeTransformers } from "./_internal/code-transformers.js";
  * Drafts are filtered in production builds. Pass an explicit
  * `collections` argument to scope the query to a subset.
  *
- * Replaces the old `getVisibleDocs()` — same draft-filtering semantics,
- * but now collection-aware. Returns `CollectionEntry<string>[]` so
- * cross-collection traversal doesn't need per-name type narrowing.
+ * Returns `CollectionEntry<string>[]` so cross-collection traversal
+ * doesn't need per-name type narrowing.
  */
 export { getVisibleEntries };
 

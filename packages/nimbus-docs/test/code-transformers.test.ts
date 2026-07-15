@@ -55,7 +55,7 @@ const NUMBERED = Array.from({ length: 42 }, (_, i) => `const l${i + 1} = ${i + 1
 const SMALL = "const a = 1;\nconst b = 2;\nconst c = 3;\nconst d = 4;";
 
 // ---------------------------------------------------------------------------
-// Pure parser precedence — the heart of the fix.
+// Pure parser precedence.
 // ---------------------------------------------------------------------------
 
 test("parser: bare braces are space-tolerant", () => {

@@ -12,8 +12,6 @@ Nimbus builds documentation sites on Astro. The architecture splits into three t
 
 Cloudflare is a first-class deploy target (the scaffolder defaults to it and ships `wrangler.jsonc`), but the framework is deploy-target agnostic — static output runs anywhere.
 
-Some design rationale is maintained outside this open-source repo. Ask the maintainer if you need the reasoning behind a particular decision.
-
 ## Repo layout
 
 ```
@@ -34,7 +32,7 @@ monorepo/
 ├── scripts/
 │   ├── release.mjs                        release orchestration (detect → generate → verify → sync+tag → publish)
 │   ├── sync-templates-repo.mjs            sync generator output to the orphan templates branch + tag templates-v<version> (idempotent)
-│   ├── templates-check.mjs                PR CI: generate + scaffold + build (replaces pack-smoke)
+│   ├── templates-check.mjs                PR CI: generate + scaffold + build
 │   ├── check-no-major.mjs / freshness-guard.mjs  release guards
 │   ├── local.mjs / local-add.mjs          local sandbox helpers
 ├── .generated/                            gitignored generator output (templates); scratch for local/CI/release
@@ -58,7 +56,7 @@ pnpm local                                       # spin up the local sandbox (ge
 
 ## The boundary test (read before adding any file)
 
-The current architectural rule replaces the looser "user owns as much as possible" framing. Three tiers, one test per tier:
+The architecture splits into three tiers, one test per tier:
 
 | Tier | Lives in | Test |
 |---|---|---|
@@ -70,7 +68,7 @@ The current architectural rule replaces the looser "user owns as much as possibl
 
 ## Derived templates
 
-**Drift discipline: canonical source → generator → orphan branch → tagged.** Hand-edits happen in one place, `packages/nimbus-starter-source/`. The generator (`packages/create-nimbus-docs/scripts/copy-template.mjs`) emits one directory per variant from that source plus the manifest. Since MONO-4 the CLI tarball carries **no templates**; MONO-5 moved distribution into this repo — the variants live on an orphan `templates` branch (the gh-pages pattern, no shared history with `main`), synced and **tagged `templates-v<create-nimbus-docs version>`** by the release job. At scaffold time `create-nimbus-docs` fetches its matching tag via giget (`github:<owner>/nimbus-docs/<variant>#templates-v<version>`); the tag's tree is templates-only, so the tarball stays small even though the repo also holds all of `main`. A starter edit therefore still produces a diff touching only `packages/nimbus-starter-source/**`; the `templates` branch is sync output, never hand-edited (a branch ruleset rejects human pushes, and `templates-v*` tags are immutable for everyone — including the bot).
+**Drift discipline: canonical source → generator → orphan branch → tagged.** Hand-edits happen in one place, `packages/nimbus-starter-source/`. The generator (`packages/create-nimbus-docs/scripts/copy-template.mjs`) emits one directory per variant from that source plus the manifest. The CLI tarball carries **no templates**; distribution lives in this repo — the variants live on an orphan `templates` branch (no shared history with `main`), synced and **tagged `templates-v<create-nimbus-docs version>`** by the release job. At scaffold time `create-nimbus-docs` fetches its matching tag via giget (`github:cloudflare/nimbus/<variant>#templates-v<version>`); the tag's tree is templates-only, so the tarball stays small even though the repo also holds all of `main`. A starter edit therefore still produces a diff touching only `packages/nimbus-starter-source/**`; the `templates` branch is sync output, never hand-edited (a branch ruleset rejects human pushes, and `templates-v*` tags are immutable for everyone — including the bot).
 
 The scaffolder never fetches a branch — every fetch is pinned to `#templates-v<own version>`, so `create-nimbus-docs@0.2.0` fetches templates tagged `templates-v0.2.0`, reproducibly. `--template-dir <path>` bypasses the network entirely (offline dev, and how `pnpm local` works).
 
@@ -116,7 +114,7 @@ pnpm changeset
 | `apps/www/registry/manifests.ts` | Registry source of truth — 33 component/utility/feature entries |
 | `scripts/release.mjs` | Release orchestration — detect → generate → verify → sync+tag → publish (the changesets `publish` command) |
 | `scripts/sync-templates-repo.mjs` | Idempotent sync of generator output to the orphan `templates` branch + `templates-v<version>` tag |
-| `scripts/templates-check.mjs` | PR CI — generate + scaffold + build a variant (replaces pack-smoke) |
+| `scripts/templates-check.mjs` | PR CI — generate + scaffold + build a variant |
 | `scripts/check-no-major.mjs`, `scripts/freshness-guard.mjs` | Release guards (no unattended 1.0.0; CLI changeset required when templates change) |
 | `scripts/local.mjs`, `scripts/local-add.mjs` | Local sandbox helpers |
 
@@ -154,7 +152,7 @@ pnpm changeset        # pick the package(s) + bump, write a summary
 - **On merge to `main`**, `.github/workflows/release.yml` opens or updates a "Version packages" PR that applies the pending changesets (bumps versions, writes each package's `CHANGELOG.md`).
 - **Merging that PR** runs `scripts/release.mjs publish`, which: detects what's in the release, generates + verifies the templates against the exact `nimbus-docs` bits, **syncs + tags the orphan `templates` branch (`templates-v<version>`) before publishing**, publishes `nimbus-docs` before the CLI (so a live CLI never pins an unpublished dep), then dispatches the in-repo verify smoke — all unattended, with npm provenance.
 - A half-failed release recovers via the `publish_only` `workflow_dispatch` input (sync is idempotent; an orphan tag is harmless).
-- **Hard requirement (MONO-5): the monorepo must be public before the first release.** Unauthenticated giget scaffolds only work against a public repo, and — unlike the old separate-repo design — this one can't expose templates without exposing source. Until the flip, scaffolds need `GIGET_AUTH`. Run a full-history secret scan before going public. The `templates` branch and `templates-v*` tags are protected by repo rulesets (branch: bot-App-only updates; tag: App-only creation + empty-bypass update/delete, so published tags are immutable for everyone).
+- **Hard requirement: the monorepo must be public before the first release.** Unauthenticated giget scaffolds only work against a public repo, and this repo can't expose templates without exposing source. Until the flip, scaffolds need `GIGET_AUTH`. Run a full-history secret scan before going public. The `templates` branch and `templates-v*` tags are protected by repo rulesets (branch: bot-App-only updates; tag: App-only creation + empty-bypass update/delete, so published tags are immutable for everyone).
 
 The root `CHANGELOG.md` is frozen; per-release notes live in `packages/*/CHANGELOG.md`.
 
@@ -165,8 +163,6 @@ If you're picking up a new piece of work:
 1. This file + [`README.md`](./README.md) — architecture, the boundary rule, and the build/dev/test workflows
 2. *Key files to know* (above) and the package source under `packages/nimbus-docs/src/`
 3. Public feature docs under `apps/www/src/content/docs/`
-
-Some design rationale is kept outside this repo — ask the maintainer if a decision's intent is unclear.
 
 ## Operating principles for agents
 

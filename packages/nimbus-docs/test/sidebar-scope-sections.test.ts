@@ -1,7 +1,7 @@
 /**
- * Scope-first materialization + clone-free section tabs (build-memory fix).
+ * Scope-first materialization + clone-free section tabs.
  *
- * `getSidebar` no longer clones the whole tree per page: it scopes the frozen
+ * `getSidebar` scopes the frozen
  * structural tree to the current section and clones only that subtree.
  * `getSidebarSections` reads the frozen tree with no clone. Both compute
  * active-state from the path via `subtreeContainsPath`, which must replicate

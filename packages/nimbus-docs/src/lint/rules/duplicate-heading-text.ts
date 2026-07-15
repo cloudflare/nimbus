@@ -28,8 +28,7 @@ export const duplicateHeadingText: Rule = {
     if (reports.length === 0) return;
 
     // Build a map of normalized heading text → first occurrence line so
-    // we can reproduce the "(first used on line N)" hint the
-    // hand-rolled rule emitted.
+    // we can produce the "(first used on line N)" hint.
     const firstSeen = new Map<string, number>();
     for (const heading of collect(ctx.file.tree, "heading")) {
       const key = textOf(heading).trim().toLowerCase();

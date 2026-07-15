@@ -1,10 +1,8 @@
 /**
  * Invariant: the three active-state matchers must always agree on whether a
- * node is "active" for a given route. They previously re-implemented the same
- * predicate independently and drifted (findActivePath missed the
- * `_neverActive` / `_indexNeverActive` guards its siblings applied), so they
- * now share `linkMatchesKey` / `groupIndexMatchesKey`. This test pins that
- * agreement against the tricky cases (cross-section `_neverActive` references,
+ * node is "active" for a given route. They share `linkMatchesKey` /
+ * `groupIndexMatchesKey` to guarantee that agreement. This test pins it
+ * against the tricky cases (cross-section `_neverActive` references,
  * `_indexNeverActive` / external landings, and duplicate hrefs).
  */
 

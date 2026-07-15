@@ -22,7 +22,7 @@ Flags:
 ## Templates & network
 
 Templates are downloaded at scaffold time from the
-[`nimbus-docs`](https://github.com/MohamedH1998/nimbus-docs) repo, pinned to the
+[`nimbus`](https://github.com/cloudflare/nimbus) repo, pinned to the
 tag matching this CLI's version (`create-nimbus-docs@0.2.0` fetches the
 `templates-v0.2.0` tag) — so a given CLI version always scaffolds the same
 templates, forever. The tag lives on a dedicated `templates` branch that holds

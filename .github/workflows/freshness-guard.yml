@@ -1,6 +1,6 @@
 name: Freshness guard
 
-# Makes independent versioning honest (MONO-4 work item 9): a starter edit or a
+# Makes independent versioning honest: a starter edit or a
 # nimbus-docs minor+ bump only reaches users through a create-nimbus-docs
 # release, so require a CLI changeset when one is needed.
 on:

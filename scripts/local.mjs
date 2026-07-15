@@ -1,54 +1,24 @@
 #!/usr/bin/env node
 /**
  * `pnpm local` — scaffold a Nimbus docs site against your local pre-release
- * framework code, so you can validate what real users will experience when
- * they run `npm create nimbus-docs`.
+ * framework code, so you can validate what real users experience running
+ * `npm create nimbus-docs`.
  *
- * Two modes:
- *
- *   Default (interactive)
- *     pnpm local
- *
- *     Launches the scaffolder with full interactive prompts. Pick a name
- *     when prompted (e.g. `my-test-site`); the app lands in apps/<name>/.
- *     Use this to validate the user-facing scaffold UX — prompts, defaults,
- *     resulting project shape — all against your local code.
- *
- *   Automated sandbox (--auto)
- *     pnpm local --auto
- *
- *     Skips prompts (uses defaults), scaffolds examples/local/, starts
- *     the local registry server on :8901, and runs astro dev. Use this for
- *     day-to-day inspection or to test `nimbus-docs add <slug>` against the
- *     local registry. Holds the terminal open; Ctrl+C cleans up.
+ * Modes:
+ *   pnpm local           Interactive scaffold into apps/<name>/.
+ *   pnpm local --auto    Non-interactive: scaffolds examples/local/, starts the
+ *                        local registry server on :8901, and runs astro dev.
+ *                        Holds the terminal open; Ctrl+C cleans up.
  *
  * Flags:
- *   --auto       Automated mode (described above). Default is interactive.
- *   --reset      Wipe the target before scaffolding. (--auto only — interactive
- *                mode lets the user name the target and won't overwrite.)
+ *   --auto       Automated mode. Default is interactive.
+ *   --reset      Wipe the target before scaffolding. (--auto only.)
  *   --no-dev     Skip astro dev. (--auto only.)
  *
- * Templates come from the generator, not the network (MONO-4). This script
- * runs `copy-template.mjs` into `.generated/templates/` and scaffolds with
- * `--template-dir`, so `pnpm local` needs neither the templates branch nor a
- * network connection.
- *
- * The workspace:* rewrite (load-bearing step in BOTH modes):
- *
- *   The generated template pins `"nimbus-docs": "^<version>"` — a regular npm
- *   range, so a fresh user install resolves from npm. For pre-release testing
- *   we want the OPPOSITE: resolve from the local workspace package.
- *
- *   pnpm 9's default for `link-workspace-packages` is `false`, meaning pnpm
- *   does NOT auto-prefer a workspace package over a published one when the
- *   range matches both. So if local is at 0.1.2 and npm has 0.1.3, the
- *   `^0.1.2` range matches both and pnpm picks 0.1.3 from npm — the exact
- *   wrong choice for pre-release testing.
- *
- *   This script rewrites the scaffolded package.json to declare
- *   `"nimbus-docs": "workspace:*"`. That forces pnpm to resolve from the
- *   workspace regardless of what's published. Without this step, `pnpm
- *   local` would silently test the npm version, not your local code.
+ * Templates come from the generator via `--template-dir`, so this needs no
+ * network. The scaffolded package.json is rewritten from the `^<version>` npm
+ * range to `nimbus-docs: workspace:*`, forcing pnpm to resolve the local
+ * package instead of whatever is published on npm.
  */
 
 import { spawn } from "node:child_process";

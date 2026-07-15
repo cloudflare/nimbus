@@ -14,7 +14,7 @@ test("a registered collection that throws is reported, not silently dropped", as
     throw new Error("loader exploded");
   });
   // Entries are empty (collection skipped) but the failure is surfaced so it
-  // can be logged — the regression PROD-9.1 fixes was swallowing this.
+  // can be logged — a regression was swallowing this.
   assert.equal(res.entries.length, 0);
   assert.match(res.warning ?? "", /collection "api" failed to load and was skipped/);
   assert.match(res.warning ?? "", /loader exploded/);

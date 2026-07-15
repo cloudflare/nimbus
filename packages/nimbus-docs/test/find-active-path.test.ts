@@ -1,5 +1,5 @@
 /**
- * Phase 1 — `findActivePath`: returns the root→active ancestor node chain.
+ * `findActivePath`: returns the root→active ancestor node chain.
  * Covers leaf links, group-landing matches, index-less ancestor groups
  * (learning-paths modules), and the no-match fallback.
  */
@@ -32,7 +32,7 @@ test("index-less ancestor group is in the chain with no href", () => {
 });
 
 test("group-landing match ends the chain at the group", () => {
-  // Build the AI tree with a wired landing (simulate Phase 3 output).
+  // Build the AI tree with a wired landing.
   const tree = [
     {
       type: "group" as const,

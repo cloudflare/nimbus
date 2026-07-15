@@ -65,8 +65,7 @@ function runHandRolled(source: string): RuleReport[] {
 
 /**
  * Run the remark-lint rule and augment each report with a surgical fix.
- * The "wrapper" — this is what would replace the hand-rolled list-marker-style
- * rule body. Adapter handles the detection; this code handles offset → fix.
+ * Adapter handles the detection; this code handles offset → fix.
  */
 function runViaAdapter(source: string): RuleReport[] {
   const file = parse(source);
@@ -76,17 +75,13 @@ function runViaAdapter(source: string): RuleReport[] {
     { path: file.path, source: file.source },
   );
 
-  // Configure: we want dash style. The rule's default is "consistent" —
-  // we'd pass options through the unified plugin call for the real
-  // adapter; for the spike, the source's first marker is `-` so the rule
-  // naturally enforces dashes.
-
+  // The rule's default is "consistent"; the source's first marker is `-`,
+  // so the rule naturally enforces dashes.
   return reports.map((r) => {
     const offset = offsetAt(source, r.line, r.column);
     const found = source[offset];
 
-    // The fix is identical to the hand-rolled rule's:
-    // change the one-character marker at this offset to "-".
+    // Change the one-character marker at this offset to "-".
     const fix: DiagnosticFix = {
       description: `change "${found}" to "-"`,
       edits: [{ range: [offset, offset + 1], text: "-" }],
@@ -169,8 +164,7 @@ for (const fx of FIXTURES) {
     }
 
     // Fix agreement: applying both rule sets' fixes to the source produces
-    // byte-identical output. This is the load-bearing claim — if it holds,
-    // we can swap the implementation without breaking --fix.
+    // byte-identical output.
     if (hand.length > 0) {
       let handFixed = fx.source;
       let remarkFixed = fx.source;

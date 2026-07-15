@@ -1,5 +1,5 @@
 /**
- * Phase 3 — synthetic sections: manual-group `segment`/`landing` wiring.
+ * Synthetic sections: manual-group `segment`/`landing` wiring.
  * The AI case: `/ai/` has no page; the group lands on `/ai/models/`, and
  * the breadcrumb trail surfaces `AI` pointing at the landing, never `/ai/`.
  */

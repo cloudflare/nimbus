@@ -22,7 +22,6 @@ examples/
 apps/www/public/registry/
 
 # Generated template variants — derived from packages/nimbus-starter-source/ via
-# copy-template.mjs (MONO-4). No longer shipped in the CLI tarball; generated on
-# demand for local dev (`pnpm local`), release verify, and the templates-repo
-# sync. Regenerate via `pnpm build:templates`.
+# copy-template.mjs. Generated on demand for local dev (`pnpm local`), release
+# verify, and the templates-repo sync. Regenerate via `pnpm build:templates`.
 .generated/

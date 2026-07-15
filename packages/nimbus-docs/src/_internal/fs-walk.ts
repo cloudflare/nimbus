@@ -1,9 +1,9 @@
 /**
  * The single filesystem-walk utility for content/page walks, shared by the
- * lint CLI (sync) and the incremental build cache (async). Consolidates a
- * spread of walkers whose skip rules had drifted apart. Sync and async drivers
- * both exist because the lint CLI is synchronous while the cache is async; they
- * share the skip predicate, extension matcher, and read-error policy.
+ * lint CLI (sync) and the incremental build cache (async). Sync and async
+ * drivers both exist because the lint CLI is synchronous while the cache is
+ * async; they share the skip predicate, extension matcher, and read-error
+ * policy.
  *
  * `incremental/hash.ts` is intentionally not folded in — it walks the whole
  * project root with path-based build-artifact excludes that don't reduce to a

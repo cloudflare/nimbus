@@ -4,8 +4,8 @@
  * active flags onto a CLONE. These tests pin the two invariants that make
  * that safe:
  *
- *   1. Parity — `markActiveState(clone, slug)` reproduces, byte-for-byte, the
- *      tree the old per-page build produced by baking `slug` directly.
+ *   1. Parity — `markActiveState(clone, slug)` produces, byte-for-byte, the
+ *      correctly-marked tree for `slug`.
  *   2. Immutability — marking a clone never mutates the shared structure, and
  *      two pages marked from the same structure don't bleed into each other
  *      (correct under concurrent prerender).

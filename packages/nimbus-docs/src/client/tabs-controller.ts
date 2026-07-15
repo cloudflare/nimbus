@@ -22,7 +22,7 @@ export interface TabsConfig {
    * ancestor matching `boundarySelector` is `container` itself. This keeps
    * a nested `<Tabs>`'s triggers/panels out of the parent instance. When
    * unset, all descendants match `tabSelector`/`panelSelector` are used
-   * (no nesting support — the prior behaviour).
+   * (no nesting support).
    */
   boundarySelector?: string;
   /** Optional sliding indicator element */

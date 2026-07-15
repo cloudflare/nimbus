@@ -357,9 +357,7 @@ export async function setupIncrementalContext(
 /**
  * Wrap an Astro prerenderer with the cache.
  *
- * Strategy (chosen empirically over the "wrap Response" approach
- * because Astro's per-route work outside `render` is the actual dominant cost,
- * not MDX→HTML conversion):
+ * Strategy:
  *
  *   - `getStaticPaths` is filtered to dirty routes (cache misses) only.
  *     Cached routes never enter Astro's render pipeline — Astro skips their
@@ -542,9 +540,7 @@ function normaliseAssetRef(raw: string): string | null {
  *
  * The single regex matches `/_astro/...` anywhere in the HTML —
  * straightforward for `href="..."`, `src="..."`, `url(...)` in inline
- * styles, and individual `srcset` URLs alike. (An earlier regex
- * anchored on a quote/paren prefix and missed the second+nth URL
- * inside a `srcset` value; the unanchored form here catches them all.)
+ * styles, and individual `srcset` URLs alike.
  *
  * We scan the dist output rather than the in-memory cache because dist
  * is the source of truth for what's currently referenced — after the

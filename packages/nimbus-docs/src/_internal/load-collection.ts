@@ -4,9 +4,8 @@
  *
  * Astro's `getCollection` does not throw for an unregistered/empty collection
  * (it warns and returns `[]`), so a throw here means a registered collection
- * genuinely failed — previously swallowed by a bare `catch {}` that dropped it
- * from every agent surface. Extracted from `getIndexedEntries` so the error
- * path is unit-testable with an injected `getCollection`.
+ * genuinely failed. The error path is unit-testable with an injected
+ * `getCollection`.
  */
 export interface CollectionLoadOutcome<E> {
   /** Loaded entries, or `[]` when the load failed. */

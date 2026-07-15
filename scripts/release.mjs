@@ -1,56 +1,17 @@
 #!/usr/bin/env node
 /**
- * Release orchestration wrapper (MONO-4, retargeted by MONO-5). This is the
- * `publish` command the changesets/action runs once the "Version packages" PR
- * is merged. It enforces the three orderings that make "no reachable failure
- * strands users" true:
+ * Release orchestration wrapper — the changesets `publish` command.
  *
- *   1. Templates are VERIFIED against the exact bits being published before
- *      anything ships (a broken template aborts the release — nothing pushed,
- *      nothing published).
- *   2. The orphan `templates` branch is synced and TAGGED (`templates-v<ver>`)
- *      **before** `changeset publish`, so a half-failed run leaves at worst an
- *      orphan tag (harmless — the CLI version that would fetch it never reaches
- *      npm; a re-run resumes because sync is idempotent).
- *   3. `nimbus-docs` publishes **before** `create-nimbus-docs`, so a live CLI
- *      never pins an unpublished dependency.
+ * Verifies the generated templates against the exact nimbus-docs bits being
+ * published, syncs and tags the orphan `templates` branch, then publishes
+ * nimbus-docs before the CLI that pins it. Whether the CLI is in the release is
+ * decided by querying the npm registry for the locally-bumped version (404 →
+ * in release; found → publish-only; unreadable → sync then abort, safe to
+ * re-run since every stage is idempotent).
  *
- * Fail-safe release detection. "Is create-nimbus-docs in this release?" is
- * decided by querying the npm registry for the locally-bumped version:
- *
- *   - definitive 404  → the CLI is in this release → full generate/verify/sync
- *                       path, then publish.
- *   - version found   → nothing to sync for the CLI → publish-only path.
- *   - anything else   → (network / 5xx) run sync+tag anyway (idempotent, so
- *                       harmless), then ABORT before publish. The re-run
- *                       resolves once the registry is readable again.
- *
- * Commands:
- *   node scripts/release.mjs publish        Normal path (changesets/action).
- *   node scripts/release.mjs publish-only   Forced publish for a half-failed
- *                                           release (workflow_dispatch). Skips
- *                                           generate/verify/sync; publishes and
- *                                           pushes tags with `git push --tags`
- *                                           (this path bypasses the action's own
- *                                           tag push).
- *
- * Flags (testability — changesets itself has no dry-run):
- *   --dry-run            generate + verify, print the sync diff; no push, no
- *                        publish. (AC 6 drives a build break to a nonzero exit
- *                        here.)
- *   --halt-after <stage> stop after `verify` or `sync` (AC 7 uses `sync` to set
- *                        up the orphan-tag recovery test). NOTE: unlike
- *                        `--dry-run` and `--halt-after verify` (both
- *                        side-effect-free), `--halt-after sync` performs a REAL
- *                        commit+tag+push to the templates branch before halting
- *                        — it needs a push-capable token, and on an unbumped
- *                        branch the tag collides with the existing one (safe:
- *                        idempotent no-op, or a hard fail, never an overwrite).
- *
- * Caveat carried from emdash's wrapper: this assumes pnpm 9 and does not run a
- * `verify-deps-before-run` reconciliation. If the repo's pnpm is upgraded past
- * 9 or that gate is enabled, add emdash's `pnpm install --no-frozen-lockfile`
- * after the action's git reset here — not needed today.
+ * Commands: `publish` (normal path) and `publish-only` (forced recovery for a
+ * half-failed release). Flags: `--dry-run` and `--halt-after <verify|sync>`
+ * exist for testing; `--halt-after sync` performs a real commit+tag+push.
  */
 
 import { spawnSync } from "node:child_process";
@@ -196,8 +157,8 @@ async function dispatchSmoke(tag) {
   // succeeded, and the smoke can be re-run manually. Requires the App token to
   // carry `actions: write` (see release.yml); without it the POST 403s silently.
   const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
-  const owner = process.env.TEMPLATES_REPO_OWNER ?? "MohamedH1998";
-  const repo = process.env.TEMPLATES_REPO_NAME ?? "nimbus-docs";
+  const owner = process.env.TEMPLATES_REPO_OWNER ?? "cloudflare";
+  const repo = process.env.TEMPLATES_REPO_NAME ?? "nimbus";
   if (!token) {
     log(`smoke: no token; skipping dispatch (run the verify workflow manually with tag ${tag})`);
     return;
@@ -238,11 +199,10 @@ async function publish({ dryRun, haltAfter }) {
   const nimbusInRelease = nimbusState === "absent";
   log(`detection: ${cli.name}@${cli.version} → ${cliState}; ${nimbus.name}@${nimbus.version} → ${nimbusState}`);
 
-  // Testing modes (--dry-run / --halt-after) must ALWAYS exercise the
-  // generate→verify(→sync) pipeline — that is the gate AC 6/7 lean on. If they
-  // deferred to detection, they'd be skipped exactly when a human runs them on
-  // an unbumped branch (where the CLI version is already published). So the
-  // publish-only short-circuit applies only to a real, non-testing run.
+  // Testing modes (--dry-run / --halt-after) must always exercise the
+  // generate→verify(→sync) pipeline, so they can't defer to detection (which
+  // would skip them on an unbumped branch where the CLI version is already
+  // published). The publish-only short-circuit applies only to a real run.
   const testing = dryRun || haltAfter !== undefined;
 
   // version-found on a real run → nothing to sync for the CLI → publish-only.
@@ -270,18 +230,13 @@ async function publish({ dryRun, haltAfter }) {
 
   // Fail-safe: a registry read was unreadable at detection time. We've
   // synced+tagged (idempotent, harmless); abort before publish so we never
-  // publish on a dependency state we couldn't confirm. The re-run resolves.
-  //
-  // Both states matter for ordering #3: a flaky *nimbus-docs* read (unknown)
-  // with a definitive CLI 404 would leave `nimbusInRelease` false, skip the
-  // out-of-band nimbus publish, and let `changeset publish` race the two
-  // independent packages — possibly the CLI before an in-release nimbus-docs,
-  // the exact strand this ordering prevents. So guard on either being unknown.
+  // publish on a dependency state we couldn't confirm. Guard on either state
+  // being unknown so a flaky nimbus-docs read can't let the CLI publish first.
   if (cliState === "unknown" || nimbusState === "unknown") {
     die(`detection was non-definitive (registry unreadable: ${cli.name}→${cliState}, ${nimbus.name}→${nimbusState}); synced+tagged, aborting before publish. Re-run when the registry is readable.`);
   }
 
-  // Ordering #3: nimbus-docs must be live before the CLI that pins it.
+  // nimbus-docs must be live before the CLI that pins it.
   if (nimbusInRelease) {
     log(`publish: ${nimbus.name}@${nimbus.version} (before the CLI)…`);
     run("pnpm", ["--filter", "nimbus-docs", "publish", "--no-git-checks"]);
@@ -291,9 +246,7 @@ async function publish({ dryRun, haltAfter }) {
   run("pnpm", ["changeset", "publish"]);
 
   // changesets only tags its own successful publishes; backfill the git tag for
-  // the out-of-band nimbus-docs publish (keeps MONO-2 AC 2 intact). The
-  // subcommand is `tag` in @changesets/cli 2.31 (the ticket's `git-tag` name is
-  // not available in this version).
+  // the out-of-band nimbus-docs publish (so every publish still gets a git tag).
   log("publish: changeset tag (backfill tags)…");
   run("pnpm", ["exec", "changeset", "tag"]);
 
@@ -303,9 +256,9 @@ async function publish({ dryRun, haltAfter }) {
 
 /**
  * Forced publish for a half-failed release (workflow_dispatch). No generate,
- * no sync — but ordering #3 still holds: if nimbus-docs isn't live yet, publish
- * it out-of-band BEFORE the CLI, so a manual recovery can't strand a live CLI
- * on an unpublished dependency.
+ * no sync — but nimbus-docs must still be live before the CLI: if it isn't,
+ * publish it out-of-band first so a manual recovery can't strand a live CLI on
+ * an unpublished dependency.
  */
 async function publishOnly({ pushTags, nimbusState, nimbus }) {
   // Callers from the auto path pass detection through; the forced-dispatch path

@@ -364,11 +364,6 @@ test("internal-link respects the ignore glob list", () => {
 });
 
 test("internal-link applies ignore against the post-base form (not the raw URL)", () => {
-  // Regression: previously `matchesAnyIgnore` ran on the raw URL, so a
-  // user with `base: "/docs"` would write `/api/**` and find that
-  // `/docs/api/foo` still got flagged because matching happened pre-
-  // normalization. Patterns are documented as post-base; they must be
-  // applied that way.
   const setup = setupProject(baseTruth({ base: "/docs" }));
   try {
     _resetInternalLinkCacheForTests();

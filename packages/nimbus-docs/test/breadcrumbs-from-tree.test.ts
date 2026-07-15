@@ -1,8 +1,8 @@
 /**
- * Phase 2 — breadcrumbs from tree ancestry (pure core).
+ * Breadcrumbs from tree ancestry (pure core).
  * Covers: LP index-less ancestor shown by default, resolveLabel null-drop,
  * non-interactive (hrefless) crumbs, root override, dedup by href, and the
- * version-prefixed shape (D6) via a version-prefixed tree.
+ * version-prefixed shape via a version-prefixed tree.
  */
 
 import assert from "node:assert/strict";

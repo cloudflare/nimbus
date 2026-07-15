@@ -12,12 +12,10 @@ import { updatePackageJson } from "./transformers/package.js";
 // reproducibly, forever. Never a branch (never `#templates`, never `#main`).
 declare const __APP_VERSION__: string;
 
-// Templates ship from an orphan `templates` branch of the monorepo itself
-// (MONO-5), tagged `templates-v<version>`. giget fetches the variant subdir at
-// that tag; the tag's tree is templates-only, so the tarball stays small even
-// though the repo also holds all of `main`.
-const TEMPLATES_REPO_OWNER = "MohamedH1998";
-const TEMPLATES_REPO_NAME = "nimbus-docs";
+// Templates ship from an orphan `templates` branch, tagged
+// `templates-v<version>`; giget fetches the variant subdir at that tag.
+const TEMPLATES_REPO_OWNER = "cloudflare";
+const TEMPLATES_REPO_NAME = "nimbus";
 const TEMPLATES_REPO = `${TEMPLATES_REPO_OWNER}/${TEMPLATES_REPO_NAME}`;
 
 /**

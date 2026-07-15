@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 0.x major-release guard (MONO-4, emdash's `check-no-major`).
+ * 0.x major-release guard.
  *
  * Both public packages are pre-1.0. A stray `major` changeset would bump one
  * to `1.0.0` and publish it unattended — an irreversible npm release nobody

@@ -353,7 +353,7 @@ function buildFilesystemTree(
     //      an index page (the formatLabel-from-dirname rules apply).
     // `sidebar.label` is intentionally NOT in this chain: it's the LINK
     // label for the index page's own entry (the "landing"/Overview slot),
-    // not the group label — matching Starlight semantics and the contract
+    // not the group label, per the contract
     // documented above. It's captured as `_indexLabel` and consumed by the
     // overview-leaf display mode; `sidebar.group.label` is the group rename.
     const groupLabel =

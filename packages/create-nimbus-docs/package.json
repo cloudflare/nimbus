@@ -15,11 +15,11 @@
   "homepage": "https://nimbus-docs.com",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MohamedH1998/nimbus-docs.git",
+    "url": "git+https://github.com/cloudflare/nimbus.git",
     "directory": "packages/create-nimbus-docs"
   },
   "bugs": {
-    "url": "https://github.com/MohamedH1998/nimbus-docs/issues"
+    "url": "https://github.com/cloudflare/nimbus/issues"
   },
   "license": "MIT",
   "author": "Mohamed Hassan",

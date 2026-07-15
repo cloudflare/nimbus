@@ -1,6 +1,6 @@
 name: Mirror check
 
-# MONO-5 AC (drift proof): a `templates-v<version>` tag must be byte-identical
+# Drift proof: a `templates-v<version>` tag must be byte-identical
 # to a fresh generator run at the SAME source the release cut it from. The
 # generator is deterministic, so any difference means either the sync shipped
 # stale output or someone bypassed the branch ruleset and hand-edited the branch.
@@ -64,7 +64,7 @@ jobs:
               diffs=1
             fi
           done
-          # Catch variant dirs present on the branch but no longer generated.
+          # Catch variant dirs present on the branch but absent from generator output.
           # README.md / LICENSE are files (not matched by */) so they're ignored.
           for dir in templates/*/; do
             name="$(basename "$dir")"

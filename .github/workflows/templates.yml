@@ -1,9 +1,8 @@
 name: Templates
 
-# Replaces the old pack-smoke (MONO-4). Guards against a generation-breaking
-# edit to the canonical source, the generator, or the scaffolder — the kind
-# that would otherwise only surface at release time. Scoped to the paths that
-# can actually break generation so unrelated PRs skip it.
+# Guards against a generation-breaking edit to the canonical source, the
+# generator, or the scaffolder — the kind that would otherwise only surface at
+# release time. Scoped to the paths that can actually break generation.
 on:
   push:
     branches: [main]

@@ -1,46 +1,22 @@
 #!/usr/bin/env node
 /**
- * Sync the generated template variants to the orphan `templates` branch of THIS
- * monorepo and tag the result `templates-v<create-nimbus-docs version>`.
+ * Sync the generated template variants to the orphan `templates` branch of this
+ * monorepo and tag the result `templates-v<create-nimbus-docs version>`. `main`
+ * never carries generated templates and the `templates` branch never carries
+ * source, so giget tarballs of a `templates-v*` tag stay small.
  *
- * MONO-5 delta: the distribution target moved from a standalone templates repo
- * to an orphan branch here (the gh-pages pattern).
- * `main` never carries generated templates (MONO-1 stands); the `templates`
- * branch never carries source. giget tarballs of a `templates-v*` tag therefore
- * contain only variant directories, so scaffold downloads stay small.
- *
- * This is the "Sync + tag" stage of the release pipeline. It runs BEFORE
- * `changeset publish`, so a half-failed release leaves at worst an orphan tag
- * pointing at templates that pin an unpublished CLI version — harmless, and
- * recovered by a re-run. That recovery story is why **idempotency is a
- * requirement, not a nicety**:
+ * Runs before `changeset publish` in the release pipeline, so it must be
+ * idempotent:
  *
  *   - empty diff (branch already current)      → skip the commit, keep going
  *   - tag exists pointing at identical content → succeed (no-op)
- *   - tag exists with DIFFERENT content        → hard fail (a release tag was
- *                                                moved — investigate; never
- *                                                overwrite a published tag)
+ *   - tag exists with DIFFERENT content        → hard fail (never overwrite a
+ *                                                published tag — investigate)
  *
- * ISOLATION (hard requirement): the release workspace runs `changeset publish`
- * seconds after this returns, so the sync must NOT mutate it. We NEVER
- * `git checkout --orphan` in the live checkout — all git work happens in a
- * throwaway temp repo whose `origin` is the monorepo. The live checkout is only
- * read from (and only for the remote URL).
- *
- * NAMESPACE DISJOINTNESS / why the sync is history-independent: the tag
- * namespaces never overlap — changesets owns `<pkg>@<version>` tags on `main`;
- * this script owns `templates-v*` on the orphan branch. This script does NOT
- * depend on the live checkout's history: it shallow-fetches only what it needs
- * (the `templates` branch tip and the single `templates-v*` tag) into its temp
- * repo. `release.yml`'s `fetch-depth: 0` exists for the DOWNSTREAM changesets
- * tag step, not for this sync.
- *
- * The `templates` branch is sync output only: humans never push to it (a branch
- * ruleset enforces this), and `templates-v*` tags are immutable for everyone
- * including the bot (an empty-bypass tag ruleset enforces that). The pre-push
- * structural gate below is the same-repo replacement for the old templates-repo
- * `structure.yml` (a push-triggered check is impossible — the branch carries no
- * `.github/` at the pushed ref).
+ * All git work happens in a throwaway temp repo whose `origin` is the monorepo;
+ * the live release checkout is only read from (for the remote URL), never
+ * mutated. The temp repo shallow-fetches just the `templates` branch tip and
+ * the single `templates-v*` tag it needs.
  *
  * Usage:
  *   node scripts/sync-templates-repo.mjs --version <x.y.z> [options]
@@ -54,16 +30,11 @@
  *                       For tests and dry runs.
  *   --dry-run           Print the diff and the tag that would be created; do
  *                       not commit, push, or tag.
- *   --owner <o>         Monorepo owner (default: MohamedH1998).
- *   --repo <r>          Monorepo name  (default: nimbus-docs).
+ *   --owner <o>         Monorepo owner (default: cloudflare).
+ *   --repo <r>          Monorepo name  (default: nimbus).
  *
  * Auth (fetch/push): a GitHub App installation token in $GITHUB_TOKEN (or
- * $GH_TOKEN). The release workflow mints one with the monorepo's existing
- * `contents: write`.
- *
- * Caveat carried from emdash's wrapper: this script only touches git, never
- * `pnpm install`. If a future pnpm-version gate is added to CI, the release
- * wrapper — not this script — is where the reconciliation belongs.
+ * $GH_TOKEN), minted with the monorepo's `contents: write`.
  */
 
 import { spawnSync } from "node:child_process";
@@ -84,8 +55,8 @@ import { generateTemplates, variantNames } from "../packages/create-nimbus-docs/
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 
-const DEFAULT_OWNER = "MohamedH1998";
-const DEFAULT_REPO = "nimbus-docs";
+const DEFAULT_OWNER = "cloudflare";
+const DEFAULT_REPO = "nimbus";
 const BRANCH = "templates";
 
 const BOT_NAME = process.env.GIT_AUTHOR_NAME ?? "nimbus-docs-bot[bot]";
@@ -184,8 +155,8 @@ export async function syncTemplatesRepo(opts) {
       }
     }
 
-    // 2. A throwaway temp repo whose origin is the monorepo. We NEVER touch the
-    //    live release checkout — see the ISOLATION note in the header.
+    // 2. A throwaway temp repo whose origin is the monorepo; the live release
+    //    checkout is never touched.
     const work = mkdtempSync(join(tmpdir(), "nimbus-tmpl-branch-"));
     cleanup.push(work);
     git(work, ["init", "-q"]);
@@ -226,8 +197,8 @@ export async function syncTemplatesRepo(opts) {
     const hasStagedChanges =
       git(work, ["diff", "--cached", "--quiet"], { allowFail: true }).status !== 0;
 
-    // 4. Pre-push structural gate (same-repo replacement for structure.yml):
-    //    every variant self-contained, and no `workspace:` spec leaked in.
+    // 4. Pre-push structural gate: every variant self-contained, and no
+    //    `workspace:` spec leaked in.
     assertStructure(work, variants);
 
     const indexTree = git(work, ["write-tree"]).stdout.trim();
@@ -291,7 +262,7 @@ function result(tag, over) {
   return { tag, committed: false, pushed: false, tagCreated: false, ...over };
 }
 
-/** Fold in the old templates-repo structure.yml as a pre-push gate. */
+/** Pre-push structural gate: variants self-contained, no leaked `workspace:` specs. */
 function assertStructure(work, variants) {
   for (const v of variants) {
     if (!existsSync(join(work, v, "package.json"))) {
