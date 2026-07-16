@@ -39,6 +39,7 @@
     "build": "tsdown",
     "dev": "tsdown --watch",
     "test": "node --import tsx --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
     "prepack": "tsdown"
   },
   "dependencies": {
