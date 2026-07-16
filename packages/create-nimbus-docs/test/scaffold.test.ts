@@ -43,6 +43,21 @@ function makeTemplate(pkgJson = `{ "name": "template", "version": "0.0.0" }`): s
     `import { defineConfig } from "astro/config";\nexport default defineConfig({\n  // nimbus:adapter\n});\n`,
   );
   fs.writeFileSync(path.join(dir, "gitignore"), "node_modules\ndist\n");
+  // The build-scripts config copy-template.mjs generates, so the workerd append
+  // has the same anchors a real scaffold sees.
+  fs.writeFileSync(
+    path.join(dir, "pnpm-workspace.yaml"),
+    [
+      "packages: []",
+      "allowBuilds: # pnpm 11",
+      "  esbuild: false",
+      "  sharp: false",
+      "ignoredBuiltDependencies: # pnpm 10",
+      "  - esbuild",
+      "  - sharp",
+      "",
+    ].join("\n"),
+  );
   return dir;
 }
 
@@ -90,6 +105,59 @@ test("happy path writes and transforms the project", async () => {
 
     // `gitignore` is renamed to `.gitignore`.
     assert.ok(fs.existsSync(path.join(target, ".gitignore")));
+  } finally {
+    cleanup(cwd, tmpl);
+  }
+});
+
+test("cloudflare target declines workerd's build script alongside wrangler", async () => {
+  const cwd = makeCwd();
+  const tmpl = makeTemplate();
+  try {
+    await scaffold(
+      { ...BASE_OPTIONS, deploy: "cloudflare", dir: "my-docs" },
+      internals(cwd, tmpl),
+    );
+    const target = path.join(cwd, "my-docs");
+
+    // wrangler was injected (it pulls workerd, a third build-script package).
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(target, "package.json"), "utf8"),
+    );
+    assert.ok(pkg.devDependencies?.wrangler, "wrangler injected for cloudflare");
+
+    // workerd is declined in BOTH schemes, without a blanket approval.
+    const ws = fs.readFileSync(path.join(target, "pnpm-workspace.yaml"), "utf8");
+    assert.match(ws, /allowBuilds:[\s\S]*\n {2}workerd: false/);
+    assert.match(ws, /ignoredBuiltDependencies:[\s\S]*\n {2}- workerd/);
+    // The base entries stay; nothing is broadened to a wildcard.
+    assert.match(ws, /\n {2}esbuild: false/);
+    assert.match(ws, /\n {2}sharp: false/);
+    assert.equal(/allowAll|dangerously/i.test(ws), false);
+    // Declined exactly once (idempotent, not appended per section twice).
+    assert.equal((ws.match(/workerd: false/g) ?? []).length, 1);
+    assert.equal((ws.match(/- workerd/g) ?? []).length, 1);
+  } finally {
+    cleanup(cwd, tmpl);
+  }
+});
+
+test("non-cloudflare target leaves the build-scripts config untouched", async () => {
+  const cwd = makeCwd();
+  const tmpl = makeTemplate();
+  try {
+    await scaffold(
+      { ...BASE_OPTIONS, deploy: "other", dir: "my-docs" },
+      internals(cwd, tmpl),
+    );
+    const ws = fs.readFileSync(
+      path.join(cwd, "my-docs", "pnpm-workspace.yaml"),
+      "utf8",
+    );
+    // No wrangler → no workerd, and the base esbuild/sharp decline is intact.
+    assert.equal(ws.includes("workerd"), false, "no workerd on non-cf target");
+    assert.match(ws, /\n {2}esbuild: false/);
+    assert.match(ws, /\n {2}- sharp/);
   } finally {
     cleanup(cwd, tmpl);
   }

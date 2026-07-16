@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ADAPTER_MARKER = "  // nimbus:adapter\n";
@@ -28,7 +28,34 @@ export async function applyDeployTarget(
   await stripMarker(dir);
   if (target === "cloudflare") {
     await writeWranglerConfig(dir);
+    // wrangler (added by updatePackageJson) pulls workerd, which trips pnpm's
+    // build-scripts gate. Decline it here — where its dependency is added.
+    declineBuildScript(dir, "workerd");
   }
+}
+
+/**
+ * Add `<name>` to both decline lists in the generated pnpm-workspace.yaml
+ * (pnpm-11 `allowBuilds` map + pnpm-10 `ignoredBuiltDependencies` list).
+ * No-op if already listed or the file is absent.
+ */
+function declineBuildScript(dir: string, name: string): void {
+  const wsPath = join(dir, "pnpm-workspace.yaml");
+  if (!existsSync(wsPath)) return;
+  let text = readFileSync(wsPath, "utf-8");
+  if (!new RegExp(`^[ \\t]+${name}:\\s`, "m").test(text)) {
+    text = text.replace(
+      /^(allowBuilds:.*\n(?:[ \t]+\S.*\n)*)/m,
+      (block) => `${block}  ${name}: false\n`,
+    );
+  }
+  if (!new RegExp(`^[ \\t]+-\\s+${name}\\s*$`, "m").test(text)) {
+    text = text.replace(
+      /^(ignoredBuiltDependencies:.*\n(?:[ \t]+-.*\n)*)/m,
+      (block) => `${block}  - ${name}\n`,
+    );
+  }
+  writeFileSync(wsPath, text);
 }
 
 async function writeWranglerConfig(dir: string): Promise<void> {

@@ -30,7 +30,7 @@
     "create-nimbus-docs": "./dist/index.js"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
   },
   "files": [
     "dist"

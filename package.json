@@ -19,7 +19,7 @@
     "changeset:publish": "changeset publish"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.7.0",

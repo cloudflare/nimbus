@@ -36,6 +36,14 @@ const NIMBUS_VERSION = NIMBUS_PKG.version;
 // content), so it's the better canary.
 const VARIANT_CONTENT = "starter";
 
+// Package manager for the scaffold install/build. Default is the ambient pnpm
+// (pinned pnpm 9); set SCAFFOLD_PNPM to a corepack spec (e.g. `pnpm@latest`) to
+// exercise the build-scripts gate under a modern pnpm the pin 9 predates.
+const SCAFFOLD_PNPM = process.env.SCAFFOLD_PNPM;
+const [SCAFFOLD_PM_BIN, SCAFFOLD_PM_PREFIX] = SCAFFOLD_PNPM
+  ? ["corepack", [SCAFFOLD_PNPM]]
+  : ["pnpm", []];
+
 const cleanup = [];
 process.on("exit", () => {
   for (const dir of cleanup) rmSync(dir, { recursive: true, force: true });
@@ -57,6 +65,9 @@ function ok(msg) {
 }
 
 // 1. Build framework + scaffolder, then generate every variant.
+console.log(
+  `[templates-check] scaffold install/build via ${SCAFFOLD_PNPM ? `corepack ${SCAFFOLD_PNPM}` : "ambient pnpm"}`,
+);
 console.log("[templates-check] building nimbus-docs + create-nimbus-docs…");
 run("pnpm", ["--filter", "./packages/nimbus-docs", "--filter", "./packages/create-nimbus-docs", "build"]);
 generateTemplates(GENERATED);
@@ -100,8 +111,10 @@ for (const field of ["dependencies", "devDependencies"]) {
 if (!rewired) fail(`scaffolded project declares no ${NIMBUS_NAME} dependency`);
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 
-run("pnpm", ["install", "--no-frozen-lockfile", "--ignore-workspace"], { cwd: site });
-run("pnpm", ["build"], { cwd: site });
+// No --ignore-workspace: it would skip the scaffold's own pnpm-workspace.yaml
+// (the gate config), re-arming the pnpm-11 build-scripts gate (pnpm#12469).
+run(SCAFFOLD_PM_BIN, [...SCAFFOLD_PM_PREFIX, "install", "--no-frozen-lockfile"], { cwd: site });
+run(SCAFFOLD_PM_BIN, [...SCAFFOLD_PM_PREFIX, "build"], { cwd: site });
 
 const installed = JSON.parse(
   readFileSync(join(site, "node_modules", NIMBUS_NAME, "package.json"), "utf8"),

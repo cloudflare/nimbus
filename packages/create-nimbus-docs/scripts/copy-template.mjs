@@ -123,6 +123,30 @@ function stripRegistryOnlyDeps(targetDir) {
 }
 
 /**
+ * Emit a template `pnpm-workspace.yaml` that clears pnpm's build-scripts gate
+ * by declining the named packages' install scripts (they ship working
+ * prebuilds). Generated rather than committed to the source so the fat tree
+ * keeps resolving `workspace:*`; output is deterministic (mirror-check).
+ * `allowBuilds` = pnpm 11, `ignoredBuiltDependencies` = pnpm 10, `packages: []`
+ * = pnpm 9 (which requires the key). npm/yarn/bun ignore the file.
+ */
+function writeBuildScriptsConfig(targetDir) {
+  const names = STARTER_MANIFEST.declinedBuildScripts ?? [];
+  if (names.length === 0) return;
+  const allowBuilds = names.map((n) => `  ${n}: false`).join("\n");
+  const ignored = names.map((n) => `  - ${n}`).join("\n");
+  const yaml = `# Declines install scripts for ${names.join(" and ")} (they ship prebuilds),
+# clearing pnpm's build-scripts gate. Adding a package here lets it run scripts.
+packages: []
+allowBuilds: # pnpm 11
+${allowBuilds}
+ignoredBuiltDependencies: # pnpm 10
+${ignored}
+`;
+  writeFileSync(join(targetDir, "pnpm-workspace.yaml"), yaml);
+}
+
+/**
  * Rename the source package to the placeholder name shipped templates use.
  * The source tree calls itself "nimbus-starter-source"; users scaffolding
  * a project expect a generic "starter" placeholder (the scaffolder
@@ -228,6 +252,7 @@ export function generateTemplates(outDir = DEFAULT_OUT_DIR) {
     renameTemplatePackage(targetDir);
     stripRegistryOnlyDeps(targetDir);
     pinNimbusDocsVersion(targetDir);
+    writeBuildScriptsConfig(targetDir);
     generated.push(targetDir);
     console.log(`[copy-template] generated ${variant}/ → ${relative(REPO_ROOT, targetDir) || targetDir}`);
   }

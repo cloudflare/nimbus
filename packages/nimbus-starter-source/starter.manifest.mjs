@@ -36,6 +36,10 @@
  * @property {string[]} devOnlyPaths Path prefixes (relative to the
  *   starter root) stripped from shipped templates. Use directory paths
  *   ending with "/" to filter whole trees.
+ * @property {string[]} declinedBuildScripts Dependency names whose install
+ *   scripts the generator declines in the shipped template's
+ *   pnpm-workspace.yaml (pnpm's build-scripts gate). Named exactly, never a
+ *   blanket approval; both ship working prebuilds.
  * @property {Record<string, TemplateVariant>} templates Per-template
  *   content overrides. Key = output dir name under create-nimbus-docs/
  *   (e.g. "template" → packages/create-nimbus-docs/template/).
@@ -75,6 +79,10 @@ export const STARTER_MANIFEST = {
   // shipped templates while keeping them in the canonical kitchen-sink
   // dev tree. Empty by default.
   devOnlyPaths: [],
+
+  // Install scripts declined in shipped templates to clear pnpm's build-scripts
+  // gate. Both ship prebuilds, so declining is strictly narrower than allowing.
+  declinedBuildScripts: ["esbuild", "sharp"],
 
   templates: {
     template: {
