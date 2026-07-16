@@ -81,7 +81,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          NPM_CONFIG_PROVENANCE: "true"
+          # TODO(flip): restore NPM_CONFIG_PROVENANCE before the first public release
 
       # Normal path. On a push with pending changesets, opens/updates the
       # "Version packages" PR. When that PR is merged (no changesets remain), the
@@ -126,4 +126,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          NPM_CONFIG_PROVENANCE: "true"
+          # TODO(flip): restore NPM_CONFIG_PROVENANCE before the first public release
