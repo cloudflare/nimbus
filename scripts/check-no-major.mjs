@@ -20,9 +20,15 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CHANGESET_DIR = resolve(__dirname, "..", ".changeset");
 
-// Only guard packages that are actually published (private packages are never
-// released, so a major there is harmless).
-const GUARDED = new Set(["nimbus-docs", "create-nimbus-docs"]);
+const PACKAGE_DIRS = ["nimbus-docs", "create-nimbus-docs"];
+const GUARDED = new Set(
+  PACKAGE_DIRS.map(
+    (dir) =>
+      JSON.parse(
+        readFileSync(resolve(__dirname, "..", "packages", dir, "package.json"), "utf8"),
+      ).name,
+  ),
+);
 
 if (!existsSync(CHANGESET_DIR)) {
   console.log("[check-no-major] no .changeset dir — nothing to check.");

@@ -36,7 +36,9 @@ import { syncTemplatesRepo } from "./sync-templates-repo.mjs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const CLI_PKG = resolve(ROOT, "packages", "create-nimbus-docs", "package.json");
-const NIMBUS_PKG = resolve(ROOT, "packages", "nimbus-docs", "package.json");
+const NIMBUS_DIR = resolve(ROOT, "packages", "nimbus-docs");
+const NIMBUS_PKG = resolve(NIMBUS_DIR, "package.json");
+const NIMBUS_NAME = JSON.parse(readFileSync(NIMBUS_PKG, "utf8")).name;
 const REGISTRY = "https://registry.npmjs.org";
 
 const cleanup = [];
@@ -96,7 +98,7 @@ function verifyVariants(generatedDir, nimbusVersion) {
   // pnpm publish's git checks later in the run — pack to a temp dir.
   run("pnpm", [
     "--filter",
-    "nimbus-docs",
+    "./packages/nimbus-docs",
     "exec",
     "pnpm",
     "pack",
@@ -121,22 +123,22 @@ function verifyVariants(generatedDir, nimbusVersion) {
     const pkg = readPkg(pkgPath);
     let rewired = false;
     for (const field of ["dependencies", "devDependencies"]) {
-      if (pkg[field]?.["nimbus-docs"]) {
-        pkg[field]["nimbus-docs"] = `file:${tarball}`;
+      if (pkg[field]?.[NIMBUS_NAME]) {
+        pkg[field][NIMBUS_NAME] = `file:${tarball}`;
         rewired = true;
       }
     }
-    if (!rewired) throw new Error(`variant ${variant} declares no nimbus-docs dependency`);
+    if (!rewired) throw new Error(`variant ${variant} declares no ${NIMBUS_NAME} dependency`);
     writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 
     log(`verify: install + build ${variant} against the packed tarball…`);
     run("pnpm", ["install", "--no-frozen-lockfile", "--ignore-workspace"], { cwd: work });
     run("pnpm", ["build"], { cwd: work });
 
-    const installed = readPkg(join(work, "node_modules", "nimbus-docs", "package.json"));
+    const installed = readPkg(join(work, "node_modules", NIMBUS_NAME, "package.json"));
     if (installed.version !== nimbusVersion) {
       throw new Error(
-        `variant ${variant} resolved nimbus-docs@${installed.version}, expected ${nimbusVersion}`,
+        `variant ${variant} resolved ${NIMBUS_NAME}@${installed.version}, expected ${nimbusVersion}`,
       );
     }
     log(`verify: ${variant} builds against nimbus-docs@${installed.version} ✓`);
@@ -239,7 +241,8 @@ async function publish({ dryRun, haltAfter }) {
   // nimbus-docs must be live before the CLI that pins it.
   if (nimbusInRelease) {
     log(`publish: ${nimbus.name}@${nimbus.version} (before the CLI)…`);
-    run("pnpm", ["--filter", "nimbus-docs", "publish", "--no-git-checks"]);
+    // Direct npm publish so OIDC runs through npm >= 11.5.1, not pnpm.
+    run("npm", ["publish"], { cwd: NIMBUS_DIR });
   }
 
   log("publish: changeset publish (CLI + any remaining public packages)…");
@@ -267,7 +270,7 @@ async function publishOnly({ pushTags, nimbusState, nimbus }) {
   const state = nimbusState ?? (await registryState(pkg.name, pkg.version));
   if (state === "absent") {
     log(`publish-only: ${pkg.name}@${pkg.version} is not on npm — publishing it before the CLI (ordering #3)…`);
-    run("pnpm", ["--filter", "nimbus-docs", "publish", "--no-git-checks"]);
+    run("npm", ["publish"], { cwd: NIMBUS_DIR });
   } else if (state === "unknown") {
     die("publish-only: could not confirm nimbus-docs is published (registry unreadable). Refusing to publish the CLI and risk stranding it. Re-run when the registry is readable.");
   }

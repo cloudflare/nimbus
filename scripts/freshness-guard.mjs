@@ -30,6 +30,12 @@ const ROOT = resolve(__dirname, "..");
 const CHANGESET_DIR = resolve(ROOT, ".changeset");
 const STARTER_PREFIX = "packages/nimbus-starter-source/";
 
+// Names from manifests, keyed by stable directory so a rename needs no edit here.
+const pkgName = (dir) =>
+  JSON.parse(readFileSync(resolve(ROOT, "packages", dir, "package.json"), "utf8")).name;
+const NIMBUS_NAME = pkgName("nimbus-docs");
+const CLI_NAME = pkgName("create-nimbus-docs");
+
 const headRef = process.env.GITHUB_HEAD_REF ?? "";
 if (headRef.startsWith("changeset-release/")) {
   console.log("[freshness-guard] skipping the bot's Version packages PR.");
@@ -76,19 +82,19 @@ const changed = changedFiles();
 const bumps = changesetBumps();
 
 const starterChanged = changed.some((f) => f.startsWith(STARTER_PREFIX));
-const nimbusMinorPlus = ["minor", "major"].includes(bumps["nimbus-docs"]);
-const cliHasChangeset = Boolean(bumps["create-nimbus-docs"]);
+const nimbusMinorPlus = ["minor", "major"].includes(bumps[NIMBUS_NAME]);
+const cliHasChangeset = Boolean(bumps[CLI_NAME]);
 
 if ((starterChanged || nimbusMinorPlus) && !cliHasChangeset) {
   const reasons = [];
   if (starterChanged) reasons.push("• the starter source changed (packages/nimbus-starter-source/**)");
-  if (nimbusMinorPlus) reasons.push(`• a changeset bumps nimbus-docs ${bumps["nimbus-docs"]} (more than a patch)`);
+  if (nimbusMinorPlus) reasons.push(`• a changeset bumps ${NIMBUS_NAME} ${bumps[NIMBUS_NAME]} (more than a patch)`);
   console.error(
-    "[freshness-guard] FAIL — this PR needs a create-nimbus-docs changeset.\n\n" +
+    `[freshness-guard] FAIL — this PR needs a ${CLI_NAME} changeset.\n\n` +
       reasons.join("\n") +
-      "\n\nUsers only get regenerated templates when a new create-nimbus-docs version is\n" +
+      `\n\nUsers only get regenerated templates when a new ${CLI_NAME} version is\n` +
       "released and its tag is synced. Without a CLI bump, your change ships to nobody.\n\n" +
-      "Fix: run `pnpm changeset`, select create-nimbus-docs (patch is usually right),\n" +
+      `Fix: run \`pnpm changeset\`, select ${CLI_NAME} (patch is usually right),\n` +
       "write a summary, and commit the generated .changeset/*.md file.",
   );
   process.exit(1);

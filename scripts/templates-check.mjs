@@ -27,9 +27,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const GENERATED = resolve(ROOT, ".generated", "templates");
 const SCAFFOLDER_BIN = resolve(ROOT, "packages", "create-nimbus-docs", "dist", "index.js");
-const NIMBUS_VERSION = JSON.parse(
+const NIMBUS_PKG = JSON.parse(
   readFileSync(resolve(ROOT, "packages", "nimbus-docs", "package.json"), "utf8"),
-).version;
+);
+const NIMBUS_NAME = NIMBUS_PKG.name;
+const NIMBUS_VERSION = NIMBUS_PKG.version;
 // Which variant to scaffold+build. Starter is the heavier one (kitchen-sink
 // content), so it's the better canary.
 const VARIANT_CONTENT = "starter";
@@ -56,14 +58,14 @@ function ok(msg) {
 
 // 1. Build framework + scaffolder, then generate every variant.
 console.log("[templates-check] building nimbus-docs + create-nimbus-docs…");
-run("pnpm", ["--filter", "nimbus-docs", "--filter", "create-nimbus-docs", "build"]);
+run("pnpm", ["--filter", "./packages/nimbus-docs", "--filter", "./packages/create-nimbus-docs", "build"]);
 generateTemplates(GENERATED);
 ok("generated all variants");
 
 // 2. Pack the workspace nimbus-docs so the scaffold resolves in-repo code.
 const packDest = mkdtempSync(join(tmpdir(), "nimbus-docs-pack-"));
 cleanup.push(packDest);
-run("pnpm", ["--filter", "nimbus-docs", "exec", "pnpm", "pack", "--pack-destination", packDest]);
+run("pnpm", ["--filter", "./packages/nimbus-docs", "exec", "pnpm", "pack", "--pack-destination", packDest]);
 const tgz = readdirSync(packDest).find((f) => f.endsWith(".tgz"));
 if (!tgz) fail(`no nimbus-docs tarball produced in ${packDest}`);
 const tarball = join(packDest, tgz);
@@ -90,22 +92,22 @@ const pkgPath = join(site, "package.json");
 const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
 let rewired = false;
 for (const field of ["dependencies", "devDependencies"]) {
-  if (pkg[field]?.["nimbus-docs"]) {
-    pkg[field]["nimbus-docs"] = `file:${tarball}`;
+  if (pkg[field]?.[NIMBUS_NAME]) {
+    pkg[field][NIMBUS_NAME] = `file:${tarball}`;
     rewired = true;
   }
 }
-if (!rewired) fail("scaffolded project declares no nimbus-docs dependency");
+if (!rewired) fail(`scaffolded project declares no ${NIMBUS_NAME} dependency`);
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 
 run("pnpm", ["install", "--no-frozen-lockfile", "--ignore-workspace"], { cwd: site });
 run("pnpm", ["build"], { cwd: site });
 
 const installed = JSON.parse(
-  readFileSync(join(site, "node_modules", "nimbus-docs", "package.json"), "utf8"),
+  readFileSync(join(site, "node_modules", NIMBUS_NAME, "package.json"), "utf8"),
 );
 if (installed.version !== NIMBUS_VERSION) {
-  fail(`scaffold resolved nimbus-docs@${installed.version}, expected ${NIMBUS_VERSION}`);
+  fail(`scaffold resolved ${NIMBUS_NAME}@${installed.version}, expected ${NIMBUS_VERSION}`);
 }
 ok(`scaffolded project builds against nimbus-docs@${installed.version}`);
 

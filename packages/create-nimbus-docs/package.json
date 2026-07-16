@@ -2,6 +2,9 @@
   "name": "create-nimbus-docs",
   "version": "0.1.15",
   "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "description": "Scaffold a new Nimbus docs site. Used via `pnpm create nimbus-docs` / `npm create nimbus-docs`.",
   "keywords": [

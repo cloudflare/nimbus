@@ -42,7 +42,7 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: |
-            nimbus-docs
+            nimbus
 
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -56,7 +56,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
@@ -71,7 +71,7 @@ jobs:
       # Build only what gets published. The root `build` also builds the private
       # @nimbus/www site + starter source; a failure there must not block the npm
       # release. release.mjs re-verifies the templates against the packed bits.
-      - run: pnpm --filter nimbus-docs --filter create-nimbus-docs build
+      - run: pnpm --filter ./packages/nimbus-docs --filter ./packages/create-nimbus-docs build
 
       # Forced recovery path (workflow_dispatch, publish_only=true). Bypasses
       # changesets/action, so release.mjs pushes tags itself (git push --tags).
@@ -81,7 +81,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
 
       # Normal path. On a push with pending changesets, opens/updates the
@@ -96,11 +95,12 @@ jobs:
       #   - Repo setting: Settings → Actions → General → "Allow GitHub Actions
       #     to create and approve pull requests" must be ON (App-authored PRs
       #     still need the org/repo toggle), or the PR step fails.
-      #   - Secret NPM_TOKEN: an npm automation/granular token with publish
-      #     rights to nimbus-docs and create-nimbus-docs.
+      #   - Publishing uses npm Trusted Publishing (OIDC), no token secret —
+      #     needs npm >= 11.5.1 (Node 24) and the npmjs.com publisher config.
       #   - Secrets APP_ID / APP_PRIVATE_KEY for the bot App, installed on the
       #     monorepo only. The App must grant Contents: read & write (branch +
-      #     tag push) and Actions: read & write (smoke dispatch) — the minted
+      #     tag push), Pull requests: read & write (open/update the Version
+      #     packages PR), and Actions: read & write (smoke dispatch) — the minted
       #     token inherits the App's permissions, so a missing Actions grant is
       #     what makes the best-effort smoke dispatch 403 silently.
       #   - Ref protection (rulesets on this repo):
@@ -126,5 +126,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"

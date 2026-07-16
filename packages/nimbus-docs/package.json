@@ -2,6 +2,9 @@
 	"name": "nimbus-docs",
 	"version": "0.1.25",
 	"private": false,
+	"publishConfig": {
+		"access": "public"
+	},
 	"type": "module",
 	"description": "Docs, for humans and agents",
 	"keywords": [

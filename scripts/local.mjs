@@ -36,6 +36,9 @@ import { generateTemplates } from "../packages/create-nimbus-docs/scripts/copy-t
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
+const NIMBUS_NAME = JSON.parse(
+  readFileSync(resolve(ROOT, "packages", "nimbus-docs", "package.json"), "utf8"),
+).name;
 const APPS = resolve(ROOT, "apps");
 const SANDBOX_DIR = resolve(ROOT, "examples", "local");
 // Local dev scaffolds from generator output, not the templates branch: no
@@ -133,8 +136,8 @@ function rewriteToWorkspace(appDir) {
   let touched = false;
   for (const bucket of ["dependencies", "devDependencies"]) {
     const deps = pkg[bucket];
-    if (deps && deps["nimbus-docs"] && deps["nimbus-docs"] !== "workspace:*") {
-      deps["nimbus-docs"] = "workspace:*";
+    if (deps && deps[NIMBUS_NAME] && deps[NIMBUS_NAME] !== "workspace:*") {
+      deps[NIMBUS_NAME] = "workspace:*";
       touched = true;
     }
   }
@@ -150,12 +153,12 @@ function rewriteToWorkspace(appDir) {
 
 async function buildFramework() {
   header("Building nimbus-docs (framework + CLI)");
-  await run("pnpm", ["--filter", "nimbus-docs", "build"]);
+  await run("pnpm", ["--filter", "./packages/nimbus-docs", "build"]);
 }
 
 async function buildScaffolder() {
   header("Building create-nimbus-docs");
-  await run("pnpm", ["--filter", "create-nimbus-docs", "build"]);
+  await run("pnpm", ["--filter", "./packages/create-nimbus-docs", "build"]);
 }
 
 /**

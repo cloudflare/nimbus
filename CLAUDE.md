@@ -54,6 +54,8 @@ pnpm templates:check                             # generate + scaffold + build o
 pnpm local                                       # spin up the local sandbox (generates + scaffolds offline)
 ```
 
+Root `build` runs at default concurrency; `pnpm -r` topo order builds `nimbus-docs` first. `apps/www`'s `build` no longer builds `nimbus-docs`, so a bare `pnpm --filter @nimbus/www build` on a clean checkout fails — deploy via `pnpm run deploy` (its `predeploy` builds the framework) or root `pnpm build`.
+
 ## The boundary test (read before adding any file)
 
 The architecture splits into three tiers, one test per tier:

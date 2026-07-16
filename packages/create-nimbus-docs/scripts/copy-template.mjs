@@ -83,7 +83,7 @@ function pinNimbusDocsVersion(targetDir) {
     const deps = pkg[field];
     if (!deps) continue;
     for (const [name, spec] of Object.entries(deps)) {
-      if (name === "nimbus-docs" && typeof spec === "string" && spec.startsWith("workspace:")) {
+      if (name === nimbusPkg.name && typeof spec === "string" && spec.startsWith("workspace:")) {
         deps[name] = `^${nimbusPkg.version}`;
         changed = true;
       }
