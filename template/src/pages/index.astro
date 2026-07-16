@@ -1,0 +1,46 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Header from "../components/Header.astro";
+import { config } from "virtual:nimbus/config";
+---
+
+<BaseLayout title={config.title} description={config.description}>
+  <div class="flex flex-col min-h-screen">
+    <Header />
+    <main class="flex-1 mx-auto max-w-2xl w-full px-6 py-24">
+      <h1
+        class="text-foreground leading-tight"
+        style="font-size: var(--nb-h1-size); font-weight: var(--nb-h1-weight); letter-spacing: var(--nb-h1-tracking);"
+      >
+        {config.title}
+      </h1>
+      <p class="mt-2 text-[1.0625rem] text-muted-foreground leading-relaxed">
+        {config.description}
+      </p>
+
+      <div class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <a
+          href="/welcome"
+          class="block rounded-lg border border-border p-4 transition-colors hover:border-border-strong no-underline"
+        >
+          <div class="font-medium text-foreground">Welcome</div>
+          <div class="mt-0.5 text-sm text-muted-foreground">Start here</div>
+        </a>
+        <a
+          href="/getting-started"
+          class="block rounded-lg border border-border p-4 transition-colors hover:border-border-strong no-underline"
+        >
+          <div class="font-medium text-foreground">Getting Started</div>
+          <div class="mt-0.5 text-sm text-muted-foreground">Install + configure</div>
+        </a>
+        <a
+          href="/components"
+          class="block rounded-lg border border-border p-4 transition-colors hover:border-border-strong no-underline"
+        >
+          <div class="font-medium text-foreground">Components</div>
+          <div class="mt-0.5 text-sm text-muted-foreground">See them in action</div>
+        </a>
+      </div>
+    </main>
+  </div>
+</BaseLayout>

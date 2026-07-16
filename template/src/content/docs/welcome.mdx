@@ -1,0 +1,21 @@
+---
+title: Welcome to Nimbus
+description: Your docs site is up and running. Here's how the content is wired.
+sidebar:
+  order: 0
+  badge: New
+---
+
+This page lives at `src/content/docs/welcome.mdx` and is loaded by Astro's
+content collections through the `docsCollection()` factory from
+`nimbus-docs/content`.
+
+## How it works
+
+- `docsCollection()` wires the loader and schema for the `docs` collection.
+- Frontmatter on every page is validated at build time, so mistakes fail
+  the build with a clear, content-author-friendly message.
+- Edit this file, add new `.mdx` files alongside it, and they appear in
+  the sidebar automatically.
+
+Open `src/content/docs/` and start writing.

@@ -1,0 +1,207 @@
+---
+title: Components
+description: The visual component set ships in the starter, not the framework.
+sidebar:
+  order: 2
+---
+
+The starter ships a handful of essential components, available globally in
+any MDX file without `import`:
+
+- `<Aside>` — note / tip / caution / danger callouts
+- `<Card>` + `<CardGrid>` — landing pages and feature lists
+- `<Tabs>` + `<TabItem>` — multi-variant content
+- `<Steps>` + `<Step>` — numbered procedures
+- `<PackageManagers>` — install commands across npm / pnpm / yarn / bun
+
+## Aside
+
+<Aside type="note" title="Build-time validation">
+  Asides are the most-used component in any docs site. The starter ships
+  four variants out of the box.
+</Aside>
+
+<Aside type="tip">
+  Title is optional. If omitted, the variant name is used.
+</Aside>
+
+<Aside type="caution" title="Heads up">
+  Caution variant for warnings that aren't catastrophic.
+</Aside>
+
+<Aside type="danger" title="Stop">
+  Danger variant when something is genuinely dangerous.
+</Aside>
+
+## Cards
+
+<CardGrid>
+  <Card title="Steps" icon="ph:arrow-right">
+    Numbered procedures for tutorials and walkthroughs.
+  </Card>
+  <Card title="Tabs">
+    Multi-variant content for code samples, OS-specific instructions, or
+    anything where the same content has several variants.
+  </Card>
+</CardGrid>
+
+## Steps
+
+<Steps>
+  <Step title="Install Nimbus">
+    Scaffold a new project with `pnpm create nimbus-docs my-app`.
+  </Step>
+  <Step title="Edit content">
+    Write MDX files in `src/content/docs/`.
+  </Step>
+  <Step title="Ship">
+    Run `astro build` and deploy the static output anywhere.
+  </Step>
+</Steps>
+
+## Package managers
+
+For install commands, prefer `<PackageManagers>` over `<Tabs>` — it generates
+all four package-manager commands from a single source of truth and
+remembers the reader's pick across pages.
+
+<PackageManagers pkg="nimbus-docs" />
+
+For dev dependencies:
+
+<PackageManagers pkg="tailwindcss" dev />
+
+For non-install commands (run, exec, dlx):
+
+<PackageManagers type="run" args="build" />
+
+## Tabs
+
+Use `<Tabs>` for content that isn't a package install — config snippets,
+OS-specific instructions, multi-language examples.
+
+<Tabs>
+  <TabItem label="TypeScript">
+    ```ts
+    import nimbus from "nimbus-docs";
+
+    export default {
+      integrations: [nimbus({ /* … */ })],
+    };
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```js
+    import nimbus from "nimbus-docs";
+
+    export default {
+      integrations: [nimbus({ /* … */ })],
+    };
+    ```
+  </TabItem>
+</Tabs>
+
+## Code blocks
+
+Fenced code blocks render through Shiki with a dual-theme palette. Premium
+features compose on top: filename frames, line / diff / focus highlighting,
+and word highlights — all driven by meta strings and inline notation.
+
+### Filename
+
+````mdx
+```ts title="src/lib/cn.ts"
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+```
+````
+
+Renders as:
+
+```ts title="src/lib/cn.ts"
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+```
+
+### Line highlighting
+
+Use the `{1,3-5}` meta syntax to emphasize specific lines, or
+`// [!code highlight]` inline.
+
+```ts {2,4-5}
+function add(a: number, b: number) {
+  const sum = a + b;
+  // not this line
+  console.log(sum);
+  return sum;
+}
+```
+
+### Diff
+
+Mark added and removed lines with `// [!code ++]` and `// [!code --]`.
+
+```ts
+function greet(name: string) {
+  console.log("Hello"); // [!code --]
+  console.log(`Hello, ${name}!`); // [!code ++]
+}
+```
+
+### Focus
+
+`// [!code focus]` dims the surrounding code; hover the block to reveal.
+
+```ts
+const config = {
+  site: "https://example.com",
+  title: "Nimbus", // [!code focus]
+  description: "Minimal docs starter",
+  locale: "en",
+};
+```
+
+### Errors and warnings
+
+`// [!code error]` and `// [!code warning]` tint the line accordingly.
+
+```ts
+function divide(a: number, b: number) {
+  return a / b; // [!code warning]
+  return a / 0; // [!code error]
+}
+```
+
+### Word highlighting
+
+`// [!code word:foo]` highlights every occurrence of `foo`. Or pass
+a `/pattern/` directly in the meta.
+
+```ts /useState/
+import { useState } from "react";
+
+function Counter() {
+  const [count, setCount] = useState(0);
+  return count;
+}
+```
+
+## Partials
+
+Reuse a chunk of MDX across pages with `<Render>`. Partials live in
+`src/content/partials/`; include one by id (its path without the extension):
+
+<Render file="example" />
+
+## Why so few?
+
+Everything else (Accordion, FileTree, LinkCard, Embed, Frame, etc.) installs
+on demand via `nimbus-docs add <name>` from the registry. Keeps the starter lean.
