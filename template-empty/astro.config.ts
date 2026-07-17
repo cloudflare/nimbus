@@ -1,6 +1,7 @@
 import { defineConfig } from "astro/config";
 import icon from "astro-icon";
 import nimbus, { defineConfig as defineNimbusConfig } from "nimbus-docs";
+import { tableScroll } from "nimbus-docs/markdown";
 
 const nimbusConfig = defineNimbusConfig({
   // CHANGE_ME: your site's canonical origin (no trailing slash). Drives
@@ -37,6 +38,11 @@ export default defineConfig({
       rules: {
         "nimbus/frontmatter-shape": "error",
         "nimbus/internal-link": "error",
+      },
+      // Wrap wide tables so they scroll instead of overflowing the page
+      // (styled by `.nb-table-scroll` in src/styles/prose.css).
+      markdown: {
+        hastPlugins: [tableScroll()],
       },
     }),
   ],

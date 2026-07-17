@@ -157,11 +157,8 @@
   border-radius: 0;
 }
 
-/* Rounded bordered table that fills its container on desktop and falls back to
-   horizontal scroll on narrow viewports. The earlier rule used `display:block`
-   unconditionally, which kept the outer border at 100% but let thead/tbody
-   shrink to content width — leaving dead space on the right for tables with
-   short cells. */
+/* Fills its column; scroll is owned by the `.nb-table-scroll` wrapper (injected
+   by the tableScroll() hast plugin), since `overflow` is ignored on a table. */
 .docs-content :where(table:not([class])) {
   display: table;
   width: 100%;
@@ -174,14 +171,14 @@
   table-layout: auto;
 }
 
-@media (max-width: 640px) {
-  .docs-content :where(table:not([class])) {
-    display: block;
-    overflow-x: auto;
-    overflow-y: hidden;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-  }
+/* Wide tables scroll within this box at all widths instead of overflowing the
+   page; short tables still fill it via the inner `width: 100%`. */
+.docs-content :where(.nb-table-scroll) {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .docs-content :where(th:not([class])),
