@@ -95,6 +95,15 @@ export async function installComponents(
           ? `${item.name} is already installed (${total} file${total === 1 ? "" : "s"}). Overwrite?`
           : `${item.name} is partially installed (${conflicts.length} of ${total} file${total === 1 ? "" : "s"} present). Overwrite all?`;
 
+      if (!process.stdin.isTTY) {
+        p.log.error(
+          `${item.name}: ${conflicts.length} of ${total} file${total === 1 ? "" : "s"} already present, ` +
+            `and stdin is not a TTY so the overwrite prompt can't be shown. ` +
+            `Re-run with --yes to overwrite conflicts, or from an interactive terminal.`,
+        );
+        process.exit(1);
+      }
+
       const choice = await p.select({
         message,
         options: [
