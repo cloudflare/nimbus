@@ -1,0 +1,84 @@
+name: CI
+
+# Advisory red/green signal on every PR: typecheck + test + audit. These
+# report, they don't yet block merge (PR enforcement is deferred until there
+# are contributors). Each job builds only nimbus-docs — never `pnpm -r build` —
+# so an unrelated www/pagefind failure can't fail a framework PR.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Default-deny; each job opts back into the minimum it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Consumers resolve nimbus-docs via its `dist` exports, so build before
+      # typecheck. Scoped to nimbus-docs (green); starter/www join at Tier 1.5.
+      - run: pnpm --filter ./packages/nimbus-docs build
+
+      - run: pnpm --filter nimbus-docs typecheck
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter ./packages/nimbus-docs build
+
+      - run: pnpm -r test
+
+  audit:
+    name: Audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+
+      # Advisory, never blocks (`continue-on-error`). Reads the lockfile — no
+      # install needed. Note: npm's legacy audit endpoint is being retired and
+      # currently 410s under pnpm 9; this step is a placeholder that starts
+      # reporting real advisories once the registry/pnpm path is restored.
+      - run: pnpm audit
+        continue-on-error: true
