@@ -151,7 +151,7 @@ pnpm changeset        # pick the package(s) + bump, write a summary
 
   Commit the generated `.changeset/*.md` file alongside your change.
 
-- **On merge to `main`**, `.github/workflows/release.yml` opens or updates a "Version packages" PR that applies the pending changesets (bumps versions, writes each package's `CHANGELOG.md`).
+- **On merge to `main`**, `.github/workflows/release.yml` opens or updates a "chore: bump package versions" PR (branch `changeset-release/main`) that applies the pending changesets (bumps versions, writes each package's `CHANGELOG.md`).
 - **Merging that PR** runs `scripts/release.mjs publish`, which: detects what's in the release, generates + verifies the templates against the exact `nimbus-docs` bits, **syncs + tags the orphan `templates` branch (`templates-v<version>`) before publishing**, publishes `nimbus-docs` before the CLI (so a live CLI never pins an unpublished dep), then dispatches the in-repo verify smoke — all unattended, with npm provenance.
 - A half-failed release recovers via the `publish_only` `workflow_dispatch` input (sync is idempotent; an orphan tag is harmless).
 - **Hard requirement: the monorepo must be public before the first release.** Unauthenticated giget scaffolds only work against a public repo, and this repo can't expose templates without exposing source. Until the flip, scaffolds need `GIGET_AUTH`. Run a full-history secret scan before going public. The `templates` branch and `templates-v*` tags are protected by repo rulesets (branch: bot-App-only updates; tag: App-only creation + empty-bypass update/delete, so published tags are immutable for everyone).
