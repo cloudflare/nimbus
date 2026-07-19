@@ -411,6 +411,9 @@ function buildFilesystemTree(
       indexIsCurrent: indexIsCurrent || undefined,
       indexIsExternal: indexIsExternal || undefined,
       _indexNeverActive: indexNeverActive || undefined,
+      // Boundary key (see `_routeKey`). `dirPath` is a final entry-id path,
+      // already slug-normalized, so `joinHref` matches the served child hrefs.
+      _routeKey: joinHref(hrefPrefix, dirPath),
     };
 
     sortKeyByItem.set(group, dirPath);
@@ -521,6 +524,8 @@ function resolveConfigItems(
       // first-link behavior because their first link IS the natural
       // entry point.
       let groupPrefix: string | undefined;
+      // Boundary key for a labeled `{ autogenerate }` wrapper (see `_routeKey`).
+      let autoRouteKey: string | undefined;
       if ("collection" in item.autogenerate) {
         const collectionName = item.autogenerate.collection;
         const collectionEntries = entriesByCollection[collectionName];
@@ -548,6 +553,7 @@ function resolveConfigItems(
           // first-link behavior (see comment on `groupPrefix` above).
           if (!isPrimary && prefix !== "") {
             groupPrefix = prefix;
+            autoRouteKey = toBrowserHref(prefix);
           }
         }
       } else {
@@ -558,6 +564,7 @@ function resolveConfigItems(
           item.autogenerate.directory,
           primaryPrefix,
         );
+        autoRouteKey = joinHref(primaryPrefix, item.autogenerate.directory);
       }
 
       // If the config item has a label, wrap in a group
@@ -570,6 +577,7 @@ function resolveConfigItems(
           badge: item.badge,
           children: autoItems,
           _prefix: groupPrefix,
+          _routeKey: autoRouteKey,
         };
         result.push(group);
       } else {
@@ -608,7 +616,13 @@ function resolveConfigItems(
       // ties it into active-state and prev/next.
       const landing = (item as { landing?: string }).landing;
       const segment = (item as { segment?: string }).segment;
-      if (segment !== undefined) group.segment = segment;
+      if (segment !== undefined) {
+        group.segment = segment;
+        // Boundary key (see `_routeKey`); normalize `ai` / `/ai` → `/ai/`.
+        group._routeKey = toBrowserHref(
+          segment.startsWith("/") ? segment : `/${segment}`,
+        );
+      }
       if (landing !== undefined) {
         group.indexHref = toBrowserHref(landing);
         group.indexIsCurrent =
@@ -839,17 +853,20 @@ export function findActivePath(items: SidebarItem[], currentPath: string): Sideb
 /**
  * Descend a section-scoped tree to the sub-tree under the current path's
  * boundary. A glob like `"guides/*"` (`*` = one segment) sets the prefix
- * depth; the rail is replaced by the children of the shallowest group
- * fully contained under that prefix. Matching is by descendant href, so it
- * works for index-less section folders. Returns the input unchanged on no
- * match.
+ * depth; the rail is replaced by the children of the group that owns the
+ * URL subtree at that depth. Selection is by the group's stamped route key
+ * (`_routeKey`) plus containment of the current page, so it works for
+ * index-less section folders and is unaffected by descendant links that
+ * point out of the subtree (cross-section `external_link`s). Returns the
+ * input unchanged on no match.
  */
 export function isolateToBoundary(
   items: SidebarItem[],
   currentPath: string,
   boundaries: string[],
 ): SidebarItem[] {
-  const segs = toRouteKey(currentPath).split("/").filter(Boolean);
+  const currentKey = toRouteKey(currentPath);
+  const segs = currentKey.split("/").filter(Boolean);
 
   for (const glob of boundaries) {
     const globSegs = glob.split("/").filter(Boolean);
@@ -857,27 +874,46 @@ export function isolateToBoundary(
     const matches = globSegs.every((g, i) => g === "*" || g === segs[i]);
     if (!matches) continue;
 
-    // Trailing-slash form so `/a/b/` can't prefix-collide with `/a/b-c/`.
-    const prefix = toBrowserHref("/" + segs.slice(0, globSegs.length).join("/"));
-    const group = findBoundaryGroup(items, prefix);
+    // Slashless key at the glob-implied depth; `toRouteKey` on both sides
+    // means `/a/b` can't collide with `/a/b-c`.
+    const prefixKey = toRouteKey("/" + segs.slice(0, globSegs.length).join("/"));
+    const group = findBoundaryGroup(items, prefixKey, currentKey);
     if (group) return group.children;
   }
 
   return items;
 }
 
-/** Shallowest group whose every flattened descendant href is under `prefix`. */
+/**
+ * The group that owns the URL subtree at `prefixKey` and contains `currentKey`
+ * — positive identification, not the old "all descendants under prefix" scan
+ * (which one cross-section `external_link` defeated). The stamped `_routeKey`
+ * pins depth and disambiguates sibling prefixes (`/lp/workers` vs
+ * `/lp/workers-foo`); `containsRouteKey` confirms ownership while skipping
+ * `_neverActive`/`_indexNeverActive`/external out-of-subtree links. A coverage
+ * heuristic can't substitute: manual cross-section `{ link }`s are
+ * indistinguishable from in-subtree links.
+ *
+ * Only groups that declare a URL subtree are selectable — an `autogenerate`
+ * directory, a non-primary collection mount, or a manual `segment`; a plain
+ * `{ items }` group without `segment` is a visual grouping, not a boundary. On
+ * a (pathological) `_routeKey` collision, DFS first-match-wins among containers.
+ */
 function findBoundaryGroup(
   items: SidebarItem[],
-  prefix: string,
+  prefixKey: string,
+  currentKey: string,
 ): SidebarGroupItem | undefined {
   for (const item of items) {
     if (item.type !== "group") continue;
-    const flat = flattenSidebar([item]);
-    if (flat.length > 0 && flat.every((l) => l.href.startsWith(prefix))) {
+    if (
+      item._routeKey !== undefined &&
+      toRouteKey(item._routeKey) === prefixKey &&
+      containsRouteKey(item, currentKey)
+    ) {
       return item;
     }
-    const nested = findBoundaryGroup(item.children, prefix);
+    const nested = findBoundaryGroup(item.children, prefixKey, currentKey);
     if (nested) return nested;
   }
   return undefined;

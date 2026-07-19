@@ -16,7 +16,7 @@
  *
  * Determines changed files from the PR base (GITHUB_BASE_REF), and reads
  * pending `.changeset/*.md` frontmatter for bumps. Skips the bot's own
- * "Version packages" PR (branch `changeset-release/*`), which carries no
+ * version-bump PR (branch `changeset-release/*`), which carries no
  * changesets by construction.
  */
 
@@ -38,7 +38,7 @@ const CLI_NAME = pkgName("create-nimbus-docs");
 
 const headRef = process.env.GITHUB_HEAD_REF ?? "";
 if (headRef.startsWith("changeset-release/")) {
-  console.log("[freshness-guard] skipping the bot's Version packages PR.");
+  console.log("[freshness-guard] skipping the bot's version-bump PR.");
   process.exit(0);
 }
 
