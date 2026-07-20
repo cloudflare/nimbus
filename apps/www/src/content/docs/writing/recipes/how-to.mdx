@@ -1,0 +1,75 @@
+---
+title: How-to guide
+description: The recipe for task pages — numbered steps that take a competent reader from a goal to a verified outcome. Checklist and a scaffold command.
+sidebar:
+  label: How-to guide
+  order: 4
+---
+
+<Aside type="note" title="Need">
+At work, acting — the reader already knows what they want and needs the steps, not the theory. Their opening question: *"How do I do X?"* This is the highest-volume type on any docs site.
+</Aside>
+
+## When to use it
+
+Use a how-to when there is **one goal, one outcome, and a reader competent enough to follow directions**. It is not:
+
+- **A tutorial.** A tutorial teaches by building something; the author carries the reader and nothing may go wrong. A how-to serves someone mid-task who carries themselves. If the page must work for a reader who knows nothing, write a tutorial.
+- **Reference.** If the reader is looking up a value, an option, or a limit — not performing a sequence — it's reference. A how-to *links* to reference; it never inlines the full option table.
+- **A concept.** The moment you're explaining *why* the product works this way for more than a sentence, cut it and link to the concept page. Explanation in the middle of steps is where readers lose their place.
+
+One goal per page. "Rotate a signing secret" and "Revoke a signing secret" are two pages, not one page with two halves. Watch for umbrella verbs that smuggle several goals past that test — "Manage secrets" and "Configure allowlists" each hide create, change, and remove.
+
+## Title & description
+
+- **Title: imperative verb phrase stating the goal.** "Rotate a signing secret." "Add a second endpoint." No gerunds ("Rotating secrets"), no bare nouns ("Secret rotation"), no "How to" prefix — the imperative verb phrase itself signals the type, and it's the consensus across Cloudflare and GitLab.
+- **Description formula:** "*Verb the thing, with the benefit or key constraint.*" — e.g. "Rotate a signing secret without dropping deliveries. Both secrets stay valid during the overlap window."
+
+## Scaffold this page
+
+Install the recipe — your coding agent reads the full skeleton and checklist and adapts them to your product:
+
+<PackageManagers pkg="nimbus-docs" type="dlx" args="add content-how-to" />
+
+## Component guidance
+
+- **Numbered steps** are the signature structure — as the Steps component or a plain ordered list; both must read identically in the `.md` twin. If a page has no steps, question whether it's a how-to.
+- **Tabs / code groups** carry variant axes (language, platform, CLI-vs-dashboard) *inside* one canonical page. Duplicating the page per variant is the failure mode. For alternative *methods*, don't tab — pick the recommended one and link the rest.
+- **Callouts:** warnings before destructive steps (part of the happy path), and exceptions to it ("If you're on the legacy plan, …"). A how-to drowning in exception callouts has the wrong happy path.
+- **Doesn't fit:** Cards (this page routes nowhere until Next steps), long conceptual asides, full option tables (link to reference).
+
+## Ending
+
+Fixed footer, in order: **Verify** → the irreversible closing step, if the task has one → **Optional blocks** → **Next steps** with 2–4 curated links. Never end on the last numbered step — a page that stops at step 6 leaves the reader unsure whether they're done.
+
+## Thresholds
+
+- **≤ ~10 steps per phase.** A long single-goal procedure gets `###` phases; a page whose *goals* multiply gets split. The test is the title: if it needs "and," it's two pages.
+- **Context intro ≤ 2 sentences.** Longer means concept content is leaking in.
+- **One goal.** Umbrella verbs ("Manage X") are the tell that it's several.
+
+## Links & freshness
+
+Link *out* for depth: concepts for why, reference for values, adjacent how-tos for what's next. Minimize links *inside* the steps — every mid-step link is an exit ramp. Re-verify the steps against the live product whenever the feature changes, and record it (a `lastVerified` frontmatter date or equivalent) so staleness is visible rather than discovered — a how-to whose steps drifted is worse than no page, because wrong steps actively mislead where a missing page merely disappoints.
+
+## Agent notes
+
+- Each step must be executable without the surrounding page: name the product area, the full command, the exact setting label — never "as configured above."
+- Keep expected outputs in fenced blocks with full, realistic values — no `…`-truncated credentials; agents match on what you show.
+- Tabbed variants must flatten into labeled sections in the `.md` twin; never let the only copy of a step live inside a component the twin drops.
+- The Verify section doubles as the agent's acceptance check — write it as something runnable, with the failure branch spelled out.
+
+## Checklist
+
+Advisory — for the author's self-review or an agent's final pass, never a build gate:
+
+- [ ] Title is an imperative verb phrase; one goal, no umbrella verbs
+- [ ] Prerequisites complete — a reader who meets them finishes without leaving the page
+- [ ] Every step: verb-first, one action, location before action
+- [ ] Happy path unbroken — variant axes in tabs/pickers, alternative methods picked-and-linked, options quarantined after Verify
+- [ ] Warnings precede destructive steps; Verify precedes expensive-to-undo steps
+- [ ] Verify exists — runnable with a failure branch, or one self-evident sentence
+- [ ] Irreversible closing steps (delete, cutover, end-overlap) come after Verify, in their own section
+- [ ] Ends with Next steps (2–4 links), not a final step
+- [ ] ≤ ~10 steps per phase; context ≤ 2 sentences
+- [ ] No positional references ("as mentioned above"); every section self-contained

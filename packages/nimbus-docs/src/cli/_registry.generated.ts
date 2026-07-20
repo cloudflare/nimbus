@@ -249,6 +249,60 @@ export const BUNDLED_INDEX: BundledIndex = {
       "title": "Component showcase",
       "description": "Add a /components grid landing plus per-component showcase pages at /components/<slug>, driven by a dedicated content collection. For sites documenting their own UI library."
     },
+    "content-changelog": {
+      "name": "content-changelog",
+      "type": "registry:feature",
+      "title": "Recipe: Changelog",
+      "description": "Write changelog entries — dated, categorized records that flag breakage and deep-link into the docs."
+    },
+    "content-concept": {
+      "name": "content-concept",
+      "type": "registry:feature",
+      "title": "Recipe: Concept",
+      "description": "Scaffold an understanding page — what a thing is, why it works that way, and where its boundaries are."
+    },
+    "content-example": {
+      "name": "content-example",
+      "type": "registry:feature",
+      "title": "Recipe: Example",
+      "description": "Scaffold a cookbook page — complete, runnable code the reader copies whole, with prose only for the non-obvious."
+    },
+    "content-how-to": {
+      "name": "content-how-to",
+      "type": "registry:feature",
+      "title": "Recipe: How-to guide",
+      "description": "Scaffold a task page — numbered steps that take a competent reader from a goal to a verified outcome."
+    },
+    "content-overview": {
+      "name": "content-overview",
+      "type": "registry:feature",
+      "title": "Recipe: Overview",
+      "description": "Scaffold a product-area landing page — orient the reader in one paragraph, then route them everywhere else."
+    },
+    "content-quickstart": {
+      "name": "content-quickstart",
+      "type": "registry:feature",
+      "title": "Recipe: Quickstart",
+      "description": "Scaffold a first-success page — the shortest honest path from nothing to one working result, with the output shown."
+    },
+    "content-reference": {
+      "name": "content-reference",
+      "type": "registry:feature",
+      "title": "Recipe: Reference",
+      "description": "Scaffold a lookup page — complete, neutral, rigidly templated, with the answer above the prose."
+    },
+    "content-troubleshooting": {
+      "name": "content-troubleshooting",
+      "type": "registry:feature",
+      "title": "Recipe: Troubleshooting",
+      "description": "Scaffold a failure page — verbatim symptoms, causes, and fixes, titled by what the reader pastes into search."
+    },
+    "content-tutorial": {
+      "name": "content-tutorial",
+      "type": "registry:feature",
+      "title": "Recipe: Tutorial",
+      "description": "Scaffold a lesson — numbered parts that build one real project, teacher-owned, every stage producing a visible result."
+    },
     "lint-prose-textlint": {
       "name": "lint-prose-textlint",
       "type": "registry:feature",

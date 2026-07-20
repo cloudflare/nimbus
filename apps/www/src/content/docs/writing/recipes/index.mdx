@@ -1,0 +1,29 @@
+---
+title: Content types
+description: One recipe per documentation content type — the need it serves, when to use it, and a command to scaffold the page with your agent.
+sidebar:
+  label: Content types
+  order: 8
+---
+
+Every docs page answers one kind of reader question. Nimbus ships a **recipe** for each content type: what the type is for, what it's *not*, its title grammar, thresholds, and a self-review checklist. Each recipe is a **guide, never a gate** — advisory, never a build failure.
+
+Each page here explains one content type. To scaffold a page of that type, install its recipe — your coding agent reads the full skeleton and checklist and adapts them to your product:
+
+<PackageManagers pkg="nimbus-docs" type="dlx" args="add content-how-to" />
+
+All examples use one consistent fictional product: **Hookline**, a webhook-delivery service.
+
+| Content type | The reader's question | Signature move | Install |
+|---|---|---|---|
+| [Overview](/writing/recipes/overview) | "What is this, where do I start?" | One paragraph, then pure routing | `content-overview` |
+| [Quickstart](/writing/recipes/quickstart) | "How fast can I see it work?" | Output shown; zero decisions | `content-quickstart` |
+| [Tutorial](/writing/recipes/tutorial) | "Teach me to build something real." | Every part ends in a visible result | `content-tutorial` |
+| [How-to guide](/writing/recipes/how-to) | "How do I do X?" | Verify gates the irreversible step | `content-how-to` |
+| [Concept](/writing/recipes/concept) | "What is X, really?" | Definition first; ends on Boundaries | `content-concept` |
+| [Reference](/writing/recipes/reference) | "What are the exact values?" | Answer-first table; complete or scoped | `content-reference` |
+| [Example](/writing/recipes/example) | "Show me working code for X." | Complete and runnable code | `content-example` |
+| [Troubleshooting](/writing/recipes/troubleshooting) | "Why am I seeing this error?" | Verbatim message as the title | `content-troubleshooting` |
+| [Changelog](/writing/recipes/changelog) | "What changed — does it break me?" | Breaking flag opens the entry | `content-changelog` |
+
+Writing a new page? Pick by the reader's question, not by what you feel like writing. Further extensions (migration guide, glossary, error catalog…) wait for the one rule: a new type earns existence only when no existing recipe's contract fits without breaking it.

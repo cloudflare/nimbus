@@ -1,0 +1,70 @@
+---
+title: Overview
+description: The recipe for product-area landing pages — orient in one paragraph, then route. Checklist and a scaffold command.
+sidebar:
+  label: Overview
+  order: 1
+---
+
+<Aside type="note" title="Need">
+The reader just arrived — from search, a link, or the sidebar — and doesn't yet know if this product area is what they need, or where to go inside it. Their opening question: *"What is this, and where do I start?"* On the compass this type sits off Diátaxis's map entirely — it serves the appraise-and-orient moment before study or work begins — which is exactly why it needs a recipe. It's one of the two pages every product area must have (with the quickstart); Cloudflare's system marks exactly these two as required.
+</Aside>
+
+## When to use it
+
+One overview per product or major product area — the page its sidebar section opens on. **Scope note:** this recipe covers *product-area* overviews. A docs-site *home* (spanning many areas, curating "popular" entry points — the Linear docs home shape) is a lighter variant: same routing discipline, but the orientation paragraph shrinks to a tagline and the availability/CTA slots usually don't apply. The overview is not:
+
+- **A concept page.** The overview names what the product does; the concept page explains how and why. If a paragraph starts explaining architecture or tradeoffs, move it to a concept page and link it — the Supabase-style "concept primer on the landing page" reads well once and then taxes every returning visitor scrolling past it.
+- **A bare table of contents.** The failure mode at the other extreme (Cloudflare bans these explicitly): a list of links with no orientation is a sidebar duplicated into a page.
+- **A marketing page.** The reader already clicked into the docs. State what it does and for whom; skip the persuasion. If marketing content must exist near docs, fence it from agents rather than blending it in.
+
+The balance to hold: **enough prose to orient (one paragraph), then pure routing.** Stripe's product landings and Cloudflare's Workers overview both follow this shape.
+
+## Title & description
+
+- **Title: the product or area name, as a noun.** "Hookline" or "Endpoints" — never "Hookline documentation," never a gerund, never "Introduction."
+- **Description formula:** "*What it is* — *what it does for whom*." — e.g. "Hookline delivers your application's webhooks — signed, retried, and observable."
+
+## Scaffold this page
+
+Install the recipe — your coding agent reads the full skeleton and checklist and adapts them to your product:
+
+<PackageManagers pkg="nimbus-docs" type="dlx" args="add content-overview" />
+
+## Component guidance
+
+- **Cards / CardGrid** are the signature components — this is the one type where cards are body content, because routing *is* the body. Keep card text to a name plus one line; a card that explains is a concept paragraph in a box. In the `.md` twin, cards flatten to link-plus-description lists — write the one-liners so they work in both forms.
+- **Link lists** beat cards when the grid forces padded copy, or when a group genuinely must run past the ~5-link cap — prose lists scan better at volume.
+- **Doesn't fit:** Steps (nothing is performed here), code blocks (nothing is looked up here — inline code in the orientation line is fine), accordions (an overview with hidden content is hiding its own map).
+
+## Ending
+
+End with **Related** when adjacent areas are genuinely confusable with this one — each entry a one-line disambiguation. When nothing needs disambiguating, the last capability group ends the page. Either way, no "next steps" section: the entire page is next steps.
+
+## Thresholds
+
+- **Orientation prose ≤ 1 paragraph** (plus the optional outcomes bullets). Longer means explanation is leaking in.
+- **3–5 capability groups, ≤ ~5 links each** — which puts the whole page around two to three screens. Beyond that, the product area needs sub-overviews (the navigation-page pattern), not a longer overview.
+- **Group by reader job** ("Send events," "Secure"), never by internal team or feature-flag names.
+
+## Links & freshness
+
+Every link on this page is load-bearing — a broken or stale route here strands readers at the front door. When a new page ships in this area, adding it here (or deciding not to) is part of shipping it. Record the last full route-check in frontmatter (`lastUpdated` or a `lastVerified` note) so staleness is visible rather than discovered.
+
+## Agent notes
+
+- This page is the human twin of a scoped `llms.txt` — same job, same shape: name, one-line summary, sectioned links with descriptions. Write the card one-liners so they work as link descriptions in the markdown twin; agents choose what to fetch based on them.
+- The orientation paragraph is what an agent quotes when asked "what is Hookline" — make it self-contained and accurate on its own.
+
+## Checklist
+
+Advisory — self-review for author or agent, never a build gate:
+
+- [ ] Title is the product/area name, noun, no "documentation"
+- [ ] One orientation paragraph (plus optional outcome bullets); a misplaced reader realizes it there
+- [ ] Availability stated if it varies by plan/region/stage
+- [ ] Quickstart CTA first among links
+- [ ] Groups named by reader job; cards route, never explain
+- [ ] Related present when confusable neighbors exist, with disambiguation lines
+- [ ] Every link resolves; new pages in this area are represented (or deliberately not)
+- [ ] No steps, no code blocks, nothing hidden in accordions

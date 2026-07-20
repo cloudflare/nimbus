@@ -1,0 +1,72 @@
+---
+title: Concept
+description: The recipe for understanding pages — what a thing is, why it works that way, and where its boundaries are. No steps, no instructions. Checklist and a scaffold command.
+sidebar:
+  label: Concept
+  order: 5
+---
+
+<Aside type="note" title="Need">
+At study, reflecting — the reader can already operate the product, or is about to, and wants the mental model: what this thing *is*, why it's designed this way, when to reach for it. Their opening question: *"What is X, really?"* This is the chronically neglected type — every survey and Diátaxis itself says so — and the one where hand-written quality differentiates most, because reference and procedures are increasingly machine-consumed while mental models remain the human layer.
+</Aside>
+
+## When to use it
+
+Write a concept page when readers keep needing the same explanation in the middle of other pages — that's the signal the model deserves its own home. It is not:
+
+- **A how-to.** The hard boundary, enforced by every gold-standard site: **no procedural steps, no configuration walkthroughs**. Illustrative code is welcome (Tailwind's concept essays are full of it) — code that *shows* the idea, not code the reader is meant to follow along with. The test for a borderline snippet: if removing it loses an example, it was illustrative; if removing it loses the instructions, it was a walkthrough.
+- **Reference.** Reference is complete and neutral; a concept is selective and opinionated. A concept page should take positions — this is the one type where "we recommend" and design rationale belong.
+- **An overview.** The overview routes; the concept explains. If most of the page is links, it's an overview wearing the wrong title.
+
+One concept per page. "Delivery and signing" is two pages with a link between them.
+
+## Title & description
+
+- **Title: a concise noun phrase naming the concept.** "Delivery guarantees." "Webhook signing." Banned titles (GitLab's rule, worth adopting verbatim): "Overview," "Introduction," "How it works" — they name the genre instead of the subject and collide with every other page titled the same way. Self-check: a good concept title still reads naturally with "About" in front of it ("About delivery guarantees" ✓).
+- **Description formula:** "*What the concept is* and *what it means for the reader's code or choices*." — e.g. "What Hookline guarantees about delivery — and what your endpoint must still handle itself."
+
+## Scaffold this page
+
+Install the recipe — your coding agent reads the full skeleton and checklist and adapts them to your product:
+
+<PackageManagers pkg="nimbus-docs" type="dlx" args="add content-concept" />
+
+## Component guidance
+
+- **Prose is the primary component.** Short paragraphs, one idea per section — this is the type where writing quality carries the page.
+- **Diagrams and illustrative code/payloads** fit when they show the model; always with a text equivalent for the diagram.
+- **Comparison tables** fit in Boundaries when there's a genuine either/or.
+- **Doesn't fit:** Steps (the defining ban), Tabs (a concept doesn't vary by platform — if it does, it's two concepts), Cards.
+
+## Ending
+
+**Boundaries → See also.** Ending on scope is the type's signature move, and it's not our invention: Diátaxis asks explanation to weigh "alternatives and counter-examples." Stating what the concept is *not*, next to its confusable neighbors, is the cheapest way to make the model stick.
+
+## Thresholds
+
+- **A shallow-but-correct model by the end of paragraph two.** If the reader must finish the page to avoid a *wrong* model, the opening is misordered.
+- **≤ ~1,500 words** *(a judgment call — no exemplar publishes a concept length; GitLab's concepts run 1–2 paragraphs, Stripe's best run ~2,000 words)*. The one licensed exception: pages in an explicitly ordered core-concepts sequence meant to be read start-to-finish, like Tailwind's nine-essay course. A *standalone* concept that outgrows the cap splits into two concepts.
+- **At least one sentence of design rationale.** A concept page with no "why" is a glossary entry stretched to a page.
+
+## Links & freshness
+
+Concept pages are hubs: link every how-to that applies the model and the reference that enumerates it — and link *back* from those pages, so the model is explained once and referenced everywhere (the Tailwind hub-and-spoke move). Concepts rot slowest, but re-read them when the design they rationalize changes — a "why" that no longer matches the product actively misleads. A `lastVerified` stamp is optional here; the trigger is design change, not the calendar.
+
+## Agent notes
+
+- The definition paragraphs are what agents retrieve and quote when asked "what does X guarantee" — they must be self-contained and unambiguous alone, without the sections below.
+- State the contract in checkable terms ("at least once," "per-endpoint," "not ordered") rather than reassuring ones ("reliable," "robust") — agents propagate vague adjectives into wrong code.
+- Boundaries double as the agent's negative knowledge — what *not* to assume. Write them as flat declarative bullets.
+
+## Checklist
+
+Advisory — self-review for author or agent, never a build gate:
+
+- [ ] Title is a noun phrase; not "Overview" / "Introduction" / "How it works"; passes the "About X" read-aloud test
+- [ ] Definition first; correct shallow model by paragraph two
+- [ ] Design rationale present — product tradeoff, or domain constraint + product stance
+- [ ] Zero procedural steps or config walkthroughs; code passes the illustrative test
+- [ ] Boundaries section: what it's not + confusable neighbors
+- [ ] Diagram (if any) has a text equivalent
+- [ ] Ends with See also linking the how-tos and reference that depend on this model
+- [ ] ≤ ~1,500 words standalone (course-sequence pages exempt); one concept

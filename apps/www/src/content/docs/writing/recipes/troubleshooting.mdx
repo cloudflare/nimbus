@@ -1,0 +1,80 @@
+---
+title: Troubleshooting
+description: The recipe for failure pages — verbatim symptoms, causes, and fixes, titled by what the reader pastes into search. Checklist and a scaffold command.
+sidebar:
+  label: Troubleshooting
+  order: 8
+---
+
+<Aside type="note" title="Need">
+At work, acting — recovering, not progressing. The reader has an error string or a symptom and will paste it into search (or their agent will). Their opening question: *"Why am I seeing this, and how do I make it stop?"* Errors are content, not exceptions — and this is the type where human search and agent retrieval align perfectly, because both match on the exact string.
+</Aside>
+
+## When to use it
+
+Troubleshooting content lives in two places, and the recipe covers both:
+
+- **Inline, on the page where the failure happens** — the default. A "What if…" callout inside a how-to, or an FAQ accordion at a feature page's end (Linear's accordions; the "What if…" callouts observed on Cloudflare's production get-started pages). The inline form keeps the same internal shape, compressed:
+
+  > **What if login fails with `Error: no workspace selected`?**
+  > The CLI is authenticated but not pointed at a workspace. Run `hookline workspace use <name>` and retry.
+
+- **A dedicated troubleshooting page per product area**, once inline entries pass ~5 or the same failure spans multiple pages (GitLab's threshold: five or more topics get their own page — and it's also Cloudflare's formal content type, `Troubleshooting <Product>`).
+
+It is not:
+
+- **A how-to.** A how-to pursues a goal; troubleshooting recovers from a failure. "Set up delivery alerts" is a how-to even though it involves problems.
+- **An error reference.** If the product has stable error *codes*, a complete per-code catalog is reference material (one entry per code, uniform template — see [the reference recipe](/writing/recipes/reference)); the troubleshooting page covers symptoms, multi-cause problems, and the narrative "it's slow / it's flaky" cases codes don't capture. Small products merge the two; say which page owns what.
+- **A global FAQ.** Questions with known answers get placed on the page that should have answered them. A troubleshooting page is organized by *failure*, not by *question*.
+
+## Title & description
+
+- **Entry titles: the verbatim symptom — ideally the exact error message.** "Error: signature timestamp outside tolerance" beats "Signature problems" in search, in retrieval, and in a sidebar scan. Long messages: keep the distinctive substring, trimmed to roughly GitLab's 70-character guideline, with ASCII `...` marking the cut. Message type ("Error:", "Warning:") stays in the title. Symptom-shaped entries without a message get observable phrasing: "Deliveries succeed but arrive twice."
+- **Page title:** "Troubleshooting *area*" — e.g. "Troubleshooting delivery."
+- **Description formula:** "Fixes for the common failures in *area*, by symptom."
+
+## Scaffold this page
+
+Install the recipe — your coding agent reads the full skeleton and checklist and adapts them to your product:
+
+<PackageManagers pkg="nimbus-docs" type="dlx" args="add content-troubleshooting" />
+
+## Component guidance
+
+- **Fenced blocks for the verbatim message** — the match target for search, readers, and retrieval. Show one realistic concrete instance, variable values included (`skew 512s > 300s` demonstrates the mechanic; the stable substring still matches searches). Never paraphrase the error; never elide its distinctive part.
+- **Bold Cause/Fix/Verify labels** (or a fixed sub-heading trio) — the uniform internal order is what lets a panicking reader skip straight to Fix.
+- **Accordions** fit the inline form (FAQ-style at a feature page's end); on dedicated pages, entries stay open — hidden symptoms are unfindable, and the page exists to be scanned.
+- **Doesn't fit:** Cards, marketing tone, and reassurance without a fix ("this is usually harmless" — then say when it isn't).
+
+## Ending
+
+Dedicated pages end with **Still stuck?** — the escalation path with a collect-this-first list. It's the type's honesty clause: a troubleshooting page that implies completeness strands the reader with the one failure it missed.
+
+## Thresholds
+
+- **Inline until ~5 entries, then a dedicated page** (GitLab's threshold) — and leave a link behind at the inline site.
+- **Most common failure first; a data-loss failure jumps the queue.** Ordering is triage.
+- **Every workaround states its cost and its permanent alternative.** A workaround presented as a fix is how tech debt gets documented into permanence.
+
+## Links & freshness
+
+Every Cause links to the concept explaining the mechanism; every multi-step Fix links to (or is) a how-to. Feed this page from support tickets and community questions — it's the one type whose backlog writes itself — and prune entries when the product fixes the underlying failure: a fix for a problem that no longer exists sends readers hunting for a setting that's gone. Stamp the page's `lastVerified` date when you sweep it against the current release.
+
+## Agent notes
+
+- This is the type agents retrieve by exact string match — the verbatim error in a fenced block is the whole game. Show a realistic concrete instance; the stable substring carries the match. Elision (ASCII `...`) belongs only in *titles* of long messages, and never on the distinctive part.
+- Structure Cause → Fix as declaratives an agent can execute; "check your configuration" is not a fix, `hookline test-event --endpoint <id>` is.
+- Keep each entry fully self-contained — entry N will be retrieved without entry N−1 and without the page intro.
+
+## Checklist
+
+Advisory — self-review for author or agent, never a build gate:
+
+- [ ] Entry titles are verbatim messages or observable symptoms (long ones trimmed to the distinctive substring, ~70 chars)
+- [ ] Every entry with a message shows it in a fenced block, as one concrete instance; symptom-only entries state the observable behavior in their first line
+- [ ] Fixed internal order: Symptom → Cause → Fix (→ Verify); multi-cause entries pair each cause with its confirmation and its fix
+- [ ] Workarounds labeled, costed, and paired with the permanent fix
+- [ ] Most common failure first; data-loss failures jump the queue
+- [ ] Dedicated page ends with Still stuck? + collect-this-first list
+- [ ] Causes link to concepts; multi-step fixes link to how-tos
+- [ ] Entries pruned when the underlying failure is fixed; `lastVerified` stamped on sweep
