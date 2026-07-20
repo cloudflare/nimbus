@@ -465,7 +465,7 @@ export async function getStaticPaths() {
 
 export async function GET({ props }: { props: SlugProps }) {
   const { item } = props;
-  const { entry, title, description, url } = item;
+  const { entry, title, description, markdownUrl, sourceUrl, version } = item;
   const data = (entry.data ?? {}) as Record<string, unknown>;
   const rawImage = data.socialImage;
   const socialImage =
@@ -482,6 +482,7 @@ export async function GET({ props }: { props: SlugProps }) {
     ...(socialImage
       ? [`image: ${JSON.stringify(new URL(socialImage, config.site).href)}`]
       : []),
+    ...(version ? [`version: ${JSON.stringify(version)}`] : []),
     "---",
     "",
     "> Documentation Index",
@@ -492,7 +493,7 @@ export async function GET({ props }: { props: SlugProps }) {
     "",
     markdown,
     "",
-    `Source: ${new URL(`${url}/index.md`, config.site).href}`,
+    `Source: ${new URL(sourceUrl ?? markdownUrl, config.site).href}`,
     "",
   ].join("\n");
 
@@ -505,6 +506,13 @@ export async function GET({ props }: { props: SlugProps }) {
 Substitute the user's version slug for every `<slug>` token in the
 snippet above (the directory name in the file path, plus the
 `COLLECTION` constant value at the top).
+
+The `version` frontmatter key labels each alternate with its version slug
+(resolved by the framework — see `IndexedEntry.version`), so agents can
+pin a version. To also serve the raw authored source for this version,
+mirror the starter's `src/pages/[...slug]/index.mdx.ts` at
+`src/pages/<slug>/[...slug]/index.mdx.ts`: filter on `item.sourceUrl`,
+emit the same frontmatter block, and return `entry.body` verbatim.
 
 ### 4f. Install the version-switcher picker (skip if already installed)
 

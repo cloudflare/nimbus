@@ -10,9 +10,11 @@ Documentation is no longer read only by people. Every Nimbus site ships agent-re
 
 ## What ships
 
-- **A Markdown alternate for every page** at `/<slug>/index.md` — clean Markdown rendered from the page body, with a `Source:` line.
+- **Two Markdown twins for every page** — the twin grammar: `/<slug>/index.md` is the *downleveled render* (clean Markdown for reading, components translated), `/<slug>/index.mdx` is the *raw authored source* (imports, JSX, and directives intact). The `.md` twin's `Source:` line points at the `.mdx` twin.
 - **A site index at `/llms.txt`** — names every published page and links to its Markdown alternate.
+- **The full corpus at `/llms-full.txt`** — every published page as one Markdown document (`renderCorpusMarkdown()` behind a ten-line route), for agents and retrieval pipelines that want the whole site in one fetch. Deterministic: byte-identical across rebuilds.
 - **Per-section indexes at `/<section>/llms.txt`** — each top-level group and collection (e.g. a `blog` or a docs version) gets its own index.
+- **Version labels** — on versioned sites, every twin's frontmatter carries a `version:` key (resolved from your `versions` manifest) so agents can pin a version. Unversioned sites emit nothing.
 - **JSON-LD in every page head** — structured data so search and agent tools recognize what they're looking at.
 - **`/robots.txt` and a sitemap** — wired automatically when `site` is set.
 
