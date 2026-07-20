@@ -28,6 +28,8 @@ export async function GET() {
     "",
     config.description ?? "Documentation index for AI agents.",
     "",
+    `Full corpus (all pages, one document): ${new URL("/llms-full.txt", config.site).href}`,
+    "",
     "## Pages",
     "",
   ];

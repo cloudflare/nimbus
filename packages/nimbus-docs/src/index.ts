@@ -43,6 +43,7 @@ import {
   collectionMountPrefix as resolveCollectionPrefix,
 } from "./_internal/collection-mount.js";
 import { renderEntryAsMarkdown } from "./_internal/transform.js";
+import { buildCorpusMarkdown } from "./_internal/corpus.js";
 import {
   assembleBreadcrumbs,
   breadcrumbsFromUrl,
@@ -169,6 +170,23 @@ export interface IndexedEntry {
    * Consumers should use this directly rather than synthesizing from `url`.
    */
   markdownUrl: string;
+  /**
+   * Site-relative URL of the page's raw-source alternate, e.g.
+   * `/getting-started/index.mdx`. Twin grammar: `index.md` is the
+   * downleveled render for reading, `index.mdx` is the authored source.
+   * `undefined` when the entry has no string body to serve (data-loader
+   * collections) — such entries get no `.mdx` route.
+   */
+  sourceUrl: string | undefined;
+  /**
+   * Version label this entry belongs to, resolved through the site's
+   * `versions` manifest: `versions.current` for the primary `docs`
+   * collection, `<v>` for a registered `docs-<v>` collection. `undefined`
+   * when the site is unversioned or the collection is not a docs version
+   * (`blog`, `api`, …) — surfaces must emit nothing in that case, so
+   * unversioned sites stay byte-identical.
+   */
+  version: string | undefined;
 }
 
 export interface IndexedTopLevelGroup {
@@ -253,6 +271,7 @@ export async function getIndexedEntries(): Promise<IndexedEntry[]> {
     >(name, (n) => getCollection(n as any));
     if (warning) runtimeWarn(warning);
     const prefix = resolveCollectionPrefix(name, versions);
+    const collectionVersion = await getCurrentVersion(name);
     for (const entry of entries) {
       const data = (entry.data ?? {}) as Record<string, unknown>;
       if (data.draft === true) continue;
@@ -279,6 +298,14 @@ export async function getIndexedEntries(): Promise<IndexedEntry[]> {
       // wrong path.
       const markdownUrl =
         canonicalUrl === "/" ? "/index.md" : `${canonicalUrl}/index.md`;
+      // The raw-source twin exists only for entries with a string body —
+      // data-loader collections without one get no `.mdx` alternate.
+      const sourceUrl =
+        typeof entry.body === "string" && entry.body.length > 0
+          ? canonicalUrl === "/"
+            ? "/index.mdx"
+            : `${canonicalUrl}/index.mdx`
+          : undefined;
       indexed.push({
         entry,
         collection: name,
@@ -286,6 +313,8 @@ export async function getIndexedEntries(): Promise<IndexedEntry[]> {
         description,
         url: toBrowserHref(canonicalUrl),
         markdownUrl,
+        sourceUrl,
+        version: collectionVersion ?? undefined,
       });
     }
   }
@@ -359,6 +388,56 @@ export async function getIndexedTopLevel(): Promise<IndexedTopLevel> {
   }
 
   return { leaves, groups };
+}
+
+/**
+ * Render the full published corpus as one markdown document — the body of
+ * the `llms-full.txt` route. One fetch hands an agent (or a RAG ingestion
+ * job) every page as clean markdown, no crawling.
+ *
+ * Scope matches the root `llms.txt`: the primary `docs` collection plus
+ * every secondary collection, **excluding** non-current version collections
+ * (`docs-<v>`) — old versions keep their own per-version surfaces and never
+ * multiply this document.
+ *
+ * Contract (see `buildCorpusMarkdown` for the collation rules):
+ *   - Entries are sorted by `url`; output is deterministic across rebuilds.
+ *   - Each entry is a `#`-level block (bodies render at `##` and below).
+ *   - The document header cross-references `/llms.txt`.
+ *
+ * The starter route stays policy-free and ~10 lines; a site that wants a
+ * different corpus (per-version, filtered, chunked) reshapes its own route
+ * on top of `getIndexedEntries()` + `renderEntryAsMarkdown()`.
+ */
+export async function renderCorpusMarkdown(): Promise<string> {
+  const config = await loadNimbusConfig();
+  const versions = await getVersions();
+  const entries = await getIndexedEntries();
+
+  // Exclude non-current version collections — same predicate the root
+  // `llms.txt` applies via its `kind === "version"` skip (hidden versions
+  // are a subset of `others`, so this covers them too).
+  const versionSlugs = new Set(versions?.others ?? []);
+  const included = entries.filter(
+    (item) =>
+      item.collection === PRIMARY_COLLECTION ||
+      !versionSlugs.has(resolveCollectionSlug(item.collection, versions)),
+  );
+
+  return buildCorpusMarkdown(
+    included.map((item) => ({
+      title: item.title,
+      description: item.description,
+      url: item.url,
+      markdownUrl: item.markdownUrl,
+      markdown: renderEntryAsMarkdown(item.entry),
+    })),
+    {
+      title: config.title,
+      description: config.description,
+      site: config.site,
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------
