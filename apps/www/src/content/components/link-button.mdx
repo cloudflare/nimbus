@@ -14,8 +14,13 @@ props:
     type: '"sm" | "md" | "lg"'
     defaultValue: '"md"'
     description: Relative scale; affects padding and font size.
+  - name: shape
+    type: '"base" | "square" | "circle"'
+    defaultValue: '"base"'
+    description: Use "square" or "circle" for icon-only links (pass an aria-label).
   - name: icon
     type: boolean
+    defaultValue: "false"
     description: Render a trailing chevron that nudges on hover.
 ---
 import Showcase from "@/components/showcase/Showcase.astro";

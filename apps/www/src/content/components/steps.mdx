@@ -4,7 +4,10 @@ tagline: "Numbered, sequenced instructions — circle markers with auto-counting
 props:
   - name: start
     type: number
-    description: Offsets the step counter — useful for splitting long flows across page sections.
+    description: "`Steps` prop. Offsets the step counter — useful for splitting long flows across page sections."
+  - name: title
+    type: string
+    description: "`Step` prop. Semibold lead text rendered above the step body."
 ---
 import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";

@@ -4,7 +4,7 @@ tagline: "Tabbed code blocks — one tab per snippet. Selection syncs across the
 props:
   - name: titles
     type: string[]
-    description: Tab labels in order. Defaults to language ids when omitted.
+    description: Tab labels in order. Falls back to "Tab 1", "Tab 2", … when omitted.
 ---
 import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";
@@ -54,7 +54,7 @@ export const clientSample = `await fetch("/api", { method: "POST" });`;
 
 ### Auto tab labels
 
-Omit `titles` and tabs fall back to the language identifier of each block.
+Omit `titles` and tabs fall back to a generic `Tab 1`, `Tab 2`, … label.
 
 <Example code={'<CodeGroup>\n```bash\nnpm install astro\n```\n\n```sh\npnpm add astro\n```\n</CodeGroup>'} lang="md" contentClass="w-full">
   <div class="w-full">

@@ -8,6 +8,9 @@ props:
   - name: lastUpdated
     type: Date
     description: 'If set, renders an "Updated <date>" line in the same row.'
+  - name: aiGenerated
+    type: boolean
+    description: Marks the page as AI-drafted — renders an "AI-generated · awaiting review" badge.
 ---
 import Showcase from "@/components/showcase/Showcase.astro";
 import { PageActions } from "@/components/ui/page-actions";

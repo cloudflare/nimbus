@@ -26,7 +26,7 @@ Coding agents work the same way you do. When nothing important hides behind an i
     - styles/
       - globals.css
     - components.ts
-  - astro.config.mjs
+  - astro.config.ts
   - package.json
 </FileTree>
 
@@ -155,9 +155,22 @@ nimbus-docs add new-version --print | claude
 
 ## Provenance is a primitive
 
-The moment agents start drafting pages, the question stops being *can a machine read this* and becomes *who wrote this, and has a human checked it.* Nimbus answers that in the schema, not by convention.
+The moment agents start drafting pages, the question stops being *can a machine read this* and becomes *who wrote this, and has a human checked it.* Because you own the content collections, the answer lives in the schema you control — provenance is a few `schemaFields` away, not a convention bolted on top.
 
-The default is inverted: agent-facing is assumed, so `audience: "human"` is the deliberate flag for a page written first for people. `aiGenerated` marks a page an agent drafted but no human has reviewed yet — the layout surfaces an "awaiting review" label until someone signs off. The origin and review state of every page travel with the page itself.
+The starter ships one such field. The default is inverted: agent-facing is assumed, so `audience: "human"` is the deliberate flag for a page written first for people. You extend the schema with more the same way — this site adds `aiGenerated` to mark a page an agent drafted but no human has reviewed yet, and the page-actions row surfaces an "awaiting review" label until someone signs off:
+
+```ts title="src/content.config.ts"
+import { z } from "astro/zod";
+
+docsCollection({
+  schemaFields: {
+    audience: z.literal("human").optional(),
+    aiGenerated: z.boolean().optional(), // shows "awaiting review" until cleared
+  },
+})
+```
+
+With the field registered, the origin and review state of every page travel with the page itself:
 
 ```yaml title="src/content/docs/new-endpoint.mdx"
 ---

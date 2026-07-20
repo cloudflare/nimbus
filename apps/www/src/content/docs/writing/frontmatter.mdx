@@ -15,7 +15,8 @@ Frontmatter is validated against a Zod schema at build time, with errors written
 | `title` | string | — | **Required.** Page title and default sidebar label. |
 | `description` | string | — | Meta description and search snippet. |
 | `mode` | `"doc"` \| `"custom"` | `"doc"` | `custom` drops all docs chrome. |
-| `sidebar` | `false` \| object | — | `false` hides the page from the rail. See below. |
+| `sidebar` | `false` \| object | — | `false` removes the sidebar column on this page; use `sidebar.hidden` to hide the page from the rail. See below. |
+| `hideChildren` | boolean | — | Top-level alias of `sidebar.hideChildren` — collapse a section to a single link. |
 | `head` | array | `[]` | Extra `<head>` elements; merged with `config.head`. |
 | `banner` | object | — | Top-of-page banner — see [Banners](/styling/banners). |
 | `draft` | boolean | `false` | Excluded from production builds and the agent index. |

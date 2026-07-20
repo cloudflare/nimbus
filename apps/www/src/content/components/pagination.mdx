@@ -4,6 +4,7 @@ tagline: "Previous / next links at the bottom of a doc page — driven by the si
 props:
   - name: prevNext
     type: "{ prev?: { label: string; href: string }; next?: { label: string; href: string } }"
+    required: true
     description: Sibling page references. Either side can be omitted (first / last page).
 ---
 import Showcase from "@/components/showcase/Showcase.astro";

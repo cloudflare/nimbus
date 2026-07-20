@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-The `nimbus-docs` CLI does three things: list what's in the registry, install it, and lint your MDX content.
+The `nimbus-docs` CLI does four things: list what's in the registry, install it, lint your MDX content, and clean the build cache.
 
 ## `nimbus-docs list`
 
@@ -88,6 +88,16 @@ nimbus-docs lint --quiet                # errors only, suppress warnings
 ```
 
 Severity overrides live with the integration (`nimbus(config, { rules })`); in-file disables (`nimbusDisableRules` frontmatter, inline comments) work with no config.
+
+## `nimbus-docs clean`
+
+Removes the incremental-build cache — run it if you suspect cache corruption or after a framework upgrade. It's safe any time; the cache rebuilds on the next `astro build`.
+
+```bash
+nimbus-docs clean
+```
+
+This clears `node_modules/.astro/nimbus` and the `.nimbus/cache` fallback. If you've set a custom Astro `cacheDir`, remove `<cacheDir>/nimbus` manually — the standalone CLI doesn't load your Astro config.
 
 ## Help and version
 
