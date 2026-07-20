@@ -1,0 +1,79 @@
+---
+title: Tutorial
+description: The recipe for lessons — build something real, with the teacher carrying all responsibility and every stage producing a visible result. Checklist and a scaffold command.
+sidebar:
+  label: Tutorial
+  order: 3
+---
+
+<Aside type="note" title="Need">
+At study, acting — learning by doing. The reader is new and wants competence, not just a result; the teacher carries **all** responsibility (Diátaxis's hardest rule). Their opening question: *"Teach me to build something real with this."*
+</Aside>
+
+## When to use it
+
+Write a tutorial when competence requires *assembling* the product's pieces — a platform or API whose value shows only when several features work together. **And know the cost before you start:** this is the most expensive type to build and keep true, because a tutorial must work for every reader, every time, on a cold machine. Two consequences:
+
+- **Fewest and freshest wins.** One tested tutorial beats five stale ones; a broken tutorial doesn't just fail its task, it convinces a newcomer the *product* is broken.
+- **You may not need one at all.** App-like products and single-concern tools often don't (Linear and Tailwind ship none) — a good quickstart plus how-tos covers them.
+
+It is not:
+
+- **A quickstart.** The quickstart proves the product works in minutes; the tutorial builds competence through a meaningful project in an hour. Different promise, different budget — don't stretch a quickstart into a lesson.
+- **A how-to.** A how-to serves a competent reader who carries themselves; the tutorial's reader knows nothing yet, and when something goes wrong **it is the tutorial's fault, never the reader's**. If you find yourself assuming competence, you're writing a how-to.
+- **A concept course.** Tutorials teach by doing, not explaining. Every explanation beyond a sentence or two is cut and linked; Diátaxis: "the first rule of teaching is don't try to teach" — provide the experience instead.
+
+One path, zero alternatives. A tutorial never offers options ("you could also…") — the author already chose. When different stacks genuinely need different narratives, stamp one tutorial per stack — as with per-stack quickstart stamps, sibling pages beat variant tabs when the *whole story* differs. (This is the licensed exception to the how-to's never-sibling-pages rule, which exists for pages where only a code block varies.)
+
+## Title & description
+
+- **Title: "Build \<the thing\>"** — named by the outcome: "Build an order-notification service." Not "Learn Hookline," not "Tutorial 1."
+- **Description formula:** "*What you'll build*, and *what you'll be able to do afterward*. *Time estimate*." — e.g. "Build a service that emails customers when orders ship. Afterward you'll know Hookline's full send-deliver-verify loop. About 30 minutes."
+
+## Scaffold this page
+
+Install the recipe — your coding agent reads the full skeleton and checklist and adapts them to your product:
+
+<PackageManagers pkg="nimbus-docs" type="dlx" args="add content-tutorial" />
+
+## Component guidance
+
+- **Numbered parts with expected-output blocks** are the spine — the output after every part is the confidence machine; never skip one.
+- **Error-recovery as plain prose** at the points readers actually stumble is happy-path content here — not exception callouts, because in a tutorial anticipated errors aren't exceptions. A tutorial that anticipates the three likely mistakes teaches more than one that pretends they can't happen.
+- **Doesn't fit:** Tabs and options of any kind (the author chose; per-stack means per-page), Cards, long conceptual asides (link out), Accordions hiding steps.
+
+## Ending
+
+Fixed footer, in order: **Clean up** (one line even when there's nothing to remove) → **What you built** (the recap — GitHub's Conclusion mandates it for this type) → **Next steps**. The recap earns its place because the reader was acquiring skill, not completing a task: naming what they now know is part of the teaching.
+
+## Thresholds
+
+- **≤ ~7 parts**, **15–60 minutes**, stated honestly up front with a concrete difficulty proxy (~lines of code, services touched).
+- **Explanation ≤ 2 sentences per occurrence** — then a link.
+- **Zero decisions, zero alternatives, zero unexplained magic** — if a step works "for reasons," either show the reason in one line or link it.
+- **It works every time.** Not usually. Every time — that's the type's defining contract, and what makes it expensive. A staged failure — the teacher injecting a fault and then guaranteeing its recovery — doesn't break the contract.
+
+## Links & freshness
+
+Almost no links mid-part (exits break the narrative); the concept and production links live in Next steps. This type rots second-fastest after quickstarts, and breaks harder: **pin every version in Before-you-begin**, re-run the whole tutorial on a cold environment each release that touches its path, and stamp `lastVerified`. If you can't afford that maintenance, ship one fewer tutorial.
+
+## Agent notes
+
+- Agents execute tutorials end-to-end; the per-part "You should see" blocks are their acceptance checks — one per part, verbatim, with run-varying fields placeheld (`<n>ms`).
+- Pinned versions matter doubly for agents: they can't judge that a walkthrough drifted from `latest`; they'll force the walkthrough onto whatever's installed.
+- Full-context part headings ("4. Force a redelivery and watch dedup absorb it", never "Break it on purpose") — parts get retrieved alone.
+- The staged-failure part is high-value agent content: it documents the failure signature *and* the recovery in one retrievable chunk.
+
+## Checklist
+
+Advisory — self-review for author or agent, never a build gate:
+
+- [ ] Title is "Build \<outcome\>"; destination shown before part 1
+- [ ] Learning objectives (3–5), time estimate, and a concrete difficulty proxy up front
+- [ ] Versions pinned in Before you begin; mocked pieces named
+- [ ] Every part ends with a visible, verbatim result; headings self-contained
+- [ ] Error-recovery prose at the likely stumbles; nothing blames the reader
+- [ ] Zero options or alternatives; explanation ≤ 2 sentences then a link
+- [ ] ≤ ~7 parts; honest 15–60 minute scope
+- [ ] Ends Clean up (one line minimum) → What you built → Next steps
+- [ ] Re-run end-to-end on a cold environment this release; `lastVerified` stamped

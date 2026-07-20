@@ -1,0 +1,80 @@
+---
+title: Changelog
+description: The recipe for the record of change — dated, categorized entries that flag breakage and deep-link into the docs. Checklist and a scaffold command.
+sidebar:
+  label: Changelog
+  order: 9
+---
+
+<Aside type="note" title="Need">
+At work, looking up — the reader maintains an integration that worked yesterday (the starved "Maintain" job). Their opening questions: *"What changed, does it break me, and what do I do about it?"* Docs that don't communicate change are wrong by next quarter, on a schedule — and for agents the stakes are higher still, because the changelog is where the model's stale priors get corrected.
+</Aside>
+
+## When to use it
+
+One changelog per product (or per clearly versioned surface). Two load-bearing distinctions:
+
+- **Record vs. policy** (from the Stripe teardown): dated entries of what changed live here; how versioning works and how to migrate live on their own pages, linked from every breaking entry.
+- **Two genres, pick by what the reader keys on:**
+  - **Date-headed** — for a continuously shipped product surface (the Cloudflare/Linear shape). Sections per release date; entries titled by the change.
+  - **Version-headed** — for a versioned artifact (an SDK, a named API version): sections per version (`## [2.14.0] — 2026-06-18`, plus an `Unreleased` section for libraries, following the common open-source convention; Stripe's API changelog is version-first the same way). The entry rules below apply *within* each version section. The maintainer's question "what changed between 2.13 and 2.14?" is unanswerable in a date-headed log — if readers pin versions, head by version.
+
+The changelog is not:
+
+- **A commit log.** A changelog is written for humans (and now agents) — curated, benefit-first entries, not a dump of merge messages. If a change isn't worth explaining, it isn't worth listing.
+- **Release marketing.** A launch post persuades; a changelog entry informs. Link the launch post from the entry if it exists — don't replace the entry with it.
+- **A migration guide.** An entry says *that* something breaks and links out; the step-by-step of migrating is a how-to (or a dedicated migration guide for big ones).
+
+## Title & description
+
+- **Page title:** "Changelog" — the fixed, expected string.
+- **Entry titles: the change itself, specific and self-contained.** "Retry backoff is now configurable per endpoint" — not "Improvements to delivery" (says nothing) and not a bare version number (versions head sections, not entries).
+- **Description formula (page):** "Every notable change to *product*, dated, with breaking changes flagged."
+
+## Scaffold this page
+
+Install the recipe — your coding agent reads the full skeleton and checklist and adapts them to your product:
+
+<PackageManagers pkg="nimbus-docs" type="dlx" args="add content-changelog" />
+
+## Component guidance
+
+- **Section headings (date or version) + entry sub-headings** are the structure. The **breaking flag opens the entry body in bold** (`**Deprecated · Breaking, effective 2026-09-18**`) — first thing scanners and feed readers see, without polluting the heading's anchor. In rendered pages a Badge component on the heading line can echo it.
+- **Category labels** (the six standard categories: Added / Changed / Deprecated / Removed / Fixed / Security) as consistent bold prefixes — they make the page filterable by eye and by machine.
+- **Doesn't fit:** Steps (migration steps live in the linked guide), Cards, screenshots (link the docs that show the new UI instead — screenshots in a changelog rot in place forever).
+
+## Ending
+
+A changelog doesn't end; it accumulates. The contract is at the *top* (policy link, subscription channels) and per-entry (links to the pages describing the new state). Published entries are never *silently* rewritten: if an entry turns out wrong — a breaking change went unflagged — amend the original entry *and* publish a dated correction entry, so both the version-scanning upgrader and the timeline reader see it.
+
+## Thresholds
+
+- **Entry body ≤ 3 sentences.** Depth beyond that lives on a linked page — a per-entry detail page (the Stripe pattern), the migration guide, or the launch post.
+- **Entries that change documented behavior link to the updated docs page.** Fixed and Security entries link to the relevant reference or troubleshooting page when one exists — a fix for behavior the docs never documented has nowhere to point, and that's fine.
+- **Every breaking/deprecation entry carries: who's affected, what to do, and a date.** Missing any of the three, it isn't ready to publish.
+
+## Links & freshness
+
+The changelog is the site's freshness layer — entries deep-link into stable doc anchors, which is one more reason reference anchors never move ([the reference recipe](/writing/recipes/reference)). Publishing an entry and updating the pages it links to is *one* act, not two: an entry announcing a field the reference doesn't show yet documents a product that doesn't exist. Entry headings are themselves permalinks other people cite — treat them with the same stability rule.
+
+## Agent notes
+
+- The changelog is the **prior-correction surface**: deprecated things live on in training data, so Deprecated/Removed entries are what stop an agent from recommending them. Write them as flat declaratives an agent can act on: "`attempt_count` is deprecated; use `attempt`."
+- Dates in ISO format (`2026-06-18`); "last month" is meaningless in a retrieved chunk.
+- Each entry self-contained: full field names, full feature names — an entry retrieved alone must make sense alone.
+- Personality never replaces the fact. Slack-style whimsy ("all bugs fixed were too small to see") is a non-statement no reader or agent can act on; if you want voice, add it *after* the fact, not instead of it.
+
+## Checklist
+
+Advisory — self-review for author or agent, never a build gate:
+
+- [ ] Genre chosen deliberately: date-headed (continuous surface) or version-headed (pinned artifact, with Unreleased for libraries)
+- [ ] Entries titled by the change, self-contained, reverse-chronological
+- [ ] Categorized: Added / Changed / Deprecated / Removed / Fixed / Security
+- [ ] Breaking flag opens the entry body, with who's-affected + what-to-do + date
+- [ ] Deprecations announced and removed as two separate entries; never silent
+- [ ] Behavior-changing entries link to the updated docs page (Fixed/Security link where a target exists)
+- [ ] Entry bodies ≤ 3 sentences; impact before mechanism; depth on linked pages
+- [ ] Linked docs pages already updated at publish time
+- [ ] Corrections amend the original entry and add a dated correction entry
+- [ ] Subscription channels (RSS at minimum) linked at the top; entry anchors stable

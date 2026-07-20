@@ -1,0 +1,76 @@
+---
+title: Quickstart
+description: The recipe for first success — the shortest honest path from nothing to one working result, with the output shown. Checklist and a scaffold command.
+sidebar:
+  label: Quickstart
+  order: 2
+---
+
+<Aside type="note" title="Need">
+At study, acting — but testing, not learning. The reader is evaluating or just signed up and wants proof the product works: one real result, fast. Their opening question: *"How quickly can I see this do something?"* The metric is time-to-first-success, and it's priced: longer quickstarts measurably lose readers.
+</Aside>
+
+## When to use it
+
+Every product gets exactly one quickstart per major path (e.g. one for the API, one for the dashboard). It is not:
+
+- **A tutorial.** No learning objectives, no explanations beyond one "what just happened" line. The reader isn't studying; they're testing.
+- **A how-to.** A how-to serves a reader mid-work with a specific goal. The quickstart's only goal is *first* success, and it chooses the goal for the reader.
+
+The defining constraint: **the author makes every choice for the reader.** One language (with tabs for the rest), one install method, defaults everywhere. When a choice genuinely can't be defaulted away (region, org type), make the recommended choice for the reader and note the alternative in one trailing line — never a fork mid-steps.
+
+**The get-started variant.** Some products can't reach an honest first success without real configuration (DNS, tenant setup, unavoidable decisions). For those, write this same recipe as a **"Get started"** page instead: title is the fixed string "Get started," the budget relaxes to the *minimum viable configuration* of the most general use case, and Prerequisites may include real decisions — each collapsed to a recommended default with one line on when to choose otherwise. Everything else below (choices made for the reader, output shown, one primary next step) applies unchanged. Products with a fast path ship both: Quickstart to prove it works, Get started to set it up properly.
+
+## Title & description
+
+- **Title:** "Quickstart" when there's one; "Quickstart: *path or stack*" when stamped per framework or per entry path ("Quickstart: Next.js," "Quickstart: Dashboard"). The get-started variant is titled "Get started," always.
+- **Description formula:** "*Outcome* in *time bound*." — e.g. "Send your first webhook in five minutes." Only promise a time you've watched a stranger hit.
+
+## Scaffold this page
+
+Install the recipe — your coding agent reads the full skeleton and checklist and adapts them to your product:
+
+<PackageManagers pkg="nimbus-docs" type="dlx" args="add content-quickstart" />
+
+"You should see" and "Next step" are contractual literal headings — readers (and agents) learn to jump to them.
+
+## Component guidance
+
+- **Steps** and **fenced code with visible output** are the whole page. The "You should see" block is the single most important element — it's the proof.
+- **Tabs** only for the language/stack axis, and only when the samples are truly parallel. Any other choice: the author decides.
+- **Doesn't fit:** Cards, accordions, callouts about edge cases, links mid-step. Anything that isn't on the shortest path is on the wrong page.
+
+## Ending
+
+Fixed footer: **You should see** (expected output + one "what just happened" line) → **Next step** with exactly one primary link. Use the next-step slot deliberately — route to the thing that deepens adoption, not a generic docs home; the best sites treat quickstart endings as journey routing.
+
+## Thresholds
+
+- **≤ ~600 words, ≤ 6 steps, one feature** (GitHub's quickstart spec prescribes one feature and no error scenarios). The word budget applies to **one rendered path** — one tab selection — not the source of a multi-language page.
+- **When the natural integration blows the budget, shrink the first success** — a hosted page, a CLI-triggered loop, a single call — rather than padding the quickstart or blaming the product. The full integration belongs in a get-started page or how-to.
+- **No error handling, no options, no production hardening.** One honest line at the end may note what was skipped, the way a quiet "test mode" label does.
+- **The steps must work every single time.** The quickstart borrows the tutorial's reliability rule: a stranger's first five minutes is the wrong place for "your mileage may vary."
+
+## Links & freshness
+
+Almost no links before the footer — every link before first success is an exit. This page rots fastest of all types (install commands, CLI output, signup flow): re-run it end-to-end on every release that touches its path, and stamp `lastVerified` in frontmatter when you do.
+
+## Agent notes
+
+- Agents run quickstarts verbatim; this page is effectively a script with prose around it. Every command must be copy-runnable — placeholders in `<angle-brackets>` (`hl_test_<your-key>`), never a bare ellipsis inside a command.
+- Mark run-varying output fields (timings, generated IDs) as placeholders (`<n>ms`) so an agent diffing its output against yours doesn't read normal variance as failure. Everything else in the output block stays verbatim.
+- In the `.md` twin, language tabs flatten into labeled sequential blocks — the expected output must appear once per path, never only in the default tab.
+- State the prerequisites as checkable facts ("Node 20+"), not vibes ("a recent Node").
+
+## Checklist
+
+Advisory — self-review for author or agent, never a build gate:
+
+- [ ] Time bound in the description, tested against a cold start
+- [ ] Reader makes zero decisions (tabs for language/stack only; undefaultable choices made for them with a one-line alternative)
+- [ ] ≤ ~600 words per rendered path, ≤ 6 steps, one feature — or the first success was shrunk until it fits
+- [ ] Test-mode credentials modeled; placeholders in angle brackets, no ellipses in commands
+- [ ] "You should see" heading present; output verbatim except placeheld run-varying fields
+- [ ] "What just happened" ≤ 2 sentences
+- [ ] Ends with exactly one primary next step
+- [ ] Verified end-to-end on the current release; `lastVerified` stamped

@@ -1,0 +1,82 @@
+---
+title: Reference
+description: The recipe for lookup pages — complete, neutral, rigidly templated, with the answer above the prose. Checklist and a scaffold command.
+sidebar:
+  label: Reference
+  order: 6
+---
+
+<Aside type="note" title="Need">
+At work, looking something up — a value, an option, a limit, a name. The reader enters sideways (search, an anchor link, an agent's retrieval), grabs the fact, and leaves. Their opening question: *"What are the exact values?"* This recipe covers **prose-side reference** — config files, CLI flags, event types, limits, settings. API reference compiled from a spec is the other workstream; the two share the discipline: facts have one source, and the reader must predict the page's shape blind.
+</Aside>
+
+## When to use it
+
+Write reference when the content is an enumeration of facts about one surface (a file format, a command, a set of types or limits). It is not:
+
+- **A how-to.** Reference describes; it never instructs. If entries are growing "to do this, first…" sentences, extract a how-to and link it.
+- **A concept.** Reference is neutral and complete; opinion and rationale live on the concept page. One orienting sentence with a concept link is the entire *prose* allowance at the top — per-entry links to concepts and how-tos are expected (see Links & freshness).
+- **A dumping ground.** "Miscellaneous" reference pages are where facts go to become unfindable. Every reference page covers one nameable surface; its structure mirrors the product's structure so readers navigate both in parallel.
+
+The two laws of the type, from Diátaxis and every gold-standard site: **completeness** (a missing entry breaks a reference the way a missing word breaks a dictionary) and **uniformity** (every entry answers the same questions in the same order).
+
+## Title & description
+
+- **Title: the surface's name, as the reader searches for it.** "hookline.config.js" · "CLI commands" · "Event types" · "Limits." Adding "reference" is fine when the bare noun is ambiguous ("Retry policy reference").
+- **Description formula:** "Every *entry kind* *the surface* accepts, with *the fact categories listed*." — e.g. "Every field hookline.config.js accepts — type, default, and constraints."
+
+## Scaffold this page
+
+Install the recipe — your coding agent reads the full skeleton and checklist and adapts them to your product:
+
+<PackageManagers pkg="nimbus-docs" type="dlx" args="add content-reference" />
+
+The scaffold's definition line adapts per surface:
+
+| Surface | Definition line carries |
+|---|---|
+| Config field | type · default · required · range/constraints |
+| CLI flag | long form as heading, alias inline (`--verbose` · alias `-v`) · value syntax · default · repeatable? |
+| Event/webhook type | payload schema link · when it fires · delivery guarantees that differ from the default |
+| Limit/quota | value · scope (per key? per account?) · what happens at the limit · adjustable? |
+
+## Component guidance
+
+- **Tables** are the signature component. The quick-reference table above the entries is strongly recommended — it's what makes the common lookup zero-scroll (Tailwind's utility pages are the purest case; note that Vite and Astro skip it and lean on the TOC instead, which works but makes every lookup a jump). Simple tables only; merged cells and meaning-by-layout break both scanning and extraction.
+- **Per-entry definition lines** (type · default · constraints) in a fixed order — bold or badge them consistently.
+- **Doesn't fit:** Steps, Cards, callouts (a fact that needs a warning callout usually belongs *in* the entry as a constraint), tabs or accordions that hide entries (an entry inside a collapsed surface is invisible to search-and-grab readers and to extraction).
+
+## Ending
+
+Reference pages don't end — they stop after the last entry (plus the boilerplate tail, if the set has one). No next-steps footer: the reader who got their value already left, and the reader who didn't needs the concept link at the top, not the bottom.
+
+## Thresholds
+
+- **Complete or clearly scoped — nothing in between.** Every entry the surface accepts is present; if a subset is deliberately elsewhere, the first line says where.
+- **Entry description prose ≤ 3 sentences, neutral** — with the structured escape valve: enumerable facts beyond that (per-value semantics, interactions, warnings) go in a list or sub-table under the entry, not more prose.
+- **One surface per page**, where a surface's own seams define granularity (a top-level config section or a subcommand is itself a surface when split). Around ~30 entries is the signal to consider splitting along those seams — but one long page with stable anchors is a valid, agent-friendly choice (Astro keeps ~85 config entries on one page; Vite splits the same kind of surface — the field genuinely diverges). Never split alphabetically.
+
+## Links & freshness
+
+Link each entry to the concept explaining it and the how-to exercising it *where they exist* — and keep entry anchors stable; reference anchors are the most-cited URLs on a docs site. Facts here have exactly one source: if entries duplicate values that live in code or schema, generate them — hand-maintained copies of machine truths are a reliable source of drift. Hand-maintained fact pages with no machine source (limits, quotas) carry a visible last-verified date (`lastVerified` in frontmatter); generated pages inherit their source's freshness.
+
+## Agent notes
+
+- Reference is the type agents consume most and hallucinate from worst when it's incomplete — an absent entry reads as "doesn't exist." Completeness is the anti-hallucination property.
+- Every entry must be self-contained: the heading carries the full dotted path (`retry.max_attempts`, not "max_attempts" under a "Retry" heading) so a retrieved chunk carries its own identity.
+- State ranges and defaults as machine-checkable values, never "a reasonable number."
+- The `.md` twin needs no special handling *because* this recipe bans hiding entries in tabs/accordions — keep it that way; the twin of a reference page is the page.
+
+## Checklist
+
+Advisory — self-review for author or agent, never a build gate:
+
+- [ ] Quick-reference table above the entries (surfaces ≥ ~5 entries), generated or consciously maintained
+- [ ] Every entry present, or the scope exclusion stated in line one
+- [ ] Every entry follows the same internal template, at the same heading depth
+- [ ] Definition lines carry type · default · required · constraints (adapted per surface kind)
+- [ ] Descriptions neutral; overflow facts in lists/sub-tables, not prose
+- [ ] Entry headings carry full self-identifying names (dotted paths)
+- [ ] Ordering stated or self-evident; anchors stable across edits
+- [ ] Source of truth named (or the page is generated from it); hand-maintained fact pages carry `lastVerified`
+- [ ] No steps, no opinions, nothing hidden in collapsed components
