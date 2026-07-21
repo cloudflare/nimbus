@@ -3,11 +3,9 @@
  * inside `.md` / `.mdx` files. Output feeds `shikiConfig.langs` so Shiki
  * eager-loads every grammar at startup instead of lazy-loading on first use.
  *
- * Needed because incremental builds skip cached MDX files: those never
- * enter the markdown pipeline, so a language appearing only in cached
- * files would never trigger Shiki's lazy grammar load, and a non-cached
- * file using it would render without highlighting. Eager loading also
- * keeps highlighting independent of which file is processed first.
+ * Eager loading keeps highlighting independent of which file is processed
+ * first — Shiki's lazy load otherwise depends on the order files hit a
+ * grammar, which makes cold-build output non-deterministic.
  */
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";

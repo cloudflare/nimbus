@@ -44,7 +44,6 @@ async function runConfigSetup(opts: {
       validateMdx: opts.validateMdx ?? false,
       admonitions: false,
       sitemap: false,
-      incrementalBuilds: false,
       // config:setup only stashes the processor; skip Sätteri init.
       markdown: { processor: {} as never },
     },

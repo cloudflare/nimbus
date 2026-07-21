@@ -36,7 +36,7 @@ const nimbusConfig = defineNimbusConfig({
 
 export default defineConfig({
   output: "static",
-  integrations: [icon(), react(), nimbus(nimbusConfig, { incrementalBuilds: true })],
+  integrations: [icon(), react(), nimbus(nimbusConfig)],
   vite: {
     // Tailwind v4 via its Vite plugin (replaces the PostCSS plugin, which
     // doesn't build under Astro 7's Vite 8 bundler).
