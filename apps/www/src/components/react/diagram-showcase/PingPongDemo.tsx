@@ -1,6 +1,6 @@
 "use client";
 
-import { Diagram, usePhase } from "nimbus-docs/react";
+import { Diagram, usePhase } from "@cloudflare/nimbus-docs/react";
 import { DiagramControls } from "@/components/react/diagram";
 import { cn } from "@/lib/cn";
 

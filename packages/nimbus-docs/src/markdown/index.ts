@@ -3,7 +3,7 @@
  * `markdown.hastPlugins` integration option. Applied in array order, after
  * Shiki and before Sätteri's built-in image-marker and heading-ids passes.
  *
- *   import { externalLinks, titleFigure, tableScroll } from "nimbus-docs/markdown";
+ *   import { externalLinks, titleFigure, tableScroll } from "@cloudflare/nimbus-docs/markdown";
  *   nimbus(config, { markdown: { hastPlugins: [externalLinks(), titleFigure(), tableScroll()] } });
  */
 export { externalLinks, EXTERNAL_LINK_ARROW } from "./external-links";

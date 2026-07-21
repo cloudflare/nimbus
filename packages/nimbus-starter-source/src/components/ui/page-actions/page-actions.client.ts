@@ -1,4 +1,4 @@
-import { mount } from "nimbus-docs/client";
+import { mount } from "@cloudflare/nimbus-docs/client";
 
 function initPageActions(root: HTMLElement): () => void {
   const copyBtn = root.querySelector<HTMLButtonElement>("[data-nb-page-actions-copy]");

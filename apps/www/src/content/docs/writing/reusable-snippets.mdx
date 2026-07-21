@@ -13,7 +13,7 @@ Partials are reusable content fragments. Write a snippet once, include it in man
 Partials live in `src/content/partials/` as `.md` or `.mdx`, registered as a collection in `src/content.config.ts`:
 
 ```ts title="src/content.config.ts"
-import { partialsCollection } from "nimbus-docs/content";
+import { partialsCollection } from "@cloudflare/nimbus-docs/content";
 
 export const collections = {
   partials: defineCollection(partialsCollection()),

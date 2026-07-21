@@ -105,7 +105,7 @@ existing entries and import style:
 
 ```ts
 import { defineCollection, z } from "astro:content";
-import { docsCollection } from "nimbus-docs/content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
 
 export const collections = {
   docs: defineCollection(docsCollection()),
@@ -150,7 +150,7 @@ below are user-owned — restyle freely; they use only Nimbus tokens.
  */
 import BaseLayout from "./BaseLayout.astro";
 import Header from "@/components/Header.astro";
-import type { BasePageProps } from "nimbus-docs/types";
+import type { BasePageProps } from "@cloudflare/nimbus-docs/types";
 
 type Props = BasePageProps;
 
@@ -716,7 +716,7 @@ route in 5j entirely.
 import { Icon } from "astro-icon/components";
 import ChangelogLayout from "@/layouts/ChangelogLayout.astro";
 import { Badge } from "@/components/ui/badge";
-import { getCollectionStaticPaths, getCollectionPageProps } from "nimbus-docs";
+import { getCollectionStaticPaths, getCollectionPageProps } from "@cloudflare/nimbus-docs";
 import { components } from "@/components";
 
 export const prerender = true;
@@ -937,7 +937,7 @@ export async function GET() {
  * Mirrors the primary docs alternate, scoped to the `changelog` collection,
  * adding the entry's date + tags to the frontmatter.
  */
-import { getIndexedEntries, renderEntryAsMarkdown, type IndexedEntry } from "nimbus-docs";
+import { getIndexedEntries, renderEntryAsMarkdown, type IndexedEntry } from "@cloudflare/nimbus-docs";
 import { config } from "virtual:nimbus/config";
 
 export const prerender = true;

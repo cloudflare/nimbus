@@ -29,7 +29,7 @@ test("parseCollectionBases defaults base to the collection key when no override"
   await withTempConfig(
     `
 import { defineCollection } from "astro:content";
-import { docsCollection } from "nimbus-docs/content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
 
 export const collections = {
   docs: defineCollection(docsCollection()),
@@ -49,7 +49,7 @@ test("parseCollectionBases reads `base:` overrides from Nimbus helper calls", as
   await withTempConfig(
     `
 import { defineCollection } from "astro:content";
-import { docsCollection, partialsCollection } from "nimbus-docs/content";
+import { docsCollection, partialsCollection } from "@cloudflare/nimbus-docs/content";
 
 export const collections = {
   docs: defineCollection(docsCollection({ base: "documentation" })),
@@ -68,7 +68,7 @@ export const collections = {
 test("parseCollectionBases handles single-quote bases too", async () => {
   await withTempConfig(
     `
-import { docsCollection } from "nimbus-docs/content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
 export const collections = {
   docs: defineCollection(docsCollection({ base: 'documentation' })),
 };
@@ -83,7 +83,7 @@ export const collections = {
 test("parseCollectionBases falls back to the key for shorthand entries with no base override", async () => {
   await withTempConfig(
     `
-import { docsCollection } from "nimbus-docs/content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
 const docs = defineCollection(docsCollection());
 
 export const collections = {
@@ -103,7 +103,7 @@ test("parseCollectionBases resolves shorthand entries to their local declaration
   await withTempConfig(
     `
 import { defineCollection } from "astro:content";
-import { docsCollection } from "nimbus-docs/content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
 
 const docs = defineCollection(docsCollection({ base: "documentation" }));
 const blog = defineCollection(docsCollection({ base: "posts" }));
@@ -124,7 +124,7 @@ test("parseCollectionBases resolves shorthand entries across nested expressions"
   // first `;`-ish token inside an option object.
   await withTempConfig(
     `
-import { docsCollection } from "nimbus-docs/content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
 
 const docs = defineCollection(
   docsCollection({
@@ -147,7 +147,7 @@ test("parseCollectionBases distinguishes shorthand keys from unrelated declarati
   // = …` with a base must not cross-contaminate.
   await withTempConfig(
     `
-import { docsCollection } from "nimbus-docs/content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
 
 const documentation = defineCollection(docsCollection({ base: "elsewhere" }));
 const docs = defineCollection(docsCollection());
@@ -165,7 +165,7 @@ export const collections = { docs };
 test("parseCollectionBases handles let/var as well as const for shorthand", async () => {
   await withTempConfig(
     `
-import { docsCollection } from "nimbus-docs/content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
 
 let docs = defineCollection(docsCollection({ base: "doc-pages" }));
 export const collections = { docs };
@@ -182,7 +182,7 @@ test("parseCollectionBases honors ASI — semicolonless shorthand doesn't bleed 
   // value has produced non-whitespace content.
   await withTempConfig(
     `
-import { docsCollection } from "nimbus-docs/content"
+import { docsCollection } from "@cloudflare/nimbus-docs/content"
 
 const docs = defineCollection(docsCollection())
 export const collections = {
@@ -206,7 +206,7 @@ test("parseCollectionBases tolerates a leading newline before the value (ASI doe
   // keeps scanning to the actual value on the next line.
   await withTempConfig(
     `
-import { docsCollection } from "nimbus-docs/content"
+import { docsCollection } from "@cloudflare/nimbus-docs/content"
 
 const docs =
   defineCollection(docsCollection({ base: "documentation" }))
@@ -225,7 +225,7 @@ test("parseCollectionBases tolerates type annotations on the declaration", async
   // over without confusing the `=` finder.
   await withTempConfig(
     `
-import { docsCollection } from "nimbus-docs/content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
 
 const docs: ReturnType<typeof defineCollection> = defineCollection(
   docsCollection({ base: "documentation" }),
@@ -246,7 +246,7 @@ test("parseCollectionBases ignores `base:` written outside the collection regist
   // scope holds.
   await withTempConfig(
     `
-import { docsCollection } from "nimbus-docs/content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
 const someOtherConfig = { base: "elsewhere" };
 
 export const collections = {

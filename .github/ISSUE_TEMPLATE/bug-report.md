@@ -12,7 +12,7 @@ labels: ["bug"]
 
 ### Reproduction
 
-<!-- Minimal steps — ideally from `examples/local` or a fresh `pnpm create nimbus-docs`. Include the failing command and its output. -->
+<!-- Minimal steps — ideally from `examples/local` or a fresh `pnpm create @cloudflare/nimbus-docs`. Include the failing command and its output. -->
 
 1.
 2.

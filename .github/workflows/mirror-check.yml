@@ -6,14 +6,14 @@ name: Mirror check
 # stale output or someone bypassed the branch ruleset and hand-edited the branch.
 #
 # Same-repo, no cross-repo read token: the source lives on `main` at the
-# changesets tag `create-nimbus-docs@<version>`; the output lives at
+# changesets tag `@cloudflare/create-nimbus-docs@<version>`; the output lives at
 # `templates-v<version>` on the orphan branch. We regenerate from the former and
 # diff against the latter.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "create-nimbus-docs version to check (e.g. 0.2.0)"
+        description: "@cloudflare/create-nimbus-docs version to check (e.g. 0.5.0)"
         required: true
         type: string
 
@@ -27,7 +27,7 @@ jobs:
       - name: Checkout source at the changesets tag
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          ref: create-nimbus-docs@${{ inputs.version }}
+          ref: "@cloudflare/create-nimbus-docs@${{ inputs.version }}"
           path: monorepo
 
       - name: Checkout templates output at the templates tag
@@ -72,4 +72,4 @@ jobs:
             [ -d "${RUNNER_TEMP}/generated/${name}" ] || { echo "::error::variant ${name} on the branch is not produced by the generator"; diffs=1; }
           done
           if [ "$diffs" -ne 0 ]; then exit 1; fi
-          echo "ok: templates-v${{ inputs.version }} mirrors the generator at create-nimbus-docs@${{ inputs.version }}"
+          echo "ok: templates-v${{ inputs.version }} mirrors the generator at @cloudflare/create-nimbus-docs@${{ inputs.version }}"

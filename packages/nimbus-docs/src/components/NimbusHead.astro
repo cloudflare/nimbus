@@ -12,7 +12,7 @@
  * inline script:
  *
  *     ---
- *     import NimbusHead from "nimbus-docs/components/NimbusHead.astro";
+ *     import NimbusHead from "@cloudflare/nimbus-docs/components/NimbusHead.astro";
  *     const { title, description, ...rest } = Astro.props;
  *     ---
  *     <head>
@@ -33,8 +33,8 @@ import {
   getCollectionLlmsUrl,
   getVersionAlternates,
   getVersionStatus,
-} from "nimbus-docs";
-import type { HeadElement } from "nimbus-docs/types";
+} from "@cloudflare/nimbus-docs";
+import type { HeadElement } from "@cloudflare/nimbus-docs/types";
 
 export interface Props {
   /** Page title — used for `<title>` and OG/Twitter title. */

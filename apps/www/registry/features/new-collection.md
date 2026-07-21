@@ -173,7 +173,7 @@ indentation. The new line:
 
   ```ts
   import { defineCollection } from "astro:content";
-  import { docsCollection } from "nimbus-docs/content";
+  import { docsCollection } from "@cloudflare/nimbus-docs/content";
   ```
 
 ### 4c. Scaffold the page route
@@ -192,7 +192,7 @@ import {
   getEditUrl,
   getLastUpdated,
   getTOC,
-} from "nimbus-docs";
+} from "@cloudflare/nimbus-docs";
 import { components } from "../../components";
 
 export const prerender = true;
@@ -268,7 +268,7 @@ Write `src/pages/<prefix>/[...slug]/index.md.ts`:
  * .md alternate at src/pages/[...slug]/index.md.ts.
  */
 
-import { getIndexedEntries, renderEntryAsMarkdown, type IndexedEntry } from "nimbus-docs";
+import { getIndexedEntries, renderEntryAsMarkdown, type IndexedEntry } from "@cloudflare/nimbus-docs";
 import { config } from "virtual:nimbus/config";
 
 export const prerender = true;

@@ -49,7 +49,7 @@ any MDX file without `import`:
 
 <Steps>
   <Step title="Install Nimbus">
-    Scaffold a new project with `pnpm create nimbus-docs my-app`.
+    Scaffold a new project with `pnpm create @cloudflare/nimbus-docs my-app`.
   </Step>
   <Step title="Edit content">
     Write MDX files in `src/content/docs/`.
@@ -65,7 +65,7 @@ For install commands, prefer `<PackageManagers>` over `<Tabs>` — it generates
 all four package-manager commands from a single source of truth and
 remembers the reader's pick across pages.
 
-<PackageManagers pkg="nimbus-docs" />
+<PackageManagers pkg="@cloudflare/nimbus-docs" />
 
 For dev dependencies:
 
@@ -83,7 +83,7 @@ OS-specific instructions, multi-language examples.
 <Tabs>
   <TabItem label="TypeScript">
     ```ts
-    import nimbus from "nimbus-docs";
+    import nimbus from "@cloudflare/nimbus-docs";
 
     export default {
       integrations: [nimbus({ /* … */ })],
@@ -92,7 +92,7 @@ OS-specific instructions, multi-language examples.
   </TabItem>
   <TabItem label="JavaScript">
     ```js
-    import nimbus from "nimbus-docs";
+    import nimbus from "@cloudflare/nimbus-docs";
 
     export default {
       integrations: [nimbus({ /* … */ })],

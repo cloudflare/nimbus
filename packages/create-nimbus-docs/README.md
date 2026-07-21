@@ -3,9 +3,9 @@
 Scaffolder for new Nimbus projects.
 
 ```sh
-pnpm create nimbus-docs my-docs
+pnpm create @cloudflare/nimbus-docs my-docs
 # or
-npm create nimbus-docs@latest my-docs
+npm create @cloudflare/nimbus-docs@latest my-docs
 ```
 
 Flags:
@@ -23,8 +23,8 @@ Flags:
 
 Templates are downloaded at scaffold time from the
 [`nimbus`](https://github.com/cloudflare/nimbus) repo, pinned to the
-tag matching this CLI's version (`create-nimbus-docs@0.2.0` fetches the
-`templates-v0.2.0` tag) — so a given CLI version always scaffolds the same
+tag matching this CLI's version (`@cloudflare/create-nimbus-docs@0.5.0` fetches
+the `templates-v0.5.0` tag) — so a given CLI version always scaffolds the same
 templates, forever. The tag lives on a dedicated `templates` branch that holds
 only the generated variants, so the download stays small. **A scaffold needs
 network access to GitHub** (or `--template-dir`).

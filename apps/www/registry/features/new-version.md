@@ -255,7 +255,7 @@ yet, add the imports:
 
 ```ts
 import { defineCollection } from "astro:content";
-import { docsCollection } from "nimbus-docs/content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
 ```
 
 ### 4c. Declare or update the version manifest in `astro.config.ts`
@@ -359,7 +359,7 @@ import {
   getEditUrl,
   getLastUpdated,
   getTOC,
-} from "nimbus-docs";
+} from "@cloudflare/nimbus-docs";
 import { components } from "../../components";
 
 export const prerender = true;
@@ -442,7 +442,7 @@ treatment as v1 pages.
 Write `src/pages/<slug>/[...slug]/index.md.ts`:
 
 ```ts
-import { getIndexedEntries, renderEntryAsMarkdown, type IndexedEntry } from "nimbus-docs";
+import { getIndexedEntries, renderEntryAsMarkdown, type IndexedEntry } from "@cloudflare/nimbus-docs";
 import { config } from "virtual:nimbus/config";
 
 export const prerender = true;

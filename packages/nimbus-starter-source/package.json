@@ -20,7 +20,7 @@
     "astro-og-canvas": "^0.13.0",
     "canvaskit-wasm": "^0.41.1",
     "clsx": "^2.1.1",
-    "nimbus-docs": "workspace:*",
+    "@cloudflare/nimbus-docs": "workspace:*",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {

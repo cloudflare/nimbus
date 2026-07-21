@@ -8,7 +8,7 @@ import { updatePackageJson } from "./transformers/package.js";
 
 // Injected by tsdown at build time (see tsdown.config.ts). The scaffolder
 // fetches templates pinned to the tag that matches its OWN version, so
-// `create-nimbus-docs@0.2.0` always fetches the `templates-v0.2.0` tag —
+// `@cloudflare/create-nimbus-docs@0.5.0` always fetches the `templates-v0.5.0` tag —
 // reproducibly, forever. Never a branch (never `#templates`, never `#main`).
 declare const __APP_VERSION__: string;
 

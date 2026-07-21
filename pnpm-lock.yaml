@@ -23,6 +23,9 @@ importers:
       '@astrojs/react':
         specifier: ^6.0.1
         version: 6.0.1(@types/node@20.19.41)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(esbuild@0.28.0)(jiti@2.7.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(tsx@4.22.3)(yaml@2.9.0)
+      '@cloudflare/nimbus-docs':
+        specifier: workspace:*
+        version: link:../../packages/nimbus-docs
       '@fontsource-variable/inter':
         specifier: ^5.2.8
         version: 5.2.8
@@ -47,9 +50,6 @@ importers:
       framer-motion:
         specifier: ^12.23.24
         version: 12.40.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      nimbus-docs:
-        specifier: workspace:*
-        version: link:../../packages/nimbus-docs
       react:
         specifier: ^19.2.0
         version: 19.2.7
@@ -236,6 +236,9 @@ importers:
 
   packages/nimbus-starter-source:
     dependencies:
+      '@cloudflare/nimbus-docs':
+        specifier: workspace:*
+        version: link:../nimbus-docs
       '@fontsource-variable/inter':
         specifier: ^5.2.8
         version: 5.2.8
@@ -260,9 +263,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      nimbus-docs:
-        specifier: workspace:*
-        version: link:../nimbus-docs
       tailwind-merge:
         specifier: ^3.5.0
         version: 3.6.0

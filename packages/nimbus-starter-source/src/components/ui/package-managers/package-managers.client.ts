@@ -3,7 +3,7 @@
  * `<nb-pm-restore>` early-paint element to avoid flash across navigations.
  */
 
-import { mount, initTabs } from "nimbus-docs/client";
+import { mount, initTabs } from "@cloudflare/nimbus-docs/client";
 
 function cloneIcon(tpl: HTMLTemplateElement | null): Node {
   return tpl ? tpl.content.cloneNode(true) : document.createTextNode("");

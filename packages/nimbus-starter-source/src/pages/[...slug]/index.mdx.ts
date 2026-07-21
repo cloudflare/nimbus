@@ -12,7 +12,7 @@
  * `pages/<collection>/[...slug]/index.mdx.ts`.
  */
 
-import { getIndexedEntries, type IndexedEntry } from "nimbus-docs";
+import { getIndexedEntries, type IndexedEntry } from "@cloudflare/nimbus-docs";
 import { config } from "virtual:nimbus/config";
 
 export const prerender = true;

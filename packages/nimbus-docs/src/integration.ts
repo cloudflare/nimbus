@@ -265,7 +265,7 @@ export function nimbus(
   let astroBaseForBuild = "";
 
   return {
-    name: "nimbus-docs",
+    name: "@cloudflare/nimbus-docs",
     hooks: {
       "astro:config:setup": async (params) => {
         const { updateConfig, config: astroConfig, logger } = params;
@@ -681,7 +681,7 @@ export function nimbus(
           filename: "virtual-config.d.ts",
           content: [
             'declare module "virtual:nimbus/config" {',
-            '  import type { NimbusConfig, VersionAlternatesTable } from "nimbus-docs/types";',
+            '  import type { NimbusConfig, VersionAlternatesTable } from "@cloudflare/nimbus-docs/types";',
             "  export const config: NimbusConfig;",
             "  /** Build-time list of indexable collection names. See `getIndexedEntries()`. */",
             "  export const indexedCollections: readonly string[];",

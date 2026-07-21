@@ -2,7 +2,7 @@
 /**
  * `pnpm local` — scaffold a Nimbus docs site against your local pre-release
  * framework code, so you can validate what real users experience running
- * `npm create nimbus-docs`.
+ * `npm create @cloudflare/nimbus-docs`.
  *
  * Modes:
  *   pnpm local           Interactive scaffold into apps/<name>/.

@@ -15,7 +15,7 @@
  * `/llms.txt` automatically — no edits needed in this file.
  */
 
-import { getIndexedTopLevel } from "nimbus-docs";
+import { getIndexedTopLevel } from "@cloudflare/nimbus-docs";
 import { config } from "virtual:nimbus/config";
 
 export const prerender = true;

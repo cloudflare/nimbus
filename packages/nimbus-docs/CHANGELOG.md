@@ -1,4 +1,4 @@
-# nimbus-docs
+# @cloudflare/nimbus-docs
 
 ## 0.5.0
 

@@ -15,8 +15,8 @@ import BaseLayout from "./BaseLayout.astro";
 import Header from "@/components/Header.astro";
 import { Sidebar, SidebarFilter } from "@/components/ui/sidebar";
 import { TOC } from "@/components/ui/toc";
-import type { BasePageProps } from "nimbus-docs/types";
-import type { SidebarItem, TOCItem } from "nimbus-docs/types";
+import type { BasePageProps } from "@cloudflare/nimbus-docs/types";
+import type { SidebarItem, TOCItem } from "@cloudflare/nimbus-docs/types";
 
 interface Props extends BasePageProps {
   sidebar: SidebarItem[];
@@ -78,7 +78,7 @@ const { sidebar, headings, ...baseProps } = Astro.props;
   </dialog>
 
   <script>
-    import { lockScroll, unlockScroll } from "nimbus-docs/client";
+    import { lockScroll, unlockScroll } from "@cloudflare/nimbus-docs/client";
 
     const dialog = document.querySelector<HTMLDialogElement>("[data-mobile-sidebar]");
     const menuBtn = document.querySelector<HTMLElement>("[data-menu-btn]");

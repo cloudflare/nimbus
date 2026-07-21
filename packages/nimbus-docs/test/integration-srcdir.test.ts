@@ -14,7 +14,7 @@ import { pathToFileURL } from "node:url";
 
 import nimbus from "../src/index.js";
 
-const CONTENT_CONFIG = `import { docsCollection } from "nimbus-docs/content";
+const CONTENT_CONFIG = `import { docsCollection } from "@cloudflare/nimbus-docs/content";
 export const collections = { docs: docsCollection({ base: "docs" }) };
 `;
 

@@ -25,7 +25,7 @@ The smallest meaningful example — `usePhase` walks two steps and the rendered 
   </TabItem>
   <TabItem label="Code">
     ```tsx
-    import { Diagram, usePhase } from "nimbus-docs/react";
+    import { Diagram, usePhase } from "@cloudflare/nimbus-docs/react";
     import { DiagramControls } from "@/components/react/diagram";
 
     function PingPong() {
@@ -57,7 +57,7 @@ The smallest meaningful example — `usePhase` walks two steps and the rendered 
 
 Action bars, tab groups, and play/pause controls are **visual chrome you own**. They install on demand into `src/components/react/diagram/` via the registry:
 
-<PackageManagers pkg="nimbus-docs" type="dlx" args="add diagram" />
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add diagram" />
 
 Edit, restyle, or replace them freely — the hooks keep working. Sites that never author an interactive card pay nothing: `react` and `react-dom` are optional peer dependencies, loaded only when you import `nimbus-docs/react`.
 

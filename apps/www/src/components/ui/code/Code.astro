@@ -12,7 +12,7 @@
  * meant to appear as text, not as red/green diff stripes.
  */
 import { Code as AstroCode } from "astro:components";
-import { defaultCodeTransformers } from "nimbus-docs";
+import { defaultCodeTransformers } from "@cloudflare/nimbus-docs";
 
 type ShikiTransformer = ReturnType<typeof defaultCodeTransformers>[number];
 

@@ -71,7 +71,7 @@ import {
   componentsCollection,
   docsCollection,
   partialsCollection,
-} from "nimbus-docs/content";
+} from "@cloudflare/nimbus-docs/content";
 
 export const collections = {
   docs: defineCollection(docsCollection()),
@@ -215,7 +215,7 @@ const transformers = raw
 
 ```astro
 ---
-import type { ComponentProp } from "nimbus-docs/schemas";
+import type { ComponentProp } from "@cloudflare/nimbus-docs/schemas";
 
 interface Props {
   props: ComponentProp[];
@@ -305,8 +305,8 @@ import { getCollection, getEntry, render } from "astro:content";
 import DocsLayout from "@/layouts/DocsLayout.astro";
 import PropTable from "@/components/showcase/PropTable.astro";
 import { PackageManagers } from "@/components/ui/package-managers";
-import { getSidebar } from "nimbus-docs";
-import type { TOCItem } from "nimbus-docs/types";
+import { getSidebar } from "@cloudflare/nimbus-docs";
+import type { TOCItem } from "@cloudflare/nimbus-docs/types";
 
 export const prerender = true;
 
@@ -354,7 +354,7 @@ const breadcrumbs = [
 >
   <section id="installation" class="scroll-mt-20 flex flex-col gap-5">
     <h2 class="text-xl font-semibold text-foreground tracking-tight">Installation</h2>
-    <PackageManagers pkg="nimbus-docs" type="dlx" args={`add ${slug}`} />
+    <PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args={`add ${slug}`} />
   </section>
 
   <div class="nb-showcase-body flex flex-col gap-10 mt-12">
@@ -384,7 +384,7 @@ in the body.
 ---
 import { getCollection } from "astro:content";
 import DocsLayout from "@/layouts/DocsLayout.astro";
-import { getSidebar } from "nimbus-docs";
+import { getSidebar } from "@cloudflare/nimbus-docs";
 
 export const prerender = true;
 
