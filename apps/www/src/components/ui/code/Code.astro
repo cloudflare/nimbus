@@ -13,7 +13,8 @@
  */
 import { Code as AstroCode } from "astro:components";
 import { defaultCodeTransformers } from "nimbus-docs";
-import type { ShikiTransformer } from "shiki";
+
+type ShikiTransformer = ReturnType<typeof defaultCodeTransformers>[number];
 
 type AstroCodeProps = Parameters<typeof AstroCode>[0];
 interface Props extends AstroCodeProps {
@@ -33,7 +34,7 @@ interface Props extends AstroCodeProps {
 
 const { raw = false, lineNumbers = false, ...rest } = Astro.props as Props;
 const rawProps = rest as AstroCodeProps;
-const themed = "theme" in rawProps || "themes" in rawProps
+const themed: AstroCodeProps = "theme" in rawProps || "themes" in rawProps
   ? rawProps
   : {
       ...rawProps,
@@ -59,7 +60,9 @@ const transformers = lineNumbers
   : baseTransformers;
 const props = {
   ...themed,
-  transformers: [...transformers, ...(themed.transformers ?? [])],
+  // Astro's <Code> and nimbus-docs pull different @shikijs/types minors; the
+  // transformer shapes are runtime-identical, so align to Astro's expected type.
+  transformers: [...transformers, ...(themed.transformers ?? [])] as AstroCodeProps["transformers"],
 };
 ---
 

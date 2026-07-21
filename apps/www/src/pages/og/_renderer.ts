@@ -20,7 +20,7 @@ const cloudDataUri = `data:image/png;base64,${cloudBuffer.toString("base64")}`;
 export async function renderOgCard(input: {
   title: string;
   description: string;
-}): Promise<Uint8Array> {
+}): Promise<Uint8Array<ArrayBuffer>> {
   const svg = await satori(
     OgCard({
       title: input.title,
