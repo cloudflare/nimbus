@@ -358,7 +358,7 @@ export interface DefineSchemaOptions {
  *
  *   import { defineCollection } from "astro:content";
  *   import { z } from "astro/zod";
- *   import { defineSchema } from "nimbus-docs/schemas";
+ *   import { defineSchema } from "@cloudflare/nimbus-docs/schemas";
  *
  *   export const collections = {
  *     docs: defineCollection({
@@ -428,7 +428,7 @@ export const partialsSchema = partialsObjectSchema.default({});
  * editing the source files.
  *
  *   import { z } from "astro/zod";
- *   import { partialsCollection } from "nimbus-docs/content";
+ *   import { partialsCollection } from "@cloudflare/nimbus-docs/content";
  *
  *   defineCollection(partialsCollection({
  *     schemaFields: { inputParameters: z.string().optional() },

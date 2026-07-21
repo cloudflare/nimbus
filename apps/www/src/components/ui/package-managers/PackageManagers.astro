@@ -6,8 +6,8 @@
  */
 import { createHash } from "node:crypto";
 import { Icon } from "astro-icon/components";
-import { getTabs } from "nimbus-docs/lib/pkgm";
-import type { CommandType, CommandOptions } from "nimbus-docs/lib/pkgm";
+import { getTabs } from "@cloudflare/nimbus-docs/lib/pkgm";
+import type { CommandType, CommandOptions } from "@cloudflare/nimbus-docs/lib/pkgm";
 import { LayerCard, LayerCardHeader } from "@/components/ui/layer-card";
 
 interface Props extends CommandOptions {

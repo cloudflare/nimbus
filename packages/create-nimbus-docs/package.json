@@ -1,12 +1,12 @@
 {
-  "name": "create-nimbus-docs",
+  "name": "@cloudflare/create-nimbus-docs",
   "version": "0.4.1",
   "private": false,
   "publishConfig": {
     "access": "public"
   },
   "type": "module",
-  "description": "Scaffold a new Nimbus docs site. Used via `pnpm create nimbus-docs` / `npm create nimbus-docs`.",
+  "description": "Scaffold a new Nimbus docs site. Used via `pnpm create @cloudflare/nimbus-docs` / `npm create @cloudflare/nimbus-docs`.",
   "keywords": [
     "astro",
     "documentation",

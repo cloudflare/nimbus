@@ -46,7 +46,7 @@ The smallest meaningful example — `usePhase` walks two steps, the rendered nod
   </TabItem>
   <TabItem label="Code">
     ```tsx
-    import { Diagram, usePhase } from "nimbus-docs/react";
+    import { Diagram, usePhase } from "@cloudflare/nimbus-docs/react";
     import { DiagramControls } from "@/components/react/diagram";
 
     function PingPong() {
@@ -101,7 +101,7 @@ These surfaces are defaults, not add-ons. The cost of being a dead end on the ag
 
 Adding Nimbus default components or features is done with `nimbus-docs add`. It works differently depending on what you're adding. Components and utilities copy as files — `registry:ui` and `registry:lib` slugs resolve their dependencies and land in your repo. Features hand off as prompts — a `registry:feature` slug is a markdown recipe the coding agent in your environment reads, adapts to your project, and applies.
 
-<PackageManagers pkg="nimbus-docs" type="dlx" args="add 404-page" />
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add 404-page" />
 
 The split between the two modes is the one question that matters: which kind of change actually wants a coding agent in the loop, and which is better as a file copy.
 

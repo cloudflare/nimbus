@@ -1,5 +1,5 @@
 ---
-"nimbus-docs": patch
+"@cloudflare/nimbus-docs": patch
 ---
 
 Fix `@shikijs/types` dedup so `Code.astro` typechecks in consuming sites

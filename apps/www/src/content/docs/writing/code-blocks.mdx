@@ -15,7 +15,7 @@ Add a title and highlight lines in the fence meta:
 ````md
 ```ts title="astro.config.ts" {2,4-5}
 import { defineConfig } from "astro/config";
-import nimbus from "nimbus-docs";
+import nimbus from "@cloudflare/nimbus-docs";
 
 export default defineConfig({
   integrations: [nimbus(config)],
@@ -46,7 +46,7 @@ Common shorthand fences are mapped so they don't fall through to plaintext: `cur
 `<PackageManagers>` renders one command across npm, pnpm, yarn, and bun. It's in the default registry, so no import is needed:
 
 ```mdx
-<PackageManagers pkg="nimbus-docs" type="dlx" args="add badge" />
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add badge" />
 ```
 
 - `type="create"` → `npm create …`

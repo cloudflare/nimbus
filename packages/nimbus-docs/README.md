@@ -5,7 +5,7 @@ Astro integration, content schemas, data helpers (`getSidebar`, `getPrevNext`, `
 Most users install via the scaffolder:
 
 ```sh
-pnpm create nimbus-docs my-docs
+pnpm create @cloudflare/nimbus-docs my-docs
 ```
 
 Subpaths:
@@ -22,7 +22,7 @@ Subpaths:
 ## Interactive diagrams
 
 ```tsx
-import { Diagram, usePhase, useMeasure } from "nimbus-docs/react";
+import { Diagram, usePhase, useMeasure } from "@cloudflare/nimbus-docs/react";
 
 export function MyCard() {
   return (

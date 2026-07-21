@@ -1,4 +1,4 @@
-# create-nimbus-docs
+# @cloudflare/create-nimbus-docs
 
 ## 0.4.1
 

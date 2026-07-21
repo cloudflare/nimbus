@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { Diagram, useDiagram, useMeasure } from "nimbus-docs/react";
+import { Diagram, useDiagram, useMeasure } from "@cloudflare/nimbus-docs/react";
 import { Tabs } from "@/components/react/diagram";
 import { RX, indentedRect, type NodeRect, type NotchConfig } from "./welding";
 import { cn } from "@/lib/cn";
@@ -182,7 +182,7 @@ function PrimitivesBody() {
   const bw = wrapperRect.w + BORDER_PAD * 2;
   const bh = wrapperRect.h + BORDER_PAD * 2;
 
-  const labelText = composed ? "Your diagram" : "nimbus-docs/react";
+  const labelText = composed ? "Your diagram" : "@cloudflare/nimbus-docs/react";
   useLayoutEffect(() => {
     if (!labelRef.current) return;
     try {

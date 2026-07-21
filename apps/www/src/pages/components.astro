@@ -9,7 +9,7 @@
  */
 import { Icon } from "astro-icon/components";
 import DocsLayout from "@/layouts/DocsLayout.astro";
-import { getSidebar } from "nimbus-docs";
+import { getSidebar } from "@cloudflare/nimbus-docs";
 
 import { Accordion, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Aside } from "@/components/ui/aside";
@@ -358,7 +358,7 @@ const jsSample = `// inferred`;
     <div class="nb-cmp-card group/card">
       <div class="nb-cmp-preview">
         <div class="w-full max-w-sm">
-          <PackageManagers pkg="nimbus-docs" type="add" />
+          <PackageManagers pkg="@cloudflare/nimbus-docs" type="add" />
         </div>
       </div>
       <a href="/components/package-managers" class="nb-cmp-link">

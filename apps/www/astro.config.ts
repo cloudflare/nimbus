@@ -2,7 +2,7 @@ import { defineConfig } from "astro/config";
 import icon from "astro-icon";
 import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
-import nimbus, { defineConfig as defineNimbusConfig } from "nimbus-docs";
+import nimbus, { defineConfig as defineNimbusConfig } from "@cloudflare/nimbus-docs";
 
 const nimbusConfig = defineNimbusConfig({
   site: "https://nimbus-docs.com",

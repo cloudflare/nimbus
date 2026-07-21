@@ -16,7 +16,7 @@
  * contain; this route just renders one file per section it returns.
  */
 
-import { getIndexedTopLevel, type IndexedEntry } from "nimbus-docs";
+import { getIndexedTopLevel, type IndexedEntry } from "@cloudflare/nimbus-docs";
 import { config } from "virtual:nimbus/config";
 
 export const prerender = true;

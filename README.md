@@ -7,7 +7,7 @@ Nimbus scaffolds a complete Astro documentation site into your repo — layouts,
 ## Quickstart
 
 ```sh
-pnpm create nimbus-docs my-docs
+pnpm create @cloudflare/nimbus-docs my-docs
 cd my-docs
 pnpm install
 pnpm dev
@@ -56,7 +56,7 @@ Static by default, so it deploys anywhere — with a first-class path to Cloudfl
 packages/
 ├── nimbus-docs/              framework core + the `nimbus-docs` CLI
 ├── nimbus-starter-source/    canonical source — every component + the kitchen-sink dev app
-└── create-nimbus-docs/       scaffolder (`pnpm create nimbus-docs`); fetches templates
+└── create-nimbus-docs/       scaffolder (`pnpm create @cloudflare/nimbus-docs`); fetches templates
                               from the tag-pinned `templates` orphan branch
 apps/
 └── www/                      the docs site + registry host — itself a Nimbus site

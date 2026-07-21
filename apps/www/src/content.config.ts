@@ -1,5 +1,5 @@
 import { defineCollection, z } from "astro:content";
-import { componentsCollection, docsCollection, partialsCollection } from "nimbus-docs/content";
+import { componentsCollection, docsCollection, partialsCollection } from "@cloudflare/nimbus-docs/content";
 
 export const collections = {
   docs: defineCollection(

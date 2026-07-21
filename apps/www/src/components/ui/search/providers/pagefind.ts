@@ -1,4 +1,4 @@
-import type { SearchProvider, SearchResult } from "nimbus-docs/types";
+import type { SearchProvider, SearchResult } from "@cloudflare/nimbus-docs/types";
 import { config } from "virtual:nimbus/config";
 
 interface PagefindSubResult {
