@@ -78,7 +78,7 @@
 		"prepack": "tsdown"
 	},
 	"peerDependencies": {
-		"astro": ">=6.4.0 <7.0.0",
+		"astro": "^7.0.0",
 		"react": ">=19.0.0",
 		"react-dom": ">=19.0.0"
 	},
@@ -91,8 +91,8 @@
 		}
 	},
 	"dependencies": {
-		"@astrojs/markdown-satteri": "0.2.1",
-		"@astrojs/mdx": "6.0.1",
+		"@astrojs/markdown-satteri": "^0.3.4",
+		"@astrojs/mdx": "^7.0.3",
 		"@astrojs/sitemap": "^3.7.2",
 		"@clack/prompts": "^0.9.1",
 		"@shikijs/transformers": "^4.1.0",
@@ -108,7 +108,7 @@
 		"remark-lint-no-literal-urls": "^4.0.1",
 		"remark-lint-no-multiple-toplevel-headings": "^4.0.1",
 		"remark-lint-unordered-list-marker-style": "^4.0.1",
-		"satteri": "^0.6.3",
+		"satteri": "^0.9.1",
 		"shiki": "^4.0.0",
 		"tailwind-merge": "^3.5.0",
 		"unified": "^11.0.5",
@@ -120,11 +120,11 @@
 		"@shikijs/types": "^4.1.0",
 		"@types/react": "^19.2.6",
 		"@types/react-dom": "^19.2.3",
-		"astro": "^6.4.0",
+		"astro": "^7.0.0",
 		"jsdom": "^29.1.1",
 		"tsdown": "^0.20.3",
 		"tsx": "^4.22.3",
 		"typescript": "^5.8.3",
-		"vite": "^7.3.5"
+		"vite": "^8.0.0"
 	}
 }

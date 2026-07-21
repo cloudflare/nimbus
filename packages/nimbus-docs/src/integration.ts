@@ -145,7 +145,9 @@ export interface NimbusIntegrationOptions {
    *
    * Pass a different processor when you need remark/rehype plugin
    * extensibility — Sätteri disables `mdx({ remarkPlugins })` because it
-   * replaces unified's pipeline. The escape hatch:
+   * replaces unified's pipeline. The escape hatch (install
+   * `@astrojs/markdown-remark@^7.2.0` first — `@astrojs/mdx` pulls it in
+   * transitively, but pnpm won't expose an undeclared package for import):
    *
    * ```ts
    * import { unified } from "@astrojs/markdown-remark";
