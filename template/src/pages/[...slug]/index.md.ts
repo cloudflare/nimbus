@@ -9,7 +9,7 @@
  * generate conflicting `[...slug]` paths at root.
  */
 
-import { getIndexedEntries, renderEntryAsMarkdown, type IndexedEntry } from "nimbus-docs";
+import { getIndexedEntries, renderEntryAsMarkdown, type IndexedEntry } from "@cloudflare/nimbus-docs";
 import { config } from "virtual:nimbus/config";
 
 export const prerender = true;

@@ -15,8 +15,8 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Pagination } from "@/components/ui/pagination";
 import { PageActions } from "@/components/ui/page-actions";
 import { Badge } from "@/components/ui/badge";
-import type { DocsPageProps } from "nimbus-docs/types";
-import { getVersionStatus, getVersionAlternates } from "nimbus-docs";
+import type { DocsPageProps } from "@cloudflare/nimbus-docs/types";
+import { getVersionStatus, getVersionAlternates } from "@cloudflare/nimbus-docs";
 
 type Props = DocsPageProps & { audience?: "human" };
 
@@ -262,7 +262,7 @@ const hasPagination = Astro.slots.has("pagination");
   )}
 
   <script>
-    import { lockScroll, unlockScroll } from "nimbus-docs/client";
+    import { lockScroll, unlockScroll } from "@cloudflare/nimbus-docs/client";
 
     const dialog = document.querySelector<HTMLDialogElement>("[data-mobile-sidebar]");
     const menuBtn = document.querySelector<HTMLElement>("[data-menu-btn]");

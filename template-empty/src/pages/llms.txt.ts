@@ -1,5 +1,5 @@
 // Root /llms.txt — sectioned index for AI agents.
-import { getIndexedTopLevel } from "nimbus-docs";
+import { getIndexedTopLevel } from "@cloudflare/nimbus-docs";
 import { config } from "virtual:nimbus/config";
 
 export const prerender = true;

@@ -1,6 +1,6 @@
 /** Wires Collapsible via the disclosure module. */
 
-import { mount, makeDisclosure } from "nimbus-docs/client";
+import { mount, makeDisclosure } from "@cloudflare/nimbus-docs/client";
 
 function initCollapsible(root: HTMLElement): () => void {
   const trigger = root.querySelector<HTMLElement>("[data-nb-collapsible-trigger]");
