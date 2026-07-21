@@ -21,7 +21,7 @@
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@iconify-json/ph": "^1.2.0",
     "@resvg/resvg-js": "^2.6.2",
-    "astro": "^6.4.0",
+    "astro": "^7.1.0",
     "astro-icon": "^1.1.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.24",

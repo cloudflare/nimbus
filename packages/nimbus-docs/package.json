@@ -120,7 +120,7 @@
 		"@shikijs/types": "^4.1.0",
 		"@types/react": "^19.2.6",
 		"@types/react-dom": "^19.2.3",
-		"astro": "^6.4.0",
+		"astro": "^7.1.0",
 		"jsdom": "^29.1.1",
 		"tsdown": "^0.20.3",
 		"tsx": "^4.22.3",
