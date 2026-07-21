@@ -81,7 +81,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          # TODO(flip): restore NPM_CONFIG_PROVENANCE before the first public release
+          NPM_CONFIG_PROVENANCE: "true"
 
       # Normal path. On a push with pending changesets, opens/updates the
       # "chore: bump package versions" PR (branch `changeset-release/*`). When
@@ -127,4 +127,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          # TODO(flip): restore NPM_CONFIG_PROVENANCE before the first public release
+          NPM_CONFIG_PROVENANCE: "true"
