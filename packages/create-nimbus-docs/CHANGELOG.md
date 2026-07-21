@@ -1,5 +1,11 @@
 # @cloudflare/create-nimbus-docs
 
+## 0.5.1
+
+### Patch Changes
+
+- [#22](https://github.com/cloudflare/nimbus/pull/22) [`7ec9715`](https://github.com/cloudflare/nimbus/commit/7ec9715802bda52f235f6c78ce06383a6ede365a) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Republish with npm provenance attestations. Supersedes 0.6.0 / 0.5.0, which published without provenance and before the repo was public.
+
 ## 0.5.0
 
 ### Minor Changes
