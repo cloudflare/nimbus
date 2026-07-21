@@ -61,9 +61,14 @@ import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
     return document.querySelector<SearchDialogElement>("[data-search-dialog][data-search-ready]");
   }
 
+  // Module-scoped guard, not an <html> attribute: ClientRouter resets <html> on
+  // every swap but keeps document listeners, so an attribute guard would stack a
+  // duplicate keydown listener per navigation and break the Cmd+K toggle.
+  let globalsBound = false;
+
   function bindGlobals() {
-    if (document.documentElement.hasAttribute("data-search-globals")) return;
-    document.documentElement.setAttribute("data-search-globals", "true");
+    if (globalsBound) return;
+    globalsBound = true;
 
     document.addEventListener("click", (event) => {
       const trigger = (event.target as Element | null)?.closest("[data-search-trigger]");
