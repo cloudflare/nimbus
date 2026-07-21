@@ -1,5 +1,27 @@
 # @cloudflare/create-nimbus-docs
 
+## 0.5.0
+
+### Minor Changes
+
+- [#20](https://github.com/cloudflare/nimbus/pull/20) [`fde68eb`](https://github.com/cloudflare/nimbus/commit/fde68eb638a113495253b875dd57f0cf4a400be9) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Rename to the `@cloudflare` npm scope
+
+  `nimbus-docs` → `@cloudflare/nimbus-docs` and `create-nimbus-docs` →
+  `@cloudflare/create-nimbus-docs`. The unscoped packages are deprecated and
+  receive no further releases.
+
+  **Migration:**
+
+  - Framework: `pnpm remove nimbus-docs && pnpm add @cloudflare/nimbus-docs`, then
+    update imports — `from "nimbus-docs"` → `from "@cloudflare/nimbus-docs"`
+    (every subpath follows: `/content`, `/schemas`, `/types`, `/client`,
+    `/markdown`, `/react`, `/lib/pkgm`, `/components/NimbusHead.astro`). The
+    `nimbus-docs` CLI bin name is unchanged.
+  - Scaffolder: `pnpm create nimbus-docs` → `pnpm create @cloudflare/nimbus-docs`.
+
+  No API, config, schema, or runtime behavior change — only the package names and
+  import paths.
+
 ## 0.4.1
 
 ### Patch Changes

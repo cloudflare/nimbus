@@ -1,5 +1,39 @@
 # @cloudflare/nimbus-docs
 
+## 0.6.0
+
+### Minor Changes
+
+- [#20](https://github.com/cloudflare/nimbus/pull/20) [`fde68eb`](https://github.com/cloudflare/nimbus/commit/fde68eb638a113495253b875dd57f0cf4a400be9) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Rename to the `@cloudflare` npm scope
+
+  `nimbus-docs` → `@cloudflare/nimbus-docs` and `create-nimbus-docs` →
+  `@cloudflare/create-nimbus-docs`. The unscoped packages are deprecated and
+  receive no further releases.
+
+  **Migration:**
+
+  - Framework: `pnpm remove nimbus-docs && pnpm add @cloudflare/nimbus-docs`, then
+    update imports — `from "nimbus-docs"` → `from "@cloudflare/nimbus-docs"`
+    (every subpath follows: `/content`, `/schemas`, `/types`, `/client`,
+    `/markdown`, `/react`, `/lib/pkgm`, `/components/NimbusHead.astro`). The
+    `nimbus-docs` CLI bin name is unchanged.
+  - Scaffolder: `pnpm create nimbus-docs` → `pnpm create @cloudflare/nimbus-docs`.
+
+  No API, config, schema, or runtime behavior change — only the package names and
+  import paths.
+
+### Patch Changes
+
+- [#18](https://github.com/cloudflare/nimbus/pull/18) [`24fd3b0`](https://github.com/cloudflare/nimbus/commit/24fd3b04ec184a67d4e0ee880ddab42c17ba699c) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Fix `@shikijs/types` dedup so `Code.astro` typechecks in consuming sites
+
+  The published `dist` inlined a local copy of `@shikijs/types`'s
+  `ShikiTransformer` surface instead of importing it, so `defaultCodeTransformers`
+  never deduped against the `@shikijs/types` that Astro's `<Code>` uses — breaking
+  `astro check` in scaffolded sites. The build now keeps `@shikijs/types` and
+  `@shikijs/transformers` as external type imports in the emitted `.d.ts`, and
+  `@shikijs/types` is a runtime dependency (`^4.2.0`) so the import resolves for
+  consumers. No API or runtime behavior change.
+
 ## 0.5.0
 
 ### Minor Changes
