@@ -7,8 +7,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "typecheck": "pnpm --filter nimbus-docs typecheck",
-    "typecheck:all": "pnpm -r typecheck",
+    "typecheck": "pnpm --filter ./packages/nimbus-docs build && pnpm -r typecheck",
     "dev": "pnpm --filter nimbus-starter-source dev",
     "build:templates": "node packages/create-nimbus-docs/scripts/copy-template.mjs",
     "templates:check": "node scripts/templates-check.mjs",

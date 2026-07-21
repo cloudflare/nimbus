@@ -1,9 +1,6 @@
 name: CI
 
-# Advisory red/green signal on every PR: typecheck + test + audit. These
-# report, they don't yet block merge (PR enforcement is deferred until there
-# are contributors). Each job builds only nimbus-docs — never `pnpm -r build` —
-# so an unrelated www/pagefind failure can't fail a framework PR.
+# Red/green signal on every PR: typecheck (whole workspace) + test + audit.
 on:
   pull_request:
     branches: [main]
@@ -35,11 +32,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Consumers resolve nimbus-docs via its `dist` exports, so build before
-      # typecheck. Scoped to nimbus-docs (green); starter/www join at Tier 1.5.
-      - run: pnpm --filter ./packages/nimbus-docs build
-
-      - run: pnpm --filter nimbus-docs typecheck
+      # Root script builds nimbus-docs, then runs `pnpm -r typecheck`.
+      - run: pnpm typecheck
 
   test:
     name: Test
