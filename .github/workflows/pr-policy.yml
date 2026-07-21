@@ -8,7 +8,10 @@ permissions: {}
 
 jobs:
   redirect-external:
+    # Only triage fork PRs. A same-repo branch PR needs write access, so it's
+    # already trusted (release Version-bump PR, allowlist PRs) — don't close it.
     if: >-
+      github.event.pull_request.head.repo.full_name != github.repository &&
       github.event.pull_request.author_association != 'OWNER' &&
       github.event.pull_request.author_association != 'MEMBER' &&
       github.event.pull_request.author_association != 'COLLABORATOR'
