@@ -38,7 +38,7 @@ export async function getStaticPaths() {
 
 export async function GET({ props }: { props: SlugProps }) {
   const { item } = props;
-  const { entry, title, description, markdownUrl } = item;
+  const { entry, title, description, markdownUrl, sourceUrl, version } = item;
   const data = (entry.data ?? {}) as Record<string, unknown>;
   const rawImage = data.socialImage;
   const socialImage =
@@ -55,6 +55,7 @@ export async function GET({ props }: { props: SlugProps }) {
     ...(socialImage
       ? [`image: ${JSON.stringify(new URL(socialImage, config.site).href)}`]
       : []),
+    ...(version ? [`version: ${JSON.stringify(version)}`] : []),
     "---",
     "",
     "> Documentation Index",
@@ -65,7 +66,9 @@ export async function GET({ props }: { props: SlugProps }) {
     "",
     markdown,
     "",
-    `Source: ${new URL(markdownUrl, config.site).href}`,
+    // Point at the authored source (`.mdx` twin) when it exists — the
+    // `.md` alternate referencing itself was a placeholder.
+    `Source: ${new URL(sourceUrl ?? markdownUrl, config.site).href}`,
     "",
   ].join("\n");
 
