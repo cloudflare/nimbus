@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Feature request or enhancement
+    url: https://github.com/cloudflare/nimbus/discussions/new?category=feature-request
+    about: Features and RFCs are discussed in Discussions, not Issues.
+  - name: Security vulnerability
+    url: https://github.com/cloudflare/nimbus/security/policy
+    about: Report vulnerabilities privately — see our Security Policy.

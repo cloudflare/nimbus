@@ -32,6 +32,10 @@ export default defineConfig({
     "react-dom",
     /^react\//,
     /^virtual:/,
+    // Emit shiki types as imports (not inlined) so they dedupe against the
+    // consumer's Astro `<Code>` — otherwise `astro check` breaks downstream.
+    "@shikijs/types",
+    "@shikijs/transformers",
   ],
   // Bundle the remark-lint stack and github-slugger into dist so consuming
   // projects don't gain new transitive deps. Their logic is inlined into

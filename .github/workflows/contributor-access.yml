@@ -1,0 +1,165 @@
+name: Contributor access
+
+on:
+  issue_comment:
+    types: [created]
+  discussion_comment:
+    types: [created]
+
+permissions: {}
+
+jobs:
+  access:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      discussions: write
+    steps:
+      - name: Handle lgtm+/lgtm- command
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const path = '.github/APPROVED_CONTRIBUTORS';
+            const { owner, repo } = context.repo;
+
+            const body = (context.payload.comment.body || '').trim();
+            const m = /^lgtm([+-])(?: @?([a-z0-9-]+))?$/i.exec(body);
+            if (!m) return;
+            const action = m[1] === '+' ? 'approve' : 'revoke';
+
+            const discussion = context.payload.discussion;
+            const issue = context.payload.issue;
+            const isDiscussion = !!discussion;
+            const isPR = !!issue?.pull_request;
+
+            // Best-effort visible feedback. Discussion-comment reactions go through
+            // GraphQL; either path may lack permission, so never let it fail the run.
+            const commentId = context.payload.comment.id;
+            const nodeId = context.payload.comment.node_id;
+            const EYES = ['eyes', 'EYES'];
+            const ROCKET = ['rocket', 'ROCKET'];
+            const CONFUSED = ['confused', 'CONFUSED'];
+            const OK = ['+1', 'THUMBS_UP'];
+            async function react([rest, gql]) {
+              try {
+                if (isDiscussion) {
+                  await github.graphql(
+                    'mutation($id:ID!,$c:ReactionContent!){addReaction(input:{subjectId:$id,content:$c}){clientMutationId}}',
+                    { id: nodeId, c: gql },
+                  );
+                } else {
+                  await github.rest.reactions.createForIssueComment({ owner, repo, comment_id: commentId, content: rest });
+                }
+              } catch (e) {
+                core.warning(`reaction failed: ${e.message}`);
+              }
+            }
+
+            // Maintainers only. Stay silent for everyone else — no probing feedback.
+            const commenter = context.payload.comment.user.login;
+            const { data: access } = await github.rest.repos.getCollaboratorPermissionLevel({ owner, repo, username: commenter });
+            if (!['admin', 'maintain'].includes(access.role_name)) return;
+
+            await react(EYES);
+
+            // Resolve the target. Issues and discussions default to the thread author;
+            // a PR must name someone explicitly (bare `lgtm+` reads as an ordinary review).
+            let author;
+            if (m[2]) {
+              let user;
+              try {
+                ({ data: user } = await github.rest.users.getByUsername({ username: m[2] }));
+              } catch (e) {
+                if (e.status !== 404) throw e;
+                await react(CONFUSED);
+                core.notice(`No such GitHub user: @${m[2]}`);
+                return;
+              }
+              if (user.type !== 'User') {
+                await react(CONFUSED);
+                core.notice(`@${m[2]} is not a user account.`);
+                return;
+              }
+              author = user.login;
+            } else if (isDiscussion) {
+              author = discussion.user?.login;
+            } else if (isPR) {
+              await react(CONFUSED);
+              core.notice('Approvals from a PR need an explicit @username.');
+              return;
+            } else {
+              author = issue?.user?.login;
+            }
+            if (!author) {
+              await react(CONFUSED);
+              core.notice('Could not resolve the target contributor.');
+              return;
+            }
+            const lc = author.toLowerCase();
+
+            const base = context.payload.repository.default_branch;
+            const { data: baseRef } = await github.rest.git.getRef({ owner, repo, ref: `heads/${base}` });
+            const baseSha = baseRef.object.sha;
+            const { data: file } = await github.rest.repos.getContent({ owner, repo, path, ref: baseSha });
+            if (!('content' in file) || typeof file.content !== 'string') {
+              throw new Error(`Expected file content for ${path}`);
+            }
+            const content = Buffer.from(file.content, 'base64').toString('utf8');
+            const listed = content
+              .split('\n')
+              .map((line) => line.replace(/#.*/, '').trim().toLowerCase())
+              .filter(Boolean)
+              .includes(lc);
+
+            if (action === 'approve' && listed) {
+              await react(OK);
+              core.notice(`${author} is already an approved contributor.`);
+              return;
+            }
+            if (action === 'revoke' && !listed) {
+              await react(OK);
+              core.notice(`${author} is not on the list.`);
+              return;
+            }
+
+            const branch = `${action}-contributor/${lc}/${commentId}`;
+            const { data: openPRs } = await github.rest.pulls.list({ owner, repo, state: 'open', per_page: 100 });
+            if (openPRs.some((p) => p.head.ref.startsWith(`${action}-contributor/${lc}/`))) {
+              await react(OK);
+              core.notice(`An open ${action} PR for ${author} already exists.`);
+              return;
+            }
+
+            let newContent;
+            if (action === 'approve') {
+              const kind = isDiscussion ? 'discussion' : isPR ? 'PR' : 'issue';
+              const num = (discussion || issue).number;
+              const date = new Date().toISOString().slice(0, 10);
+              newContent = `${content.trimEnd()}\n${author}  # via ${kind} #${num}, by @${commenter}, ${date}\n`;
+            } else {
+              const kept = content
+                .split('\n')
+                .filter((line) => line.replace(/#.*/, '').trim().toLowerCase() !== lc);
+              newContent = `${kept.join('\n').replace(/\n*$/, '')}\n`;
+            }
+
+            const title = `chore: ${action} contributor ${author}`;
+            try {
+              await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branch}`, sha: baseSha });
+              await github.rest.repos.createOrUpdateFileContents({
+                owner, repo, path, branch, sha: file.sha, message: title,
+                content: Buffer.from(newContent).toString('base64'),
+              });
+              const { data: pr } = await github.rest.pulls.create({
+                owner, repo, base, head: branch, title,
+                body: `Requested by @${commenter} via \`lgtm${m[1]}\`.`,
+              });
+              await react(ROCKET);
+              core.notice(`Opened ${pr.html_url}`);
+            } catch (error) {
+              await github.rest.git.deleteRef({ owner, repo, ref: `heads/${branch}` }).catch(() => {});
+              await react(CONFUSED);
+              throw error;
+            }

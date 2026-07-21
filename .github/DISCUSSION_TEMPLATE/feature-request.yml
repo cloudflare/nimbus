@@ -1,0 +1,29 @@
+labels: []
+body:
+  - type: textarea
+    id: rfc
+    attributes:
+      label: Proposal
+      value: |
+        ## Summary
+
+        One or two sentences: what should Nimbus do?
+
+        ## Problem & motivation
+
+        The user-facing friction this solves, and why now. Keep it brief.
+
+        ## Goals
+
+        - The specific problems this should solve.
+        - Kept separate from any solution, so alternatives stay open.
+
+        ## Non-goals
+
+        - What this explicitly should not try to do.
+
+        ## Example
+
+        If it changes an API or config, sketch it. Otherwise omit.
+    validations:
+      required: true

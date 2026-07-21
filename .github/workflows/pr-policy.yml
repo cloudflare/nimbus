@@ -1,0 +1,45 @@
+name: PR policy
+
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions: {}
+
+jobs:
+  redirect-external:
+    if: >-
+      github.event.pull_request.author_association != 'OWNER' &&
+      github.event.pull_request.author_association != 'MEMBER' &&
+      github.event.pull_request.author_association != 'COLLABORATOR'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          CLOSE_BODY: |
+            Nimbus doesn't take unsolicited pull requests. See [CONTRIBUTING.md](https://github.com/cloudflare/nimbus/blob/main/CONTRIBUTING.md).
+
+            File it instead as:
+            - a bug or fix proposal → an [issue](https://github.com/cloudflare/nimbus/issues/new/choose)
+            - a feature → a [discussion](https://github.com/cloudflare/nimbus/discussions)
+
+            Once a maintainer takes your issue or discussion forward they'll approve you there, and your PRs stay open from then on. Closing this one.
+        run: |
+          # Approved contributors (.github/APPROVED_CONTRIBUTORS on the default branch) may open PRs freely.
+          lc_author=$(printf '%s' "$AUTHOR" | tr 'A-Z' 'a-z')
+          if gh api "repos/$REPO/contents/.github/APPROVED_CONTRIBUTORS?ref=$DEFAULT_BRANCH" \
+               -H "Accept: application/vnd.github.raw" 2>/dev/null \
+               | sed 's/#.*//' | tr 'A-Z' 'a-z' | tr -d '[:blank:]\r' \
+               | grep -qxF "$lc_author"; then
+            echo "$AUTHOR is an approved contributor; leaving PR open."
+            exit 0
+          fi
+          gh pr comment "$PR" --repo "$REPO" --body "$CLOSE_BODY" || true
+          gh pr close "$PR" --repo "$REPO"

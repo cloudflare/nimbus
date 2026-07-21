@@ -1,0 +1,8 @@
+# Contributors whose pull requests are not auto-closed.
+# One GitHub login per line; # starts a comment. Each entry records where it came
+# from and who approved it — leave those trailing comments intact.
+#
+# Add:    comment `lgtm+ @username` on their issue or discussion (maintainers only).
+# Remove: comment `lgtm- @username`.
+#
+# Org owners, members, and collaborators are already exempt and don't belong here.
