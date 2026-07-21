@@ -16,7 +16,6 @@ const pages = Object.fromEntries(
 
 export const { getStaticPaths, GET } = await OGImageRoute({
   pages,
-  param: "slug",
   getImageOptions: (_path, page) => ({
     title: page.title,
     description: page.description,

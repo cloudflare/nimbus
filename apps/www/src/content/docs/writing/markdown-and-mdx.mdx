@@ -60,7 +60,11 @@ Built-in types: `note`, `info`, `tip`, `caution`, `warning`, `important`, `dange
 
 Nimbus wires the Rust-based **Sätteri** markdown processor by default for speed. Consequence: remark/rehype plugins attached via `mdx({ remarkPlugins })` silently no-op. Framework validators that would normally be remark plugins run as pre-build content passes instead.
 
-If you depend on the unified ecosystem (custom remark plugins, Mermaid, math), swap the processor:
+If you depend on the unified ecosystem (custom remark plugins, Mermaid, math), swap the processor. First install `@astrojs/markdown-remark` — Astro's MDX integration pulls it in transitively, but pnpm won't let you import a package you haven't declared:
+
+```sh
+pnpm add "@astrojs/markdown-remark@^7.2.0"
+```
 
 ```ts title="astro.config.ts"
 import { unified } from "@astrojs/markdown-remark";
