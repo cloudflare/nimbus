@@ -1,5 +1,22 @@
 # nimbus-docs
 
+## 0.5.0
+
+### Minor Changes
+
+- [#16](https://github.com/cloudflare/nimbus/pull/16) [`4abd409`](https://github.com/cloudflare/nimbus/commit/4abd4096a4437b9d7b0428d4aeec254d4e50d708) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Remove the built-in incremental-build cache
+
+  The `incrementalBuilds` option, the `partialResolver` hook, and the
+  `nimbus-docs clean` command are gone, along with the internal cache module
+  that backed them. Astro 7 owns incremental building now, and running a second
+  cache on top of it under `node_modules/.astro` was redundant and a
+  stale-serve risk.
+
+  **Breaking:** if you passed `incrementalBuilds` or `partialResolver` to
+  `nimbus()`, remove them — they no longer exist on `NimbusIntegrationOptions`.
+  No replacement is needed; a plain `astro build` is the supported path, and
+  Astro 7's native incremental building applies without any Nimbus opt-in.
+
 ## 0.4.0
 
 ### Minor Changes
