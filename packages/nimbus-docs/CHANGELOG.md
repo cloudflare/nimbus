@@ -1,5 +1,19 @@
 # nimbus-docs
 
+## 0.5.1
+
+### Patch Changes
+
+- [#18](https://github.com/cloudflare/nimbus/pull/18) [`24fd3b0`](https://github.com/cloudflare/nimbus/commit/24fd3b04ec184a67d4e0ee880ddab42c17ba699c) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Fix `@shikijs/types` dedup so `Code.astro` typechecks in consuming sites
+
+  The published `dist` inlined a local copy of `@shikijs/types`'s
+  `ShikiTransformer` surface instead of importing it, so `defaultCodeTransformers`
+  never deduped against the `@shikijs/types` that Astro's `<Code>` uses — breaking
+  `astro check` in scaffolded sites. The build now keeps `@shikijs/types` and
+  `@shikijs/transformers` as external type imports in the emitted `.d.ts`, and
+  `@shikijs/types` is a runtime dependency (`^4.2.0`) so the import resolves for
+  consumers. No API or runtime behavior change.
+
 ## 0.5.0
 
 ### Minor Changes
