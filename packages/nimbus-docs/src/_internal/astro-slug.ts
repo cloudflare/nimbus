@@ -1,9 +1,9 @@
 /**
  * URL helpers with two distinct inputs that must not be conflated:
  *
- *   - A RAW filesystem path (lint's `enumerateEntries`, incremental cache
- *     scan): Astro hasn't processed it, so replay its default slug
- *     normalization. Use `canonicalSlug` / `canonicalEntryUrl`.
+ *   - A RAW filesystem path (lint's `enumerateEntries`): Astro hasn't
+ *     processed it, so replay its default slug normalization. Use
+ *     `canonicalSlug` / `canonicalEntryUrl`.
  *   - A FINAL `entry.id` from the content store (sidebar, SEO, version
  *     alternates): the route helpers pass it verbatim as `params.slug`, so
  *     it must NOT be re-slugged. Use `entryRouteKey` / `entryRouteUrl`.

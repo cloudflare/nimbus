@@ -60,8 +60,6 @@ The second argument to `nimbus()` controls build behavior:
 | `mdx` | — | Options forwarded to `@astrojs/mdx`. |
 | `rules` | `off` (opt-in) | Authoring-lint severities — each rule is off until you enable it. See [Linting](/writing/linting). |
 | `collections` | — | Per-collection lint overrides. |
-| `incrementalBuilds` | `false` | Opt in to skip re-rendering MDX unchanged since the last build. Cache lives under Astro's `cacheDir`; a config/component/version change forces a full cold rebuild. Set `NIMBUS_CACHE_NAMESPACE` to isolate PR from main builds. |
-| `partialResolver` | — | Resolve a component tag to the partial file it embeds, for incremental change-tracking. Required only when `incrementalBuilds: true`; ignored otherwise. |
 
 ```ts
 nimbus(config, {

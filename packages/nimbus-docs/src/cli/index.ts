@@ -25,7 +25,6 @@ import mri from "mri";
 import * as p from "@clack/prompts";
 
 import { BUNDLED_INDEX } from "./_registry.generated.js";
-import { cleanCommand } from "./clean.js";
 import { installComponents } from "./component.js";
 import { loadDotenv } from "./dotenv.js";
 import { installFeature } from "./feature.js";
@@ -65,7 +64,6 @@ const HELP = `
     add                            Same as \`list\`
     add <slug>                     Install a component or hand off a feature
     lint                           Lint .mdx content for authoring-quality issues
-    clean                          Remove .nimbus/cache (incremental-builds cache)
 
   Flags:
     --yes, -y                      Component: overwrite conflicts without prompting
@@ -113,11 +111,6 @@ async function main(): Promise<void> {
       color: args.color,
       fix: args.fix,
     });
-    return;
-  }
-
-  if (command === "clean") {
-    await cleanCommand();
     return;
   }
 

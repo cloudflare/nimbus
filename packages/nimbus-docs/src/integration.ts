@@ -82,22 +82,7 @@ import {
   NIMBUS_DEFAULT_SHIKI_THEMES,
   shouldClassShikiTokens,
 } from "./_internal/code-style-registry.js";
-import {
-  finaliseIncrementalContext,
-  restoreCachedPagesToDist,
-  setupIncrementalContext,
-  snapshotAssetsToCache,
-  wrapPrerenderer,
-} from "./_internal/incremental/index.js";
-import type { PartialResolverHook } from "./_internal/incremental/partial-refs.js";
-import {
-  createMdxSkipContext,
-  mdxSkipPlugin,
-} from "./_internal/incremental/mdx-skip-plugin.js";
-import {
-  emitIncrementalSitemap,
-  type SitemapSerialize,
-} from "./_internal/incremental/sitemap.js";
+import type { SitemapSerialize } from "./_internal/sitemap-types.js";
 import { scanVersionFrontmatter } from "./_internal/scan-version-frontmatter.js";
 import {
   buildVersionAlternates,
@@ -129,10 +114,8 @@ export interface NimbusIntegrationOptions {
   /**
    * Sitemap behavior. Defaults: enabled when `site.url` is set, default
    * `@astrojs/sitemap` output. `false` disables it. Pass an object to
-   * customise — currently `serialize` and `customPages` are supported, and
-   * they apply both when incremental builds are on (we emit the sitemap
-   * ourselves so cached routes appear) and when incremental is off (we
-   * forward them to `@astrojs/sitemap`).
+   * customise — currently `serialize` and `customPages` are supported;
+   * both are forwarded to `@astrojs/sitemap`.
    *
    * The `serialize` callback runs once per URL and may return modified
    * fields (e.g. `lastmod` from git) or `null`/`undefined` to drop the
@@ -261,53 +244,6 @@ export interface NimbusIntegrationOptions {
    * }
    */
   collections?: CollectionsConfig;
-  /**
-   * Opt into per-page build caching. When `true`, Nimbus wraps Astro's
-   * prerenderer and short-circuits cache hits with previously-rendered HTML.
-   *
-   * The cache is rooted under Astro's own `cacheDir` (default
-   * `node_modules/.astro/nimbus`), so it travels with the framework cache
-   * that Cloudflare, Vercel, Netlify, and GitHub Actions already persist
-   * between builds — warm CI builds with no extra cache service. Set
-   * `NIMBUS_CACHE_NAMESPACE` (or rely on the detected branch) to keep PR and
-   * main builds isolated.
-   *
-   * Preview-quality:
-   *   - Per-page cache keyed on file bytes + a global hash of tracked
-   *     sources (config, components, layouts, lockfile) + nimbus/Astro
-   *     version provenance. A version bump invalidates the cache.
-   *   - Namespace mismatch (e.g. a different branch) is treated like a
-   *     global-hash mismatch: full cold rebuild, never a stale serve.
-   *   - Dynamic-value partial props (`<Render file={var} />`) and
-   *     non-deterministic content aren't captured — see the
-   *     incremental-builds docs before enabling.
-   *
-   * Default: `false`.
-   */
-  incrementalBuilds?: boolean;
-  /**
-   * Custom partial resolver for incremental builds. Called for every
-   * PascalCase component opening tag found in MDX content with string-
-   * literal props. Return the absolute file path of the partial the
-   * component embeds, or `null` to indicate this component isn't a
-   * partial-embedder.
-   *
-   * The default resolver covers the standard `<Render file="topic/slug" />`
-   * pattern shipping with Nimbus's starter. Sites with multi-prop
-   * conventions (e.g. a `product` prop routed into the path) need their own:
-   *
-   * @example
-   * partialResolver: (name, props) => {
-   *   if (name !== "Render" || !props.file) return null;
-   *   if (props.product) {
-   *     return resolve(projectRoot, `src/content/partials/${props.product}/${props.file}.mdx`);
-   *   }
-   *   return resolve(projectRoot, `src/content/partials/${props.file}.mdx`);
-   * }
-   *
-   * Required only when `incrementalBuilds: true`. Ignored otherwise.
-   */
-  partialResolver?: PartialResolverHook;
 }
 
 export function nimbus(
@@ -326,16 +262,7 @@ export function nimbus(
   // build materialization knows where to write `.nimbus/routes.json` and
   // what `base` Astro is using.
   let projectRootForBuild = "";
-  let srcDirForBuild = "";
-  let cacheDirForBuild = "";
   let astroBaseForBuild = "";
-  let previousShikiCSSForBuild = "";
-  // Incremental builds context — populated at astro:build:start when
-  // `options.incrementalBuilds` is true, read in :build:done.
-  let incrementalCtx: import("./_internal/incremental/index.js").IncrementalContext | null = null;
-  // Layer 2 MDX-skip plugin context — registered at astro:config:setup,
-  // populated at astro:build:start once the cache map is known.
-  const mdxSkipCtx = createMdxSkipContext();
 
   return {
     name: "nimbus-docs",
@@ -411,18 +338,12 @@ export function nimbus(
         // emitted `pages` array as the route truth (single source of truth
         // — Astro itself tells us which URLs the site serves).
         projectRootForBuild = projectRoot;
-        srcDirForBuild = srcDir;
-        // Astro's own cache directory (default `node_modules/.astro`). The
-        // incremental cache roots itself here so it rides the framework cache
-        // that Cloudflare / Vercel / Netlify / GitHub Actions already persist
-        // between builds — warm CI builds with no proprietary cache store.
-        cacheDirForBuild = fileURLToPath(astroConfig.cacheDir);
         astroBaseForBuild = astroConfig.base ?? "";
 
         // Scan every code-fence language used in `src/content/**/*.{mdx,md}`
-        // so Shiki eager-loads grammars at startup. Required for incremental
-        // builds (Layer 2 stubs cached MDX → languages that only live there
-        // never trigger Shiki's lazy load). Cheap enough to run for everyone.
+        // so Shiki eager-loads grammars at startup. This makes cold-build
+        // output stable regardless of file processing order (Shiki's lazy
+        // load otherwise depends on which file hits a grammar first).
         const codeBlockLangs = await scanCodeBlockLanguages(
           projectRoot,
           SHIKI_LANG_ALIAS,
@@ -596,14 +517,10 @@ export function nimbus(
         // rare component-interleaving edge cases — validate render parity
         // across the starter's component set before flipping it for everyone.
         integrationsToAdd.push(mdx(options.mdx ?? {}));
-        // Layer 4: when incremental is on, we emit the sitemap ourselves at
-        // build:done so cached routes (which Astro never renders) still
-        // appear. Registering @astrojs/sitemap here would produce a sitemap
-        // missing those routes — broken on every warm build.
         const wantSitemap = options.sitemap !== false && Boolean(config.site);
         const sitemapOpts =
           typeof options.sitemap === "object" ? options.sitemap : undefined;
-        if (wantSitemap && !options.incrementalBuilds) {
+        if (wantSitemap) {
           integrationsToAdd.push(
             sitemap({
               // Our public `SitemapSerialize` types `changefreq` as a
@@ -713,14 +630,9 @@ export function nimbus(
               // `markdown.shikiConfig` at the user-config level.
               langAlias: SHIKI_LANG_ALIAS,
               // Eager-load every language used anywhere in the project's
-              // MDX/MD content. Shiki's lazy load otherwise assumes every
-              // file gets processed during the build — an assumption that
-              // Layer 2 of incremental builds violates (cached MDX files
-              // never enter the markdown pipeline, so languages that only
-              // appear in cached files would never trigger a grammar
-              // load, and any non-cached file using those languages would
-              // render plaintext on warm builds). Eager loading also
-              // makes cold-build output stable regardless of file order.
+              // MDX/MD content. Eager loading makes cold-build output stable
+              // regardless of the order files are processed (Shiki's lazy
+              // load otherwise depends on which file first uses a grammar).
               // Shiki resolves bundled-language *names* (strings) at runtime,
               // but Astro's `shikiConfig.langs` type only admits
               // `LanguageRegistration` objects — cast the scanned names here.
@@ -756,7 +668,6 @@ export function nimbus(
                 indexedCollections,
                 versionAlternates,
               }),
-              ...(options.incrementalBuilds ? [mdxSkipPlugin(mdxSkipCtx)] : []),
             ],
           },
         });
@@ -811,42 +722,10 @@ export function nimbus(
         server.watcher.on("change", invalidate);
         server.watcher.on("unlink", invalidate);
       },
-      "astro:build:start": async ({ setPrerenderer, logger }) => {
-        previousShikiCSSForBuild = "";
+      "astro:build:start": () => {
+        // Reset the per-build code-style registry so Shiki token classes
+        // don't leak across builds in a long-lived dev/CI process.
         clearCodeStyleRegistry();
-        if (!options.incrementalBuilds) return;
-        if (!projectRootForBuild) {
-          logger.warn(
-            "[incremental] project root unknown at build:start; cache disabled this run",
-          );
-          return;
-        }
-        incrementalCtx = await setupIncrementalContext(
-          projectRootForBuild,
-          cacheDirForBuild || undefined,
-          logger,
-          options.partialResolver,
-          srcDirForBuild || undefined,
-        );
-        previousShikiCSSForBuild = await readOptionalText(
-          path.join(incrementalCtx.cache.root, "shiki.css"),
-        );
-        // Layer 2 — populate the MDX-skip plugin's cached set from the
-        // pathnames whose cached HTML we trust. The plugin reads this set
-        // at every `resolveId`; updating it now is in time for Vite's
-        // bundling phase.
-        mdxSkipCtx.cachedAbsolutePaths.clear();
-        for (const pathname of incrementalCtx.cacheableHits) {
-          const filePath = incrementalCtx.filePathByPathname.get(pathname);
-          if (filePath) mdxSkipCtx.cachedAbsolutePaths.add(filePath);
-        }
-        mdxSkipCtx.enabled = true;
-        logger.info(
-          `[incremental] mdx-skip plugin armed for ${mdxSkipCtx.cachedAbsolutePaths.size} cached MDX files`,
-        );
-        setPrerenderer((defaultPrerenderer) =>
-          wrapPrerenderer(defaultPrerenderer, incrementalCtx!),
-        );
       },
       "astro:build:done": async ({ dir, pages, logger }) => {
         // Materialize the site's route truth from Astro's emitted `pages`
@@ -860,116 +739,22 @@ export function nimbus(
         // Duplicate-slug detection happens in `astro:config:setup`, not
         // here: Astro silently dedupes colliding routes before this hook
         // fires, so the collisions are invisible post-build.
-        // Order of operations under incremental builds:
-        //   1. Restore cached pages to dist. This also prunes `cacheableHits`
-        //      to the set whose HTML actually landed on disk.
-        //   2. Materialize route truth from the *pruned* set. Doing this
-        //      BEFORE restore would write ghost routes to .nimbus/routes.json:
-        //      the lint CLI's `internal-link` rule would treat stale cache
-        //      entries as valid targets.
-        //   3. Emit sitemap from the same pruned set.
-        //   4. Snapshot assets, write manifest.
-        if (incrementalCtx) {
-          const distDir = fileURLToPath(dir);
-          await restoreCachedPagesToDist(incrementalCtx, distDir);
-
-          // Layer 6 — under incremental builds, `pages` only contains routes
-          // Astro just rendered. Cached routes are filtered out. Merge in the
-          // confirmed-restored cache hits so route truth reflects the full
-          // route set actually on disk.
-          const fullPagesForTruth = [
-            ...pages,
-            ...[...incrementalCtx.cacheableHits]
-              .filter((p) => !pages.some((q) => "/" + q.pathname === (p === "/" ? "/" : p + "/")))
-              .map((p) => ({
-                pathname: p === "/" ? "" : p.slice(1) + "/",
-              })),
-          ];
-          materializeRouteTruthFromPages(
-            projectRootForBuild,
-            astroBaseForBuild,
-            fullPagesForTruth,
-            logger,
-          );
-
-          // Layer 4: emit sitemap from the union of Astro-built pages and
-          // confirmed-restored cached pathnames. User-supplied `serialize`
-          // runs on every URL — cached and dirty alike — so the warm-build
-          // sitemap matches the cold-build sitemap when a serializer is in
-          // play (the git-lastmod case).
-          if (options.sitemap !== false && config.site) {
-            const sitemapOptsResolved =
-              typeof options.sitemap === "object" ? options.sitemap : undefined;
-            const result = await emitIncrementalSitemap({
-              siteUrl: config.site,
-              builtPages: pages,
-              cachedPathnames: incrementalCtx.cacheableHits,
-              distDir,
-              base: astroBaseForBuild,
-              serialize: sitemapOptsResolved?.serialize,
-              customPages: sitemapOptsResolved?.customPages,
-            });
-            logger.info(`[incremental] sitemap emitted (${result.urlCount} urls)`);
-          }
-          await snapshotAssetsToCache(incrementalCtx, distDir);
-          await finaliseIncrementalContext(incrementalCtx);
-        } else {
-          // Non-incremental path.
-          materializeRouteTruthFromPages(
-            projectRootForBuild,
-            astroBaseForBuild,
-            pages,
-            logger,
-          );
-        }
+        materializeRouteTruthFromPages(
+          projectRootForBuild,
+          astroBaseForBuild,
+          pages,
+          logger,
+        );
 
         const distDir = fileURLToPath(dir);
-        await writeShikiStyleSheet({
-          distDir,
-          previousCSS: incrementalCtx?.cacheableHits.size
-            ? previousShikiCSSForBuild
-            : "",
-          cacheRoot: incrementalCtx?.cache.root,
-          logger,
-        });
+        await writeShikiStyleSheet({ distDir, logger });
 
         if (config.search === false || config.search?.provider === "custom") {
-          incrementalCtx = null;
           return;
         }
 
-        // Pagefind reindexes the full dist on every run, setting a ~10s
-        // floor at 7k pages regardless of how many pages actually changed.
-        // On a zero-miss warm build, the prior index is still correct —
-        // restore it from cache and skip the rerun entirely. The snapshot
-        // is taken after every Pagefind run that *did* execute (i.e. any
-        // build with at least one miss, plus all non-incremental builds).
-        const pagefindDistDir = path.join(distDir, "pagefind");
-        const zeroMissIncremental =
-          incrementalCtx !== null &&
-          incrementalCtx.stats.misses === 0 &&
-          (await incrementalCtx.cache.hasPagefindSnapshot());
-        if (zeroMissIncremental) {
-          const restored = await incrementalCtx!.cache.restorePagefind(
-            pagefindDistDir,
-          );
-          logger.info(
-            `[incremental] Pagefind skipped — restored ${restored} cached index file(s)`,
-          );
-        } else {
-          await runPagefind(distDir);
-          if (incrementalCtx) {
-            const snapped = await incrementalCtx.cache.snapshotPagefind(
-              pagefindDistDir,
-            );
-            if (snapped > 0) {
-              logger.info(
-                `[incremental] snapshotted ${snapped} Pagefind index file(s) to cache`,
-              );
-            }
-          }
-        }
-        incrementalCtx = null;
+        // Pagefind reindexes the full dist on every run.
+        await runPagefind(distDir);
       },
     },
   };
@@ -1077,20 +862,10 @@ function assetPathWithBase(base: string, assetPath: string): string {
   return `${cleanBase}/${assetPath.replace(/^\/+/, "")}`;
 }
 
-async function readOptionalText(filePath: string): Promise<string> {
-  try {
-    return await fs.promises.readFile(filePath, "utf8");
-  } catch {
-    return "";
-  }
-}
-
-function mergeShikiCSS(previousCSS: string, currentCSS: string): string {
+function normalizeShikiCSS(currentCSS: string): string {
   const rules = new Map<string, string>();
-  for (const css of [previousCSS, currentCSS]) {
-    for (const match of css.matchAll(/\.([^{}\s]+)\{[^{}]*\}/g)) {
-      rules.set(match[1]!, match[0]);
-    }
+  for (const match of currentCSS.matchAll(/\.([^{}\s]+)\{[^{}]*\}/g)) {
+    rules.set(match[1]!, match[0]);
   }
   const merged = [...rules.values()].join("");
   return merged ? `${merged}\n` : "/* nimbus shiki styles */\n";
@@ -1098,24 +873,16 @@ function mergeShikiCSS(previousCSS: string, currentCSS: string): string {
 
 async function writeShikiStyleSheet({
   distDir,
-  previousCSS,
-  cacheRoot,
   logger,
 }: {
   distDir: string;
-  previousCSS: string;
-  cacheRoot?: string;
   logger: { debug?: (msg: string) => void };
 }): Promise<void> {
-  const css = mergeShikiCSS(previousCSS, getCodeStyleCSS());
+  const css = normalizeShikiCSS(getCodeStyleCSS());
   const filePath = path.join(distDir, "_nimbus", "shiki.css");
   try {
     await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
     await fs.promises.writeFile(filePath, css, "utf8");
-    if (cacheRoot) {
-      await fs.promises.mkdir(cacheRoot, { recursive: true });
-      await fs.promises.writeFile(path.join(cacheRoot, "shiki.css"), css, "utf8");
-    }
   } catch (err) {
     logger.debug?.(
       `failed to write _nimbus/shiki.css — code tokens may render uncoloured: ${(err as Error).message}`,
