@@ -37,4 +37,6 @@ import { Icon } from "astro-icon/components";
   }
 
   initSearchTrigger();
+
+  document.addEventListener("astro:page-load", initSearchTrigger);
 </script>

@@ -56,6 +56,37 @@ jobs:
 
       - run: pnpm -r test
 
+  registry-scope:
+    name: Registry scope guard
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @nimbus/www generate-registry
+
+      # Registry payloads must import the scoped package. A bare
+      # `grep 'from "nimbus-docs'` false-passes because the JSON escapes the
+      # quote — match the escaped form / parse `.files[].content`.
+      - name: Assert no unscoped nimbus-docs imports
+        run: |
+          hits=$(grep -rl 'from \\"nimbus-docs' apps/www/public/registry/components || true)
+          if [ -n "$hits" ]; then
+            echo "::error::Registry payloads import the unscoped nimbus-docs. Regenerate from the scoped source:"
+            echo "$hits"
+            exit 1
+          fi
+
   audit:
     name: Audit
     runs-on: ubuntu-latest

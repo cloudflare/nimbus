@@ -165,6 +165,8 @@ const titlesAttr = titles ? JSON.stringify(titles) : undefined;
   }
 
   initCodeGroups();
+
+  document.addEventListener("astro:page-load", initCodeGroups);
 </script>
 
 <style is:global>

@@ -1,72 +1,89 @@
 # Nimbus
 
-**A docs sites you own, where humans and agents are both first-class**
+**Docs sites you own, where humans and agents are both first-class.**
 
-Nimbus scaffolds a complete Astro documentation site into your repo — layouts, components, styles, routes, content — as real files you edit from the first commit. The invisible plumbing ships as an npm package; everything you see and shape is yours. No upstream theme to fork around, no config-only black box to wait on.
+Nimbus scaffolds a complete Astro documentation site into your repo — layouts, components, styles, routes, content — as real files you edit from the first commit. The invisible plumbing ships as an npm package; everything you see and shape is yours.
+
+Docs: [nimbus-docs.com](https://nimbus-docs.com)
 
 ## Quickstart
 
 ```sh
-pnpm create @cloudflare/nimbus-docs my-docs
+npx @cloudflare/create-nimbus-docs@latest my-docs
 cd my-docs
 pnpm install
 pnpm dev
 ```
 
-Edit anything under `src/` and the page reloads.
+Open the printed URL, edit anything under `src/`, and the page reloads. You now own a full docs site.
 
-## Why Nimbus
+The scaffolder asks a couple of questions (deploy target, starter or empty content). Skip them with `--yes`:
 
-**You own every file.** The scaffolder writes your layouts, components, and design tokens once, then steps back. Change a Tailwind class, restructure a layout, delete what you don't need — it's your codebase, not a dependency you theme around.
+```sh
+pnpm create @cloudflare/nimbus-docs@latest my-docs --yes
+```
 
-**Humans and agents are both first-class.** Every page ships a clean `.md` twin for reading and a raw `.mdx` twin for tooling; `/llms.txt` and `/llms-full.txt` index the whole corpus; JSON-LD lands in every `<head>`. The agent web reads your docs as well as a browser does — by default, not as an add-on.
+Prefer npm, yarn, or bun? Use them — the scaffolder follows whichever you ran it with.
 
-**Build with agents.** `nimbus-docs add <slug>` installs from a registry two ways: components and utilities copy in as editable files, and features hand off a recipe your coding agent reads, adapts to your project, and applies.
+## Everyday commands
 
-## What you get
+Run these inside your project:
 
-- **Owned source** — layouts, components, content collections, styles, and theme tokens, all editable.
-- **An agent surface** — `.md` / `.mdx` twins, `/llms.txt` + `/llms-full.txt`, JSON-LD, sitemap, `robots.txt`, and per-page OG images.
-- **A reader experience** — full-text search, light/dark theming, accessible navigation, breadcrumbs, pagination, and a mobile sidebar.
-- **Authoring guardrails** — a prose-and-structure lint engine, an MDX component validator, and config validation that fails with human-readable errors.
-- **Versioned docs, when you need them** — parallel versions with alternates, canonical links, and automatic redirects.
+| Command | What it does |
+| --- | --- |
+| `pnpm dev` | Dev server with hot reload |
+| `pnpm build` | Static build to `dist/` |
+| `pnpm preview` | Preview the built site |
+| `pnpm typecheck` | Type-check (`astro check`) |
+| `pnpm lint:docs` | Lint prose + MDX (add `--fix` to autofix) |
 
-## Install on demand
+## Deploy
+
+Static by default — `pnpm build` emits `dist/`, which you can host anywhere.
+
+Cloudflare is the first-class target: the default scaffold ships a `wrangler.jsonc`.
+
+```sh
+pnpm build
+pnpm run deploy      # wrangler deploy to Cloudflare
+```
+
+## Add on demand
+
+Pull optional components, utilities, and agent-handoff features from the registry — each lands in your repo as source you own:
 
 ```sh
 nimbus-docs add dialog
 nimbus-docs add 404-page
 ```
 
-Components, utilities, and agent-handoff features — each lands in your repo as source you own.
+Components and utilities copy in as editable files. Features hand off a recipe your coding agent reads, adapts to your project, and applies.
+
+## What you get
+
+- **Owned source** — layouts, components, content collections, styles, and theme tokens, all editable.
+- **An agent surface** — `.md` / `.mdx` twins for every page, `/llms.txt` + `/llms-full.txt`, JSON-LD, sitemap, `robots.txt`, and per-page OG images. The agent web reads your docs as well as a browser does, by default.
+- **A reader experience** — full-text search, light/dark theming, accessible navigation, breadcrumbs, pagination, and a mobile sidebar.
+- **Authoring guardrails** — prose-and-structure linting, an MDX component validator, and config validation that fails with human-readable errors.
+- **Versioned docs, when you need them** — parallel versions with alternates, canonical links, and automatic redirects.
+
+## Why Nimbus
+
+**You own every file.** The scaffolder writes your layouts, components, and design tokens once, then steps back. Change a Tailwind class, restructure a layout, delete what you don't need — it's your codebase, not a dependency you theme around.
+
+**Humans and agents are both first-class.** The agent-readable surface ships by default, not as an add-on, so coding agents and the wider agent web consume your docs as cleanly as people do.
 
 ## Built on
 
-[Astro 7](https://astro.build) · Sätteri (Rust-based markdown) · Tailwind v4 · optional React 19.
-
-Static by default, so it deploys anywhere — with a first-class path to Cloudflare.
+[Astro 7](https://astro.build) · Sätteri (Rust-based markdown) · Tailwind v4 · optional React 19. Static output, so it deploys anywhere — with a first-class path to Cloudflare.
 
 ## Status
 
-`0.x` — pre-1.0. The public surface may still change between minor versions until v1; every change is recorded in each package's changelog.
+**Work in progress.** Nimbus is pre-1.0 (`0.x`) and moving fast. You can build real sites with it today, but the public surface can still change between minor releases and there are rough edges. Pin your versions and check each package's changelog before upgrading.
 
-## Repo layout
+## Contributing
 
-```
-packages/
-├── nimbus-docs/              framework core + the `nimbus-docs` CLI
-├── nimbus-starter-source/    canonical source — every component + the kitchen-sink dev app
-└── create-nimbus-docs/       scaffolder (`pnpm create @cloudflare/nimbus-docs`); fetches templates
-                              from the tag-pinned `templates` orphan branch
-apps/
-└── www/                      the docs site + registry host — itself a Nimbus site
-```
-
-Agent-facing context lives in [`CLAUDE.md`](./CLAUDE.md) and [`AGENT.md`](./AGENT.md).
-
-## Docs
-
-[nimbus-docs.com](https://nimbus-docs.com)
+Nimbus works from issues and discussions, not drive-by PRs — a maintainer approves your issue or discussion first, then your PRs stay open. See [CONTRIBUTING.md](./CONTRIBUTING.md) to start, and [`CLAUDE.md`](./CLAUDE.md) for architecture and agent-facing context.
 
 ## License
 
