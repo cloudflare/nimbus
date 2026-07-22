@@ -1,5 +1,16 @@
 # @cloudflare/create-nimbus-docs
 
+## 0.5.2
+
+### Patch Changes
+
+- [#24](https://github.com/cloudflare/nimbus/pull/24) [`52d5a0c`](https://github.com/cloudflare/nimbus/commit/52d5a0c7308fbc6e9c45a1fb64e0efa1ea469a31) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Fix scaffolded starter behavior across client-side navigations and add a 404 page.
+
+  - Re-run component initializers on `astro:page-load` so interactive components (code groups, dialogs, popovers, file trees, search) keep working after ClientRouter/view-transition navigations.
+  - Scope the search dialog's global key handler to a module variable instead of an `<html>` attribute, preventing a duplicate `Cmd+K` handler from stacking on each navigation.
+  - Mark inline SVG icons with `is:inline` so they render reliably.
+  - Ship a default `404.astro` page in the starter.
+
 ## 0.5.1
 
 ### Patch Changes
