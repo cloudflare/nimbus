@@ -131,7 +131,7 @@ const caretClass =
         aria-expanded={isOpen ? "true" : "false"}
         aria-label={`Toggle ${label} section`}
       >
-        <Icon name="ph:caret-right" class={caretClass} data-nb-caret />
+        <Icon name="ph:caret-right" class={caretClass} data-nb-caret is:inline />
       </CollapsibleTrigger>
     </div>
   ) : (
@@ -150,7 +150,7 @@ const caretClass =
             <Badge text={badge.text} variant={badge.variant} />
           ))}
       </span>
-      <Icon name="ph:caret-right" class={caretClass} data-nb-caret />
+      <Icon name="ph:caret-right" class={caretClass} data-nb-caret is:inline />
     </CollapsibleTrigger>
   )}
 
