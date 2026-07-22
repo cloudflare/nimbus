@@ -309,7 +309,7 @@ export const MANIFESTS = {
       "components/react/diagram/index.ts",
     ],
     registryDependencies: ["cn"],
-    dependencies: ["react", "react-dom", "@astrojs/react"],
+    dependencies: ["react", "react-dom", "@astrojs/react", "@types/react", "@types/react-dom"],
   },
 
   "diagram-scene": {
@@ -319,7 +319,7 @@ export const MANIFESTS = {
       "Declarative card factory over `nimbus-docs/react`: author a diagram as data (phase steps, active-id table, edge specs) plus a CSS layout of labelled nodes. Measurement, edge routing, the SVG layer, and active-state styling are handled by the component — user-owned, restyle freely. `<Scene>` composes inside an existing <Diagram>; `createScene` wraps it into a standalone card. For pill-and-arrow diagrams; bespoke cards compose the hooks directly.",
     paths: ["components/react/diagram/scene.tsx"],
     registryDependencies: ["cn", "diagram"],
-    dependencies: ["react", "react-dom", "@astrojs/react"],
+    dependencies: ["react", "react-dom", "@astrojs/react", "@types/react", "@types/react-dom"],
   },
 } satisfies Record<string, ManifestEntry>;
 

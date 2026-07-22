@@ -259,4 +259,5 @@ const { class: className, ...attrs } = Astro.props;
     });
   }
   initFileTree();
+  document.addEventListener("astro:page-load", initFileTree);
 </script>

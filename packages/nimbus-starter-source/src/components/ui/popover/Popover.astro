@@ -107,4 +107,5 @@ const popoverId = `popover-${n.toString(16).padStart(8, "0")}`;
     });
   }
   initPopovers();
+  document.addEventListener("astro:page-load", initPopovers);
 </script>

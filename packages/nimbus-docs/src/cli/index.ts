@@ -33,7 +33,25 @@ import {
   getIndexEntry,
   listEntries,
   resolveComponentTree,
+  type ComponentItem,
 } from "./resolver.js";
+
+// Named exports of a component's barrel (`components/ui/<slug>/index.ts`), for
+// the "register in components.ts" hint after install.
+function barrelExports(item: ComponentItem): string[] {
+  const index = item.files.find((f) => f.path.endsWith(`/${item.name}/index.ts`));
+  if (!index) return [];
+  const names: string[] = [];
+  for (const block of index.content.matchAll(/export\s*\{([^}]*)\}/g)) {
+    for (const part of block[1].split(",")) {
+      const seg = part.trim();
+      if (!seg) continue;
+      const name = seg.includes(" as ") ? seg.split(" as ").pop()!.trim() : seg;
+      if (/^[A-Za-z_]\w*$/.test(name)) names.push(name);
+    }
+  }
+  return names;
+}
 
 // Load .env from the user's cwd so per-project NIMBUS_REGISTRY_URL (and
 // any future env vars) work without shell prefixes. Shell-provided vars
@@ -255,6 +273,30 @@ async function addCommand(
   if (report.npmDepsInstalled.length > 0) {
     lines.push(
       `+ Installed ${report.npmDepsInstalled.length} npm dep${report.npmDepsInstalled.length === 1 ? "" : "s"}: ${report.npmDepsInstalled.join(", ")}`,
+    );
+  }
+
+  const installed = items.filter((i) => !report.skipped.includes(i.name));
+
+  if (installed.some((i) => i.dependencies?.includes("@astrojs/react"))) {
+    p.log.warn(
+      "This component renders as a React island. Add the integration to astro.config.ts:\n" +
+        '  import react from "@astrojs/react";\n' +
+        "  integrations: [react(), /* … */]",
+    );
+  }
+
+  const uiInstalled = installed.filter((i) => i.type === "registry:ui");
+  if (uiInstalled.length > 0) {
+    const snippets = uiInstalled.map((i) => {
+      const names = barrelExports(i);
+      return names.length > 0
+        ? `  import { ${names.join(", ")} } from "./components/ui/${i.name}";  // then add ${names.join(", ")} to the map`
+        : `  // ${i.name} — see src/components/ui/${i.name}`;
+    });
+    p.log.info(
+      "To use in .mdx, register in src/components.ts — import and add to the `components` map:\n" +
+        snippets.join("\n"),
     );
   }
 

@@ -32,4 +32,5 @@ const { class: className, ...attrs } = Astro.props;
     });
   }
   initDialogClose();
+  document.addEventListener("astro:page-load", initDialogClose);
 </script>
