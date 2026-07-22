@@ -279,13 +279,20 @@ const hasPagination = Astro.slots.has("pagination");
   )}
 
   <script>
-    import { lockScroll, unlockScroll } from "@cloudflare/nimbus-docs/client";
+    import { mount, lockScroll, unlockScroll } from "@cloudflare/nimbus-docs/client";
 
-    const dialog = document.querySelector<HTMLDialogElement>("[data-mobile-sidebar]");
-    const menuBtn = document.querySelector<HTMLElement>("[data-menu-btn]");
     const CLOSE_DURATION_MS = 250;
 
-    if (dialog && menuBtn) {
+    // mount() re-binds on every astro:page-load and tears down on
+    // astro:before-swap, so the hamburger survives client-side navigation
+    // (a one-shot module script would go dead after the first swap).
+    mount("[data-mobile-sidebar]", (root) => {
+      const menuBtn = document.querySelector<HTMLElement>("[data-menu-btn]");
+      if (!(root instanceof HTMLDialogElement) || !menuBtn) return () => {};
+      const dialog = root;
+
+      const controller = new AbortController();
+      const { signal } = controller;
       let closeTimer: ReturnType<typeof setTimeout> | undefined;
 
       const openSidebar = () => {
@@ -317,14 +324,14 @@ const hasPagination = Astro.slots.has("pagination");
         }, CLOSE_DURATION_MS);
       };
 
-      menuBtn.addEventListener("click", openSidebar);
+      menuBtn.addEventListener("click", openSidebar, { signal });
 
       dialog.addEventListener("cancel", (event) => {
         event.preventDefault();
         closeSidebar();
-      });
+      }, { signal });
 
-      // Cleanup on close — fires for Escape, close button, backdrop click
+      // Fires for Escape, close button, and backdrop click.
       dialog.addEventListener("close", () => {
         if (closeTimer) {
           clearTimeout(closeTimer);
@@ -334,17 +341,22 @@ const hasPagination = Astro.slots.has("pagination");
         dialog.dataset.state = "closed";
         unlockScroll();
         menuBtn.focus();
-      });
+      }, { signal });
 
-      // Close button
       dialog.querySelector("[data-close-sidebar]")
-        ?.addEventListener("click", closeSidebar);
+        ?.addEventListener("click", closeSidebar, { signal });
 
-      // Backdrop click (clicks on <dialog> itself, outside the panel)
       dialog.addEventListener("click", (e) => {
         if (e.target === dialog) closeSidebar();
-      });
-    }
+      }, { signal });
+
+      return () => {
+        controller.abort();
+        if (closeTimer) clearTimeout(closeTimer);
+        // A swap while open never fires `close`; balance the scroll lock.
+        if (dialog.open) unlockScroll();
+      };
+    });
   </script>
 
 </BaseLayout>

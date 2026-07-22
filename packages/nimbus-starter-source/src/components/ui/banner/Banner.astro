@@ -67,6 +67,7 @@ const safeContent = sanitizeBannerHtml(content);
     background: var(--_t);
   }
 
+  .banner-card-body { min-width: 0; overflow-wrap: break-word; }
   .banner-card-body :global(p) { margin: 0; }
   .banner-card-body :global(p + p) { margin-top: 0.375rem; }
   .banner-card-body :global(a) { text-decoration: underline; text-underline-offset: 2px; }

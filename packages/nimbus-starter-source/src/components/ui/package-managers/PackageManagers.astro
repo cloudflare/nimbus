@@ -17,17 +17,23 @@ interface Props extends CommandOptions {
 
 const { pkg, type = "add", args, dev, comment } = Astro.props;
 const tabs = getTabs(type, pkg, { args, dev, comment });
-// Deterministic ID — hash the props so two builds with identical content
-// produce identical IDs. Required for incremental builds: a per-render
-// `crypto.randomUUID()` would make warm output differ from cold.
-// Two instances with identical props on the same page would collide; in
-// practice this is a rare authoring pattern (same package + type + args).
+// Prop hash + a per-page counter (on Astro.locals) so two blocks with
+// identical props still get distinct ids. Counter order is stable within a
+// render, so incremental/warm builds match cold — unlike crypto.randomUUID().
+const localsAny = Astro.locals as Record<string, unknown>;
+const counters =
+  (localsAny.__nbCounters as Map<string, number>) ??
+  (localsAny.__nbCounters = new Map<string, number>());
+const n = (counters.get("package-managers") ?? 0) + 1;
+counters.set("package-managers", n);
 const uid =
   "pm-" +
   createHash("sha256")
     .update(JSON.stringify({ pkg, type, args, dev, comment }))
     .digest("hex")
-    .slice(0, 12);
+    .slice(0, 12) +
+  "-" +
+  n.toString(16).padStart(4, "0");
 ---
 
 <script is:inline>

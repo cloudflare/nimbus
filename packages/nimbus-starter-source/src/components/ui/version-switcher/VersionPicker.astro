@@ -101,7 +101,7 @@ if (versions && versions.all.length >= 2) {
 {entries.length >= 2 && variant === "header" && (
   <Popover class="hidden md:inline-block">
     <PopoverTrigger
-      class="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[0.8125rem] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors data-[expanded=true]:bg-accent data-[expanded=true]:text-foreground"
+      class="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[0.8125rem] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors aria-[expanded=true]:bg-accent aria-[expanded=true]:text-foreground"
       aria-label={`Switch docs version (current: ${activeLabel})`}
     >
       <Icon name="ph:git-branch" class="w-3.5 h-3.5" />
