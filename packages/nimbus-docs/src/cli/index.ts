@@ -43,7 +43,7 @@ function barrelExports(item: ComponentItem): string[] {
   if (!index) return [];
   const names: string[] = [];
   for (const block of index.content.matchAll(/export\s*\{([^}]*)\}/g)) {
-    for (const part of block[1].split(",")) {
+    for (const part of (block[1] ?? "").split(",")) {
       const seg = part.trim();
       if (!seg) continue;
       const name = seg.includes(" as ") ? seg.split(" as ").pop()!.trim() : seg;
