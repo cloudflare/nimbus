@@ -18,10 +18,16 @@ function initToc(root: HTMLElement): () => void {
 
   const scrollHost = root.closest<HTMLElement>("[data-nb-toc-scroll-host]") ?? root;
   const slugs = Array.from(links).map((l) => l.dataset.nbSlug!);
-  const headingEls = slugs
-    .map((s) => document.getElementById(s))
-    .filter(Boolean) as HTMLElement[];
-  if (headingEls.length === 0) return () => {};
+  // Observe only resolvable headings, each carrying its original index, so
+  // scroll-spy stays aligned with the full-length links/segments even when a
+  // heading slugs to "" (e.g. emoji-only `## 🎉`) and has no DOM target.
+  const observed = slugs
+    .map((slug, index) => ({ el: document.getElementById(slug), index }))
+    .filter((o): o is { el: HTMLElement; index: number } => o.el !== null);
+  if (observed.length === 0) return () => {};
+  const indexOfEl = new Map<HTMLElement, number>(
+    observed.map((o) => [o.el, o.index]),
+  );
 
   let segments: { start: number; length: number }[] = [];
   let totalLength = 0;
@@ -138,15 +144,15 @@ function initToc(root: HTMLElement): () => void {
       setActive(pinnedIndex);
       return;
     }
-    setActive(atBottom ? headingEls.length - 1 : observedIndex);
+    setActive(atBottom ? links.length - 1 : observedIndex);
   }
 
   // rootMargin collapses the root to the top band; deepest in-band heading wins.
   const spy = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
-        const i = headingEls.indexOf(entry.target as HTMLElement);
-        if (i === -1) continue;
+        const i = indexOfEl.get(entry.target as HTMLElement);
+        if (i === undefined) continue;
         if (entry.isIntersecting) inBand.add(i);
         else inBand.delete(i);
       }
@@ -155,7 +161,7 @@ function initToc(root: HTMLElement): () => void {
     },
     { rootMargin: `0px 0px -${(1 - READING_BAND) * 100}% 0px`, threshold: 0 },
   );
-  headingEls.forEach((h) => spy.observe(h));
+  observed.forEach((o) => spy.observe(o.el));
 
   function updateBottom() {
     const scrollEl = document.scrollingElement ?? document.documentElement;
@@ -172,8 +178,8 @@ function initToc(root: HTMLElement): () => void {
   function updateObservedIndex() {
     const bandBottom = window.innerHeight * READING_BAND;
     let nextIndex = 0;
-    for (let i = 0; i < headingEls.length; i++) {
-      if (headingEls[i].getBoundingClientRect().top <= bandBottom) nextIndex = i;
+    for (const o of observed) {
+      if (o.el.getBoundingClientRect().top <= bandBottom) nextIndex = o.index;
       else break;
     }
     observedIndex = nextIndex;

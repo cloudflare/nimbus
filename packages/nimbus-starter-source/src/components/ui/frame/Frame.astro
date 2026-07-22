@@ -92,9 +92,9 @@ const sizes = "(min-width: 768px) 768px, 100vw";
     border-radius: 0.5rem;
   }
 
-  /* Aspect-locked variant — locks the media box to the given ratio and
-     absolutely positions any direct child so it fills (img / video /
-     iframe / svg / div / etc). */
+  /* Aspect-locked variant — locks the media box to the given ratio. `aspect`
+     is single-media by design: only replaced media (img/video/iframe/svg) is
+     filled, so a stray non-media child isn't stretched or stacked. */
   .frame[data-frame-aspect] .frame-media {
     position: relative;
     display: block;
@@ -102,7 +102,10 @@ const sizes = "(min-width: 768px) 768px, 100vw";
     aspect-ratio: var(--frame-aspect);
   }
 
-  .frame[data-frame-aspect] .frame-media > :global(*) {
+  .frame[data-frame-aspect] .frame-media > :global(img),
+  .frame[data-frame-aspect] .frame-media > :global(video),
+  .frame[data-frame-aspect] .frame-media > :global(iframe),
+  .frame[data-frame-aspect] .frame-media > :global(svg) {
     position: absolute;
     inset: 0;
     width: 100%;

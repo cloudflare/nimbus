@@ -13,7 +13,7 @@ const { class: className, ...attrs } = Astro.props;
 
 <div class="flex items-start justify-center pt-[10vh] px-4 pointer-events-none">
   <div
-    class={cn("pointer-events-auto flex max-h-[70vh] w-full flex-col overflow-hidden rounded-lg bg-muted shadow-lg ring-1 ring-border", className)}
+    class={cn("pointer-events-auto flex max-h-[70vh] w-full flex-col overflow-y-auto rounded-lg bg-muted shadow-lg ring-1 ring-border", className)}
     {...attrs}
   >
     <slot />
