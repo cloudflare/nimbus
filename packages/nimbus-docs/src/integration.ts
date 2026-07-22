@@ -559,6 +559,38 @@ export function nimbus(
           );
         }
 
+        // Astro's prerender bundle is temporary: it is imported to render the
+        // static pages and then deleted. Hashing its thousands of lazy content
+        // chunks can dominate large documentation builds because Rollup walks
+        // the transitive chunk graph once per hash placeholder. Keep asset
+        // hashes (they are copied to the final site), but use deterministic,
+        // hashless names for the temporary JavaScript chunks. Rollup resolves
+        // duplicate `[name]` values with stable numeric suffixes.
+        //
+        // Respect either environment-specific or inherited top-level output
+        // naming supplied by the consumer. Output arrays are uncommon for an
+        // Astro app and cannot be safely overlaid with an object, so leave them
+        // untouched as well.
+        const topLevelOutput = astroConfig.vite?.build?.rollupOptions?.output;
+        const prerenderOutput = astroConfig.vite?.environments?.prerender?.build
+          ?.rollupOptions?.output;
+        const canDefaultPrerenderNames =
+          !Array.isArray(topLevelOutput) && !Array.isArray(prerenderOutput);
+        const topLevelOutputOptions = canDefaultPrerenderNames ? topLevelOutput : undefined;
+        const prerenderOutputOptions = canDefaultPrerenderNames ? prerenderOutput : undefined;
+        const hashlessPrerenderOutput = canDefaultPrerenderNames
+          ? {
+              ...(topLevelOutputOptions?.entryFileNames === undefined &&
+              prerenderOutputOptions?.entryFileNames === undefined
+                ? { entryFileNames: "prerender-entry.mjs" }
+                : {}),
+              ...(topLevelOutputOptions?.chunkFileNames === undefined &&
+              prerenderOutputOptions?.chunkFileNames === undefined
+                ? { chunkFileNames: "chunks/[name].mjs" }
+                : {}),
+            }
+          : null;
+
         updateConfig({
           // Bridge `nimbusConfig.site` → Astro's top-level `site`. The
           // sitemap integration and `Astro.site` both read this; without
@@ -662,6 +694,18 @@ export function nimbus(
           //      the llms.txt routes) and the versioning alternates
           //      table.
           vite: {
+            ...(hashlessPrerenderOutput &&
+            Object.keys(hashlessPrerenderOutput).length > 0
+              ? {
+                  environments: {
+                    prerender: {
+                      build: {
+                        rollupOptions: { output: hashlessPrerenderOutput },
+                      },
+                    },
+                  },
+                }
+              : {}),
             plugins: [
               ...admonitionVitePlugins,
               virtualConfigPlugin(config, {
