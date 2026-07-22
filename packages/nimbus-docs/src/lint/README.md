@@ -245,6 +245,21 @@ A near-match within Levenshtein distance 3 produces a "did you mean"
 hint via the same `_internal/levenshtein.ts:suggest` helper the
 PascalCase validator uses.
 
+**`ignore` — full glob syntax via `picomatch`.** Both `internal-link` and
+`image-ref` share `_internal/ignore-glob.ts` for matching their `ignore:
+string[]` option — `**`, `*`, `{a,b}`, extglobs, etc., not just an exact
+match or a `prefix` immediately followed by a two-star suffix. An earlier
+version hand-rolled just that two-case matcher specifically to avoid the
+`picomatch` dependency; it covered the common patterns (`/api/**`,
+`/changelog/**`) but couldn't express an any-depth *leading* wildcard
+(matching a given filename at any depth), which turned out to matter in
+practice migrating a site off `starlight-links-validator` (itself
+`picomatch`-backed) — its exclude list had exactly that shape of pattern.
+Compiled matchers are cached per `ignore` array identity, so a run
+compiles each rule's list once per lint run, not once per file — callers
+must pass the option through unfiltered for that cache to do anything
+(see the helper's own doc comment).
+
 **Deferred:**
 
 - `nimbus/internal-link-hash` (`#section-id` anchor validation) is its own

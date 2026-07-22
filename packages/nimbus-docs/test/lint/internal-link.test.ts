@@ -388,6 +388,107 @@ test("internal-link applies ignore against the post-base form (not the raw URL)"
   }
 });
 
+test("internal-link ignore supports a leading any-depth wildcard", () => {
+  // Matches "llms.txt" at any depth — the exact shape the old
+  // exact-match-or-`prefix/**` matcher couldn't express.
+  const leadingWildcard = "**/llms.txt";
+  const setup = setupProject(baseTruth());
+  try {
+    _resetInternalLinkCacheForTests();
+    const parsed = parseSource(
+      `${FM}
+# Title
+
+[root](/llms.txt) and [nested](/workers/llms.txt) both ignored,
+[flagged](/workers/llms-full.txt) is not.
+`,
+      {
+        path: "src/content/docs/page.mdx",
+        absPath: setup.pagePath,
+        collection: "docs",
+      },
+    );
+    const diags = lintFile(parsed, {
+      rules: {
+        "nimbus/internal-link": ["error", { ignore: [leadingWildcard] }],
+      },
+    }).filter((d) => d.code === "nimbus/internal-link");
+    assert.equal(diags.length, 1);
+    assert.match(diags[0]!.message, /broken link "\/workers\/llms-full\.txt"/);
+  } finally {
+    cleanup(setup.root);
+  }
+});
+
+test("internal-link ignore supports mid-segment wildcards and brace expansion", () => {
+  const setup = setupProject(baseTruth());
+  try {
+    _resetInternalLinkCacheForTests();
+    const parsed = parseSource(
+      `${FM}
+# Title
+
+[mid](/rules/snippets/examples) and [brace](/videos/en/intro) both ignored,
+[flagged](/rules/other/thing) is not.
+`,
+      {
+        path: "src/content/docs/page.mdx",
+        absPath: setup.pagePath,
+        collection: "docs",
+      },
+    );
+    const diags = lintFile(parsed, {
+      rules: {
+        "nimbus/internal-link": [
+          "error",
+          { ignore: ["/rules/{snippets,transform}/examples", "/videos/**"] },
+        ],
+      },
+    }).filter((d) => d.code === "nimbus/internal-link");
+    assert.equal(diags.length, 1);
+    assert.match(diags[0]!.message, /broken link "\/rules\/other\/thing"/);
+  } finally {
+    cleanup(setup.root);
+  }
+});
+
+test("internal-link ignore compiles a given pattern list once across files (cache correctness)", () => {
+  // Regression guard: `matchesAnyIgnore` caches its compiled matcher keyed
+  // on the *raw* `ignore` array's identity. Passing the exact same array
+  // reference across two separate `lintFile` calls (as the resolved rule
+  // config does across every file in a real run) must hit the cache and
+  // still produce correct results the second time, not a stale/empty one.
+  const setup = setupProject(baseTruth());
+  const ignore = ["/api/**"];
+  const rules = { "nimbus/internal-link": ["error", { ignore }] as const };
+  try {
+    _resetInternalLinkCacheForTests();
+    const first = parseSource(`${FM}\n[a](/api/foo) [b](/nope)\n`, {
+      path: "src/content/docs/page.mdx",
+      absPath: setup.pagePath,
+      collection: "docs",
+    });
+    const firstDiags = lintFile(first, { rules }).filter(
+      (d) => d.code === "nimbus/internal-link",
+    );
+    assert.equal(firstDiags.length, 1);
+    assert.match(firstDiags[0]!.message, /broken link "\/nope"/);
+
+    const second = parseSource(`${FM}\n[c](/api/bar) [d](/also-nope)\n`, {
+      path: "src/content/docs/page.mdx",
+      absPath: setup.pagePath,
+      collection: "docs",
+    });
+    const secondDiags = lintFile(second, { rules }).filter(
+      (d) => d.code === "nimbus/internal-link",
+    );
+    assert.equal(secondDiags.length, 1);
+    assert.match(secondDiags[0]!.message, /broken link "\/also-nope"/);
+  } finally {
+    cleanup(setup.root);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Missing route truth → silent skip
 // ---------------------------------------------------------------------------

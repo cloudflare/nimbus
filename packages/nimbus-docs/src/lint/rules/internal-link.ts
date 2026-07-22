@@ -26,6 +26,10 @@
  *     the truth for the root namespace.
  *   - A near-match in the route set produces a "did you mean" hint via
  *     Levenshtein distance — same pattern `component-pascalcase` uses.
+ *   - `ignore: string[]` supports full glob syntax (`**`, `*`, `{a,b}`, …)
+ *     via `../../_internal/ignore-glob.js` (picomatch-backed), matched
+ *     against the post-normalization URL (no `base` prefix, no trailing
+ *     slash, no hash/query) — author patterns against the site-root form.
  *
  * Relative links (`./foo`, `../bar`) error by default. `allowRelative: true`
  * silences them for projects that want to use them.
@@ -34,6 +38,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { matchesAnyIgnore } from "../../_internal/ignore-glob.js";
 import { suggest } from "../../_internal/levenshtein.js";
 import {
   collect,
@@ -104,9 +109,11 @@ export const internalLink: Rule = {
     if (!truth) return;
 
     const allowRelative = ctx.options.allowRelative === true;
-    const ignore = Array.isArray(ctx.options.ignore)
-      ? ctx.options.ignore.filter((s): s is string => typeof s === "string")
-      : [];
+    // Passed through raw (not `.filter()`'d) — `matchesAnyIgnore` filters
+    // and compiles internally, keyed on this array's identity for its
+    // compiled-matcher cache. A `.filter()`'d copy here would allocate a
+    // new array per file and defeat that cache.
+    const ignore = ctx.options.ignore;
     const extraComponents = readExtraComponents(ctx.options.components);
 
     // Route truth is materialized from Astro's `pages` at `astro:build:done`
@@ -340,29 +347,6 @@ function isUnderOpaqueNamespace(
     if (ns === "/") return true;
     if (route === ns) return true;
     if (route.startsWith(`${ns}/`)) return true;
-  }
-  return false;
-}
-
-/**
- * Minimal glob matcher — exact match or `prefix/**` suffix. Covers the
- * common `ignore` patterns (`/api/**`, `/changelog/**`) without pulling
- * in picomatch. Input is the post-`normalizeForLookup` URL (no `base`
- * prefix, no trailing slash, no hash/query), so patterns are authored
- * against the canonical site-root form.
- */
-function matchesAnyIgnore(normalizedUrl: string, patterns: string[]): boolean {
-  if (patterns.length === 0) return false;
-  for (const pat of patterns) {
-    const stripped = stripTrailingSlash(pat);
-    if (stripped.endsWith("/**")) {
-      const prefix = stripped.slice(0, -3);
-      if (normalizedUrl === prefix || normalizedUrl.startsWith(`${prefix}/`)) {
-        return true;
-      }
-    } else if (normalizedUrl === stripped) {
-      return true;
-    }
   }
   return false;
 }

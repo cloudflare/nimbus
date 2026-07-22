@@ -189,6 +189,28 @@ test("image-ref honors ignore globs", () => {
   }
 });
 
+test("image-ref ignore supports a leading any-depth wildcard and brace expansion", () => {
+  const setup = setupProject();
+  try {
+    const clean = lint(
+      setup,
+      `${FM}
+![thumb](/products/workers/thumbnail.webp)
+![thumb2](/products/r2/thumbnail2.webp)
+`,
+      { ignore: ["**/thumbnail.webp", "**/thumbnail2.webp"] },
+    );
+    assert.deepEqual(clean, []);
+
+    const broken = lint(setup, `${FM}\n![missing](/other/missing.png)\n`, {
+      ignore: ["**/thumbnail.webp", "**/thumbnail2.webp"],
+    });
+    assert.equal(broken.length, 1);
+  } finally {
+    cleanup(setup.root);
+  }
+});
+
 test("image-ref checks opt-in components", () => {
   const setup = setupProject(["public/frames/ok.png"]);
   try {
