@@ -3,7 +3,7 @@
 import { mount, initTabs } from "@cloudflare/nimbus-docs/client";
 
 const TRIGGER_CLASS =
-  "cursor-pointer px-4 py-2 text-sm font-medium leading-6 whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground aria-selected:text-primary focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]";
+  "shrink-0 cursor-pointer px-4 py-2 text-sm font-medium leading-6 whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground aria-selected:text-primary focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]";
 
 let counter = 0;
 
@@ -49,6 +49,24 @@ function initTabContainer(container: HTMLElement): () => void {
     panelSelector: "[data-nb-tabs-content]",
     indicator,
     sync: syncKey ? { key: `ui-synced-tabs__${syncKey}` } : undefined,
+    // Keep the active tab within the horizontally-scrollable (scrollbar-hidden)
+    // strip's visible range. Fires on every activate() — including the initial
+    // paint and a synced/restored selection — so a right-edge active tab can't
+    // render off-screen with no affordance. scrollLeft directly (not
+    // scrollIntoView, which would also scroll the page vertically).
+    onActivate: (index) => {
+      if (!tablist) return;
+      const trigger =
+        tablist.querySelectorAll<HTMLElement>("[data-nb-tabs-trigger]")[index];
+      if (!trigger) return;
+      const left = trigger.offsetLeft;
+      const right = left + trigger.offsetWidth;
+      if (left < tablist.scrollLeft) {
+        tablist.scrollLeft = left;
+      } else if (right > tablist.scrollLeft + tablist.clientWidth) {
+        tablist.scrollLeft = right - tablist.clientWidth;
+      }
+    },
   });
 
   return () => {

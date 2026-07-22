@@ -4,6 +4,7 @@ import type { HTMLAttributes } from "astro/types";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import SidebarLink from "./SidebarLink.astro";
 import { Badge } from "@/components/ui/badge";
+import { Icon } from "astro-icon/components";
 import type { SidebarItem, SidebarBadge } from "@cloudflare/nimbus-docs/types";
 
 interface Props extends HTMLAttributes<"div"> {
@@ -11,9 +12,11 @@ interface Props extends HTMLAttributes<"div"> {
   items: SidebarItem[];
   collapsed?: boolean;
   badge?: SidebarBadge;
+  /** Optional leading icon (astro-icon name) rendered before the label. */
+  icon?: string;
 }
 
-const { label, items, collapsed, badge, class: className, ...attrs } = Astro.props;
+const { label, items, collapsed, badge, icon, class: className, ...attrs } = Astro.props;
 function hasActiveDescendant(items: SidebarItem[]): boolean {
   return items.some((item) =>
     item.type === "link"
@@ -45,6 +48,7 @@ const isOpen = Boolean(hasActive || collapsed === false || collapsed === undefin
     aria-expanded={isOpen ? "true" : "false"}
   >
     <span class="flex items-center gap-2">
+      {icon && <Icon name={icon} class="shrink-0 h-4 w-4 text-muted-foreground" />}
       {label}
       {badge &&
         (typeof badge === "string" ? (
@@ -67,7 +71,7 @@ const isOpen = Boolean(hasActive || collapsed === false || collapsed === undefin
       {items.map((item) => (
         <li class="break-words">
           {item.type === "group" ? (
-            <Astro.self label={item.label} items={item.children} collapsed={item.collapsed} badge={item.badge} />
+            <Astro.self label={item.label} items={item.children} collapsed={item.collapsed} badge={item.badge} icon={item.icon} />
           ) : item.type === "external" ? (
             <SidebarLink label={item.label} href={item.href} badge={item.badge} target="_blank" rel="noopener" />
           ) : (

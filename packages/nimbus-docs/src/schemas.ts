@@ -62,6 +62,9 @@ const sidebarGroupSchema = z.object({
   label: z.string({ error: '"sidebar.group.label" must be a string' }).optional(),
   /** Override the group badge (defaults to none). */
   badge: sidebarBadgeSchema.optional(),
+  /** Optional leading icon (astro-icon name, e.g. "ph:cube") rendered before
+   *  the group label. */
+  icon: z.string({ error: '"sidebar.group.icon" must be a string' }).optional(),
   /** Hide this directory's index from the sidebar: the group label renders as
    *  a non-interactive header instead of a link, and no "Overview" row is
    *  emitted. The page still builds at its path. */

@@ -49,6 +49,8 @@ interface CollectionEntry {
       group?: {
         label?: string;
         badge?: SidebarBadge;
+        /** Optional leading icon (astro-icon name) rendered before the label. */
+        icon?: string;
         /** Demote the directory index to a non-link group header and drop
          *  its leading "Overview" row. */
         hideIndex?: boolean;
@@ -404,6 +406,7 @@ function buildFilesystemTree(
       label: groupLabel,
       order: groupOrder,
       badge: groupBadge,
+      icon: groupConfig?.icon,
       children: [],
       _indexId: indexEntry?.id,
       _indexLabel: indexLabel,
@@ -575,6 +578,7 @@ function resolveConfigItems(
           order,
           collapsed: item.collapsed,
           badge: item.badge,
+          icon: item.icon,
           children: autoItems,
           _prefix: groupPrefix,
           _routeKey: autoRouteKey,
@@ -607,6 +611,7 @@ function resolveConfigItems(
         order,
         collapsed: item.collapsed,
         badge: item.badge,
+        icon: item.icon,
         children,
       };
       // A manual group may declare `segment` (the URL prefix it occupies)

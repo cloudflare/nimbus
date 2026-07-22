@@ -1,5 +1,11 @@
 labels: []
 body:
+  - type: markdown
+    attributes:
+      value: |
+        For features, enhancements, and RFCs. **Bugs go to the [bug report](https://github.com/cloudflare/nimbus/issues/new?template=bug-report.md)**, not here.
+
+        We take accepted proposals forward ourselves — describe the idea, **don't open a PR**. Once a maintainer picks it up you'll be approved to contribute from then on.
   - type: textarea
     id: rfc
     attributes:
@@ -27,3 +33,17 @@ body:
         If it changes an API or config, sketch it. Otherwise omit.
     validations:
       required: true
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Which layer? (best guess — "unsure" is fine)
+      description: Where you think this belongs; see CONTRIBUTING's boundary test.
+      options:
+        - Framework (@cloudflare/nimbus-docs — behavior/plumbing)
+        - Starter (create-nimbus-docs — user-owned markup/taste)
+        - Registry component (install-on-demand, not day-1)
+        - CLI (nimbus-docs add / lint / …)
+        - Docs
+        - Unsure
+    validations:
+      required: false
