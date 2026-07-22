@@ -296,6 +296,8 @@ export type SidebarConfigItem =
       autogenerate: { directory: string };
       collapsed?: boolean;
       badge?: SidebarBadge;
+      /** Optional leading icon (astro-icon name) rendered before the label. */
+      icon?: string;
     }
   | {
       label?: string;
@@ -309,12 +311,16 @@ export type SidebarConfigItem =
       autogenerate: { collection: string; prefix?: string };
       collapsed?: boolean;
       badge?: SidebarBadge;
+      /** Optional leading icon (astro-icon name) rendered before the label. */
+      icon?: string;
     }
   | {
       label: string;
       items: SidebarConfigItem[];
       collapsed?: boolean;
       badge?: SidebarBadge;
+      /** Optional leading icon (astro-icon name) rendered before the label. */
+      icon?: string;
       /**
        * The URL prefix this group occupies (e.g. `/api`). Marks the group as
        * a section that owns a URL segment which may have no page of its own.
@@ -371,6 +377,8 @@ export interface SidebarGroupItem {
   order: number;
   collapsed?: boolean;
   badge?: SidebarBadge;
+  /** Optional leading icon (astro-icon name) from `sidebar.group.icon`. */
+  icon?: string;
   children: SidebarItem[];
   _indexId?: string;
   /**
