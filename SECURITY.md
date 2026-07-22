@@ -20,8 +20,7 @@ Use GitHub's private vulnerability reporting flow for this repository:
 2. Choose **Report a vulnerability**.
 3. Include enough detail for maintainers to reproduce and assess the issue.
 
-For Cloudflare-wide programs you can also report via
-[hackerone.com/cloudflare](https://hackerone.com/cloudflare). If you already
+If you already
 submitted a private advisory, keep follow-up discussion in that thread. Avoid
 opening public issues for exploitable details; a public issue may be used only
 to ask for routing or status without sharing sensitive technical information.
