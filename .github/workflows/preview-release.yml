@@ -1,0 +1,102 @@
+name: Preview release
+
+# On-demand preview builds for a PR, served by pkg.pr.new (https://pkg.pr.new).
+# A maintainer adds the `pr preview` label; this builds the two publishable
+# packages and publishes them to pkg.pr.new, which serves them from its own
+# npm-compatible URLs (nothing is published to the npm registry). The pkg-pr-new
+# bot then comments on the PR with install commands like
+# `pnpm add https://pkg.pr.new/@cloudflare/nimbus-docs@<PR#>`.
+#
+# The label is removed at the end, so re-adding it triggers a fresh preview.
+on:
+  pull_request:
+    branches: [main]
+    types: [labeled]
+
+# One preview per PR; a newer label event cancels the older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number }}
+  cancel-in-progress: true
+
+# Default-deny; the job opts into exactly what it needs.
+permissions: {}
+
+jobs:
+  preview:
+    name: Build & publish preview
+    # Only the `pr preview` label, only on this repo, and only for same-repo
+    # branches. Forks don't receive the OIDC id-token that pkg.pr.new
+    # authenticates with (and PR policy already redirects unsolicited forks),
+    # so a fork run could never publish anyway.
+    if: >-
+      github.repository == 'cloudflare/nimbus' &&
+      github.event.label.name == 'pr preview' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write # remove the trigger label; the bot's PR comment uses the App's own token
+      id-token: write # pkg.pr.new authenticates the publish via GitHub OIDC (no npm token, no secret)
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Build only what gets published. The root `build` also builds the private
+      # @nimbus/www site + starter source; a failure there must not block a
+      # preview. (pkg-pr-new also runs each package's `prepack` when packing, so
+      # this is belt-and-suspenders — but it keeps a build break visible as its
+      # own step rather than buried in the publish output.)
+      - run: pnpm --filter ./packages/nimbus-docs --filter ./packages/create-nimbus-docs build
+
+      # Remove the label before publishing so a maintainer can re-add it to
+      # retry, even if the publish step below fails.
+      - name: Remove preview label
+        run: gh pr edit "$PR" --repo "$REPO" --remove-label "pr preview"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.number }}
+
+      # Publish both publishable packages in a single invocation. pkg-pr-new is
+      # deliberately run ONCE for all packages (running it per-package is how it
+      # spams). We publish both unconditionally rather than filtering by pending
+      # changesets (as larger monorepos do) — there are only two publishables,
+      # and a preview is for testing a branch that may not have a changeset yet.
+      #
+      #   --pnpm            pack with `pnpm pack` (matches this repo's toolchain)
+      #   --compact         short URLs (both packages are on npm with a correct
+      #                     `repository` field; falls back to long form if not)
+      #   --no-template     skip the Stackblitz playground (irrelevant for a docs framework)
+      #   --packageManager  show `pnpm add …` in the PR comment, matching Nimbus's default
+      #
+      # Note on create-nimbus-docs: its preview is of limited use on its own —
+      # the scaffolder fetches templates pinned to `#templates-v<version>`, so a
+      # preview build still pulls the last RELEASED templates, not this PR's
+      # starter changes. To test starter edits end to end, scaffold with
+      # `--template-dir` against a local checkout (see `pnpm local`).
+      #
+      # Prerequisites (one-time, outside this file):
+      #   - Install the pkg-pr-new GitHub App (https://github.com/apps/pkg-pr-new)
+      #     on cloudflare/nimbus. The App install + OIDC id-token IS the auth;
+      #     there is no token secret.
+      #   - The repo must be PUBLIC. pkg.pr.new serves artifacts from public,
+      #     unauthenticated URLs and does not support private repos — same
+      #     public-flip prerequisite the npm release already depends on.
+      - name: Publish preview
+        run: >-
+          pnpm exec pkg-pr-new publish
+          --pnpm
+          --compact
+          --no-template
+          --packageManager=pnpm
+          ./packages/nimbus-docs
+          ./packages/create-nimbus-docs
