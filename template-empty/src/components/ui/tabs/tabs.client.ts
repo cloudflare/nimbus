@@ -78,6 +78,25 @@ function initTabContainer(container: HTMLElement): () => void {
     },
   });
 
+  // Cross-instance sync is keyed by trigger label; duplicate labels in a group
+  // resolve by first-match and activate the wrong panel. Surface it in dev.
+  if (import.meta.env.DEV && syncKey && tablist) {
+    const labels = Array.from(
+      tablist.querySelectorAll<HTMLElement>("[data-nb-tabs-trigger]"),
+    )
+      .filter((t) => t.closest("[data-nb-tabs]") === container)
+      .map((t) => (t.textContent ?? "").trim());
+    const dupes = [...new Set(labels.filter((l, i) => labels.indexOf(l) !== i))];
+    if (dupes.length) {
+      console.warn(
+        `[nimbus] <Tabs syncKey="${syncKey}"> has duplicate tab labels (${dupes
+          .map((d) => `"${d}"`)
+          .join(", ")}). Sync is keyed by label, so a duplicate activates the ` +
+          `first match. Give each tab a unique label.`,
+      );
+    }
+  }
+
   return () => {
     instance.destroy();
     // Remove synthesized triggers so re-mount doesn't double up.
