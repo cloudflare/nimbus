@@ -109,10 +109,9 @@ export const internalLink: Rule = {
     if (!truth) return;
 
     const allowRelative = ctx.options.allowRelative === true;
-    // Passed through raw (not `.filter()`'d) — `matchesAnyIgnore` filters
-    // and compiles internally, keyed on this array's identity for its
-    // compiled-matcher cache. A `.filter()`'d copy here would allocate a
-    // new array per file and defeat that cache.
+    // Pass through raw, unfiltered — `matchesAnyIgnore` caches its
+    // compiled matcher on this array's identity. Filtering here would
+    // break that cache (new array per file).
     const ignore = ctx.options.ignore;
     const extraComponents = readExtraComponents(ctx.options.components);
 
