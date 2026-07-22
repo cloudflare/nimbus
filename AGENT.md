@@ -22,7 +22,7 @@ monorepo/
 │   │   ├── src/                           components, layouts, pages (incl. pages/dev/), demo content
 │   │   ├── templates/                     per-variant content overrides (empty/, …)
 │   │   └── starter.manifest.mjs           declarative generation policy (registry-only slugs, dev-only paths, variants)
-│   └── create-nimbus-docs/                scaffolder (`pnpm create @cloudflare/nimbus-docs`) — CLI only, no templates
+│   └── create-nimbus-docs/                scaffolder (`npx @cloudflare/create-nimbus-docs`) — CLI only, no templates
 │       └── scripts/copy-template.mjs      generator: canonical source + manifest → variant dirs (--out)
 ├── apps/
 │   └── www/                               docs site + registry hosting

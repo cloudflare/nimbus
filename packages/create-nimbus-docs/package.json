@@ -6,7 +6,7 @@
     "access": "public"
   },
   "type": "module",
-  "description": "Scaffold a new Nimbus docs site. Used via `pnpm create @cloudflare/nimbus-docs` / `npm create @cloudflare/nimbus-docs`.",
+  "description": "Scaffold a new Nimbus docs site. Used via `npx @cloudflare/create-nimbus-docs@latest`.",
   "keywords": [
     "astro",
     "documentation",
