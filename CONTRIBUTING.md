@@ -43,4 +43,23 @@ Before you open a PR:
 - Add a changeset for anything user-facing. Starter edits need a `create-nimbus-docs` changeset, or the freshness guard fails the PR.
 - Check that `pnpm typecheck`, `pnpm -r test`, and `pnpm templates:check` pass.
 
+### Preview releases
+
+To let someone install and test a PR before it merges, add the `pr preview`
+label to it. That triggers the [Preview release](.github/workflows/preview-release.yml)
+workflow, which builds `@cloudflare/nimbus-docs` and `@cloudflare/create-nimbus-docs`
+and publishes them to [pkg.pr.new](https://pkg.pr.new) — nothing hits the npm
+registry. A bot then comments on the PR with install commands like:
+
+```sh
+pnpm add https://pkg.pr.new/@cloudflare/nimbus-docs@<PR#>
+```
+
+The label is removed automatically; re-add it to publish a fresh preview.
+
+Note that `create-nimbus-docs` previews are limited: the scaffolder fetches
+templates pinned to `#templates-v<version>`, so a preview still pulls the last
+*released* templates, not the PR's starter edits. To test starter changes end to
+end, scaffold with `--template-dir` against a local checkout (see `pnpm local`).
+
 `CLAUDE.md` and `AGENT.md` have the full picture.
