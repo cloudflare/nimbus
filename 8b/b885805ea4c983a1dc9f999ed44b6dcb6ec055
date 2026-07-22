@@ -1,0 +1,19 @@
+pnpm-lock.yaml
+  s_2ee61cbe3dbea7::t_9755559d54a447 17-19,698,704,710,716,722,3445-3448,7825-7826
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "8bb885805ea4c983a1dc9f999ed44b6dcb6ec055",
+  "prompts": {},
+  "sessions": {
+    "s_2ee61cbe3dbea7": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_07ac05409ffeOVQmRV0DhwCF9i",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Matthew Phillips <matthewphillips@cloudflare.com>"
+    }
+  }
+}
