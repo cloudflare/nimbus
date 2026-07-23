@@ -27,7 +27,7 @@ export const REGISTRY_BASE_URL = "https://nimbus-docs.com/registry";
 
 export const BUNDLED_INDEX: BundledIndex = {
   "version": 1,
-  "registryVersion": "0.7.0",
+  "registryVersion": "0.8.0",
   "items": {
     "cn": {
       "name": "cn",

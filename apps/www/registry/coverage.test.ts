@@ -1,5 +1,5 @@
-// DX-3: every installable item is browsable — no registry entry ships without a
-// documented, copyable home. Guards against adding a slug and forgetting the docs.
+// DX-3: every component page and feature/content recipe ships with a documented
+// home. registry:lib slugs are transitive, pulled in by consumers, so exempt.
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -23,9 +23,8 @@ const PAGE_EXEMPT: Record<string, string> = {
   "version-switcher": "renders nothing without a versions config, so it has no standalone preview — covered by the versioning guide",
 };
 
-// Present iff the registry browser lists a copyable `nimbus-docs add <slug>`.
 function listedInRegistry(mdx: string, slug: string): boolean {
-  return new RegExp(`add ${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(mdx);
+  return new RegExp(`\`${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\``).test(mdx);
 }
 
 test("every registry:ui slug has a showcase page (or a documented exemption)", () => {
@@ -50,17 +49,6 @@ test("every registry:feature is listed in the registry browser", () => {
     missing,
     [],
     `features absent from the /registry browser: [${missing.join(", ")}] — ` +
-      "add a copyable `nimbus-docs add <slug>` entry to src/content/docs/registry.mdx.",
-  );
-});
-
-test("every registry:lib is listed in the registry browser", () => {
-  const mdx = readFileSync(REGISTRY_MDX, "utf8");
-  const missing = slugsOfType("registry:lib").filter((slug) => !listedInRegistry(mdx, slug));
-  assert.deepEqual(
-    missing,
-    [],
-    `registry:lib slugs absent from the /registry browser: [${missing.join(", ")}] — ` +
-      "add a copyable `nimbus-docs add <slug>` entry to src/content/docs/registry.mdx.",
+      "list the slug as an inline-code entry in src/content/docs/registry.mdx.",
   );
 });

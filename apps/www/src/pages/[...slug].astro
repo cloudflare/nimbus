@@ -1,4 +1,5 @@
 ---
+import type { GetStaticPaths } from "astro";
 import DocsLayout from "../layouts/DocsLayout.astro";
 import {
   getDocsStaticPaths,
@@ -14,7 +15,17 @@ import {
 import { components } from "../components";
 
 export const prerender = true;
-export const getStaticPaths = getDocsStaticPaths;
+// Serve the root index entry (`docs/index.mdx`) at `/` instead of `/index`,
+// mirroring the `.md`/`.mdx` twin routes which already map `id === "index"`
+// to the bare root segment.
+export const getStaticPaths: GetStaticPaths = async (options) => {
+  const paths = await getDocsStaticPaths(options);
+  return paths.map((path) =>
+    path.params.slug === "index"
+      ? { ...path, params: { ...path.params, slug: undefined } }
+      : path,
+  );
+};
 
 const { entry, Content, headings } = await getDocsPageProps(Astro);
 
@@ -37,7 +48,11 @@ const editUrl = await getEditUrl(entry);
 const lastUpdated = entry.data.lastUpdated ?? await getLastUpdated(entry);
 const tocConfig = entry.data.tableOfContents;
 const toc = tocOn && tocConfig !== false ? getTOC(headings, tocConfig) : false;
-const markdownPath = `/${entry.id}/index.md`;
+// Root index (`entry.id === "index"`) emits at `/index.md`; every other
+// entry at `/<entry.id>/index.md`. Mirrors the `.md` twin route's mapping so
+// the home page's "View as Markdown" link resolves.
+const markdownPath =
+  entry.id === "index" ? "/index.md" : `/${entry.id}/index.md`;
 const markdownUrl = Astro.site ? new URL(markdownPath, Astro.site).href : markdownPath;
 const socialImage = entry.data.socialImage ?? `/og/${entry.id}.png`;
 ---

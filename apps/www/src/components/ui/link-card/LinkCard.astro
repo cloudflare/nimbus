@@ -1,9 +1,9 @@
 ---
 /**
- * LinkCard — link-styled card with title, optional description, and
- * trailing arrow that nudges on hover. Title shifts to primary on hover.
+ * LinkCard — link-styled card with an optional leading icon, title, and
+ * optional description. Title and icon shift to primary on hover.
  *
- *   <LinkCard title="Get started" description="5-min intro" href="/start" />
+ *   <LinkCard title="Get started" description="5-min intro" href="/start" icon="ph:rocket-launch" />
  *   <LinkCard title="Title only" href="/x" />
  */
 import { Icon } from "astro-icon/components";
@@ -14,25 +14,29 @@ interface Props extends HTMLAttributes<"a"> {
   title: string;
   description?: string;
   href: string;
+  /** Iconify icon name, e.g. `ph:rocket-launch`. */
+  icon?: string;
 }
 
-const { title, description, href, class: className, ...attrs } = Astro.props;
+const { title, description, href, icon, class: className, ...attrs } = Astro.props;
 ---
 
 <a
   href={href}
   class={cn(
-    "group flex items-center justify-between gap-3 rounded-lg bg-card p-5 shadow-sm ring ring-border no-underline text-inherit transition-all hover:shadow-default hover:ring-border-strong",
+    "group flex items-center gap-4 rounded-lg bg-card p-5 shadow-sm ring ring-border no-underline text-inherit transition-all hover:shadow-default hover:ring-border-strong",
     className,
   )}
   {...attrs}
 >
+  {icon && (
+    <Icon
+      name={icon}
+      class="shrink-0 w-6 h-6 text-muted-foreground transition-colors group-hover:text-primary"
+    />
+  )}
   <div class="min-w-0">
     <h3 class="m-0 text-base font-semibold leading-snug text-foreground transition-colors group-hover:text-primary">{title}</h3>
     {description && <p class="mt-1 text-sm leading-normal text-muted-foreground">{description}</p>}
   </div>
-  <Icon
-    name="ph:caret-right"
-    class="shrink-0 w-4 h-4 text-muted-foreground transition-all group-hover:translate-x-0.5 group-hover:text-primary"
-  />
 </a>

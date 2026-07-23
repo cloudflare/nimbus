@@ -1,6 +1,6 @@
 ---
 title: LinkCard
-tagline: "Link-styled card with title, optional description, and trailing chevron that nudges on hover."
+tagline: "Link-styled card with an optional leading icon, title, and description. Title and icon shift to primary on hover."
 props:
   - name: title
     type: string
@@ -13,6 +13,9 @@ props:
     type: string
     required: true
     description: Target URL — the entire card becomes the link.
+  - name: icon
+    type: string
+    description: Optional Iconify icon name (e.g. `ph:rocket-launch`) rendered before the title.
 ---
 import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";
@@ -24,12 +27,14 @@ import { LinkCard } from "@/components/ui/link-card";
   title="Getting started"
   description="Five-minute intro to scaffolding a docs site."
   href="#"
+  icon="ph:rocket-launch"
 />`}>
   <div class="w-full max-w-md text-left">
     <LinkCard
       title="Getting started"
       description="Five-minute intro to scaffolding a docs site."
       href="#"
+      icon="ph:rocket-launch"
     />
   </div>
 </Showcase>

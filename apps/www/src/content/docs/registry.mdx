@@ -30,7 +30,7 @@ badge: {
 
 ## Install graph
 
-When you run `nimbus-docs add accordion`, the CLI walks the slug's dependency graph:
+When you run `npx @cloudflare/nimbus-docs add accordion`, the CLI walks the slug's dependency graph:
 
 ```
 accordion
@@ -42,148 +42,30 @@ It installs `collapsible` and `cn` before `accordion`. Each lands at the path de
 
 Features don't have an install graph — the recipe is self-contained markdown the agent applies inside your existing layout.
 
-## Browse the registry
+## Features
 
-Everything below is installable with the command shown — copy it and run it in your project. The list is generated from the registry, so it never drifts from what `nimbus-docs add` actually serves.
+A feature is an agent-handoff recipe — nothing copies as files. Install any with `npx @cloudflare/nimbus-docs add <slug>`; the CLI prints a brief your coding agent adapts to your project and applies.
 
-### Components
+- `pagefind-search` — static full-text search and the Nimbus search dialog.
+- `ai-native` — llms.txt, markdown twins, robots.txt, and an AgentDirective.
+- `mermaid` — lazy, theme-aware Mermaid diagrams with a full-screen expand.
+- `404-page` — a brand-matched 404 page for your docs.
+- `lint-prose-textlint` — textlint with write-good, alex, and terminology rules.
+- `changelog` — a dated `/changelog` feed with tags, RSS, and permalinks.
+- `component-showcase` — a `/components` grid and per-component pages for your UI.
+- `new-collection` — a non-version content tree: blog, API, or glossary.
+- `new-version` — wire a new docs version end-to-end, with a switcher.
 
-Thirty-plus UI components, each with a live preview, prop reference, and its own one-line install command. **[Browse all components at `/components`](/components)** — that's where you see them and copy their install.
+## Content recipes
 
-### Utilities
+Templates for writing one page of a given shape — the agent scaffolds the structure for you to fill in. Same command: `npx @cloudflare/nimbus-docs add <slug>`.
 
-Standalone helpers copied to a path in your repo.
-
-**cn** — Tailwind-aware `className` merger built on clsx + tailwind-merge.
-
-```bash
-nimbus-docs add cn
-```
-
-**Diagram UI** — React visual components for the headless `<Diagram>` wrapper: action bars, chips, stage, controls.
-
-```bash
-nimbus-docs add diagram
-```
-
-**Diagram scene** — Author a diagram as data — phase steps, node layout, edge specs — over `nimbus-docs/react`.
-
-```bash
-nimbus-docs add diagram-scene
-```
-
-### Features
-
-Agent recipes. `nimbus-docs add <slug>` prints a brief your coding agent adapts to your project and applies — nothing copies as files.
-
-**Custom 404 page** — Generate a brand-matched 404 page for the docs site.
-
-```bash
-nimbus-docs add 404-page
-```
-
-**AI-native static surface** — Add `llms.txt`, per-page markdown twins, `robots.txt`, and an AgentDirective.
-
-```bash
-nimbus-docs add ai-native
-```
-
-**Pagefind search** — Static full-text indexing and the Nimbus search dialog on an existing site.
-
-```bash
-nimbus-docs add pagefind-search
-```
-
-**Mermaid diagrams** — Lazy-loaded, theme-aware Mermaid rendering with a full-screen expand.
-
-```bash
-nimbus-docs add mermaid
-```
-
-**Prose linting (textlint)** — write-good, alex, and terminology rules alongside `nimbus-docs lint`.
-
-```bash
-nimbus-docs add lint-prose-textlint
-```
-
-**Changelog** — A dated `/changelog` timeline feed with tag filtering, pagination, permalinks, and optional RSS.
-
-```bash
-nimbus-docs add changelog
-```
-
-**Component showcase** — A `/components` grid plus per-component showcase pages for your own UI library.
-
-```bash
-nimbus-docs add component-showcase
-```
-
-**Add a collection** — Set up a non-version content tree (blog, API reference, glossary): folder, collection, routes.
-
-```bash
-nimbus-docs add new-collection
-```
-
-**Add a docs version** — Wire a new docs version end-to-end: directory, collection, routes, manifest, version switcher.
-
-```bash
-nimbus-docs add new-version
-```
-
-### Content recipes
-
-Templates for writing one page of a given shape — the agent scaffolds the structure for you to fill in.
-
-**Overview** — Orient the reader in one paragraph, then route them everywhere else.
-
-```bash
-nimbus-docs add content-overview
-```
-
-**Quickstart** — The shortest honest path from nothing to one working result.
-
-```bash
-nimbus-docs add content-quickstart
-```
-
-**Tutorial** — Numbered parts that build one real project, every stage producing a visible result.
-
-```bash
-nimbus-docs add content-tutorial
-```
-
-**How-to guide** — Numbered steps that take a reader from a goal to a verified outcome.
-
-```bash
-nimbus-docs add content-how-to
-```
-
-**Concept** — What a thing is, why it works that way, and where its boundaries are.
-
-```bash
-nimbus-docs add content-concept
-```
-
-**Reference** — A complete, neutral, rigidly templated lookup page.
-
-```bash
-nimbus-docs add content-reference
-```
-
-**Example** — Complete, runnable code the reader copies whole, with prose only for the non-obvious.
-
-```bash
-nimbus-docs add content-example
-```
-
-**Troubleshooting** — Verbatim symptoms, causes, and fixes, titled by what the reader searches.
-
-```bash
-nimbus-docs add content-troubleshooting
-```
-
-**Changelog entry** — Dated, categorized records that flag breakage and deep-link into the docs.
-
-```bash
-nimbus-docs add content-changelog
-```
+- `content-overview` — orient in one paragraph, then route onward.
+- `content-quickstart` — the shortest honest path to one working result.
+- `content-tutorial` — numbered parts that build one real project.
+- `content-how-to` — numbered steps from a goal to a verified outcome.
+- `content-concept` — what a thing is, why, and where its edges are.
+- `content-reference` — a complete, neutral, templated lookup page.
+- `content-example` — runnable code to copy whole, prose where needed.
+- `content-troubleshooting` — symptoms, causes, and fixes, titled by search terms.
+- `content-changelog` — dated, categorized records that flag breakage.
