@@ -19,9 +19,20 @@ const ENTITIES: Record<string, string> = {
   "&nbsp;": " ",
 };
 
+// Strip tags to completion: a single pass can leave a reconstructable tag
+// for nested inputs (e.g. `<sc<script>ript>`), so repeat until stable.
+function stripTags(html: string): string {
+  let out = html;
+  let previous: string;
+  do {
+    previous = out;
+    out = out.replace(/<[^>]*>/g, "");
+  } while (out !== previous);
+  return out;
+}
+
 function toText(inner: string): string {
-  return inner
-    .replace(/<[^>]*>/g, "")
+  return stripTags(inner)
     .replace(/&(?:amp|lt|gt|quot|nbsp|#39|#x27);/gi, (m) => ENTITIES[m.toLowerCase()] ?? m)
     .replace(/\s+/g, " ")
     .trim();

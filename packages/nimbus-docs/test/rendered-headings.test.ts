@@ -57,6 +57,13 @@ test("captures runtime set:html-style heading wrapped by an anchor sibling", () 
   ]);
 });
 
+test("strips nested tags to completion (no reconstructable tag survives)", () => {
+  const html = `<h2 id="x">a<sc<script>ript>b</h2>`;
+  const [heading] = getHeadingsFromHtml(html);
+  assert.equal(heading?.slug, "x");
+  assert.ok(!/<[^>]*>/.test(heading!.text));
+});
+
 test("returns empty for empty/undefined input", () => {
   assert.deepEqual(getHeadingsFromHtml(""), []);
   assert.deepEqual(getHeadingsFromHtml(undefined as unknown as string), []);
