@@ -37,6 +37,12 @@ const nimbusConfig = defineNimbusConfig({
 
 export default defineConfig({
   output: "static",
+  // Testing Astro's experimental incremental static builds
+  // (withastro/astro#17084). Docs routes opt in via a per-entry `cacheKey`
+  // returned from `getDocsStaticPaths`/`getCollectionStaticPaths`.
+  experimental: {
+    incrementalBuild: true,
+  },
   integrations: [icon(), react(), nimbus(nimbusConfig)],
   vite: {
     // Tailwind v4 via its Vite plugin (replaces the PostCSS plugin, which

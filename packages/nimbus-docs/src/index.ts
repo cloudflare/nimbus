@@ -21,6 +21,7 @@ import {
   getVisibleEntries,
   getVisibleEntriesByCollection,
   clearContentCaches,
+  entryCacheKey,
 } from "./_internal/content.js";
 import {
   applyOverviewLeaf,
@@ -927,6 +928,9 @@ export const getDocsStaticPaths: GetStaticPaths = async () => {
   return entries.map((entry) => ({
     params: { slug: entry.id },
     props: { entry },
+    // Opt this route into Astro's experimental incremental static builds.
+    // Ignored unless `experimental.incrementalBuild` is enabled.
+    cacheKey: entryCacheKey(entry),
   }));
 };
 
@@ -1011,6 +1015,8 @@ export function getCollectionStaticPaths(collection: string): GetStaticPaths {
     return entries.map((entry) => ({
       params: { slug: entry.id },
       props: { entry },
+      // See `getDocsStaticPaths` — opt into experimental incremental builds.
+      cacheKey: entryCacheKey(entry),
     }));
   };
 }

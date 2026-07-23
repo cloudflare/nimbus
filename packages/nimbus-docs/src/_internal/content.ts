@@ -13,10 +13,58 @@
  * derives its list from `sidebar.items` references.
  */
 
+import { createHash } from "node:crypto";
+
 import type { CollectionEntry } from "astro:content";
 
 /** Primary collection name. Hard-coded — see also `getDocsStaticPaths`. */
 const PRIMARY_COLLECTION = "docs";
+
+/**
+ * Content-derived `cacheKey` for Astro's experimental incremental static
+ * builds (`experimental.incrementalBuild`). Returned from `getStaticPaths`,
+ * it lets Astro skip re-rendering a page when neither the key nor the page's
+ * module dependency graph changed since the last build.
+ *
+ * The key hashes only the entry's *own* content — id, raw body, and
+ * frontmatter `data`. Component/layout changes are covered separately by
+ * Astro's dependency-graph hash, so they intentionally don't feed in here.
+ *
+ * We hash body+data rather than reading a loader-provided `entry.digest`
+ * because `digest` isn't part of the public `CollectionEntry` type (it
+ * depends on the loader), whereas body+data is always present and keeps the
+ * framework's `tsc` build clean.
+ */
+export function entryCacheKey(entry: CollectionEntry<string>): string {
+  const hash = createHash("sha256");
+  hash.update(entry.collection);
+  hash.update("\0");
+  hash.update(entry.id);
+  hash.update("\0");
+  hash.update(entry.body ?? "");
+  hash.update("\0");
+  hash.update(stableStringify(entry.data ?? {}));
+  return hash.digest("hex");
+}
+
+/**
+ * Deterministic JSON serialization with sorted object keys, so a `cacheKey`
+ * doesn't churn when a loader emits frontmatter fields in a different order
+ * between builds.
+ */
+function stableStringify(value: unknown): string {
+  return JSON.stringify(value, (_key, val) => {
+    if (val && typeof val === "object" && !Array.isArray(val)) {
+      return Object.keys(val as Record<string, unknown>)
+        .sort()
+        .reduce<Record<string, unknown>>((acc, key) => {
+          acc[key] = (val as Record<string, unknown>)[key];
+          return acc;
+        }, {});
+    }
+    return val;
+  });
+}
 
 /**
  * Return visible entries from one or more collections. Drafts are
