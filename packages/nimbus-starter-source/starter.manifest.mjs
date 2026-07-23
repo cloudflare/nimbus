@@ -49,7 +49,6 @@
 export const STARTER_MANIFEST = {
   registryOnlyComponents: [
     "accordion",
-    "callout",
     "code-group",
     "embed",
     "file-tree",

@@ -43,7 +43,7 @@ export const BUNDLED_INDEX: BundledIndex = {
       "name": "aside",
       "type": "registry:ui",
       "title": "Aside",
-      "description": "Generic boxed callout. Building block for Callout, Note, Warning."
+      "description": "Generic boxed callout — note, tip, caution, or danger."
     },
     "badge": {
       "name": "badge",
@@ -68,12 +68,6 @@ export const BUNDLED_INDEX: BundledIndex = {
       "type": "registry:ui",
       "title": "Button",
       "description": "Action trigger with variant/size/shape options. Owns the shared button/variants styling that LinkButton reuses."
-    },
-    "callout": {
-      "name": "callout",
-      "type": "registry:ui",
-      "title": "Callout",
-      "description": "Inline note / tip / warning / danger / info card."
     },
     "card": {
       "name": "card",
