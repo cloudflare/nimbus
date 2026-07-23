@@ -108,6 +108,16 @@ export type {
 } from "./types.js";
 
 export type { PartialHeadingOptions } from "./_internal/partial-headings.js";
+export type { Heading } from "./_internal/partial-headings.js";
+
+/**
+ * Collect headings from rendered HTML (see {@link getHeadingsFromHtml}).
+ *
+ * Use when a page's `Content` is rendered to a string so that runtime
+ * headings (e.g. those injected via `set:html`) reach the TOC. Feed the
+ * result to {@link getTOC}.
+ */
+export { getHeadingsFromHtml } from "./_internal/rendered-headings.js";
 
 /**
  * Define a typed Nimbus config. Returns the config unchanged but inferred.
