@@ -1,6 +1,6 @@
 import * as p from "@clack/prompts";
 import { spawn } from "node:child_process";
-import { cpSync, existsSync, renameSync, rmSync } from "node:fs";
+import { cpSync, existsSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { downloadTemplate } from "giget";
 import { applyDeployTarget } from "./transformers/deploy.js";
@@ -26,6 +26,39 @@ const VARIANT_BY_CONTENT = {
   starter: "template",
   empty: "template-empty",
 } as const;
+
+const DEFAULT_REGISTRY_URL = "https://nimbus-docs.com/registry";
+
+/**
+ * Write the committed, CLI-managed provenance + install record. Behavior config
+ * stays in your `nimbus()` config in astro.config.ts; nimbus.json is the machine
+ * surface `add`/`init` read and append to. Survives a clone (git-tracked, not
+ * `.nimbus/` scratch).
+ */
+function writeNimbusJson(target: string, options: ScaffoldOptions): void {
+  // tsdown inlines __APP_VERSION__ at build; guard so the source also runs
+  // under tsx (tests), where the injected constant is undefined.
+  const version =
+    typeof __APP_VERSION__ === "undefined" ? "0.0.0" : __APP_VERSION__;
+  const record = {
+    $schema: "https://nimbus-docs.com/schema/nimbus.json",
+    version,
+    templatesTag: `templates-v${version}`,
+    variant: options.content,
+    registry: DEFAULT_REGISTRY_URL,
+    install: {
+      // src dir `add` writes registry files against; point at a nested package
+      // for the monorepo case. `aliases` mirror the tsconfig import map.
+      root: "src",
+      aliases: { "@/*": "src/*" },
+    },
+    components: [],
+  };
+  writeFileSync(
+    join(target, "nimbus.json"),
+    JSON.stringify(record, null, 2) + "\n",
+  );
+}
 
 // Entries that must never survive into a scaffolded project, whether the
 // source was a giget download or a local `--template-dir`.
@@ -141,6 +174,7 @@ export async function scaffold(
     normalizePackageManagerFiles(target, packageManager);
     await applyDeployTarget(target, deploy);
     await updatePackageJson(target, { name: basename(dir), deploy });
+    writeNimbusJson(target, options);
     s.stop("Project configured.");
   } catch (err) {
     s.stop("Failed.");

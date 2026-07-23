@@ -5,7 +5,7 @@
  *
  * Surface:
  *
- *   nimbus                        → list (table of installable items)
+ *   nimbus-docs                   → list (table of installable items)
  *   nimbus-docs list                   → list
  *   nimbus-docs list --type ui|lib|feature
  *   nimbus-docs add                    → list
@@ -28,13 +28,22 @@ import { BUNDLED_INDEX } from "./_registry.generated.js";
 import { installComponents } from "./component.js";
 import { loadDotenv } from "./dotenv.js";
 import { installFeature } from "./feature.js";
+import { initCommand } from "./init.js";
 import { lintCommand } from "./lint.js";
+import {
+  readNimbusJson,
+  recordInstalled,
+  resolveWriteRoot,
+  writeNimbusJson,
+} from "./nimbus-json.js";
 import {
   getIndexEntry,
   listEntries,
+  registrySource,
   resolveComponentTree,
   type ComponentItem,
 } from "./resolver.js";
+import { diffCommand, outdatedCommand } from "./upgrade.js";
 
 // Named exports of a component's barrel (`components/ui/<slug>/index.ts`), for
 // the "register in components.ts" hint after install.
@@ -68,9 +77,16 @@ interface CliArgs {
   version: boolean;
   quiet: boolean;
   fix: boolean;
+  force: boolean;
+  overwrite: boolean;
+  all: boolean;
+  apply: boolean;
   type?: string;
   format?: string;
   rule?: string;
+  root?: string;
+  to?: string;
+  "template-dir"?: string;
   color?: boolean;
 }
 
@@ -81,11 +97,21 @@ const HELP = `
     list [--type ui|lib|feature]   List available registry items
     add                            Same as \`list\`
     add <slug>                     Install a component or hand off a feature
+    init                           Create the committed nimbus.json record (adopt an existing project)
+    outdated                       Show what's behind upstream (starter files + registry components)
+    diff [file]                    Show upstream/your changes to starter files (read-only)
     lint                           Lint .mdx content for authoring-quality issues
 
   Flags:
-    --yes, -y                      Component: overwrite conflicts without prompting
+    --yes, -y                      Assume yes for prompts; keep existing files on conflict
+    --overwrite                    \`add\`: replace existing files with registry versions (upgrade)
+    --apply                        \`diff <file>\`: write the upstream change (clean files only)
+    --all                          \`outdated\`/\`diff\`: include content files (hidden by default)
+    --to <templates-vX.Y.Z>        \`outdated\`/\`diff\`: compare against a specific tag (default latest)
+    --template-dir <path>          \`outdated\`/\`diff\`: compare against a local checkout (offline)
     --print                        Feature: print markdown to stdout (skip agent detect)
+    --force                        \`init\`: rebuild an existing nimbus.json
+    --root <dir>                   \`init\`: src dir to scan (monorepo; default src)
     --type <ui|lib|feature>        \`list\`: filter by type
     --format <json>                \`lint\`: machine-readable output
     --rule <nimbus/...>            \`lint\`: run a single rule
@@ -96,6 +122,9 @@ const HELP = `
 
   Examples:
     nimbus-docs add dialog                              # component: resolve + install
+    nimbus-docs add card --overwrite                    # re-install over your copy (review with git)
+    nimbus-docs outdated                                # what's behind upstream (starter + registry)
+    nimbus-docs init                                    # adopt an existing repo — writes nimbus.json
     nimbus-docs add 404-page --print | claude           # explicit pipe to claude
     nimbus-docs lint                                    # pretty output, exit non-zero on error
     nimbus-docs lint --format=json                      # agent-readable diagnostics
@@ -104,8 +133,8 @@ const HELP = `
 
 async function main(): Promise<void> {
   const args = mri(process.argv.slice(2), {
-    boolean: ["yes", "print", "help", "version", "quiet", "color", "fix"],
-    string: ["type", "format", "rule"],
+    boolean: ["yes", "print", "help", "version", "quiet", "color", "fix", "force", "overwrite", "all", "apply"],
+    string: ["type", "format", "rule", "root", "to", "template-dir"],
     default: { color: undefined },
     alias: { y: "yes", h: "help", v: "version" },
   }) as unknown as CliArgs;
@@ -132,6 +161,27 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "init") {
+    await initCommand({ force: args.force, root: args.root });
+    return;
+  }
+
+  if (command === "outdated") {
+    await outdatedCommand({ all: args.all, to: args.to, templateDir: args["template-dir"] });
+    return;
+  }
+
+  if (command === "diff") {
+    await diffCommand(slug, {
+      all: args.all,
+      apply: args.apply,
+      to: args.to,
+      templateDir: args["template-dir"],
+      color: args.color,
+    });
+    return;
+  }
+
   if (command === "list" || (command === "add" && !slug) || !command) {
     listCommand(args.type);
     return;
@@ -141,6 +191,7 @@ async function main(): Promise<void> {
     await addCommand(slug!, {
       yes: args.yes,
       print: args.print,
+      overwrite: args.overwrite,
     });
     return;
   }
@@ -209,7 +260,8 @@ function listCommand(typeFilter: string | undefined): void {
     process.stdout.write("\n");
   }
   process.stdout.write(
-    `  Install:  nimbus-docs add <name>     ·  ${items.length} item${items.length === 1 ? "" : "s"}\n\n`,
+    `  Install:  nimbus-docs add <name>     ·  ${items.length} item${items.length === 1 ? "" : "s"}` +
+      `  ·  registry ${BUNDLED_INDEX.registryVersion}\n\n`,
   );
 }
 
@@ -219,7 +271,7 @@ function listCommand(typeFilter: string | undefined): void {
 
 async function addCommand(
   slug: string,
-  flags: { yes: boolean; print: boolean },
+  flags: { yes: boolean; print: boolean; overwrite: boolean },
 ): Promise<void> {
   const entry = getIndexEntry(slug);
   if (!entry) {
@@ -234,7 +286,12 @@ async function addCommand(
     return;
   }
 
-  // Component / utility path.
+  // Component / utility path. Read the record up front so a corrupt one (or a
+  // bad install.root) fails before any network or writes.
+  const cwd = process.cwd();
+  const nimbus = readNimbusJson(cwd);
+  const srcRoot = resolveWriteRoot(nimbus);
+
   p.intro(`nimbus-docs add ${slug}`);
   p.log.info(`${entry.title} — ${entry.description}`);
 
@@ -259,8 +316,10 @@ async function addCommand(
   }
 
   const report = await installComponents(items, {
-    cwd: process.cwd(),
+    cwd,
     yes: flags.yes,
+    overwrite: flags.overwrite,
+    srcRoot,
   });
 
   const lines: string[] = [];
@@ -268,7 +327,7 @@ async function addCommand(
     lines.push(`✓ Wrote ${report.written.length} file${report.written.length === 1 ? "" : "s"}`);
   }
   if (report.skipped.length > 0) {
-    lines.push(`↷ Skipped: ${report.skipped.join(", ")}`);
+    lines.push(`↷ Kept existing: ${report.skipped.join(", ")} — pass --overwrite to replace`);
   }
   if (report.npmDepsInstalled.length > 0) {
     lines.push(
@@ -277,6 +336,24 @@ async function addCommand(
   }
 
   const installed = items.filter((i) => !report.skipped.includes(i.name));
+
+  // Record what we installed so `init`/DX-2 can track it for upgrades.
+  if (installed.length > 0) {
+    if (nimbus) {
+      writeNimbusJson(
+        cwd,
+        recordInstalled(nimbus, installed, { source: registrySource(), srcRoot }),
+      );
+      lines.push(
+        `✎ Recorded ${installed.map((i) => (i.version ? `${i.name}@${i.version}` : i.name)).join(", ")} in nimbus.json`,
+        "  Later: `nimbus-docs outdated` shows when your files fall behind upstream.",
+      );
+    } else {
+      p.log.info(
+        "No nimbus.json here — run `nimbus-docs init` to track installed components for upgrades.",
+      );
+    }
+  }
 
   if (installed.some((i) => i.dependencies?.includes("@astrojs/react"))) {
     p.log.warn(
@@ -292,10 +369,10 @@ async function addCommand(
       const names = barrelExports(i);
       return names.length > 0
         ? `  import { ${names.join(", ")} } from "./components/ui/${i.name}";  // then add ${names.join(", ")} to the map`
-        : `  // ${i.name} — see src/components/ui/${i.name}`;
+        : `  // ${i.name} — see ${srcRoot}/components/ui/${i.name}`;
     });
     p.log.info(
-      "To use in .mdx, register in src/components.ts — import and add to the `components` map:\n" +
+      `To use in .mdx, register in ${srcRoot}/components.ts — import and add to the \`components\` map:\n` +
         snippets.join("\n"),
     );
   }
@@ -315,6 +392,3 @@ main().catch((err) => {
   p.log.error(`${(err as Error).message}`);
   process.exit(1);
 });
-
-// Tell TS BUNDLED_INDEX is used (so no `verbatimModuleSyntax` warning).
-void BUNDLED_INDEX;

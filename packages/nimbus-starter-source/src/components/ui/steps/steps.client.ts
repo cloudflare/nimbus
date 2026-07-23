@@ -29,4 +29,4 @@ function initSteps(root: HTMLElement): () => void {
   };
 }
 
-mount("[data-nb-steps]", initSteps);
+mount("[data-steps]", initSteps);

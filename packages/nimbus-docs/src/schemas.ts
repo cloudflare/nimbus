@@ -7,7 +7,7 @@
  *   composing schemas outside the `docsCollection()` factory.
  *
  * Error messages target content authors, not framework developers.
- * Astro 6 ships Zod v4 via `astro/zod`. The v4 API uses a single `error`
+ * Astro 7 ships Zod v4 via `astro/zod`. The v4 API uses a single `error`
  * field on every schema constructor — NOT v3's `required_error` /
  * `invalid_type_error` / `errorMap`.
  */

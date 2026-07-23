@@ -21,16 +21,5 @@ const { class: className, ...attrs } = Astro.props;
 </button>
 
 <script>
-  function initDialogClose() {
-    document.querySelectorAll<HTMLButtonElement>("[data-dialog-close]").forEach((btn) => {
-      if (btn.hasAttribute("data-initialized")) return;
-      btn.setAttribute("data-initialized", "true");
-
-      btn.addEventListener("click", () => {
-        btn.closest("dialog")?.close();
-      });
-    });
-  }
-  initDialogClose();
-  document.addEventListener("astro:page-load", initDialogClose);
+  import "./dialog-close.client";
 </script>

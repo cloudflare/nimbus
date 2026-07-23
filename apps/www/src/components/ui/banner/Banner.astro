@@ -9,11 +9,11 @@ import type { HTMLAttributes } from "astro/types";
 
 interface Props extends HTMLAttributes<"div"> {
   content: string;
-  type?: "note" | "tip" | "caution" | "danger";
+  variant?: "note" | "tip" | "caution" | "danger";
   dismissible?: { id: string; days?: number };
 }
 
-const { content, type = "note", dismissible, class: className, ...attrs } = Astro.props;
+const { content, variant = "note", dismissible, class: className, ...attrs } = Astro.props;
 
 function sanitizeBannerHtml(value: string): string {
   return value
@@ -29,12 +29,12 @@ const config: Record<string, { color: string; tint: string }> = {
   danger: { color: "var(--nb-danger)", tint: "var(--nb-danger-muted)" },
 };
 
-const c = config[type] ?? config.note;
+const c = config[variant] ?? config.note;
 const safeContent = sanitizeBannerHtml(content);
 ---
 
 <div
-  role={type === "danger" || type === "caution" ? "alert" : "status"}
+  role={variant === "danger" || variant === "caution" ? "alert" : "status"}
   class={cn("banner-card my-4 flex w-full items-start gap-3 rounded-lg px-4 py-3 text-sm leading-normal text-foreground", className)}
   style={`--_c: ${c.color}; --_t: ${c.tint};`}
   {...(dismissible

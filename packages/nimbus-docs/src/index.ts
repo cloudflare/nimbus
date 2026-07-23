@@ -987,6 +987,28 @@ export async function getDocsPageProps(
 }
 
 /**
+ * Resolve a docs route's layout flags: merge the site-wide feature toggles with
+ * per-page frontmatter into the single source of truth for whether a page gets
+ * a sidebar / TOC column, so layouts stay presentational.
+ */
+export async function getRouteFlags(entry: {
+  data: { mode?: string; sidebar?: unknown; tableOfContents?: unknown };
+}): Promise<{ sidebar: boolean; tableOfContents: boolean }> {
+  const config = await loadNimbusConfig();
+  const isCustom = entry.data.mode === "custom";
+  return {
+    sidebar:
+      !isCustom &&
+      config.features?.sidebar !== false &&
+      entry.data.sidebar !== false,
+    tableOfContents:
+      !isCustom &&
+      config.features?.tableOfContents !== false &&
+      entry.data.tableOfContents !== false,
+  };
+}
+
+/**
  * `getStaticPaths` implementation for a catch-all route over a non-primary
  * collection (`api`, `blog`, …). Companion to `getDocsStaticPaths`.
  *

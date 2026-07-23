@@ -19,6 +19,7 @@ export interface RegistryIndexEntry {
 
 export interface BundledIndex {
   version: 1;
+  registryVersion: string;
   items: Record<string, RegistryIndexEntry>;
 }
 
@@ -26,6 +27,7 @@ export const REGISTRY_BASE_URL = "https://nimbus-docs.com/registry";
 
 export const BUNDLED_INDEX: BundledIndex = {
   "version": 1,
+  "registryVersion": "0.7.0",
   "items": {
     "cn": {
       "name": "cn",
@@ -43,7 +45,7 @@ export const BUNDLED_INDEX: BundledIndex = {
       "name": "aside",
       "type": "registry:ui",
       "title": "Aside",
-      "description": "Generic boxed callout. Building block for Callout, Note, Warning."
+      "description": "Generic boxed callout — note, tip, caution, or danger."
     },
     "badge": {
       "name": "badge",
@@ -68,12 +70,6 @@ export const BUNDLED_INDEX: BundledIndex = {
       "type": "registry:ui",
       "title": "Button",
       "description": "Action trigger with variant/size/shape options. Owns the shared button/variants styling that LinkButton reuses."
-    },
-    "callout": {
-      "name": "callout",
-      "type": "registry:ui",
-      "title": "Callout",
-      "description": "Inline note / tip / warning / danger / info card."
     },
     "card": {
       "name": "card",
@@ -210,7 +206,7 @@ export const BUNDLED_INDEX: BundledIndex = {
     "version-switcher": {
       "name": "version-switcher",
       "type": "registry:ui",
-      "title": "VersionPicker",
+      "title": "VersionSwitcher",
       "description": "Header dropdown for switching between docs versions. Reads `versions` from nimbus.config.ts, uses the build-time alternates table to land readers on the same logical page in the target version. Includes deprecation badge and hidden-version exclusion. Renders nothing when versioning is off or only one version is configured."
     },
     "diagram": {

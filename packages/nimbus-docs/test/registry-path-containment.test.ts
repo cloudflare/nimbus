@@ -44,7 +44,7 @@ test("relative traversal escaping src/ is rejected before any write", async () =
     await assert.rejects(
       installComponents([item([{ path: `../../${marker}`, content: "x" }])], {
         cwd,
-        yes: true,
+        yes: true, overwrite: false,
       }),
       /escapes the project's src\/ directory/,
     );
@@ -58,7 +58,7 @@ test("absolute path is rejected before any write", async () => {
     await assert.rejects(
       installComponents([item([{ path: abs, content: "x" }])], {
         cwd,
-        yes: true,
+        yes: true, overwrite: false,
       }),
       /is absolute/,
     );
@@ -76,7 +76,7 @@ test("a poisoned entry blocks the whole install — no sibling file lands", asyn
     const bad = item([{ path: "../../../poison.txt", content: "x" }]);
 
     await assert.rejects(
-      installComponents([good, bad], { cwd, yes: true }),
+      installComponents([good, bad], { cwd, yes: true, overwrite: false }),
       /escapes the project's src\/ directory/,
     );
     assert.equal(
@@ -90,7 +90,7 @@ test("legitimate nested paths still install", async () => {
   await withProject(async (cwd, srcDir) => {
     const report = await installComponents(
       [item([{ path: "components/ui/dialog/Dialog.astro", content: "hi" }])],
-      { cwd, yes: true },
+      { cwd, yes: true, overwrite: false },
     );
     const written = path.join(srcDir, "components/ui/dialog/Dialog.astro");
     assert.equal(existsSync(written), true);

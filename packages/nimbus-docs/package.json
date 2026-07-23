@@ -99,6 +99,7 @@
 		"@shikijs/types": "^4.2.0",
 		"@vercel/detect-agent": "^1.2.3",
 		"clsx": "^2.1.1",
+		"giget": "^3.3.0",
 		"github-slugger": "^2.0.0",
 		"mri": "^1.2.0",
 		"picomatch": "^4.0.5",

@@ -71,6 +71,21 @@ const BUNDLED_INDEX_OUT = resolve(
  */
 const REGISTRY_BASE_URL = "https://nimbus-docs.com/registry";
 
+// The registry release stamped on every emitted item — its `@cloudflare/nimbus-docs`
+// version. `nimbus-docs add` records this so a project can tell which release each
+// component came from (content drift is still decided by hash).
+const REGISTRY_VERSION: string = (() => {
+  const v = JSON.parse(
+    readFileSync(resolve(ROOT, "packages", "nimbus-docs", "package.json"), "utf8"),
+  ).version;
+  if (typeof v !== "string" || v.length === 0) {
+    throw new Error(
+      "packages/nimbus-docs/package.json is missing a version — cannot stamp the registry release.",
+    );
+  }
+  return v;
+})();
+
 // ---------------------------------------------------------------------------
 // Schema emitted to <slug>.json
 // ---------------------------------------------------------------------------
@@ -85,6 +100,7 @@ interface RegistryItem {
   type: ManifestEntry["type"];
   title: string;
   description: string;
+  version: string;
   dependencies: string[];
   registryDependencies: string[];
   files: RegistryFile[];
@@ -92,6 +108,8 @@ interface RegistryItem {
 
 interface RegistryIndex {
   version: 1;
+  // Authoritative registry release; per-item `version` copies this.
+  registryVersion: string;
   items: Record<string, RegistryIndexEntry>;
 }
 
@@ -210,6 +228,7 @@ function emitBundledIndex(index: RegistryIndex): void {
     "",
     "export interface BundledIndex {",
     "  version: 1;",
+    "  registryVersion: string;",
     "  items: Record<string, RegistryIndexEntry>;",
     "}",
     "",
@@ -378,6 +397,7 @@ function main(): void {
       type: entry.type,
       title: entry.title,
       description: entry.description,
+      version: REGISTRY_VERSION,
       dependencies: entry.dependencies ?? [],
       registryDependencies: entry.registryDependencies ?? [],
       files,
@@ -415,6 +435,7 @@ function main(): void {
   // starter. Deterministic output keeps diffs meaningful.
   const index: RegistryIndex = {
     version: 1,
+    registryVersion: REGISTRY_VERSION,
     items: indexItems,
   };
   writeFileSync(INDEX_OUT, JSON.stringify(index, null, 2) + "\n");

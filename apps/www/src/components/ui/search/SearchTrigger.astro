@@ -18,24 +18,5 @@ import { Icon } from "astro-icon/components";
 </button>
 
 <script>
-  function initSearchTrigger() {
-    document.querySelectorAll<HTMLElement>("[data-search-trigger]").forEach((btn) => {
-      if (btn.hasAttribute("data-search-trigger-ready")) return;
-      btn.setAttribute("data-search-trigger-ready", "true");
-
-      const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
-      const platform = nav.userAgentData?.platform ?? "";
-      const isMac = platform
-        ? /mac/i.test(platform)
-        : /mac|iphone|ipod|ipad/i.test(navigator.userAgent);
-      if (isMac) {
-        btn.setAttribute("aria-keyshortcuts", "Meta+K");
-        const key = btn.querySelector("[data-shortcut-key]");
-        if (key) key.textContent = "⌘";
-      }
-    });
-  }
-
-  initSearchTrigger();
-  document.addEventListener("astro:page-load", initSearchTrigger);
+  import "./search-trigger.client";
 </script>

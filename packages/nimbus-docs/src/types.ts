@@ -501,7 +501,7 @@ export interface PrevNextOverrides {
 /**
  * Optional banner shown at the top of a doc page.
  *
- *   <Banner content="Heads up!" type="warning" />
+ *   <Banner content="Heads up!" variant="caution" />
  *   <Banner content="..." dismissible={{ id: "v2-release", days: 7 }} />
  */
 export interface BannerProps {

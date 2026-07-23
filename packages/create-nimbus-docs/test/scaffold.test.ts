@@ -105,6 +105,16 @@ test("happy path writes and transforms the project", async () => {
 
     // `gitignore` is renamed to `.gitignore`.
     assert.ok(fs.existsSync(path.join(target, ".gitignore")));
+
+    // A committed nimbus.json provenance + install record is written (DX-1).
+    const nimbus = JSON.parse(
+      fs.readFileSync(path.join(target, "nimbus.json"), "utf8"),
+    );
+    assert.equal(typeof nimbus.version, "string");
+    assert.equal(nimbus.templatesTag, `templates-v${nimbus.version}`);
+    assert.equal(nimbus.install.root, "src");
+    assert.deepEqual(nimbus.install.aliases, { "@/*": "src/*" });
+    assert.deepEqual(nimbus.components, []);
   } finally {
     cleanup(cwd, tmpl);
   }

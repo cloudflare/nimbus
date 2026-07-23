@@ -24,7 +24,7 @@ export interface DiagramPauseAllProps {
  * bridge them).
  *
  * Hidden via visibility rather than returning null when count===0:
- * Astro 6 + React 19 dev SSR throws "Invalid hook call" when a component
+ * Astro 7 + React 19 dev SSR throws "Invalid hook call" when a component
  * with scheduled effects returns null, and a stable DOM also avoids layout
  * shift when the button appears.
  */

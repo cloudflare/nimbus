@@ -25,6 +25,7 @@ A scaffolded Nimbus project is a regular Astro project. Everything visible lives
       - globals.css
     - components.ts
   - astro.config.ts
+  - nimbus.json
   - package.json
 </FileTree>
 
@@ -34,6 +35,13 @@ A scaffolded Nimbus project is a regular Astro project. Everything visible lives
 - **`src/pages/`** — routes, including the catch-all that renders docs and the agent surfaces.
 - **`src/styles/globals.css`** — design tokens and Tailwind layers.
 - **`src/components.ts`** — the [MDX globals registry](/writing/markdown-and-mdx).
+- **`nimbus.json`** — a committed record of what your project is made of (see below).
+
+## `nimbus.json` — the provenance record
+
+Alongside your files the scaffolder writes a small, CLI-managed **`nimbus.json`**. It records the `create-nimbus-docs` version and the `templates-v*` tag your starter came from, where components install (`install.root`), and one entry per component you [`add`](/cli) — each with its source registry, the registry release it shipped in, and a content hash.
+
+It is the machine half of a pair: your **behavior** config (versions, features, sidebar) is human-authored in `astro.config.ts` via `nimbus(...)`; **`nimbus.json`** is the surface the CLI reads and rewrites. [`nimbus-docs add`](/cli) appends to it; [`nimbus-docs init`](/cli) rebuilds it for a project that predates it or is adopting Nimbus. **Commit it** — it is how upgrades know what you own (it is not `.nimbus/`, which is gitignored build scratch).
 
 ## The framework boundary
 

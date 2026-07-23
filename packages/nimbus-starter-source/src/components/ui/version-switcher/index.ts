@@ -1,1 +1,1 @@
-export { default as VersionPicker } from "./VersionPicker.astro";
+export { default as VersionSwitcher } from "./VersionSwitcher.astro";

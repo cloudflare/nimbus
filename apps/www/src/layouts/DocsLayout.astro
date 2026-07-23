@@ -16,7 +16,6 @@ import { Pagination } from "@/components/ui/pagination";
 import { PageActions } from "@/components/ui/page-actions";
 import { Badge } from "@/components/ui/badge";
 import type { DocsPageProps } from "@cloudflare/nimbus-docs/types";
-import { config } from "virtual:nimbus/config";
 import { getVersionStatus, getVersionAlternates } from "@cloudflare/nimbus-docs";
 
 type Props = DocsPageProps & { audience?: "human"; aiGenerated?: boolean; collection?: string; entryId?: string };
@@ -85,7 +84,7 @@ const hasPagination = Astro.slots.has("pagination");
 
     <div class="flex-1 mx-auto w-full">
       <div class="flex">
-        {sidebar !== false && (hasSidebar || sidebar.length > 0) && (
+        {showSidebar && (
           <aside id="desktop-sidebar" data-nb-desktop-sidebar class="hidden lg:flex w-(--nb-sidebar-width) shrink-0 border-r border-border bg-background sticky top-14 h-[calc(100vh-3.5rem)] flex-col overflow-y-auto overscroll-contain relative">
             {hasSidebar ? (
               <slot name="sidebar" />
@@ -169,7 +168,7 @@ const hasPagination = Astro.slots.has("pagination");
                 <div class={isCustom ? "mx-auto max-w-(--nb-content-max) px-4 lg:px-6 pt-6" : ""}>
                   {versionStatus?.isDeprecated && (
                     <Banner
-                      type="caution"
+                      variant="caution"
                       content={
                         currentSiblingUrl
                           ? `This is the <strong>${versionStatus.version}</strong> version of the docs and is no longer maintained. The latest version of this page is at <a href="${currentSiblingUrl}">${currentSiblingUrl}</a>.`
@@ -177,7 +176,7 @@ const hasPagination = Astro.slots.has("pagination");
                       }
                     />
                   )}
-                  {banner && <Banner content={banner.content} type={banner.type} dismissible={banner.dismissible} />}
+                  {banner && <Banner content={banner.content} variant={banner.type} dismissible={banner.dismissible} />}
                   <Breadcrumbs items={breadcrumbs} class="pb-2" />
                 </div>
               )}

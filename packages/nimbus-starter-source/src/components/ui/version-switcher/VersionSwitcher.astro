@@ -8,14 +8,16 @@ import {
   getVersions,
 } from "@cloudflare/nimbus-docs";
 import { Popover, PopoverContent, PopoverTrigger } from "../popover";
+import { cn } from "@/lib/cn";
 
 interface Props {
   collection?: string;
   entryId?: string;
   variant?: "header" | "sidebar";
+  class?: string;
 }
 
-const { collection, entryId, variant = "header" } = Astro.props;
+const { collection, entryId, variant = "header", class: className } = Astro.props;
 
 const versions = await getVersions();
 
@@ -99,7 +101,7 @@ if (versions && versions.all.length >= 2) {
 ---
 
 {entries.length >= 2 && variant === "header" && (
-  <Popover class="hidden md:inline-block">
+  <Popover class={cn("hidden md:inline-block", className)}>
     <PopoverTrigger
       class="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[0.8125rem] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors aria-[expanded=true]:bg-accent aria-[expanded=true]:text-foreground"
       aria-label={`Switch docs version (current: ${activeLabel})`}
@@ -147,7 +149,7 @@ if (versions && versions.all.length >= 2) {
 
 {entries.length >= 2 && variant === "sidebar" && (
   <section
-    class="md:hidden mb-4 pb-4 border-b border-border"
+    class={cn("md:hidden mb-4 pb-4 border-b border-border", className)}
     aria-labelledby="version-picker-label"
   >
     <h3

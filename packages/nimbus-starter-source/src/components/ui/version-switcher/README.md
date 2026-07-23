@@ -1,4 +1,4 @@
-# VersionPicker
+# VersionSwitcher
 
 Header dropdown + mobile sidebar control for switching docs versions.
 
@@ -18,7 +18,7 @@ as props, then render:
 
 ```astro
 ---
-import { VersionPicker } from "./ui/version-switcher";
+import { VersionSwitcher } from "./ui/version-switcher";
 
 interface Props {
   collection?: string;
@@ -30,7 +30,7 @@ const { collection, entryId } = Astro.props;
 
 {/* ... existing header content ... */}
 <div class="flex items-center gap-2">
-  <VersionPicker collection={collection} entryId={entryId} />
+  <VersionSwitcher collection={collection} entryId={entryId} />
   {/* ... other header controls (search, theme toggle, etc.) ... */}
 </div>
 ```
@@ -43,7 +43,7 @@ sidebar nav:
 
 ```astro
 <nav class="px-4 pb-8 pt-5">
-  <VersionPicker
+  <VersionSwitcher
     collection={collection}
     entryId={entryId}
     variant="sidebar"
@@ -69,7 +69,7 @@ route scaffolding) and forward them to `Header`:
 
 If your layout doesn't do this yet, see the framework spec for the
 required props chain: `route → DocsLayout → BaseLayout → NimbusHead` +
-`route → DocsLayout → Header → VersionPicker`.
+`route → DocsLayout → Header → VersionSwitcher`.
 
 ## Props
 
