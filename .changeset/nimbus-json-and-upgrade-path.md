@@ -1,5 +1,5 @@
 ---
-"@cloudflare/nimbus-docs": patch
+"@cloudflare/nimbus-docs": minor
 ---
 
 Add the ownership + upgrade loop to the `nimbus-docs` CLI:
@@ -9,4 +9,14 @@ Add the ownership + upgrade loop to the `nimbus-docs` CLI:
 - **`nimbus-docs diff [file]`** / **`diff --apply <file>`** — review upstream/your changes to starter files, and pull a clean upstream change per file (never a merge).
 - **`nimbus-docs add <slug> --overwrite`** — re-install a component over your copy (review with `git diff`). `add` also records each install in `nimbus.json`.
 
-**Changed:** `--yes` no longer overwrites files you own — it assents to prompts (dependency installs, etc.) but keeps existing files on conflict, so it's safe in CI. Use `--overwrite` to replace files. Also adds a `getRouteFlags` layout-flag helper and a CI guard for the registry tier invariants.
+Also adds a `getRouteFlags` layout-flag helper and a CI guard for the registry tier invariants.
+
+**Migration — `add --yes` no longer overwrites files you own.** It now assents to prompts (dependency installs, etc.) but keeps existing files on conflict, so a bare `-y` in CI never clobbers your code. Use `--overwrite` to replace files.
+
+```bash
+# before — --yes overwrote conflicting files
+nimbus-docs add card --yes
+
+# after — replace files explicitly
+nimbus-docs add card --overwrite
+```
