@@ -45,15 +45,16 @@ function stripTrailingSlash(s: string): string {
  * - Each pattern gets its trailing slash stripped before compiling, so a
  *   bare `"/api/"` (no `/**`) still matches `/api` exactly — same as the
  *   previous matcher.
- * - Non-string entries are dropped (same tolerance the old per-rule
- *   filtering had).
+ * - Non-string and empty-string entries are dropped — `picomatch("")`
+ *   throws, which would silently disable the whole rule (the engine skips a
+ *   throwing rule). The old matcher tolerated `""`; this keeps that.
  */
 export function matchesAnyIgnore(url: string, rawIgnore: unknown): boolean {
   if (!Array.isArray(rawIgnore) || rawIgnore.length === 0) return false;
   let isMatch = cache.get(rawIgnore);
   if (!isMatch) {
     const patterns = rawIgnore
-      .filter((s): s is string => typeof s === "string")
+      .filter((s): s is string => typeof s === "string" && s !== "")
       .map(stripTrailingSlash);
     isMatch =
       patterns.length === 0

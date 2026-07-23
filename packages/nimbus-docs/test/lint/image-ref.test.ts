@@ -211,6 +211,18 @@ test("image-ref ignore supports a leading any-depth wildcard and brace expansion
   }
 });
 
+test("image-ref ignore tolerates a stray empty-string pattern (no rule-wide crash)", () => {
+  const setup = setupProject();
+  try {
+    const broken = lint(setup, `${FM}\n![missing](/other/missing.png)\n`, {
+      ignore: ["**/thumbnail.webp", ""],
+    });
+    assert.equal(broken.length, 1);
+  } finally {
+    cleanup(setup.root);
+  }
+});
+
 test("image-ref checks opt-in components", () => {
   const setup = setupProject(["public/frames/ok.png"]);
   try {

@@ -489,6 +489,30 @@ test("internal-link ignore compiles a given pattern list once across files (cach
   }
 });
 
+test("internal-link ignore tolerates a stray empty-string pattern (no rule-wide crash)", () => {
+  const setup = setupProject(baseTruth());
+  try {
+    _resetInternalLinkCacheForTests();
+    const parsed = parseSource(
+      `${FM}\n[ignored](/api/foo) [flagged](/nope)\n`,
+      {
+        path: "src/content/docs/page.mdx",
+        absPath: setup.pagePath,
+        collection: "docs",
+      },
+    );
+    const diags = lintFile(parsed, {
+      rules: {
+        "nimbus/internal-link": ["error", { ignore: ["/api/**", ""] }],
+      },
+    }).filter((d) => d.code === "nimbus/internal-link");
+    assert.equal(diags.length, 1);
+    assert.match(diags[0]!.message, /broken link "\/nope"/);
+  } finally {
+    cleanup(setup.root);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Missing route truth → silent skip
 // ---------------------------------------------------------------------------
