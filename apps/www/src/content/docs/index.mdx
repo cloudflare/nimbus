@@ -1,0 +1,63 @@
+---
+title: Nimbus
+description: The way to build documentation for the agent web.
+audience: human
+tableOfContents: false
+head:
+  - tag: style
+    content: |
+      #main-content { position: relative; z-index: 0; }
+      #main-content::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: min(55vw, 46rem);
+        z-index: -1;
+        pointer-events: none;
+        background: url("/cloud-alpha.png") right top / contain no-repeat;
+        opacity: 0.3;
+      }
+      [data-mode="dark"] #main-content::before { filter: invert(1); }
+      @media (max-width: 767px) {
+        #main-content::before { width: 65vw; opacity: 0.22; }
+      }
+      /* At xl the layout reserves an 18rem TOC gutter to the right of
+         #main-content; push the cloud over it so it stays flush to the page. */
+      @media (min-width: 1280px) {
+        #main-content::before { right: calc(-1 * var(--nb-toc-width)); }
+      }
+---
+
+The web is read by agents now, not just people. Nimbus is how you build docs
+for that world; it runs on Astro, ships the invisible plumbing as an npm
+package, and writes the parts you'd actually change — layouts, components,
+styles, content — into your repo as real files. You own them from day one.
+
+Scaffold a site in one command:
+
+```sh
+npx @cloudflare/create-nimbus-docs@latest
+```
+
+## Why Nimbus
+
+- **Humans and agents are first-class.** Every page ships a clean `.md` twin.
+- **You own all your code.** No upstream theme to fork around; edit any file.
+- **Build with agents.** `nimbus-docs add` copies a component in as files, or hands your agent a recipe.
+
+## Built for the agent web
+
+Every page ships a clean `.md` twin; `/llms.txt` indexes the whole site; JSON-LD
+lands in every head. Coding agents read your docs as well as a browser does —
+and you didn't have to think about it.
+
+## Where to go next
+
+<CardGrid>
+  <LinkCard title="Get started" description="Scaffold a site in one command." href="/get-started" icon="ph:rocket-launch" />
+  <LinkCard title="Installation" description="What lands in your repo, and why you own it." href="/installation" icon="ph:download-simple" />
+  <LinkCard title="Philosophy" description="Why Nimbus is built the way it is." href="/philosophy" icon="ph:compass" />
+  <LinkCard title="Components" description="The building blocks, in action." href="/components" icon="ph:squares-four" />
+</CardGrid>

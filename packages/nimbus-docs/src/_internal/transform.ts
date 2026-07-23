@@ -158,6 +158,18 @@ function applyDefaultComponentTransforms(markdown: string): string {
   );
   out = out.replace(/<\/?CardGrid\b[^>]*>/g, "");
 
+  out = out.replace(
+    /<LinkCard\b([^>]*?)\s*\/>/g,
+    (_match, rawAttrs: string) => {
+      const attrs = parseAttrs(rawAttrs);
+      const title = asTitle(attrs.title, "Link");
+      const href = typeof attrs.href === "string" ? attrs.href : "";
+      const description = typeof attrs.description === "string" ? attrs.description : "";
+      const label = href ? `[${title}](${href})` : `**${title}**`;
+      return `- ${label}${description ? ` — ${description}` : ""}`;
+    },
+  );
+
   out = out.replace(/<Steps\b[^>]*>([\s\S]*?)<\/Steps>/g, (_match, children: string) => {
     let index = 0;
     return children.replace(
@@ -238,7 +250,7 @@ export function renderEntryAsMarkdown(
   markdown = protectedCode.restore(markdown);
 
   return markdown
-    .replace(/^[ \t]+(- \*\*)/gm, "$1")
+    .replace(/^[ \t]+(- (?:\*\*|\[))/gm, "$1")
     .replace(/^[ \t]+(\d+\. \*\*)/gm, "$1")
     .replace(/^[ \t]+(### )/gm, "$1")
     .replace(/^[ \t]+(```)/gm, "$1")
