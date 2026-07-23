@@ -1,0 +1,21 @@
+packages/nimbus-docs/package.json
+  s_dbd1f04f7cc90f::t_c7bdf801966b00 104,122
+pnpm-lock.yaml
+  s_dbd1f04f7cc90f::t_3e935d06bd0ed5 163-165,218-220,2081-2083,6027-6028
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "73bbecfddcd788a0eaecb3d0eb9c404b4b4a1882",
+  "prompts": {},
+  "sessions": {
+    "s_dbd1f04f7cc90f": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_07450a025ffepdtVzyQ8Rixoy4",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mvm <vance@cloudflare.com>"
+    }
+  }
+}

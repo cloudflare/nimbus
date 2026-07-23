@@ -1,0 +1,19 @@
+packages/nimbus-docs/src/types.ts
+  s_9810100191805e::t_335d76d72b4596 421-429
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "692bd5e042e321349664592673a82feb15df96ae",
+  "prompts": {},
+  "sessions": {
+    "s_9810100191805e": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_08c5006a7ffeU7Du9tNJtV2fOQ",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
