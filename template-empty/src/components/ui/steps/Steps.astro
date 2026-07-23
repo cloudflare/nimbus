@@ -14,7 +14,7 @@ const { start, class: className, ...attrs } = Astro.props;
 ---
 
 <div
-  data-nb-steps
+  data-steps
   class={cn("steps", className)}
   style={start !== undefined ? `--steps-start: ${start};` : undefined}
   {...attrs}

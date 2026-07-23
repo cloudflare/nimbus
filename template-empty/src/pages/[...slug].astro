@@ -3,6 +3,7 @@ import DocsLayout from "../layouts/DocsLayout.astro";
 import {
   getDocsStaticPaths,
   getDocsPageProps,
+  getRouteFlags,
   getSidebar,
   getPrevNext,
   getBreadcrumbs,
@@ -10,7 +11,6 @@ import {
   getLastUpdated,
   getTOC,
 } from "@cloudflare/nimbus-docs";
-import { config } from "virtual:nimbus/config";
 import { components } from "../components";
 
 export const prerender = true;
@@ -20,16 +20,7 @@ const { entry, Content, headings } = await getDocsPageProps(Astro);
 
 const currentSlug = Astro.url.pathname.replace(/\/$/, "") || "/";
 
-// Column renders only when not custom mode AND site-wide flag on AND page hasn't opted out.
-const isCustom = entry.data.mode === "custom";
-const sidebarOn =
-  !isCustom &&
-  config.features?.sidebar !== false &&
-  entry.data.sidebar !== false;
-const tocOn =
-  !isCustom &&
-  config.features?.tableOfContents !== false &&
-  entry.data.tableOfContents !== false;
+const { sidebar: sidebarOn, tableOfContents: tocOn } = await getRouteFlags(entry);
 
 const sidebar = sidebarOn
   ? await getSidebar(currentSlug, { collection: entry.collection })

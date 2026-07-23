@@ -61,6 +61,9 @@ Rules:
 | Feature recipe | `pnpm exec nimbus-docs add <feature-slug>`. Pipe the printed brief to your agent. |
 | Custom page route | Add a file under `src/pages/`. |
 | Custom OG style | Edit `src/pages/og/_og-card-config.ts`. |
+| Check for updates | `pnpm exec nimbus-docs outdated` — starter files behind their tag + registry components behind. |
+| Upgrade a starter file | `pnpm exec nimbus-docs diff <file>` to review, `diff --apply <file>` to pull a clean upstream change. |
+| Upgrade a registry component | `pnpm exec nimbus-docs add <slug> --overwrite`, then review with `git diff`. |
 
 List installable items: `pnpm exec nimbus-docs list`.
 

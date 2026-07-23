@@ -166,7 +166,7 @@ const hasPagination = Astro.slots.has("pagination");
             <div class="mx-auto max-w-(--nb-content-max) px-4 lg:px-6 pt-6 pb-12">
               {versionStatus?.isDeprecated && (
                 <Banner
-                  type="caution"
+                  variant="caution"
                   content={
                     currentSiblingUrl
                       ? `This is the <strong>${versionStatus.version}</strong> version of the docs and is no longer maintained. The latest version of this page is at <a href="${currentSiblingUrl}">${currentSiblingUrl}</a>.`
@@ -174,7 +174,7 @@ const hasPagination = Astro.slots.has("pagination");
                   }
                 />
               )}
-              {banner && <Banner content={banner.content} type={banner.type} dismissible={banner.dismissible} />}
+              {banner && <Banner content={banner.content} variant={banner.type} dismissible={banner.dismissible} />}
               <Breadcrumbs items={breadcrumbs} class="pb-2" />
               <div {...pagefindAttrs}>
                 {hasPageTitle ? (
