@@ -10,6 +10,7 @@
     "build": "pnpm run generate-registry && astro build",
     "preview": "astro preview",
     "typecheck": "astro check",
+    "test": "node --import tsx --test \"registry/**/*.test.ts\"",
     "preview:cf": "wrangler dev",
     "predeploy": "pnpm --filter nimbus-docs build && astro check && pnpm run build",
     "deploy": "wrangler deploy"

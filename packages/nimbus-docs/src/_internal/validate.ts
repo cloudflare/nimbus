@@ -2,7 +2,7 @@
  * Config validation.
  *
  * Errors target content authors, not framework developers.
- * Astro 6 ships Zod v4 via `astro/zod` — single `error` field, not v3 patterns.
+ * Astro 7 ships Zod v4 via `astro/zod` — single `error` field, not v3 patterns.
  */
 
 import { z } from "astro/zod";

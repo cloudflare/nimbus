@@ -284,7 +284,7 @@ export const MANIFESTS = {
 
   "version-switcher": {
     type: "registry:ui",
-    title: "VersionPicker",
+    title: "VersionSwitcher",
     description:
       "Header dropdown for switching between docs versions. Reads `versions` from nimbus.config.ts, uses the build-time alternates table to land readers on the same logical page in the target version. Includes deprecation badge and hidden-version exclusion. Renders nothing when versioning is off or only one version is configured.",
     registryDependencies: ["popover", "cn"],

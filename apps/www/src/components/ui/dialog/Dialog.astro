@@ -29,26 +29,5 @@ const { class: className, ...attrs } = Astro.props;
 </dialog>
 
 <script>
-  import { lockScroll, unlockScroll } from "@cloudflare/nimbus-docs/client";
-
-  function initDialogs() {
-    document.querySelectorAll<HTMLDialogElement>("[data-dialog]").forEach((dialog) => {
-      if (dialog.hasAttribute("data-initialized")) return;
-      dialog.setAttribute("data-initialized", "true");
-
-      const observer = new MutationObserver(() => {
-        if (dialog.open) lockScroll();
-        else unlockScroll();
-      });
-      observer.observe(dialog, { attributes: true, attributeFilter: ["open"] });
-
-      dialog.addEventListener("close", () => unlockScroll());
-
-      dialog.addEventListener("click", (e) => {
-        if (e.target === dialog) dialog.close();
-      });
-    });
-  }
-  initDialogs();
-  document.addEventListener("astro:page-load", initDialogs);
+  import "./dialog.client";
 </script>

@@ -43,6 +43,29 @@ Before you open a PR:
 - Add a changeset for anything user-facing. Starter edits need a `create-nimbus-docs` changeset, or the freshness guard fails the PR.
 - Check that `pnpm typecheck`, `pnpm -r test`, and `pnpm templates:check` pass.
 
+### Local development
+
+Requires **Node ≥ 22.12.0** and **pnpm 9** (pinned via `packageManager`, so Corepack fetches it for you).
+
+```sh
+pnpm install
+pnpm dev                 # kitchen-sink dev server at http://localhost:4321 — every component on one page
+```
+
+`pnpm dev` runs the server in the background and prints its own `astro dev stop` / `astro dev status` commands (Ctrl-C won't stop it). Edit files under `packages/nimbus-starter-source/src/` and the page hot-reloads.
+
+Working on the CLI, templates, or a real scaffold:
+
+```sh
+pnpm build:templates     # regenerate the shipped template variants
+pnpm templates:check     # generate + scaffold + build one variant end to end
+pnpm local               # scaffold a throwaway site against your local packages
+pnpm typecheck           # typecheck the whole workspace
+pnpm -r test             # every package's tests, incl. the registry tier-invariant guard
+```
+
+`CLAUDE.md` / `AGENT.md` carry the deeper architecture notes — you don't need them to run the repo.
+
 ### Preview releases
 
 To let someone install and test a PR before it merges, add the `pr preview`
@@ -61,5 +84,3 @@ Note that `create-nimbus-docs` previews are limited: the scaffolder fetches
 templates pinned to `#templates-v<version>`, so a preview still pulls the last
 *released* templates, not the PR's starter edits. To test starter changes end to
 end, scaffold with `--template-dir` against a local checkout (see `pnpm local`).
-
-`CLAUDE.md` and `AGENT.md` have the full picture.

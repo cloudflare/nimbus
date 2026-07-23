@@ -19,7 +19,7 @@ monorepo/
 ├── packages/
 │   ├── nimbus-docs/                       framework — integration, helpers, schemas, types, `nimbus` CLI
 │   ├── nimbus-starter-source/             canonical source — fat tree; doubles as kitchen-sink dev app
-│   │   ├── src/                           components, layouts, pages (incl. pages/dev/), demo content
+│   │   ├── src/                           components, layouts, pages, demo content
 │   │   ├── templates/                     per-variant content overrides (empty/, …)
 │   │   └── starter.manifest.mjs           declarative generation policy (registry-only slugs, dev-only paths, variants)
 │   └── create-nimbus-docs/                scaffolder (`pnpm create @cloudflare/nimbus-docs`) — CLI only, no templates
@@ -171,6 +171,6 @@ If you're picking up a new piece of work:
 ## Operating principles for agents
 
 - **Edits to UI / starter content happen in `packages/nimbus-starter-source/`, never on the `templates` branch.** The `templates` branch is sync output; direct edits are rejected by its branch ruleset and would be clobbered by the next release sync. A starter edit needs a `create-nimbus-docs` changeset to reach users (the freshness guard enforces this).
-- **Run the build before claiming work is done.** `pnpm --filter nimbus-docs build` for framework changes, `pnpm --filter nimbus-starter-source build` for end-to-end verification of the canonical source, `pnpm templates:check` to confirm the generator + scaffolder + template build still work.
+- **Run the build before claiming work is done.** `pnpm --filter nimbus-docs build` for framework changes, `pnpm --filter nimbus-starter-source build` for end-to-end verification of the canonical source, `pnpm templates:check` to confirm the generator + scaffolder + template build still work, and `pnpm -r test` for the registry tier-invariant guard.
 - **Don't add `nimbus-docs add` recipes for things that belong in the framework.** The boundary test applies to feature placement, not just file placement.
 - **Prefer asking about design intent over inferring it from code.** The framework's decisions are explicit and often non-obvious, and the rationale isn't always in the codebase.

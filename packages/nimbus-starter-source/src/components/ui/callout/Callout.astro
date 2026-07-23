@@ -6,14 +6,14 @@
 import Aside from "../aside/Aside.astro";
 
 interface Props {
-  type?: "note" | "tip" | "caution" | "danger";
+  variant?: "note" | "tip" | "caution" | "danger";
   title?: string;
   class?: string;
 }
 
-const { type, title, ...rest } = Astro.props;
+const { variant, title, ...rest } = Astro.props;
 ---
 
-<Aside type={type} title={title} {...rest}>
+<Aside type={variant} title={title} {...rest}>
   <slot />
 </Aside>

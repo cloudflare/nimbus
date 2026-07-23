@@ -5,7 +5,7 @@
  *
  * Surface:
  *
- *   nimbus                        → list (table of installable items)
+ *   nimbus-docs                   → list (table of installable items)
  *   nimbus-docs list                   → list
  *   nimbus-docs list --type ui|lib|feature
  *   nimbus-docs add                    → list

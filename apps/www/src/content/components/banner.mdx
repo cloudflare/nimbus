@@ -6,7 +6,7 @@ props:
     type: string
     required: true
     description: HTML string (sanitised) rendered as the banner body.
-  - name: type
+  - name: variant
     type: '"note" | "tip" | "caution" | "danger"'
     defaultValue: '"note"'
     description: Visual treatment that conveys intent.
@@ -20,9 +20,9 @@ import { Banner } from "@/components/ui/banner";
 
 ## Preview
 
-<Showcase code={`<Banner type="tip" content="We're hiring — say hi at <a href='#'>jobs@nimbus.dev</a>." />`}>
+<Showcase code={`<Banner variant="tip" content="We're hiring — say hi at <a href='#'>jobs@nimbus.dev</a>." />`}>
   <div class="w-full max-w-md text-left">
-    <Banner type="tip" content="We're hiring — say hi at <a href='#'>jobs@nimbus.dev</a>." />
+    <Banner variant="tip" content="We're hiring — say hi at <a href='#'>jobs@nimbus.dev</a>." />
   </div>
 </Showcase>
 
@@ -33,13 +33,13 @@ import { Banner } from "@/components/ui/banner";
 Set `dismissible` to add a close button. The dismissal persists across page loads.
 
 <Example code={`<Banner
-  type="caution"
+  variant="caution"
   content="Maintenance window: API reads are read-only from 18:00 UTC."
   dismissible={{ id: "maint-2026-06", days: 1 }}
 />`} contentClass="w-full">
   <div class="w-full">
     <Banner
-      type="caution"
+      variant="caution"
       content="Maintenance window: API reads are read-only from 18:00 UTC."
       dismissible={{ id: "demo-banner", days: 1 }}
     />

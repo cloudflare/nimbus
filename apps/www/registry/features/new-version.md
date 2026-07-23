@@ -4,7 +4,7 @@
   "type": "registry:feature",
   "title": "Add a docs version",
   "description": "End-to-end setup for adding a docs version to a Nimbus site. Creates the content directory, registers the collection, scaffolds routes, declares the manifest, installs the version-switcher picker, and wires it into your Header and DocsLayout. One command for one mental task.",
-  "markers": ["src/pages/<version>/[...slug].astro", "src/components/ui/version-switcher/VersionPicker.astro"]
+  "markers": ["src/pages/<version>/[...slug].astro", "src/components/ui/version-switcher/VersionSwitcher.astro"]
 }
 ---
 
@@ -72,7 +72,7 @@ Before prompting the user or writing anything, inspect the project:
   `entryId` props and forward them. If those props are missing, the
   user is on an older starter; tell them to upgrade before continuing
   (the picker can't function without them).
-- `src/components/Header.astro` — note whether `VersionPicker` is
+- `src/components/Header.astro` — note whether `VersionSwitcher` is
   already imported. If yes, the picker is installed and this recipe
   only needs to register the new version; the existing picker will
   pick it up automatically. If no, this recipe will install and wire
@@ -177,9 +177,9 @@ Print an exact plan before writing anything. Example:
 >    ```
 > 4. Write `src/pages/v1/[...slug].astro` (page route).
 > 5. Write `src/pages/v1/[...slug]/index.md.ts` (markdown alternate).
-> 6. Copy `VersionPicker.astro`, `index.ts`, and `README.md` into
+> 6. Copy `VersionSwitcher.astro`, `index.ts`, and `README.md` into
 >    `src/components/ui/version-switcher/`.
-> 7. Edit `src/components/Header.astro` to render `<VersionPicker
+> 7. Edit `src/components/Header.astro` to render `<VersionSwitcher
 >    collection={collection} entryId={entryId} />`.
 > 8. Edit `src/layouts/DocsLayout.astro` to render the mobile picker
 >    inside the sidebar drawer.
@@ -529,7 +529,7 @@ That command copies three files into the user's project:
 
 ```
 src/components/ui/version-switcher/
-├── VersionPicker.astro
+├── VersionSwitcher.astro
 ├── index.ts
 └── README.md
 ```
@@ -559,8 +559,8 @@ recover in this priority order:**
    GitHub repo (the registry hosts the same content):
 
    ```sh
-   curl -fsSL https://raw.githubusercontent.com/cloudflare/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/VersionPicker.astro \
-     -o src/components/ui/version-switcher/VersionPicker.astro
+   curl -fsSL https://raw.githubusercontent.com/cloudflare/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/VersionSwitcher.astro \
+     -o src/components/ui/version-switcher/VersionSwitcher.astro
    curl -fsSL https://raw.githubusercontent.com/cloudflare/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/index.ts \
      -o src/components/ui/version-switcher/index.ts
    curl -fsSL https://raw.githubusercontent.com/cloudflare/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/README.md \
@@ -578,7 +578,7 @@ recover in this priority order:**
    packages/nimbus-starter-source/src/components/ui/version-switcher/
    ```
 
-   Copy `VersionPicker.astro`, `index.ts`, and `README.md` verbatim
+   Copy `VersionSwitcher.astro`, `index.ts`, and `README.md` verbatim
    into the user's `src/components/ui/version-switcher/`.
 
 Do NOT abandon the recipe at this step. If you can't get the picker
@@ -590,11 +590,11 @@ recipe run with no picker is the worst outcome).
 
 **Edit `src/components/Header.astro`:**
 
-If `VersionPicker` isn't already imported, add the import alongside
+If `VersionSwitcher` isn't already imported, add the import alongside
 the other component imports:
 
 ```ts
-import { VersionPicker } from "./ui/version-switcher";
+import { VersionSwitcher } from "./ui/version-switcher";
 ```
 
 If the file doesn't already accept `collection` / `entryId` as props,
@@ -609,13 +609,13 @@ interface Props {
 const { collection, entryId } = Astro.props;
 ```
 
-Then render `<VersionPicker collection={collection} entryId={entryId} />`
+Then render `<VersionSwitcher collection={collection} entryId={entryId} />`
 inside the right-side cluster of the header (typically next to
 `<SearchTrigger />`):
 
 ```astro
 <div class="flex items-center gap-2">
-  <VersionPicker collection={collection} entryId={entryId} />
+  <VersionSwitcher collection={collection} entryId={entryId} />
   {config.search !== false && <SearchTrigger />}
   {/* ... other header controls ... */}
 </div>
@@ -626,7 +626,7 @@ inside the right-side cluster of the header (typically next to
 Add the import alongside the others:
 
 ```ts
-import { VersionPicker } from "@/components/ui/version-switcher";
+import { VersionSwitcher } from "@/components/ui/version-switcher";
 ```
 
 Find the mobile sidebar drawer — the `<dialog data-mobile-sidebar>`
@@ -652,7 +652,7 @@ desktop header's unconditional render:
 
 ```astro
 <nav class="px-4 pb-8 pt-5">
-  <VersionPicker collection={collection} entryId={entryId} variant="sidebar" />
+  <VersionSwitcher collection={collection} entryId={entryId} variant="sidebar" />
   {hasSidebar ? <slot name="sidebar" /> : (
     <Fragment>
       <SidebarFilter />
