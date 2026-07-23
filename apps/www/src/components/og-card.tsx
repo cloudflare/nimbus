@@ -1,6 +1,6 @@
 /**
- * 1200×630 OG card. Rendered at build time into PNGs under `/og/*`
- * (Satori → resvg).
+ * 1200×630 OG card, dark-mode palette (mirrors the site's dark tokens).
+ * Rendered at build time into PNGs under `/og/*` (Satori → resvg).
  *
  * Satori has a CSS subset (flexbox + absolute positioning, no
  * -webkit-line-clamp, no shorthand borders). The layout below stays inside
@@ -16,14 +16,15 @@ const truncate = (s: string, max: number) =>
 type OgCardProps = {
   title?: string;
   description?: string;
-  /** Defaults to `/bg-cloud.png` for browser preview. The Satori endpoint
-   *  passes a data URI so the build doesn't depend on a running server. */
+  /** The Satori endpoint passes a dark-mode-keyed cloud as a data URI so the
+   *  build doesn't depend on a running server. The `/bg-cloud.png` default is
+   *  the raw light-mode asset, kept only as a fallback. */
   cloudSrc?: string;
 };
 
 export const OgCard = ({
   title = "Nimbus",
-  description = "The modern way to write docs in the AI era.",
+  description = "Docs for the agentic web.",
   cloudSrc = "/bg-cloud.png",
 }: OgCardProps) => {
   const t = truncate(title, 55);
@@ -35,13 +36,10 @@ export const OgCard = ({
         height: 630,
         display: "flex",
         position: "relative",
-        background: "white",
-        borderWidth: 1,
-        borderStyle: "solid",
-        borderColor: "black",
+        background: "#0F0F0F",
         boxSizing: "border-box",
         fontFamily: "Belleza, system-ui, sans-serif",
-        color: "black",
+        color: "#F5F5F5",
         overflow: "hidden",
       }}
     >
@@ -84,7 +82,7 @@ export const OgCard = ({
           fontWeight: 400,
           lineHeight: 1.05,
           letterSpacing: "-0.025em",
-          color: "black",
+          color: "#F5F5F5",
           display: "flex",
         }}
       >
@@ -101,7 +99,7 @@ export const OgCard = ({
           fontSize: 28,
           fontWeight: 500,
           lineHeight: 1.3,
-          color: "#343434",
+          color: "#CBCBCB",
           display: "flex",
         }}
       >

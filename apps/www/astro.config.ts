@@ -7,7 +7,7 @@ import nimbus, { defineConfig as defineNimbusConfig } from "@cloudflare/nimbus-d
 const nimbusConfig = defineNimbusConfig({
   site: "https://nimbus-docs.com",
   title: "Nimbus",
-  description: "The modern way to write docs in the AI era.",
+  description: "Docs for the agentic web.",
   locale: "en",
   github: "https://github.com/cloudflare/nimbus",
   socialImageAlt: "Nimbus documentation preview",
