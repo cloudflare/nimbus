@@ -1,5 +1,13 @@
 # @cloudflare/create-nimbus-docs
 
+## 0.6.2
+
+### Patch Changes
+
+- [#42](https://github.com/cloudflare/nimbus/pull/42) [`8e4e210`](https://github.com/cloudflare/nimbus/commit/8e4e21081a77fff3779fad559b9e82149fa97a66) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Scaffolded projects now include a committed `nimbus.json` — a CLI-managed record of the `create-nimbus-docs` version, the `templates-v*` tag, the install root, and (as you `nimbus-docs add`) each installed component's provenance. Starter components also get an API-consistency pass: `type`→`variant` on Banner/Callout, `VersionPicker`→`VersionSwitcher`, hydration moved out of inline scripts into `.client.ts` files via the `mount()` primitive, and a single `getRouteFlags` layout-flag helper. The scaffolded `AGENT.md` now documents the `outdated` / `diff` / `add --overwrite` upgrade flow.
+
+- [#34](https://github.com/cloudflare/nimbus/pull/34) [`b8a1235`](https://github.com/cloudflare/nimbus/commit/b8a12359835666b9ec698fd76cda05d6915bc11b) Thanks [@mvvmm](https://github.com/mvvmm)! - Bump for the `@cloudflare/nimbus-docs` minor in this release (full glob support for `ignore` in `internal-link`/`image-ref`) — no starter-source changes.
+
 ## 0.6.1
 
 ### Patch Changes

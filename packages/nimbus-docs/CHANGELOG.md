@@ -1,5 +1,32 @@
 # @cloudflare/nimbus-docs
 
+## 0.8.0
+
+### Minor Changes
+
+- [#42](https://github.com/cloudflare/nimbus/pull/42) [`8e4e210`](https://github.com/cloudflare/nimbus/commit/8e4e21081a77fff3779fad559b9e82149fa97a66) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Add the ownership + upgrade loop to the `nimbus-docs` CLI:
+
+  - **`nimbus-docs init`** — reconstruct a `nimbus.json` for a project that lacks one (scaffolded before this record existed, an existing Astro site adopting Nimbus, or a deleted record), matching installed components against the registry and marking what it can't recover.
+  - **`nimbus-docs outdated`** — a read-only check across both tiers: starter files behind their `templates-v*` tag (which `git diff` can't show) and registry components whose recorded bytes differ from the registry.
+  - **`nimbus-docs diff [file]`** / **`diff --apply <file>`** — review upstream/your changes to starter files, and pull a clean upstream change per file (never a merge).
+  - **`nimbus-docs add <slug> --overwrite`** — re-install a component over your copy (review with `git diff`). `add` also records each install in `nimbus.json`.
+
+  Also adds a `getRouteFlags` layout-flag helper and a CI guard for the registry tier invariants.
+
+  **Migration — `add --yes` no longer overwrites files you own.** It now assents to prompts (dependency installs, etc.) but keeps existing files on conflict, so a bare `-y` in CI never clobbers your code. Use `--overwrite` to replace files.
+
+  ```bash
+  # before — --yes overwrote conflicting files
+  nimbus-docs add card --yes
+
+  # after — replace files explicitly
+  nimbus-docs add card --overwrite
+  ```
+
+- [#34](https://github.com/cloudflare/nimbus/pull/34) [`73bbecf`](https://github.com/cloudflare/nimbus/commit/73bbecfddcd788a0eaecb3d0eb9c404b4b4a1882) Thanks [@mvvmm](https://github.com/mvvmm)! - `nimbus/internal-link` and `nimbus/image-ref` now match their `ignore: string[]` option against full glob syntax (`**`, `*`, `{a,b}`, extglobs, …) via `picomatch`, not just an exact match or a `prefix` immediately followed by `/**`. In particular, a leading any-depth wildcard like `**/llms.txt` is now supported — the previous hand-rolled matcher had no way to express that.
+
+  Existing `ignore` lists using only exact paths or `prefix/**` patterns keep working unchanged.
+
 ## 0.7.1
 
 ### Patch Changes
