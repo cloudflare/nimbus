@@ -6,36 +6,49 @@
 
 import type { Heading } from "./partial-headings.js";
 
-const HEADING = /<h([1-6])\b([^>]*)>([\s\S]*?)<\/h\1>/gi;
-const ID_ATTR = /\bid=["']([^"']+)["']/i;
+const HEADING = /<h([1-6])\b([^<>]*)>([\s\S]*?)<\/h\1>/gi;
+// Anchor to an attribute boundary so `data-id`/`data-section-id` can't be
+// mistaken for `id` (attributes are whitespace-separated).
+const ID_ATTR = /(?:^|\s)id=["']([^"']+)["']/i;
 
-const ENTITIES: Record<string, string> = {
-  "&amp;": "&",
-  "&lt;": "<",
-  "&gt;": ">",
-  "&quot;": '"',
-  "&#39;": "'",
-  "&#x27;": "'",
-  "&nbsp;": " ",
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
 };
 
-// Strip tags to completion: a single pass can leave a reconstructable tag
-// for nested inputs (e.g. `<sc<script>ript>`), so repeat until stable.
+function decodeEntities(text: string): string {
+  return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (match, code: string) => {
+    if (code[0] === "#") {
+      const cp =
+        code[1]?.toLowerCase() === "x"
+          ? parseInt(code.slice(2), 16)
+          : parseInt(code.slice(1), 10);
+      return cp >= 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : match;
+    }
+    return NAMED_ENTITIES[code.toLowerCase()] ?? match;
+  });
+}
+
+// Drop everything between `<` and `>` in a single linear pass. Depth-tracking
+// handles nested/malformed inputs (e.g. `<sc<script>ript>`) without the
+// backtracking or repeated scans a regex approach would need.
 function stripTags(html: string): string {
-  let out = html;
-  let previous: string;
-  do {
-    previous = out;
-    out = out.replace(/<[^>]*>/g, "");
-  } while (out !== previous);
+  let out = "";
+  let depth = 0;
+  for (const ch of html) {
+    if (ch === "<") depth++;
+    else if (ch === ">") depth = Math.max(0, depth - 1);
+    else if (depth === 0) out += ch;
+  }
   return out;
 }
 
 function toText(inner: string): string {
-  return stripTags(inner)
-    .replace(/&(?:amp|lt|gt|quot|nbsp|#39|#x27);/gi, (m) => ENTITIES[m.toLowerCase()] ?? m)
-    .replace(/\s+/g, " ")
-    .trim();
+  return decodeEntities(stripTags(inner)).replace(/\s+/g, " ").trim();
 }
 
 /**

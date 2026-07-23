@@ -36,13 +36,6 @@ test("strips inner markup and decodes entities in text", () => {
   ]);
 });
 
-test("reads id regardless of attribute order", () => {
-  const html = `<h3 class="foo" data-x="1" id="y">Y</h3>`;
-  assert.deepEqual(getHeadingsFromHtml(html), [
-    { depth: 3, slug: "y", text: "Y" },
-  ]);
-});
-
 test("drops the footnote-label heading", () => {
   const html = `<h2 id="footnote-label">Footnotes</h2><h2 id="real">Real</h2>`;
   assert.deepEqual(getHeadingsFromHtml(html), [
@@ -62,6 +55,32 @@ test("strips nested tags to completion (no reconstructable tag survives)", () =>
   const [heading] = getHeadingsFromHtml(html);
   assert.equal(heading?.slug, "x");
   assert.ok(!/<[^>]*>/.test(heading!.text));
+});
+
+test("does not mistake data-id (or other data-*id) for id", () => {
+  const html = `<h2 data-id="WRONG" data-section-id="ALSO-WRONG" id="right">Title</h2>`;
+  assert.deepEqual(getHeadingsFromHtml(html), [
+    { depth: 2, slug: "right", text: "Title" },
+  ]);
+});
+
+test("skips a heading carrying only data-id (no real id)", () => {
+  const html = `<h2 data-id="x">Title</h2>`;
+  assert.deepEqual(getHeadingsFromHtml(html), []);
+});
+
+test("decodes decimal and hex numeric entities in text", () => {
+  const html = `<h2 id="x">A &#8212; B &#x2014; C &#39;q&#x27;</h2>`;
+  assert.deepEqual(getHeadingsFromHtml(html), [
+    { depth: 2, slug: "x", text: "A \u2014 B \u2014 C 'q'" },
+  ]);
+});
+
+test("leaves unknown named entities untouched", () => {
+  const html = `<h2 id="x">a &bogus; b</h2>`;
+  assert.deepEqual(getHeadingsFromHtml(html), [
+    { depth: 2, slug: "x", text: "a &bogus; b" },
+  ]);
 });
 
 test("returns empty for empty/undefined input", () => {
