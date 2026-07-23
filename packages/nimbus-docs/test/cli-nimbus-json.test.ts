@@ -208,7 +208,7 @@ test("installComponents writes registry files against a custom srcRoot (monorepo
   await withProject(async (cwd) => {
     const report = await installComponents(
       [uiItem("dialog", [{ path: "components/ui/dialog/Dialog.astro", content: "hi" }])],
-      { cwd, yes: true, srcRoot: "packages/docs/src" },
+      { cwd, yes: true, overwrite: false, srcRoot: "packages/docs/src" },
     );
     assert.equal(
       existsSync(path.join(cwd, "packages/docs/src/components/ui/dialog/Dialog.astro")),

@@ -43,6 +43,7 @@ import {
   resolveComponentTree,
   type ComponentItem,
 } from "./resolver.js";
+import { diffCommand, outdatedCommand } from "./upgrade.js";
 
 // Named exports of a component's barrel (`components/ui/<slug>/index.ts`), for
 // the "register in components.ts" hint after install.
@@ -77,10 +78,15 @@ interface CliArgs {
   quiet: boolean;
   fix: boolean;
   force: boolean;
+  overwrite: boolean;
+  all: boolean;
+  apply: boolean;
   type?: string;
   format?: string;
   rule?: string;
   root?: string;
+  to?: string;
+  "template-dir"?: string;
   color?: boolean;
 }
 
@@ -92,10 +98,17 @@ const HELP = `
     add                            Same as \`list\`
     add <slug>                     Install a component or hand off a feature
     init                           Create the committed nimbus.json record (adopt an existing project)
+    outdated                       Show what's behind upstream (starter files + registry components)
+    diff [file]                    Show upstream/your changes to starter files (read-only)
     lint                           Lint .mdx content for authoring-quality issues
 
   Flags:
-    --yes, -y                      Component: overwrite conflicts without prompting
+    --yes, -y                      Assume yes for prompts; keep existing files on conflict
+    --overwrite                    \`add\`: replace existing files with registry versions (upgrade)
+    --apply                        \`diff <file>\`: write the upstream change (clean files only)
+    --all                          \`outdated\`/\`diff\`: include content files (hidden by default)
+    --to <templates-vX.Y.Z>        \`outdated\`/\`diff\`: compare against a specific tag (default latest)
+    --template-dir <path>          \`outdated\`/\`diff\`: compare against a local checkout (offline)
     --print                        Feature: print markdown to stdout (skip agent detect)
     --force                        \`init\`: rebuild an existing nimbus.json
     --root <dir>                   \`init\`: src dir to scan (monorepo; default src)
@@ -109,6 +122,8 @@ const HELP = `
 
   Examples:
     nimbus-docs add dialog                              # component: resolve + install
+    nimbus-docs add card --overwrite                    # re-install over your copy (review with git)
+    nimbus-docs outdated                                # what's behind upstream (starter + registry)
     nimbus-docs init                                    # adopt an existing repo — writes nimbus.json
     nimbus-docs add 404-page --print | claude           # explicit pipe to claude
     nimbus-docs lint                                    # pretty output, exit non-zero on error
@@ -118,8 +133,8 @@ const HELP = `
 
 async function main(): Promise<void> {
   const args = mri(process.argv.slice(2), {
-    boolean: ["yes", "print", "help", "version", "quiet", "color", "fix", "force"],
-    string: ["type", "format", "rule", "root"],
+    boolean: ["yes", "print", "help", "version", "quiet", "color", "fix", "force", "overwrite", "all", "apply"],
+    string: ["type", "format", "rule", "root", "to", "template-dir"],
     default: { color: undefined },
     alias: { y: "yes", h: "help", v: "version" },
   }) as unknown as CliArgs;
@@ -151,6 +166,22 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "outdated") {
+    await outdatedCommand({ all: args.all, to: args.to, templateDir: args["template-dir"] });
+    return;
+  }
+
+  if (command === "diff") {
+    await diffCommand(slug, {
+      all: args.all,
+      apply: args.apply,
+      to: args.to,
+      templateDir: args["template-dir"],
+      color: args.color,
+    });
+    return;
+  }
+
   if (command === "list" || (command === "add" && !slug) || !command) {
     listCommand(args.type);
     return;
@@ -160,6 +191,7 @@ async function main(): Promise<void> {
     await addCommand(slug!, {
       yes: args.yes,
       print: args.print,
+      overwrite: args.overwrite,
     });
     return;
   }
@@ -238,7 +270,7 @@ function listCommand(typeFilter: string | undefined): void {
 
 async function addCommand(
   slug: string,
-  flags: { yes: boolean; print: boolean },
+  flags: { yes: boolean; print: boolean; overwrite: boolean },
 ): Promise<void> {
   const entry = getIndexEntry(slug);
   if (!entry) {
@@ -285,6 +317,7 @@ async function addCommand(
   const report = await installComponents(items, {
     cwd,
     yes: flags.yes,
+    overwrite: flags.overwrite,
     srcRoot,
   });
 
@@ -293,7 +326,7 @@ async function addCommand(
     lines.push(`✓ Wrote ${report.written.length} file${report.written.length === 1 ? "" : "s"}`);
   }
   if (report.skipped.length > 0) {
-    lines.push(`↷ Skipped: ${report.skipped.join(", ")}`);
+    lines.push(`↷ Kept existing: ${report.skipped.join(", ")} — pass --overwrite to replace`);
   }
   if (report.npmDepsInstalled.length > 0) {
     lines.push(
@@ -310,7 +343,10 @@ async function addCommand(
         cwd,
         recordInstalled(nimbus, installed, { source: registrySource(), srcRoot }),
       );
-      lines.push(`✎ Recorded ${installed.map((i) => i.name).join(", ")} in nimbus.json`);
+      lines.push(
+        `✎ Recorded ${installed.map((i) => i.name).join(", ")} in nimbus.json`,
+        "  Later: `nimbus-docs outdated` shows when your files fall behind upstream.",
+      );
     } else {
       p.log.info(
         "No nimbus.json here — run `nimbus-docs init` to track installed components for upgrades.",

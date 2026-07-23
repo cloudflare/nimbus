@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-The `nimbus-docs` CLI lists what's in the registry, installs it, records what you own in [`nimbus.json`](/project-structure), and lints your MDX content.
+The `nimbus-docs` CLI lists what's in the registry, installs it, records what you own in [`nimbus.json`](/project-structure), shows what's fallen behind upstream, and lints your MDX content.
 
 ## `nimbus-docs list`
 
@@ -45,11 +45,13 @@ For `registry:ui` and `registry:lib` slugs, the CLI resolves dependencies, copie
   </Step>
 </Steps>
 
-Pass `--yes` to skip overwrite prompts:
+If a component is already installed, `add` keeps your copy — it never clobbers files you own. Pass `--overwrite` to replace them with the registry version (the upgrade path); review the change with `git diff`:
 
 ```bash
-nimbus-docs add badge --yes
+nimbus-docs add badge --overwrite
 ```
+
+`--yes` assents to prompts (e.g. dependency installs) without touching existing files — so it's safe in CI. Use `--overwrite` when you actually mean "replace my files."
 
 Once installed, the component lives in your repo. Edit freely — there's no upstream API to break. Each `add` also appends an entry to your [`nimbus.json`](/project-structure) — slug, source registry, and a content hash — so later upgrades can track what you own.
 
@@ -88,6 +90,36 @@ The starter version and `templates-v*` tag can't be recovered from the repo alon
 nimbus-docs init --root packages/docs   # scan a nested package (monorepo)
 nimbus-docs init --force                # rebuild an existing record
 ```
+
+## Keeping up to date
+
+You own your files, so upgrades are opt-in — nothing changes under you. Two commands, one for each tier:
+
+### `nimbus-docs outdated`
+
+The read-only "am I behind?" check, across both tiers:
+
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="outdated" />
+
+- **Registry components** — compares each recorded content hash against the current registry; run `add <slug> --overwrite` to update.
+- **Starter files** — compares your scaffolded files against the upstream `templates-v*` tag. Because those files came from a tag that was never in your git history, plain `git diff` can't show this. Content files are hidden by default (`--all` to include them).
+
+### `nimbus-docs diff [file]`
+
+Read-only detail for starter files — what you changed, and what changed upstream:
+
+```bash
+nimbus-docs diff                                   # every changed starter file
+nimbus-docs diff src/components/ui/aside/Aside.astro   # one file
+```
+
+Each file is one of: **clean to pull** (upstream changed, you didn't), **hand-merge** (you both changed it), or **your changes** (you edited it, upstream didn't). For a clean file you can let the CLI write the upstream version:
+
+```bash
+nimbus-docs diff src/components/ui/aside/Aside.astro --apply
+```
+
+`--apply` is explicit and per-file, and refuses anything you've edited — it only pulls clean upstream changes, never merges. Review with `git diff` afterward. Pass `--to <templates-vX.Y.Z>` to target a specific tag, or `--template-dir <path>` to compare offline against a local checkout.
 
 ## `nimbus-docs lint`
 

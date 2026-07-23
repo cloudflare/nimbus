@@ -26,7 +26,10 @@ import type { ComponentItem } from "./resolver.js";
 export interface InstallOptions {
   /** User's project root. */
   cwd: string;
-  /** Skip overwrite prompts; assume "overwrite" on every conflict. */
+  /** The upgrade verb: replace every conflicting file in the tree, no prompt. */
+  overwrite: boolean;
+  /** Non-interactive assent (dep install etc.); conflict default is to KEEP the
+   * user's file (never clobber). `--overwrite` is the way to replace. */
   yes: boolean;
   /** Src dir to write against, relative to `cwd` (default `"src"`; monorepo root from nimbus.json). */
   srcRoot?: string;
@@ -80,31 +83,29 @@ export async function installComponents(
 
     const conflicts = filePlans.filter((f) => f.exists);
 
-    // Utilities (registry:lib) are transitive dependencies of UI
-    // components — install silently when missing, skip silently when
-    // present. Never prompt or overwrite: users may have customized
-    // them (e.g. cn) and being asked about `cn` every time you `add` a
-    // component is noise.
+    // `--overwrite` replaces every conflicting file across the tree — the
+    // explicit upgrade path. Without it we never clobber an owned file.
     if (item.type === "registry:lib") {
-      if (conflicts.length > 0) {
+      // Utilities (e.g. cn) are transitive deps users often customize — keep
+      // their copy when present unless an explicit upgrade asks to replace it.
+      if (conflicts.length > 0 && !options.overwrite) {
         report.skipped.push(item.name);
         continue;
       }
-    } else if (conflicts.length > 0 && !options.yes) {
+    } else if (conflicts.length > 0 && !options.overwrite) {
       const total = filePlans.length;
+
+      // Non-interactive (or `--yes`): keep the user's files. `--yes` is assent
+      // to prompts, not permission to clobber — `--overwrite` does that.
+      if (options.yes || !process.stdin.isTTY) {
+        report.skipped.push(item.name);
+        continue;
+      }
+
       const message =
         conflicts.length === total
           ? `${item.name} is already installed (${total} file${total === 1 ? "" : "s"}). Overwrite?`
           : `${item.name} is partially installed (${conflicts.length} of ${total} file${total === 1 ? "" : "s"} present). Overwrite all?`;
-
-      if (!process.stdin.isTTY) {
-        p.log.error(
-          `${item.name}: ${conflicts.length} of ${total} file${total === 1 ? "" : "s"} already present, ` +
-            `and stdin is not a TTY so the overwrite prompt can't be shown. ` +
-            `Re-run with --yes to overwrite conflicts, or from an interactive terminal.`,
-        );
-        process.exit(1);
-      }
 
       const choice = await p.select({
         message,
@@ -113,7 +114,7 @@ export async function installComponents(
           { value: "skip", label: "Skip — leave files as-is" },
           { value: "cancel", label: "Cancel install" },
         ],
-        initialValue: "overwrite",
+        initialValue: "skip",
       });
 
       if (p.isCancel(choice) || choice === "cancel") {
