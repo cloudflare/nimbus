@@ -33,6 +33,8 @@ export interface ComponentItem {
   type: "registry:ui" | "registry:lib";
   title: string;
   description: string;
+  /** Registry release this item shipped in (provenance; drift is decided by hash). Optional. */
+  version?: string;
   dependencies: string[];
   registryDependencies: string[];
   files: RegistryFile[];
@@ -55,30 +57,27 @@ const NPM_NAME_RE =
 // Registry slug (`card-grid`, `404-page`), interpolated into the fetch URL.
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
-const registryFileSchema = z
-  .object({
-    path: z.string().min(1),
-    content: z.string(),
-  })
-  .strict();
+// Not strict: unknown keys strip (not reject) so the wire format can grow without
+// breaking installed CLIs. Safety is per-field (shell/URL/fs constraints), below.
+const registryFileSchema = z.object({
+  path: z.string().min(1),
+  content: z.string(),
+});
 
-const componentItemSchema = z
-  .object({
-    name: z.string().min(1),
-    type: z.enum(["registry:ui", "registry:lib"]),
-    title: z.string(),
-    description: z.string(),
-    dependencies: z.array(
-      z
-        .string()
-        .regex(NPM_NAME_RE, "is not a valid npm package name"),
-    ),
-    registryDependencies: z.array(
-      z.string().regex(SLUG_RE, "is not a valid registry slug"),
-    ),
-    files: z.array(registryFileSchema),
-  })
-  .strict();
+const componentItemSchema = z.object({
+  name: z.string().min(1),
+  type: z.enum(["registry:ui", "registry:lib"]),
+  title: z.string(),
+  description: z.string(),
+  version: z.string().optional(),
+  dependencies: z.array(
+    z.string().regex(NPM_NAME_RE, "is not a valid npm package name"),
+  ),
+  registryDependencies: z.array(
+    z.string().regex(SLUG_RE, "is not a valid registry slug"),
+  ),
+  files: z.array(registryFileSchema),
+});
 
 function formatZodIssues(error: z.ZodError): string {
   return error.issues

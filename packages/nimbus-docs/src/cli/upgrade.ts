@@ -26,6 +26,15 @@ import { fetchComponent, type ComponentItem } from "./resolver.js";
 export interface RegistryFinding {
   slug: string;
   status: "behind" | "unverified";
+  /** Recorded → current registry version, when both are known (context only —
+   * drift itself is decided by content hash). */
+  from?: string | null;
+  to?: string | null;
+}
+
+/** `slug` or `slug (0.7.0 → 0.9.0)` when versions are known and differ. */
+export function labelWithVersions(f: RegistryFinding): string {
+  return f.from && f.to && f.from !== f.to ? `${f.slug} (${f.from} → ${f.to})` : f.slug;
 }
 
 export async function registryDrift(
@@ -39,7 +48,7 @@ export async function registryDrift(
     if (!item) {
       findings.push({ slug: c.slug, status: "unverified" });
     } else if (bytesHash(item.files) !== c.hash) {
-      findings.push({ slug: c.slug, status: "behind" });
+      findings.push({ slug: c.slug, status: "behind", from: c.version ?? null, to: item.version ?? null });
     }
   }
   return findings;
@@ -180,7 +189,7 @@ export async function outdatedCommand(flags: UpgradeFlags): Promise<void> {
   p.intro("nimbus-docs outdated");
 
   const reg = await registryDrift(nimbus, safeFetch);
-  const behind = reg.filter((r) => r.status === "behind").map((r) => r.slug);
+  const behind = reg.filter((r) => r.status === "behind").map(labelWithVersions);
   const unverified = reg.filter((r) => r.status === "unverified").map((r) => r.slug);
 
   const lines: string[] = [];

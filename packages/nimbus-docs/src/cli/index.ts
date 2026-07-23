@@ -260,7 +260,8 @@ function listCommand(typeFilter: string | undefined): void {
     process.stdout.write("\n");
   }
   process.stdout.write(
-    `  Install:  nimbus-docs add <name>     ·  ${items.length} item${items.length === 1 ? "" : "s"}\n\n`,
+    `  Install:  nimbus-docs add <name>     ·  ${items.length} item${items.length === 1 ? "" : "s"}` +
+      `  ·  registry ${BUNDLED_INDEX.registryVersion}\n\n`,
   );
 }
 
@@ -344,7 +345,7 @@ async function addCommand(
         recordInstalled(nimbus, installed, { source: registrySource(), srcRoot }),
       );
       lines.push(
-        `✎ Recorded ${installed.map((i) => i.name).join(", ")} in nimbus.json`,
+        `✎ Recorded ${installed.map((i) => (i.version ? `${i.name}@${i.version}` : i.name)).join(", ")} in nimbus.json`,
         "  Later: `nimbus-docs outdated` shows when your files fall behind upstream.",
       );
     } else {
@@ -391,6 +392,3 @@ main().catch((err) => {
   p.log.error(`${(err as Error).message}`);
   process.exit(1);
 });
-
-// Tell TS BUNDLED_INDEX is used (so no `verbatimModuleSyntax` warning).
-void BUNDLED_INDEX;

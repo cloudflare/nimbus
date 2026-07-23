@@ -18,8 +18,9 @@ export const NIMBUS_JSON = "nimbus.json";
 const DEFAULT_ROOT = "src";
 
 // One `add`-installed registry item, recorded for provenance / drift checks.
-//   hash          `sha256:…` of the source (registry) bytes — the only comparable
-//                 identity until the wire format grows a version (DX-4); `null` = unknown.
+//   version       registry release the item was pulled from (provenance); null when
+//                 the registry doesn't publish versions yet.
+//   hash          `sha256:…` of the source (registry) bytes — the drift signal; `null` = unknown.
 //   modified      `init` only: on-disk bytes already differ from the recorded source.
 //   handAuthored  `init` only: found on disk, matched to no registry item.
 const installedComponentSchema = z
@@ -27,6 +28,7 @@ const installedComponentSchema = z
     slug: z.string(),
     // Not an enum: keep reads forward-compatible with future item types (DX-4).
     type: z.string(),
+    version: z.string().nullable().optional(),
     // `null` for a hand-authored item that matched no registry (no honest source).
     source: z.string().nullable(),
     hash: z.string().nullable(),
@@ -130,6 +132,7 @@ export function toInstalledComponent(
   return {
     slug: item.name,
     type: item.type,
+    version: item.version ?? null,
     source: opts.source,
     hash: bytesHash(item.files),
     files: opts.files,

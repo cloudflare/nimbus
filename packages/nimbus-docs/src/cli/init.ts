@@ -85,6 +85,8 @@ function classify(
     record: {
       slug: item.name,
       type: item.type,
+      // A modified item's origin version is unknown — don't back-stamp today's.
+      version: modified ? null : item.version ?? null,
       source: opts.source,
       hash: sourceHash,
       files: expected,

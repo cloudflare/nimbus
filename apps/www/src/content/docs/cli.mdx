@@ -53,7 +53,7 @@ nimbus-docs add badge --overwrite
 
 `--yes` assents to prompts (e.g. dependency installs) without touching existing files — so it's safe in CI. Use `--overwrite` when you actually mean "replace my files."
 
-Once installed, the component lives in your repo. Edit freely — there's no upstream API to break. Each `add` also appends an entry to your [`nimbus.json`](/project-structure) — slug, source registry, and a content hash — so later upgrades can track what you own.
+Once installed, the component lives in your repo. Edit freely — there's no upstream API to break. Each `add` also appends an entry to your [`nimbus.json`](/project-structure) — slug, source registry, the registry release it came from, and a content hash — so later upgrades can track what you own.
 
 ### Features
 

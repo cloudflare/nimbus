@@ -19,6 +19,7 @@ export interface RegistryIndexEntry {
 
 export interface BundledIndex {
   version: 1;
+  registryVersion: string;
   items: Record<string, RegistryIndexEntry>;
 }
 
@@ -26,6 +27,7 @@ export const REGISTRY_BASE_URL = "https://nimbus-docs.com/registry";
 
 export const BUNDLED_INDEX: BundledIndex = {
   "version": 1,
+  "registryVersion": "0.7.0",
   "items": {
     "cn": {
       "name": "cn",

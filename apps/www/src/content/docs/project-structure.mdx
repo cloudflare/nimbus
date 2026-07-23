@@ -39,7 +39,7 @@ A scaffolded Nimbus project is a regular Astro project. Everything visible lives
 
 ## `nimbus.json` — the provenance record
 
-Alongside your files the scaffolder writes a small, CLI-managed **`nimbus.json`**. It records the `create-nimbus-docs` version and the `templates-v*` tag your starter came from, where components install (`install.root`), and one entry per component you [`add`](/cli) — each with its source registry and a content hash.
+Alongside your files the scaffolder writes a small, CLI-managed **`nimbus.json`**. It records the `create-nimbus-docs` version and the `templates-v*` tag your starter came from, where components install (`install.root`), and one entry per component you [`add`](/cli) — each with its source registry, the registry release it shipped in, and a content hash.
 
 It is the machine half of a pair: your **behavior** config (versions, features, sidebar) is human-authored in `astro.config.ts` via `nimbus(...)`; **`nimbus.json`** is the surface the CLI reads and rewrites. [`nimbus-docs add`](/cli) appends to it; [`nimbus-docs init`](/cli) rebuilds it for a project that predates it or is adopting Nimbus. **Commit it** — it is how upgrades know what you own (it is not `.nimbus/`, which is gitignored build scratch).
 
