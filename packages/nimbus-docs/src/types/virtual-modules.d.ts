@@ -44,6 +44,11 @@ declare module "astro:content" {
     filter?: (entry: CollectionEntry<C>) => boolean,
   ): Promise<CollectionEntry<C>[]>;
 
+  export function getEntry<C extends string = string>(
+    collection: C,
+    id: string,
+  ): Promise<CollectionEntry<C> | undefined>;
+
   export function render(entry: CollectionEntry<string>): Promise<{
     Content: import("astro/runtime/server/index.js").AstroComponentFactory;
     headings: { depth: number; text: string; slug: string }[];
