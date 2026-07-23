@@ -24,6 +24,10 @@
  *   - External URLs (any scheme, incl. `data:`, and `//`) are skipped —
  *     remote existence checks are a network concern, not a lint.
  *   - Dynamic JSX attrs (`<img src={x}>`) are skipped — not checkable.
+ *   - `ignore: string[]` supports full glob syntax (`**`, `*`, `{a,b}`, …)
+ *     via `../../_internal/ignore-glob.js` (picomatch-backed), matched
+ *     against the cleaned URL (query/hash stripped, percent-decoded) —
+ *     same shape as `internal-link`'s option.
  *
  * A miss whose containing directory exists produces a "did you mean" hint
  * from that directory's entries via Levenshtein distance.
@@ -32,6 +36,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { matchesAnyIgnore } from "../../_internal/ignore-glob.js";
 import { suggest } from "../../_internal/levenshtein.js";
 import { collect, startOf, visit, type MdNode } from "../parse.js";
 import type { Rule } from "../rule.js";
@@ -41,9 +46,10 @@ export const imageRef: Rule = {
   run(ctx) {
     const root = inferProjectRoot(ctx.file.absPath);
     const aliases = readAliases(ctx.options.aliases);
-    const ignore = Array.isArray(ctx.options.ignore)
-      ? ctx.options.ignore.filter((s): s is string => typeof s === "string")
-      : [];
+    // Pass through raw, unfiltered — `matchesAnyIgnore` caches its
+    // compiled matcher on this array's identity. Filtering here would
+    // break that cache (new array per file).
+    const ignore = ctx.options.ignore;
     const extraComponents = readExtraComponents(ctx.options.components);
     const definitions = collectDefinitions(ctx.file.tree);
 
@@ -274,26 +280,6 @@ function suggestSibling(fullPath: string): string | null {
     return null;
   }
   return suggest(path.basename(fullPath), new Set(entries), 3);
-}
-
-/**
- * Minimal glob matcher — exact match or `prefix/**` suffix, same shape as
- * `internal-link`'s. Patterns are authored against the raw cleaned URL
- * (e.g. `/images/generated/**`).
- */
-function matchesAnyIgnore(url: string, patterns: string[]): boolean {
-  if (patterns.length === 0) return false;
-  for (const pat of patterns) {
-    const stripped =
-      pat.length > 1 && pat.endsWith("/") ? pat.slice(0, -1) : pat;
-    if (stripped.endsWith("/**")) {
-      const prefix = stripped.slice(0, -3);
-      if (url === prefix || url.startsWith(`${prefix}/`)) return true;
-    } else if (url === stripped) {
-      return true;
-    }
-  }
-  return false;
 }
 
 /** Find the project root from a content file by walking up to the parent of `src`. */

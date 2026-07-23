@@ -52,6 +52,10 @@ import {
   type BreadcrumbOptions,
 } from "./_internal/navigation.js";
 import { getHeadings } from "./_internal/toc.js";
+import {
+  mergePartialHeadings,
+  type PartialHeadingOptions,
+} from "./_internal/partial-headings.js";
 import { getLastUpdatedFromGit } from "./_internal/git-last-updated.js";
 import {
   clearValidInternalLinksCache,
@@ -102,6 +106,18 @@ export type {
   VersionStatus,
   VersionsConfig,
 } from "./types.js";
+
+export type { PartialHeadingOptions } from "./_internal/partial-headings.js";
+export type { Heading } from "./_internal/partial-headings.js";
+
+/**
+ * Collect headings from rendered HTML (see {@link getHeadingsFromHtml}).
+ *
+ * Use when a page's `Content` is rendered to a string so that runtime
+ * headings (e.g. those injected via `set:html`) reach the TOC. Feed the
+ * result to {@link getTOC}.
+ */
+export { getHeadingsFromHtml } from "./_internal/rendered-headings.js";
 
 /**
  * Define a typed Nimbus config. Returns the config unchanged but inferred.
@@ -919,6 +935,11 @@ export const getDocsStaticPaths: GetStaticPaths = async () => {
  * pieces a docs page needs: the typed entry, the renderable `<Content />`
  * component, and the headings list (for TOC generation).
  *
+ * Headings from `<Render file="..." />` partials are recursively merged
+ * into the returned list in document order. Pass `partialHeadings:
+ * { resolvePartialId }` to customise how `<Render>` attributes map to
+ * a partial collection id (e.g. cloudflare-docs' `product` convention).
+ *
  * Pass the page's `Astro` global. Throws if `Astro.props.entry` is missing,
  * which indicates the page didn't wire `getDocsStaticPaths` (or a custom
  * equivalent) correctly.
@@ -926,8 +947,20 @@ export const getDocsStaticPaths: GetStaticPaths = async () => {
  * Usage:
  *
  *   const { entry, Content, headings } = await getDocsPageProps(Astro);
+ *
+ * With a custom partial-id resolver:
+ *
+ *   const { entry, Content, headings } = await getDocsPageProps(Astro, {
+ *     partialHeadings: {
+ *       resolvePartialId: ({ file, product }) =>
+ *         product ? `${product}/${file}` : file,
+ *     },
+ *   });
  */
-export async function getDocsPageProps(astro: AstroGlobal): Promise<{
+export async function getDocsPageProps(
+  astro: AstroGlobal,
+  options?: { partialHeadings?: PartialHeadingOptions },
+): Promise<{
   entry: import("astro:content").CollectionEntry<"docs">;
   Content: import("astro/runtime/server/index.js").AstroComponentFactory;
   headings: { depth: number; text: string; slug: string }[];
@@ -941,9 +974,16 @@ export async function getDocsPageProps(astro: AstroGlobal): Promise<{
         "(or passes an entry via custom getStaticPaths).",
     );
   }
-  const { render } = await import("astro:content");
+  const { render, getEntry } = await import("astro:content");
   const { Content, headings } = await render(entry);
-  return { entry, Content, headings };
+  const merged = await mergePartialHeadings(
+    entry.body,
+    headings,
+    getEntry as (collection: string, id: string) => Promise<unknown>,
+    render as (entry: unknown) => Promise<{ headings: typeof headings }>,
+    options?.partialHeadings,
+  );
+  return { entry, Content, headings: merged };
 }
 
 /**
@@ -1005,6 +1045,10 @@ export function getCollectionStaticPaths(collection: string): GetStaticPaths {
  * non-primary collections (`api`, `blog`, …) instead of `getDocsPageProps`,
  * which is typed to the `docs` collection.
  *
+ * Headings from `<Render file="..." />` partials are recursively merged
+ * into the returned list in document order. See `getDocsPageProps` for
+ * the `partialHeadings` option.
+ *
  * Pass the collection name as a type parameter for the entry's data
  * shape to narrow correctly:
  *
@@ -1012,6 +1056,7 @@ export function getCollectionStaticPaths(collection: string): GetStaticPaths {
  */
 export async function getCollectionPageProps<C extends string>(
   astro: AstroGlobal,
+  options?: { partialHeadings?: PartialHeadingOptions },
 ): Promise<{
   entry: import("astro:content").CollectionEntry<C>;
   Content: import("astro/runtime/server/index.js").AstroComponentFactory;
@@ -1025,9 +1070,16 @@ export async function getCollectionPageProps<C extends string>(
         "Ensure your route uses `getStaticPaths = getCollectionStaticPaths(<collection>)`.",
     );
   }
-  const { render } = await import("astro:content");
+  const { render, getEntry } = await import("astro:content");
   const { Content, headings } = await render(entry);
-  return { entry, Content, headings };
+  const merged = await mergePartialHeadings(
+    entry.body,
+    headings,
+    getEntry as (collection: string, id: string) => Promise<unknown>,
+    render as (entry: unknown) => Promise<{ headings: typeof headings }>,
+    options?.partialHeadings,
+  );
+  return { entry, Content, headings: merged };
 }
 
 // ---------------------------------------------------------------------------

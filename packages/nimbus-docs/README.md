@@ -5,7 +5,7 @@ Astro integration, content schemas, data helpers (`getSidebar`, `getPrevNext`, `
 Most users install via the scaffolder:
 
 ```sh
-pnpm create @cloudflare/nimbus-docs my-docs
+npx @cloudflare/create-nimbus-docs@latest my-docs
 ```
 
 Subpaths:

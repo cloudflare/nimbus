@@ -1,5 +1,17 @@
 # @cloudflare/nimbus-docs
 
+## 0.7.1
+
+### Patch Changes
+
+- [#36](https://github.com/cloudflare/nimbus/pull/36) [`738c8a0`](https://github.com/cloudflare/nimbus/commit/738c8a090de1bd30899849c91ec07eb5a30e0645) Thanks [@mvvmm](https://github.com/mvvmm)! - Merge partial headings into the parent page's TOC. `<Render file="..." />`
+  partials that contain literal markdown headings (`## Foo`) now contribute
+  those headings to the parent page's "On this page" table of contents, in
+  document order, recursively. Pass `partialHeadings: { resolvePartialId }`
+  to `getDocsPageProps()` / `getCollectionPageProps()` to customise how
+  `<Render>` attributes map to a partial collection id (e.g. cloudflare-docs'
+  `product` convention).
+
 ## 0.7.0
 
 ### Minor Changes
