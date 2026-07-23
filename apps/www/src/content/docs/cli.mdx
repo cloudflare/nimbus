@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-The `nimbus-docs` CLI does three things: list what's in the registry, install it, and lint your MDX content.
+The `nimbus-docs` CLI lists what's in the registry, installs it, records what you own in [`nimbus.json`](/project-structure), and lints your MDX content.
 
 ## `nimbus-docs list`
 
@@ -51,7 +51,7 @@ Pass `--yes` to skip overwrite prompts:
 nimbus-docs add badge --yes
 ```
 
-Once installed, the component lives in your repo. Edit freely — there's no upstream API to break.
+Once installed, the component lives in your repo. Edit freely — there's no upstream API to break. Each `add` also appends an entry to your [`nimbus.json`](/project-structure) — slug, source registry, and a content hash — so later upgrades can track what you own.
 
 ### Features
 
@@ -69,6 +69,25 @@ nimbus-docs add 404-page --print | codex
 ```
 
 Use `--print` to force the markdown output, skipping detection.
+
+## `nimbus-docs init`
+
+Writes a [`nimbus.json`](/project-structure) for a project that lacks one — a repo scaffolded before the record existed, an existing Astro site adopting Nimbus, or a deleted record. Fresh scaffolds already have one, so `init` is the on-ramp for everything else.
+
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="init" />
+
+It scans your installed components, matches each against the registry, and writes what it can recover — marking, never guessing:
+
+- **matched** — byte-identical to the registry copy.
+- **modified** — you've edited it; the record keeps the source identity so upgrades can still compare.
+- **hand-authored** — yours, from no registry.
+
+The starter version and `templates-v*` tag can't be recovered from the repo alone, so they're left blank (and flagged `reconstructed`) for you to fill in if you know them.
+
+```bash
+nimbus-docs init --root packages/docs   # scan a nested package (monorepo)
+nimbus-docs init --force                # rebuild an existing record
+```
 
 ## `nimbus-docs lint`
 

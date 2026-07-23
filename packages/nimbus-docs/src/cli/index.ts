@@ -28,10 +28,18 @@ import { BUNDLED_INDEX } from "./_registry.generated.js";
 import { installComponents } from "./component.js";
 import { loadDotenv } from "./dotenv.js";
 import { installFeature } from "./feature.js";
+import { initCommand } from "./init.js";
 import { lintCommand } from "./lint.js";
+import {
+  readNimbusJson,
+  recordInstalled,
+  resolveWriteRoot,
+  writeNimbusJson,
+} from "./nimbus-json.js";
 import {
   getIndexEntry,
   listEntries,
+  registrySource,
   resolveComponentTree,
   type ComponentItem,
 } from "./resolver.js";
@@ -68,9 +76,11 @@ interface CliArgs {
   version: boolean;
   quiet: boolean;
   fix: boolean;
+  force: boolean;
   type?: string;
   format?: string;
   rule?: string;
+  root?: string;
   color?: boolean;
 }
 
@@ -81,11 +91,14 @@ const HELP = `
     list [--type ui|lib|feature]   List available registry items
     add                            Same as \`list\`
     add <slug>                     Install a component or hand off a feature
+    init                           Create the committed nimbus.json record (adopt an existing project)
     lint                           Lint .mdx content for authoring-quality issues
 
   Flags:
     --yes, -y                      Component: overwrite conflicts without prompting
     --print                        Feature: print markdown to stdout (skip agent detect)
+    --force                        \`init\`: rebuild an existing nimbus.json
+    --root <dir>                   \`init\`: src dir to scan (monorepo; default src)
     --type <ui|lib|feature>        \`list\`: filter by type
     --format <json>                \`lint\`: machine-readable output
     --rule <nimbus/...>            \`lint\`: run a single rule
@@ -96,6 +109,7 @@ const HELP = `
 
   Examples:
     nimbus-docs add dialog                              # component: resolve + install
+    nimbus-docs init                                    # adopt an existing repo — writes nimbus.json
     nimbus-docs add 404-page --print | claude           # explicit pipe to claude
     nimbus-docs lint                                    # pretty output, exit non-zero on error
     nimbus-docs lint --format=json                      # agent-readable diagnostics
@@ -104,8 +118,8 @@ const HELP = `
 
 async function main(): Promise<void> {
   const args = mri(process.argv.slice(2), {
-    boolean: ["yes", "print", "help", "version", "quiet", "color", "fix"],
-    string: ["type", "format", "rule"],
+    boolean: ["yes", "print", "help", "version", "quiet", "color", "fix", "force"],
+    string: ["type", "format", "rule", "root"],
     default: { color: undefined },
     alias: { y: "yes", h: "help", v: "version" },
   }) as unknown as CliArgs;
@@ -129,6 +143,11 @@ async function main(): Promise<void> {
       color: args.color,
       fix: args.fix,
     });
+    return;
+  }
+
+  if (command === "init") {
+    await initCommand({ force: args.force, root: args.root });
     return;
   }
 
@@ -234,7 +253,12 @@ async function addCommand(
     return;
   }
 
-  // Component / utility path.
+  // Component / utility path. Read the record up front so a corrupt one (or a
+  // bad install.root) fails before any network or writes.
+  const cwd = process.cwd();
+  const nimbus = readNimbusJson(cwd);
+  const srcRoot = resolveWriteRoot(nimbus);
+
   p.intro(`nimbus-docs add ${slug}`);
   p.log.info(`${entry.title} — ${entry.description}`);
 
@@ -259,8 +283,9 @@ async function addCommand(
   }
 
   const report = await installComponents(items, {
-    cwd: process.cwd(),
+    cwd,
     yes: flags.yes,
+    srcRoot,
   });
 
   const lines: string[] = [];
@@ -278,6 +303,21 @@ async function addCommand(
 
   const installed = items.filter((i) => !report.skipped.includes(i.name));
 
+  // Record what we installed so `init`/DX-2 can track it for upgrades.
+  if (installed.length > 0) {
+    if (nimbus) {
+      writeNimbusJson(
+        cwd,
+        recordInstalled(nimbus, installed, { source: registrySource(), srcRoot }),
+      );
+      lines.push(`✎ Recorded ${installed.map((i) => i.name).join(", ")} in nimbus.json`);
+    } else {
+      p.log.info(
+        "No nimbus.json here — run `nimbus-docs init` to track installed components for upgrades.",
+      );
+    }
+  }
+
   if (installed.some((i) => i.dependencies?.includes("@astrojs/react"))) {
     p.log.warn(
       "This component renders as a React island. Add the integration to astro.config.ts:\n" +
@@ -292,10 +332,10 @@ async function addCommand(
       const names = barrelExports(i);
       return names.length > 0
         ? `  import { ${names.join(", ")} } from "./components/ui/${i.name}";  // then add ${names.join(", ")} to the map`
-        : `  // ${i.name} — see src/components/ui/${i.name}`;
+        : `  // ${i.name} — see ${srcRoot}/components/ui/${i.name}`;
     });
     p.log.info(
-      "To use in .mdx, register in src/components.ts — import and add to the `components` map:\n" +
+      `To use in .mdx, register in ${srcRoot}/components.ts — import and add to the \`components\` map:\n` +
         snippets.join("\n"),
     );
   }

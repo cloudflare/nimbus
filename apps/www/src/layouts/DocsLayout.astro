@@ -16,7 +16,6 @@ import { Pagination } from "@/components/ui/pagination";
 import { PageActions } from "@/components/ui/page-actions";
 import { Badge } from "@/components/ui/badge";
 import type { DocsPageProps } from "@cloudflare/nimbus-docs/types";
-import { config } from "virtual:nimbus/config";
 import { getVersionStatus, getVersionAlternates } from "@cloudflare/nimbus-docs";
 
 type Props = DocsPageProps & { audience?: "human"; aiGenerated?: boolean; collection?: string; entryId?: string };

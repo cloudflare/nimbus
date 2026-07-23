@@ -953,11 +953,10 @@ export async function getDocsPageProps(astro: AstroGlobal): Promise<{
  */
 export async function getRouteFlags(entry: {
   data: { mode?: string; sidebar?: unknown; tableOfContents?: unknown };
-}): Promise<{ isCustom: boolean; sidebar: boolean; tableOfContents: boolean }> {
+}): Promise<{ sidebar: boolean; tableOfContents: boolean }> {
   const config = await loadNimbusConfig();
   const isCustom = entry.data.mode === "custom";
   return {
-    isCustom,
     sidebar:
       !isCustom &&
       config.features?.sidebar !== false &&

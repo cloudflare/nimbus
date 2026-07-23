@@ -28,6 +28,8 @@ export interface InstallOptions {
   cwd: string;
   /** Skip overwrite prompts; assume "overwrite" on every conflict. */
   yes: boolean;
+  /** Src dir to write against, relative to `cwd` (default `"src"`; monorepo root from nimbus.json). */
+  srcRoot?: string;
 }
 
 export interface InstallReport {
@@ -54,7 +56,7 @@ export async function installComponents(
   // of its files conflict, we prompt once for the whole slug. Letting users
   // overwrite Dialog.astro while keeping DialogContent.astro is a footgun
   // — components are cohesive and meant to evolve together.
-  const srcDir = join(options.cwd, "src");
+  const srcDir = join(options.cwd, options.srcRoot ?? "src");
 
   // Security: registry payloads are untrusted (see resolver.ts). Validate
   // every path across every item before any write, so a traversal entry

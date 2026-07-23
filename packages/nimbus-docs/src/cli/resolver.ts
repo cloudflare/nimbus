@@ -101,6 +101,11 @@ function getBaseUrl(): string {
   );
 }
 
+/** The registry host in use (honors `NIMBUS_REGISTRY_URL`) — recorded as a component's `source`. */
+export function registrySource(): string {
+  return getBaseUrl();
+}
+
 /**
  * Warning string when `NIMBUS_REGISTRY_URL` overrides the default host, else
  * `null`. Pure; `maybeWarnOverride` owns the print-once side effect.

@@ -1,28 +1,33 @@
 #!/usr/bin/env node
 /**
- * `pnpm local:add <slug> [flags]` — thin wrapper around
- * `pnpm --filter local exec nimbus-docs add` that makes sure the local
- * registry server is reachable before invoking the CLI.
+ * `pnpm local:add <slug> [flags]` — run the local pre-release `nimbus-docs add`
+ * against the sandbox at examples/local/, ensuring the local registry server is
+ * reachable first.
+ *
+ * examples/local is deliberately excluded from the pnpm workspace (see
+ * pnpm-workspace.yaml — keeps the sandbox out of the committed lockfile), so it
+ * can't be reached via `pnpm --filter local`. Invoke the built CLI directly with
+ * the sandbox as cwd instead; it reads examples/local/.env for
+ * NIMBUS_REGISTRY_URL and writes there. The dist CLI bundles its own deps, so
+ * the sandbox needs no node_modules of its own.
  *
  * Lifecycle:
- *   - If the registry port is already open, just run nimbus-docs add. The
- *     server is presumably owned by a separate `pnpm local` session
- *     (don't touch it).
- *   - Otherwise, spawn the registry server in the background, wait
- *     for it to be reachable, run nimbus-docs add, then kill the server
- *     when the CLI exits.
- *
- * This keeps the workflow ergonomic: a single `pnpm local:add foo`
- * works even if you haven't started `pnpm local` in another terminal.
+ *   - If the registry port is already open, just run the CLI (a separate
+ *     `pnpm local` session owns the server — don't touch it).
+ *   - Otherwise spawn the registry server, wait for it, run the CLI, then kill
+ *     the server on exit.
  */
 
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { createConnection } from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
+const SANDBOX = resolve(ROOT, "examples", "local");
+const CLI = resolve(ROOT, "packages", "nimbus-docs", "dist", "cli", "index.js");
 const SERVE_SCRIPT = resolve(ROOT, "apps", "www", "scripts", "serve-registry.mjs");
 const PORT = Number(process.env.NIMBUS_LOCAL_REGISTRY_PORT ?? 8901);
 const READY_TIMEOUT_MS = 5_000;
@@ -61,36 +66,40 @@ function spawnRegistryServer() {
   });
 }
 
-function runNimbusAdd() {
+function spawnStep(bin, args, opts) {
   return new Promise((resolveRun, rejectRun) => {
-    const child = spawn(
-      "pnpm",
-      ["--filter", "local", "exec", "nimbus-docs", "add", ...passthroughArgs],
-      { cwd: ROOT, stdio: "inherit" },
-    );
+    const child = spawn(bin, args, { stdio: "inherit", ...opts });
     child.on("close", (code) =>
-      code === 0 ? resolveRun() : rejectRun(new Error(`nimbus-docs add exited ${code}`)),
+      code === 0 ? resolveRun() : rejectRun(new Error(`\`${bin} ${args.join(" ")}\` exited ${code}`)),
     );
     child.on("error", rejectRun);
   });
 }
 
 async function main() {
-  const alreadyUp = await probePort(PORT);
+  if (!existsSync(SANDBOX)) {
+    throw new Error(
+      "No sandbox at examples/local — run `pnpm local` (or `pnpm local:reset`) first to scaffold it.",
+    );
+  }
+  // Build the pre-release CLI on first use so `local:add` runs against local bits.
+  if (!existsSync(CLI)) {
+    await spawnStep("pnpm", ["--filter", "@cloudflare/nimbus-docs", "build"], { cwd: ROOT });
+  }
 
   let serverChild = null;
-  if (!alreadyUp) {
+  if (!(await probePort(PORT))) {
     serverChild = spawnRegistryServer();
     try {
       await waitForReady();
     } catch (err) {
-      serverChild?.kill();
+      serverChild.kill();
       throw err;
     }
   }
 
   try {
-    await runNimbusAdd();
+    await spawnStep("node", [CLI, "add", ...passthroughArgs], { cwd: SANDBOX });
   } finally {
     if (serverChild) serverChild.kill();
   }
