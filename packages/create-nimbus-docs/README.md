@@ -3,9 +3,7 @@
 Scaffolder for new Nimbus projects.
 
 ```sh
-pnpm create @cloudflare/nimbus-docs my-docs
-# or
-npm create @cloudflare/nimbus-docs@latest my-docs
+npx @cloudflare/create-nimbus-docs@latest my-docs
 ```
 
 Flags:

@@ -17,13 +17,13 @@ pnpm dev
 
 Open the printed URL, edit anything under `src/`, and the page reloads. You now own a full docs site.
 
-The scaffolder asks a couple of questions (deploy target, starter or empty content). Skip them with `--yes`:
+The scaffolder asks a few questions (deploy target, package manager, starter or empty content). Skip them with `--yes`:
 
 ```sh
-pnpm create @cloudflare/nimbus-docs@latest my-docs --yes
+npx @cloudflare/create-nimbus-docs@latest my-docs --yes
 ```
 
-Prefer npm, yarn, or bun? Use them — the scaffolder follows whichever you ran it with.
+Interactive runs let you pick the package manager for your project. With `--yes` it defaults to npm — add `--package-manager pnpm` (or `yarn`/`bun`) to choose another.
 
 ## Everyday commands
 
