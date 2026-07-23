@@ -1,4 +1,5 @@
 ---
+import type { GetStaticPaths } from "astro";
 import DocsLayout from "../layouts/DocsLayout.astro";
 import {
   getDocsStaticPaths,
@@ -17,8 +18,8 @@ export const prerender = true;
 // Serve the root index entry (`docs/index.mdx`) at `/` instead of `/index`,
 // mirroring the `.md`/`.mdx` twin routes which already map `id === "index"`
 // to the bare root segment.
-export const getStaticPaths = async () => {
-  const paths = await getDocsStaticPaths();
+export const getStaticPaths: GetStaticPaths = async (options) => {
+  const paths = await getDocsStaticPaths(options);
   return paths.map((path) =>
     path.params.slug === "index"
       ? { ...path, params: { ...path.params, slug: undefined } }
