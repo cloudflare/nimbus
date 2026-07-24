@@ -1,5 +1,13 @@
 # @cloudflare/nimbus-docs
 
+## 0.8.2
+
+### Patch Changes
+
+- [#59](https://github.com/cloudflare/nimbus/pull/59) [`01a5d23`](https://github.com/cloudflare/nimbus/commit/01a5d23c1e18340fc5a05ee2b0848c81d3eea9fd) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Fix overview-leaf reordering a flat top-level sidebar per page
+
+  In `indexDisplay: "overview-leaf"` mode, the section-root pin relabelled and moved any top-level link whose slug matched the current section — including standalone top-level pages with no content beneath them. On a flat top-level of single pages, that pulled the current page to the front and renamed it "Overview" on every page. Pinning now requires the section to actually have content under it, so standalone pages stay put and keep their label.
+
 ## 0.8.1
 
 ### Patch Changes
