@@ -9,7 +9,17 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
+import { getCommand } from "../lib/pkgm.js";
+
 export type PackageManager = "npm" | "pnpm" | "yarn" | "bun";
+
+/**
+ * The published package name. The bin is `nimbus-docs`, but the *package*
+ * is scoped — and the unscoped `nimbus-docs` on npm is a different, legacy
+ * package, so any command we print for a user to run must use the scoped
+ * name via `dlx`/`npx`.
+ */
+export const CLI_PACKAGE = "@cloudflare/nimbus-docs";
 
 const LOCKFILES: ReadonlyArray<readonly [string, PackageManager]> = [
   ["pnpm-lock.yaml", "pnpm"],
@@ -28,6 +38,37 @@ export function detectPackageManager(cwd: string): PackageManager {
   if (ua.startsWith("yarn")) return "yarn";
   if (ua.startsWith("bun")) return "bun";
   return "npm";
+}
+
+/**
+ * A runnable invocation of this CLI to print in user-facing hints, e.g.
+ * `pnpm dlx @cloudflare/nimbus-docs list`. Uses the caller's package
+ * manager (detected from `cwd`) and always the scoped package via
+ * `dlx`/`npx`, so the hint runs whether or not the CLI is installed
+ * locally — and never resolves the legacy *unscoped* `nimbus-docs`
+ * package by accident.
+ *
+ *   invocation("list")            → "pnpm dlx @cloudflare/nimbus-docs list"
+ *   invocation("add 404-page")    → "npx @cloudflare/nimbus-docs add 404-page"
+ *
+ * Yarn resolves to `yarn dlx`, which is Yarn Berry (v2+); Yarn Classic (v1)
+ * has no `dlx`. That's the deliberate target — it matches the docs'
+ * `<PackageManagers>` widget, and bare `nimbus-docs` was equally unrunnable
+ * on v1 — so this is a lateral move there and a fix for Berry (the default).
+ */
+export function invocation(sub: string, cwd = process.cwd()): string {
+  return getCommand(detectPackageManager(cwd), "dlx", CLI_PACKAGE, { args: sub })!;
+}
+
+/**
+ * The package-manager-appropriate command to update this CLI's package to
+ * the latest published version, e.g. `pnpm add @cloudflare/nimbus-docs@latest`
+ * (npm → `npm i …`, yarn → `yarn add …`, bun → `bun add …`). Uses `add @latest`
+ * rather than each PM's divergent `update`/`upgrade`/`up` verb so it's correct
+ * everywhere.
+ */
+export function updateCommand(cwd = process.cwd()): string {
+  return getCommand(detectPackageManager(cwd), "add", `${CLI_PACKAGE}@latest`)!;
 }
 
 /**

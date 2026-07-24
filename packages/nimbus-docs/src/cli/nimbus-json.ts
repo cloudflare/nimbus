@@ -12,6 +12,7 @@ import { isAbsolute, join, posix } from "node:path";
 
 import { z } from "astro/zod";
 
+import { invocation } from "./pm.js";
 import type { ComponentItem, RegistryFile } from "./resolver.js";
 
 export const NIMBUS_JSON = "nimbus.json";
@@ -75,7 +76,7 @@ export function readNimbusJson(cwd: string): NimbusJson | null {
   } catch (err) {
     throw new Error(
       `${NIMBUS_JSON} is not valid JSON (${(err as Error).message}). ` +
-        `Fix the syntax, or delete it and run \`nimbus-docs init\` to rebuild it.`,
+        `Fix the syntax, or delete it and run \`${invocation("init")}\` to rebuild it.`,
     );
   }
 
@@ -86,7 +87,7 @@ export function readNimbusJson(cwd: string): NimbusJson | null {
       .join("\n");
     throw new Error(
       `${NIMBUS_JSON} has an unexpected shape:\n${issues}\n` +
-        `Fix the offending field, or delete it and run \`nimbus-docs init\`.`,
+        `Fix the offending field, or delete it and run \`${invocation("init")}\`.`,
     );
   }
   return parsed.data as NimbusJson;

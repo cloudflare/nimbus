@@ -34,7 +34,7 @@ Inspect the user's repo to learn its conventions:
 - `src/styles/globals.css` — confirm Nimbus design tokens are present.
   The wrappers use `--nb-border`, `--nb-card`, `--nb-foreground`, etc.
 
-If `src/components/ui/code/` is missing, run `nimbus-docs add code`
+If `src/components/ui/code/` is missing, run `pnpm exec nimbus-docs add code`
 before continuing — the showcase wrappers require it.
 
 ## 2. Plan

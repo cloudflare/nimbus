@@ -145,13 +145,8 @@ The precondition is the first principle on this page. When every file lives in y
 
 That's why features arrive as runbooks rather than code you wire up by hand. `nimbus-docs add` detects when it's running inside a coding agent and pipes it a structured playbook — discover the project, confirm a plan, execute, then *verify the build still passes* and check whether the feature was already installed before touching a file. Installation stops being a copy-paste chore and becomes a conversation your agent owns from start to finish.
 
-```bash
-# inside a coding agent, the runbook pipes straight in
-nimbus-docs add new-version
-
-# from a human shell, hand it to the agent of your choice
-nimbus-docs add new-version --print | claude
-```
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add new-version" comment="inside a coding agent, the runbook pipes straight in" />
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add new-version --print | claude" comment="from a human shell, hand it to the agent of your choice" />
 
 ## Provenance is a primitive
 

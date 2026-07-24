@@ -11,6 +11,7 @@ import { join, posix, relative, sep } from "node:path";
 import * as p from "@clack/prompts";
 
 import { assertInsideSrc } from "./component.js";
+import { invocation } from "./pm.js";
 import {
   NIMBUS_JSON,
   bytesHash,
@@ -171,13 +172,13 @@ export async function initCommand(flags: InitFlags): Promise<void> {
   const root = flags.root ?? "src";
   if (!existsSync(join(cwd, root))) {
     p.log.error(
-      `No \`${root}/\` directory here. Run \`nimbus-docs init\` from your project root, ` +
+      `No \`${root}/\` directory here. Run \`${invocation("init")}\` from your project root, ` +
         `or pass --root <dir> (e.g. a nested package in a monorepo).`,
     );
     process.exit(1);
   }
 
-  p.intro("nimbus-docs init");
+  p.intro("nimbus-docs init"); // banner label, not a runnable hint
   const spinner = p.spinner();
   spinner.start("Reconstructing provenance from installed components");
 

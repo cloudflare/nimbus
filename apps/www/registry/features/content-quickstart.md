@@ -87,7 +87,7 @@ Create `src/content/docs/<section>/<slug>.mdx` following the skeleton, adapted t
 ## 7. Verify
 
 - Run the quickstart end-to-end against a cold start, matching the user's package manager (`pnpm build`, `npm run build`, …); this page rots fastest of all types, so re-run it on every release that touches its path and stamp `lastVerified`.
-- If the site has lint configured, run `nimbus-docs lint`.
+- If the site has lint configured, run `pnpm exec nimbus-docs lint`.
 - Self-review against the checklist below.
 
 ## Checklist

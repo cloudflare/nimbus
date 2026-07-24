@@ -11,6 +11,7 @@
 
 import { determineAgent } from "@vercel/detect-agent";
 
+import { invocation } from "./pm.js";
 import { fetchFeatureMarkdown } from "./resolver.js";
 
 export interface FeatureInstallOptions {
@@ -48,7 +49,7 @@ export async function installFeature(
  * (claude/codex/cursor-agent) and the rest (opencode/pi).
  */
 function printHumanInstructions(slug: string): void {
-  const cmd = `nimbus-docs add ${slug}`;
+  const cmd = invocation(`add ${slug}`);
   const stream = process.stderr;
   stream.write(`${cmd}\n\n`);
   stream.write("To install this feature, pipe it to your coding agent:\n\n");

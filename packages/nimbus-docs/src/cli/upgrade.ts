@@ -19,6 +19,7 @@ import {
   type FetchedTree,
 } from "./_templates.js";
 import { bytesHash, readNimbusJson, resolveWriteRoot, type NimbusJson } from "./nimbus-json.js";
+import { invocation, updateCommand } from "./pm.js";
 import { fetchComponent, type ComponentItem } from "./resolver.js";
 
 // ── Registry drift (no giget) ──────────────────────────────────────────────
@@ -186,7 +187,7 @@ async function gatherStarter(cwd: string, nimbus: NimbusJson, flags: UpgradeFlag
 export async function outdatedCommand(flags: UpgradeFlags): Promise<void> {
   const cwd = process.cwd();
   const nimbus = requireRecord(cwd);
-  p.intro("nimbus-docs outdated");
+  p.intro("nimbus-docs outdated"); // banner label, not a runnable hint
 
   const reg = await registryDrift(nimbus, safeFetch);
   const behind = reg.filter((r) => r.status === "behind").map(labelWithVersions);
@@ -228,7 +229,7 @@ export async function outdatedCommand(flags: UpgradeFlags): Promise<void> {
           ].filter(Boolean);
           lines.push(`  ${surface}: ${parts.join(", ")}`);
         }
-        lines.push("  → `nimbus-docs diff <file>` to view; `diff --apply <file>` for the clean ones.");
+        lines.push(`  → \`${invocation("diff <file>")}\` to view (add \`--apply\` for the clean ones).`);
         const note = frameworkNote(g.upstreamDir, cwd);
         if (note) lines.push(`  ${note}`);
         if (hiddenContent > 0) {
@@ -236,7 +237,7 @@ export async function outdatedCommand(flags: UpgradeFlags): Promise<void> {
         }
       }
       if (local > 0) {
-        lines.push(`  ${local} starter file${local === 1 ? "" : "s"} you've changed — \`nimbus-docs diff\` to view.`);
+        lines.push(`  ${local} starter file${local === 1 ? "" : "s"} you've changed — \`${invocation("diff")}\` to view.`);
       }
     } catch (err) {
       lines.push(`Starter drift skipped: ${(err as Error).message}`);
@@ -250,7 +251,7 @@ export async function outdatedCommand(flags: UpgradeFlags): Promise<void> {
     lines.push(
       "",
       `Registry components behind: ${behind.join(", ")}`,
-      "  → `nimbus-docs add <slug> --overwrite` to update (review with git).",
+      `  → \`${invocation("add <slug> --overwrite")}\` to update (review with git).`,
     );
   } else {
     lines.push("", "Registry components: up to date ✓");
@@ -284,7 +285,7 @@ export async function diffCommand(file: string | undefined, flags: UpgradeFlags)
     if (flags.apply) return applyOne(cwd, file, g, targets);
 
     if (file && targets.length === 0) {
-      p.log.error(`No change for "${file}" vs the recorded tag. Run \`nimbus-docs outdated\` to list changes.`);
+      p.log.error(`No change for "${file}" vs the recorded tag. Run \`${invocation("outdated")}\` to list changes.`);
       process.exit(1);
     }
     if (targets.length === 0) {
@@ -350,7 +351,7 @@ function applyOne(cwd: string, file: string | undefined, g: Gathered, targets: S
           : "you removed it";
     p.log.error(
       `Refusing to --apply ${target.file}: ${why}. ` +
-        `--apply only pulls clean upstream changes — run \`nimbus-docs diff ${file}\` and reconcile by hand.`,
+        `--apply only pulls clean upstream changes — run \`${invocation(`diff ${file}`)}\` and reconcile by hand.`,
     );
     process.exit(1);
   }
@@ -370,7 +371,7 @@ function applyOne(cwd: string, file: string | undefined, g: Gathered, targets: S
 function requireRecord(cwd: string): NimbusJson {
   const nimbus = readNimbusJson(cwd);
   if (!nimbus) {
-    p.log.error("No nimbus.json here — run `nimbus-docs init` first so upgrades can track what you own.");
+    p.log.error(`No nimbus.json here — run \`${invocation("init")}\` first so upgrades can track what you own.`);
     process.exit(1);
   }
   return nimbus;
@@ -384,15 +385,15 @@ function readDisk(cwd: string, srcRoot: string, f: StarterFinding): string | nul
 /**
  * Warn when upstream starter markup targets a newer framework than the user has
  * installed — hand-applying it would break at build. Ties starter drift back to
- * the "behavior upgrades via npm update" boundary. Null when unknowable.
+ * the "behavior upgrades via a package-manager update" boundary. Null when unknowable.
  */
 function frameworkNote(upstreamDir: string, cwd: string): string | null {
   const up = pkgNimbusVersion(join(upstreamDir, "package.json"));
   // Compare against what's actually installed, not the declared range — a user
-  // who ran `npm update` past their `^0.7.0` pin shouldn't see a false nudge.
+  // who updated past their `^0.7.0` pin shouldn't see a false nudge.
   const mine = installedNimbusVersion(cwd) ?? pkgNimbusVersion(join(cwd, "package.json"));
   if (!up || !mine || cmpVersion(up, mine) <= 0) return null;
-  return `Note: upstream starter targets @cloudflare/nimbus-docs ${up.join(".")}; you have ${mine.join(".")} — run \`npm update\` first so new markup resolves.`;
+  return `Note: upstream starter targets @cloudflare/nimbus-docs ${up.join(".")}; you have ${mine.join(".")} — run \`${updateCommand(cwd)}\` first so new markup resolves.`;
 }
 
 function parseVersion(raw: string | undefined): [number, number, number] | null {

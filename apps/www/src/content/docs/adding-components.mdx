@@ -32,21 +32,15 @@ Once installed, the component lives in your repo — edit it freely. Pass `--yes
 
 For `registry:feature` slugs there's nothing to copy. The recipe is a Markdown prompt a coding agent reads, adapts to your project, and applies:
 
-```bash
-nimbus-docs add 404-page
-```
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add 404-page" />
 
 If a coding agent is detected in the environment, the CLI prints the recipe to stdout for it to consume. Otherwise pipe it yourself:
 
-```bash
-nimbus-docs add 404-page --print | claude
-```
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add 404-page --print | claude" />
 
 ## Browse what's available
 
-```bash
-nimbus-docs list
-nimbus-docs list --type ui
-```
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="list" />
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="list --type ui" />
 
 Every shipped component also has a showcase at [/components](/components) — preview, props, and the install command. See the [CLI](/cli) reference for all flags.
