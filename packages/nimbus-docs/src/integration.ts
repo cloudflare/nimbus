@@ -45,6 +45,7 @@ import type {
 import sitemap from "@astrojs/sitemap";
 import { admonitionPlugin } from "./_internal/admonition-vite-plugin.js";
 import { parseComponentsRegistry } from "./_internal/parse-components-registry.js";
+import { resolvePrerenderChunkNames } from "./_internal/prerender-chunk-names.js";
 import {
   validateLintOptions,
   type CollectionsConfig,
@@ -559,37 +560,9 @@ export function nimbus(
           );
         }
 
-        // Astro's prerender bundle is temporary: it is imported to render the
-        // static pages and then deleted. Hashing its thousands of lazy content
-        // chunks can dominate large documentation builds because Rollup walks
-        // the transitive chunk graph once per hash placeholder. Keep asset
-        // hashes (they are copied to the final site), but use deterministic,
-        // hashless names for the temporary JavaScript chunks. Rollup resolves
-        // duplicate `[name]` values with stable numeric suffixes.
-        //
-        // Respect either environment-specific or inherited top-level output
-        // naming supplied by the consumer. Output arrays are uncommon for an
-        // Astro app and cannot be safely overlaid with an object, so leave them
-        // untouched as well.
-        const topLevelOutput = astroConfig.vite?.build?.rollupOptions?.output;
-        const prerenderOutput = astroConfig.vite?.environments?.prerender?.build
-          ?.rollupOptions?.output;
-        const canDefaultPrerenderNames =
-          !Array.isArray(topLevelOutput) && !Array.isArray(prerenderOutput);
-        const topLevelOutputOptions = canDefaultPrerenderNames ? topLevelOutput : undefined;
-        const prerenderOutputOptions = canDefaultPrerenderNames ? prerenderOutput : undefined;
-        const hashlessPrerenderOutput = canDefaultPrerenderNames
-          ? {
-              ...(topLevelOutputOptions?.entryFileNames === undefined &&
-              prerenderOutputOptions?.entryFileNames === undefined
-                ? { entryFileNames: "prerender-entry.mjs" }
-                : {}),
-              ...(topLevelOutputOptions?.chunkFileNames === undefined &&
-              prerenderOutputOptions?.chunkFileNames === undefined
-                ? { chunkFileNames: "chunks/[name].mjs" }
-                : {}),
-            }
-          : null;
+        // Hashless names for Astro's throwaway prerender bundle — skips
+        // Rolldown's per-chunk hash-graph walk on large builds (see helper).
+        const hashlessPrerenderOutput = resolvePrerenderChunkNames(astroConfig.vite);
 
         updateConfig({
           // Bridge `nimbusConfig.site` → Astro's top-level `site`. The
@@ -694,13 +667,14 @@ export function nimbus(
           //      the llms.txt routes) and the versioning alternates
           //      table.
           vite: {
-            ...(hashlessPrerenderOutput &&
-            Object.keys(hashlessPrerenderOutput).length > 0
+            ...(hashlessPrerenderOutput
               ? {
                   environments: {
                     prerender: {
+                      // Native Rolldown key (Astro 7); avoids Vite's
+                      // deprecation-track `rollupOptions` alias.
                       build: {
-                        rollupOptions: { output: hashlessPrerenderOutput },
+                        rolldownOptions: { output: hashlessPrerenderOutput },
                       },
                     },
                   },
