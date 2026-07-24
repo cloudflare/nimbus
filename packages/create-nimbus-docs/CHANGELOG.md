@@ -1,5 +1,13 @@
 # @cloudflare/create-nimbus-docs
 
+## 0.6.3
+
+### Patch Changes
+
+- [#55](https://github.com/cloudflare/nimbus/pull/55) [`a986d61`](https://github.com/cloudflare/nimbus/commit/a986d61f1511bbe3c8faee9538157c212bd812a0) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - The scaffolded starter's header now matches the Nimbus site. The mobile menu (hamburger) button moved from the left of the header to the right, alongside the theme toggle. The search trigger stays reachable on mobile: it previously used `hidden sm:flex` and disappeared entirely below the `sm` breakpoint, leaving phones with no way to search — it now renders as a compact magnifying-glass icon button on small screens and expands to the full "Search ⌘K" control from `sm` up (the ⌘K hint is hidden on mobile).
+
+- [#55](https://github.com/cloudflare/nimbus/pull/55) [`6881e4e`](https://github.com/cloudflare/nimbus/commit/6881e4e7fcec5ac7fd354d1ff31ef6345d9948aa) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Markdown tables in the scaffolded starter now round their outer corner cells to match the table's `0.75rem` border-radius. Because the table uses `border-collapse: separate`, the corner cell backgrounds — most visibly the muted `<thead>` fill — previously kept square corners that poked past the rounded table border. The first/last `<th>` in the header and the first/last `<td>` in the last body row now carry the matching `border-top-left`/`border-top-right`/`border-bottom-left`/`border-bottom-right` radius, so the fill clips cleanly to the border. Scoped to `:not([class])` authored markdown tables, so component-owned tables are untouched.
+
 ## 0.6.2
 
 ### Patch Changes
