@@ -207,6 +207,23 @@
   border-bottom: none;
 }
 
+/* Round the outer corner cells to match the table's border-radius —
+   `border-collapse: separate` leaves square cell backgrounds (the muted
+   thead fill in particular) that would otherwise poke past the rounded
+   table border. */
+.docs-content :where(thead:not([class]) tr:not([class]):first-child th:not([class]):first-child) {
+  border-top-left-radius: 0.75rem;
+}
+.docs-content :where(thead:not([class]) tr:not([class]):first-child th:not([class]):last-child) {
+  border-top-right-radius: 0.75rem;
+}
+.docs-content :where(tbody:not([class]) tr:not([class]):last-child td:not([class]):first-child) {
+  border-bottom-left-radius: 0.75rem;
+}
+.docs-content :where(tbody:not([class]) tr:not([class]):last-child td:not([class]):last-child) {
+  border-bottom-right-radius: 0.75rem;
+}
+
 .docs-content :where(a:not([class])) {
   color: var(--nb-foreground);
   text-decoration-line: underline;
