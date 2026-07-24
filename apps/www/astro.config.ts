@@ -12,6 +12,7 @@ const nimbusConfig = defineNimbusConfig({
   github: "https://github.com/cloudflare/nimbus",
   socialImageAlt: "Nimbus documentation preview",
   sidebar: {
+    indexDisplay: "overview-leaf",
     items: [
       "get-started",
       "installation",
