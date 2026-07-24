@@ -36,6 +36,7 @@ import {
   resolveWriteRoot,
   writeNimbusJson,
 } from "./nimbus-json.js";
+import { CLI_PACKAGE, invocation } from "./pm.js";
 import {
   getIndexEntry,
   listEntries,
@@ -91,8 +92,6 @@ interface CliArgs {
 }
 
 const HELP = `
-  Usage: nimbus-docs <command> [args]
-
   Commands:
     list [--type ui|lib|feature]   List available registry items
     add                            Same as \`list\`
@@ -120,7 +119,7 @@ const HELP = `
     --help, -h
     --version, -v
 
-  Examples:
+  Examples (run with your package manager — see Usage above):
     nimbus-docs add dialog                              # component: resolve + install
     nimbus-docs add card --overwrite                    # re-install over your copy (review with git)
     nimbus-docs outdated                                # what's behind upstream (starter + registry)
@@ -140,7 +139,11 @@ async function main(): Promise<void> {
   }) as unknown as CliArgs;
 
   if (args.help) {
-    process.stdout.write(HELP);
+    process.stdout.write(
+      `\n  Usage:  ${invocation("<command> [args]")}\n` +
+        `          Once \`${CLI_PACKAGE}\` is a project dependency, call \`nimbus-docs <command>\` directly (e.g. \`pnpm exec nimbus-docs\` or an npm script).\n` +
+        HELP,
+    );
     return;
   }
   if (args.version) {
@@ -196,7 +199,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  p.log.error(`Unknown command: \`${command}\`. Try \`nimbus-docs --help\`.`);
+  p.log.error(`Unknown command: \`${command}\`. Try \`${invocation("--help")}\`.`);
   process.exit(1);
 }
 
@@ -260,7 +263,7 @@ function listCommand(typeFilter: string | undefined): void {
     process.stdout.write("\n");
   }
   process.stdout.write(
-    `  Install:  nimbus-docs add <name>     ·  ${items.length} item${items.length === 1 ? "" : "s"}` +
+    `  Install:  ${invocation("add <name>")}     ·  ${items.length} item${items.length === 1 ? "" : "s"}` +
       `  ·  registry ${BUNDLED_INDEX.registryVersion}\n\n`,
   );
 }
@@ -276,7 +279,7 @@ async function addCommand(
   const entry = getIndexEntry(slug);
   if (!entry) {
     p.log.error(
-      `Unknown registry item: \`${slug}\`. Try \`nimbus-docs list\` to see what's available.`,
+      `Unknown registry item: \`${slug}\`. Try \`${invocation("list")}\` to see what's available.`,
     );
     process.exit(1);
   }
@@ -292,6 +295,8 @@ async function addCommand(
   const nimbus = readNimbusJson(cwd);
   const srcRoot = resolveWriteRoot(nimbus);
 
+  // Banner label echoing the action, not a runnable hint — the bare command
+  // name reads cleaner here than a full `pnpm dlx …` invocation.
   p.intro(`nimbus-docs add ${slug}`);
   p.log.info(`${entry.title} — ${entry.description}`);
 
@@ -346,11 +351,11 @@ async function addCommand(
       );
       lines.push(
         `✎ Recorded ${installed.map((i) => (i.version ? `${i.name}@${i.version}` : i.name)).join(", ")} in nimbus.json`,
-        "  Later: `nimbus-docs outdated` shows when your files fall behind upstream.",
+        `  Later: \`${invocation("outdated")}\` shows when your files fall behind upstream.`,
       );
     } else {
       p.log.info(
-        "No nimbus.json here — run `nimbus-docs init` to track installed components for upgrades.",
+        `No nimbus.json here — run \`${invocation("init")}\` to track installed components for upgrades.`,
       );
     }
   }

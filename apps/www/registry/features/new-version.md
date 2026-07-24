@@ -522,7 +522,7 @@ step — the component is already installed.
 Otherwise, install it via the registry CLI:
 
 ```sh
-nimbus-docs add version-switcher --yes
+pnpm exec nimbus-docs add version-switcher --yes
 ```
 
 That command copies three files into the user's project:

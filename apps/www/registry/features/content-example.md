@@ -88,7 +88,7 @@ Create `src/content/docs/<section>/<slug>.mdx` following the skeleton, adapted t
 ## 7. Verify
 
 - Run the build, matching the user's package manager (`pnpm build`, `npm run build`, …); confirm it completes clean.
-- If the site has lint configured, run `nimbus-docs lint`.
+- If the site has lint configured, run `pnpm exec nimbus-docs lint`.
 - Actually run the example code against the current release (CI if possible) and stamp `lastVerified` — an example that no longer compiles is the loudest signal a product is unmaintained.
 - Self-review against the checklist below.
 

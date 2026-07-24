@@ -16,18 +16,16 @@ The **lint engine** is the on-demand authoring-quality layer. Rules have stable 
 
 ## Run it
 
-```bash
-nimbus-docs lint
-```
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="lint" />
 
-Flags:
+Flags — combine with `lint`:
 
-```bash
-nimbus-docs lint --format=json            # agent-readable diagnostics
-nimbus-docs lint --rule=nimbus/single-h1  # run one rule
-nimbus-docs lint --fix                     # apply auto-fixes in place
-nimbus-docs lint --quiet                   # errors only
-```
+| Flag | Effect |
+|---|---|
+| `--format=json` | agent-readable diagnostics |
+| `--rule=nimbus/single-h1` | run one rule |
+| `--fix` | apply auto-fixes in place |
+| `--quiet` | errors only |
 
 It walks `src/content/`, runs each authoring rule you've enabled, and exits non-zero when any `error`-severity finding survives.
 

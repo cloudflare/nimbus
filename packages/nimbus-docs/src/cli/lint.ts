@@ -59,7 +59,7 @@ export async function lintCommand(flags: LintCliFlags): Promise<void> {
     // something.
     if (!IMPLEMENTED_CODES.has(flags.rule)) {
       process.stderr.write(
-        `Rule \`${flags.rule}\` is not implemented by \`nimbus-docs lint\`. ` +
+        `Rule \`${flags.rule}\` is not an implemented lint rule. ` +
           `Build validators run inside \`astro build\`, not here; planned rules haven't shipped yet. ` +
           `Implemented authoring rules: ${[...IMPLEMENTED_CODES].sort().join(", ")}.\n`,
       );

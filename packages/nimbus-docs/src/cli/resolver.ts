@@ -22,6 +22,7 @@ import {
   REGISTRY_BASE_URL,
   type RegistryIndexEntry,
 } from "./_registry.generated.js";
+import { invocation } from "./pm.js";
 
 export interface RegistryFile {
   path: string;
@@ -168,7 +169,7 @@ async function httpGet(url: string, accept: string): Promise<Response> {
       `Could not reach the registry at ${url}.\n` +
         `  Underlying error: ${cause}\n\n` +
         `  Things to try:\n` +
-        `    - Set the registry URL: NIMBUS_REGISTRY_URL=https://example.com nimbus-docs add ...\n` +
+        `    - Set the registry URL: NIMBUS_REGISTRY_URL=https://example.com ${invocation("add <slug>")}\n` +
         `    - Check the value in your project's .env file.\n` +
         `    - Working in the Nimbus monorepo? Start the local registry with \`pnpm local\`.`,
     );
@@ -189,7 +190,7 @@ async function httpGet(url: string, accept: string): Promise<Response> {
   if (!res.ok) {
     throw new Error(
       `Registry returned ${res.status} ${res.statusText} for ${url}. ` +
-        `The server is up but doesn't know about this slug — check \`nimbus-docs list\` for valid names.`,
+        `The server is up but doesn't know about this slug — check \`${invocation("list")}\` for valid names.`,
     );
   }
   return res;

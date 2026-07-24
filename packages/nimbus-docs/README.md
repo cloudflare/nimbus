@@ -36,7 +36,7 @@ export function MyCard() {
 The visible components — action bar, tabs, controls — install on demand:
 
 ```sh
-nimbus-docs add diagram
+pnpm dlx @cloudflare/nimbus-docs add diagram
 ```
 
 Mount cards via Astro's `client:visible` directive so hydration defers until the diagram enters the viewport.

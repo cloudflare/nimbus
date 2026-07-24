@@ -15,11 +15,9 @@ Lists every installable component, utility, and feature.
 
 Filter by type:
 
-```bash
-nimbus-docs list --type ui
-nimbus-docs list --type lib
-nimbus-docs list --type feature
-```
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="list --type ui" />
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="list --type lib" />
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="list --type feature" />
 
 Running `nimbus-docs add` with no slug shows the same list.
 
@@ -47,9 +45,7 @@ For `registry:ui` and `registry:lib` slugs, the CLI resolves dependencies, copie
 
 If a component is already installed, `add` keeps your copy — it never clobbers files you own. Pass `--overwrite` to replace them with the registry version (the upgrade path); review the change with `git diff`:
 
-```bash
-nimbus-docs add badge --overwrite
-```
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add badge --overwrite" />
 
 `--yes` assents to prompts (e.g. dependency installs) without touching existing files — so it's safe in CI. Use `--overwrite` when you actually mean "replace my files."
 
@@ -59,16 +55,12 @@ Once installed, the component lives in your repo. Edit freely — there's no ups
 
 For `registry:feature` slugs, there's nothing to copy. The recipe is a markdown prompt the agent reads, adapts to your project, and applies.
 
-```bash
-nimbus-docs add 404-page
-```
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add 404-page" />
 
 If the CLI detects a coding agent in the environment, it prints the recipe to stdout for the agent to consume. Otherwise it prints pipe instructions you can run yourself:
 
-```bash
-nimbus-docs add 404-page --print | claude
-nimbus-docs add 404-page --print | codex
-```
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add 404-page --print | claude" />
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add 404-page --print | codex" />
 
 Use `--print` to force the markdown output, skipping detection.
 
@@ -86,10 +78,8 @@ It scans your installed components, matches each against the registry, and write
 
 The starter version and `templates-v*` tag can't be recovered from the repo alone, so they're left blank (and flagged `reconstructed`) for you to fill in if you know them.
 
-```bash
-nimbus-docs init --root packages/docs   # scan a nested package (monorepo)
-nimbus-docs init --force                # rebuild an existing record
-```
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="init --root packages/docs" comment="scan a nested package (monorepo)" />
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="init --force" comment="rebuild an existing record" />
 
 ## Keeping up to date
 
@@ -108,16 +98,12 @@ The read-only "am I behind?" check, across both tiers:
 
 Read-only detail for starter files — what you changed, and what changed upstream:
 
-```bash
-nimbus-docs diff                                   # every changed starter file
-nimbus-docs diff src/components/ui/aside/Aside.astro   # one file
-```
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="diff" comment="every changed starter file" />
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="diff src/components/ui/aside/Aside.astro" comment="one file" />
 
 Each file is one of: **clean to pull** (upstream changed, you didn't), **hand-merge** (you both changed it), or **your changes** (you edited it, upstream didn't). For a clean file you can let the CLI write the upstream version:
 
-```bash
-nimbus-docs diff src/components/ui/aside/Aside.astro --apply
-```
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="diff src/components/ui/aside/Aside.astro --apply" />
 
 `--apply` is explicit and per-file, and refuses anything you've edited — it only pulls clean upstream changes, never merges. Review with `git diff` afterward. Pass `--to <templates-vX.Y.Z>` to target a specific tag, or `--template-dir <path>` to compare offline against a local checkout.
 
@@ -125,24 +111,20 @@ nimbus-docs diff src/components/ui/aside/Aside.astro --apply
 
 Walks `src/content/`, runs each authoring rule you've enabled, prints diagnostics, and exits non-zero when any `error`-severity finding survives. The build is never gated by lint — drafts that fail lint still render under `astro dev`.
 
-```bash
-nimbus-docs lint
-```
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="lint" />
 
-Flags:
+Flags — combine with `lint`:
 
-```bash
-nimbus-docs lint --format=json          # agent-readable diagnostics
-nimbus-docs lint --rule=nimbus/single-h1  # run one rule only
-nimbus-docs lint --fix                  # apply auto-fixes in place
-nimbus-docs lint --quiet                # errors only, suppress warnings
-```
+| Flag | Effect |
+|---|---|
+| `--format=json` | agent-readable diagnostics |
+| `--rule=nimbus/single-h1` | run one rule only |
+| `--fix` | apply auto-fixes in place |
+| `--quiet` | errors only, suppress warnings |
 
 Severity overrides live with the integration (`nimbus(config, { rules })`); in-file disables (`nimbusDisableRules` frontmatter, inline comments) work with no config.
 
 ## Help and version
 
-```bash
-nimbus-docs --help
-nimbus-docs --version
-```
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="--help" />
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="--version" />

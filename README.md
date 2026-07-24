@@ -53,8 +53,8 @@ pnpm run deploy      # wrangler deploy to Cloudflare
 Pull optional components, utilities, and agent-handoff features from the registry — each lands in your repo as source you own:
 
 ```sh
-nimbus-docs add dialog
-nimbus-docs add 404-page
+pnpm dlx @cloudflare/nimbus-docs add dialog
+pnpm dlx @cloudflare/nimbus-docs add 404-page
 ```
 
 Components and utilities copy in as editable files. Features hand off a recipe your coding agent reads, adapts to your project, and applies.

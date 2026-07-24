@@ -64,7 +64,7 @@ conventions:
   starter entry should only use these or plain markdown.
 
 If any of the route files above are missing, the user is on a stripped-down
-starter — stop and tell them to run `nimbus-docs add ai-native` first.
+starter — stop and tell them to run `pnpm exec nimbus-docs add ai-native` first.
 
 ## 2. Prompt the user
 
