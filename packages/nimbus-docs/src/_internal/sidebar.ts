@@ -1384,6 +1384,15 @@ function pinSectionOverviewFirst(
     (it) => it.type === "link" && toRouteKey(it.href) === rootKey,
   );
   if (idx < 0) return items;
+  // Only pin a genuine section root — one the rail actually has content under.
+  // A standalone top-level page (its own slug equals `sectionSlug`, with nothing
+  // beneath it) is not a section landing; pinning and relabelling it "Overview"
+  // would reshuffle a flat top-level of standalone pages on every page and erase
+  // each page's real label. Require at least one other node under the section.
+  const hasSectionContent = flattenSidebar(items).some(
+    (l) => firstPathSegment(l.href) === sectionSlug && toRouteKey(l.href) !== rootKey,
+  );
+  if (!hasSectionContent) return items;
   const next = [...items];
   const [landing] = next.splice(idx, 1);
   if (!landing || landing.type !== "link") return items;
