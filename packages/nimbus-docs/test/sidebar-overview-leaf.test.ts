@@ -147,6 +147,27 @@ test("pin: no section-root link → order unchanged", () => {
   );
 });
 
+test("pin: standalone top-level page is not pinned or relabelled (flat top-level stays stable)", () => {
+  // A flat top-level of standalone pages: viewing one makes its own slug the
+  // sectionSlug, but it has no content beneath it, so it must NOT be pulled to
+  // the front or renamed "Overview". Guards against per-page rail reordering.
+  const tree = [
+    link({ label: "Get started", href: "/get-started/", order: 0 }),
+    link({ label: "Installation", href: "/installation/", order: 1 }),
+    link({ label: "Philosophy", href: "/philosophy/", order: 2 }),
+  ];
+  const out = applyOverviewLeaf(tree, "installation", "Overview");
+  assert.deepEqual(
+    out.map((i) => [i.label, (i as any).href]),
+    [
+      ["Get started", "/get-started/"],
+      ["Installation", "/installation/"],
+      ["Philosophy", "/philosophy/"],
+    ],
+    "order preserved and no label rewritten to Overview",
+  );
+});
+
 test("custom overview label is honored for both lift and pin", () => {
   const tree = [
     link({ label: "DNS", href: "/dns/", order: 2 }),
