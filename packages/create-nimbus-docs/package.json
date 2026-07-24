@@ -1,6 +1,6 @@
 {
   "name": "@cloudflare/create-nimbus-docs",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "private": false,
   "publishConfig": {
     "access": "public"

@@ -1,5 +1,11 @@
 # @cloudflare/nimbus-docs
 
+## 0.8.1
+
+### Patch Changes
+
+- [#55](https://github.com/cloudflare/nimbus/pull/55) [`a590ebd`](https://github.com/cloudflare/nimbus/commit/a590ebd85e67b52a8e4b337c5d89801c352584ab) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - CLI hints now print a runnable, scoped invocation instead of the bare `nimbus-docs` binary. Error messages, install hints, and `--help` reference `pnpm dlx @cloudflare/nimbus-docs …` (matched to your package manager — `npx` / `yarn dlx` / `bunx`), so a first-run `dlx`/`npx` user can copy-paste them, and they never resolve the unrelated legacy _unscoped_ `nimbus-docs` package on npm. For example, an unknown slug now suggests `pnpm dlx @cloudflare/nimbus-docs list` rather than `nimbus-docs list`. Once `@cloudflare/nimbus-docs` is a project dependency you can still call the `nimbus-docs` bin directly (via `pnpm exec` or an npm script) — `--help` documents both. The "framework is behind" nudge from `outdated` now suggests your package manager's update command instead of a hardcoded `npm update`.
+
 ## 0.8.0
 
 ### Minor Changes
