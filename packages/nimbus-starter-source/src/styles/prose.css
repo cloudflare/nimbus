@@ -207,6 +207,22 @@
   border-bottom: none;
 }
 
+.docs-content :where(thead:not([class]) tr:not([class]):first-child th:not([class]):first-child) {
+  border-top-left-radius: calc(0.75rem - 1px);
+}
+
+.docs-content :where(thead:not([class]) tr:not([class]):first-child th:not([class]):last-child) {
+  border-top-right-radius: calc(0.75rem - 1px);
+}
+
+.docs-content :where(tbody:not([class]) tr:not([class]):last-child td:not([class]):first-child) {
+  border-bottom-left-radius: calc(0.75rem - 1px);
+}
+
+.docs-content :where(tbody:not([class]) tr:not([class]):last-child td:not([class]):last-child) {
+  border-bottom-right-radius: calc(0.75rem - 1px);
+}
+
 .docs-content :where(a:not([class])) {
   color: var(--nb-foreground);
   text-decoration-line: underline;
