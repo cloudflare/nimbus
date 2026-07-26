@@ -45,6 +45,7 @@ import type {
 import sitemap from "@astrojs/sitemap";
 import { admonitionPlugin } from "./_internal/admonition-vite-plugin.js";
 import { parseComponentsRegistry } from "./_internal/parse-components-registry.js";
+import { resolvePrerenderChunkNames } from "./_internal/prerender-chunk-names.js";
 import {
   validateLintOptions,
   type CollectionsConfig,
@@ -82,6 +83,12 @@ import {
   NIMBUS_DEFAULT_SHIKI_THEMES,
   shouldClassShikiTokens,
 } from "./_internal/code-style-registry.js";
+import {
+  createMdxCache,
+  computeSig,
+  resolveMdxCacheConfig,
+  type MdxCache,
+} from "./_internal/mdx-cache.js";
 import type { SitemapSerialize } from "./_internal/sitemap-types.js";
 import { scanVersionFrontmatter } from "./_internal/scan-version-frontmatter.js";
 import {
@@ -111,6 +118,16 @@ export interface SitemapOptions {
 export interface NimbusIntegrationOptions {
   /** MDX options forwarded to `@astrojs/mdx`. */
   mdx?: Parameters<typeof mdx>[0];
+  /**
+   * Persistent MDX compile cache: caches the `.mdx`→JS transform on disk under
+   * Astro's `cacheDir` so warm builds skip recompiling unchanged files. `false`
+   * creates no dir; `{ dir }` overrides the location; `NIMBUS_MDX_CACHE=0|1`
+   * takes precedence.
+   *
+   * @default disabled — opt-in (measured only a low-single-digit warm win with a
+   * peak-memory regression; the MDX compile is a minor slice of the build).
+   */
+  mdxCache?: boolean | { dir?: string };
   /**
    * Sitemap behavior. Defaults: enabled when `site.url` is set, default
    * `@astrojs/sitemap` output. `false` disables it. Pass an object to
@@ -263,6 +280,9 @@ export function nimbus(
   // what `base` Astro is using.
   let projectRootForBuild = "";
   let astroBaseForBuild = "";
+  // Created in `astro:config:setup`; read in `astro:build:done` to reconstruct
+  // the Shiki style registry for cache-hit files.
+  let mdxCache: MdxCache | null = null;
 
   return {
     name: "@cloudflare/nimbus-docs",
@@ -516,7 +536,29 @@ export function nimbus(
         // off as a silent default only because @astrojs/mdx keeps it off for
         // rare component-interleaving edge cases — validate render parity
         // across the starter's component set before flipping it for everyone.
-        integrationsToAdd.push(mdx(options.mdx ?? {}));
+        // Wrap the mdx integration so its `@mdx-js/rolldown` transform is served
+        // from the disk cache on unchanged files.
+        const mdxCacheCfg = resolveMdxCacheConfig(
+          options.mdxCache,
+          fileURLToPath(astroConfig.cacheDir),
+        );
+        if (mdxCacheCfg.enabled) {
+          const sig = computeSig({
+            mdxOptions: options.mdx ?? {},
+            srcDir,
+            root: projectRoot,
+            sourcemap: false,
+            pluginSourceDirs: [path.join(srcDir, "plugins")],
+          });
+          mdxCache = createMdxCache({ cacheDir: mdxCacheCfg.dir, sig, logger });
+          logger.info(
+            `mdx compile cache enabled (sig ${sig.slice(0, 12)}…) → ${path.relative(projectRoot, mdxCacheCfg.dir)}`,
+          );
+        }
+        const mdxIntegration = mdx(options.mdx ?? {});
+        integrationsToAdd.push(
+          mdxCache ? mdxCache.wrapMdxIntegration(mdxIntegration) : mdxIntegration,
+        );
         const wantSitemap = options.sitemap !== false && Boolean(config.site);
         const sitemapOpts =
           typeof options.sitemap === "object" ? options.sitemap : undefined;
@@ -558,6 +600,10 @@ export function nimbus(
             }),
           );
         }
+
+        // Hashless names for Astro's throwaway prerender bundle — skips
+        // Rolldown's per-chunk hash-graph walk on large builds (see helper).
+        const hashlessPrerenderOutput = resolvePrerenderChunkNames(astroConfig.vite);
 
         updateConfig({
           // Bridge `nimbusConfig.site` → Astro's top-level `site`. The
@@ -662,6 +708,19 @@ export function nimbus(
           //      the llms.txt routes) and the versioning alternates
           //      table.
           vite: {
+            ...(hashlessPrerenderOutput
+              ? {
+                  environments: {
+                    prerender: {
+                      // Native Rolldown key (Astro 7); avoids Vite's
+                      // deprecation-track `rollupOptions` alias.
+                      build: {
+                        rolldownOptions: { output: hashlessPrerenderOutput },
+                      },
+                    },
+                  },
+                }
+              : {}),
             plugins: [
               ...admonitionVitePlugins,
               virtualConfigPlugin(config, {
@@ -745,6 +804,13 @@ export function nimbus(
           pages,
           logger,
         );
+
+        // Cache hits skipped the highlight side effect, so reconstruct their
+        // Shiki classes from the persisted map before the stylesheet is written.
+        if (mdxCache) {
+          mdxCache.reconcileShiki();
+          logger.info(mdxCache.summary());
+        }
 
         const distDir = fileURLToPath(dir);
         await writeShikiStyleSheet({ distDir, logger });

@@ -131,6 +131,10 @@ async function mergePartialHeadingsInternal(
 ): Promise<Heading[]> {
   if (!body) return astroHeadings;
 
+  // Partial headings only come from `<Render>` slots (see `collectSlots`), so a
+  // body without one is a pass-through — skip the `mdxToMdast` parse.
+  if (!body.includes("<Render")) return astroHeadings;
+
   let tree: MdNode;
   try {
     tree = mdxToMdast(body) as unknown as MdNode;
