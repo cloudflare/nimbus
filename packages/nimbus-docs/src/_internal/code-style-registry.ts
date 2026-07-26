@@ -57,3 +57,29 @@ export function getCodeStyleCSS(): string {
 export function clearCodeStyleRegistry(): void {
   styleToClass.clearRegistry();
 }
+
+// The registry is populated as a side effect of highlighting during the MDX
+// transform. A compile-cache hit skips that transform, so warm builds must
+// reconstruct the hit files' classes here before `_nimbus/shiki.css` is
+// serialized. Class names are a content hash of the style, so injection is
+// conflict-free and order-independent.
+
+interface ClassRegistryHost {
+  getClassRegistry?: () => Map<string, unknown>;
+}
+
+/** The live `class → style` map (empty until something is highlighted). */
+export function getCodeStyleClassMap(): Map<string, unknown> {
+  const host = styleToClass as unknown as ClassRegistryHost;
+  return host.getClassRegistry?.() ?? new Map();
+}
+
+/** Inject `class → style` entries not already present (warm-build reconstruction). */
+export function injectCodeStyleClasses(
+  entries: Iterable<readonly [string, unknown]>,
+): void {
+  const reg = getCodeStyleClassMap();
+  for (const [cls, style] of entries) {
+    if (!reg.has(cls)) reg.set(cls, style);
+  }
+}
