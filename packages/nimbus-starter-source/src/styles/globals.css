@@ -348,6 +348,7 @@ pre.astro-code span {
 	align-items: center;
 	justify-content: space-between;
 	gap: 0.75rem;
+	min-height: 2.75rem;
 	padding: 0.5rem 0.875rem;
 	border-bottom: 1px solid var(--nb-border);
 	background: color-mix(in oklch, var(--nb-muted) 50%, transparent);
@@ -371,6 +372,13 @@ pre.astro-code span {
 	font-size: 0.6875rem;
 	letter-spacing: 0.02em;
 	text-transform: uppercase;
+	transition: opacity 0.15s ease;
+}
+/* On titled blocks the copy button shares the header's top-right; fade the
+   language badge on hover/focus so the button never overlaps it. */
+.nb-code-figure-titled:hover .nb-code-title-lang,
+.nb-code-figure-titled:focus-within .nb-code-title-lang {
+	opacity: 0;
 }
 
 /* Language badge — pinned to the figure (which doesn't scroll), so it
