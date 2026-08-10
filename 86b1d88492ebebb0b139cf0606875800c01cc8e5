@@ -1,0 +1,321 @@
+apps/www/src/layouts/ShowcaseLayout.astro
+  s_28c718b5aeaa22::t_c5584714c0d44d 13
+apps/www/src/pages/components.astro
+  s_28c718b5aeaa22::t_7e9a0d54153475 10
+apps/www/src/components/ui/link-button/LinkButton.astro
+  s_28c718b5aeaa22::t_761ee4d8226753 18
+packages/nimbus-starter-source/src/components/ui/link-card/LinkCard.astro
+  s_28c718b5aeaa22::t_33ca2205245c74 9
+packages/nimbus-docs/package.json
+  s_28c718b5aeaa22::t_e948a9c52c21e3 64-65,99-101
+apps/www/src/components/ui/search/SearchTrigger.astro
+  s_28c718b5aeaa22::t_e36c61723b6947 3
+packages/nimbus-starter-source/src/components/ui/version-switcher/VersionSwitcher.astro
+  s_28c718b5aeaa22::t_0160447c2e943b 3
+packages/nimbus-starter-source/src/components/ui/file-tree/FileTree.astro
+  s_28c718b5aeaa22::t_32519688a6a03f 20
+packages/nimbus-starter-source/src/components/ui/button/Button.astro
+  s_28c718b5aeaa22::t_fe75d64a9f0e97 22
+apps/www/src/components/Header.astro
+  s_28c718b5aeaa22::t_af5c49cc9b3541 2
+apps/www/src/components/ui/page-actions/PageActions.astro
+  s_28c718b5aeaa22::t_977ce63fa87328 2
+packages/nimbus-docs/src/_internal/icon-virtual.ts
+  s_28c718b5aeaa22::t_108f9f2fd873cf 1-238
+apps/www/src/components/ui/package-managers/PackageManagers.astro
+  s_28c718b5aeaa22::t_e3ceba89c9d219 8
+packages/nimbus-starter-source/src/components/ui/sidebar/SidebarGroup.astro
+  s_28c718b5aeaa22::t_667674bc29456e 17
+apps/www/src/components/ui/button/Button.astro
+  s_28c718b5aeaa22::t_3c17adf0b32db9 22
+packages/nimbus-starter-source/src/components/ui/card/Card.astro
+  s_28c718b5aeaa22::t_944b442737ae0d 2
+apps/www/src/components/ui/pagination/Pagination.astro
+  s_28c718b5aeaa22::t_1b759d2d3bd658 2
+apps/www/src/components/ui/accordion/AccordionTrigger.astro
+  s_28c718b5aeaa22::t_976639f96e8fad 3
+packages/nimbus-starter-source/src/components/ui/search/SearchDialog.astro
+  s_28c718b5aeaa22::t_1b8880082e683b 2
+apps/www/src/components/ui/file-tree/FileTree.astro
+  s_28c718b5aeaa22::t_73450dd46ba302 20
+packages/nimbus-starter-source/src/components/ui/banner/Banner.astro
+  s_28c718b5aeaa22::t_2630aec899ab3f 6
+packages/nimbus-starter-source/src/components/ui/page-actions/PageActions.astro
+  s_28c718b5aeaa22::t_b49803f2dd3ad3 2
+apps/www/src/components/ui/aside/Aside.astro
+  s_28c718b5aeaa22::t_7cb78464e63774 2
+apps/www/src/components/ui/code-group/CodeGroup.astro
+  s_28c718b5aeaa22::t_6c38de3d5b8018 13
+apps/www/src/components/ui/toc/MobileTOC.astro
+  s_28c718b5aeaa22::t_6a38d64eccc756 14
+apps/www/src/components/ui/theme-toggle/ThemeToggle.astro
+  s_28c718b5aeaa22::t_7d4a9b1b8145c6 7
+apps/www/src/components/ui/banner/Banner.astro
+  s_28c718b5aeaa22::t_89da77f77d1aa2 6
+packages/nimbus-starter-source/src/layouts/DocsLayout.astro
+  s_28c718b5aeaa22::t_923c5926647a2a 8
+apps/www/src/components/ui/sidebar/SidebarGroup.astro
+  s_28c718b5aeaa22::t_ac7f0b29b27c8e 7
+packages/nimbus-starter-source/src/components/ui/code-group/CodeGroup.astro
+  s_28c718b5aeaa22::t_fd1b48cace1790 13
+packages/nimbus-starter-source/src/components/ui/link-button/LinkButton.astro
+  s_28c718b5aeaa22::t_ebae18ff39225c 18
+apps/www/src/components/ui/card/Card.astro
+  s_28c718b5aeaa22::t_0fc01f9737146e 2
+pnpm-lock.yaml
+  s_28c718b5aeaa22::t_39f41ddc16a571 16,147,154-162,250,265,283,286,302,734,740,746,752,758,803-805,1393-1394,1399-1400,3274-3276,3456-3458,3954-3956,5190-5191,5671,5687,5866-5869,6224,6226,6228-6230,6232,6236,6240,6442,6447,7324-7327,7395,7397,7921-7922,8016-8017,8284-8285,9000,10141,10149
+packages/nimbus-starter-source/src/components/ui/toc/MobileTOC.astro
+  s_28c718b5aeaa22::t_fd43532e7829ed 14
+packages/nimbus-starter-source/src/components/ui/search/SearchTrigger.astro
+  s_28c718b5aeaa22::t_414952e5ba961c 3
+apps/www/src/layouts/DocsLayout.astro
+  s_28c718b5aeaa22::t_cd45e574eb9d5b 8
+packages/nimbus-starter-source/src/components/ui/package-managers/PackageManagers.astro
+  s_28c718b5aeaa22::t_3c48d4beb32a66 8
+packages/nimbus-starter-source/src/components/ui/aside/Aside.astro
+  s_28c718b5aeaa22::t_5613ea15cc4b17 2
+packages/nimbus-starter-source/src/components/ui/accordion/AccordionTrigger.astro
+  s_28c718b5aeaa22::t_049f69289c08ff 3
+apps/www/src/components/ui/search/SearchDialog.astro
+  s_28c718b5aeaa22::t_19c0bbdef834c0 2
+apps/www/src/components/ui/link-card/LinkCard.astro
+  s_28c718b5aeaa22::t_f826a0a50eb1b8 9
+packages/nimbus-starter-source/src/components/Header.astro
+  s_28c718b5aeaa22::t_17ee54c5c69f76 2
+packages/nimbus-starter-source/src/components/ui/theme-toggle/ThemeToggle.astro
+  s_28c718b5aeaa22::t_9229dc2be97ac7 7
+packages/nimbus-starter-source/src/components/ui/pagination/Pagination.astro
+  s_28c718b5aeaa22::t_6ffada7b9a94b0 2
+ci-site/.gitignore
+  s_28c718b5aeaa22::t_22da6c5f05d652 1-21
+ci-site/AGENT.md
+  s_28c718b5aeaa22::t_5921a7cbda15fc 1-109
+ci-site/astro.config.ts
+  s_28c718b5aeaa22::t_ff7368c1b5aee8 1-53
+ci-site/nimbus.json
+  s_28c718b5aeaa22::t_26b50f1644b2cd 1-14
+ci-site/package.json
+  s_28c718b5aeaa22::t_20407d433b150d 1-37
+ci-site/pnpm-workspace.yaml
+  s_28c718b5aeaa22::t_dd3d76c3f7f4ae 1-11
+ci-site/src/components.ts
+  s_28c718b5aeaa22::t_4ef28d0728e36d 1-25
+ci-site/src/components/AgentDirective.astro
+  s_28c718b5aeaa22::t_83e5f7e493dd18 1-16
+ci-site/src/components/Header.astro
+  s_28c718b5aeaa22::t_b311f9d96176c6 1-93
+ci-site/src/components/Render.astro
+  s_28c718b5aeaa22::t_e6d82115205617 1-106
+ci-site/src/components/ui/aside/Aside.astro
+  s_28c718b5aeaa22::t_9b0a6a1ffe0bd4 1-76
+ci-site/src/components/ui/aside/index.ts
+  s_28c718b5aeaa22::t_65df53c890a8ca 1
+ci-site/src/components/ui/badge/Badge.astro
+  s_28c718b5aeaa22::t_f9c109e647aab8 1-43
+ci-site/src/components/ui/badge/index.ts
+  s_28c718b5aeaa22::t_769241fdba7921 1
+ci-site/src/components/ui/banner/Banner.astro
+  s_28c718b5aeaa22::t_3ccf1218c97443 1-83
+ci-site/src/components/ui/banner/banner.client.ts
+  s_28c718b5aeaa22::t_b725cfbe2e8804 1-49
+ci-site/src/components/ui/banner/index.ts
+  s_28c718b5aeaa22::t_266b21c7a0cc5c 1
+ci-site/src/components/ui/breadcrumbs/Breadcrumbs.astro
+  s_28c718b5aeaa22::t_bc508c19e0c5aa 1-84
+ci-site/src/components/ui/breadcrumbs/index.ts
+  s_28c718b5aeaa22::t_4005f69b4bf9d4 1
+ci-site/src/components/ui/button/Button.astro
+  s_28c718b5aeaa22::t_3239018a96eedc 1-69
+ci-site/src/components/ui/button/index.ts
+  s_28c718b5aeaa22::t_92af12712783e9 1-13
+ci-site/src/components/ui/button/variants.ts
+  s_28c718b5aeaa22::t_f6da7e033ec838 1-82
+ci-site/src/components/ui/card-grid/CardGrid.astro
+  s_28c718b5aeaa22::t_9c74238bdd6f7d 1-15
+ci-site/src/components/ui/card-grid/index.ts
+  s_28c718b5aeaa22::t_d40c7b1a7bc674 1
+ci-site/src/components/ui/card/Card.astro
+  s_28c718b5aeaa22::t_dbb1312cd440d9 1-21
+ci-site/src/components/ui/card/index.ts
+  s_28c718b5aeaa22::t_f38729748be7eb 1
+ci-site/src/components/ui/code/Code.astro
+  s_28c718b5aeaa22::t_66f0b2e98adc4c 1-36
+ci-site/src/components/ui/code/index.ts
+  s_28c718b5aeaa22::t_74eea13c19ce8f 1
+ci-site/src/components/ui/collapsible/Collapsible.astro
+  s_28c718b5aeaa22::t_7cdfcaf17753f8 1-25
+ci-site/src/components/ui/collapsible/CollapsibleContent.astro
+  s_28c718b5aeaa22::t_f7d61cd4069b43 1-27
+ci-site/src/components/ui/collapsible/CollapsibleTrigger.astro
+  s_28c718b5aeaa22::t_e322f9ef71c404 1-21
+ci-site/src/components/ui/collapsible/collapsible.client.ts
+  s_28c718b5aeaa22::t_f6423e475b7914 1-22
+ci-site/src/components/ui/collapsible/index.ts
+  s_28c718b5aeaa22::t_f5d7e284dd40c0 1-3
+ci-site/src/components/ui/dialog/Dialog.astro
+  s_28c718b5aeaa22::t_5b16d2d66b7f20 1-33
+ci-site/src/components/ui/dialog/DialogClose.astro
+  s_28c718b5aeaa22::t_408c6bf725561a 1-25
+ci-site/src/components/ui/dialog/DialogContent.astro
+  s_28c718b5aeaa22::t_44860744fbf148 1-21
+ci-site/src/components/ui/dialog/dialog-close.client.ts
+  s_28c718b5aeaa22::t_580b4b7a5a0203 1-7
+ci-site/src/components/ui/dialog/dialog.client.ts
+  s_28c718b5aeaa22::t_9f56c9895d6d66 1-25
+ci-site/src/components/ui/dialog/index.ts
+  s_28c718b5aeaa22::t_46b3285edb168c 1-3
+ci-site/src/components/ui/layer-card/LayerCard.astro
+  s_28c718b5aeaa22::t_d27300a38cce01 1-23
+ci-site/src/components/ui/layer-card/LayerCardContent.astro
+  s_28c718b5aeaa22::t_cd75ad4edeb286 1-16
+ci-site/src/components/ui/layer-card/LayerCardHeader.astro
+  s_28c718b5aeaa22::t_c8510609881ad9 1-16
+ci-site/src/components/ui/layer-card/index.ts
+  s_28c718b5aeaa22::t_aaac1d3394c71e 1-3
+ci-site/src/components/ui/link-button/LinkButton.astro
+  s_28c718b5aeaa22::t_922d928993f4ab 1-76
+ci-site/src/components/ui/link-button/index.ts
+  s_28c718b5aeaa22::t_ab1c36caf064b7 1
+ci-site/src/components/ui/package-managers/PackageManagers.astro
+  s_28c718b5aeaa22::t_ad4c32a3f9d130 1-129
+ci-site/src/components/ui/package-managers/index.ts
+  s_28c718b5aeaa22::t_e46281ea586143 1
+ci-site/src/components/ui/package-managers/package-managers.client.ts
+  s_28c718b5aeaa22::t_5328d9027e5bf5 1-55
+ci-site/src/components/ui/page-actions/PageActions.astro
+  s_28c718b5aeaa22::t_bf4b8137bd4ffa 1-65
+ci-site/src/components/ui/page-actions/index.ts
+  s_28c718b5aeaa22::t_f7b68c595e1621 1
+ci-site/src/components/ui/page-actions/page-actions.client.ts
+  s_28c718b5aeaa22::t_2c19edc40c0a89 1-54
+ci-site/src/components/ui/pagination/Pagination.astro
+  s_28c718b5aeaa22::t_937e8b3c6cab1c 1-36
+ci-site/src/components/ui/pagination/index.ts
+  s_28c718b5aeaa22::t_d1942ba64d0f22 1
+ci-site/src/components/ui/search/SearchDialog.astro
+  s_28c718b5aeaa22::t_3df88cab9b3e97 1-54
+ci-site/src/components/ui/search/SearchTrigger.astro
+  s_28c718b5aeaa22::t_13738889d00b77 1-22
+ci-site/src/components/ui/search/index.ts
+  s_28c718b5aeaa22::t_abfe386b3b6c4e 1-2
+ci-site/src/components/ui/search/providers/pagefind.ts
+  s_28c718b5aeaa22::t_025a0dd348567b 1-80
+ci-site/src/components/ui/search/search-trigger.client.ts
+  s_28c718b5aeaa22::t_9ba10e7c9ac0e9 1-17
+ci-site/src/components/ui/search/search.client.ts
+  s_28c718b5aeaa22::t_2259a2d5d5bf88 1-275
+ci-site/src/components/ui/sidebar/Sidebar.astro
+  s_28c718b5aeaa22::t_427ab6bd27756c 1-65
+ci-site/src/components/ui/sidebar/SidebarFilter.astro
+  s_28c718b5aeaa22::t_8e7c2fe12c804d 1-28
+ci-site/src/components/ui/sidebar/SidebarGroup.astro
+  s_28c718b5aeaa22::t_cb40802a9c9267 1-198
+ci-site/src/components/ui/sidebar/SidebarLink.astro
+  s_28c718b5aeaa22::t_3253a880b007af 1-37
+ci-site/src/components/ui/sidebar/index.ts
+  s_28c718b5aeaa22::t_c45f2aeb31ff18 1-4
+ci-site/src/components/ui/sidebar/sidebar.client.ts
+  s_28c718b5aeaa22::t_7631c1e1f2a97d 1-209
+ci-site/src/components/ui/steps/Step.astro
+  s_28c718b5aeaa22::t_d02d21b8615baf 1-26
+ci-site/src/components/ui/steps/Steps.astro
+  s_28c718b5aeaa22::t_33ffe4604f446e 1-115
+ci-site/src/components/ui/steps/index.ts
+  s_28c718b5aeaa22::t_81db3879ce49be 1-2
+ci-site/src/components/ui/steps/steps.client.ts
+  s_28c718b5aeaa22::t_506f172a0ed30a 1-32
+ci-site/src/components/ui/tabs/TabItem.astro
+  s_28c718b5aeaa22::t_5b9d1a28da2a8a 1-30
+ci-site/src/components/ui/tabs/Tabs.astro
+  s_28c718b5aeaa22::t_e488e1529f8a47 1-36
+ci-site/src/components/ui/tabs/TabsContent.astro
+  s_28c718b5aeaa22::t_9393965cf374c5 1-24
+ci-site/src/components/ui/tabs/TabsList.astro
+  s_28c718b5aeaa22::t_d1109d91125566 1-34
+ci-site/src/components/ui/tabs/TabsTrigger.astro
+  s_28c718b5aeaa22::t_759bb3a199e814 1-31
+ci-site/src/components/ui/tabs/index.ts
+  s_28c718b5aeaa22::t_c2c63cf88018e9 1-5
+ci-site/src/components/ui/tabs/tabs.client.ts
+  s_28c718b5aeaa22::t_ee34a4dfa254ae 1-109
+ci-site/src/components/ui/theme-toggle/ThemeToggle.astro
+  s_28c718b5aeaa22::t_51d97495f73580 1-32
+ci-site/src/components/ui/theme-toggle/index.ts
+  s_28c718b5aeaa22::t_bed3c87a79b20f 1
+ci-site/src/components/ui/theme-toggle/theme-toggle.client.ts
+  s_28c718b5aeaa22::t_749f32a60db684 1-31
+ci-site/src/components/ui/toc/MobileTOC.astro
+  s_28c718b5aeaa22::t_80a1b0abe6fb73 1-60
+ci-site/src/components/ui/toc/TOC.astro
+  s_28c718b5aeaa22::t_2bc2125198278c 1-95
+ci-site/src/components/ui/toc/index.ts
+  s_28c718b5aeaa22::t_f335ae117d16cf 1-2
+ci-site/src/components/ui/toc/mobile-toc.client.ts
+  s_28c718b5aeaa22::t_aacd87996107c1 1-136
+ci-site/src/components/ui/toc/toc.client.ts
+  s_28c718b5aeaa22::t_84e631e5fb2306 1-334
+ci-site/src/content.config.ts
+  s_28c718b5aeaa22::t_cf1baea78f8da6 1-18
+ci-site/src/content/docs/components.mdx
+  s_28c718b5aeaa22::t_1d6246a867806b 1-207
+ci-site/src/content/docs/getting-started.mdx
+  s_28c718b5aeaa22::t_73ac8ed26be08c 1-24
+ci-site/src/content/docs/welcome.mdx
+  s_28c718b5aeaa22::t_160a52412cc4a2 1-21
+ci-site/src/content/partials/example.mdx
+  s_28c718b5aeaa22::t_88a26a753c98af 1-4
+ci-site/src/layouts/BaseLayout.astro
+  s_28c718b5aeaa22::t_22bb637e0fb270 1-118
+ci-site/src/layouts/DocsLayout.astro
+  s_28c718b5aeaa22::t_21b8c89b06adcc 1-350
+ci-site/src/lib/cn.ts
+  s_28c718b5aeaa22::t_90efa30596cb94 1-7
+ci-site/src/pages/404.astro
+  s_28c718b5aeaa22::t_b2863198d9bd3c 1-29
+ci-site/src/pages/[...slug].astro
+  s_28c718b5aeaa22::t_1fb1bf0a5f010d 1-70
+ci-site/src/pages/[...slug]/index.md.ts
+  s_28c718b5aeaa22::t_e4f849200ae2c1 1-78
+ci-site/src/pages/[...slug]/index.mdx.ts
+  s_28c718b5aeaa22::t_635ecb8d9e68a0 1-69
+ci-site/src/pages/[section]/llms.txt.ts
+  s_28c718b5aeaa22::t_624d7ad0f76bbb 1-64
+ci-site/src/pages/index.astro
+  s_28c718b5aeaa22::t_1445926bf2f086 1-46
+ci-site/src/pages/llms-full.txt.ts
+  s_28c718b5aeaa22::t_85ca9f4aa3ead6 1-12
+ci-site/src/pages/llms.txt.ts
+  s_28c718b5aeaa22::t_e5f7487a6193b8 1-50
+ci-site/src/pages/og.png.ts
+  s_28c718b5aeaa22::t_f456cf75da8561 1-17
+ci-site/src/pages/og/[...slug].ts
+  s_28c718b5aeaa22::t_5c396101a565d4 1-24
+ci-site/src/pages/og/_og-card-config.ts
+  s_28c718b5aeaa22::t_284aca358bc3a1 1-39
+ci-site/src/pages/robots.txt.ts
+  s_28c718b5aeaa22::t_2551d4543f3efe 1-17
+ci-site/src/styles/globals.css
+  s_28c718b5aeaa22::t_8699439ba1c11b 1-491
+ci-site/src/styles/prose.css
+  s_28c718b5aeaa22::t_6e6cea3a8d2474 1-331
+ci-site/tsconfig.json
+  s_28c718b5aeaa22::t_2c789519d86f47 1-11
+ci-site/wrangler.jsonc
+  s_28c718b5aeaa22::t_05712f465139a9 1-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "86b1d88492ebebb0b139cf0606875800c01cc8e5",
+  "prompts": {},
+  "sessions": {
+    "s_28c718b5aeaa22": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_012fda932ffeMESZAVrmit6Bug",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mvm <vance@cloudflare.com>"
+    }
+  }
+}

@@ -1,0 +1,33 @@
+pnpm-lock.yaml
+  s_6bbfa0b49df1b5::t_2298c8b20cf0c6 3458,8285
+  s_28c718b5aeaa22::t_39f41ddc16a571 16,147,154-162,250,265,283,286,302,734,740,746,752,758,5190-5191,5671,5687,5866-5869,6224,6226,6228-6230,6232,6236,6240,6442,6447,7324-7327,7395,7397,7921-7922,10141,10149
+  s_28c718b5aeaa22::t_8d9972b7af3e36 803-805,1393-1394,1399-1400,3274-3276,3456-3457,3954-3956,8016-8017,8284,9000
+packages/nimbus-docs/package.json
+  s_28c718b5aeaa22::t_e948a9c52c21e3 64-65,99-101
+packages/nimbus-docs/src/_internal/icon-virtual.ts
+  s_28c718b5aeaa22::t_108f9f2fd873cf 1-238
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "27e87c678145eff7b6a79761129f153ef28c039d",
+  "prompts": {},
+  "sessions": {
+    "s_28c718b5aeaa22": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_012fda932ffeMESZAVrmit6Bug",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mvm <vance@cloudflare.com>"
+    },
+    "s_6bbfa0b49df1b5": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_031f8ca67ffeIZSTN4vJcd5iKo",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+pnpm-lock.yaml
+  s_28c718b5aeaa22::t_39f41ddc16a571 16,147,154-162,250,265,283,286,302,737,743,749,755,761,5321-5322,5383-5390,5412-5426,5434-5440,5834,5850,6612,6617,6721-6727,7510-7513,7581,7583,7681,7683,7731-7732,7738,8249-8250,9375,10266,10569,10577
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "1c4b6f1760ad76874bf9cdd556418ed3d4fc4743",
+  "prompts": {},
+  "sessions": {
+    "s_28c718b5aeaa22": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_012fda932ffeMESZAVrmit6Bug",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mvm <vance@cloudflare.com>"
+    }
+  }
+}
