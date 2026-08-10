@@ -1,0 +1,115 @@
+pnpm-lock.yaml
+  s_28c718b5aeaa22::t_8d9972b7af3e36 803-805,1393-1394,1399-1400,3274-3276,3456-3457,3954-3956,8016-8017,8284,9000
+  s_6bbfa0b49df1b5::t_2298c8b20cf0c6 3458,8285
+  s_28c718b5aeaa22::t_39f41ddc16a571 16,147,154-162,250,265,283,286,302,734,740,746,752,758,5190-5191,5671,5687,5866-5869,6224,6226,6228-6230,6232,6236,6240,6442,6447,7324-7327,7395,7397,7921-7922,10141,10149
+packages/nimbus-docs/src/_internal/icon-virtual.ts
+  s_28c718b5aeaa22::t_108f9f2fd873cf 1-238
+packages/nimbus-docs/package.json
+  s_28c718b5aeaa22::t_e948a9c52c21e3 64-65,99-101
+apps/www/src/components/Header.astro
+  s_28c718b5aeaa22::t_af5c49cc9b3541 2
+apps/www/src/components/ui/accordion/AccordionTrigger.astro
+  s_28c718b5aeaa22::t_976639f96e8fad 3
+apps/www/src/components/ui/aside/Aside.astro
+  s_28c718b5aeaa22::t_7cb78464e63774 2
+apps/www/src/components/ui/banner/Banner.astro
+  s_28c718b5aeaa22::t_89da77f77d1aa2 6
+apps/www/src/components/ui/button/Button.astro
+  s_28c718b5aeaa22::t_3c17adf0b32db9 22
+apps/www/src/components/ui/card/Card.astro
+  s_28c718b5aeaa22::t_0fc01f9737146e 2
+apps/www/src/components/ui/code-group/CodeGroup.astro
+  s_28c718b5aeaa22::t_6c38de3d5b8018 13
+apps/www/src/components/ui/file-tree/FileTree.astro
+  s_28c718b5aeaa22::t_73450dd46ba302 20
+apps/www/src/components/ui/link-button/LinkButton.astro
+  s_28c718b5aeaa22::t_761ee4d8226753 18
+apps/www/src/components/ui/link-card/LinkCard.astro
+  s_28c718b5aeaa22::t_f826a0a50eb1b8 9
+apps/www/src/components/ui/package-managers/PackageManagers.astro
+  s_28c718b5aeaa22::t_e3ceba89c9d219 8
+apps/www/src/components/ui/page-actions/PageActions.astro
+  s_28c718b5aeaa22::t_977ce63fa87328 2
+apps/www/src/components/ui/pagination/Pagination.astro
+  s_28c718b5aeaa22::t_1b759d2d3bd658 2
+apps/www/src/components/ui/search/SearchDialog.astro
+  s_28c718b5aeaa22::t_19c0bbdef834c0 2
+apps/www/src/components/ui/search/SearchTrigger.astro
+  s_28c718b5aeaa22::t_e36c61723b6947 3
+apps/www/src/components/ui/sidebar/SidebarGroup.astro
+  s_28c718b5aeaa22::t_ac7f0b29b27c8e 7
+apps/www/src/components/ui/theme-toggle/ThemeToggle.astro
+  s_28c718b5aeaa22::t_7d4a9b1b8145c6 7
+apps/www/src/components/ui/toc/MobileTOC.astro
+  s_28c718b5aeaa22::t_6a38d64eccc756 14
+apps/www/src/layouts/DocsLayout.astro
+  s_28c718b5aeaa22::t_cd45e574eb9d5b 8
+apps/www/src/layouts/ShowcaseLayout.astro
+  s_28c718b5aeaa22::t_c5584714c0d44d 13
+apps/www/src/pages/components.astro
+  s_28c718b5aeaa22::t_7e9a0d54153475 10
+packages/nimbus-starter-source/src/components/Header.astro
+  s_28c718b5aeaa22::t_17ee54c5c69f76 2
+packages/nimbus-starter-source/src/components/ui/accordion/AccordionTrigger.astro
+  s_28c718b5aeaa22::t_049f69289c08ff 3
+packages/nimbus-starter-source/src/components/ui/aside/Aside.astro
+  s_28c718b5aeaa22::t_5613ea15cc4b17 2
+packages/nimbus-starter-source/src/components/ui/banner/Banner.astro
+  s_28c718b5aeaa22::t_2630aec899ab3f 6
+packages/nimbus-starter-source/src/components/ui/button/Button.astro
+  s_28c718b5aeaa22::t_fe75d64a9f0e97 22
+packages/nimbus-starter-source/src/components/ui/card/Card.astro
+  s_28c718b5aeaa22::t_944b442737ae0d 2
+packages/nimbus-starter-source/src/components/ui/code-group/CodeGroup.astro
+  s_28c718b5aeaa22::t_fd1b48cace1790 13
+packages/nimbus-starter-source/src/components/ui/file-tree/FileTree.astro
+  s_28c718b5aeaa22::t_32519688a6a03f 20
+packages/nimbus-starter-source/src/components/ui/link-button/LinkButton.astro
+  s_28c718b5aeaa22::t_ebae18ff39225c 18
+packages/nimbus-starter-source/src/components/ui/link-card/LinkCard.astro
+  s_28c718b5aeaa22::t_33ca2205245c74 9
+packages/nimbus-starter-source/src/components/ui/package-managers/PackageManagers.astro
+  s_28c718b5aeaa22::t_3c48d4beb32a66 8
+packages/nimbus-starter-source/src/components/ui/page-actions/PageActions.astro
+  s_28c718b5aeaa22::t_b49803f2dd3ad3 2
+packages/nimbus-starter-source/src/components/ui/pagination/Pagination.astro
+  s_28c718b5aeaa22::t_6ffada7b9a94b0 2
+packages/nimbus-starter-source/src/components/ui/search/SearchDialog.astro
+  s_28c718b5aeaa22::t_1b8880082e683b 2
+packages/nimbus-starter-source/src/components/ui/search/SearchTrigger.astro
+  s_28c718b5aeaa22::t_414952e5ba961c 3
+packages/nimbus-starter-source/src/components/ui/sidebar/SidebarGroup.astro
+  s_28c718b5aeaa22::t_667674bc29456e 17
+packages/nimbus-starter-source/src/components/ui/theme-toggle/ThemeToggle.astro
+  s_28c718b5aeaa22::t_9229dc2be97ac7 7
+packages/nimbus-starter-source/src/components/ui/toc/MobileTOC.astro
+  s_28c718b5aeaa22::t_fd43532e7829ed 14
+packages/nimbus-starter-source/src/components/ui/version-switcher/VersionSwitcher.astro
+  s_28c718b5aeaa22::t_0160447c2e943b 3
+packages/nimbus-starter-source/src/layouts/DocsLayout.astro
+  s_28c718b5aeaa22::t_923c5926647a2a 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d6a4dd493438c451de9a5cb95d2d5cb3ebe02a31",
+  "prompts": {},
+  "sessions": {
+    "s_28c718b5aeaa22": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_012fda932ffeMESZAVrmit6Bug",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mvm <vance@cloudflare.com>"
+    },
+    "s_6bbfa0b49df1b5": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_031f8ca67ffeIZSTN4vJcd5iKo",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
