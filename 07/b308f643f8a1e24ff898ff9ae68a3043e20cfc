@@ -1,0 +1,59 @@
+apps/www/src/components/ui/accordion/AccordionTrigger.astro
+  s_28c718b5aeaa22::t_2413e98b7141b7 24,28
+apps/www/src/components/ui/code-group/CodeGroup.astro
+  s_28c718b5aeaa22::t_92718d975a461b 33-34
+apps/www/src/components/ui/file-tree/FileTree.astro
+  s_28c718b5aeaa22::t_8c6c583c1428cc 30-32
+apps/www/src/components/ui/package-managers/PackageManagers.astro
+  s_28c718b5aeaa22::t_ca70fcb36d6480 39,123-124
+apps/www/src/components/ui/toc/MobileTOC.astro
+  s_28c718b5aeaa22::t_93e2c46bc06987 52
+apps/www/src/layouts/BaseLayout.astro
+  s_28c718b5aeaa22::t_8b963d485a8616 51
+apps/www/src/layouts/DocsLayout.astro
+  s_28c718b5aeaa22::t_fc60e82f2b4748 105
+packages/nimbus-docs/src/_internal/icon-virtual.ts
+  s_28c718b5aeaa22::t_042e214df87699 119
+packages/nimbus-docs/src/components/Icon.astro
+  s_28c718b5aeaa22::t_ac91d61d115395 22,38,88
+packages/nimbus-starter-source/src/components/ui/accordion/AccordionTrigger.astro
+  s_28c718b5aeaa22::t_3c177e66a37efd 24,28
+packages/nimbus-starter-source/src/components/ui/code-group/CodeGroup.astro
+  s_28c718b5aeaa22::t_f4b098ed6df02d 33-34
+packages/nimbus-starter-source/src/components/ui/file-tree/FileTree.astro
+  s_28c718b5aeaa22::t_e2800ae8c9f0e4 30-32
+packages/nimbus-starter-source/src/components/ui/link-button/LinkButton.astro
+  s_28c718b5aeaa22::t_26194b55a70afc 72
+packages/nimbus-starter-source/src/components/ui/link-card/LinkCard.astro
+  s_28c718b5aeaa22::t_048333fc5fdae9 37
+packages/nimbus-starter-source/src/components/ui/package-managers/PackageManagers.astro
+  s_28c718b5aeaa22::t_1537456ead0498 39,115,123-124
+packages/nimbus-starter-source/src/components/ui/page-actions/PageActions.astro
+  s_28c718b5aeaa22::t_cb7144d3f79dc3 42-43
+packages/nimbus-starter-source/src/components/ui/pagination/Pagination.astro
+  s_28c718b5aeaa22::t_2f602f90e13361 32
+packages/nimbus-starter-source/src/components/ui/sidebar/SidebarGroup.astro
+  s_28c718b5aeaa22::t_17bce58adc19b0 138,158
+packages/nimbus-starter-source/src/components/ui/toc/MobileTOC.astro
+  s_28c718b5aeaa22::t_1a44d35e39a7ca 52
+packages/nimbus-starter-source/src/layouts/BaseLayout.astro
+  s_28c718b5aeaa22::t_c9ed2c32f4ba19 50
+packages/nimbus-starter-source/src/layouts/DocsLayout.astro
+  s_28c718b5aeaa22::t_a8897db73a88c2 107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "07b308f643f8a1e24ff898ff9ae68a3043e20cfc",
+  "prompts": {},
+  "sessions": {
+    "s_28c718b5aeaa22": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_012fda932ffeMESZAVrmit6Bug",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mvm <vance@cloudflare.com>"
+    }
+  }
+}
