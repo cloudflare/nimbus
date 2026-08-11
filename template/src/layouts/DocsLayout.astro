@@ -5,7 +5,7 @@
  * Named slots for overrides (all optional, defaults render otherwise):
  *   header, sidebar, toc, page-title, content-footer, pagination
  */
-import { Icon } from "astro-icon/components";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import BaseLayout from "./BaseLayout.astro";
 import Header from "@/components/Header.astro";
 import { Banner } from "@/components/ui/banner";
@@ -104,7 +104,7 @@ const hasPagination = Astro.slots.has("pagination");
               Only emit when the sidebar is rendered; otherwise the script is
               dead code (the `desktop-sidebar` element doesn't exist). */}
           {showSidebar && (
-          <script is:inline aria-hidden="true">
+          <script aria-hidden="true">
           (function () {
             try {
               if (!matchMedia("(min-width: 64rem)").matches) return;

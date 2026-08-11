@@ -1,5 +1,4 @@
 import { defineConfig } from "astro/config";
-import icon from "astro-icon";
 import tailwindcss from "@tailwindcss/vite";
 import nimbus, { defineConfig as defineNimbusConfig } from "@cloudflare/nimbus-docs";
 import { tableScroll } from "@cloudflare/nimbus-docs/markdown";
@@ -34,7 +33,6 @@ export default defineConfig({
     defaultStrategy: "hover",
   },
   integrations: [
-    icon(),
     nimbus(nimbusConfig, {
       // Authoring rules are opt-in by design — your repo, your taste. The
       // two below are the load-bearing pair: frontmatter has to validate

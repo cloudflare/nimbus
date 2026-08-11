@@ -1,11 +1,11 @@
 ---
-import { Icon } from "astro-icon/components";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
 ---
 
 <Dialog aria-label="Search documentation" data-search-dialog>
   <DialogContent class="max-w-xl bg-muted shadow-xl ring-border">
-    <div class="overflow-hidden rounded-t-lg bg-card border-b border-border">
+    <div class="flex flex-col overflow-hidden rounded-t-lg bg-card border-b border-border">
       <div class="flex items-center gap-3 border-b border-border px-4 py-3">
         <Icon name="ph:magnifying-glass" class="h-4 w-4 shrink-0 text-muted-foreground" />
         <input

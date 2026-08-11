@@ -11,7 +11,7 @@
  * The caret is an overlaid icon since native selects can't be styled, and the
  * client mirrors the active heading back into the select value.
  */
-import { Icon } from "astro-icon/components";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 import type { TOCItem } from "@cloudflare/nimbus-docs/types";
@@ -49,7 +49,7 @@ const hasHeadings = headings.length > 0;
         name="ph:caret-down"
         aria-hidden="true"
         class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-        is:inline
+       
       />
     </nav>
   )

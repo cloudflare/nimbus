@@ -5,7 +5,7 @@
  * an inline custom element restores the saved tab before paint.
  */
 import { createHash } from "node:crypto";
-import { Icon } from "astro-icon/components";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { getTabs } from "@cloudflare/nimbus-docs/lib/pkgm";
 import type { CommandType, CommandOptions } from "@cloudflare/nimbus-docs/lib/pkgm";
 import { LayerCard, LayerCardHeader } from "@/components/ui/layer-card";
@@ -36,7 +36,7 @@ const uid =
   n.toString(16).padStart(4, "0");
 ---
 
-<script is:inline>
+<script>
   if (!customElements.get("nb-pm-restore")) {
     customElements.define(
       "nb-pm-restore",
@@ -60,7 +60,7 @@ const uid =
           tabs.forEach(function (t, i) {
             t.setAttribute("aria-selected", String(i === idx));
           });
-          card.querySelectorAll("[data-nb-pm-panel]").forEach(function (p, i) {
+          (card.querySelectorAll("[data-nb-pm-panel]") as NodeListOf<HTMLElement>).forEach(function (p, i) {
             p.hidden = i !== idx;
           });
         }
@@ -112,7 +112,7 @@ const uid =
               aria-label="Copy to clipboard"
               class="m-0 flex shrink-0 cursor-pointer items-center justify-center border-0 border-l border-solid border-border bg-transparent px-3 text-muted-foreground transition-colors hover:text-foreground"
             >
-              <Icon name="ph:copy" class="w-[18px] h-[18px]" is:inline />
+              <Icon name="ph:copy" class="w-[18px] h-[18px]" />
             </button>
           </div>
         </div>
@@ -120,8 +120,8 @@ const uid =
     })}
     <nb-pm-restore style="display:contents"></nb-pm-restore>
   </LayerCard>
-  <template data-nb-pm-icon-copy><Icon name="ph:copy" class="w-[18px] h-[18px]" is:inline /></template>
-  <template data-nb-pm-icon-check><Icon name="ph:check" class="w-[18px] h-[18px]" is:inline /></template>
+  <template data-nb-pm-icon-copy><Icon name="ph:copy" class="w-[18px] h-[18px]" /></template>
+  <template data-nb-pm-icon-check><Icon name="ph:check" class="w-[18px] h-[18px]" /></template>
 </div>
 
 <script>

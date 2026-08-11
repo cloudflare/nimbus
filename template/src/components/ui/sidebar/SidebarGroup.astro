@@ -14,7 +14,7 @@
  *     without an `index.mdx`, where the group is a pure visual section
  *     divider over its children.
  */
-import { Icon } from "astro-icon/components";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -135,7 +135,7 @@ const caretClass =
         aria-expanded={isOpen ? "true" : "false"}
         aria-label={`Toggle ${label} section`}
       >
-        <Icon name="ph:caret-right" class={caretClass} data-nb-caret is:inline />
+        <Icon name="ph:caret-right" class={caretClass} data-nb-caret />
       </CollapsibleTrigger>
     </div>
   ) : (
@@ -155,7 +155,7 @@ const caretClass =
             <Badge text={badge.text} variant={badge.variant} />
           ))}
       </span>
-      <Icon name="ph:caret-right" class={caretClass} data-nb-caret is:inline />
+      <Icon name="ph:caret-right" class={caretClass} data-nb-caret />
     </CollapsibleTrigger>
   )}
 

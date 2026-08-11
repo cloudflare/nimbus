@@ -15,7 +15,7 @@
  * `minimal → ghost`, `md → base`.
  */
 import { cn } from "@/lib/cn";
-import { Icon } from "astro-icon/components";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import type { HTMLAttributes } from "astro/types";
 import {
   buttonVariants,
@@ -69,7 +69,7 @@ const resolvedSize: ButtonSize = size === "md" ? "base" : size;
           "transition-transform group-hover:translate-x-0.5",
           buttonIconSize[resolvedSize],
         )}
-        is:inline
+       
       />
     )
   }
