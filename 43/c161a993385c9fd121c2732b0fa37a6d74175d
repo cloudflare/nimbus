@@ -1,0 +1,20 @@
+packages/nimbus-docs/src/cli/_registry.generated.ts
+  s_773f6d7de72deb::t_6cdc81a0c80a67 212-235,265
+  s_773f6d7de72deb::t_5484742751599d 262-264
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "43c161a993385c9fd121c2732b0fa37a6d74175d",
+  "prompts": {},
+  "sessions": {
+    "s_773f6d7de72deb": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fea947970ffeYxi0DllOB5IzFZ",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
