@@ -231,7 +231,33 @@ const META_SYMBOL = Symbol("nimbus-meta");
 interface MetaCarrier {
   [META_SYMBOL]?: NimbusMeta;
 }
+function cliPlaceholderTransformer(): ShikiTransformer {
+  return {
+    name: "nimbus:cli-placeholder",
 
+  preprocess(code, options) {
+    const placeholderPattern = /<[A-Z][A-Z0-9_]*>/g;
+    const matches = [...code.matchAll(placeholderPattern)];
+
+    if (matches.length === 0) return;
+
+    options.decorations ||= [];
+
+    for (const match of matches) {
+        const start = match.index;
+        if (start === undefined) continue;
+
+        options.decorations.push({
+          start,
+          end: start + match[0].length,
+          properties: {
+            class: "nb-cli-placeholder",
+          },
+        });
+      }
+    },
+  };
+}
 /**
  * The canonical Shiki transformer chain for Nimbus. Returns a fresh
  * array each call so callers don't accidentally mutate a shared list.
@@ -247,15 +273,16 @@ export function defaultCodeTransformers(
 ): ShikiTransformer[] {
   const beforeTitle = options.beforeTitleTransformers ?? [];
   return [
-    transformerNotationDiff(),
-    transformerNotationHighlight(),
-    transformerNotationFocus(),
-    transformerNotationErrorLevel(),
-    transformerNotationWordHighlight(),
-    nimbusMetaTransformer(),
-    ...beforeTitle,
-    ...(options.classTokens ? [getCodeStyleTransformer()] : []),
-    titleAndLangTransformer(),
+  transformerNotationDiff(),
+  transformerNotationHighlight(),
+  transformerNotationFocus(),
+  transformerNotationErrorLevel(),
+  transformerNotationWordHighlight(),
+  cliPlaceholderTransformer(),
+  nimbusMetaTransformer(),
+  ...beforeTitle,
+  ...(options.classTokens ? [getCodeStyleTransformer()] : []),
+  titleAndLangTransformer(),
   ];
 }
 
@@ -279,7 +306,7 @@ export function nimbusMetaTransformer(): ShikiTransformer {
 
     // Quoted search words are applied as decorations over the raw source.
     // Decorations split tokens cleanly on the hast.
-    preprocess(code, options) {
+      preprocess(code, options) {
       if (!this.options.meta?.__raw) return;
       const meta = getMeta(this);
       if (meta.searchWords.length === 0) return;

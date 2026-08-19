@@ -536,6 +536,12 @@ pre.astro-code .highlighted-word {
 	box-shadow: 0 0 0 1px color-mix(in oklch, var(--nb-info) 30%, transparent);
 }
 
+/* CLI placeholders such as <BUCKET_NAME>. */
+pre.astro-code .nb-cli-placeholder,
+pre.astro-code .nb-cli-placeholder span {
+        color: var(--nb-info) !important;
+}
+
 /* ---- Mobile sidebar toggle ---- */
 
 /* Hide hamburger on pages without a sidebar dialog. */
