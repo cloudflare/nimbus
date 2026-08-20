@@ -218,6 +218,16 @@ body {
 
 /* ---- Focus indicators ---- */
 @layer base {
+	/* Default the outline to the focus ring's resting values so turning the
+	   ring on (outline-style: none → solid) changes nothing a transition can
+	   animate — no color/width/offset flash under transition-colors/-all. */
+	*,
+	::before,
+	::after {
+		outline-color: var(--nb-ring);
+		outline-width: 2px;
+		outline-offset: 2px;
+	}
 	:focus-visible {
 		outline: 2px solid var(--nb-ring);
 		outline-offset: 2px;
@@ -488,4 +498,41 @@ pre.astro-code .highlighted-word {
 /* Hide hamburger on pages without a sidebar dialog. */
 body:not(:has([data-mobile-sidebar])) [data-menu-btn] {
 	display: none;
+}
+
+/* ---- View transitions ---- */
+
+/* Scoped to <main transition:name="nb-content"> only — chrome snap-swaps
+   via the root rule below so the visual field doesn't shift on nav. */
+@media (prefers-reduced-motion: no-preference) {
+	::view-transition-old(nb-content) {
+		animation: nb-content-out 100ms cubic-bezier(0.32, 0.72, 0, 1) both;
+	}
+	::view-transition-new(nb-content) {
+		animation: nb-content-in 100ms cubic-bezier(0.32, 0.72, 0, 1) both;
+	}
+
+	::view-transition-old(root),
+	::view-transition-new(root) {
+		animation: none;
+	}
+
+	@keyframes nb-content-out {
+		from { opacity: 1; }
+		to   { opacity: 0; }
+	}
+
+	@keyframes nb-content-in {
+		from { opacity: 0; transform: translateY(4px); }
+		to   { opacity: 1; transform: translateY(0); }
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	::view-transition-old(nb-content),
+	::view-transition-new(nb-content),
+	::view-transition-old(root),
+	::view-transition-new(root) {
+		animation: none;
+	}
 }
