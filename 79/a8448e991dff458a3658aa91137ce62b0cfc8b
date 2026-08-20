@@ -1,0 +1,19 @@
+pnpm-lock.yaml
+  s_ee4ffdae312214::t_d33f295bd3cec9 3978-3979,9011,9181,9187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "79a8448e991dff458a3658aa91137ce62b0cfc8b",
+  "prompts": {},
+  "sessions": {
+    "s_ee4ffdae312214": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fdf2fa800ffeWIymo6bef7QrF2",
+        "model": "@cf/zai-org/glm-5.2"
+      },
+      "human_author": "mvm <vance@cloudflare.com>"
+    }
+  }
+}
