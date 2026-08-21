@@ -1,0 +1,19 @@
+packages/nimbus-docs/src/_internal/api/api-alternates.ts
+  s_38c694df2589ce::t_c1ad947ab9484d 1-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "8c5141eed13dbc32a5a68556c2aedd9e2b06d596",
+  "prompts": {},
+  "sessions": {
+    "s_38c694df2589ce": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fdac36c95ffepjhOjBh07CuRxK",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
