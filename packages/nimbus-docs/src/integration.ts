@@ -45,6 +45,7 @@ import type {
 import sitemap from "@astrojs/sitemap";
 import { admonitionPlugin } from "./_internal/admonition-vite-plugin.js";
 import { parseComponentsRegistry } from "./_internal/parse-components-registry.js";
+import { resolvePrerenderChunkNames } from "./_internal/prerender-chunk-names.js";
 import {
   validateLintOptions,
   type CollectionsConfig,
@@ -570,6 +571,10 @@ export function nimbus(
           );
         }
 
+        // Hashless names for Astro's throwaway prerender bundle — skips
+        // Rolldown's per-chunk hash-graph walk on large builds (see helper).
+        const hashlessPrerenderOutput = resolvePrerenderChunkNames(astroConfig.vite);
+
         updateConfig({
           // Bridge `nimbusConfig.site` → Astro's top-level `site`. The
           // sitemap integration and `Astro.site` both read this; without
@@ -673,6 +678,19 @@ export function nimbus(
           //      the llms.txt routes) and the versioning alternates
           //      table.
           vite: {
+            ...(hashlessPrerenderOutput
+              ? {
+                  environments: {
+                    prerender: {
+                      // Native Rolldown key (Astro 7); avoids Vite's
+                      // deprecation-track `rollupOptions` alias.
+                      build: {
+                        rolldownOptions: { output: hashlessPrerenderOutput },
+                      },
+                    },
+                  },
+                }
+              : {}),
             plugins: [
               ...admonitionVitePlugins,
               virtualConfigPlugin(config, {
