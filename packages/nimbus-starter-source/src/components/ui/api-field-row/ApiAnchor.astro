@@ -1,0 +1,23 @@
+---
+/**
+ * ApiAnchor — the hover-revealed copy-link for a field. Rendered inline for a
+ * leaf row and as an absolute sibling of a folder's `<details>` (a link may
+ * never sit inside a `<summary>`). Visibility is driven by `field-tree.css`.
+ */
+interface Props {
+  anchor: string;
+  name: string;
+}
+const { anchor, name } = Astro.props;
+---
+
+<a
+  href={`#${anchor}`}
+  class="ft-anchor ml-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded border border-border text-muted-foreground transition-opacity hover:text-foreground"
+  aria-label={`Direct link to ${name}`}
+>
+  <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+  </svg>
+</a>

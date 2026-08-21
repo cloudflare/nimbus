@@ -140,7 +140,7 @@ async function gatherStarter(cwd: string, nimbus: NimbusJson, flags: UpgradeFlag
     p.log.warn("--to is ignored with --template-dir (a local checkout has no per-tag content).");
   }
   // Offline (`--template-dir`) has only one local tree, so upstream == base and
-  // only *local* drift surfaces (done-when #1). Online, upstream = latest (or --to).
+  // only *local* drift surfaces. Online, upstream = latest (or --to).
   const upstreamTag = flags.to ?? (flags.templateDir ? recorded : await latestTemplatesTag());
 
   const base = await resolveTemplateTree({ variant: nimbus.variant, tag: recorded, templateDir: flags.templateDir });

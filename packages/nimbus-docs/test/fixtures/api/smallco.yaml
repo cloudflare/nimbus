@@ -1,0 +1,357 @@
+# smallco — the small, hand-authored fixture whose job is to be READABLE while
+# still exercising every difficult case the coordinate grammar must survive.
+# Each nasty case is commented with the rule it exercises.
+openapi: 3.1.0
+info:
+  title: SmallCo API
+  description: A deliberately small API that still trips every grammar edge case.
+  version: 1.0.0
+servers:
+  - url: https://api.smallco.dev/v1
+tags:
+  - name: charges
+    description: Create and inspect charges.
+  - name: disputes
+    description: Open and resolve disputes.
+  - name: search
+    description: Search endpoints.
+
+paths:
+  /charges:
+    post:
+      operationId: create
+      summary: Create a charge
+      tags: [charges]
+      security:
+        - bearerAuth: [charges:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, source]
+              properties:
+                # Rule 1: body fields own the short form → coordinate `create.amount`.
+                amount:
+                  type: integer
+                  minimum: 1
+                # Union: discriminator-named variants → `create.source.card.number`.
+                source:
+                  oneOf:
+                    - $ref: "#/components/schemas/Card"
+                    - $ref: "#/components/schemas/BankAccount"
+                  discriminator:
+                    propertyName: object
+                    mapping:
+                      card: "#/components/schemas/Card"
+                      bank_account: "#/components/schemas/BankAccount"
+      responses:
+        "200":
+          description: The created charge.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Charge"
+        "402":
+          description: The card was declined.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      operationId: list
+      summary: List charges
+      tags: [charges]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 100
+      responses:
+        "200":
+          description: A page of charges.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Charge"
+
+  /disputes:
+    post:
+      # The content-column showcase: a discriminated `oneOf` request body. Rule 6
+      # (field union) — dereference drops the branch `$ref`s, so the parser must
+      # recover the named, linked variants from the discriminator MAPPING and
+      # inline each variant's properties one level deep (the variant explorer).
+      operationId: openDispute
+      summary: Open a dispute
+      tags: [disputes]
+      security:
+        - bearerAuth: [disputes:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/DisputeFraud"
+                - $ref: "#/components/schemas/DisputeDuplicate"
+                - $ref: "#/components/schemas/DisputeNotReceived"
+              discriminator:
+                propertyName: reason
+                mapping:
+                  fraudulent: "#/components/schemas/DisputeFraud"
+                  duplicate: "#/components/schemas/DisputeDuplicate"
+                  product_not_received: "#/components/schemas/DisputeNotReceived"
+      responses:
+        "200":
+          description: The opened dispute.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dispute"
+        "400":
+          description: The dispute could not be opened.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /search:
+    post:
+      operationId: search
+      summary: Search
+      tags: [search]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                # Adversarial: a body property literally named `query`. LEGAL
+                # (banning it fails real specs — Cloudflare has 31 such endpoints),
+                # emits a shadowing warning; coordinate is `search.query`.
+                query:
+                  type: string
+                # Adversarial: a property named `static:wan` (a real Cloudflare
+                # property name). LEGAL — the colon is not at the coordinate start,
+                # so it does not collide with the `collection:coordinate` shape.
+                "static:wan":
+                  type: boolean
+      responses:
+        "200":
+          description: Search results.
+
+  /uploads:
+    post:
+      operationId: upload
+      summary: Upload a file
+      tags: [charges]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Uploaded.
+
+webhooks:
+  # Webhook key is always the coordinate — a dotted key stays opaque
+  # (`payment.succeeded`), never parsed apart.
+  payment.succeeded:
+    post:
+      summary: Notifies you when a payment succeeds.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Charge"
+      responses:
+        "200":
+          description: Acknowledged.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Charge:
+      type: object
+      properties:
+        id:
+          type: string
+        amount:
+          type: integer
+        source:
+          $ref: "#/components/schemas/Card"
+    Card:
+      type: object
+      properties:
+        object:
+          type: string
+        number:
+          type: string
+        exp_month:
+          type: integer
+    BankAccount:
+      type: object
+      properties:
+        object:
+          type: string
+        account_number:
+          type: string
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    # Adversarial: `allOf` composition. The deep-merge must mint BOTH the
+    # inherited fields (from Charge) AND the own field (`tag`) — a shallow merge
+    # would silently drop one branch.
+    TaggedCharge:
+      allOf:
+        - $ref: "#/components/schemas/Charge"
+        - type: object
+          required: [tag]
+          properties:
+            tag:
+              type: string
+    # Adversarial: a top-level *scalar* schema — a constrained string enum. It
+    # has no object properties, so its own type/enum/constraints/default have no
+    # field to live on; the schema node must carry them directly, else the page
+    # renders "no fields documented" and the fidelity is silently lost.
+    Currency:
+      type: string
+      description: ISO 4217 currency code, lowercased.
+      enum: [usd, eur, gbp]
+      default: usd
+      example: usd
+      minLength: 3
+      maxLength: 3
+      pattern: "^[a-z]{3}$"
+    # Adversarial: an `allOf`-wrapped scalar — the common idiom for attaching a
+    # description to a $ref'd scalar. `allOf` is NOT collapsed by the parser, so
+    # the leaf's type/enum/constraints must be folded out, else the page is empty.
+    AllOfCurrency:
+      description: A charge's settlement currency.
+      allOf:
+        - type: string
+          enum: [usd, eur]
+          minLength: 3
+    # Adversarial: array-of-scalar-enum — the enum lives on `items`, not the
+    # array node; the scalar projection must descend into the item.
+    ColorList:
+      type: array
+      items:
+        type: string
+        enum: [red, green, blue]
+    # The `openDispute` body variants. Each is a named component (so it is both a
+    # linkable schema page AND an inlined variant in the body explorer). Together
+    # they exercise: a literal `reason` (single-value enum), a per-field enum
+    # union (`notify`/`method`), an array-of-enum (`tags`), a nested object
+    # (`evidence`/`shipping`), and scalar constraints (`maxLength`, min/max, format).
+    DisputeFraud:
+      type: object
+      required: [reason, evidence]
+      properties:
+        reason:
+          type: string
+          enum: [fraudulent]
+        evidence:
+          type: object
+          properties:
+            customer_email:
+              type: string
+              format: email
+            access_activity_log:
+              type: string
+              maxLength: 2000
+            card_statement:
+              type: string
+        notify:
+          type: string
+          enum: [email, sms, none]
+          default: email
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 5
+        attachment_ids:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+            enum: [urgent, chargeback, vip]
+    DisputeDuplicate:
+      type: object
+      required: [reason, original_charge_id]
+      properties:
+        reason:
+          type: string
+          enum: [duplicate]
+        original_charge_id:
+          type: string
+        memo:
+          type: string
+          maxLength: 140
+    DisputeNotReceived:
+      type: object
+      required: [reason, expected_at]
+      properties:
+        reason:
+          type: string
+          enum: [product_not_received]
+        expected_at:
+          type: string
+          format: date-time
+        shipping:
+          type: object
+          properties:
+            carrier:
+              type: string
+            tracking_number:
+              type: string
+            method:
+              type: string
+              enum: [standard, express, overnight]
+    Dispute:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [open, won, lost, needs_response]
+        amount:
+          type: integer
+        reason:
+          type: string
+    # A top-level union projects its variants as links to their component pages.
+    EitherAccount:
+      oneOf:
+        - $ref: "#/components/schemas/Card"
+        - $ref: "#/components/schemas/BankAccount"
+    # Adversarial: a union mixing a named component (linkable) with an anonymous
+    # inline scalar (label only, no link) — the projection must degrade cleanly.
+    Mixed:
+      anyOf:
+        - $ref: "#/components/schemas/Card"
+        - type: string
+    # Adversarial: a `$ref`-alias to a union. `dereference` inlines the union
+    # (losing variant names); `normalize` keeps this as a `$ref`, so the parser
+    # must follow the raw alias to recover the links.
+    AliasUnion:
+      $ref: "#/components/schemas/EitherAccount"

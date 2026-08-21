@@ -1,0 +1,155 @@
+/*
+ * field-tree — shared geometry for the API field explorer's filetree disclosure.
+ * Global (not Astro-scoped) because the tree spans three components: ApiFieldList
+ * sets the root variables, ApiFieldRow renders object rows, and ApiUnionExplorer
+ * renders variant rows — all sharing one set of `ft-` classes.
+ *
+ * Every measurement is anchored to the chevron centre via the variables on
+ * `.ft-root`, so a per-level guide sits exactly under its parent's chevron.
+ * `ft` = field tree.
+ */
+
+.ft-root {
+  --ft-indent: 16px; /* child list indent */
+  --ft-chev: 16px; /* chevron slot width */
+  --ft-glyph: 12px; /* chevron glyph size (matches size-3) */
+  --ft-anchor: 20px; /* copy-link size (matches size-5) */
+  --ft-gap: 6px; /* chevron → content gap */
+  --ft-row-py: 4px; /* row vertical padding */
+  --ft-line-h: 1.5rem; /* first-line height (matches text-sm leading-6) */
+  --ft-center: calc(var(--ft-row-py) + var(--ft-line-h) / 2); /* first-line centre */
+  --ft-half: calc(var(--ft-chev) / 2); /* chevron centre x */
+  --ft-line: var(--color-border);
+}
+
+.ft-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ft-item {
+  position: relative;
+}
+
+.ft-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ft-gap);
+  padding: var(--ft-row-py) 6px var(--ft-row-py) 0;
+}
+summary.ft-row {
+  cursor: pointer;
+  list-style: none;
+}
+summary.ft-row::-webkit-details-marker {
+  display: none;
+}
+
+.ft-chevbox {
+  flex: 0 0 var(--ft-chev);
+  width: var(--ft-chev);
+  height: var(--ft-line-h);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-muted-foreground);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ft-chev {
+    transition: transform 0.15s ease;
+  }
+}
+.ft-details[open] > summary .ft-chev {
+  transform: rotate(90deg);
+}
+.ft-details[open] > summary .ft-preview {
+  display: none;
+}
+
+.ft-content {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* the spine descends from just below an open row's chevron glyph */
+.ft-details[open] > .ft-row::after {
+  content: "";
+  position: absolute;
+  left: var(--ft-half);
+  top: calc(var(--ft-center) + var(--ft-glyph) / 2 + 2px);
+  bottom: 0;
+  border-left: 1px solid var(--ft-line);
+}
+
+/* body content (own description, "one of" label) carries the spine through */
+.ft-meta {
+  position: relative;
+  padding-left: calc(var(--ft-chev) + var(--ft-gap));
+}
+.ft-meta::before {
+  content: "";
+  position: absolute;
+  left: var(--ft-half);
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--ft-line);
+}
+
+/* per-child guides + ├/└ elbows, pinned under the parent chevron */
+.ft-children {
+  padding-left: var(--ft-indent);
+}
+.ft-children > .ft-item::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--ft-half) - var(--ft-indent));
+  border-left: 1px solid var(--ft-line);
+}
+.ft-children > .ft-item:last-child::before {
+  bottom: auto;
+  height: var(--ft-center);
+}
+.ft-children > .ft-item::after {
+  content: "";
+  position: absolute;
+  top: var(--ft-center);
+  left: calc(var(--ft-half) - var(--ft-indent));
+  width: calc(var(--ft-indent) - var(--ft-half));
+  border-top: 1px solid var(--ft-line);
+}
+/* a leaf has no chevron, so its elbow runs on to fill the empty slot */
+.ft-children > .ft-item:not(.is-parent)::after {
+  width: calc(var(--ft-indent) + var(--ft-half));
+}
+
+/* one-of alternatives read as OR, not AND: dashed spine + elbows */
+.ft-children--union > .ft-item::before,
+.ft-children--union > .ft-item::after {
+  border-color: var(--ft-line);
+  border-style: dashed;
+}
+
+/* copy-link: inline for leaves, absolute top-right for folders (never inside a
+ * <summary>). Revealed on row/summary/self hover or keyboard focus. */
+.ft-anchor {
+  opacity: 0;
+}
+.ft-item.is-parent > .ft-anchor {
+  position: absolute;
+  top: calc(var(--ft-center) - var(--ft-anchor) / 2);
+  right: var(--ft-gap);
+}
+.ft-row:hover .ft-anchor,
+.ft-item.is-parent:has(> details > summary:hover) > .ft-anchor,
+.ft-item.is-parent:has(> .ft-anchor:hover) > .ft-anchor,
+.ft-anchor:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .ft-anchor {
+    opacity: 1;
+  }
+}

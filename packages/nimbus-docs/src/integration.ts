@@ -388,10 +388,17 @@ export function nimbus(
         const contentConfigPath = path.join(srcDir, "content.config.ts");
         const rawCollections = await parseContentCollections(contentConfigPath);
         const collectionBases = await parseCollectionBases(contentConfigPath);
+        // API collections carry no MDX body, but they DO reach the agent index:
+        // their `.md` twins are served by `renderApiPageMarkdown` (dispatched in
+        // `renderIndexedEntryMarkdown`), so llms.txt/corpus links resolve. The
+        // reserved-name filter still applies; `null` (no parseable config) falls
+        // back to `["docs"]`, matching `getIndexedEntries()`.
         const indexedCollections =
-          rawCollections === null
-            ? ["docs"] // Fallback: brand-new project hasn't written content.config yet.
-            : filterIndexableCollections(rawCollections);
+          rawCollections === null ? ["docs"] : filterIndexableCollections(rawCollections);
+        // Which of those are API collections — render-time dispatch (prose vs
+        // emitter) keys off this, and `getApiModel` resolves specs against
+        // `projectRoot` (declared above — the loader's base), not `process.cwd()`.
+        const apiCollections = (config.api ?? []).map((entry) => entry.collection);
 
         if (rawCollections === null) {
           logger.warn(
@@ -678,6 +685,8 @@ export function nimbus(
               virtualConfigPlugin(config, {
                 indexedCollections,
                 versionAlternates,
+                apiCollections,
+                root: projectRoot,
               }),
               ...(options.icons !== false
                 ? [
@@ -739,6 +748,10 @@ export function nimbus(
             "  export const indexedCollections: readonly string[];",
             "  /** Build-time cross-version alternates table. See `getVersionAlternates()`. */",
             "  export const versionAlternates: VersionAlternatesTable;",
+            "  /** Subset of `indexedCollections` that are OpenAPI reference collections. Server-only. */",
+            "  export const apiCollections: readonly string[];",
+            "  /** Absolute project root (the loader's spec-resolution base). Build/server-only. */",
+            "  export const root: string;",
             "}",
             "",
           ].join("\n"),

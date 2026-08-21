@@ -1,0 +1,7 @@
+# A deliberately broken spec — it must fail the build with a pointed error,
+# never render from a broken contract. `paths` is not an object,
+# and `info` is missing its required `title`/`version`.
+openapi: 3.0.3
+info:
+  description: This spec is intentionally invalid.
+paths: "this should be an object, not a string"

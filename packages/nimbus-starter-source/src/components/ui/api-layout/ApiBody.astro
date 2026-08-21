@@ -1,0 +1,326 @@
+---
+/**
+ * ApiBody — the API docs main-body content, rendered from a frozen
+ * `ApiPageProps` by kind (operation · schema · section · api). Extracted from
+ * `ApiLayout` so the body can be composed in isolation; the layout shell
+ * (nav · body · code rail) still owns width/stickiness. Property rows, expanders,
+ * object previews, deep-links, and the union tree are handled by
+ * `ApiFieldRow`/`ApiPropertyMeta`/`ApiUnionExplorer`.
+ *
+ * The status/auth helpers and the `.nb-md` styles are kept inline here (rather
+ * than shared lib/CSS files) so a docs-only site carries no extra API-specific
+ * files — this component is their single consumer. The operation's request line
+ * is the `ApiEndpointCard` component.
+ */
+import { Banner } from "@/components/ui/banner";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { ApiFieldList, ApiUnionExplorer } from "@/components/ui/api-field-row";
+import { PageActions } from "@/components/ui/page-actions";
+import ApiEndpointCard from "./ApiEndpointCard.astro";
+import { cn } from "@/lib/cn";
+import { renderMarkdown } from "@cloudflare/nimbus-docs/markdown";
+import type { ApiAuthView, ApiFieldView, ApiPageProps } from "@cloudflare/nimbus-docs/api";
+
+interface Props {
+  page: ApiPageProps;
+}
+
+const { page } = Astro.props;
+
+const detail = (v: unknown): string => JSON.stringify(v);
+
+// HTTP status (or a range like "4XX") → semantic text colour: 2xx success, 3xx
+// info, 4xx/5xx danger, else neutral. Keyed on the leading digit so ranges and
+// exact codes both work.
+function statusToneClass(status: string): string {
+  switch (status.trim()[0]) {
+    case "2":
+      return "text-success";
+    case "3":
+      return "text-info";
+    case "4":
+    case "5":
+      return "text-danger";
+    default:
+      return "text-muted-foreground";
+  }
+}
+
+// Security schemes projected into `ApiFieldView` rows so Authorisation renders
+// with the same structure as the parameter groups (via `ApiFieldList`).
+function authTypeLabel(a: ApiAuthView): string {
+  if (a.type === "http") {
+    // `ApiAuthView` doesn't carry the HTTP sub-scheme (basic vs bearer), and a
+    // bearer token needn't declare a format — so only claim Bearer when a
+    // `bearerFormat` proves it; otherwise stay generic rather than mislabel.
+    return a.bearerFormat ? `HTTP Bearer (${a.bearerFormat})` : "HTTP";
+  }
+  if (a.type === "apiKey") return `API key${a.in ? ` in ${a.in}` : ""}`;
+  if (a.type === "oauth2") return "OAuth 2.0";
+  if (a.type === "openIdConnect") return "OpenID Connect";
+  if (a.type === "mutualTLS") return "Mutual TLS";
+  return a.type ?? a.scheme;
+}
+function authExample(a: ApiAuthView): string | null {
+  if (!a.headerName) return null;
+  const prefix = a.type === "http" && a.bearerFormat ? "Bearer " : "";
+  return `${a.headerName}: ${prefix}<token>`;
+}
+// OpenAPI restricts scheme keys to [A-Za-z0-9._-]; belt-and-braces for a
+// non-conformant spec.
+const authAnchor = (scheme: string): string =>
+  `auth-${scheme.replace(/[^A-Za-z0-9._-]/g, "-")}`;
+
+interface AuthAgg {
+  view: ApiAuthView;
+  scopes: Set<string>;
+  required: boolean;
+}
+function toField(agg: AuthAgg): ApiFieldView {
+  const a = agg.view;
+  const scopes = [...agg.scopes];
+  const example = authExample(a);
+  const parts = [
+    example ? `\`${example}\`` : "",
+    scopes.length > 0 ? `Scopes: ${scopes.map((s) => `\`${s}\``).join(", ")}` : "",
+  ].filter(Boolean);
+  return {
+    coordinate: `auth:${a.scheme}`,
+    name: a.scheme,
+    type: authTypeLabel(a),
+    required: agg.required,
+    anchor: authAnchor(a.scheme),
+    children: [],
+    childCount: 0,
+    truncated: false,
+    description: parts.length > 0 ? parts.join(" · ") : undefined,
+  };
+}
+// Every distinct scheme across the alternatives as one field list. `page.auth` is
+// `ApiAuthView[][]` (outer OR, inner AND): a scheme is `required` only when it
+// appears in EVERY alternative, and scopes are unioned. First-seen order.
+function authFields(auth: ApiAuthView[][]): ApiFieldView[] {
+  const order: string[] = [];
+  const byScheme = new Map<string, AuthAgg>();
+  for (const alt of auth) {
+    for (const a of alt) {
+      let agg = byScheme.get(a.scheme);
+      if (!agg) {
+        agg = { view: a, scopes: new Set(), required: true };
+        byScheme.set(a.scheme, agg);
+        order.push(a.scheme);
+      }
+      for (const s of a.scopes) agg.scopes.add(s);
+    }
+  }
+  for (const [scheme, agg] of byScheme) {
+    agg.required = auth.every((alt) => alt.some((a) => a.scheme === scheme));
+  }
+  return order.map((s) => toField(byScheme.get(s)!));
+}
+
+const authFieldList = page.kind === "operation" ? authFields(page.auth) : [];
+
+// Deprecation notice, built as sanitized HTML for the shared Banner (which takes
+// a content string, mirroring DocsLayout's version-deprecation banner).
+const esc = (s: string): string =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const deprecationHtml = page.deprecated
+  ? [
+      "<strong>Deprecated.</strong>",
+      page.deprecation?.successor &&
+        ` Use <a href="${esc(page.deprecation.successor.href)}">${esc(page.deprecation.successor.label)}</a> instead.`,
+      page.deprecation?.migrationHref && ` See the <a href="${esc(page.deprecation.migrationHref)}">migration guide</a>.`,
+    ]
+      .filter(Boolean)
+      .join("")
+  : null;
+---
+
+<Breadcrumbs items={page.breadcrumbs} endsAtCurrentPage={false} class="pb-2" />
+
+{deprecationHtml && <Banner variant="caution" content={deprecationHtml} />}
+
+{/* Header order (locked): title → description → endpoint → page actions. The
+    endpoint bar carries the sidebar method chip + verb + path; page actions sit
+    beneath so they read as page-level utilities, not part of the endpoint. */}
+<div class="mt-6 flex flex-col gap-4">
+  <h1 class="mb-0 leading-tight text-foreground [text-wrap:balance]" style="font-size:var(--nb-h1-size);font-weight:var(--nb-h1-weight);letter-spacing:var(--nb-h1-tracking)">{page.title}</h1>
+
+  {page.description && (
+    <div class="nb-md text-muted-foreground" set:html={renderMarkdown(page.description)} />
+  )}
+
+  {page.kind === "operation" && (
+    <ApiEndpointCard method={page.method} path={page.path} server={page.server} isWebhook={page.isWebhook} />
+  )}
+
+  <PageActions markdownUrl={page.markdownHref} />
+</div>
+
+<div class="mt-8 flex flex-col gap-8">
+  {page.kind === "operation" && (
+    <>
+      {authFieldList.length > 0 && (
+        <ApiFieldList as="h2" title="Authorisation" fields={authFieldList} />
+      )}
+
+      {page.parameters.map((group) => (
+        <ApiFieldList as="h2" title={group.label} fields={group.fields} anchor={group.anchor} truncated={group.truncated} />
+      ))}
+
+      {page.bodyUnion ? (
+        <ApiFieldList as="h2" title="Parameters" badge="JSON" collapsible>
+          <ApiUnionExplorer union={page.bodyUnion} />
+        </ApiFieldList>
+      ) : (
+        <ApiFieldList as="h2" title="Parameters" badge="JSON" fields={page.body} truncated={page.bodyTruncated} />
+      )}
+
+      {page.responses.length > 0 && (
+        <section class="scroll-mt-24">
+          <h2 class="mb-3 text-sm font-normal text-muted-foreground">Returns</h2>
+          <div class="flex flex-col gap-6">
+            {page.responses.map((r) => (
+              <div id={r.anchor} class="scroll-mt-24">
+                {/* The status is the response's heading (h3, under the Returns h2);
+                    the JSON badge on the body list marks it, so no "Body" label is
+                    needed. Description sits inline as a sibling, not inside the h3. */}
+                <div class="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h3 class={cn("font-mono text-sm font-semibold", statusToneClass(r.status))}>{r.status}</h3>
+                  {r.description && (
+                    <div class="nb-md text-sm text-muted-foreground" set:html={renderMarkdown(r.description)} />
+                  )}
+                </div>
+                <div class="flex flex-col gap-4">
+                  {(r.headers?.length ?? 0) > 0 && (
+                    <ApiFieldList as="h4" title="Headers" fields={r.headers ?? []} />
+                  )}
+                  {r.bodyUnion ? (
+                    <ApiFieldList badge="JSON" collapsible>
+                      <ApiUnionExplorer union={r.bodyUnion} />
+                    </ApiFieldList>
+                  ) : (
+                    <ApiFieldList badge="JSON" fields={r.fields} truncated={r.truncated} />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </>
+  )}
+
+  {page.kind === "schema" && (
+    <>
+      {page.scalar && (
+        <section>
+          <p class="text-sm">
+            <span class="text-muted-foreground">Type:</span>
+            <code class="ml-1 font-mono text-foreground">{page.scalar.type}</code>
+            {page.scalar.nullable && <span class="ml-1 text-muted-foreground">(nullable)</span>}
+          </p>
+          {(page.scalar.enum || page.scalar.default !== undefined || page.scalar.example !== undefined) && (
+            <p class="mt-1 font-mono text-xs break-words text-muted-foreground">
+              {[
+                ...(page.scalar.enum ? [`one of ${page.scalar.enum.map(detail).join(", ")}`] : []),
+                ...(page.scalar.default !== undefined ? [`default ${detail(page.scalar.default)}`] : []),
+                ...(page.scalar.example !== undefined ? [`example ${detail(page.scalar.example)}`] : []),
+              ].join("; ")}
+            </p>
+          )}
+        </section>
+      )}
+
+      {page.union && (
+        <section class="scroll-mt-24">
+          <ApiUnionExplorer union={page.union} />
+        </section>
+      )}
+
+      <ApiFieldList as="h2" title="Fields" fields={page.fields} truncated={page.truncated} />
+    </>
+  )}
+
+  {page.kind === "section" && (
+    <ul class="flex list-none flex-col gap-1 p-0">
+      {page.operations.map((op) => (
+        <li>
+          <a href={op.href} class="font-medium underline-offset-2 hover:underline">{op.label}</a>
+        </li>
+      ))}
+    </ul>
+  )}
+
+  {page.kind === "api" && (
+    <>
+      {page.version && <p class="text-sm text-muted-foreground">Version: <code class="font-mono">{page.version}</code></p>}
+      {page.servers.length > 0 && (
+        <section>
+          <h2 class="mb-2 text-sm font-semibold text-foreground">Servers</h2>
+          <ul class="flex list-none flex-col gap-1 p-0 font-mono text-xs text-muted-foreground">
+            {page.servers.map((s) => <li>{s}</li>)}
+          </ul>
+        </section>
+      )}
+      {page.sections.length > 0 && (
+        <ul class="flex list-none flex-col gap-1 p-0">
+          {page.sections.map((s) => (
+            <li>
+              <a href={s.href} class="font-medium underline-offset-2 hover:underline">{s.label}</a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  )}
+</div>
+
+<style is:global>
+  /* Prose treatment for `set:html`-rendered spec descriptions (CommonMark from
+     the OpenAPI `description` fields). Injected HTML carries no Astro scope hash,
+     so these rules are global but namespaced under `.nb-md`. */
+  .nb-md > :first-child {
+    margin-top: 0;
+  }
+  .nb-md > :last-child {
+    margin-bottom: 0;
+  }
+  .nb-md p {
+    margin: 0.5rem 0 0;
+  }
+  .nb-md a {
+    color: var(--color-info);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .nb-md a:hover {
+    color: var(--color-foreground);
+  }
+  .nb-md ul,
+  .nb-md ol {
+    margin: 0.375rem 0 0;
+    padding-left: 1.25em;
+  }
+  .nb-md ul {
+    list-style: disc;
+  }
+  .nb-md ol {
+    list-style: decimal;
+  }
+  .nb-md li {
+    margin-top: 0.125rem;
+  }
+  .nb-md li > p {
+    margin: 0;
+  }
+  .nb-md code {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.9em;
+  }
+  .nb-md pre {
+    margin: 0.5rem 0 0;
+    overflow-x: auto;
+  }
+</style>

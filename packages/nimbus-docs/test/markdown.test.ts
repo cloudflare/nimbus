@@ -6,7 +6,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import { satteri } from "@astrojs/markdown-satteri";
-import { externalLinks, titleFigure } from "../src/markdown/index.ts";
+import { externalLinks, titleFigure, renderMarkdown } from "../src/markdown/index.ts";
 
 async function renderWith(
   md: string,
@@ -147,3 +147,52 @@ describe("titleFigure() export", () => {
     assert.match(html, /<figure class="nb-fig">/);
   });
 });
+
+describe("renderMarkdown: CommonMark → HTML for spec descriptions", () => {
+  test("renders links and lists (the OpenAPI description case)", () => {
+    const html = renderMarkdown(
+      "Notes:\n- A record\n- See [docs](https://example.com/x).",
+    );
+    assert.match(html, /<ul>/);
+    assert.match(html, /<li>A record<\/li>/);
+    assert.match(html, /<a href="https:\/\/example\.com\/x">docs<\/a>/);
+  });
+
+  test("renders inline emphasis and code", () => {
+    const html = renderMarkdown("Use `id` for the **primary** key.");
+    assert.match(html, /<code>id<\/code>/);
+    assert.match(html, /<strong>primary<\/strong>/);
+  });
+
+  test("empty/nullish input yields an empty string (no stray markup)", () => {
+    assert.equal(renderMarkdown(undefined), "");
+    assert.equal(renderMarkdown(null), "");
+    assert.equal(renderMarkdown("   "), "");
+  });
+
+  test("strips a hostile spec description (stored-XSS defense)", () => {
+    // OpenAPI descriptions are untrusted and reach the page via `set:html`.
+    const script = renderMarkdown("Hello <script>alert('xss')</script> world");
+    assert.ok(!/<script/i.test(script), "no <script> survives");
+    assert.match(script, /Hello/);
+
+    const img = renderMarkdown("<img src=x onerror=alert(1)>");
+    assert.ok(!/onerror/i.test(img), "inline event handlers are dropped");
+
+    const jsLink = renderMarkdown("[click](javascript:alert(1))");
+    assert.ok(!/javascript:/i.test(jsLink), "javascript: URLs are neutralized");
+    assert.match(jsLink, /click/);
+
+    const iframe = renderMarkdown("<iframe src='javascript:alert(1)'></iframe>");
+    assert.ok(!/<iframe/i.test(iframe), "no <iframe> survives");
+  });
+
+  test("keeps safe, expected markup intact through the sanitizer", () => {
+    const html = renderMarkdown(
+      "See [docs](https://example.com) and `code`.\n\n- one\n- two",
+    );
+    assert.match(html, /<a href="https:\/\/example\.com">docs<\/a>/);
+    assert.match(html, /<code>code<\/code>/);
+    assert.match(html, /<li>one<\/li>/);
+  });
+})

@@ -1,9 +1,10 @@
 ---
+import type { SidebarSection } from "@cloudflare/nimbus-docs/types";
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { Button } from "./ui/button";
 import { LinkButton } from "./ui/link-button";
 import { ThemeToggle } from "./ui/theme-toggle";
-import { SearchTrigger } from "./ui/search";
+import SearchTrigger from "./ui/search/SearchTrigger.astro";
 import { config } from "virtual:nimbus/config";
 import { getSidebarSections } from "@cloudflare/nimbus-docs";
 
@@ -18,36 +19,40 @@ interface Props {
    * shouldn't show a button that opens an empty dialog. Default `true`.
    */
   showSidebar?: boolean;
+  sections?: SidebarSection[];
 }
 
 // `entryId` is part of Props as a forward-compat hook (the version-switcher
 // recipe reads it) but the base Header doesn't use it — leave it off the
 // destructure to avoid an unused-var warning.
-const { collection, showSidebar = true } = Astro.props;
+const { collection, showSidebar = true, sections: sectionsProp } = Astro.props;
 
 // Normalize trailing slash so isActive matches sidebar hrefs.
 const currentSlug = Astro.url.pathname.replace(/\/$/, "") || "/";
-const sections = await getSidebarSections(currentSlug, { collection });
+const sections =
+  sectionsProp ?? (await getSidebarSections(currentSlug, { collection }));
 const showSections = sections.length >= 2;
 ---
 
 <header class="sticky top-0 z-30 border-b border-border bg-card/80 backdrop-blur-lg">
-  <div class="mx-auto flex items-center justify-between h-14 px-4 lg:px-6">
-    <div class="flex items-center gap-3">
-      <a href="/" class="group">
-        <span class="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
-          {config.title}
-        </span>
-      </a>
+  <div class="mx-auto flex items-center justify-between gap-3 h-14 px-4 lg:px-6">
+    <div class="flex items-center gap-3 min-w-0">
+      <slot name="brand">
+        <a href="/" class="group shrink-0">
+          <span class="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+            {config.title}
+          </span>
+        </a>
+      </slot>
 
       {showSections && (
-        <nav aria-label="Sections" class="hidden md:flex items-center gap-1 ml-4 pl-4 border-l border-border h-6">
+        <nav aria-label="Sections" class="hidden md:flex items-center gap-1 ml-4 pl-4 border-l border-border h-6 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {sections.map((section) => (
             <a
               href={section.href}
               aria-current={section.isActive ? "page" : undefined}
               class:list={[
-                "px-2 py-1 rounded-md text-[0.8125rem] font-medium no-underline transition-colors",
+                "px-2 py-1 rounded-md text-[0.8125rem] font-medium no-underline transition-colors shrink-0 whitespace-nowrap",
                 section.isActive
                   ? "text-foreground bg-accent"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent/60",
@@ -60,7 +65,7 @@ const showSections = sections.length >= 2;
       )}
     </div>
 
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 shrink-0">
       {config.search !== false && <SearchTrigger />}
       {config.github && (
         <LinkButton
@@ -77,6 +82,7 @@ const showSections = sections.length >= 2;
         </LinkButton>
       )}
       <ThemeToggle />
+      <slot name="actions" />
       {showSidebar && (
         <Button
           variant="ghost"
@@ -85,7 +91,7 @@ const showSections = sections.length >= 2;
           icon="ph:list"
           aria-label="Open navigation"
           data-menu-btn
-          class="lg:hidden text-muted-foreground"
+          class="md:hidden text-muted-foreground"
         />
       )}
     </div>

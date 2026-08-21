@@ -1,0 +1,31 @@
+# The counterpart to broken.yaml. This spec DEVIATES from the letter of OpenAPI
+# but is still fully walkable, so it must RENDER (emitting warnings), never
+# hard-fail. It reproduces in miniature the real-world case that broke the R0
+# gate: Cloudflare's lowercase `4xx` response keys (OpenAPI's range form is the
+# uppercase `4XX`). Best-in-class renderers accept this; so do we.
+#
+# Resilience contract:
+#   broken.yaml  → unwalkable (paths is a string)        → ApiBuildError (fatal)
+#   deviant.yaml → walkable, deviates on a response key  → renders + warns
+openapi: 3.0.3
+info:
+  title: Deviant API
+  version: 1.0.0
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      summary: List widgets
+      tags: [widgets]
+      responses:
+        "200":
+          description: A page of widgets.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+        "4xx":
+          description: A client error (lowercase range — deviates, renders anyway).

@@ -35,8 +35,8 @@ const jsonOf = (r: Parameters<typeof formatCheckJson>[0]) =>
     findings: { code: string; severity: string }[];
   };
 
-// Scenario C — the placeholder ships blocked.
-test("Scenario C: placeholder site → status failed · readiness blocked · exit 1 (site-placeholder is a finding)", async () => {
+// The placeholder ships blocked.
+test("placeholder site → status failed · readiness blocked · exit 1 (site-placeholder is a finding)", async () => {
   const dir = project(`{ site: "https://example.com", title: "X", search: false }`);
   try {
     const r = await runChecks(dir, ENV_STRUCT);
@@ -51,8 +51,8 @@ test("Scenario C: placeholder site → status failed · readiness blocked · exi
   }
 });
 
-// AC #2 env-note path + reclassification of config-no-object → note.
-test("AC #2: a computed (non-static) config → env note config-not-evaluated → readiness unknown", async () => {
+// Env-note path + reclassification of config-no-object → note.
+test("a computed (non-static) config → env note config-not-evaluated → readiness unknown", async () => {
   const dir = project(`loadConfig()`);
   try {
     const r = await runChecks(dir, ENV_ONLY);
@@ -64,7 +64,7 @@ test("AC #2: a computed (non-static) config → env note config-not-evaluated �
     assert.ok(env?.notes.some((n) => n.code === "nimbus/config-not-evaluated"));
     assert.ok(
       !j.findings.some((f) => f.code === "nimbus/config-not-evaluated"),
-      "a note is never a finding (AC #1)",
+      "a note is never a finding",
     );
     assert.equal(j.summary.notes, env?.notes.length);
   } finally {
@@ -72,8 +72,8 @@ test("AC #2: a computed (non-static) config → env note config-not-evaluated �
   }
 });
 
-// AC #1: summary.warnings counts only evaluated warns; wrangler-missing is one.
-test("AC #1: wrangler-missing is an evaluated warn in findings, not a note", async () => {
+// summary.warnings counts only evaluated warns; wrangler-missing is one.
+test("wrangler-missing is an evaluated warn in findings, not a note", async () => {
   const dir = project(
     `{ site: "https://docs.example.com", title: "X", search: false }`,
     (d) => fs.writeFileSync(path.join(d, "wrangler.jsonc"), `{ "name": "x" }`),
@@ -92,7 +92,7 @@ test("AC #1: wrangler-missing is an evaluated warn in findings, not a note", asy
   }
 });
 
-test("Scenario E: computed site → structure config-unresolved note → readiness unknown (real fixture)", async () => {
+test("computed site → structure config-unresolved note → readiness unknown (real fixture)", async () => {
   const dir = project(
     `{ site: process.env.SITE ?? "https://example.com", title: "X", search: false }`,
   );
@@ -126,7 +126,7 @@ test("search provider 'custom' → no pagefind-missing false blocker", async () 
   }
 });
 
-// AC #2/#5 headline glyphs are a lookup from status + readiness.
+// Headline glyphs are a lookup from status + readiness.
 test("pretty headline: Buildable when partial, Couldn't fully verify when unknown", async () => {
   const buildable = project(`{ site: "https://docs.example.com", title: "X", search: false }`);
   const unknown = project(`loadConfig()`);

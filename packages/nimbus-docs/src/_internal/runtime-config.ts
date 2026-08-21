@@ -23,6 +23,8 @@ import type { VersionAlternatesTable } from "./version-alternates.js";
 let _cached: NimbusConfig | null = null;
 let _cachedCollections: readonly string[] | null = null;
 let _cachedAlternates: VersionAlternatesTable | null = null;
+let _cachedApiCollections: readonly string[] | null = null;
+let _cachedRoot: string | null = null;
 
 export async function loadNimbusConfig(): Promise<NimbusConfig> {
   if (_cached) return _cached;
@@ -62,5 +64,32 @@ export async function loadVersionAlternates(): Promise<VersionAlternatesTable> {
   // then resolve cleanly instead of throwing on an undefined receiver.
   const value = mod.versionAlternates ?? {};
   _cachedAlternates = value;
+  return value;
+}
+
+/**
+ * Which indexed collections are OpenAPI reference collections. Render-time
+ * Markdown dispatch uses this to route API entries through the emitter.
+ * Empty array when the virtual module predates the field.
+ */
+export async function loadApiCollections(): Promise<readonly string[]> {
+  if (_cachedApiCollections) return _cachedApiCollections;
+  const mod = await import("virtual:nimbus/config");
+  const value = mod.apiCollections ?? [];
+  _cachedApiCollections = value;
+  return value;
+}
+
+/**
+ * Absolute project root — the base the `apiCollection()` loader resolves
+ * specs against. `getApiModel` uses it so render-time spec resolution matches
+ * the loader regardless of `process.cwd()`. Falls back to `process.cwd()`
+ * when the virtual module predates the field.
+ */
+export async function loadProjectRoot(): Promise<string> {
+  if (_cachedRoot) return _cachedRoot;
+  const mod = await import("virtual:nimbus/config");
+  const value = mod.root ?? process.cwd();
+  _cachedRoot = value;
   return value;
 }

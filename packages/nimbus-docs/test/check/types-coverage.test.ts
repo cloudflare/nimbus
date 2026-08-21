@@ -92,7 +92,7 @@ test("no .astro/types.d.ts → not_evaluated with requiresBuild note (won't fabr
   }
 });
 
-// Spec (ticket lines 197-199): file-absent is the ONLY whole-scope not_evaluated
+// By spec, file-absent is the ONLY whole-scope not_evaluated
 // trigger. Once .astro/types.d.ts EXISTS (here, empty/stale), an unresolved
 // astro:* import is a real finding, never a scope-blanking bail.
 test("present-but-empty .astro/types.d.ts + astro:content import → evaluated, unresolved import is a ts/2307 finding", () => {
@@ -173,11 +173,11 @@ test("a real type error is caught as an error-severity finding with file/line", 
   }
 });
 
-// AC #11: a coverage gap must never blank an evaluated error. With types.d.ts
+// A coverage gap must never blank an evaluated error. With types.d.ts
 // present, an UNKNOWN astro:* specifier is a user typo (a real ts/2307), not a
 // staleness signal — it must coexist with an independent ts/2322, and the scope
 // must stay evaluated rather than collapsing to types-not-evaluated alone.
-test("typoed astro:contennt + a TS2322 → both surface, evaluated, never types-not-evaluated alone (AC #11)", () => {
+test("typoed astro:contennt + a TS2322 → both surface, evaluated, never types-not-evaluated alone", () => {
   const dir = project({
     body:
       'import { getCollection } from "astro:contennt";\n' +

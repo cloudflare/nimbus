@@ -1,0 +1,4 @@
+# Opt-in API gauntlet corpus — large third-party specs (~45 MB), re-pullable
+# via `pnpm --filter nimbus-docs pull:api-fixtures`. Only the manifest is tracked.
+test/fixtures/api/production/*
+!test/fixtures/api/production/sources.json

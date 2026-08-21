@@ -49,6 +49,10 @@
 export const STARTER_MANIFEST = {
   registryOnlyComponents: [
     "accordion",
+    "api-code-rail",
+    "api-field-row",
+    "api-layout",
+    "api-sidebar",
     "code-group",
     "embed",
     "file-tree",
@@ -76,7 +80,7 @@ export const STARTER_MANIFEST = {
 
   // Add path prefixes here (ending with "/") to strip whole trees from
   // shipped templates while keeping them in the canonical kitchen-sink
-  // dev tree. Empty by default.
+  // dev tree. Nothing is currently dev-only.
   devOnlyPaths: [],
 
   // Install scripts declined in shipped templates to clear pnpm's build-scripts

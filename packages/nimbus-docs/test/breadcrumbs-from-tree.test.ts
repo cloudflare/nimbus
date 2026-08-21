@@ -66,7 +66,7 @@ test("dedup by href collapses duplicate landings", () => {
   assert.equal(crumbs.filter((c) => c.href === "/api/").length, 1);
 });
 
-test("D6: version-prefixed tree yields version-prefixed crumb hrefs", () => {
+test("version-prefixed tree yields version-prefixed crumb hrefs", () => {
   // Build the tree with a /v0 prefix, as buildFullSidebarTree does for docs-v0.
   const tree = buildSidebarTree(
     { "docs-v0": v0Entries } as any,

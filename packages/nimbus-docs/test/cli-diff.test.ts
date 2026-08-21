@@ -1,4 +1,4 @@
-// DX-2: the bundled unified-diff renderer (no git, no deps).
+// The bundled unified-diff renderer (no git, no deps).
 
 import assert from "node:assert/strict";
 import { test } from "node:test";

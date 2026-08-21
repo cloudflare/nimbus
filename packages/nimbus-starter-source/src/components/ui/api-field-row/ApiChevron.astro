@@ -1,0 +1,23 @@
+---
+/**
+ * ApiChevron — the filetree disclosure marker. A rotating chevron for an
+ * expandable row, or an empty slot (`empty`) for a leaf so labels stay aligned
+ * and the elbow connector fills the gap. Rotation lives in `field-tree.css`.
+ */
+interface Props {
+  empty?: boolean;
+}
+const { empty = false } = Astro.props;
+---
+
+{
+  empty ? (
+    <span class="ft-chevbox" aria-hidden="true" />
+  ) : (
+    <span class="ft-chevbox" aria-hidden="true">
+      <svg class="ft-chev size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m9 18 6-6-6-6" />
+      </svg>
+    </span>
+  )
+}

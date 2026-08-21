@@ -116,13 +116,13 @@ test("scope: falls back to the full tree when no section owns the path", () => {
   assert.ok(labels.includes("Guide") && labels.includes("Reference"));
 });
 
-// scopeToCurrentSection — Pass 2: missing page re-scopes to its product group
+// scopeToCurrentSection — a missing page re-scopes to its product group
 // (URL segment) instead of falling back to the whole site tree.
 
 const topLevelLabels = (scoped: unknown[]) =>
   scoped.map((n) => (n as { label?: string }).label);
 
-test("Pass2 (T1/G): a hidden deep page scopes to its product, not the full tree", () => {
+test("a hidden deep page scopes to its product, not the full tree", () => {
   // Absent path; segment `guide` matches the `guide` product group.
   const structural = build({ docs: sectioned }, INERT);
   const scoped = scopeToCurrentSection(structural, "/guide/hidden/deep/");
@@ -132,14 +132,14 @@ test("Pass2 (T1/G): a hidden deep page scopes to its product, not the full tree"
   assert.ok(!labels.includes("Reference"), "no full-tree fallback");
 });
 
-test("Pass2 (T2): re-scope is read-only over the frozen structural tree", () => {
+test("re-scope is read-only over the frozen structural tree", () => {
   const structural = build({ docs: sectioned }, INERT);
   const snapshot = structuredClone(structural);
   scopeToCurrentSection(structural, "/guide/hidden/deep/");
   assert.deepEqual(structural, snapshot, "structural tree must not be mutated");
 });
 
-test("Pass2 (A-i): a top-level group whose OWN index cross-redirects is not misattributed", () => {
+test("a top-level group whose OWN index cross-redirects is not misattributed", () => {
   // `realtime`'s index redirects to `/workers/x` (→ `_indexNeverActive`); its
   // product is still `realtime` (from its internal child), not `workers`.
   const entries = [
@@ -154,7 +154,7 @@ test("Pass2 (A-i): a top-level group whose OWN index cross-redirects is not misa
   assert.ok(!labels.includes("Reference"), "no full-tree fallback");
 });
 
-test("Pass2 (A-ii): a nested subgroup whose index cross-redirects is not misattributed", () => {
+test("a nested subgroup whose index cross-redirects is not misattributed", () => {
   // Index-less `guide`; child subgroup `sub` redirects to `/workers/x`. Product
   // is `guide` (from `sub`'s real descendant) — exercises the child-group guard.
   const entries = [
@@ -169,7 +169,7 @@ test("Pass2 (A-ii): a nested subgroup whose index cross-redirects is not misattr
   assert.ok(!labels.includes("Reference"), "no full-tree fallback");
 });
 
-test("Pass2 (T4/F): a leading cross-section leaf redirect is skipped; DFS finds the real internal href", () => {
+test("a leading cross-section leaf redirect is skipped; DFS finds the real internal href", () => {
   // First child redirects (`_neverActive`); product comes from the internal one.
   const entries = [
     { id: "guide/aredirect", data: { title: "R", external_link: "/workers/x", sidebar: { order: 1 } } },
@@ -183,7 +183,7 @@ test("Pass2 (T4/F): a leading cross-section leaf redirect is skipped; DFS finds 
   assert.ok(!labels.includes("Reference"), "not misattributed to workers");
 });
 
-test("Pass2 (B): an index-less product group scopes to bare children (no Overview lead)", () => {
+test("an index-less product group scopes to bare children (no Overview lead)", () => {
   const entries = [
     { id: "guide/intro", data: { title: "Intro", sidebar: { order: 1 } } },
     { id: "guide/deploy", data: { title: "Deploy", sidebar: { order: 2 } } },
@@ -197,7 +197,7 @@ test("Pass2 (B): an index-less product group scopes to bare children (no Overvie
   assert.ok(!topLevelLabels(scoped).includes("Reference"));
 });
 
-test("Pass2 (C): a group with only external children yields no product → full tree", () => {
+test("a group with only external children yields no product → full tree", () => {
   const entries = [
     { id: "promo/ext1", data: { title: "E1", external_link: "https://example.com/", sidebar: { order: 1 } } },
     { id: "reference/api", data: { title: "API", sidebar: { order: 1 } } },
@@ -211,7 +211,7 @@ test("Pass2 (C): a group with only external children yields no product → full 
   );
 });
 
-test("Pass2 (D): same-segment collision selects the first group in document order", () => {
+test("same-segment collision selects the first group in document order", () => {
   // Two groups resolve to segment `api`; the first in document order wins.
   const cfg = {
     items: [
@@ -234,7 +234,7 @@ test("Pass2 (D): same-segment collision selects the first group in document orde
   assert.ok(!labels.includes("ExtraTwo"), "second api-segment group not selected");
 });
 
-test("Pass2 (E): a mounted-collection prefix group is matched by its prefix segment", () => {
+test("a mounted-collection prefix group is matched by its prefix segment", () => {
   const cfg = {
     items: [{ label: "Components", autogenerate: { collection: "comp", prefix: "/components" } }],
   };
@@ -255,7 +255,7 @@ test("Pass2 (E): a mounted-collection prefix group is matched by its prefix segm
   assert.equal(foo?.href, "/components/foo/", "lead/href carries the mount prefix");
 });
 
-test("Pass2 (precedence): a page that IS contained uses Pass 1, ignoring Pass 2 heuristics", () => {
+test("a contained page scopes by direct containment, not the fallback heuristics", () => {
   const structural = build({ docs: sectioned }, INERT);
   const scoped = scopeToCurrentSection(structural, "/reference/api/");
   const labels = topLevelLabels(scoped);

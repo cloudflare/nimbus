@@ -68,6 +68,33 @@ export interface NimbusConfig {
    * deprecation banners.
    */
   versions?: VersionsConfig;
+  /**
+   * OpenAPI reference specs to mount as routed content collections. Each
+   * entry is the **single source of truth** for one spec: `content.config.ts`
+   * imports this list and maps it through `apiCollection()`, and the render
+   * side reads it back to re-derive the model. Absent means no API reference.
+   *
+   * `spec` is a **local file path** (resolved from the project root) or an
+   * **inline OpenAPI object**. Remote URLs are out of scope in v1 (builds stay
+   * hermetic/offline-safe).
+   */
+  api?: ApiSpec[];
+}
+
+/**
+ * One OpenAPI reference spec, mounted as a content collection named
+ * `collection` at `/<collection>`. Declared once in `nimbus.config.ts`.
+ */
+export interface ApiSpec {
+  /** Collection name + URL prefix, e.g. `"api"` → routes under `/api`. */
+  collection: string;
+  /**
+   * Local file path (relative to the project root) or an inline OpenAPI
+   * document object. Not a remote URL in v1.
+   */
+  spec: string | Record<string, unknown>;
+  /** Human label for build diagnostics (falls back to `collection`). */
+  label?: string;
 }
 
 /**

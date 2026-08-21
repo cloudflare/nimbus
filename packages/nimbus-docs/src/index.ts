@@ -11,6 +11,7 @@
  */
 
 import {
+  loadApiCollections,
   loadIndexedCollections,
   loadNimbusConfig,
   loadVersionAlternates,
@@ -406,6 +407,33 @@ export async function getIndexedTopLevel(): Promise<IndexedTopLevel> {
 }
 
 /**
+ * Render one indexed entry to clean Markdown, dispatching by collection.
+ * Prose entries render their MDX body via `renderEntryAsMarkdown`. OpenAPI
+ * reference entries carry no body, so their frozen view-model is projected and
+ * emitted through the `./api` seam — dynamic-imported so the engine and its
+ * parser stay out of the main bundle for prose-only sites. Both the corpus and
+ * the served `.md` twin route go through here, so the two never drift.
+ */
+export async function renderIndexedEntryMarkdown(item: IndexedEntry): Promise<string> {
+  const apiCollections = await loadApiCollections();
+  if (!apiCollections.includes(item.collection)) {
+    return renderEntryAsMarkdown(item.entry);
+  }
+  const { getApiModel, getApiPageProps, renderApiPageMarkdown } = await import(
+    "./api/index.js"
+  );
+  const coordinate = (item.entry.data as { coordinate?: string }).coordinate;
+  if (typeof coordinate !== "string") {
+    throw new Error(
+      `nimbus-docs: API entry "${item.entry.id}" in collection "${item.collection}" ` +
+        `is missing its coordinate — the apiCollection() loader should have set it.`,
+    );
+  }
+  const model = await getApiModel(item.collection);
+  return renderApiPageMarkdown(getApiPageProps(model, coordinate));
+}
+
+/**
  * Render the full published corpus as one markdown document — the body of
  * the `llms-full.txt` route. One fetch hands an agent (or a RAG ingestion
  * job) every page as clean markdown, no crawling.
@@ -439,20 +467,21 @@ export async function renderCorpusMarkdown(): Promise<string> {
       !versionSlugs.has(resolveCollectionSlug(item.collection, versions)),
   );
 
-  return buildCorpusMarkdown(
-    included.map((item) => ({
+  const blocks = await Promise.all(
+    included.map(async (item) => ({
       title: item.title,
       description: item.description,
       url: item.url,
       markdownUrl: item.markdownUrl,
-      markdown: renderEntryAsMarkdown(item.entry),
+      markdown: await renderIndexedEntryMarkdown(item),
     })),
-    {
-      title: config.title,
-      description: config.description,
-      site: config.site,
-    },
   );
+
+  return buildCorpusMarkdown(blocks, {
+    title: config.title,
+    description: config.description,
+    site: config.site,
+  });
 }
 
 // ---------------------------------------------------------------------------

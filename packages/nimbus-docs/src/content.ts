@@ -18,8 +18,12 @@
  *   })),
  */
 
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { glob } from "astro/loaders";
-import type { z } from "astro/zod";
+import type { Loader } from "astro/loaders";
+import { z } from "astro/zod";
 
 import {
   componentsSchema,
@@ -169,4 +173,133 @@ export function componentsCollection(options: ComponentsCollectionOptions = {}) 
     loader: glob({ base, pattern }),
     schema: componentsSchema,
   };
+}
+
+export interface ApiCollectionOptions {
+  /** Collection name + URL prefix — routes mount at `/<collection>`. */
+  collection: string;
+  /**
+   * Local file path (relative to the project root) or an inline OpenAPI
+   * object. Authored once in `nimbus.config.ts` `api[]`; pass the entry
+   * straight through here.
+   */
+  spec: string | Record<string, unknown>;
+  /** Human label for build diagnostics (falls back to `collection`). */
+  label?: string;
+}
+
+/**
+ * Content-collection config for one OpenAPI reference spec. The loader is a
+ * thin **index**: it parses the spec once at build time and writes one small
+ * DataStore entry per page (`{ id: slug, data: { coordinate, title,
+ * description? } }`). Only routing + display metadata is stored — the heavy
+ * parsed model is NOT, so render re-derives it from the same spec via
+ * `getApiModel()` and nothing depends on a cache surviving the content-sync →
+ * render phase boundary.
+ *
+ *   // src/content.config.ts
+ *   import nimbus from "./nimbus.config";
+ *   export const collections = {
+ *     docs: defineCollection(docsCollection()),
+ *     ...Object.fromEntries(
+ *       (nimbus.api ?? []).map((a) => [a.collection, defineCollection(apiCollection(a))]),
+ *     ),
+ *   };
+ *
+ * The OpenAPI engine is imported lazily inside `load()` — a prose-only site
+ * that never registers an API collection pulls neither the engine nor its
+ * parser.
+ */
+export function apiCollection(options: ApiCollectionOptions): {
+  loader: Loader;
+  schema: z.ZodType<{ coordinate: string; title: string; description?: string }>;
+} {
+  const { collection, spec, label } = options;
+
+  const loader: Loader = {
+    name: "nimbus-docs:api",
+    async load(context) {
+      const { logger, store, parseData, config: astroConfig, watcher } = context;
+
+      assertSupportedNode();
+
+      const [{ buildApiModel, getApiPageIndex, clearApiModelCache }, { resolveSpecSource }] =
+        await Promise.all([
+          import("./api/index.js"),
+          import("./_internal/api/resolve-spec.js"),
+        ]);
+
+      const rootDir = fileURLToPath(astroConfig.root);
+      const name = label ?? collection;
+
+      const index = async () => {
+        let model;
+        try {
+          const source = await resolveSpecSource({ collection, spec, label }, rootDir);
+          model = await buildApiModel(source);
+        } catch (err) {
+          // `ApiBuildError` already formats a pointed diagnostic list; surface
+          // it (plus which spec failed) and fail the build cleanly.
+          logger.error(
+            `Failed to build the API reference for "${name}":\n${(err as Error).message}`,
+          );
+          throw err;
+        }
+
+        store.clear();
+        for (const { coordinate, slug, title, description } of getApiPageIndex(model)) {
+          // The root page has an empty slug (href `/<collection>`), but Astro's
+          // DataStore rejects an empty id — map it to Astro's own `index`
+          // convention (`entryRouteUrl("", "index") → "/"`). Render is driven by
+          // `data.coordinate`, not the slug; title/description seed the agent
+          // index (llms.txt, corpus) without re-deriving the model there.
+          const id = slug === "" ? "index" : slug;
+          const data = await parseData({
+            id,
+            data:
+              description === undefined
+                ? { coordinate, title }
+                : { coordinate, title, description },
+          });
+          store.set({ id, data });
+        }
+        logger.info(`Indexed ${store.keys().length} API pages for "${collection}".`);
+      };
+
+      await index();
+
+      // Dev only: reparse when the on-disk spec changes. Inline-object specs
+      // have no file to watch.
+      if (watcher && typeof spec === "string") {
+        const specPath = path.resolve(rootDir, spec);
+        const onChange = async (changed: string) => {
+          if (path.resolve(changed) !== specPath) return;
+          clearApiModelCache(collection);
+          await index();
+        };
+        watcher.add(specPath);
+        watcher.on("change", onChange);
+        watcher.on("add", onChange);
+      }
+    },
+  };
+
+  return {
+    loader,
+    schema: z.object({
+      coordinate: z.string(),
+      title: z.string(),
+      description: z.string().optional(),
+    }),
+  };
+}
+
+function assertSupportedNode(): void {
+  const [major = 0, minor = 0] = process.versions.node.split(".").map(Number);
+  if (major < 22 || (major === 22 && minor < 12)) {
+    throw new Error(
+      `nimbus-docs api: Node >=22.12.0 is required to build an API reference ` +
+        `(running ${process.versions.node}). Upgrade Node, or remove the \`api\` block from nimbus.config.`,
+    );
+  }
 }

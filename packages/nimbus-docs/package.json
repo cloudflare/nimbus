@@ -57,6 +57,10 @@
 			"types": "./dist/react.d.ts",
 			"import": "./dist/react.js"
 		},
+		"./api": {
+			"types": "./dist/api.d.ts",
+			"import": "./dist/api.js"
+		},
 		"./lib/pkgm": {
 			"types": "./dist/lib/pkgm.d.ts",
 			"import": "./dist/lib/pkgm.js"
@@ -76,10 +80,14 @@
 		"dev": "tsdown --watch",
 		"typecheck": "tsc --noEmit",
 		"test": "node --import tsx --test \"test/**/*.test.ts\"",
+		"pull:api-fixtures": "node scripts/pull-api-fixtures.mjs",
 		"prepack": "tsdown"
 	},
 	"peerDependencies": {
+		"@readme/httpsnippet": ">=10.0.0",
+		"@scalar/openapi-parser": ">=0.10.0 <1.0.0",
 		"astro": ">=7.0.0 <7.1.0 || >=7.2.0 <8.0.0",
+		"openapi-sampler": ">=1.5.0",
 		"react": ">=19.0.0",
 		"react-dom": ">=19.0.0"
 	},
@@ -88,6 +96,15 @@
 			"optional": true
 		},
 		"react-dom": {
+			"optional": true
+		},
+		"@scalar/openapi-parser": {
+			"optional": true
+		},
+		"@readme/httpsnippet": {
+			"optional": true
+		},
+		"openapi-sampler": {
 			"optional": true
 		}
 	},
@@ -105,6 +122,9 @@
 		"clsx": "^2.1.1",
 		"giget": "^3.3.0",
 		"github-slugger": "^2.0.0",
+		"hast-util-from-html": "^2.0.3",
+		"hast-util-sanitize": "^5.0.2",
+		"hast-util-to-html": "^9.0.5",
 		"mri": "^1.2.0",
 		"picomatch": "^4.0.5",
 		"remark-lint-emphasis-marker": "^4.0.1",
@@ -124,6 +144,9 @@
 	},
 	"devDependencies": {
 		"@mdx-js/mdx": "^3.1.1",
+		"@readme/httpsnippet": "^11.4.0",
+		"@scalar/openapi-parser": "^0.28.12",
+		"openapi-sampler": "^1.7.4",
 		"@types/picomatch": "^4.0.3",
 		"@types/react": "^19.2.6",
 		"@types/react-dom": "^19.2.3",

@@ -1,0 +1,91 @@
+---
+/**
+ * ApiMethodChip — the method-coloured glyph chip for an API operation, as its
+ * own self-contained atom. Colours come from the shared `--nb-m-*` method
+ * palette in `globals.css`; the chip owns its variants and masked glyph, so its
+ * glyph renders anywhere — including inside the shared `SidebarLink` (it does NOT
+ * depend on the API rail's host scope), and its colour resolves wherever the
+ * shared `--nb-m-*` tokens are in scope (every Nimbus site's globals.css). Every
+ * method folds onto four
+ * colours + three glyphs:
+ * get/head → down-left, post/put/patch → up-right, delete → ✕, else → dot.
+ *
+ * This mapping is the source of truth; the endpoint bar in `ApiBody.astro`
+ * reuses this chip directly for its glyph and colours its verb label from the
+ * same `--nb-m-*` palette — keep them in sync when changing the method→colour
+ * mapping.
+ */
+interface Props {
+  method?: string;
+}
+
+const { method } = Astro.props;
+const verb = method?.toLowerCase();
+
+const variantOf = (v: string | undefined): string => {
+  switch (v) {
+    case "get":
+    case "head":
+      return "get";
+    case "post":
+      return "post";
+    case "put":
+    case "patch":
+      return "put";
+    case "delete":
+      return "delete";
+    default:
+      return v ? "other" : "";
+  }
+};
+const variant = variantOf(verb);
+---
+
+{variant && <span class={`nb-api-chip nb-api-chip--${variant}`} role="img" aria-label={verb?.toUpperCase()} />}
+
+<style>
+  /* Method colours come from the shared --nb-m-* palette in globals.css so the
+     chip and the endpoint bar can never disagree on a method's colour. */
+  .nb-api-chip {
+    box-sizing: border-box;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: 1px solid;
+    border-radius: 4px;
+    background-color: color-mix(in oklab, var(--m) 8%, transparent);
+    border-color: color-mix(in oklab, var(--m) 16%, transparent);
+    color: var(--m);
+  }
+  .nb-api-chip::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    background-color: currentColor;
+    -webkit-mask: var(--icon) center / contain no-repeat;
+    mask: var(--icon) center / contain no-repeat;
+  }
+  .nb-api-chip--get {
+    --m: var(--nb-m-get);
+    --icon: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M17%207%207%2017'/%3E%3Cpath%20d='M17%2017H7V7'/%3E%3C/svg%3E");
+  }
+  .nb-api-chip--post {
+    --m: var(--nb-m-post);
+    --icon: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M7%207h10v10'/%3E%3Cpath%20d='M7%2017%2017%207'/%3E%3C/svg%3E");
+  }
+  .nb-api-chip--put {
+    --m: var(--nb-m-put);
+    --icon: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M7%207h10v10'/%3E%3Cpath%20d='M7%2017%2017%207'/%3E%3C/svg%3E");
+  }
+  .nb-api-chip--delete {
+    --m: var(--nb-m-delete);
+    --icon: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M18%206%206%2018'/%3E%3Cpath%20d='m6%206%2012%2012'/%3E%3C/svg%3E");
+  }
+  .nb-api-chip--other {
+    --m: var(--nb-m-other);
+    --icon: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='black'%20stroke='none'%3E%3Ccircle%20cx='12'%20cy='12'%20r='3.25'/%3E%3C/svg%3E");
+  }
+</style>

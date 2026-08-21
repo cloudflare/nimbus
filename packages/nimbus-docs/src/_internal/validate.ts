@@ -94,7 +94,7 @@ const sidebarSchema = z
 // happens at integration setup time in `integration.ts` where the parsed
 // collections list is available.
 //
-// Rules enforced here (mirrors versioned-docs spec acceptance criteria):
+// Rules enforced here:
 //   - `current` is a non-empty string.
 //   - `others` are non-empty strings, no duplicates.
 //   - `deprecated` ⊆ `others`.
@@ -170,6 +170,39 @@ const REMOVED_CONFIG_KEYS: Record<string, string> = {
     "was removed. The starter no longer ships a default `Footer.astro`. To add one, create your own component and render it in `src/layouts/DocsLayout.astro`.",
 };
 
+const apiSpecSchema = z.object({
+  collection: z
+    .string({ error: '"api[].collection" must be a non-empty string' })
+    .min(1, '"api[].collection" must be a non-empty string')
+    .regex(
+      /^[a-z0-9-]+$/,
+      '"api[].collection" must be lowercase letters, digits, and dashes only (it becomes the URL prefix and the coordinate namespace)',
+    ),
+  spec: z.union([z.string().min(1), z.record(z.string(), z.unknown())], {
+    error:
+      '"api[].spec" must be a local file path (string) or an inline OpenAPI object — remote URLs are not supported in v1',
+  }),
+  label: z.string().optional(),
+});
+
+const apiSchema = z
+  .array(apiSpecSchema)
+  .optional()
+  .superRefine((entries, ctx) => {
+    if (!entries) return;
+    const seen = new Set<string>();
+    entries.forEach((entry, i) => {
+      if (seen.has(entry.collection)) {
+        ctx.addIssue({
+          code: "custom",
+          path: [i, "collection"],
+          message: `duplicate api collection "${entry.collection}" — each spec needs a unique collection name`,
+        });
+      }
+      seen.add(entry.collection);
+    });
+  });
+
 const nimbusConfigSchema = withStrictKeys(
   z.object({
     site: z
@@ -206,6 +239,7 @@ const nimbusConfigSchema = withStrictKeys(
     features: featuresSchema,
     search: searchSchema,
     versions: versionsSchema,
+    api: apiSchema,
   }),
   {
     removedKeys: REMOVED_CONFIG_KEYS,

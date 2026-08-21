@@ -1,14 +1,14 @@
 /**
  * Shared navigation fixtures for the tree-derived navigation tests.
  *
- * Three hard shapes the spec must satisfy, expressed as mock content
- * entries + config that feed `buildSidebarTree`:
+ * Three hard navigation shapes the sidebar builder must handle, expressed as
+ * mock content entries + config that feed `buildSidebarTree`:
  *
  *   (a) AI synthetic section — a manual group with a `landing` (/ai/models/)
  *       and no page at the bare /ai/ segment.
  *   (b) learning-paths index-less module groups — folders with no index page,
  *       so their groups carry no `indexHref` (non-interactive crumbs).
- *   (c) a versioned `docs-v0` shape for the D6 version-prefix tests.
+ *   (c) a versioned `docs-v0` shape for the version-prefix tests.
  *
  * No Cloudflare strings leak into framework source — they live here only.
  */

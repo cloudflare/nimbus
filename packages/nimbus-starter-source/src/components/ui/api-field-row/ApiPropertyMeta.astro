@@ -1,0 +1,105 @@
+---
+/**
+ * ApiPropertyMeta — a property's signature (name, optional/deprecated marker,
+ * type preview, collapsed-object `{ … }` marker) and its body (description,
+ * constraints, default/example). Split into `part`s so a folder can put the
+ * signature in its `<summary>` while the description — which may contain links,
+ * and so must not live inside a summary — renders in the disclosure body.
+ *
+ *   - `all`       leaf row: signature + inline copy-link + body.
+ *   - `signature` folder summary: signature only (no focusable controls).
+ *   - `meta`      folder body: description + constraints + default/example.
+ */
+import { cn } from "@/lib/cn";
+import ApiAnchor from "./ApiAnchor.astro";
+import { typeTokens, hasChildPreview, constraintPairs } from "./type-display";
+import { renderMarkdown } from "@cloudflare/nimbus-docs/markdown";
+import type { ApiFieldView } from "@cloudflare/nimbus-docs/api";
+
+interface Props {
+  field: ApiFieldView;
+  part?: "all" | "signature" | "meta";
+  /** False inside a `<summary>` — linked types render as plain colour there. */
+  interactive?: boolean;
+}
+
+const { field, part = "all", interactive = true } = Astro.props;
+
+const showSignature = part !== "meta";
+const showMeta = part !== "signature";
+const showAnchor = part === "all" && interactive;
+
+const toks = typeTokens(field);
+const preview = hasChildPreview(field);
+const constraints = constraintPairs(field.constraints);
+const detail = (v: unknown): string => JSON.stringify(v);
+---
+
+{
+  showSignature && (
+    <div class="flex items-start justify-between gap-2">
+      <span class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-sm leading-6">
+        <span class={cn("font-semibold", field.deprecated ? "text-muted-foreground line-through" : "text-foreground")}>
+          {field.name}
+        </span>
+        <span class="text-muted-foreground">:</span>
+        {field.deprecated && <span class="text-xs font-medium text-muted-foreground">deprecated</span>}
+        {!field.required && <span class="text-muted-foreground">optional</span>}
+
+        <span class="inline-flex flex-wrap items-baseline gap-x-1">
+          {toks.map((t) =>
+            t.href && interactive ? (
+              <a href={t.href} title={t.title} class={cn(t.mono && "font-mono", t.cls)}>
+                {t.text}
+              </a>
+            ) : (
+              <span title={t.title} class={cn(t.mono && "font-mono", t.href ? "text-info" : t.cls)}>
+                {t.text}
+              </span>
+            ),
+          )}
+          {preview && <span class="ft-preview text-muted-foreground" aria-hidden="true">{"{ … }"}</span>}
+          {field.nullable && <span class="text-muted-foreground">or null</span>}
+        </span>
+      </span>
+      {showAnchor && <ApiAnchor anchor={field.anchor} name={field.name} />}
+    </div>
+  )
+}
+
+{
+  showMeta && field.description && (
+    <div class="nb-md mt-0.5 text-sm text-muted-foreground" set:html={renderMarkdown(field.description)} />
+  )
+}
+
+{
+  showMeta && constraints.length > 0 && (
+    <div class="mt-0.5 text-xs text-muted-foreground">
+      {constraints.map((c, i) => (
+        <span>
+          {i > 0 && ", "}
+          {c.name}: <span class="font-mono text-foreground">{c.value}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+{
+  showMeta && (field.default !== undefined || field.example !== undefined) && (
+    <p class="mt-0.5 text-xs text-muted-foreground">
+      {field.default !== undefined && (
+        <>
+          Default: <span class="font-mono text-foreground">{detail(field.default)}</span>
+        </>
+      )}
+      {field.default !== undefined && field.example !== undefined && " · "}
+      {field.example !== undefined && (
+        <>
+          Example: <span class="font-mono text-foreground">{detail(field.example)}</span>
+        </>
+      )}
+    </p>
+  )
+}

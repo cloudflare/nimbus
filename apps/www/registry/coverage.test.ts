@@ -1,5 +1,5 @@
-// DX-3: every component page and feature/content recipe ships with a documented
-// home. registry:lib slugs are transitive, pulled in by consumers, so exempt.
+// registry:lib slugs are transitive, pulled in by consumers, so they have no
+// standalone home and are exempt from coverage.
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -21,6 +21,10 @@ const slugsOfType = (type: ManifestEntry["type"]): string[] =>
 // `ui` slugs with no standalone showcase page — each needs a documented reason.
 const PAGE_EXEMPT: Record<string, string> = {
   "version-switcher": "renders nothing without a versions config, so it has no standalone preview — covered by the versioning guide",
+  "api-field-row": "renders from a mounted OpenAPI ApiModel view-model, so it has no standalone preview — covered by the api-reference feature recipe",
+  "api-sidebar": "renders from a mounted OpenAPI ApiModel view-model, so it has no standalone preview — covered by the api-reference feature recipe",
+  "api-code-rail": "renders from a mounted OpenAPI ApiModel view-model, so it has no standalone preview — covered by the api-reference feature recipe",
+  "api-layout": "renders from a mounted OpenAPI ApiModel view-model, so it has no standalone preview — covered by the api-reference feature recipe",
 };
 
 function listedInRegistry(mdx: string, slug: string): boolean {

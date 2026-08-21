@@ -19,6 +19,8 @@ declare module "virtual:nimbus/config" {
   export const config: import("../types.js").NimbusConfig;
   export const indexedCollections: readonly string[];
   export const versionAlternates: import("../_internal/version-alternates.js").VersionAlternatesTable;
+  export const apiCollections: readonly string[];
+  export const root: string;
 }
 
 declare module "virtual:nimbus/icons" {

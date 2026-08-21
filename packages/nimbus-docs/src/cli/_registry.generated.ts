@@ -27,7 +27,7 @@ export const REGISTRY_BASE_URL = "https://nimbus-docs.com/registry";
 
 export const BUNDLED_INDEX: BundledIndex = {
   "version": 1,
-  "registryVersion": "0.9.0",
+  "registryVersion": "0.10.0",
   "items": {
     "cn": {
       "name": "cn",
@@ -189,7 +189,7 @@ export const BUNDLED_INDEX: BundledIndex = {
       "name": "tabs",
       "type": "registry:ui",
       "title": "Tabs",
-      "description": "Tabbed content panels (manual + Starlight-compatible modes)."
+      "description": "Tabbed content panels (manual + synced modes via syncKey)."
     },
     "theme-toggle": {
       "name": "theme-toggle",
@@ -208,6 +208,30 @@ export const BUNDLED_INDEX: BundledIndex = {
       "type": "registry:ui",
       "title": "VersionSwitcher",
       "description": "Header dropdown for switching between docs versions. Reads `versions` from nimbus.config.ts, uses the build-time alternates table to land readers on the same logical page in the target version. Includes deprecation badge and hidden-version exclusion. Renders nothing when versioning is off or only one version is configured."
+    },
+    "api-field-row": {
+      "name": "api-field-row",
+      "type": "registry:ui",
+      "title": "ApiFieldRow",
+      "description": "One `ApiFieldView` rendered recursively, plus a titled `ApiFieldList` group. Type links, required/nullable/deprecated flags, constraints/enum/default/example, nested children with omitted-count. Anchored by the field's coordinate id. Reads the view-model only."
+    },
+    "api-sidebar": {
+      "name": "api-sidebar",
+      "type": "registry:ui",
+      "title": "ApiSidebar",
+      "description": "Reference-collection nav rail over `ApiNav`. The docs sidebar rendered from API data: it composes the shared `SidebarGroupHeader`/`SidebarLink` atoms and adds a co-located, self-scoped method chip on operation leaves. The tree math (active/expanded) lives in `getApiNav`."
+    },
+    "api-code-rail": {
+      "name": "api-code-rail",
+      "type": "registry:ui",
+      "title": "ApiCodeRail",
+      "description": "An operation's code rail: a `LayerCard` of server-provided code samples with a synced language switcher, headed by the method chip (`ApiMethodChip`) and operation title, plus a status toggle that swaps between response examples. Reads an `ApiOperationPage`."
+    },
+    "api-layout": {
+      "name": "api-layout",
+      "type": "registry:ui",
+      "title": "ApiLayout",
+      "description": "Three-column reference shell (nav · content · code rail) composing ApiSidebar + ApiFieldRow + ApiCodeRail. Renders any `ApiPageProps` by kind; widths inherit the site's layout tokens."
     },
     "diagram": {
       "name": "diagram",
@@ -232,6 +256,12 @@ export const BUNDLED_INDEX: BundledIndex = {
       "type": "registry:feature",
       "title": "AI-native static surface",
       "description": "Add llms.txt, markdown variants, robots.txt, and an AgentDirective to a Nimbus docs site."
+    },
+    "api-reference": {
+      "name": "api-reference",
+      "type": "registry:feature",
+      "title": "OpenAPI reference",
+      "description": "Mount an OpenAPI (Swagger) spec as a routed reference collection — generated pages, per-page `.md` twins, and llms.txt/corpus coverage, all from one spec file. For hand-authored API docs written as MDX, use `new-collection` instead."
     },
     "changelog": {
       "name": "changelog",

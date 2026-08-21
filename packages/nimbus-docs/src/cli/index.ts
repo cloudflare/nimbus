@@ -382,7 +382,7 @@ async function addCommand(
 
   const installed = items.filter((i) => !report.skipped.includes(i.name));
 
-  // Record what we installed so `init`/DX-2 can track it for upgrades.
+  // Record what we installed so `init` and the upgrade commands can track it.
   if (installed.length > 0) {
     if (nimbus) {
       writeNimbusJson(

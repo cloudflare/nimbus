@@ -86,7 +86,7 @@ const hasPagination = Astro.slots.has("pagination");
       <div class="flex-1 mx-auto w-full">
         <div class="flex">
           {showSidebar && (
-            <aside id="desktop-sidebar" data-nb-desktop-sidebar class="hidden lg:flex w-(--nb-sidebar-width) shrink-0 border-r border-border bg-background sticky top-14 h-[calc(100vh-3.5rem)] flex-col overflow-y-auto overscroll-contain relative">
+            <aside id="desktop-sidebar" data-nb-desktop-sidebar class="hidden md:flex w-60 lg:w-(--nb-sidebar-width) shrink-0 border-r border-border bg-background sticky top-14 h-[calc(100vh-3.5rem)] flex-col overflow-y-auto overscroll-contain relative">
               {hasSidebar ? (
                 <slot name="sidebar" />
               ) : (
@@ -132,7 +132,7 @@ const hasPagination = Astro.slots.has("pagination");
 
             function restore() {
               try {
-                if (!matchMedia("(min-width: 64rem)").matches) return;
+                if (!matchMedia("(min-width: 48rem)").matches) return;
                 const sidebar = document.getElementById("desktop-sidebar");
                 if (!sidebar) return;
                 const content = sidebar.querySelector("[data-nb-sidebar]");
@@ -184,7 +184,7 @@ const hasPagination = Astro.slots.has("pagination");
           )}
 
           <main id="main-content" tabindex="-1" transition:name="nb-content" class="flex-1 min-w-0">
-            <div class="mx-auto max-w-(--nb-content-max) px-4 lg:px-6 pt-6 pb-12">
+            <div class="mx-auto max-w-(--nb-content-max) px-4 md:px-6 pt-6 pb-12">
               {versionStatus?.isDeprecated && (
                 <Banner
                   variant="caution"
@@ -211,7 +211,7 @@ const hasPagination = Astro.slots.has("pagination");
                     )}
                     <PageActions markdownUrl={markdownUrl} lastUpdated={lastUpdated} class={description ? undefined : "mt-3"} />
                     {headings !== false && headings.length > 0 && (
-                      <div class="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-14 z-20 -mx-4 mt-3 border-y px-4 py-2 backdrop-blur lg:-mx-6 lg:px-6 xl:hidden">
+                      <div class="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-14 z-20 -mx-4 mt-3 border-y px-4 py-2 backdrop-blur md:-mx-6 md:px-6 xl:hidden">
                         <MobileTOC headings={headings} />
                       </div>
                     )}
@@ -288,80 +288,110 @@ const hasPagination = Astro.slots.has("pagination");
   )}
 
   <script>
-    import { mount, lockScroll, unlockScroll } from "@cloudflare/nimbus-docs/client";
+    import { mount, lockScroll, unlockScroll, generateId } from "@cloudflare/nimbus-docs/client";
 
     const CLOSE_DURATION_MS = 250;
+    const DESKTOP_QUERY = "(min-width: 48rem)";
 
     // mount() re-binds on every astro:page-load and tears down on
-    // astro:before-swap, so the hamburger survives client-side navigation
-    // (a one-shot module script would go dead after the first swap).
+    // astro:before-swap, so the hamburger survives client-side navigation.
     mount("[data-mobile-sidebar]", (root) => {
-      const menuBtn = document.querySelector<HTMLElement>("[data-menu-btn]");
-      if (!(root instanceof HTMLDialogElement) || !menuBtn) return () => {};
+      const trigger = document.querySelector<HTMLElement>("[data-menu-btn]");
+      if (!(root instanceof HTMLDialogElement) || !trigger) return () => {};
       const dialog = root;
 
       const controller = new AbortController();
       const { signal } = controller;
       let closeTimer: ReturnType<typeof setTimeout> | undefined;
 
-      const openSidebar = () => {
+      const prefersReducedMotion = () =>
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      if (!dialog.id) dialog.id = generateId("nb-mobile-sidebar");
+      trigger.setAttribute("aria-controls", dialog.id);
+      trigger.setAttribute("aria-expanded", "false");
+      if (!trigger.hasAttribute("aria-haspopup")) trigger.setAttribute("aria-haspopup", "dialog");
+
+      const clearTimer = () => {
         if (closeTimer) {
           clearTimeout(closeTimer);
           closeTimer = undefined;
         }
-        if (dialog.open) return;
+      };
+
+      const openSidebar = () => {
+        clearTimer();
+        if (dialog.open) {
+          // Reclaim a drawer caught mid-slide-out rather than stranding it open.
+          if (dialog.dataset.state === "closing") dialog.dataset.state = "open";
+          return;
+        }
 
         dialog.showModal();
         dialog.dataset.state = "closed";
         lockScroll();
+        trigger.setAttribute("aria-expanded", "true");
 
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            dialog.dataset.state = "open";
-          });
-        });
+        // Flush the closed transform, then open in the same tick so the slide
+        // starts on the next frame (a double rAF delays it by two frames).
+        void dialog.offsetWidth;
+        dialog.dataset.state = "open";
 
-        dialog.querySelector<HTMLElement>("[data-close-sidebar]")?.focus();
+        dialog.querySelector<HTMLElement>("[data-close-sidebar]")?.focus({ preventScroll: true });
+      };
+
+      // Immediate close (no slide-out): reduced motion, or the viewport reaching desktop.
+      const closeNow = () => {
+        if (!dialog.open) return;
+        clearTimer();
+        dialog.close();
       };
 
       const closeSidebar = () => {
         if (!dialog.open || dialog.dataset.state === "closing") return;
-
+        if (prefersReducedMotion()) {
+          closeNow();
+          return;
+        }
         dialog.dataset.state = "closing";
-        closeTimer = setTimeout(() => {
-          dialog.close();
-        }, CLOSE_DURATION_MS);
+        closeTimer = setTimeout(() => dialog.close(), CLOSE_DURATION_MS);
       };
 
-      menuBtn.addEventListener("click", openSidebar, { signal });
+      trigger.addEventListener("click", openSidebar, { signal });
 
       dialog.addEventListener("cancel", (event) => {
         event.preventDefault();
         closeSidebar();
       }, { signal });
 
-      // Fires for Escape, close button, and backdrop click.
+      // Fires for Escape, close button, backdrop, and closeNow() — cleanup in one place.
       dialog.addEventListener("close", () => {
-        if (closeTimer) {
-          clearTimeout(closeTimer);
-          closeTimer = undefined;
-        }
-
+        clearTimer();
         dialog.dataset.state = "closed";
         unlockScroll();
-        menuBtn.focus();
+        trigger.setAttribute("aria-expanded", "false");
+        trigger.focus();
       }, { signal });
 
-      dialog.querySelector("[data-close-sidebar]")
-        ?.addEventListener("click", closeSidebar, { signal });
+      dialog.querySelectorAll<HTMLElement>("[data-close-sidebar]")
+        .forEach((el) => el.addEventListener("click", closeSidebar, { signal }));
 
       dialog.addEventListener("click", (e) => {
         if (e.target === dialog) closeSidebar();
       }, { signal });
 
+      // The hamburger is hidden past the desktop breakpoint; dismiss an open
+      // drawer so it can't strand focus once its trigger disappears.
+      const mql = window.matchMedia(DESKTOP_QUERY);
+      mql.addEventListener("change", (event) => {
+        if (event.matches) closeNow();
+      }, { signal });
+      if (mql.matches) closeNow();
+
       return () => {
         controller.abort();
-        if (closeTimer) clearTimeout(closeTimer);
+        clearTimer();
+        trigger.setAttribute("aria-expanded", "false");
         // A swap while open never fires `close`; balance the scroll lock.
         if (dialog.open) unlockScroll();
       };

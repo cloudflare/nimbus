@@ -257,7 +257,7 @@ export const MANIFESTS = {
   tabs: {
     type: "registry:ui",
     title: "Tabs",
-    description: "Tabbed content panels (manual + Starlight-compatible modes).",
+    description: "Tabbed content panels (manual + synced modes via syncKey).",
     registryDependencies: ["cn"],
   },
 
@@ -281,6 +281,45 @@ export const MANIFESTS = {
     description:
       "Header dropdown for switching between docs versions. Reads `versions` from nimbus.config.ts, uses the build-time alternates table to land readers on the same logical page in the target version. Includes deprecation badge and hidden-version exclusion. Renders nothing when versioning is off or only one version is configured.",
     registryDependencies: ["popover", "cn"],
+  },
+
+  // ---------------------------------------------------------------------------
+  // API reference (taste layer over `@cloudflare/nimbus-docs/api`'s view-model)
+  // ---------------------------------------------------------------------------
+
+  "api-field-row": {
+    type: "registry:ui",
+    title: "ApiFieldRow",
+    description:
+      "One `ApiFieldView` rendered recursively, plus a titled `ApiFieldList` group. Type links, required/nullable/deprecated flags, constraints/enum/default/example, nested children with omitted-count. Anchored by the field's coordinate id. Reads the view-model only.",
+    registryDependencies: ["badge", "cn"],
+  },
+
+  "api-sidebar": {
+    type: "registry:ui",
+    title: "ApiSidebar",
+    description:
+      "Reference-collection nav rail over `ApiNav`. The docs sidebar rendered from API data: it composes the shared `SidebarGroupHeader`/`SidebarLink` atoms and adds a co-located, self-scoped method chip on operation leaves. The tree math (active/expanded) lives in `getApiNav`.",
+    registryDependencies: ["sidebar", "collapsible", "cn"],
+  },
+
+  "api-code-rail": {
+    type: "registry:ui",
+    title: "ApiCodeRail",
+    description:
+      "An operation's code rail: a `LayerCard` of server-provided code samples with a synced language switcher, headed by the method chip (`ApiMethodChip`) and operation title, plus a status toggle that swaps between response examples. Reads an `ApiOperationPage`.",
+    registryDependencies: ["api-sidebar", "code", "layer-card", "cn"],
+  },
+
+  "api-layout": {
+    type: "registry:ui",
+    title: "ApiLayout",
+    description:
+      "Three-column reference shell (nav · content · code rail) composing ApiSidebar + ApiFieldRow + ApiCodeRail. Renders any `ApiPageProps` by kind; widths inherit the site's layout tokens.",
+    registryDependencies: ["api-sidebar", "api-field-row", "api-code-rail", "badge", "banner", "breadcrumbs", "page-actions", "layer-card", "cn"],
+    // Optional peers of nimbus-docs's API engine, installed only when a site opts
+    // into the reference
+    dependencies: ["@scalar/openapi-parser", "openapi-sampler", "@readme/httpsnippet"],
   },
 
   diagram: {

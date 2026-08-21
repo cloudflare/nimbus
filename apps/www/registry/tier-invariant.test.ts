@@ -3,7 +3,7 @@
 // MANIFESTS (this dir), and components.ts. "day-1" = a MANIFESTS slug NOT
 // stripped from the shipped templates (registryOnlyComponents + registryOnlyPaths).
 import assert from "node:assert/strict";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -78,6 +78,45 @@ test("no day-1 component depends on a registry-only slug", () => {
       violations.join("\n  ") +
       "\nFix: move the dependency into the day-1 set (drop its slug from registryOnlyComponents / " +
       "registryOnlyPaths in starter.manifest.mjs), or remove the dependency so the day-1 component stays self-contained.",
+  );
+});
+
+test("the API rail composes shared sidebar atoms — no forked row markup", () => {
+  const apiDir = resolve(STARTER_SRC, "components/ui/api-sidebar");
+  const walker = readFileSync(resolve(apiDir, "ApiSidebarItem.astro"), "utf8");
+
+  // The walker must compose the shared atoms, not re-implement rows.
+  for (const atom of ["SidebarGroupHeader", "SidebarLink"]) {
+    assert.match(
+      walker,
+      new RegExp(`import\\s+${atom}\\s+from\\s+["'][^"']*sidebar/${atom}\\.astro["']`),
+      `ApiSidebarItem.astro must compose the shared ${atom} atom (import it from the sidebar dir) ` +
+        "rather than re-implementing the row.",
+    );
+  }
+
+  // The row-defining markers and retired forked classes must NOT reappear in the
+  // api-sidebar dir — they belong to the shared atoms alone. (nb-api-chip is the
+  // chip's own scope and is allowed.)
+  const forbidden = [
+    "data-nb-sidebar-link",
+    "data-nb-sidebar-group-label",
+    /\bnb-api-(row|label|caret|sublist|deprecated|accent)\b/,
+  ];
+  const offenders: string[] = [];
+  for (const file of readdirSync(apiDir).filter((f) => f.endsWith(".astro"))) {
+    const src = readFileSync(resolve(apiDir, file), "utf8");
+    for (const needle of forbidden) {
+      const hit = typeof needle === "string" ? src.includes(needle) : needle.test(src);
+      if (hit) offenders.push(`${file}: ${needle}`);
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    "the API rail reintroduced forked leaf/header row markup:\n  " +
+      offenders.join("\n  ") +
+      "\nFix: render rows through SidebarGroupHeader/SidebarLink (leading slot) instead of hand-authoring them.",
   );
 });
 

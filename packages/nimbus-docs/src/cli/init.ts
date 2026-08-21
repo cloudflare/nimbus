@@ -1,6 +1,6 @@
 /**
  * `nimbus-docs init` — write a `nimbus.json` for a project that lacks one
- * (scaffolded before DX-1, a bare Astro site adopting Nimbus, or a deleted
+ * (scaffolded before provenance recording existed, a bare Astro site adopting Nimbus, or a deleted
  * record). Provenance is reconstructed by matching installed component dirs
  * against registry bytes; what can't be identified is marked, not guessed.
  */
@@ -205,7 +205,7 @@ export async function initCommand(flags: InitFlags): Promise<void> {
   const record: NimbusJson = {
     $schema: SCHEMA_URL,
     // create-nimbus-docs version + templates tag aren't recoverable from the
-    // repo alone; DX-2 reads `reconstructed` to know starter provenance is partial.
+    // repo alone; the upgrade commands read `reconstructed` to know starter provenance is partial.
     version: null,
     templatesTag: null,
     variant: null,
@@ -231,9 +231,9 @@ export async function initCommand(flags: InitFlags): Promise<void> {
   await reportReadiness(cwd);
 }
 
-// AC #6 "comes to the user": init ends by running the env category so a fresh
-// scaffold hears about `site: CHANGE_ME` here, not only on demand. Wrapped so a
-// readiness hiccup never fails an otherwise-successful init.
+// init ends by running the env category so a fresh scaffold hears about
+// `site: CHANGE_ME` here, not only on demand. Wrapped so a readiness hiccup
+// never fails an otherwise-successful init.
 async function reportReadiness(cwd: string): Promise<void> {
   try {
     const { runChecks } = await import("../check/index.js");

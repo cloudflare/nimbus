@@ -43,7 +43,7 @@ const typeError: CheckFinding = {
   fixable: false,
 };
 
-test("failed + buildable → 'still builds' (Scenario D)", () => {
+test("failed + buildable → 'still builds'", () => {
   const out = formatCheckPretty(
     result({
       status: "failed",
@@ -111,7 +111,7 @@ test("failed + --quiet: a hidden warning's fix does not inflate the footer", () 
   assert.match(loud, /✗ 2 problems · 1 auto-fixable → run `nimbus-docs check --fix`/);
 });
 
-test("failed + blocked → Not buildable (Scenario C)", () => {
+test("failed + blocked → Not buildable", () => {
   const siteError: CheckFinding = {
     scope: "env",
     code: "nimbus/site-placeholder",
@@ -132,7 +132,7 @@ test("failed + blocked → Not buildable (Scenario C)", () => {
   assert.match(out, /✗ Not buildable — 1 problem · 1 needs input → run `nimbus-docs check --fix`/);
 });
 
-test("passed full run → Ready (Scenario B)", () => {
+test("passed full run → Ready", () => {
   const out = formatCheckPretty(
     result({
       status: "passed",
@@ -243,7 +243,7 @@ test("partial + unknown: a passed-with-note scope is not named 'checked'", () =>
   assert.match(out, /not evaluated yet: opt-in authoring rules/);
 });
 
-test("partial + buildable with gaps → Buildable + coverage line (Scenario A)", () => {
+test("partial + buildable with gaps → Buildable + coverage line", () => {
   const out = formatCheckPretty(
     result({
       status: "partial",

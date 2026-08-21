@@ -48,7 +48,7 @@ test("exit code is 1 only when errors exist; warnings keep 0", () => {
   assert.equal(exitCodeFor(summarize([], 0, 0)), 0);
 });
 
-test("deriveScopeStatus: clean-evaluated is passed, not not_evaluated (AC #12)", () => {
+test("deriveScopeStatus: clean-evaluated is passed, not not_evaluated", () => {
   assert.equal(deriveScopeStatus(report({ evaluated: true })), "passed");
   assert.equal(deriveScopeStatus(report({ evaluated: false })), "not_evaluated");
   assert.equal(
@@ -75,7 +75,7 @@ test("deriveReadiness derives from the checks the build gates on", () => {
   assert.equal(
     deriveReadiness([env, structure, types]),
     "buildable",
-    "a not_evaluated types scope must not move readiness off buildable (AC #4)",
+    "a not_evaluated types scope must not move readiness off buildable",
   );
   assert.equal(
     deriveReadiness([report({ scope: "env", findings: [finding({ severity: "error" })] }), structure]),
@@ -89,7 +89,7 @@ test("deriveReadiness derives from the checks the build gates on", () => {
   assert.equal(
     deriveReadiness([report({ scope: "structure", notes: [{ code: "n", reason: "r" }] }), env]),
     "unknown",
-    "a structure note → couldn't fully verify (Scenario E)",
+    "a structure note → couldn't fully verify",
   );
 });
 
@@ -136,7 +136,7 @@ test("deriveReadiness: a build-validator error in the authoring scope → blocke
       }),
     ]),
     "buildable",
-    "astro build never runs tsc — a type error is correctness, not buildability (AC #4)",
+    "astro build never runs tsc — a type error is correctness, not buildability",
   );
 });
 
@@ -144,7 +144,7 @@ test("deriveTopStatus: failed on any error, partial on a gap, else passed", () =
   assert.equal(
     deriveTopStatus([report({ findings: [finding({ severity: "error", scope: "types" })] })]),
     "failed",
-    "a post-build type error is failed (AC #4)",
+    "a post-build type error is failed",
   );
   assert.equal(deriveTopStatus([report({ evaluated: false })]), "partial");
   assert.equal(deriveTopStatus([report({ notes: [{ code: "n", reason: "r" }] })]), "partial");

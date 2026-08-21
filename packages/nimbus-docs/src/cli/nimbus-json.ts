@@ -27,7 +27,7 @@ const DEFAULT_ROOT = "src";
 const installedComponentSchema = z
   .object({
     slug: z.string(),
-    // Not an enum: keep reads forward-compatible with future item types (DX-4).
+    // Not an enum: keep reads forward-compatible with future item types.
     type: z.string(),
     version: z.string().nullable().optional(),
     // `null` for a hand-authored item that matched no registry (no honest source).

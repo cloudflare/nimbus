@@ -59,14 +59,25 @@
 	--nb-warning-foreground: oklch(0.48 0.15 65);
 	--nb-warning-muted: oklch(0.97 0.02 70);
 
-	--nb-danger: oklch(0.47 0.18 25);
-	--nb-danger-foreground: oklch(0.47 0.18 25);
-	--nb-danger-muted: oklch(0.965 0.015 25);
-
-	/* Layout */
+ 	--nb-danger: oklch(0.47 0.18 25);
+ 	--nb-danger-foreground: oklch(0.47 0.18 25);
+ 	--nb-danger-muted: oklch(0.965 0.015 25);
+ 
+ 	/* API method palette — shared source of truth for the sidebar method chip
+ 	   (api-sidebar) and the endpoint bar (api-layout); harmless elsewhere. The
+ 	   "other" tint follows the theme foreground. */
+ 	--nb-m-get: #16a34a;
+ 	--nb-m-post: #155dfc;
+ 	--nb-m-put: #ea580c;
+ 	--nb-m-delete: #d01e22;
+ 	--nb-m-other: color-mix(in oklab, var(--nb-foreground) 45%, transparent);
+ 
+ 	/* Layout */
 	--nb-sidebar-width: 18.75rem;
 	--nb-toc-width: 18rem;
 	--nb-content-max: 43.5rem;
+	/* Used only by the API reference (registry: api-layout); harmless elsewhere. */
+	--nb-code-rail-width: 34rem;
 
 	/* Typography — self-hosted via @fontsource-variable in BaseLayout.astro */
 	--nb-font-sans:
@@ -136,11 +147,17 @@
 	--nb-warning-foreground: oklch(0.78 0.11 80);
 	--nb-warning-muted: oklch(0.19 0.03 70);
 
-	--nb-danger: oklch(0.72 0.14 25);
-	--nb-danger-foreground: oklch(0.72 0.14 25);
-	--nb-danger-muted: oklch(0.17 0.03 25);
-
-	--nb-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.2);
+ 	--nb-danger: oklch(0.72 0.14 25);
+ 	--nb-danger-foreground: oklch(0.72 0.14 25);
+ 	--nb-danger-muted: oklch(0.17 0.03 25);
+ 
+ 	/* API method palette — dark overrides (--nb-m-other derives from foreground). */
+ 	--nb-m-get: #22c55e;
+ 	--nb-m-post: #2b7fff;
+ 	--nb-m-put: #f97316;
+ 	--nb-m-delete: #e34041;
+ 
+ 	--nb-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.2);
 	--nb-shadow: 0 1px 3px oklch(0 0 0 / 0.3), 0 1px 2px oklch(0 0 0 / 0.2);
 	--nb-shadow-lg: 0 4px 12px oklch(0 0 0 / 0.4), 0 2px 4px oklch(0 0 0 / 0.2);
 }

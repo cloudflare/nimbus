@@ -1,0 +1,98 @@
+---
+/**
+ * ApiUnionExplorer — an `ApiUnionView` as a "one of" list: each variant is a
+ * disclosure (object variants inline their fields) or a linked row (a named
+ * `$ref`). Prefers the discriminator mapping, falling back to the raw variant
+ * list. Rendered `nested` inside a field's disclosure (dashed spine — these are
+ * alternatives, not co-present composition) or standalone for a top-level body
+ * union (no incoming spine).
+ */
+import { cn } from "@/lib/cn";
+import ApiFieldRow from "./ApiFieldRow.astro";
+import ApiChevron from "./ApiChevron.astro";
+import type { ApiUnionView, ApiVariant } from "@cloudflare/nimbus-docs/api";
+import "./field-tree.css";
+
+interface Props {
+  union: ApiUnionView;
+  /** Inside a field disclosure — draw the dashed alternative spine. */
+  nested?: boolean;
+  /** Depth of the owning union field, for auto-open of the first variant. */
+  depth?: number;
+}
+
+const { union, nested = false, depth = 0 } = Astro.props;
+
+const AUTO_OPEN_DEPTH = 1;
+const entries: { value?: string; variant: ApiVariant }[] =
+  union.mapping && union.mapping.length > 0
+    ? union.mapping.map((m) => ({ value: m.value, variant: m.variant }))
+    : union.variants.map((v) => ({ variant: v }));
+---
+
+<div>
+  <div class={nested ? "ft-meta" : "mb-1"}>
+    <p class="text-sm text-muted-foreground">One of the following:</p>
+  </div>
+  <ul class:list={["ft-list", nested && "ft-children ft-children--union"]}>
+    {
+      entries.map((e, i) => {
+        const fields = e.variant.fields ?? [];
+        const startOpen = i === 0 && AUTO_OPEN_DEPTH >= depth + 1;
+        return fields.length > 0 ? (
+          <li class="ft-item is-parent">
+            <details class="ft-details" open={startOpen}>
+              <summary class="ft-row">
+                <ApiChevron />
+                <div class="ft-content">
+                  <span class="flex flex-wrap items-baseline gap-x-1.5 text-sm leading-6">
+                    <span class={cn("font-semibold", e.variant.href ? "font-mono text-info" : "text-foreground")}>
+                      {e.variant.label}
+                    </span>
+                    <span class="ft-preview text-muted-foreground" aria-hidden="true">{"{ … }"}</span>
+                    {e.value && <span class="font-mono text-xs text-muted-foreground">{e.value}</span>}
+                  </span>
+                </div>
+              </summary>
+              <div class="ft-body">
+                {e.variant.href && (
+                  <div class="ft-meta">
+                    <a
+                      href={e.variant.href}
+                      class="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                    >
+                      View {e.variant.label} schema →
+                    </a>
+                  </div>
+                )}
+                <ul class="ft-list ft-children">
+                  {fields.map((f) => (
+                    <ApiFieldRow field={f} depth={depth + 1} />
+                  ))}
+                </ul>
+              </div>
+            </details>
+          </li>
+        ) : (
+          <li class="ft-item">
+            <div class="ft-row">
+              <ApiChevron empty />
+              <div class="ft-content">
+                <span class="flex flex-wrap items-baseline gap-x-1.5 text-sm leading-6">
+                  {e.variant.href ? (
+                    <a href={e.variant.href} class="font-mono font-semibold text-info underline-offset-2 hover:underline">
+                      {e.variant.label}
+                    </a>
+                  ) : (
+                    <span class="font-semibold text-foreground">{e.variant.label}</span>
+                  )}
+                  {e.value && <span class="font-mono text-xs text-muted-foreground">{e.value}</span>}
+                </span>
+              </div>
+            </div>
+          </li>
+        );
+      })
+    }
+  </ul>
+</div>

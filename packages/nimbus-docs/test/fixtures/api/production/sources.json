@@ -1,0 +1,37 @@
+{
+  "note": "Real production OpenAPI specs used as fixtures for the opt-in API gauntlet. The spec files themselves are gitignored (~45 MB); this manifest is the source of truth. Run `pnpm --filter nimbus-docs pull:api-fixtures` to download them into this directory. Stats captured 2026-08-13 via a structural (no-dereference) pass.",
+  "sources": [
+    {
+      "name": "Cloudflare",
+      "file": "cloudflare.json",
+      "url": "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.json",
+      "openapi": "3.0.3",
+      "bytes": 23438968,
+      "stats": { "paths": 2046, "operations": 3286, "schemas": 6563, "webhooks": 0, "topLevelTags": 0, "deprecatedOps": 280 }
+    },
+    {
+      "name": "Stripe",
+      "file": "stripe.json",
+      "url": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json",
+      "openapi": "3.0.0",
+      "bytes": 7967776,
+      "stats": { "paths": 416, "operations": 589, "schemas": 1440, "webhooks": 0, "topLevelTags": 0, "deprecatedOps": 6 }
+    },
+    {
+      "name": "GitHub",
+      "file": "github.json",
+      "url": "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json",
+      "openapi": "3.0.3",
+      "bytes": 12920264,
+      "stats": { "paths": 808, "operations": 1220, "schemas": 969, "webhooks": 0, "topLevelTags": 49, "deprecatedOps": 37 }
+    },
+    {
+      "name": "OpenAI",
+      "file": "openai.yaml",
+      "url": "https://raw.githubusercontent.com/openai/openai-openapi/master/openapi.yaml",
+      "openapi": "3.1.0",
+      "bytes": 2846177,
+      "stats": { "paths": 182, "operations": 288, "schemas": 1394, "webhooks": 16, "topLevelTags": 16, "deprecatedOps": 5 }
+    }
+  ]
+}

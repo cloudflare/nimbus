@@ -1,4 +1,4 @@
-// DX-2: `add --overwrite` is the upgrade verb; `--yes` never clobbers owned files.
+// `add --overwrite` is the upgrade verb; `--yes` never clobbers owned files.
 // Tests run non-interactively (no TTY), which exercises the CI-safe path.
 
 import assert from "node:assert/strict";

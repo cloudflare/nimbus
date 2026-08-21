@@ -28,6 +28,12 @@ an optional RSS feed — is a different shape. Use `nimbus-docs add changelog` f
 Use this recipe only if the user explicitly wants a changelog rendered as a
 plain doc tree.
 
+**For an OpenAPI spec, this is also the wrong recipe.** This recipe makes a
+tree of hand-authored MDX pages. If the user wants their API reference
+*generated from an OpenAPI/Swagger document* — pages per operation and schema,
+`.md` twins, llms coverage — use `nimbus-docs add api-reference`. Use this
+recipe for `api` only when they're writing the API docs by hand.
+
 **This recipe owns the whole setup of a non-version collection.** You
 will create the content directory, register the collection in
 `content.config.ts`, scaffold the page + `.md` alternate routes, and

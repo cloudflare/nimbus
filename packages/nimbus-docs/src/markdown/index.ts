@@ -12,3 +12,4 @@ export { titleFigure } from "./title-figure";
 export type { TitleFigureOptions } from "./title-figure";
 export { tableScroll } from "./table-scroll";
 export type { TableScrollOptions } from "./table-scroll";
+export { renderMarkdown } from "./render";

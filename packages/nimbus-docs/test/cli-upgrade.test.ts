@@ -1,4 +1,4 @@
-// DX-2: the pure classification cores behind `outdated` / `diff`.
+// The pure classification cores behind `outdated` / `diff`.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";

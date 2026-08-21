@@ -42,6 +42,20 @@ export interface VirtualConfigExtras {
    * when the site is unversioned or has only the current version.
    */
   versionAlternates: VersionAlternatesTable;
+  /**
+   * Subset of `indexedCollections` that are OpenAPI reference collections.
+   * Render-time Markdown dispatch (`renderIndexedEntryMarkdown`) keys off
+   * this to route API entries through the emitter. Read only in prerendered
+   * server endpoints — never a client component.
+   */
+  apiCollections: string[];
+  /**
+   * Absolute project root — the same base the `apiCollection()` loader
+   * resolves specs against (`fileURLToPath(astroConfig.root)`). `getApiModel`
+   * uses it so render-time resolution matches the loader regardless of
+   * `process.cwd()`. Build/server-only; never a client component.
+   */
+  root: string;
 }
 
 export function virtualConfigPlugin(
@@ -59,7 +73,9 @@ export function virtualConfigPlugin(
         return (
           `export const config = ${JSON.stringify(config)};\n` +
           `export const indexedCollections = ${JSON.stringify(extras.indexedCollections)};\n` +
-          `export const versionAlternates = ${JSON.stringify(extras.versionAlternates)};\n`
+          `export const versionAlternates = ${JSON.stringify(extras.versionAlternates)};\n` +
+          `export const apiCollections = ${JSON.stringify(extras.apiCollections)};\n` +
+          `export const root = ${JSON.stringify(extras.root)};\n`
         );
       }
       return undefined;

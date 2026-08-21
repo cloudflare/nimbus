@@ -7,8 +7,8 @@
  * - Previous matcher covered `/api/**`, `/changelog/**` fine.
  * - Couldn't express a leading any-depth wildcard (e.g. match `llms.txt`
  *   at any depth).
- * - Real gap: migrating off `starlight-links-validator` (already
- *   picomatch-backed) — its exclude list used exactly that pattern.
+ * - Real gap: parity with common picomatch-backed links validators,
+ *   whose exclude lists use exactly that leading-wildcard pattern.
  * - Taking the dependency restores parity instead of flattening every
  *   migrating project's exclude list to fit the minimal matcher.
  *

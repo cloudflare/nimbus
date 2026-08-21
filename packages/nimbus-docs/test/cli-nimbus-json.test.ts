@@ -1,4 +1,4 @@
-// DX-1: nimbus.json provenance record + install-root honoring + `init` reconstruction.
+// nimbus.json provenance record + install-root honoring + `init` reconstruction.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
