@@ -1,0 +1,19 @@
+.changeset/api-reference.md
+  s_36274769d5fb35::t_e7e0726daae8f1 15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5a588b1828c7d6c50f127d150f6a102bd44d2f78",
+  "prompts": {},
+  "sessions": {
+    "s_36274769d5fb35": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fc6b7305cffeUAussIVeUohacs",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
