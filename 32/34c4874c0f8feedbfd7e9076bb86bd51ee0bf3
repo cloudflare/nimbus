@@ -1,0 +1,19 @@
+scripts/fixtures/api-reference/pnpm-lock.yaml.template
+  s_655fa6dcdb243b::t_4890e610e730b8 331,359,368,374,380,386,392
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "3234c4874c0f8feedbfd7e9076bb86bd51ee0bf3",
+  "prompts": {},
+  "sessions": {
+    "s_655fa6dcdb243b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fc6c5d3e9ffe270sY6Uc2y7wFR",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
