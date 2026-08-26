@@ -1,0 +1,33 @@
+pnpm-lock.yaml
+  s_3c5c32236015cb::t_cc27fc36f58312 20-22,32-34,38-40,748,752,1829-1833,3434-3438,4328-4337,5864,5873,5912,5938,6808-6811,7482,8373-8375,9546-9553,10086
+scripts/fixtures/api-reference/expected.json
+  s_26dcac0cf40046::t_f6a7babacf2f26 1-69
+scripts/fixtures/api-reference/nimbus.config.ts
+  s_26dcac0cf40046::t_ca60655ac58a3d 1-13
+scripts/fixtures/api-reference/src/content.config.ts
+  s_26dcac0cf40046::t_0cff8871686957 1-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "dfc91bfa61ec8075d93e2d3b427341abeed7f416",
+  "prompts": {},
+  "sessions": {
+    "s_26dcac0cf40046": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fc4e0360bffeib6YB5MlJr498g",
+        "model": "gpt-5.6"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_3c5c32236015cb": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fc6956d5affeMnhSoCug9sXRUK",
+        "model": "gpt-5.6"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
