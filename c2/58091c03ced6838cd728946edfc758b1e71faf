@@ -1,0 +1,19 @@
+packages/nimbus-docs/src/_internal/api/citations.ts
+  s_04b043c91e858e::t_3629a0fb0e7151 34-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c258091c03ced6838cd728946edfc758b1e71faf",
+  "prompts": {},
+  "sessions": {
+    "s_04b043c91e858e": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fb890edb5ffeLMoVWh72APtylC",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
