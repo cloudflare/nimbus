@@ -1,0 +1,111 @@
+.github/workflows/templates.yml
+  s_6f026b8dfcebeb::t_2403263ac584ff 14,22,30-33,46-48,56-59,78
+apps/www/src/content/docs/cli.mdx
+  s_6f026b8dfcebeb::t_d071282a32f08c 26,67-74
+apps/www/src/content/docs/get-started.mdx
+  s_6f026b8dfcebeb::t_ea0d7771332653 27
+packages/create-nimbus-docs/README.md
+  s_6f026b8dfcebeb::t_03c1a4129a3674 11-12
+packages/create-nimbus-docs/package.json
+  s_6f026b8dfcebeb::t_d1bac8f34f4033 51
+packages/create-nimbus-docs/src/index.ts
+  s_6f026b8dfcebeb::t_dbe347410050c0 8-9,22,43,56-57,86-101,106-107
+packages/create-nimbus-docs/src/prompts.ts
+  s_6f026b8dfcebeb::t_9e1208f9708bdc 2,7-11,15,17-18,26,34-42,55,62-65,149-155,157-160,162-203
+packages/create-nimbus-docs/src/transformers/adapter.ts
+  s_6f026b8dfcebeb::t_71d82c9f6d519a 1-82
+packages/create-nimbus-docs/src/transformers/deploy.ts
+  s_6f026b8dfcebeb::t_b5c3a8538e839a 3,40,79
+packages/nimbus-docs/README.md
+  s_6f026b8dfcebeb::t_21d620277dcdef 3,13-31
+packages/nimbus-docs/src/_internal/build-report.ts
+  s_6f026b8dfcebeb::t_ea6c992db92c8d 2-6,8-9,16,40-41,48
+packages/nimbus-docs/src/_internal/content.ts
+  s_6f026b8dfcebeb::t_8f35a1b4caa3e4 87-88
+packages/nimbus-docs/src/_internal/dotenv.ts
+  s_6f026b8dfcebeb::t_960478f83cf17e 1-2,5-7,9,12-13
+packages/nimbus-docs/src/_internal/footprint.ts
+  s_6f026b8dfcebeb::t_a6bcb82c27d0b4 26-32,45-49
+packages/nimbus-docs/src/_internal/projection.ts
+  s_6f026b8dfcebeb::t_fe5ddb2fcf3e43 2-7,10
+packages/nimbus-docs/src/_internal/semver-lite.ts
+  s_6f026b8dfcebeb::t_744143a602b34f 1-6,8-10,13-15
+packages/nimbus-docs/src/_internal/validate.ts
+  s_6f026b8dfcebeb::t_f1001cc35735aa 168-169
+packages/nimbus-docs/src/adapters.ts
+  s_6f026b8dfcebeb::t_b0e7a5943809c8 1-29
+packages/nimbus-docs/src/check/env.ts
+  s_6f026b8dfcebeb::t_4839a03a3c32e9 11,46,55-56,59,63
+packages/nimbus-docs/src/cli/dotenv.ts
+  s_6f026b8dfcebeb::t_dd477182bfd829 21-23
+packages/nimbus-docs/src/cli/fs-atomic.ts
+  s_6f026b8dfcebeb::t_38ee77a120689c 5,7-12,14-35
+packages/nimbus-docs/src/cli/index.ts
+  s_6f026b8dfcebeb::t_b1ab0275e201e5 77-78,332,515-520,528,536-548
+packages/nimbus-docs/src/integration.ts
+  s_6f026b8dfcebeb::t_ed992d79c257e8 52-53,598,602,647,967,993-999,1005-1006
+packages/nimbus-docs/src/server.ts
+  s_6f026b8dfcebeb::t_2ebe857d48f0ca 13
+packages/nimbus-docs/test/adapter-cli-output.test.ts
+  s_6f026b8dfcebeb::t_82e17962995e50 2-4,6-7,9-10,12-22,24-31,33-47,50-60,62-97
+packages/nimbus-docs/test/api-request-body-media.test.ts
+  s_6f026b8dfcebeb::t_0c3b18add6177a 1
+packages/nimbus-docs/test/build-report.test.ts
+  s_6f026b8dfcebeb::t_45089244023e87 12-18,21,44-58,80,82-84,97-98,110,112-113,131-132,149-151,162-186
+packages/nimbus-docs/test/check/env-keys.test.ts
+  s_6f026b8dfcebeb::t_d1ea9b12e2187d 22,30,37,41-42,48,52,57-60,64
+packages/nimbus-docs/test/dotenv.test.ts
+  s_6f026b8dfcebeb::t_ae3345eded6798 7-8,26-34,59-64,80,84-87,92,94,98,100-103,107-182,184
+packages/nimbus-docs/test/integration-dist-invariant.test.ts
+  s_6f026b8dfcebeb::t_c27b67866eed80 254,260-277
+packages/nimbus-docs/test/projection.test.ts
+  s_6f026b8dfcebeb::t_9f951de11a8779 9,42-51
+packages/nimbus-docs/test/semver-lite.test.ts
+  s_6f026b8dfcebeb::t_4caab26ec36772 4,34-44
+packages/nimbus-docs/test/version-alternates.test.ts
+  s_6f026b8dfcebeb::t_b57ce3579c68df 21,24,26,28,30,32,35,37-38,40,44-46,50-53,57
+packages/nimbus-docs/tsdown.config.ts
+  s_6f026b8dfcebeb::t_2678003491ae09 16
+packages/nimbus-starter-source/src/content/docs/components.mdx
+  s_623a02424abd2a::t_2004b9776fb423 58
+packages/nimbus-starter-source/src/content/docs/getting-started.mdx
+  s_623a02424abd2a::t_4bff5f6a1e99d8 24
+packages/nimbus-starter-source/src/pages/og/[...slug].ts
+  s_623a02424abd2a::t_5e59b9b6c71ed9 9-11
+pnpm-lock.yaml
+  s_342b3c0526caec::t_28c69edee41ae3 133-135,202-204,244-246,259-261,284-286,2658-2660,7420-7421,10350,10379
+scripts/templates-check.mjs
+  s_623a02424abd2a::t_f3b4ccf92b72bb 8,38-42,74,92,102-104,106-119,145,147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "f372a4eff6efa0e83706a6a9a840531b2ec0796d",
+  "prompts": {},
+  "sessions": {
+    "s_342b3c0526caec": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa68fcf17ffe9kLejx0x6qLurr",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_623a02424abd2a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa38ae6ceffe3fCMSa135tkLwz",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_6f026b8dfcebeb": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa38ae626ffes1KO07KjrFMPNw",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
