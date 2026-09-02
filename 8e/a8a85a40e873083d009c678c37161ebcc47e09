@@ -1,0 +1,23 @@
+packages/nimbus-docs/src/_internal/worker-partial-headings.ts
+  s_e3e26d757f461d::t_cc0c2c2e74a2a5 5,12-15,21-53,57,61-334,408-411,440-444,449-467
+packages/nimbus-docs/src/integration.ts
+  s_e3e26d757f461d::t_494cb1172b623a 102-105,126-130,340-342,409-411,538-544,794-797,799-842,869-871,994,1235-1259,1328-1334,1337,1446,1474,1486-1502,1505,1647-1730,1734
+packages/nimbus-docs/test/partial-headings.test.ts
+  s_e3e26d757f461d::t_fa00f904ccf29f 11-14,26,91-158,272-274,316
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "8ea8a85a40e873083d009c678c37161ebcc47e09",
+  "prompts": {},
+  "sessions": {
+    "s_e3e26d757f461d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa3d57646ffezztiYGVZ6iY4ND",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
