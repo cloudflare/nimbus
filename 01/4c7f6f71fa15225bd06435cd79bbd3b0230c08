@@ -1,0 +1,21 @@
+packages/nimbus-docs/src/_internal/pagefind-document.ts
+  s_e3e26d757f461d::t_e1627a33b26e06 13-37,39-44
+scripts/workers-feasibility-check.mjs
+  s_e3e26d757f461d::t_eed9664a93a4e7 22-28,74-75,82-84,100-174,176-177,182-184,187-188,197-227,231-233,263-275,278-285,290-293,298-301,322-329,334-337,347-355,358-365,370-373,385-388,398-401,404-407,412-415,419-422,432-434,454-463,473-474,514,517-522,529-535,540-548,554-570,574-583,605-606,623-626,630-633,636-643,648-655,670-673,675-678,682-685,693-696,699-710,729-733,736-739,745-752,754-765,774-778,782-785,789-793
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "014c7f6f71fa15225bd06435cd79bbd3b0230c08",
+  "prompts": {},
+  "sessions": {
+    "s_e3e26d757f461d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa3d57646ffezztiYGVZ6iY4ND",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
