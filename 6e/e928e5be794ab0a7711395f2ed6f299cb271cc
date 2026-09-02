@@ -1,0 +1,61 @@
+packages/nimbus-docs/src/_internal/page-resolution.ts
+  s_aad02f2f49130e::t_a215b0bf9b4f0e 37-39,65,75,89-91,141-142,182-184,186-190,196,199,201,209-214,218-223,228-233,238-241
+packages/nimbus-docs/src/_internal/parse-content-collections.ts
+  s_bfccc45c8a0137::t_532423c5de7845 28-33,49-53,56,67-69,72,76,80-83,96-109,112
+packages/nimbus-docs/src/_internal/rendering-policy.ts
+  s_7c962fba07bb0b::t_5d21d6146b2153 1-66
+packages/nimbus-docs/src/_internal/virtual-config.ts
+  s_aad02f2f49130e::t_005180602565f5 40,53-56,63-80,90,92,95
+packages/nimbus-docs/src/api/index.ts
+  s_aad02f2f49130e::t_1bee4b302f615a 81-82,171-178,180,195-204
+packages/nimbus-docs/src/integration.ts
+  s_aad02f2f49130e::t_f48638e7e9f94d 38,81,89-93,117-123,137-142,272,328-332,337-340,346-353,359-377,430-432,471-474,476,480-493,503-505,515-590,595-604,611,614-619,696,753-754,800-802,806-807,822-830,862,902-904,942,945,948,954-956,997-1011,1013-1036,1049-1050,1055-1056,1065,1077-1078,1114-1117,1152-1164,1173-1191,1206-1207,1226-1227,1229,1301-1303,1318,1330-1332,1338-1339,1358-1423,1449-1452,1536-1539
+packages/nimbus-docs/src/types.ts
+  s_9e25dc04c91d02::t_59fe0ec8755b01 95-108
+packages/nimbus-docs/test/page-resolution.test.ts
+  s_aad02f2f49130e::t_d982ceb3ddedc2 77-78,94-96,207-210,221-223,225-227,237-241,262,278,317-318,349-350
+packages/nimbus-docs/test/virtual-config.test.ts
+  s_aad02f2f49130e::t_7ff070abb16fa1 1-46
+pnpm-lock.yaml
+  s_aad02f2f49130e::t_4dfca4a5f630a4 10-22,309-314,8075,9026,9219-9220
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "6ee928e5be794ab0a7711395f2ed6f299cb271cc",
+  "prompts": {},
+  "sessions": {
+    "s_7c962fba07bb0b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa0fef646ffe33WhhDThq321Bh",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_9e25dc04c91d02": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa1726073ffezs2e7fL47ASQ7O",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_aad02f2f49130e": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa1f36f10ffeQjchnt19EiJICo",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_bfccc45c8a0137": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa104acf7ffeCmnAPKtDCMdUKe",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
