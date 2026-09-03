@@ -1,0 +1,19 @@
+packages/nimbus-docs/src/cli/_registry.generated.ts
+  s_dfdea869a07eab::t_c9420baf5f50f3 30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "cb40d306198efdda54a54ad85df3e920f078c530",
+  "prompts": {},
+  "sessions": {
+    "s_dfdea869a07eab": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f9a3c5e98ffenGbIEpCrmBzTcP",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
