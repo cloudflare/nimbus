@@ -1,0 +1,19 @@
+pnpm-lock.yaml
+  s_3e0c915d6dbf53::t_4d913b7e6b670c 132-134,253-255
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "79d6430fd96d0446a27f3c32375fe3f8ddce7c1a",
+  "prompts": {},
+  "sessions": {
+    "s_3e0c915d6dbf53": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f982b48abffewm5j4GDzsEY5HM",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
