@@ -1,0 +1,21 @@
+packages/nimbus-docs/package.json
+  s_be53a3692043a5::t_bfd51ff68ea37e 130,161
+pnpm-lock.yaml
+  s_be53a3692043a5::t_b375860fd8da39 161,5692,5707-5708,5735,5763,5788-5789,5796,5798,8155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "298791339b222a437e06b058abab7fd97002f822",
+  "prompts": {},
+  "sessions": {
+    "s_be53a3692043a5": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa19f06f2ffeLCI9i8vPQ8hcIf",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
