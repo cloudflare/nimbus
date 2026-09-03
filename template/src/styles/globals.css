@@ -59,14 +59,26 @@
 	--nb-warning-foreground: oklch(0.48 0.15 65);
 	--nb-warning-muted: oklch(0.97 0.02 70);
 
-	--nb-danger: oklch(0.47 0.18 25);
-	--nb-danger-foreground: oklch(0.47 0.18 25);
-	--nb-danger-muted: oklch(0.965 0.015 25);
-
-	/* Layout */
+ 	--nb-danger: oklch(0.47 0.18 25);
+ 	--nb-danger-foreground: oklch(0.47 0.18 25);
+ 	--nb-danger-muted: oklch(0.965 0.015 25);
+ 
+ 	/* API method palette — shared source of truth for the method chip across the
+ 	   sidebar, endpoint card, and code rail (api-sidebar / api-layout /
+ 	   api-code-rail); harmless elsewhere. Calibrated OKLCH duotone: each value is
+ 	   legible as chip text over its own 14%-tinted background in both themes. */
+ 	--nb-m-get: oklch(0.48 0.12 156);
+ 	--nb-m-post: oklch(0.48 0.15 262);
+ 	--nb-m-put: oklch(0.5 0.13 60);
+ 	--nb-m-delete: oklch(0.5 0.18 24);
+ 	--nb-m-other: oklch(0.5 0 0);
+ 
+ 	/* Layout */
 	--nb-sidebar-width: 18.75rem;
 	--nb-toc-width: 18rem;
 	--nb-content-max: 43.5rem;
+	/* Used only by the API reference (registry: api-layout); harmless elsewhere. */
+	--nb-code-rail-width: 34rem;
 
 	/* Typography — self-hosted via @fontsource-variable in BaseLayout.astro */
 	--nb-font-sans:
@@ -110,7 +122,7 @@
 	--nb-card-foreground: var(--nb-foreground);
 
 	--nb-muted: #060606;
-	--nb-muted-foreground: oklch(0.556 0 0);
+	--nb-muted-foreground: oklch(0.65 0 0);
 
 	--nb-accent: oklch(0.269 0 0);
 	--nb-accent-foreground: var(--nb-foreground);
@@ -136,11 +148,18 @@
 	--nb-warning-foreground: oklch(0.78 0.11 80);
 	--nb-warning-muted: oklch(0.19 0.03 70);
 
-	--nb-danger: oklch(0.72 0.14 25);
-	--nb-danger-foreground: oklch(0.72 0.14 25);
-	--nb-danger-muted: oklch(0.17 0.03 25);
-
-	--nb-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.2);
+ 	--nb-danger: oklch(0.72 0.14 25);
+ 	--nb-danger-foreground: oklch(0.72 0.14 25);
+ 	--nb-danger-muted: oklch(0.17 0.03 25);
+ 
+ 	/* API method palette — dark overrides. */
+ 	--nb-m-get: oklch(0.82 0.14 162);
+ 	--nb-m-post: oklch(0.8 0.13 266);
+ 	--nb-m-put: oklch(0.85 0.13 78);
+ 	--nb-m-delete: oklch(0.78 0.16 24);
+ 	--nb-m-other: oklch(0.72 0 0);
+ 
+ 	--nb-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.2);
 	--nb-shadow: 0 1px 3px oklch(0 0 0 / 0.3), 0 1px 2px oklch(0 0 0 / 0.2);
 	--nb-shadow-lg: 0 4px 12px oklch(0 0 0 / 0.4), 0 2px 4px oklch(0 0 0 / 0.2);
 }

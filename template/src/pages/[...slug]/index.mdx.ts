@@ -12,12 +12,18 @@
  * `pages/<collection>/[...slug]/index.mdx.ts`.
  */
 
-import { getIndexedEntries, type IndexedEntry } from "@cloudflare/nimbus-docs";
+import {
+  getIndexedEntries,
+  type IndexedEntry,
+  withBase,
+} from "@cloudflare/nimbus-docs/runtime";
 import { config } from "virtual:nimbus/config";
 
 export const prerender = true;
 
 const PRIMARY_COLLECTION = "docs";
+const absoluteUrl = (path: string) =>
+  new URL(withBase(path, import.meta.env.BASE_URL), config.site).href;
 
 interface SlugProps {
   item: IndexedEntry;
@@ -55,7 +61,7 @@ export async function GET({ props }: { props: SlugProps }) {
     `title: ${JSON.stringify(title)}`,
     ...(description ? [`description: ${JSON.stringify(description)}`] : []),
     ...(socialImage
-      ? [`image: ${JSON.stringify(new URL(socialImage, config.site).href)}`]
+      ? [`image: ${JSON.stringify(absoluteUrl(socialImage))}`]
       : []),
     ...(version ? [`version: ${JSON.stringify(version)}`] : []),
     "---",

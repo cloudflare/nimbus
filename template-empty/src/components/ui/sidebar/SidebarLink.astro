@@ -1,4 +1,8 @@
 ---
+/**
+ * SidebarLink — a leaf row. The optional `leading` slot renders before the
+ * label for consumers that need a leading decoration.
+ */
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +31,7 @@ const { label, href, isCurrent, badge, class: className, ...attrs } = Astro.prop
   )}
   {...attrs}
 >
+  <slot name="leading" />
   <span class="break-words">{label}</span>
   {badge &&
     (typeof badge === "string" ? (

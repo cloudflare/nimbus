@@ -2,6 +2,11 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Header from "../components/Header.astro";
 import { config } from "virtual:nimbus/config";
+
+// Prerender the 404 so it stays a static route under `output: "server"`.
+// Hosts serve it via their not-found handling (e.g. Cloudflare
+// `not_found_handling: "404-page"`); the adapter adds no on-demand route.
+export const prerender = true;
 ---
 
 <BaseLayout title={`Page not found · ${config.title}`} description="The page you're looking for doesn't exist.">

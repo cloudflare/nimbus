@@ -2,6 +2,10 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Header from "../components/Header.astro";
 import { config } from "virtual:nimbus/config";
+
+// Prerender explicitly so the homepage stays a static route under
+// `output: "server"` — an adapter alone must add zero on-demand routes.
+export const prerender = true;
 ---
 
 <BaseLayout title={config.title} description={config.description}>

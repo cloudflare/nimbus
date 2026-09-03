@@ -28,6 +28,13 @@ interface PagefindApi {
 
 let pagefind: PagefindApi | undefined;
 
+function withBase(url: string): string {
+  if (!url.startsWith("/")) return url;
+  const base = `/${(import.meta.env.BASE_URL ?? "/").replace(/^\/+|\/+$/g, "")}`;
+  if (base === "/" || url === base || url.startsWith(`${base}/`)) return url;
+  return `${base}${url}`;
+}
+
 /**
  * Default Pagefind filters applied to every search.
  *
@@ -70,11 +77,11 @@ export const provider: SearchProvider = {
     const results = await Promise.all(search.results.slice(0, 10).map((result) => result.data()));
     return results.map((result): SearchResult => ({
       title: result.meta?.title ?? "Untitled",
-      url: result.url,
+      url: withBase(result.url),
       snippet: result.excerpt,
       subResults: result.sub_results
         ?.filter((sub): sub is Required<PagefindSubResult> => Boolean(sub.title && sub.url))
-        .map((sub) => ({ title: sub.title, url: sub.url })),
+        .map((sub) => ({ title: sub.title, url: withBase(sub.url) })),
     }));
   },
 };

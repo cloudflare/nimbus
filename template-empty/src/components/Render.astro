@@ -9,7 +9,8 @@
  * partial frontmatter (`params: [runtime, version?]`); required params
  * fail at build time, optional use a `?` suffix.
  */
-import { getCollection, getEntry, render } from "astro:content";
+import { getVisibleEntries, getVisibleEntry } from "@cloudflare/nimbus-docs/runtime";
+import { render } from "astro:content";
 import { components } from "../components";
 
 interface Props {
@@ -21,10 +22,10 @@ interface Props {
 
 const { file, params } = Astro.props;
 const page = Astro.url.pathname;
-const partial = await getEntry("partials", file);
+const partial = await getVisibleEntry("partials", file);
 
 if (!partial) {
-  const allPartials = await getCollection("partials");
+  const allPartials = await getVisibleEntries(["partials"]);
   const partialIds = allPartials.map((p) => p.id);
   const hint = closest(file, partialIds);
   const shortList = partialIds.sort().slice(0, 10).join(", ");
