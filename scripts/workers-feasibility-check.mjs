@@ -596,6 +596,8 @@ for (const component of [
   "api-field-row",
   "api-layout",
   "api-sidebar",
+  "popover",
+  "version-switcher",
 ]) {
   cpSync(
     join(STARTER, "components", "ui", component),
