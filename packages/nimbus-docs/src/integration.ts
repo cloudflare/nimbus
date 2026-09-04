@@ -47,6 +47,7 @@ import {
 import { deriveFootprint, footprintRoutes } from "./_internal/footprint.js";
 import { readDependencyNames } from "./check/probe.js";
 import { parseComponentsRegistry } from "./_internal/parse-components-registry.js";
+import { authoredLinksPlugin } from "./_internal/authored-links.js";
 import {
   validateLintOptions,
   type CollectionsConfig,
@@ -978,6 +979,10 @@ export function nimbus(
               citationPlugin({
                 contentDirs: citationContentDirs,
                 getCitationIndex: () => citationIndex,
+              }),
+              authoredLinksPlugin({
+                base: astroConfig.base ?? "/",
+                contentDirs: [projectRoot],
               }),
               virtualCoordinatesPlugin(() => ({
                 coordinates: Object.fromEntries(citationIndex),

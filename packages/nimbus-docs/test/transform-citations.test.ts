@@ -23,6 +23,14 @@ describe("renderEntryAsMarkdown: coordinate citations", () => {
     assert.doesNotMatch(out, /api\.ref:/);
   });
 
+  test("applies the configured base to resolved citations", () => {
+    const out = renderEntryAsMarkdown(
+      { body: "See [create a zone](api.ref:zones:createZone) first." },
+      { citationIndex: index, base: "/docs" },
+    );
+    assert.match(out, /\[create a zone\]\(\/docs\/api\/zones\/create-zone\)/);
+  });
+
   test("derived mode: an unresolved citation degrades to # without throwing", () => {
     const out = renderEntryAsMarkdown(
       { body: "See [gone](api.ref:zones:removedOp)." },

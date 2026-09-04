@@ -317,7 +317,7 @@ export async function GET({ props }: { props: SlugProps }) {
       ? rawImage
       : config.socialImage;
 
-  const markdown = renderEntryAsMarkdown(entry);
+  const markdown = renderEntryAsMarkdown(entry, { base: import.meta.env.BASE_URL });
 
   const body = [
     "---",

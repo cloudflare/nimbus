@@ -26,7 +26,9 @@ export async function getStaticPaths() {
 
 export async function GET({ props }: { props: SlugProps }) {
   const { item } = props;
-  const markdown = await renderIndexedEntryMarkdown(item);
+  const markdown = await renderIndexedEntryMarkdown(item, {
+    base: import.meta.env.BASE_URL,
+  });
   return new Response(
     [
       "---",

@@ -42,7 +42,9 @@ export async function GET({ props }: { props: SlugProps }) {
   const { item } = props;
   const { title, description, markdownUrl, sourceUrl, version } = item;
 
-  const markdown = await renderIndexedEntryMarkdown(item);
+  const markdown = await renderIndexedEntryMarkdown(item, {
+    base: import.meta.env.BASE_URL,
+  });
 
   const body = [
     "---",

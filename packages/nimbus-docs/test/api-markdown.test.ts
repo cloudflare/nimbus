@@ -111,6 +111,20 @@ describe("api markdown emitter", () => {
     }
   });
 
+  test("applies the configured base to generated internal links", () => {
+    let links = 0;
+    for (const { coordinate } of getApiPageSlugs(smallco)) {
+      const md = renderApiPageMarkdown(getApiPageProps(smallco, coordinate), {
+        base: "/docs",
+      });
+      for (const match of md.matchAll(/\]\((\/[^)]*)\)/g)) {
+        links++;
+        assert.match(match[1] ?? "", /^\/docs(?:\/|$)/);
+      }
+    }
+    assert.ok(links > 0);
+  });
+
   test("operation page carries method + path and its facts", () => {
     const props = getApiPageProps(smallco, "create");
     assert.equal(props.kind, "operation");

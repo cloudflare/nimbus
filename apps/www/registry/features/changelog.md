@@ -977,7 +977,7 @@ export async function GET({ props }: { props: SlugProps }) {
   const socialImage =
     typeof rawImage === "string" && rawImage.length > 0 ? rawImage : config.socialImage;
 
-  const markdown = renderEntryAsMarkdown(entry);
+  const markdown = renderEntryAsMarkdown(entry, { base: import.meta.env.BASE_URL });
 
   const body = [
     "---",

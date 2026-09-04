@@ -13,6 +13,7 @@ import {
   resolveCitations,
   type CitationIndex,
 } from "./api/citations.js";
+import { transformAuthoredLinks } from "./authored-links.js";
 
 export interface MarkdownComponentRenderContext {
   name: string;
@@ -25,6 +26,8 @@ export type MarkdownComponentRenderer = (
 ) => string;
 
 export interface RenderEntryAsMarkdownOptions {
+  /** Astro base path applied to site-root-relative authored links. */
+  base?: string;
   /**
    * Override how specific MDX components are rendered. Keys are component
    * names (e.g. `Aside`, `Tabs`, `PackageManagers`).
@@ -264,6 +267,8 @@ export function renderEntryAsMarkdown(
       citationIndex: options.citationIndex,
     }).code;
   }
+
+  markdown = transformAuthoredLinks(markdown, options.base ?? "/");
 
   const protectedCode = protectCode(markdown);
   markdown = protectedCode.markdown;

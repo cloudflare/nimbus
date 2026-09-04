@@ -1275,6 +1275,11 @@ async function assertArtifactsAndSmoke(dist) {
 
 async function assertBasePathMetadata() {
   phase("building generated consumer with non-root base");
+  const authoredLinkPath = join(site, "src", "content", "docs", "index.mdx");
+  await writeFile(
+    authoredLinkPath,
+    `${await readFile(authoredLinkPath, "utf8")}\n\n[Base path fixture](/index)\n`,
+  );
   await run(
     "pnpm",
     ["exec", "astro", "build", "--base", "/docs", "--outDir", "dist-base"],
@@ -1380,6 +1385,13 @@ async function assertBasePathMetadata() {
       `non-root base Markdown body is missing ${url}`,
     );
   }
+  const unbasedOperationLinks = [
+    ...operationMarkdown.matchAll(/\]\((\/(?!docs(?:\/|$))[^)]*)\)/g),
+  ].map((match) => match[1]);
+  assert(
+    unbasedOperationLinks.length === 0,
+    `non-root API Markdown contains unbased links: ${unbasedOperationLinks.join(", ")}`,
+  );
   const ordinaryHtml = await readFile(
     join(site, "dist-base", "index", "index.html"),
     "utf8",
@@ -1433,6 +1445,18 @@ async function assertBasePathMetadata() {
     "non-root ordinary agent directive uses an unbased Markdown URL",
   );
   assertRootHrefsUseBase(ordinaryHtml, "non-root prose page");
+  assert(
+    findAnchor(ordinaryHtml, "/docs/index", "Base path fixture"),
+    "non-root authored Markdown link uses an unbased URL",
+  );
+  const authoredLinkMarkdown = await readFile(
+    join(site, "dist-base", "index.md"),
+    "utf8",
+  );
+  assert(
+    authoredLinkMarkdown.includes("[Base path fixture](/docs/index)"),
+    "non-root derived Markdown keeps an unbased authored link",
+  );
   const homeHtml = await readFile(
     join(site, "dist-base", "index.html"),
     "utf8",

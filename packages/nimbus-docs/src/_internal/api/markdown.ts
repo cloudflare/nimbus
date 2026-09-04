@@ -21,6 +21,7 @@ import type {
   ApiUnionView,
   JsonValue,
 } from "./view-model.js";
+import { withBase } from "../url.js";
 
 function inlineCode(value: string): string {
   // Inline code is single-line by nature; a newline would let the block parser
@@ -71,11 +72,12 @@ function safeHref(href: string): string {
     .replace(/`/g, "%60");
 }
 
-function link(label: string, href: string): string {
+function link(label: string, href: string, base: string): string {
   // Escape backslash first-class (a trailing `\` would escape the closing `]`),
   // brackets (break the label span), and backticks (an odd count opens a code
   // span whose precedence swallows the trailing `](href)`).
-  return `[${inlineText(label).replace(/[\\`[\]]/g, "\\$&")}](${safeHref(href)})`;
+  const target = href.startsWith("/") && !href.startsWith("//") ? withBase(href, base) : href;
+  return `[${inlineText(label).replace(/[\\`[\]]/g, "\\$&")}](${safeHref(target)})`;
 }
 
 /** Neutralize block prose so spec CommonMark can't forge document structure:
@@ -96,10 +98,10 @@ function safeBlock(text: string): string {
     .join("\n");
 }
 
-function typeLabel(field: ApiFieldView): string {
-  if (field.typeRef) return link(field.type, field.typeRef.href);
+function typeLabel(field: ApiFieldView, base: string): string {
+  if (field.typeRef) return link(field.type, field.typeRef.href, base);
   if (field.typeRefs && field.typeRefs.length > 0) {
-    return field.typeRefs.map((r) => link(r.label, r.href)).join(" | ");
+    return field.typeRefs.map((r) => link(r.label, r.href, base)).join(" | ");
   }
   return inlineText(field.type);
 }
@@ -130,9 +132,9 @@ function detailParts(d: {
   return parts;
 }
 
-function renderField(field: ApiFieldView, depth: number, out: string[]): void {
+function renderField(field: ApiFieldView, depth: number, out: string[], base: string): void {
   const pad = "  ".repeat(depth);
-  const flags: string[] = [typeLabel(field)];
+  const flags: string[] = [typeLabel(field, base)];
   flags.push(field.required ? "required" : "optional");
   if (field.nullable) flags.push("nullable");
   if (field.deprecated) flags.push("deprecated");
@@ -141,7 +143,7 @@ function renderField(field: ApiFieldView, depth: number, out: string[]): void {
   // the corpus. Indentation still conveys nesting; the leaf is the suffix.
   let head = `${pad}- ${inlineCode(field.coordinate)} (${flags.join(", ")})`;
   if (field.description) head += ` — ${inlineText(field.description)}`;
-  if (field.link) head += ` (${link("details", field.link.href)})`;
+  if (field.link) head += ` (${link("details", field.link.href, base)})`;
   out.push(head);
 
   const detail = detailParts(field);
@@ -149,14 +151,14 @@ function renderField(field: ApiFieldView, depth: number, out: string[]): void {
 
   if (field.union) {
     const label = field.union.kind === "oneOf" ? "one of" : "any of";
-    out.push(`${pad}  - ${label}: ${field.union.variants.map(variantLabel).join(", ")}`);
+    out.push(`${pad}  - ${label}: ${field.union.variants.map((variant) => variantLabel(variant, base)).join(", ")}`);
     if (field.union.discriminator) {
       out.push(`${pad}  - discriminator: ${inlineCode(field.union.discriminator)}`);
     }
     return;
   }
 
-  for (const child of field.children) renderField(child, depth + 1, out);
+  for (const child of field.children) renderField(child, depth + 1, out, base);
   if (field.truncated) renderOmitted(field.childCount, field.children.length, out, `${pad}  `);
 }
 
@@ -176,18 +178,18 @@ function renderScalar(scalar: ApiScalarView, out: string[]): void {
   if (detail.length > 0) out.push(`- ${detail.join("; ")}`, "");
 }
 
-function variantLabel(v: { label: string; href?: string }): string {
-  return v.href ? link(v.label, v.href) : inlineCode(v.label);
+function variantLabel(v: { label: string; href?: string }, base: string): string {
+  return v.href ? link(v.label, v.href, base) : inlineCode(v.label);
 }
 
-function renderUnion(union: ApiUnionView, out: string[]): void {
+function renderUnion(union: ApiUnionView, out: string[], base: string): void {
   out.push(union.kind === "oneOf" ? "One of:" : "Any of:", "");
-  for (const v of union.variants) out.push(`- ${variantLabel(v)}`);
+  for (const v of union.variants) out.push(`- ${variantLabel(v, base)}`);
   out.push("");
   if (union.discriminator) {
     out.push(`Discriminator: ${inlineCode(union.discriminator)}`, "");
     for (const m of union.mapping ?? []) {
-      out.push(`- ${inlineCode(m.value)} → ${variantLabel(m.variant)}`);
+      out.push(`- ${inlineCode(m.value)} → ${variantLabel(m.variant, base)}`);
     }
     if (union.mapping && union.mapping.length > 0) out.push("");
   }
@@ -197,11 +199,12 @@ function renderFieldSection(
   title: string,
   fields: ApiFieldView[],
   out: string[],
+  base: string,
   truncated?: { total: number },
 ): void {
   if (fields.length === 0) return;
   out.push(`## ${title}`, "");
-  for (const field of fields) renderField(field, 0, out);
+  for (const field of fields) renderField(field, 0, out, base);
   if (truncated) renderOmitted(truncated.total, fields.length, out);
   out.push("");
 }
@@ -245,7 +248,7 @@ function renderExample(heading: string, example: ApiExampleView, out: string[]):
   fenced(isJson ? "json" : "text", body, out);
 }
 
-function renderResponses(responses: ApiResponseView[], out: string[]): void {
+function renderResponses(responses: ApiResponseView[], out: string[], base: string): void {
   if (responses.length === 0) return;
   out.push("## Responses", "");
   for (const response of responses) {
@@ -254,23 +257,23 @@ function renderResponses(responses: ApiResponseView[], out: string[]): void {
     if (response.example) renderExample("#### Example", response.example, out);
     if (response.headers && response.headers.length > 0) {
       out.push("Headers:", "");
-      for (const header of response.headers) renderField(header, 0, out);
+      for (const header of response.headers) renderField(header, 0, out, base);
       out.push("");
     }
     if (response.bodyUnion) {
-      renderUnion(response.bodyUnion, out);
+      renderUnion(response.bodyUnion, out, base);
     } else {
-      for (const field of response.fields) renderField(field, 0, out);
+      for (const field of response.fields) renderField(field, 0, out, base);
       if (response.truncated) renderOmitted(response.truncated.total, response.fields.length, out);
       if (response.fields.length > 0) out.push("");
     }
   }
 }
 
-function renderRefs(title: string, refs: ApiRef[], out: string[]): void {
+function renderRefs(title: string, refs: ApiRef[], out: string[], base: string): void {
   if (refs.length === 0) return;
   out.push(`## ${title}`, "");
-  for (const ref of refs) out.push(`- ${link(ref.label, ref.href)}`);
+  for (const ref of refs) out.push(`- ${link(ref.label, ref.href, base)}`);
   out.push("");
 }
 
@@ -280,15 +283,19 @@ function renderRefs(title: string, refs: ApiRef[], out: string[]): void {
  * timestamps or build metadata. Consumes only the frozen view-model, never the
  * spine, and never the parser. Every page emits a non-empty body.
  */
-export function renderApiPageMarkdown(props: ApiPageProps): string {
+export function renderApiPageMarkdown(
+  props: ApiPageProps,
+  options: { base?: string } = {},
+): string {
   const out: string[] = [];
+  const base = options.base ?? "/";
 
   if (props.deprecated) {
     const bits = ["> **Deprecated.**"];
     const successor = props.deprecation?.successor;
-    if (successor) bits.push(`Use ${link(successor.label, successor.href)} instead.`);
+    if (successor) bits.push(`Use ${link(successor.label, successor.href, base)} instead.`);
     if (props.deprecation?.migrationHref) {
-      bits.push(`See the ${link("migration guide", props.deprecation.migrationHref)}.`);
+      bits.push(`See the ${link("migration guide", props.deprecation.migrationHref, base)}.`);
     }
     out.push(bits.join(" "), "");
   }
@@ -304,7 +311,7 @@ export function renderApiPageMarkdown(props: ApiPageProps): string {
       if (props.description) out.push(safeBlock(props.description), "");
       renderAuth(props.auth, out);
       for (const group of props.parameters) {
-        renderFieldSection(group.label, group.fields, out, group.truncated);
+        renderFieldSection(group.label, group.fields, out, base, group.truncated);
       }
       const hasAdditional = (props.additionalBodies?.length ?? 0) > 0;
       const bodyHeading =
@@ -313,17 +320,17 @@ export function renderApiPageMarkdown(props: ApiPageProps): string {
           : "Request body";
       if (props.bodyUnion) {
         out.push(`## ${bodyHeading}`, "");
-        renderUnion(props.bodyUnion, out);
+        renderUnion(props.bodyUnion, out, base);
       } else {
-        renderFieldSection(bodyHeading, props.body, out, props.bodyTruncated);
+        renderFieldSection(bodyHeading, props.body, out, base, props.bodyTruncated);
       }
       if (props.example) renderExample("## Example request", props.example, out);
       for (const body of props.additionalBodies ?? []) {
         out.push(`## Request body (${body.mediaType})`, "");
         if (body.union) {
-          renderUnion(body.union, out);
+          renderUnion(body.union, out, base);
         } else {
-          for (const field of body.fields) renderField(field, 0, out);
+          for (const field of body.fields) renderField(field, 0, out, base);
           if (body.truncated) renderOmitted(body.truncated.total, body.fields.length, out);
           if (body.fields.length > 0) out.push("");
         }
@@ -336,15 +343,15 @@ export function renderApiPageMarkdown(props: ApiPageProps): string {
           fenced(sample.lang, sample.source, out);
         }
       }
-      renderResponses(props.responses, out);
+      renderResponses(props.responses, out, base);
       break;
     }
     case "schema": {
       if (props.description) out.push(safeBlock(props.description), "");
       if (props.scalar) renderScalar(props.scalar, out);
-      if (props.union) renderUnion(props.union, out);
+      if (props.union) renderUnion(props.union, out, base);
       if (props.fields.length > 0) {
-        renderFieldSection("Fields", props.fields, out, props.truncated);
+        renderFieldSection("Fields", props.fields, out, base, props.truncated);
       } else if (!props.description && !props.scalar && !props.union) {
         out.push("_No fields documented._", "");
       }
@@ -352,7 +359,7 @@ export function renderApiPageMarkdown(props: ApiPageProps): string {
     }
     case "section": {
       if (props.description) out.push(safeBlock(props.description), "");
-      if (props.operations.length > 0) renderRefs("Operations", props.operations, out);
+      if (props.operations.length > 0) renderRefs("Operations", props.operations, out, base);
       else if (!props.description) out.push("_No operations._", "");
       break;
     }
@@ -364,7 +371,7 @@ export function renderApiPageMarkdown(props: ApiPageProps): string {
         for (const server of props.servers) out.push(`- ${inlineCode(server)}`);
         out.push("");
       }
-      if (props.sections.length > 0) renderRefs("Sections", props.sections, out);
+      if (props.sections.length > 0) renderRefs("Sections", props.sections, out, base);
       else if (!props.description && props.servers.length === 0) {
         out.push("_No sections documented._", "");
       }

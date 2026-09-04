@@ -53,7 +53,7 @@ export async function GET({ props }: { props: SlugProps }) {
       ? rawImage
       : config.socialImage;
 
-  const markdown = await getEntryMarkdown(entry);
+  const markdown = await getEntryMarkdown(entry, { base: import.meta.env.BASE_URL });
 
   const body = [
     "---",
