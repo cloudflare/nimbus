@@ -4,7 +4,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, symlinkSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -63,6 +63,32 @@ test("absolute path is rejected before any write", async () => {
       /is absolute/,
     );
     assert.equal(existsSync(abs), false);
+  });
+});
+
+test("a linked parent cannot redirect a registry write outside src", async () => {
+  await withProject(async (cwd, srcDir) => {
+    const outside = await mkdtemp(path.join(tmpdir(), "nimbus-outside-"));
+    try {
+      const link = path.join(srcDir, "components/ui/link");
+      mkdirSync(path.dirname(link), { recursive: true });
+      symlinkSync(
+        outside,
+        link,
+        process.platform === "win32" ? "junction" : "dir",
+      );
+
+      await assert.rejects(
+        installComponents(
+          [item([{ path: "components/ui/link/escaped.txt", content: "x" }])],
+          { cwd, yes: true, overwrite: false },
+        ),
+        /resolves outside the project's src\/ directory/,
+      );
+      assert.equal(existsSync(path.join(outside, "escaped.txt")), false);
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
   });
 });
 
