@@ -1,0 +1,49 @@
+packages/create-nimbus-docs/test/generate-templates.test.ts
+  s_e87b5f3438c4a5::t_7c3a8c63d7d8c0 34-41
+packages/nimbus-docs/src/check/authoring.ts
+  s_e87b5f3438c4a5::t_1a376c13318b5a 15-18,60-71
+packages/nimbus-docs/src/lint/rules/internal-link.ts
+  s_e87b5f3438c4a5::t_c3ec3b8643d3bb 42-45,64-65
+packages/nimbus-docs/src/lint/site-model.ts
+  s_e87b5f3438c4a5::t_74a12e7900e9ce 7-8
+packages/nimbus-docs/test/check/authoring-coverage.test.ts
+  s_78db85ffe0a296::t_9493f2c11b9a43 9,37-45,78-85,102-105,120-123,132-177,198-200,203-206,223-226
+packages/nimbus-docs/test/check/run.test.ts
+  s_78db85ffe0a296::t_f54e4dd0f2bb11 7,9,52-77
+packages/nimbus-docs/test/lint/internal-link.test.ts
+  s_ac6d40ce77fb77::t_69b52b38264478 22-25,32-34,37-46,49,78,268,285,305,360,544-559,714-722
+packages/nimbus-starter-source/AGENT.md
+  s_e87b5f3438c4a5::t_d4cee6cffe5f87 3,34,51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "0a0ae11ffd354581672f7b85a230b67225e8ca2e",
+  "prompts": {},
+  "sessions": {
+    "s_78db85ffe0a296": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f9652f738ffexHy8JDzAvT7pY1",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_ac6d40ce77fb77": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f9652f6d3ffe96eVbK9Ufu1d8r",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_e87b5f3438c4a5": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f9652f776ffeRK2ctsLiIdw8zr",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
