@@ -13,6 +13,7 @@ import { spawn } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
+  realpathSync,
   readFileSync,
   writeFileSync,
 } from "node:fs";
@@ -191,7 +192,41 @@ export function assertInsideSrc(
     );
   }
 
+  assertResolvedInsideSrc(srcDir, targetAbs, filePath, itemName);
+
   return targetAbs;
+}
+
+function assertResolvedInsideSrc(
+  srcDir: string,
+  targetAbs: string,
+  filePath: string,
+  itemName: string,
+): void {
+  // A new `src/` directory cannot contain a link yet. Once it exists, resolve
+  // the nearest existing target ancestor so writes cannot follow a link outside it.
+  if (!existsSync(srcDir)) return;
+
+  const realSrcDir = realpathSync(srcDir);
+  let existing = targetAbs;
+  while (!existsSync(existing)) {
+    const parent = dirname(existing);
+    if (parent === existing) return;
+    existing = parent;
+  }
+
+  const realExisting = realpathSync(existing);
+  const pathFromSrc = relative(realSrcDir, realExisting);
+  if (
+    pathFromSrc === ".." ||
+    pathFromSrc.startsWith(`..${sep}`) ||
+    isAbsolute(pathFromSrc)
+  ) {
+    throw new Error(
+      `Refusing to install "${itemName}": registry file path "${filePath}" ` +
+        "resolves outside the project's src/ directory through a symbolic link.",
+    );
+  }
 }
 
 /**
