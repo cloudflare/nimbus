@@ -165,7 +165,7 @@ const ogType = isHomePage ? "website" : "article";
 // Favicon precedence: svg > ico > png. The first file that exists wins;
 // when none exists we still emit the svg link so users who drop one in
 // later don't need to touch the layout.
-const faviconHref = `${import.meta.env.BASE_URL}${headDefaults.favicon.file}`;
+const faviconHref = withBase(headDefaults.favicon.file, baseUrl);
 const faviconType = headDefaults.favicon.type;
 
 // Social image precedence: page prop > config > `public/opengraph.png` >
@@ -205,7 +205,7 @@ const structuredData = canonical
 // Per-HTML last-element-wins semantics: page extras come after config
 // extras so per-page overrides win for any duplicated single-value tag.
 const mergedHead = [...(config.head ?? []), ...pageHead];
-const shikiCssHref = `${import.meta.env.BASE_URL}_nimbus/shiki.css${import.meta.env.DEV ? `?v=${Date.now()}` : ""}`;
+const shikiCssHref = `${withBase("/_nimbus/shiki.css", baseUrl)}${import.meta.env.DEV ? `?v=${Date.now()}` : ""}`;
 ---
 
 <title>{fullTitle}</title>

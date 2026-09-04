@@ -1,5 +1,6 @@
 ---
 import { cn } from "@/lib/cn";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
 import type { HTMLAttributes } from "astro/types";
 import type { Breadcrumb } from "@cloudflare/nimbus-docs/types";
 
@@ -26,6 +27,8 @@ const tailCount = 2; // parent + current page
 const headItems = shouldCollapse ? items.slice(0, headCount) : items;
 const collapsedItems = shouldCollapse ? items.slice(headCount, items.length - tailCount) : [];
 const tailItems = shouldCollapse ? items.slice(items.length - tailCount) : [];
+const hrefWithBase = (href: string): string =>
+  withBase(href, import.meta.env.BASE_URL);
 ---
 
 {items.length > (endsAtCurrentPage ? 1 : 0) && (
@@ -37,7 +40,7 @@ const tailItems = shouldCollapse ? items.slice(items.length - tailCount) : [];
           {isCurrent(!shouldCollapse && i === items.length - 1) || !crumb.href ? (
             <span class="text-foreground truncate max-w-[12rem]">{crumb.label}</span>
           ) : (
-            <a href={crumb.href} class="hover:text-foreground transition-colors truncate max-w-[12rem]">
+            <a href={hrefWithBase(crumb.href)} class="hover:text-foreground transition-colors truncate max-w-[12rem]">
               {crumb.label}
             </a>
           )}
@@ -58,7 +61,7 @@ const tailItems = shouldCollapse ? items.slice(items.length - tailCount) : [];
               {collapsedItems.map((crumb) => (
                 crumb.href ? (
                   <a
-                    href={crumb.href}
+                    href={hrefWithBase(crumb.href)}
                     class="block truncate rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                   >
                     {crumb.label}
@@ -80,7 +83,7 @@ const tailItems = shouldCollapse ? items.slice(items.length - tailCount) : [];
           {isCurrent(i === tailItems.length - 1) || !crumb.href ? (
             <span class="text-foreground truncate max-w-[12rem]">{crumb.label}</span>
           ) : (
-            <a href={crumb.href} class="hover:text-foreground transition-colors truncate max-w-[12rem]">
+            <a href={hrefWithBase(crumb.href)} class="hover:text-foreground transition-colors truncate max-w-[12rem]">
               {crumb.label}
             </a>
           )}
