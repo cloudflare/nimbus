@@ -926,6 +926,7 @@ async function assertArtifactsAndSmoke(dist) {
         waitUntil: "networkidle",
       });
       const metadata = await page.evaluate(() => ({
+        title: document.title,
         canonicals: [...document.querySelectorAll('link[rel="canonical"]')].map(
           (node) => node.href,
         ),
@@ -936,6 +937,20 @@ async function assertArtifactsAndSmoke(dist) {
         ].map((node) => node.href),
         indexed: document.querySelectorAll("[data-pagefind-body]").length,
       }));
+      if (expectedPage.route === "/api") {
+        assert(
+          metadata.title === "SmallCo API | SmallCo Docs",
+          `/api overview has an unexpected title: ${metadata.title}`,
+        );
+      } else if (
+        expectedPage.route.startsWith("/api/schemas/") ||
+        expectedPage.route === EXPECTED.browser.operationRoute
+      ) {
+        assert(
+          occurrences(metadata.title, " · API") === 1,
+          `${expectedPage.route} must retain exactly one API title suffix: ${metadata.title}`,
+        );
+      }
       assert(
         metadata.canonicals.length === 1,
         `${expectedPage.route} does not have exactly one canonical`,

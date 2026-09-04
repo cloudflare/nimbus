@@ -173,6 +173,32 @@ describe("api markdown emitter", () => {
     assert.match(md, /- `string`/);
   });
 
+  test("inline union titles render trimmed before the type fallback", async () => {
+    const model = await buildApiModel({
+      collection: "titles",
+      spec: {
+        openapi: "3.1.0",
+        info: { title: "T", version: "1" },
+        paths: {},
+        components: {
+          schemas: {
+            Choice: {
+              anyOf: [
+                { title: "  Existing customer  ", type: "object" },
+                { title: "\t", type: "integer" },
+              ],
+            },
+          },
+        },
+      },
+    });
+    const md = renderApiPageMarkdown(getApiPageProps(model, "Choice"));
+
+    assert.match(md, /- `Existing customer`/);
+    assert.match(md, /- `integer`/);
+    assert.doesNotMatch(md, /  Existing customer  /);
+  });
+
   test("discriminated union renders the value→variant mapping", async () => {
     const model = await buildApiModel({
       collection: "disc",

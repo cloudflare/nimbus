@@ -101,6 +101,13 @@ function cleanup(...dirs: string[]) {
   for (const d of dirs) fs.rmSync(d, { recursive: true, force: true });
 }
 
+function stagingEntries(cwd: string): string[] {
+  const prefix = `.${path.basename(fs.realpathSync(cwd))}-nimbus-`;
+  return fs
+    .readdirSync(path.dirname(cwd))
+    .filter((entry) => entry.startsWith(prefix));
+}
+
 test("happy path writes and transforms the project", async () => {
   const cwd = makeCwd();
   const tmpl = makeTemplate();
@@ -134,6 +141,268 @@ test("happy path writes and transforms the project", async () => {
     assert.equal(nimbus.install.root, "src");
     assert.deepEqual(nimbus.install.aliases, { "@/*": "src/*" });
     assert.deepEqual(nimbus.components, []);
+  } finally {
+    cleanup(cwd, tmpl);
+  }
+});
+
+test("scaffolds . and ./ through a sibling staging directory", async (t) => {
+  for (const dir of [".", "./"]) {
+    await t.test(dir, async () => {
+      const cwd = makeCwd();
+      const tmpl = makeTemplate();
+      let staging = "";
+      try {
+        await scaffold(
+          { ...BASE_OPTIONS, dir },
+          {
+            cwd,
+            fetchTemplate: async (target) => {
+              staging = target;
+              fs.cpSync(tmpl, target, { recursive: true });
+            },
+            beforeCommit: () => {
+              assert.deepEqual(fs.readdirSync(cwd), []);
+              const stagedPkg = JSON.parse(
+                fs.readFileSync(path.join(staging, "package.json"), "utf8"),
+              );
+              assert.equal(
+                stagedPkg.name,
+                path.basename(fs.realpathSync(cwd)).toLowerCase(),
+              );
+            },
+          },
+        );
+
+        const pkg = JSON.parse(
+          fs.readFileSync(path.join(cwd, "package.json"), "utf8"),
+        );
+        assert.notEqual(staging, cwd);
+        assert.equal(path.dirname(staging), path.dirname(fs.realpathSync(cwd)));
+        assert.equal(
+          pkg.name,
+          path.basename(fs.realpathSync(cwd)).toLowerCase(),
+        );
+        assert.deepEqual(stagingEntries(cwd), []);
+      } finally {
+        cleanup(cwd, tmpl);
+      }
+    });
+  }
+});
+
+test("rejects . in a non-empty cwd before fetching", async () => {
+  const cwd = makeCwd();
+  const tmpl = makeTemplate();
+  fs.writeFileSync(path.join(cwd, "keep.txt"), "precious");
+  let fetched = false;
+  try {
+    await assert.rejects(
+      scaffold(
+        { ...BASE_OPTIONS, dir: "." },
+        {
+          cwd,
+          fetchTemplate: async () => {
+            fetched = true;
+          },
+        },
+      ),
+      (err: unknown) =>
+        err instanceof ScaffoldError && /not empty/.test(err.message),
+    );
+    assert.equal(fetched, false);
+    assert.equal(
+      fs.readFileSync(path.join(cwd, "keep.txt"), "utf8"),
+      "precious",
+    );
+  } finally {
+    cleanup(cwd, tmpl);
+  }
+});
+
+test("rolls back staging when cwd commit fails before its final check", async () => {
+  const cwd = makeCwd();
+  const tmpl = makeTemplate();
+  try {
+    await assert.rejects(
+      scaffold(
+        { ...BASE_OPTIONS, dir: "." },
+        {
+          ...internals(cwd, tmpl),
+          beforeCommit: () => {
+            throw new Error("injected before commit");
+          },
+        },
+      ),
+      (err: unknown) =>
+        err instanceof ScaffoldError &&
+        /injected before commit/.test(err.message),
+    );
+    assert.deepEqual(fs.readdirSync(cwd), []);
+    assert.deepEqual(stagingEntries(cwd), []);
+  } finally {
+    cleanup(cwd, tmpl);
+  }
+});
+
+test("rolls back ledger-owned entries when cwd commit fails mid-rename", async () => {
+  const cwd = makeCwd();
+  const tmpl = makeTemplate();
+  try {
+    await assert.rejects(
+      scaffold(
+        { ...BASE_OPTIONS, dir: "." },
+        {
+          ...internals(cwd, tmpl),
+          afterCommitEntry: () => {
+            throw new Error("injected during commit");
+          },
+        },
+      ),
+      (err: unknown) =>
+        err instanceof ScaffoldError &&
+        /injected during commit/.test(err.message),
+    );
+    assert.deepEqual(fs.readdirSync(cwd), []);
+  } finally {
+    cleanup(cwd, tmpl);
+  }
+});
+
+test("rollback removes a populated scaffold-owned directory", async () => {
+  const cwd = makeCwd();
+  const tmpl = makeTemplate();
+  fs.mkdirSync(path.join(tmpl, "src"));
+  fs.writeFileSync(path.join(tmpl, "src/index.ts"), "export {};\n");
+  try {
+    await assert.rejects(
+      scaffold(
+        { ...BASE_OPTIONS, dir: "." },
+        {
+          ...internals(cwd, tmpl),
+          afterCommitEntry: (entry) => {
+            if (fs.lstatSync(path.join(cwd, entry)).isDirectory()) {
+              throw new Error("abort after directory commit");
+            }
+          },
+        },
+      ),
+      (err: unknown) =>
+        err instanceof ScaffoldError && /directory commit/.test(err.message),
+    );
+    assert.deepEqual(fs.readdirSync(cwd), []);
+  } finally {
+    cleanup(cwd, tmpl);
+  }
+});
+
+test("aborts cwd commit and preserves an entry created before commit", async () => {
+  const cwd = makeCwd();
+  const tmpl = makeTemplate();
+  try {
+    await assert.rejects(
+      scaffold(
+        { ...BASE_OPTIONS, dir: "." },
+        {
+          ...internals(cwd, tmpl),
+          beforeCommit: () => {
+            fs.writeFileSync(path.join(cwd, "foreign.txt"), "keep me");
+          },
+        },
+      ),
+      (err: unknown) =>
+        err instanceof ScaffoldError && /changed while/.test(err.message),
+    );
+    assert.deepEqual(fs.readdirSync(cwd), ["foreign.txt"]);
+    assert.equal(
+      fs.readFileSync(path.join(cwd, "foreign.txt"), "utf8"),
+      "keep me",
+    );
+  } finally {
+    cleanup(cwd, tmpl);
+  }
+});
+
+test("preserves a concurrent replacement of a ledger-owned entry", async () => {
+  const cwd = makeCwd();
+  const tmpl = makeTemplate();
+  let replaced = "";
+  try {
+    await assert.rejects(
+      scaffold(
+        { ...BASE_OPTIONS, dir: "." },
+        {
+          ...internals(cwd, tmpl),
+          afterCommitEntry: (entry) => {
+            replaced = entry;
+            fs.rmSync(path.join(cwd, entry), { recursive: true, force: true });
+            fs.writeFileSync(path.join(cwd, entry), "foreign replacement");
+          },
+        },
+      ),
+      (err: unknown) =>
+        err instanceof ScaffoldError && /changed while/.test(err.message),
+    );
+    assert.deepEqual(fs.readdirSync(cwd), [replaced]);
+    assert.equal(
+      fs.readFileSync(path.join(cwd, replaced), "utf8"),
+      "foreign replacement",
+    );
+  } finally {
+    cleanup(cwd, tmpl);
+  }
+});
+
+test("never replaces an entry created immediately before its commit", async () => {
+  const cwd = makeCwd();
+  const tmpl = makeTemplate();
+  let raced = "";
+  try {
+    await assert.rejects(
+      scaffold(
+        { ...BASE_OPTIONS, dir: "." },
+        {
+          ...internals(cwd, tmpl),
+          beforeCommitEntry: (entry) => {
+            if (raced) return;
+            raced = entry;
+            fs.writeFileSync(path.join(cwd, entry), "foreign entry");
+          },
+        },
+      ),
+      (err: unknown) =>
+        err instanceof ScaffoldError && /Could not scaffold/.test(err.message),
+    );
+    assert.deepEqual(fs.readdirSync(cwd), [raced]);
+    assert.equal(fs.readFileSync(path.join(cwd, raced), "utf8"), "foreign entry");
+  } finally {
+    cleanup(cwd, tmpl);
+  }
+});
+
+test("rollback preserves an in-place edit to a committed file", async () => {
+  const cwd = makeCwd();
+  const tmpl = makeTemplate();
+  let edited = "";
+  try {
+    await assert.rejects(
+      scaffold(
+        { ...BASE_OPTIONS, dir: "." },
+        {
+          ...internals(cwd, tmpl),
+          afterCommitEntry: (entry) => {
+            const destination = path.join(cwd, entry);
+            if (edited || !fs.lstatSync(destination).isFile()) return;
+            edited = entry;
+            fs.writeFileSync(destination, "concurrent edit");
+            throw new Error("abort after concurrent edit");
+          },
+        },
+      ),
+      (err: unknown) =>
+        err instanceof ScaffoldError && /concurrent edit/.test(err.message),
+    );
+    assert.equal(fs.readFileSync(path.join(cwd, edited), "utf8"), "concurrent edit");
   } finally {
     cleanup(cwd, tmpl);
   }

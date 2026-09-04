@@ -1,6 +1,6 @@
 # This Nimbus docs site
 
-Astro-based docs. The `nimbus-docs` package handles content schemas, sidebar/TOC, MDX→markdown, build hooks, and the `nimbus` CLI. Everything in `src/` is yours to edit.
+Astro-based docs. The `@cloudflare/nimbus-docs` package handles content schemas, sidebar/TOC, MDX→markdown, build hooks, and the `nimbus-docs` CLI. Everything in `src/` is yours to edit.
 
 ## File layout
 
@@ -31,7 +31,7 @@ Cloudflare deploys also have `wrangler.jsonc` at the project root.
 
 ## Writing docs
 
-Frontmatter validates against `docsSchema` (`nimbus-docs/schemas`). Required: `title`.
+Frontmatter validates against `docsSchema` (`@cloudflare/nimbus-docs/schemas`). Required: `title`.
 
 ```mdx
 ---
@@ -48,7 +48,7 @@ Rules:
 
 - **Components must be PascalCase and registered in `src/components.ts`.** A pre-build validator catches typos with a "did you mean" hint.
 - **Partials use `<Render file="..." />`.** Don't import `.mdx` directly. Shared content lives in `src/content/partials/<slug>.mdx`.
-- **Icons use `astro-icon` + Phosphor.** `<Icon name="ph:<glyph>" class="w-4 h-4" />` from `astro-icon/components`. Glyphs: [phosphoricons.com](https://phosphoricons.com).
+- **Icons use Nimbus + Phosphor.** Import `Icon` from `@cloudflare/nimbus-docs/components/Icon.astro`, then use `<Icon name="ph:<glyph>" class="w-4 h-4" />`. Glyphs: [phosphoricons.com](https://phosphoricons.com).
 - **Don't remove `<AgentDirective />` from `BaseLayout.astro`.** It points agents at `/llms.txt`.
 
 ## Adding things

@@ -500,6 +500,49 @@ test("cloudflare refuses to clobber a hand-edited wrangler and prints the merge"
   const merge = JSON.parse(warning.slice(warning.indexOf("{")));
   assert.deepEqual(merge.compatibility_flags, ["python_workers", "nodejs_compat"]);
   assert.deepEqual(merge.assets, { binding: "ASSETS", not_found_handling: "none" });
+  assert.ok(res.warnings.some((value) => /static 404 before Astro/.test(value)));
+  assert.ok(res.warnings.some((value) => /scoped `run_worker_first`/.test(value)));
+});
+
+test("cloudflare does not warn about static 404 routing when the Worker runs first", async () => {
+  const dir = scratch();
+  project(dir);
+  writeFileSync(
+    join(dir, "wrangler.jsonc"),
+    JSON.stringify({
+      ...STATIC_WRANGLER,
+      compatibility_flags: ["python_workers"],
+      assets: {
+        ...STATIC_WRANGLER.assets,
+        binding: "ASSETS",
+        run_worker_first: true,
+      },
+    }),
+  );
+  const res = await installAdapter("cloudflare", { cwd: dir, installDeps: okInstaller });
+  assert.equal(res.status, "applied");
+  if (res.status !== "applied") return;
+  assert.equal(res.wrangler?.action, "skipped-foreign");
+  assert.equal(res.warnings.some((value) => /static 404 before Astro/.test(value)), false);
+});
+
+test("cloudflare warns about browser navigation in a foreign wrangler.json", async () => {
+  const dir = scratch();
+  project(dir);
+  writeFileSync(
+    join(dir, "wrangler.json"),
+    JSON.stringify({
+      name: "foreign-worker",
+      compatibility_date: "2025-01-01",
+      compatibility_flags: ["python_workers"],
+      assets: { directory: "./dist", not_found_handling: "404-page" },
+    }),
+  );
+  const res = await installAdapter("cloudflare", { cwd: dir, installDeps: okInstaller });
+  assert.equal(res.status, "applied");
+  if (res.status !== "applied") return;
+  assert.equal(res.wrangler?.action, "skipped-foreign");
+  assert.ok(res.warnings.some((value) => /static 404 before Astro/.test(value)));
 });
 
 test("cloudflare sanitizes invalid identity values in the printed merge", async () => {

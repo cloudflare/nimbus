@@ -615,6 +615,7 @@ function manageServerWrangler(
       }
     }
     const settings = mergeSettingsFrom(existing);
+    const navigationWarnings = foreignNavigationWarnings(existing);
     const guidance =
       activeConfig.name === "wrangler.toml"
         ? `Add \`nodejs_compat\` to the top-level \`compatibility_flags\`, remove ` +
@@ -630,6 +631,7 @@ function manageServerWrangler(
           `untouched. The Cloudflare build resolves ${activeConfig.display}; ` +
           `${activeIsSymlink ? "Nimbus does not rewrite symlinked configs." : "Nimbus only manages the project's wrangler.jsonc automatically."} Adapt ` +
           `${activeConfig.display} for server output. ${guidance}`,
+        ...navigationWarnings,
         ...redirectBaseWarnings(cwd),
       ],
     };
@@ -671,6 +673,7 @@ function manageServerWrangler(
   const cfg = mergeSettingsFrom(
     typeof parsed === "object" && parsed ? (parsed as Record<string, unknown>) : undefined,
   );
+  const navigationWarning = foreignNavigationWarnings(parsed);
   return {
     result: { action: "skipped-foreign", path },
     warnings: [
@@ -678,9 +681,28 @@ function manageServerWrangler(
         `static config, and a server deploy needs a different shape (no static ` +
         `\`assets.directory\`, plus \`compatibility_flags: ["nodejs_compat"]\`). ` +
         `Merge this in by hand without replacing other settings:\n${serialize(cfg)}`,
+      ...navigationWarning,
       ...inactiveWarnings,
     ],
   };
+}
+
+function foreignNavigationWarnings(parsed: unknown): string[] {
+  const assets =
+    typeof parsed === "object" && parsed && !Array.isArray(parsed) &&
+    typeof (parsed as Record<string, unknown>).assets === "object" &&
+    (parsed as Record<string, unknown>).assets !== null &&
+    !Array.isArray((parsed as Record<string, unknown>).assets)
+      ? ((parsed as Record<string, unknown>).assets as Record<string, unknown>)
+      : undefined;
+  return assets?.not_found_handling === "404-page" &&
+    assets.run_worker_first !== true
+    ? [
+        '`assets.not_found_handling = "404-page"` can serve the static 404 before ' +
+          'Astro handles browser navigation to request-rendered routes. Set it to ' +
+          '`"none"`; use a scoped `run_worker_first` only when Worker-first routing is intentional.',
+      ]
+    : [];
 }
 
 function isValidExistingWorkerName(

@@ -35,11 +35,14 @@
  * silences them for projects that want to use them.
  */
 
-import fs from "node:fs";
 import path from "node:path";
 
 import { matchesAnyIgnore } from "../../_internal/ignore-glob.js";
 import { suggest } from "../../_internal/levenshtein.js";
+import {
+  inspectRouteManifest,
+  type RouteTruth,
+} from "../../_internal/route-manifest.js";
 import {
   collect,
   startOf,
@@ -48,34 +51,18 @@ import {
   type ParsedFile,
 } from "../parse.js";
 import type { Rule } from "../rule.js";
-import type { RouteTruth } from "../site-model.js";
 
 // Process-level cache: read `routes.json` once per CLI invocation, not
 // once per file. The rule itself is stateless; the cache lives in the
 // module scope.
 let cached: { root: string; truth: RouteTruth | null } | null = null;
-let missingWarned = false;
 
 function loadRouteTruth(file: ParsedFile): RouteTruth | null {
   const root = inferProjectRoot(file.absPath);
   if (cached && cached.root === root) return cached.truth;
 
-  let truth: RouteTruth | null = null;
-  try {
-    const raw = fs.readFileSync(
-      path.join(root, ".nimbus", "routes.json"),
-      "utf8",
-    );
-    const parsed = JSON.parse(raw) as RouteTruth;
-    if (parsed.version === 1) truth = parsed;
-  } catch {
-    if (!missingWarned) {
-      process.stderr.write(
-        "nimbus/internal-link: skipped — `.nimbus/routes.json` is missing. Run `astro build` first; the route truth is materialized at `astro:build:done`.\n",
-      );
-      missingWarned = true;
-    }
-  }
+  const inspected = inspectRouteManifest(root);
+  const truth = inspected.status === "fresh" ? inspected.truth : null;
   cached = { root, truth };
   return truth;
 }
@@ -354,5 +341,4 @@ function isUnderOpaqueNamespace(
 // load per CLI run; tests want isolation between cases.
 export function _resetInternalLinkCacheForTests(): void {
   cached = null;
-  missingWarned = false;
 }

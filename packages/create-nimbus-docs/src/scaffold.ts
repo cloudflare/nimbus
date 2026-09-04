@@ -1,16 +1,30 @@
 import * as p from "@clack/prompts";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   cpSync,
   existsSync,
+  linkSync,
   lstatSync,
+  mkdirSync,
+  mkdtempSync,
   realpathSync,
   readdirSync,
   renameSync,
+  rmdirSync,
   rmSync,
+  readFileSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import {
+  basename as pathBasename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 import { fileURLToPath } from "node:url";
 import { downloadTemplate } from "giget";
 import type { AdapterId } from "@cloudflare/nimbus-docs/adapters";
@@ -158,6 +172,9 @@ export interface ScaffoldInternals {
    * giget (network) or the local `--template-dir` copy.
    */
   fetchTemplate?: (target: string, options: ScaffoldOptions) => Promise<void>;
+  beforeCommit?: () => void;
+  beforeCommitEntry?: (entry: string, index: number) => void;
+  afterCommitEntry?: (entry: string, index: number) => void;
 }
 
 interface PreviewProvenance {
@@ -171,6 +188,7 @@ export async function scaffold(
 ) {
   const { dir, packageManager, git, skipInstall } = options;
   const cwd = internals.cwd ?? process.cwd();
+  const scaffoldInCwd = dir === "." || dir === "./";
 
   // Validate everything up front — before the spinner starts and before any
   // filesystem writes — so a bad target fails fast and clean.
@@ -194,36 +212,44 @@ export async function scaffold(
         `Pick a path inside ${cwd}.`,
     );
   }
-  if (target === cwd) {
+  if (target === cwd && !scaffoldInCwd) {
     throw new ScaffoldError(
       `Directory "${dir}" resolves to the current directory. Choose a new subdirectory name.`,
     );
   }
 
   const canonicalCwd = realpathSync(cwd);
-  const existingParent = closestExistingPath(dirname(target));
-  let canonicalParent: string;
-  try {
-    canonicalParent = realpathSync(existingParent);
-  } catch {
+  if (scaffoldInCwd && readdirSync(canonicalCwd).length > 0) {
     throw new ScaffoldError(
-      `Directory "${dir}" passes through a dangling symlink. Pick a path inside ${cwd}.`,
-    );
-  }
-  if (!lstatSync(canonicalParent).isDirectory()) {
-    throw new ScaffoldError(
-      `Directory "${dir}" passes through a non-directory path at ${existingParent}.`,
-    );
-  }
-  if (!isContainedBy(canonicalCwd, canonicalParent)) {
-    throw new ScaffoldError(
-      `Directory "${dir}" resolves outside the current directory through ${existingParent}. ` +
-        `Pick a path inside ${cwd}.`,
+      `Current directory ${canonicalCwd} is not empty. Use "." only in an empty directory.`,
     );
   }
 
-  if (pathEntryExists(target)) {
-    throw new ScaffoldError(`Directory "${dir}" already exists.`);
+  if (!scaffoldInCwd) {
+    const existingParent = closestExistingPath(dirname(target));
+    let canonicalParent: string;
+    try {
+      canonicalParent = realpathSync(existingParent);
+    } catch {
+      throw new ScaffoldError(
+        `Directory "${dir}" passes through a dangling symlink. Pick a path inside ${cwd}.`,
+      );
+    }
+    if (!lstatSync(canonicalParent).isDirectory()) {
+      throw new ScaffoldError(
+        `Directory "${dir}" passes through a non-directory path at ${existingParent}.`,
+      );
+    }
+    if (!isContainedBy(canonicalCwd, canonicalParent)) {
+      throw new ScaffoldError(
+        `Directory "${dir}" resolves outside the current directory through ${existingParent}. ` +
+          `Pick a path inside ${cwd}.`,
+      );
+    }
+
+    if (pathEntryExists(target)) {
+      throw new ScaffoldError(`Directory "${dir}" already exists.`);
+    }
   }
 
   const fetchTemplate =
@@ -233,6 +259,8 @@ export async function scaffold(
   const preview = previewProvenance(internals);
 
   const s = p.spinner();
+  let workTarget = target;
+  let staging: string | undefined;
 
   // Fetch + transform. If anything throws mid-way (network, EACCES, disk full,
   // a malformed template package.json), roll back the partial target dir — we
@@ -241,40 +269,59 @@ export async function scaffold(
   // blocks re-running (the existence check above hard-fails on it).
   s.start("Fetching template…");
   try {
-    await fetchTemplate(target, options);
-    assertNoTemplateSymlinks(target);
+    if (scaffoldInCwd) {
+      staging = mkdtempSync(
+        join(dirname(canonicalCwd), `.${pathBasename(canonicalCwd)}-nimbus-`),
+      );
+      workTarget = staging;
+    }
+    await fetchTemplate(workTarget, options);
+    assertNoTemplateSymlinks(workTarget);
     s.stop("Template ready.");
 
     s.start("Configuring project…");
-    normalizePackageManagerFiles(target, packageManager);
+    normalizePackageManagerFiles(workTarget, packageManager);
+    const projectName = scaffoldInCwd
+      ? pathBasename(canonicalCwd)
+      : basename(dir);
     if (options.output === "server") {
-      await applyAdapter(target, options.adapter);
-      writeServerWrangler(target, options.adapter);
-      appendAdapterIgnoreEntries(target, options.adapter);
+      await applyAdapter(workTarget, options.adapter);
+      writeServerWrangler(workTarget, options.adapter);
+      appendAdapterIgnoreEntries(workTarget, options.adapter);
       if (options.adapter === "cloudflare") {
         // wrangler (added by updatePackageJson) pulls workerd; decline its
         // build script so pnpm install doesn't trip the build-scripts gate —
         // same as the static Cloudflare path.
-        declineBuildScript(target, "workerd");
+        declineBuildScript(workTarget, "workerd");
       }
-      await updatePackageJson(target, {
-        name: basename(dir),
+      await updatePackageJson(workTarget, {
+        name: projectName,
         output: "server",
         adapter: options.adapter,
       });
     } else {
-      await applyDeployTarget(target, options.deploy);
-      await updatePackageJson(target, {
-        name: basename(dir),
+      await applyDeployTarget(workTarget, options.deploy);
+      await updatePackageJson(workTarget, {
+        name: projectName,
         output: "static",
         deploy: options.deploy,
       });
     }
-    writeNimbusJson(target, options, preview);
+    writeNimbusJson(workTarget, options, preview);
+    if (scaffoldInCwd) {
+      commitStagedProject(workTarget, canonicalCwd, internals);
+      rmSync(workTarget, { recursive: true, force: true });
+      staging = undefined;
+      workTarget = canonicalCwd;
+    }
     s.stop("Project configured.");
   } catch (err) {
     s.stop("Failed.");
-    rmSync(target, { recursive: true, force: true });
+    if (scaffoldInCwd) {
+      if (staging) rmSync(staging, { recursive: true, force: true });
+    } else {
+      rmSync(target, { recursive: true, force: true });
+    }
     // A ScaffoldError already carries an actionable message (missing tag,
     // offline, rate-limited, bad --template-dir). Pass it through untouched;
     // only wrap genuinely unexpected failures.
@@ -285,11 +332,13 @@ export async function scaffold(
     );
   }
 
+  const commandTarget = scaffoldInCwd ? canonicalCwd : target;
+
   // 3. Git init
   if (git) {
     s.start("Initializing git repository…");
     try {
-      await runCommand("git", ["init"], target);
+      await runCommand("git", ["init"], commandTarget);
       s.stop("Git repository initialized.");
     } catch {
       s.stop("Skipped git initialization.");
@@ -307,13 +356,203 @@ export async function scaffold(
   try {
     const cmd = packageManager === "yarn" ? "yarn" : `${packageManager} install`;
     const [bin = packageManager, ...args] = cmd.split(" ");
-    await runCommand(bin, args, target);
+    await runCommand(bin, args, commandTarget);
     s.stop("Dependencies installed.");
   } catch {
     s.stop("Failed to install dependencies.");
     p.log.warn(
       `Could not install dependencies. Run \`${packageManager} install\` manually in ${dir}.`,
     );
+  }
+}
+
+interface OwnedPath {
+  path: string;
+  dev: number;
+  ino: number;
+  directory: boolean;
+  mode: number;
+  mtimeMs: number;
+  digest?: string;
+}
+
+interface CommitLedgerEntry {
+  name: string;
+  root?: OwnedPath;
+  paths: OwnedPath[];
+}
+
+function commitStagedProject(
+  staging: string,
+  cwd: string,
+  internals: ScaffoldInternals,
+): void {
+  const entries = readdirSync(staging);
+  const ledger: CommitLedgerEntry[] = [];
+
+  try {
+    internals.beforeCommit?.();
+    assertNoForeignEntries(cwd, ledger);
+
+    for (const [index, entry] of entries.entries()) {
+      assertNoForeignEntries(cwd, ledger);
+      internals.beforeCommitEntry?.(entry, index);
+      const committed: CommitLedgerEntry = { name: entry, paths: [] };
+      ledger.push(committed);
+      installStagedPath(
+        join(staging, entry),
+        join(cwd, entry),
+        committed.paths,
+      );
+      committed.root = committed.paths[0];
+      internals.afterCommitEntry?.(entry, index);
+    }
+
+    assertNoForeignEntries(cwd, ledger);
+  } catch (err) {
+    rollbackCommit(ledger);
+    throw err;
+  }
+}
+
+function assertNoForeignEntries(
+  cwd: string,
+  ledger: CommitLedgerEntry[],
+): void {
+  const owned = new Map(
+    ledger.flatMap((entry) => (entry.root ? [[entry.name, entry.root]] : [])),
+  );
+  const names = readdirSync(cwd);
+  for (const name of names) {
+    const expected = owned.get(name);
+    if (!expected || !isUnchangedEntry(join(cwd, name), expected)) {
+      throw new ScaffoldError(
+        `Current directory changed while the project was being prepared. Preserved concurrent entry "${name}" and aborted.`,
+      );
+    }
+  }
+  for (const name of owned.keys()) {
+    if (!names.includes(name)) {
+      throw new ScaffoldError(
+        `Current directory changed while the project was being prepared. Entry "${name}" was removed, so the scaffold was aborted.`,
+      );
+    }
+  }
+  for (const entry of ledger) {
+    if (
+      entry.paths.some((ownedPath) =>
+        !isUnchangedEntry(ownedPath.path, ownedPath),
+      )
+    ) {
+      throw new ScaffoldError(
+        `Current directory changed while the project was being prepared. Preserved concurrent changes under "${entry.name}" and aborted.`,
+      );
+    }
+  }
+}
+
+function installStagedPath(
+  source: string,
+  destination: string,
+  ledger: OwnedPath[],
+): void {
+  const sourceStat = lstatSync(source);
+  if (sourceStat.isDirectory()) {
+    mkdirSync(destination);
+    const ledgerIndex = ledger.push(snapshotOwnedPath(destination)) - 1;
+    for (const entry of readdirSync(source)) {
+      installStagedPath(join(source, entry), join(destination, entry), ledger);
+    }
+    ledger[ledgerIndex] = snapshotOwnedPath(destination);
+    return;
+  }
+  linkSync(source, destination);
+  ledger.push(snapshotOwnedPath(destination));
+}
+
+function snapshotOwnedPath(path: string): OwnedPath {
+  const stat = lstatSync(path);
+  const directory = stat.isDirectory();
+  return {
+    path,
+    dev: stat.dev,
+    ino: stat.ino,
+    directory,
+    mode: stat.mode,
+    mtimeMs: stat.mtimeMs,
+    ...(directory
+      ? {}
+      : {
+          digest: createHash("sha256").update(readFileSync(path)).digest("hex"),
+        }),
+  };
+}
+
+function rollbackCommit(ledger: CommitLedgerEntry[]): void {
+  for (const entry of [...ledger].reverse()) {
+    for (const owned of [...entry.paths].reverse()) {
+      if (owned.directory) {
+        if (!isOwnedDirectory(owned.path, owned)) continue;
+      } else if (!isUnchangedEntry(owned.path, owned)) {
+        continue;
+      }
+      if (!owned.directory) {
+        rmSync(owned.path, { force: true });
+        continue;
+      }
+      try {
+        rmdirSync(owned.path);
+      } catch (err) {
+        if (
+          !["ENOENT", "ENOTEMPTY"].includes(
+            (err as NodeJS.ErrnoException).code ?? "",
+          )
+        ) {
+          throw err;
+        }
+      }
+    }
+  }
+}
+
+function isOwnedDirectory(path: string, expected: OwnedPath): boolean {
+  try {
+    const stat = lstatSync(path);
+    return (
+      stat.isDirectory() &&
+      stat.dev === expected.dev &&
+      stat.ino === expected.ino &&
+      stat.mode === expected.mode
+    );
+  } catch (err) {
+    if (["ENOENT", "ENOTDIR"].includes((err as NodeJS.ErrnoException).code ?? "")) {
+      return false;
+    }
+    throw err;
+  }
+}
+
+function isUnchangedEntry(path: string, expected: OwnedPath): boolean {
+  try {
+    const stat = lstatSync(path);
+    if (
+      stat.dev !== expected.dev ||
+      stat.ino !== expected.ino ||
+      stat.mode !== expected.mode ||
+      stat.mtimeMs !== expected.mtimeMs
+    ) {
+      return false;
+    }
+    return (
+      expected.directory ||
+      createHash("sha256").update(readFileSync(path)).digest("hex") ===
+        expected.digest
+    );
+  } catch (err) {
+    if (["ENOENT", "ENOTDIR"].includes((err as NodeJS.ErrnoException).code ?? "")) {
+      return false;
+    }
+    throw err;
   }
 }
 
@@ -337,7 +576,9 @@ function pathEntryExists(path: string): boolean {
     lstatSync(path);
     return true;
   } catch (err) {
-    if (["ENOENT", "ENOTDIR"].includes((err as NodeJS.ErrnoException).code ?? "")) {
+    if (
+      ["ENOENT", "ENOTDIR"].includes((err as NodeJS.ErrnoException).code ?? "")
+    ) {
       return false;
     }
     throw err;

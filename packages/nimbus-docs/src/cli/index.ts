@@ -52,9 +52,9 @@ import {
   quoteForDisplay,
 } from "./pm.js";
 import {
-  getIndexEntry,
   listEntries,
   registrySource,
+  resolveIndexEntryWithSnapshot,
   resolveComponentTree,
   type ComponentItem,
 } from "./resolver.js";
@@ -108,6 +108,11 @@ interface CliArgs {
   adapter?: string;
   "template-dir"?: string;
   color?: boolean;
+}
+
+function logError(message: string): void {
+  if (process.argv.includes("--print")) process.stderr.write(`${message}\n`);
+  else p.log.error(message);
 }
 
 const HELP = `
@@ -258,7 +263,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  p.log.error(`Unknown command: \`${command}\`. Try \`${invocation("--help")}\`.`);
+  logError(`Unknown command: \`${command}\`. Try \`${invocation("--help")}\`.`);
   process.exit(1);
 }
 
@@ -279,7 +284,7 @@ function listCommand(typeFilter: string | undefined): void {
       : undefined;
 
   if (typeFilter && !(typeFilter in typeMap)) {
-    p.log.error(
+    logError(
       `Unknown --type "${typeFilter}". Valid: ui, lib, feature.`,
     );
     process.exit(1);
@@ -345,7 +350,7 @@ async function addCommand(
   if (slug === "server-output") {
     const adapterId = parseAdapterFlag(flags.adapter);
     if (!adapterId) {
-      p.log.error(
+      logError(
         `\`server-output\` requires \`--adapter <${ADAPTER_IDS.join("|")}>\`. ` +
           `Example: \`${invocation("add server-output --adapter vercel")}\``,
       );
@@ -365,13 +370,8 @@ async function addCommand(
     return;
   }
 
-  const entry = getIndexEntry(slug);
-  if (!entry) {
-    p.log.error(
-      `Unknown registry item: \`${slug}\`. Try \`${invocation("list")}\` to see what's available.`,
-    );
-    process.exit(1);
-  }
+  const resolvedEntry = await resolveIndexEntryWithSnapshot(slug);
+  const entry = resolvedEntry.entry;
 
   if (entry.type === "registry:feature") {
     await installFeature(slug, { print: flags.print });
@@ -379,7 +379,7 @@ async function addCommand(
   }
 
   if (flags.print) {
-    p.log.error("`--print` is only available for features and the Cloudflare adapter.");
+    logError("`--print` is only available for features and the Cloudflare adapter.");
     process.exit(1);
   }
 
@@ -398,13 +398,13 @@ async function addCommand(
   spinner.start("Resolving dependencies");
   let items;
   try {
-    items = await resolveComponentTree(slug);
+    items = await resolveComponentTree(slug, entry, resolvedEntry.liveIndex);
     spinner.stop(
       `Resolved ${items.length} item${items.length === 1 ? "" : "s"}.`,
     );
   } catch (err) {
     spinner.stop("Failed to resolve.");
-    p.log.error((err as Error).message);
+    logError((err as Error).message);
     process.exit(1);
   }
 
@@ -501,7 +501,7 @@ async function runAdapterInstall(
     return;
   }
   if (printRecipe) {
-    p.log.error("`--print` is only available for the Cloudflare adapter.");
+    logError("`--print` is only available for the Cloudflare adapter.");
     process.exit(1);
   }
 
@@ -531,7 +531,7 @@ async function runAdapterInstall(
   });
 
   if (outcome.status === "error") {
-    p.log.error(outcome.message);
+    logError(outcome.message);
     process.exit(1);
   }
 
@@ -593,7 +593,10 @@ function appendWranglerWriteLine(
     lines.push("+ Wrote wrangler.jsonc (server)");
   } else if (wrangler?.action === "rewritten") {
     lines.push("~ Updated wrangler.jsonc for server output");
-  } else if (wrangler?.action === "write-failed") {
+  } else if (
+    wrangler?.action === "write-failed" ||
+    wrangler?.action === "skipped-foreign"
+  ) {
     lines.push("! Cloudflare server deployment is only partially configured");
   }
 }
@@ -613,6 +616,6 @@ function spawnInstall(bin: string, args: string[], cwd: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 main().catch((err) => {
-  p.log.error(`${(err as Error).message}`);
+  logError(`${(err as Error).message}`);
   process.exit(1);
 });

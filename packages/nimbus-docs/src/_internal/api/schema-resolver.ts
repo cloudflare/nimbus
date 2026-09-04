@@ -333,7 +333,8 @@ export class SchemaResolver {
         ? { label: name, coordinate: schemaCoordinate(name) }
         : { label: name };
     }
-    return { label: typeLabel(branch) };
+    const title = typeof branch.title === "string" ? branch.title.trim() : "";
+    return { label: title || typeLabel(branch) };
   }
 
   private knownSchema(name: string): boolean {

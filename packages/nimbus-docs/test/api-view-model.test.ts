@@ -284,6 +284,36 @@ describe("nesting: children, childCount, required-first", () => {
 });
 
 describe("unions: enrichment edge cases", () => {
+  test("inline branch titles project trimmed while blank titles fall back and `$ref` links stay unchanged", async () => {
+    const model = await buildApiModel({
+      collection: "titles",
+      spec: {
+        openapi: "3.1.0",
+        info: { title: "T", version: "1" },
+        paths: {},
+        components: {
+          schemas: {
+            Referenced: { type: "object", properties: { id: { type: "string" } } },
+            Choice: {
+              oneOf: [
+                { title: "  Customer record  ", type: "object" },
+                { title: "  ", type: "string" },
+                { $ref: "#/components/schemas/Referenced", title: "Ignored sibling title" },
+              ],
+            },
+          },
+        },
+      },
+    });
+    const page = getApiPageProps(model, "Choice") as ApiSchemaPage;
+
+    assert.deepEqual(page.union!.variants, [
+      { label: "Customer record" },
+      { label: "string" },
+      { label: "Referenced", href: "/titles/schemas/Referenced" },
+    ]);
+  });
+
   test("a top-level `oneOf` RESPONSE projects onto response.bodyUnion (symmetric with the request)", async () => {
     const model = await buildApiModel({
       collection: "u",

@@ -105,7 +105,8 @@ test("non-Cloudflare adapter --print fails without editing", () => {
       { cwd: dir, encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } },
     );
     assert.equal(result.status, 1);
-    assert.match(`${result.stdout}\n${result.stderr}`, /only available for the Cloudflare adapter/);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /only available for the Cloudflare adapter/);
     assert.equal(fs.readFileSync(path.join(dir, "astro.config.ts"), "utf8"), config);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -122,8 +123,34 @@ test("component --print fails before writing", () => {
       { cwd: dir, encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } },
     );
     assert.equal(result.status, 1);
-    assert.match(`${result.stdout}\n${result.stderr}`, /only available for features and the Cloudflare adapter/);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /only available for features and the Cloudflare adapter/);
     assert.deepEqual(fs.readdirSync(dir), []);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("registry resolution failure with --print keeps stdout empty", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-adapter-cli-"));
+
+  try {
+    const result = spawnSync(
+      process.execPath,
+      ["--import", TSX, CLI, "add", "not-bundled", "--print"],
+      {
+        cwd: dir,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          NIMBUS_REGISTRY_URL: "http://127.0.0.1:1",
+          NO_COLOR: "1",
+        },
+      },
+    );
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /Could not reach the registry/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -174,6 +201,51 @@ export default {
     assert.equal(result.status, 0, output);
     assert.match(output, /! Cloudflare server deployment is only partially configured/);
     assert.doesNotMatch(output, /Wrote wrangler\.jsonc/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("adapter install reports partial success for a retained foreign wrangler", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-adapter-cli-"));
+  fs.writeFileSync(
+    path.join(dir, "astro.config.ts"),
+    `import cloudflare from "@astrojs/cloudflare";
+export default {
+  // nimbus:adapter
+  output: "server",
+  adapter: cloudflare({ prerenderEnvironment: "node" }),
+};
+`,
+  );
+  fs.writeFileSync(
+    path.join(dir, "package.json"),
+    JSON.stringify({
+      dependencies: { astro: "7.0.9", "@astrojs/cloudflare": "14.1.7" },
+    }),
+  );
+  const wrangler = JSON.stringify({
+    name: "docs",
+    compatibility_date: "2025-01-01",
+    assets: {
+      directory: "./dist",
+      not_found_handling: "404-page",
+      binding: "ASSETS",
+    },
+  });
+  fs.writeFileSync(path.join(dir, "wrangler.jsonc"), wrangler);
+
+  try {
+    const result = spawnSync(
+      process.execPath,
+      ["--import", TSX, CLI, "add", "adapter-cloudflare"],
+      { cwd: dir, encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } },
+    );
+    const output = `${result.stdout}\n${result.stderr}`;
+    assert.equal(result.status, 0, output);
+    assert.equal(fs.readFileSync(path.join(dir, "wrangler.jsonc"), "utf8"), wrangler);
+    assert.match(output, /only partially configured/);
+    assert.match(output, /static 404 before Astro/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

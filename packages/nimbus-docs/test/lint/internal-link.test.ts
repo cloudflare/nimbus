@@ -19,21 +19,35 @@ import { test } from "node:test";
 import { lintFile } from "../../src/lint/engine.js";
 import { parseSource } from "../../src/lint/parse.js";
 import { _resetInternalLinkCacheForTests } from "../../src/lint/rules/internal-link.js";
-import type { RouteTruth } from "../../src/lint/site-model.js";
+import {
+  computeRouteSourceFingerprint,
+  type RouteTruth,
+} from "../../src/_internal/route-manifest.js";
 
 interface Setup {
   root: string;
   pagePath: string;
 }
 
-function setupProject(truth: RouteTruth): Setup {
+type RouteTruthInput = Omit<RouteTruth, "version" | "sourceFingerprint">;
+
+function setupProject(truth: RouteTruthInput): Setup {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-il-"));
   fs.mkdirSync(path.join(root, ".nimbus"), { recursive: true });
+  fs.mkdirSync(path.join(root, "src/content/docs"), { recursive: true });
+  const manifest: RouteTruth = {
+    version: 2,
+    sourceFingerprint: {
+      version: 1,
+      algorithm: "sha256",
+      digest: computeRouteSourceFingerprint(root),
+    },
+    ...truth,
+  };
   fs.writeFileSync(
     path.join(root, ".nimbus", "routes.json"),
-    JSON.stringify(truth),
+    JSON.stringify(manifest),
   );
-  fs.mkdirSync(path.join(root, "src/content/docs"), { recursive: true });
   return { root, pagePath: path.join(root, "src/content/docs/page.mdx") };
 }
 
@@ -61,9 +75,8 @@ function lint(setup: Setup, mdx: string) {
   }).filter((d) => d.code === "nimbus/internal-link");
 }
 
-function baseTruth(overrides: Partial<RouteTruth> = {}): RouteTruth {
+function baseTruth(overrides: Partial<RouteTruthInput> = {}): RouteTruthInput {
   return {
-    version: 1,
     base: "",
     knownRoutes: ["/", "/workers", "/r2", "/guides/setup", "/search"],
     opaqueNamespaces: [],
@@ -252,9 +265,7 @@ See [./other](./other).
 test("internal-link stays silent under an opaque namespace", () => {
   // A non-framework dynamic route under `/dashboard/**` makes the namespace
   // opaque. Links into it must NOT be flagged.
-  const setup = setupProject(
-    baseTruth({ opaqueNamespaces: ["/dashboard"] }),
-  );
+  const setup = setupProject(baseTruth({ opaqueNamespaces: ["/dashboard"] }));
   try {
     const diags = lint(
       setup,
@@ -271,9 +282,7 @@ See [the dashboard](/dashboard/anything/at/all).
 });
 
 test("internal-link still checks links outside an opaque namespace", () => {
-  const setup = setupProject(
-    baseTruth({ opaqueNamespaces: ["/dashboard"] }),
-  );
+  const setup = setupProject(baseTruth({ opaqueNamespaces: ["/dashboard"] }));
   try {
     const diags = lint(
       setup,
@@ -293,9 +302,7 @@ test("internal-link still checks links outside an opaque namespace", () => {
 test("internal-link only resolves links that appear in knownRoutes", () => {
   // A URL not in knownRoutes and not under an opaque namespace is broken,
   // regardless of how the truth got populated.
-  const setup = setupProject(
-    baseTruth({ knownRoutes: ["/workers"] }),
-  );
+  const setup = setupProject(baseTruth({ knownRoutes: ["/workers"] }));
   try {
     const diags = lint(setup, `${FM}\n# x\n\n[broken](/missing)`);
     assert.equal(diags.length, 1);
@@ -350,10 +357,7 @@ test("internal-link respects the ignore glob list", () => {
     );
     const diags = lintFile(parsed, {
       rules: {
-        "nimbus/internal-link": [
-          "error",
-          { ignore: ["/api/**", "/api"] },
-        ],
+        "nimbus/internal-link": ["error", { ignore: ["/api/**", "/api"] }],
       },
     }).filter((d) => d.code === "nimbus/internal-link");
     assert.equal(diags.length, 1);
@@ -537,6 +541,22 @@ test("internal-link skips silently when routes.json is missing", () => {
   }
 });
 
+test("internal-link never emits broken links from stale or malformed route truth", () => {
+  const setup = setupProject(baseTruth({ knownRoutes: ["/"] }));
+  try {
+    fs.appendFileSync(
+      path.join(setup.root, "src/content/docs/new.mdx"),
+      "# New\n",
+    );
+    assert.deepEqual(lint(setup, `${FM}\n# x\n\n[anything](/nope)`), []);
+
+    fs.writeFileSync(path.join(setup.root, ".nimbus/routes.json"), "{");
+    assert.deepEqual(lint(setup, `${FM}\n# x\n\n[anything](/nope)`), []);
+  } finally {
+    cleanup(setup.root);
+  }
+});
+
 test("internal-link skips draft sources entirely — frontmatter draft: true short-circuits the rule", () => {
   // Drafts are excluded from `routes.json` (Nimbus filters them from
   // content queries, sidebar, alternates). Linting a draft would surface
@@ -691,7 +711,15 @@ test("internal-link infers the project root from the last /src/ in the path", ()
     fs.mkdirSync(path.join(root, ".nimbus"), { recursive: true });
     fs.writeFileSync(
       path.join(root, ".nimbus", "routes.json"),
-      JSON.stringify(baseTruth()),
+      JSON.stringify({
+        version: 2,
+        sourceFingerprint: {
+          version: 1,
+          algorithm: "sha256",
+          digest: computeRouteSourceFingerprint(root),
+        },
+        ...baseTruth(),
+      }),
     );
     fs.mkdirSync(path.join(root, "src/content/docs"), { recursive: true });
     _resetInternalLinkCacheForTests();

@@ -12,6 +12,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import {
+  inspectRouteManifest,
+  routeManifestCoverageReason,
+} from "../_internal/route-manifest.js";
 
 import {
   findMdxFiles,
@@ -53,20 +57,18 @@ export function checkAuthoring(cwd: string): ScopeReport {
         "opt-in authoring rules not evaluated — their enablement is materialized by `astro build` into `.nimbus/lint.json`, which doesn't exist yet. Core rules still ran.",
       requiresBuild: true,
     });
-  } else if (
-    !error &&
-    internalLinkEnabled(config) &&
-    !fs.existsSync(path.join(cwd, ".nimbus", "routes.json"))
-  ) {
-    notes.push({
-      code: "nimbus/internal-link-skipped",
-      reason:
-        "link checking skipped — `nimbus/internal-link` resolves against the route map `astro build` materializes into `.nimbus/routes.json`, which doesn't exist yet. Other authoring rules still ran.",
-      requiresBuild: true,
-    });
-    // Noted structurally above — disable the rule so it doesn't also run and
-    // write its own skip warning to stderr.
-    effective = withRuleDisabled(config, "nimbus/internal-link");
+  } else if (!error && internalLinkEnabled(config)) {
+    const routeManifest = inspectRouteManifest(cwd);
+    if (routeManifest.status !== "fresh") {
+      notes.push({
+        code: "nimbus/internal-link-skipped",
+        reason: routeManifestCoverageReason(routeManifest.status),
+        requiresBuild: true,
+      });
+      // Noted structurally above — disable the rule so it doesn't also run and
+      // write its own skip warning to stderr.
+      effective = withRuleDisabled(config, "nimbus/internal-link");
+    }
   }
 
   for (const d of lintPaths(files, cwd, effective)) findings.push(fromDiagnostic(d));

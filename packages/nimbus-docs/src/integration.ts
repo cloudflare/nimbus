@@ -30,6 +30,7 @@
  */
 
 import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -60,8 +61,13 @@ import {
   formatDuplicateRoutes,
   formatShadowedRoutes,
   type RouteOwner,
-  type RouteTruth,
 } from "./lint/site-model.js";
+import {
+  computeRouteSourceFingerprint,
+  ROUTE_MANIFEST_VERSION,
+  ROUTE_SOURCE_FINGERPRINT_VERSION,
+  type RouteTruth,
+} from "./_internal/route-manifest.js";
 import {
   filterIndexableCollections,
   parseCollectionBases,
@@ -338,6 +344,7 @@ export function nimbus(
   let sitemapExcludedPaths = new Set<string>();
   let sitemapTrailingSlash: "always" | "never" | "ignore" = "ignore";
   let building = false;
+  let routeSourceFingerprintAtBuildStart: string | null = null;
 
   // Built eagerly at config:setup, reassigned by the dev re-bake; both the
   // citation plugin and virtual:nimbus/coordinates read it through a getter.
@@ -364,6 +371,7 @@ export function nimbus(
         // content/assets stay root-relative via their collection bases.
         const srcDir = fileURLToPath(astroConfig.srcDir);
         const projectRoot = fileURLToPath(astroConfig.root);
+        if (building) invalidateRouteTruth(projectRoot);
         const publicDir = astroConfig.publicDir
           ? fileURLToPath(astroConfig.publicDir)
           : path.join(projectRoot, "public");
@@ -1182,6 +1190,11 @@ export function nimbus(
         }
       },
       "astro:build:start": async () => {
+        if (building) {
+          invalidateRouteTruth(projectRootForBuild);
+          routeSourceFingerprintAtBuildStart =
+            computeRouteSourceFingerprint(projectRootForBuild);
+        }
         const { clearNavCaches } = await import("./index.js");
         clearNavCaches();
       },
@@ -1253,14 +1266,6 @@ export function nimbus(
         // Duplicate-slug detection happens in `astro:config:setup`, not
         // here: Astro silently dedupes colliding routes before this hook
         // fires, so the collisions are invisible post-build.
-        materializeRouteTruthFromPages(
-          projectRootForBuild,
-          astroBaseForBuild,
-          publicPages,
-          requestRoutes,
-          logger,
-        );
-
         // Filled by `astro:routes:resolved`; reset at the next build's
         // `config:setup`, so a build whose `routes:resolved` never fires trips
         // the empty-routes guard instead of reusing stale routes.
@@ -1318,6 +1323,15 @@ export function nimbus(
             ),
           );
         }
+
+        materializeRouteTruthFromPages(
+          projectRootForBuild,
+          astroBaseForBuild,
+          publicPages,
+          requestRoutes,
+          routeSourceFingerprintAtBuildStart,
+          logger,
+        );
       },
     },
   };
@@ -1371,6 +1385,7 @@ function materializeRouteTruthFromPages(
   base: string,
   pages: readonly { pathname: string }[],
   requestRoutes: readonly string[],
+  sourceFingerprintAtBuildStart: string | null,
   logger: { warn: (msg: string) => void; debug?: (msg: string) => void },
 ): void {
   // Normalize and dedupe pathnames into the canonical `/foo` form used by
@@ -1386,27 +1401,67 @@ function materializeRouteTruthFromPages(
     canonical.add(canonicalizePathname(pathname));
   }
 
-  const truth: RouteTruth = {
-    version: 1,
-    base,
-    knownRoutes: [...canonical].sort(),
-    // Nimbus collections remain enumerable even when their HTML is rendered
-    // on request, so broad opaque namespaces would only hide broken links.
-    opaqueNamespaces: [],
-  };
-
   try {
+    const sourceFingerprint = computeRouteSourceFingerprint(projectRoot);
+    if (
+      sourceFingerprintAtBuildStart !== null &&
+      sourceFingerprint !== sourceFingerprintAtBuildStart
+    ) {
+      logger.debug?.(
+        "route-producing sources changed during the build — internal-link will skip until the next build",
+      );
+      return;
+    }
+    const truth: RouteTruth = {
+      version: ROUTE_MANIFEST_VERSION,
+      sourceFingerprint: {
+        version: ROUTE_SOURCE_FINGERPRINT_VERSION,
+        algorithm: "sha256",
+        digest: sourceFingerprint,
+      },
+      base,
+      knownRoutes: [...canonical].sort(),
+      // Nimbus collections remain enumerable even when their HTML is rendered
+      // on request, so broad opaque namespaces would only hide broken links.
+      opaqueNamespaces: [],
+    };
     const dir = path.join(projectRoot, ".nimbus");
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(
+    writeFileAtomicSync(
       path.join(dir, "routes.json"),
       JSON.stringify(truth, null, 2) + "\n",
-      "utf8",
     );
   } catch (err) {
     logger.debug?.(
       `failed to write .nimbus/routes.json — internal-link will skip: ${(err as Error).message}`,
     );
+  }
+}
+
+function invalidateRouteTruth(projectRoot: string): void {
+  try {
+    fs.unlinkSync(path.join(projectRoot, ".nimbus", "routes.json"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+}
+
+function writeFileAtomicSync(file: string, content: string): void {
+  const tmp = `${file}.tmp-${process.pid}-${randomUUID()}`;
+  try {
+    const handle = fs.openSync(tmp, "wx", 0o600);
+    try {
+      fs.writeFileSync(handle, content, "utf8");
+      fs.fsyncSync(handle);
+    } finally {
+      fs.closeSync(handle);
+    }
+    fs.renameSync(tmp, file);
+  } catch (error) {
+    try {
+      fs.unlinkSync(tmp);
+    } catch {}
+    throw error;
   }
 }
 

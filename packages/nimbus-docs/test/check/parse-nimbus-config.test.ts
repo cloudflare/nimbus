@@ -29,6 +29,20 @@ function parse(source: string, filename?: string): ConfigParseResult {
   return withConfig(source, (dir) => parseNimbusConfig(dir), filename);
 }
 
+function withProject<T>(files: Record<string, string>, body: (dir: string) => T): T {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-cfg-"));
+  for (const [name, source] of Object.entries(files)) {
+    const file = path.join(dir, name);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, source);
+  }
+  try {
+    return body(dir);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 function ok(result: ConfigParseResult) {
   assert.ok(result.ok, `expected ok, got ${result.ok ? "" : result.reason}`);
   return result as Extract<ConfigParseResult, { ok: true }>;
@@ -64,6 +78,156 @@ const cfg = { site: "https://x.dev", title: "X" };
 export default { integrations: [nimbus(cfg)] };`),
   );
   assert.equal(r.config.title, "X");
+});
+
+test("follows one relative default import and owns the imported spans", () => {
+  withProject(
+    {
+      "astro.config.ts": `${IMPORT}
+import nimbusConfig from "./config/nimbus.config";
+export default { integrations: [nimbus(nimbusConfig)] };`,
+      "config/nimbus.config.ts": `import { defineConfig } from "@cloudflare/nimbus-docs/config";
+const config = { site: "https://x.dev", title: "X" };
+export default defineConfig(config);`,
+    },
+    (dir) => {
+      const r = ok(parseNimbusConfig(dir));
+      assert.equal(r.config.site, "https://x.dev");
+      assert.equal(r.location.file, path.join(dir, "config/nimbus.config.ts"));
+      assert.match(r.location.source, /const config/);
+      assert.equal(r.location.source.slice(r.location.objectStart, r.location.objectEnd + 1), `{ site: "https://x.dev", title: "X" }`);
+    },
+  );
+});
+
+test("follows a semicolonless imported const config", () => {
+  withProject(
+    {
+      "astro.config.ts": `${IMPORT}\nimport config from "./nimbus.config.ts"\nexport default { integrations: [nimbus(config)] }`,
+      "nimbus.config.ts": `const config = { site: "https://x.dev" }\nexport default config`,
+    },
+    (dir) => assert.equal(ok(parseNimbusConfig(dir)).config.site, "https://x.dev"),
+  );
+});
+
+test("rejects mutable and subsequently mutated imported bindings", async (t) => {
+  for (const [name, imported] of [
+    ["let binding", `let config = { site: "x" }; export default config;`],
+    ["direct reassignment", `const config = { site: "x" }; config = { site: "y" }; export default config;`],
+    ["property assignment", `const config = { site: "x" }; config.site = "y"; export default config;`],
+    ["object assign", `const config = { site: "x" }; Object.assign(config, { site: "y" }); export default config;`],
+    ["delete", `const config = { site: "x" }; delete config.site; export default config;`],
+    ["increment", `const config = { retries: 1 }; config.retries++; export default config;`],
+    ["hoisted mutator", `function mutate() { config.site = "y"; } const config = { site: "x" }; mutate(); export default config;`],
+  ] as const) {
+    await t.test(name, () =>
+      withProject(
+        {
+          "astro.config.ts": `${IMPORT}\nimport config from "./nimbus.config.ts";\nexport default { integrations: [nimbus(config)] };`,
+          "nimbus.config.ts": imported,
+        },
+        (dir) => assert.equal(parseNimbusConfig(dir).ok, false),
+      ),
+    );
+  }
+});
+
+test("supports explicit JS/TS extensions and the restricted default export forms", async (t) => {
+  const cases = [
+    ["./nimbus.config.ts", `export default { site: "https://x.dev" };`],
+    ["./nimbus.config.js", `const config = { site: "https://x.dev" }; export default config;`],
+    [
+      "./nimbus.config.mts",
+      `import { defineConfig } from "@cloudflare/nimbus-docs/config"; export default defineConfig({ site: "https://x.dev" });`,
+    ],
+  ] as const;
+  for (const [specifier, imported] of cases) {
+    await t.test(specifier, () => {
+      withProject(
+        {
+          "astro.config.ts": `${IMPORT}\nimport config from "${specifier}";\nexport default { integrations: [nimbus(config)] };`,
+          [specifier.slice(2)]: imported,
+        },
+        (dir) => assert.equal(ok(parseNimbusConfig(dir)).config.site, "https://x.dev"),
+      );
+    });
+  }
+});
+
+test("rejects ambiguous extensionless imports", () => {
+  withProject(
+    {
+      "astro.config.ts": `${IMPORT}\nimport config from "./nimbus.config";\nexport default { integrations: [nimbus(config)] };`,
+      "nimbus.config.ts": `export default { site: "https://x.dev" };`,
+      "nimbus.config.js": `export default { site: "https://other.dev" };`,
+    },
+    (dir) => assert.equal(parseNimbusConfig(dir).ok, false),
+  );
+});
+
+test("does not execute an unsupported imported expression", () => {
+  withProject(
+    {
+      "astro.config.ts": `${IMPORT}\nimport config from "./nimbus.config.ts";\nexport default { integrations: [nimbus(config)] };`,
+      "nimbus.config.ts": `import fs from "node:fs"; export default (fs.writeFileSync(new URL("./executed", import.meta.url), ""), { site: "x" });`,
+    },
+    (dir) => {
+      assert.equal(parseNimbusConfig(dir).ok, false);
+      assert.equal(fs.existsSync(path.join(dir, "executed")), false);
+    },
+  );
+});
+
+test("rejects package, named, aliased, re-exported, multi-hop, and unsupported imports", async (t) => {
+  const cases: Array<[string, Record<string, string>]> = [
+    ["package", { "astro.config.ts": `${IMPORT}\nimport config from "some-package";\nexport default { integrations: [nimbus(config)] };` }],
+    ["named", { "astro.config.ts": `${IMPORT}\nimport { config } from "./nimbus.config.ts";\nexport default { integrations: [nimbus(config)] };`, "nimbus.config.ts": `export const config = { site: "x" };` }],
+    ["aliased default", { "astro.config.ts": `${IMPORT}\nimport { default as config } from "./nimbus.config.ts";\nexport default { integrations: [nimbus(config)] };`, "nimbus.config.ts": `export default { site: "x" };` }],
+    ["re-export", { "astro.config.ts": `${IMPORT}\nimport config from "./nimbus.config.ts";\nexport default { integrations: [nimbus(config)] };`, "nimbus.config.ts": `export { default } from "./other.ts";`, "other.ts": `export default { site: "x" };` }],
+    ["multi-hop", { "astro.config.ts": `${IMPORT}\nimport config from "./nimbus.config.ts";\nexport default { integrations: [nimbus(config)] };`, "nimbus.config.ts": `import config from "./other.ts"; export default config;`, "other.ts": `export default { site: "x" };` }],
+    ["nested binding", { "astro.config.ts": `${IMPORT}\nimport config from "./nimbus.config.ts";\nexport default { integrations: [nimbus(config)] };`, "nimbus.config.ts": `function build() { const config = { site: "x" }; return config; } export default config;` }],
+    ["unsupported expression", { "astro.config.ts": `${IMPORT}\nimport config from "./nimbus.config.ts";\nexport default { integrations: [nimbus(config)] };`, "nimbus.config.ts": `export default makeConfig({ site: "x" });` }],
+    ["aliased wrapper", { "astro.config.ts": `${IMPORT}\nimport config from "./nimbus.config.ts";\nexport default { integrations: [nimbus(config)] };`, "nimbus.config.ts": `import { defineConfig as wrap } from "@cloudflare/nimbus-docs/config"; export default wrap({ site: "x" });` }],
+  ];
+  for (const [name, files] of cases) {
+    await t.test(name, () => withProject(files, (dir) => assert.equal(parseNimbusConfig(dir).ok, false)));
+  }
+});
+
+test("rejects outside-root files, directory indexes, and symlink targets", async (t) => {
+  await t.test("outside root", () => {
+    const parent = fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-cfg-parent-"));
+    const dir = path.join(parent, "project");
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(parent, "outside.ts"), `export default { site: "x" };`);
+    fs.writeFileSync(path.join(dir, "astro.config.ts"), `${IMPORT}\nimport config from "../outside.ts";\nexport default { integrations: [nimbus(config)] };`);
+    try {
+      assert.equal(parseNimbusConfig(dir).ok, false);
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+  await t.test("directory index", () => {
+    withProject(
+      {
+        "astro.config.ts": `${IMPORT}\nimport config from "./config";\nexport default { integrations: [nimbus(config)] };`,
+        "config/index.ts": `export default { site: "x" };`,
+      },
+      (dir) => assert.equal(parseNimbusConfig(dir).ok, false),
+    );
+  });
+  await t.test("symlink", () => {
+    withProject(
+      {
+        "astro.config.ts": `${IMPORT}\nimport config from "./nimbus.config.ts";\nexport default { integrations: [nimbus(config)] };`,
+        "real.ts": `export default { site: "x" };`,
+      },
+      (dir) => {
+        fs.symlinkSync(path.join(dir, "real.ts"), path.join(dir, "nimbus.config.ts"));
+        assert.equal(parseNimbusConfig(dir).ok, false);
+      },
+    );
+  });
 });
 
 test("aliased default import is followed", () => {

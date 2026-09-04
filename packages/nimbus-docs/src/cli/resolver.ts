@@ -58,6 +58,13 @@ const NPM_NAME_RE =
 // Registry slug (`card-grid`, `404-page`), interpolated into the fetch URL.
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
+const REQUEST_TIMEOUT_MS = 10_000;
+const MAX_REDIRECTS = 5;
+const INDEX_MAX_BYTES = 1024 * 1024;
+const COMPONENT_MAX_BYTES = 10 * 1024 * 1024;
+const FEATURE_MAX_BYTES = 2 * 1024 * 1024;
+const SINGLE_LINE_DISPLAY_RE = /^[^\u0000-\u001f\u007f-\u009f]*$/;
+
 // Not strict: unknown keys strip (not reject) so the wire format can grow without
 // breaking installed CLIs. Safety is per-field (shell/URL/fs constraints), below.
 const registryFileSchema = z.object({
@@ -68,8 +75,8 @@ const registryFileSchema = z.object({
 const componentItemSchema = z.object({
   name: z.string().min(1),
   type: z.enum(["registry:ui", "registry:lib"]),
-  title: z.string(),
-  description: z.string(),
+  title: z.string().regex(SINGLE_LINE_DISPLAY_RE),
+  description: z.string().regex(SINGLE_LINE_DISPLAY_RE),
   version: z.string().optional(),
   dependencies: z.array(
     z.string().regex(NPM_NAME_RE, "is not a valid npm package name"),
@@ -79,6 +86,45 @@ const componentItemSchema = z.object({
   ),
   files: z.array(registryFileSchema),
 });
+
+const registryIndexEntrySchema = z.object({
+  name: z.string().regex(SLUG_RE, "is not a valid registry slug").max(100),
+  type: z.enum(["registry:ui", "registry:lib", "registry:feature"]),
+  title: z.string().max(200).regex(SINGLE_LINE_DISPLAY_RE),
+  description: z.string().max(1_000).regex(SINGLE_LINE_DISPLAY_RE),
+});
+
+const registryIndexSchema = z
+  .object({
+    version: z.literal(1),
+    registryVersion: z.string().min(1).max(100),
+    items: z.record(z.string(), registryIndexEntrySchema),
+  })
+  .superRefine((index, context) => {
+    const entries = Object.entries(index.items);
+    if (entries.length > 2_000) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["items"],
+        message: "contains more than 2000 entries",
+      });
+    }
+    for (const [slug, entry] of entries) {
+      if (!SLUG_RE.test(slug) || slug.length > 100) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["items", slug],
+          message: "key is not a valid registry slug",
+        });
+      } else if (entry.name !== slug) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["items", slug, "name"],
+          message: `must match its key "${slug}"`,
+        });
+      }
+    }
+  });
 
 function formatZodIssues(error: z.ZodError): string {
   return error.issues
@@ -142,7 +188,9 @@ function maybeWarnOverride(): void {
 // ---------------------------------------------------------------------------
 
 export function getIndexEntry(slug: string): RegistryIndexEntry | undefined {
-  return BUNDLED_INDEX.items[slug];
+  return Object.hasOwn(BUNDLED_INDEX.items, slug)
+    ? BUNDLED_INDEX.items[slug]
+    : undefined;
 }
 
 export function listEntries(filter?: {
@@ -153,79 +201,265 @@ export function listEntries(filter?: {
   return all.filter((e) => e.type === filter.type);
 }
 
+export async function resolveIndexEntry(
+  slug: string,
+): Promise<RegistryIndexEntry> {
+  return (await resolveIndexEntryWithSnapshot(slug)).entry;
+}
+
+export async function resolveIndexEntryWithSnapshot(slug: string): Promise<{
+  entry: RegistryIndexEntry;
+  liveIndex?: Record<string, RegistryIndexEntry>;
+}> {
+  if (!SLUG_RE.test(slug) || slug.length > 100) {
+    throw new Error(
+      `Invalid registry item: \`${slug}\`. Names use lowercase letters, numbers, and hyphens.`,
+    );
+  }
+  const bundled = getIndexEntry(slug);
+  if (bundled) return { entry: bundled };
+
+  const liveIndex = await fetchLiveIndexItems();
+  const entry = liveIndex[slug];
+  if (!entry) {
+    throw unknownRegistryItemError(slug);
+  }
+  return { entry, liveIndex };
+}
+
+async function fetchLiveIndexItems(): Promise<Record<string, RegistryIndexEntry>> {
+  const url = `${getBaseUrl()}/registry.json`;
+  const data = await fetchJson(url, "registry index", INDEX_MAX_BYTES);
+  const parsed = registryIndexSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error(
+      `Live registry index at ${url} failed validation:\n` +
+        formatZodIssues(parsed.error),
+    );
+  }
+  return parsed.data.items;
+}
+
+function unknownRegistryItemError(slug: string): Error {
+  const url = `${getBaseUrl()}/registry.json`;
+  return new Error(
+    `Unknown registry item: \`${slug}\`. The live registry index at ${url} was checked successfully; verify the spelling or browse the registry for current names.`,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Network: component JSON + feature markdown
 // ---------------------------------------------------------------------------
 
+function errorChain(error: unknown): string {
+  const messages: string[] = [];
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (current && !seen.has(current)) {
+    seen.add(current);
+    if (current instanceof Error) messages.push(current.message || current.name);
+    else messages.push(String(current));
+    current =
+      typeof current === "object" && current !== null && "cause" in current
+        ? (current as { cause?: unknown }).cause
+        : undefined;
+  }
+  return messages.filter(Boolean).join(" -> ");
+}
+
+function transportError(url: string, error: unknown): Error {
+  const detail = errorChain(error);
+  if (
+    (error instanceof Error && error.name === "TimeoutError") ||
+    /timed?\s*out|timeout|abort due to timeout/i.test(detail)
+  ) {
+    return new Error(
+      `Registry request for ${url} timed out after ${REQUEST_TIMEOUT_MS / 1000} seconds. Check your connection or registry URL and try again.`,
+    );
+  }
+
+  const proxy = /proxy|connect|tunnel|econnrefused|enotfound|eai_again/i.test(detail);
+  return new Error(
+    `Could not reach the registry at ${url}.\n` +
+      `  ${proxy ? "Proxy/connection error" : "Underlying error"}: ${detail || "Unknown transport failure"}\n\n` +
+      `  Things to try:\n` +
+      `    - ${proxy ? "Check HTTPS_PROXY/HTTP_PROXY and whether the proxy permits CONNECT to the registry host.\n    - " : ""}Set the registry URL: NIMBUS_REGISTRY_URL=https://example.com ${invocation("add <slug>")}\n` +
+      `    - Check the value in your project's .env file.\n` +
+      `    - Working in the Nimbus monorepo? Start the local registry with \`pnpm local\`.`,
+  );
+}
+
+function statusError(url: string, res: Response): Error {
+  const retryAfter = res.headers.get("retry-after");
+  if (res.status === 401 || res.status === 403) {
+    return new Error(
+      `Registry access was denied (${res.status}) for ${url}. Check registry authentication and proxy credentials.`,
+    );
+  }
+  if (res.status === 404) {
+    return new Error(
+      `Registry resource was not found (404) at ${url}. Check the registry URL and requested slug.`,
+    );
+  }
+  if (res.status === 429) {
+    return new Error(
+      `Registry rate limit exceeded (429) for ${url}.${retryAfter ? ` Retry after ${retryAfter}.` : " Wait and try again."}`,
+    );
+  }
+  if (res.status >= 500) {
+    return new Error(
+      `Registry server is unavailable (${res.status}) for ${url}. Try again later or use another registry host.`,
+    );
+  }
+  return new Error(
+    `Registry returned ${res.status} ${res.statusText || "HTTP error"} for ${url}.`,
+  );
+}
+
 async function httpGet(url: string, accept: string): Promise<Response> {
   maybeWarnOverride();
-
-  let res: Response;
-  try {
-    res = await fetch(url, { headers: { accept } });
-  } catch (err) {
-    const cause = (err as Error).message;
-    throw new Error(
-      `Could not reach the registry at ${url}.\n` +
-        `  Underlying error: ${cause}\n\n` +
-        `  Things to try:\n` +
-        `    - Set the registry URL: NIMBUS_REGISTRY_URL=https://example.com ${invocation("add <slug>")}\n` +
-        `    - Check the value in your project's .env file.\n` +
-        `    - Working in the Nimbus monorepo? Start the local registry with \`pnpm local\`.`,
-    );
-  }
-
-  // Refuse cross-origin redirects: fetch follows redirects by default, and a
-  // redirect onto another origin means we're no longer talking to the registry.
   const requestedOrigin = new URL(url).origin;
-  const finalOrigin = new URL(res.url || url).origin;
-  if (finalOrigin !== requestedOrigin) {
-    throw new Error(
-      `Registry request for ${url} was redirected across origins ` +
-        `(${requestedOrigin} → ${finalOrigin}). Refusing to follow for safety. ` +
-        `If the redirect is legitimate, point NIMBUS_REGISTRY_URL at the final host directly.`,
-    );
-  }
+  const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+  let currentUrl = url;
 
-  if (!res.ok) {
-    throw new Error(
-      `Registry returned ${res.status} ${res.statusText} for ${url}. ` +
-        `The server is up but doesn't know about this slug — check \`${invocation("list")}\` for valid names.`,
-    );
+  for (let redirects = 0; ; redirects += 1) {
+    let res: Response;
+    try {
+      res = await fetch(currentUrl, {
+        headers: { accept },
+        redirect: "manual",
+        signal,
+      });
+    } catch (error) {
+      throw transportError(url, error);
+    }
+
+    const finalOrigin = new URL(res.url || currentUrl).origin;
+    if (finalOrigin !== requestedOrigin) {
+      throw new Error(
+        `Registry request for ${url} was redirected across origins ` +
+          `(${requestedOrigin} → ${finalOrigin}). Refusing to follow for safety. ` +
+          `If the redirect is legitimate, point NIMBUS_REGISTRY_URL at the final host directly.`,
+      );
+    }
+
+    if (![301, 302, 303, 307, 308].includes(res.status)) {
+      if (!res.ok) throw statusError(currentUrl, res);
+      return res;
+    }
+
+    if (redirects >= MAX_REDIRECTS) {
+      await res.body?.cancel();
+      throw new Error(
+        `Registry request for ${url} exceeded the limit of ${MAX_REDIRECTS} redirects.`,
+      );
+    }
+    const location = res.headers.get("location");
+    if (!location) throw statusError(currentUrl, res);
+    const nextUrl = new URL(location, currentUrl);
+    if (nextUrl.origin !== requestedOrigin) {
+      await res.body?.cancel();
+      throw new Error(
+        `Registry request for ${url} was redirected across origins ` +
+          `(${requestedOrigin} → ${nextUrl.origin}). Refusing to follow for safety. ` +
+          `If the redirect is legitimate, point NIMBUS_REGISTRY_URL at the final host directly.`,
+      );
+    }
+    await res.body?.cancel();
+    currentUrl = nextUrl.href;
   }
-  return res;
 }
 
 function contentType(res: Response): string {
   return (res.headers.get("content-type") ?? "").toLowerCase();
 }
 
-export async function fetchComponent(slug: string): Promise<ComponentItem> {
-  const url = `${getBaseUrl()}/components/${slug}.json`;
-  const res = await httpGet(url, "application/json");
+async function readText(
+  res: Response,
+  url: string,
+  label: string,
+  maxBytes: number,
+): Promise<string> {
+  const declared = res.headers.get("content-length");
+  if (declared !== null && /^\d+$/.test(declared) && Number(declared) > maxBytes) {
+    await res.body?.cancel();
+    throw new Error(
+      `Registry ${label} at ${url} exceeds the ${maxBytes} byte size limit (Content-Length: ${declared}).`,
+    );
+  }
 
-  // A 200 HTML error/fallback page is the usual "not JSON"; name it clearly.
+  const reader = res.body?.getReader();
+  if (!reader) return "";
+  const decoder = new TextDecoder();
+  let bytes = 0;
+  let text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > maxBytes) {
+        await reader.cancel();
+        throw new Error(
+          `Registry ${label} at ${url} exceeds the ${maxBytes} byte size limit.`,
+        );
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    return text + decoder.decode();
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("byte size limit")) {
+      throw error;
+    }
+    throw transportError(url, error);
+  }
+}
+
+async function fetchJson(
+  url: string,
+  label: string,
+  maxBytes: number,
+): Promise<unknown> {
+  const res = await httpGet(url, "application/json");
   if (contentType(res).includes("text/html")) {
     throw new Error(
-      `Expected JSON for "${slug}" from ${url} but the server returned HTML. ` +
-        `The registry host is likely serving an error or fallback page.`,
+      `Expected JSON ${label} from ${url} but the server returned HTML. The registry host is likely serving an error or fallback page.`,
     );
   }
-
-  let data: unknown;
+  const text = await readText(res, url, label, maxBytes);
   try {
-    data = await res.json();
+    return JSON.parse(text);
   } catch {
-    throw new Error(
-      `Registry response for "${slug}" (${url}) was not valid JSON.`,
-    );
+    throw new Error(`Registry ${label} at ${url} was not valid JSON.`);
   }
+}
+
+export async function fetchComponent(
+  slug: string,
+  expected?: RegistryIndexEntry,
+): Promise<ComponentItem> {
+  const url = `${getBaseUrl()}/components/${slug}.json`;
+  const data = await fetchJson(
+    url,
+    `component response for "${slug}"`,
+    COMPONENT_MAX_BYTES,
+  );
 
   const parsed = componentItemSchema.safeParse(data);
   if (!parsed.success) {
     throw new Error(
       `Registry payload for "${slug}" failed validation:\n` +
         formatZodIssues(parsed.error),
+    );
+  }
+  if (parsed.data.name !== slug) {
+    throw new Error(
+      `Registry payload name "${parsed.data.name}" does not match requested slug "${slug}".`,
+    );
+  }
+  if (expected && parsed.data.type !== expected.type) {
+    throw new Error(
+      `Registry payload type "${parsed.data.type}" for "${slug}" does not match index type "${expected.type}".`,
     );
   }
   return parsed.data;
@@ -244,7 +478,7 @@ export async function fetchFeatureMarkdown(slug: string): Promise<string> {
     );
   }
 
-  return await res.text();
+  return await readText(res, url, `feature markdown for "${slug}"`, FEATURE_MAX_BYTES);
 }
 
 // ---------------------------------------------------------------------------
@@ -257,15 +491,37 @@ export async function fetchFeatureMarkdown(slug: string): Promise<string> {
  */
 export async function resolveComponentTree(
   rootSlug: string,
+  rootEntry?: RegistryIndexEntry,
+  initialIndex?: Record<string, RegistryIndexEntry>,
 ): Promise<ComponentItem[]> {
   const visited = new Set<string>();
   const ordered: ComponentItem[] = [];
+  const entries = new Map<string, RegistryIndexEntry>();
+  let liveIndexItems: Promise<Record<string, RegistryIndexEntry>> | undefined =
+    initialIndex ? Promise.resolve(initialIndex) : undefined;
+  if (rootEntry) entries.set(rootSlug, rootEntry);
+
+  async function entryFor(slug: string): Promise<RegistryIndexEntry> {
+    const cached = entries.get(slug) ?? getIndexEntry(slug);
+    if (cached) return cached;
+    liveIndexItems ??= fetchLiveIndexItems();
+    const entry = (await liveIndexItems)[slug];
+    if (!entry) throw unknownRegistryItemError(slug);
+    return entry;
+  }
 
   async function visit(slug: string): Promise<void> {
     if (visited.has(slug)) return;
     visited.add(slug);
 
-    const item = await fetchComponent(slug);
+    const entry = await entryFor(slug);
+    entries.set(slug, entry);
+    if (entry.type === "registry:feature") {
+      throw new Error(
+        `Registry component "${slug}" cannot depend on feature "${entry.name}".`,
+      );
+    }
+    const item = await fetchComponent(slug, entry);
 
     // Walk deps first so they're earlier in the install order.
     for (const dep of item.registryDependencies) {

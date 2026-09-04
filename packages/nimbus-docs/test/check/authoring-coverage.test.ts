@@ -6,6 +6,7 @@ import { test } from "node:test";
 
 import { checkAuthoring } from "../../src/check/authoring.js";
 import { _resetInternalLinkCacheForTests } from "../../src/lint/rules/internal-link.js";
+import { computeRouteSourceFingerprint } from "../../src/_internal/route-manifest.js";
 
 interface ProjectOpts {
   body?: string;
@@ -33,7 +34,15 @@ function project(opts: ProjectOpts = {}): string {
   if (opts.routesJson) {
     fs.writeFileSync(
       path.join(dir, ".nimbus", "routes.json"),
-      JSON.stringify({ version: 1, ...opts.routesJson }),
+      JSON.stringify({
+        version: 2,
+        sourceFingerprint: {
+          version: 1,
+          algorithm: "sha256",
+          digest: computeRouteSourceFingerprint(dir),
+        },
+        ...opts.routesJson,
+      }),
     );
   }
   return dir;
@@ -66,8 +75,14 @@ test("no .nimbus → authoring-optin-skipped note, evaluated true, never in find
     const skip = note(r, "nimbus/authoring-optin-skipped");
     assert.ok(skip, "opt-in skip is surfaced as a note");
     assert.equal(skip.requiresBuild, true);
-    assert.ok(!hasFinding(r, "nimbus/authoring-optin-skipped"), "never a finding");
-    assert.ok(!hasFinding(r, "nimbus/authoring-not-evaluated"), "old code is gone");
+    assert.ok(
+      !hasFinding(r, "nimbus/authoring-optin-skipped"),
+      "never a finding",
+    );
+    assert.ok(
+      !hasFinding(r, "nimbus/authoring-not-evaluated"),
+      "old code is gone",
+    );
     assert.ok(!hasFinding(r, "nimbus/internal-link"));
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -84,7 +99,10 @@ test("lint.json enables internal-link but no routes.json → internal-link-skipp
     assert.equal(skipped.requiresBuild, true);
     assert.ok(!hasFinding(r, "nimbus/internal-link-skipped"));
     assert.ok(!hasFinding(r, "nimbus/internal-link"));
-    assert.ok(!note(r, "nimbus/authoring-optin-skipped"), "opt-in ran, so no opt-in note");
+    assert.ok(
+      !note(r, "nimbus/authoring-optin-skipped"),
+      "opt-in ran, so no opt-in note",
+    );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -99,12 +117,61 @@ test("lint.json + routes.json present → broken link is actually caught", () =>
   try {
     const r = checkAuthoring(dir);
     const broken = r.findings.find((f) => f.code === "nimbus/internal-link");
-    assert.ok(broken, "the broken link must be flagged when route truth exists");
+    assert.ok(
+      broken,
+      "the broken link must be flagged when route truth exists",
+    );
     assert.equal(broken.severity, "error");
     assert.ok(!note(r, "nimbus/internal-link-skipped"));
     assert.ok(!note(r, "nimbus/authoring-optin-skipped"));
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("stale route truth produces one structured coverage note and no broken-link findings", () => {
+  _resetInternalLinkCacheForTests();
+  const dir = project({
+    lintJson: INTERNAL_LINK_ON,
+    routesJson: { base: "/", knownRoutes: ["/"], opaqueNamespaces: [] },
+  });
+  try {
+    fs.appendFileSync(
+      path.join(dir, "src/content/docs/page.mdx"),
+      "\nroute change\n",
+    );
+    const r = checkAuthoring(dir);
+    const skipped = r.notes.filter(
+      (item) => item.code === "nimbus/internal-link-skipped",
+    );
+    assert.equal(skipped.length, 1);
+    assert.match(
+      skipped[0]!.reason,
+      /does not match the current route-producing sources/,
+    );
+    assert.ok(!hasFinding(r, "nimbus/internal-link"));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("legacy and malformed route truth each produce one coverage note", () => {
+  for (const body of [JSON.stringify({ version: 1 }), "{"]) {
+    _resetInternalLinkCacheForTests();
+    const dir = project({ lintJson: INTERNAL_LINK_ON });
+    try {
+      fs.mkdirSync(path.join(dir, ".nimbus"), { recursive: true });
+      fs.writeFileSync(path.join(dir, ".nimbus/routes.json"), body);
+      const r = checkAuthoring(dir);
+      assert.equal(
+        r.notes.filter((item) => item.code === "nimbus/internal-link-skipped")
+          .length,
+        1,
+      );
+      assert.ok(!hasFinding(r, "nimbus/internal-link"));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   }
 });
 
@@ -128,10 +195,15 @@ test("always-on validators still fire without a lint.json (mdx-syntax not skippe
   try {
     const r = checkAuthoring(dir);
     assert.ok(
-      r.findings.some((f) => f.code === "nimbus/mdx-syntax" && f.severity === "error"),
+      r.findings.some(
+        (f) => f.code === "nimbus/mdx-syntax" && f.severity === "error",
+      ),
       "mdx-syntax must fire even when no lint config is materialized",
     );
-    assert.ok(note(r, "nimbus/authoring-optin-skipped"), "opt-in skip still noted");
+    assert.ok(
+      note(r, "nimbus/authoring-optin-skipped"),
+      "opt-in skip still noted",
+    );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -148,7 +220,10 @@ test("internal-link skip is noted structurally, never leaked to stderr", () => {
   }) as typeof process.stderr.write;
   try {
     const r = checkAuthoring(dir);
-    assert.ok(note(r, "nimbus/internal-link-skipped"), "the skip is a structured note");
+    assert.ok(
+      note(r, "nimbus/internal-link-skipped"),
+      "the skip is a structured note",
+    );
     assert.doesNotMatch(captured, /nimbus\/internal-link: skipped/);
   } finally {
     process.stderr.write = original;

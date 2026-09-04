@@ -4,8 +4,8 @@
  * Route truth for `nimbus/internal-link` comes from Astro itself
  * (`astro:build:done` hands us the emitted `pages` array — the single
  * source of truth for served URLs). The integration writes that to
- * `.nimbus/routes.json`; the type lives here only so the rule and the
- * writer agree on the shape.
+ * `.nimbus/routes.json`; its schema and freshness validation live in
+ * `_internal/route-manifest.ts`.
  *
  * The duplicate-slug validator runs *before* the build because Astro
  * silently dedupes colliding routes — by the time `astro:build:done`
@@ -293,27 +293,4 @@ export function contentEntryUrl(
 ): string {
   const prefix = collectionMountPrefix(entry.collection, versions);
   return canonicalEntryUrl(prefix, entry.id);
-}
-
-// ---------------------------------------------------------------------------
-// Route truth — shape only. The integration's `astro:build:done` hook
-// constructs and writes this; `internal-link.ts` reads it.
-// ---------------------------------------------------------------------------
-
-export interface RouteTruth {
-  /** Schema version. Bump if the shape changes. */
-  version: 1;
-  /** Astro `base` config (`"/docs"`, `""`). Empty string when unset. */
-  base: string;
-  /**
-   * Every URL Astro emitted during the last build, canonicalized to
-   * `/foo` form (no trailing slash unless root). The lint rule resolves
-   * internal links against this set.
-   */
-  knownRoutes: string[];
-  /**
-   * Reserved for future SSR-route handling — URL prefixes that can't be
-   * statically enumerated. Empty in the current all-prerendered path.
-   */
-  opaqueNamespaces: string[];
 }

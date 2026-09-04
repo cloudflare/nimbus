@@ -47,23 +47,26 @@ test("request inventory preserves prose ids and only collapses the API root", ()
     requestInventoryEntryUrl("", "guides/index", false),
     "/guides/index",
   );
-  assert.equal(requestInventoryEntryUrl("/blog", "index", false), "/blog/index");
+  assert.equal(
+    requestInventoryEntryUrl("/blog", "index", false),
+    "/blog/index",
+  );
   assert.equal(requestInventoryEntryUrl("/api", "index", true), "/api");
   assert.equal(
     requestInventoryEntryUrl("/api", "guides/index", true),
     "/api/guides/index",
   );
-  assert.equal(requestInventoryVersionStatusKey("docs-v1", false, "v1"), "docs-v1");
+  assert.equal(
+    requestInventoryVersionStatusKey("docs-v1", false, "v1"),
+    "docs-v1",
+  );
   assert.equal(requestInventoryVersionStatusKey("api", true, "v1"), "api@v1");
 });
 
 test("request inventory reader removes root and base-prefixed candidates", async (t) => {
   const root = await mkdtemp(path.join(tmpdir(), "nimbus-request-inventory-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const rootInventory = path.join(
-    root,
-    "_nimbus/request-route-inventory.json",
-  );
+  const rootInventory = path.join(root, "_nimbus/request-route-inventory.json");
   const basedInventory = path.join(
     root,
     "docs/_nimbus/request-route-inventory.json",
@@ -392,10 +395,12 @@ async function generateRequestSitemap(
   const sitemapIntegration = integration.configUpdates
     .flatMap(
       (update) =>
-        (update.integrations as Array<{
-          name: string;
-          hooks: Record<string, (...args: never[]) => unknown>;
-        }> | undefined) ?? [],
+        (update.integrations as
+          | Array<{
+              name: string;
+              hooks: Record<string, (...args: never[]) => unknown>;
+            }>
+          | undefined) ?? [],
     )
     .find((candidate) => candidate.name === "@astrojs/sitemap");
   assert.ok(sitemapIntegration);
@@ -530,7 +535,10 @@ test("upstream sitemap chunks request pages read from a mutable customPages arra
     5,
   );
   assert.ok(chunks.every((xml) => (xml.match(/<url>/g)?.length ?? 0) <= 2));
-  assert.match(await readFile(path.join(root, "sitemap-index.xml"), "utf8"), /sitemap-2\.xml/);
+  assert.match(
+    await readFile(path.join(root, "sitemap-index.xml"), "utf8"),
+    /sitemap-2\.xml/,
+  );
 });
 
 test("request inventory is removed before downstream build failures", async (t) => {
@@ -828,24 +836,22 @@ test("configured request routes are explained to the build invariant", async (t)
   assert.ok(
     infos.some((message) => /docs prerendered=2\/3 \(1 moved\)/.test(message)),
   );
-  assert.deepEqual(
-    JSON.parse(
-      await readFile(
-        path.join(integration.root, ".nimbus/routes.json"),
-        "utf8",
-      ),
-    ),
-    {
-      version: 1,
-      base: "",
-      knownRoutes: [
-        "/built",
-        "/foo/_nimbus/request-route-inventory.json",
-        "/guide",
-      ],
-      opaqueNamespaces: [],
-    },
+  const routeTruth = JSON.parse(
+    await readFile(path.join(integration.root, ".nimbus/routes.json"), "utf8"),
   );
+  assert.equal(routeTruth.version, 2);
+  assert.deepEqual(routeTruth.sourceFingerprint, {
+    version: 1,
+    algorithm: "sha256",
+    digest: routeTruth.sourceFingerprint.digest,
+  });
+  assert.match(routeTruth.sourceFingerprint.digest, /^[a-f0-9]{64}$/);
+  assert.deepEqual(routeTruth.knownRoutes, [
+    "/built",
+    "/foo/_nimbus/request-route-inventory.json",
+    "/guide",
+  ]);
+  assert.deepEqual(routeTruth.opaqueNamespaces, []);
   assert.equal(
     integration.injectedRoutes.some(
       (candidate) =>
@@ -860,6 +866,71 @@ test("configured request routes are explained to the build invariant", async (t)
   assert.match(
     await readFile(path.join(dist, "_nimbus/shiki.css"), "utf8"),
     /\.nb-shiki-/,
+  );
+});
+
+test("production build start invalidates old route truth and failed builds do not restore it", async (t) => {
+  const integration = await setupIntegration(t, undefined, "build");
+  integration.configDone({
+    injectTypes: () => new URL("file:///noop"),
+    config: { output: "server", adapter: { name: "node" } },
+    buildOutput: "server",
+  } as never);
+  integration.routesResolved({ routes: [] } as never);
+
+  const manifest = path.join(integration.root, ".nimbus/routes.json");
+  await mkdir(path.dirname(manifest), { recursive: true });
+  await writeFile(manifest, '{"version":1}\n', "utf8");
+  await integration.buildStart({} as never);
+  await assert.rejects(() => readFile(manifest, "utf8"), /ENOENT/);
+
+  await assert.rejects(
+    () =>
+      integration.buildDone({
+        dir: pathToFileURL(`${path.join(integration.root, "dist")}${path.sep}`),
+        pages: [{ pathname: "/" }],
+        logger: buildLogger,
+      } as never),
+    /CANNOT BE VERIFIED/,
+  );
+  await assert.rejects(() => readFile(manifest, "utf8"), /ENOENT/);
+});
+
+test("a source change during a production build leaves route truth invalidated", async (t) => {
+  const integration = await setupIntegration(t, undefined, "build");
+  integration.configDone({
+    injectTypes: () => new URL("file:///noop"),
+    config: { output: "static", adapter: undefined },
+    buildOutput: "static",
+  } as never);
+  integration.routesResolved({
+    routes: [
+      {
+        pattern: "/",
+        entrypoint: "src/pages/[...slug].astro",
+        type: "page",
+        isPrerendered: true,
+        origin: "project",
+      },
+    ],
+  } as never);
+  await integration.buildStart({} as never);
+  await mkdir(path.join(integration.root, "src/data"), { recursive: true });
+  await writeFile(
+    path.join(integration.root, "src/data/routes.json"),
+    '["/new"]\n',
+    "utf8",
+  );
+  const dist = path.join(integration.root, "dist");
+  await mkdir(dist, { recursive: true });
+  await integration.buildDone({
+    dir: pathToFileURL(`${dist}${path.sep}`),
+    pages: [{ pathname: "/" }],
+    logger: buildLogger,
+  } as never);
+  await assert.rejects(
+    () => readFile(path.join(integration.root, ".nimbus/routes.json"), "utf8"),
+    /ENOENT/,
   );
 });
 

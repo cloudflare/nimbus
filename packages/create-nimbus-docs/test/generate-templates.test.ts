@@ -31,6 +31,14 @@ test("every generated variant ships the adapter marker and implicit build defaul
       assert.doesNotMatch(cfg, /nimbus:rendering/);
       assert.doesNotMatch(cfg, /rendering:\s*\{\s*default:\s*["']request["']/);
       assert.doesNotMatch(cfg, /rendering:\s*\{/);
+      assert.match(
+        fs.readFileSync(path.join(dir, "gitignore"), "utf8"),
+        /^\.nimbus\/$/m,
+      );
+      const agent = fs.readFileSync(path.join(dir, "AGENT.md"), "utf8");
+      assert.match(agent, /@cloudflare\/nimbus-docs\/components\/Icon\.astro/);
+      assert.doesNotMatch(agent, /astro-icon\/components/);
+      assert.match(agent, /`nimbus-docs` CLI/);
     }
   } finally {
     fs.rmSync(out, { recursive: true, force: true });

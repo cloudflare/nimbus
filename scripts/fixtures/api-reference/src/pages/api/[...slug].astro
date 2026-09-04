@@ -11,10 +11,11 @@ const result = await getApiRoute(Astro);
 if (result instanceof Response) return result;
 const { page, nav, collection, version, coordinate } = result;
 const socialImage = `/og${page.href.replace(/\/$/, "")}.png`;
+const title = page.kind === "api" ? page.title : `${page.title} · API`;
 ---
 
 <BaseLayout
-  title={`${page.title} · API`}
+  {title}
   description={page.description}
   markdownUrl={page.markdownHref}
   socialImage={socialImage}

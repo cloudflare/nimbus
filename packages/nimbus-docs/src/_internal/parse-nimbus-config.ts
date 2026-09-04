@@ -19,6 +19,8 @@ const CONFIG_FILENAMES = [
   "astro.config.js",
 ] as const;
 
+const IMPORT_EXTENSIONS = [".ts", ".mts", ".cts", ".mjs", ".cjs", ".js"] as const;
+
 const NIMBUS_PACKAGE = "@cloudflare/nimbus-docs";
 
 export interface FieldSpan {
@@ -93,7 +95,15 @@ export function parseNimbusConfig(cwd: string): ConfigParseResult {
     };
   }
 
-  const objectStart = locateConfigObject(masked, argText);
+  let owner = found;
+  let objectStart = locateConfigObject(masked, argText);
+  if (objectStart === -1) {
+    const imported = resolveImportedConfig(cwd, source, masked, argText);
+    if (imported) {
+      owner = imported;
+      objectStart = imported.objectStart;
+    }
+  }
   if (objectStart === -1) {
     return {
       ok: false,
@@ -102,23 +112,35 @@ export function parseNimbusConfig(cwd: string): ConfigParseResult {
       file,
     };
   }
-  const objectEnd = findMatchingBrace(masked, objectStart);
+  const ownerMasked = owner === found ? masked : maskSource(owner.source);
+  const objectEnd = findMatchingBrace(ownerMasked, objectStart);
   if (objectEnd === -1) {
     return {
       ok: false,
       reason: "syntax",
-      detail: `Unbalanced braces in the config object in ${path.basename(file)}.`,
-      file,
+      detail: `Unbalanced braces in the config object in ${path.basename(owner.file)}.`,
+      file: owner.file,
     };
   }
 
-  const { fields, config, unresolved } = readFields(source, masked, objectStart, objectEnd);
+  const { fields, config, unresolved } = readFields(
+    owner.source,
+    ownerMasked,
+    objectStart,
+    objectEnd,
+  );
 
   return {
     ok: true,
     config,
     unresolved,
-    location: { file, source, objectStart, objectEnd, fields },
+    location: {
+      file: owner.file,
+      source: owner.source,
+      objectStart,
+      objectEnd,
+      fields,
+    },
   };
 }
 
@@ -304,6 +326,267 @@ function findDeclarationValueOffset(masked: string, identifier: string): number 
     if (eqIdx !== -1) return eqIdx + 1;
   }
   return -1;
+}
+
+interface ImportedConfig {
+  file: string;
+  source: string;
+  objectStart: number;
+}
+
+function resolveImportedConfig(
+  cwd: string,
+  source: string,
+  masked: string,
+  argText: string,
+): ImportedConfig | null {
+  const identifier = argText.trim();
+  if (!/^[A-Za-z_$][\w$]*$/.test(identifier)) return null;
+
+  const specifiers = findExactDefaultImportSpecifiers(source, masked, identifier);
+  if (specifiers.length !== 1) return null;
+  const file = resolveProjectImport(cwd, specifiers[0]!);
+  if (!file) return null;
+
+  let importedSource: string;
+  try {
+    importedSource = fs.readFileSync(file, "utf8");
+  } catch {
+    return null;
+  }
+  const importedMasked = maskSource(importedSource);
+  const objectStart = findImportedDefaultObject(importedSource, importedMasked);
+  return objectStart === -1 ? null : { file, source: importedSource, objectStart };
+}
+
+function findExactDefaultImportSpecifiers(
+  source: string,
+  masked: string,
+  identifier: string,
+): string[] {
+  const found: string[] = [];
+  const importPositions = [...masked.matchAll(/\bimport\b/g)].map((match) => match.index!);
+  const fromRe = /\bfrom\s+(["'])([^"'\\\r\n]+)\1/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = fromRe.exec(source)) !== null) {
+    let importIdx = -1;
+    for (const idx of importPositions) {
+      if (idx < match.index) importIdx = idx;
+      else break;
+    }
+    if (importIdx === -1) continue;
+    const clause = masked.slice(importIdx + "import".length, match.index).trim();
+    if (/\bimport\b/.test(clause) || clause !== identifier) continue;
+    found.push(match[2]!);
+  }
+  return found;
+}
+
+function resolveProjectImport(cwd: string, specifier: string): string | null {
+  if (!/^\.\.?\//.test(specifier)) return null;
+  const root = path.resolve(cwd);
+  const unresolved = path.resolve(root, specifier);
+  if (!isContainedPath(root, unresolved)) return null;
+
+  const extension = path.extname(unresolved);
+  const hasSupportedExtension = IMPORT_EXTENSIONS.includes(
+    extension as (typeof IMPORT_EXTENSIONS)[number],
+  );
+  const candidates = hasSupportedExtension
+    ? [unresolved]
+    : IMPORT_EXTENSIONS.map((candidateExtension) => unresolved + candidateExtension);
+  const existing: Array<{ file: string; stat: fs.Stats }> = [];
+
+  for (const file of candidates) {
+    try {
+      existing.push({ file, stat: fs.lstatSync(file) });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") return null;
+    }
+  }
+  if (existing.length !== 1) return null;
+  const target = existing[0]!;
+  if (target.stat.isSymbolicLink() || !target.stat.isFile()) return null;
+
+  try {
+    return isContainedPath(fs.realpathSync(root), fs.realpathSync(target.file))
+      ? target.file
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function isContainedPath(root: string, target: string): boolean {
+  const relative = path.relative(root, target);
+  return (
+    relative === "" ||
+    (!path.isAbsolute(relative) && !relative.startsWith(`..${path.sep}`) && relative !== "..")
+  );
+}
+
+function findImportedDefaultObject(source: string, masked: string): number {
+  const exports = [...masked.matchAll(/\bexport\s+default\b/g)].filter(
+    (match) => nestingDepthAt(masked, match.index!) === 0,
+  );
+  if (exports.length !== 1) return -1;
+  const exportMatch = exports[0]!;
+  const from = exportMatch.index! + exportMatch[0].length;
+  const resolved = resolveRestrictedExpression(
+    masked,
+    from,
+    hasRecognizedDefineConfigImport(source, masked),
+    new Set(),
+  );
+  if (!resolved || !endsStatement(masked, resolved.end)) return -1;
+  return resolved.objectStart;
+}
+
+function hasRecognizedDefineConfigImport(source: string, masked: string): boolean {
+  const safePackage = `${NIMBUS_PACKAGE}/config`.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const fromRe = new RegExp(`\\bfrom\\s+(["'])${safePackage}\\1`, "g");
+  const importPositions = [...masked.matchAll(/\bimport\b/g)].map((match) => match.index!);
+  let match: RegExpExecArray | null;
+
+  while ((match = fromRe.exec(source)) !== null) {
+    let importIdx = -1;
+    for (const idx of importPositions) {
+      if (idx < match.index) importIdx = idx;
+      else break;
+    }
+    if (importIdx === -1) continue;
+    const clause = masked.slice(importIdx + "import".length, match.index).trim();
+    if (/\bimport\b/.test(clause)) continue;
+    const named = /^\{([^}]*)\}$/.exec(clause);
+    if (named?.[1]?.split(",").some((entry) => entry.trim() === "defineConfig")) return true;
+  }
+  return false;
+}
+
+interface RestrictedExpression {
+  objectStart: number;
+  end: number;
+}
+
+function resolveRestrictedExpression(
+  masked: string,
+  from: number,
+  allowWrapper: boolean,
+  seen: Set<string>,
+): RestrictedExpression | null {
+  const start = skipWs(masked, from);
+  if (masked[start] === "{") {
+    const objectEnd = findMatchingBrace(masked, start);
+    return objectEnd === -1 ? null : { objectStart: start, end: objectEnd + 1 };
+  }
+
+  const identifierMatch = /^[A-Za-z_$][\w$]*/.exec(masked.slice(start));
+  if (!identifierMatch) return null;
+  const identifier = identifierMatch[0];
+  const identifierEnd = start + identifier.length;
+  const afterIdentifier = skipWs(masked, identifierEnd);
+
+  if (identifier === "defineConfig" && masked[afterIdentifier] === "(") {
+    if (!allowWrapper) return null;
+    const inner = resolveRestrictedExpression(
+      masked,
+      afterIdentifier + 1,
+      false,
+      seen,
+    );
+    if (!inner) return null;
+    const close = skipWs(masked, inner.end);
+    return masked[close] === ")"
+      ? { objectStart: inner.objectStart, end: close + 1 }
+      : null;
+  }
+
+  if (seen.has(identifier)) return null;
+  const declarations = findRestrictedDeclarations(masked, identifier);
+  if (declarations.length !== 1) return null;
+  const nextSeen = new Set(seen).add(identifier);
+  const value = resolveRestrictedExpression(
+    masked,
+    declarations[0]!.value,
+    allowWrapper,
+    nextSeen,
+  );
+  if (
+    !value ||
+    !endsStatement(masked, value.end) ||
+    hasUnsupportedBindingUse(
+      masked,
+      identifier,
+      declarations[0]!.binding,
+      value.objectStart,
+      value.end,
+      start,
+    )
+  ) return null;
+  return { objectStart: value.objectStart, end: identifierEnd };
+}
+
+function findRestrictedDeclarations(
+  masked: string,
+  identifier: string,
+): Array<{ value: number; binding: number }> {
+  const safeIdentifier = identifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const declaration = new RegExp(`\\bconst\\s+${safeIdentifier}\\b`, "g");
+  const declarations: Array<{ value: number; binding: number }> = [];
+  let match: RegExpExecArray | null;
+  while ((match = declaration.exec(masked)) !== null) {
+    if (nestingDepthAt(masked, match.index) !== 0) continue;
+    const equals = skipWs(masked, match.index + match[0].length);
+    if (masked[equals] === "=" && masked[equals + 1] !== "=" && masked[equals + 1] !== ">") {
+      declarations.push({
+        value: equals + 1,
+        binding: match.index + match[0].lastIndexOf(identifier),
+      });
+    }
+  }
+  return declarations;
+}
+
+function nestingDepthAt(masked: string, end: number): number {
+  let depth = 0;
+  for (let i = 0; i < end; i++) {
+    if (masked[i] === "{" || masked[i] === "[" || masked[i] === "(") depth++;
+    else if (masked[i] === "}" || masked[i] === "]" || masked[i] === ")") depth--;
+  }
+  return depth;
+}
+
+function endsStatement(masked: string, from: number): boolean {
+  const end = skipWs(masked, from);
+  return (
+    masked[end] === ";" ||
+    end === masked.length ||
+    /[\r\n]/.test(masked.slice(from, end))
+  );
+}
+
+function hasUnsupportedBindingUse(
+  masked: string,
+  identifier: string,
+  declarationBinding: number,
+  initializerStart: number,
+  initializerEnd: number,
+  allowedUse: number,
+): boolean {
+  const safeIdentifier = identifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const uses = new RegExp(`\\b${safeIdentifier}\\b`, "g");
+  let match: RegExpExecArray | null;
+  while ((match = uses.exec(masked)) !== null) {
+    const insideInitializer =
+      match.index >= initializerStart && match.index < initializerEnd;
+    if (
+      match.index !== declarationBinding &&
+      match.index !== allowedUse &&
+      !insideInitializer
+    ) return true;
+  }
+  return false;
 }
 
 // First `=` that's an assignment (skips `==`, `===`, `=>`, `<=`, `>=`, `!=`).
