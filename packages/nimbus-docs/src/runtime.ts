@@ -43,7 +43,7 @@ import {
   sidebarHash,
 } from "./_internal/sidebar.js";
 import { entryRouteUrl } from "./_internal/astro-slug.js";
-import { toBrowserHref, withBase } from "./_internal/url.js";
+import { toBrowserHref, toRouteKey, withBase } from "./_internal/url.js";
 import {
   PRIMARY_COLLECTION,
   collectionLabel as resolveCollectionSlug,
@@ -679,6 +679,46 @@ export async function getSidebarSections(
   // state is computed from `currentSlug` inside `deriveSidebarSections`.
   const tree = await buildStructuralTree(options?.collection);
   return deriveSidebarSections(tree, currentSlug);
+}
+
+/**
+ * Derive product-level header navigation from the docs home and configured API
+ * families. Returned internal hrefs include the deployment base path.
+ */
+export async function getProductSections(
+  currentSlug: string,
+  options?: { collection?: string; base?: string },
+): Promise<SidebarSection[]> {
+  const base = options?.base ?? "/";
+  const baseKey = toRouteKey(base);
+  const withoutBase = (href: string) => {
+    const key = toRouteKey(href);
+    if (baseKey === "/") return key;
+    if (key === baseKey) return "/";
+    return key.startsWith(`${baseKey}/`) ? key.slice(baseKey.length) : key;
+  };
+  const route = withoutBase(currentSlug);
+  const config = await loadNimbusConfig();
+  const apiSections = (config.api ?? []).map((api) => {
+    const mount = `/${api.collection}`;
+    return {
+      label: api.label ?? api.collection,
+      href: withBase(toBrowserHref(mount), base),
+      isActive:
+        options?.collection === api.collection ||
+        route === mount ||
+        route.startsWith(`${mount}/`),
+    };
+  });
+
+  return [
+    {
+      label: "Docs",
+      href: withBase("/", base),
+      isActive: !apiSections.some((section) => section.isActive),
+    },
+    ...apiSections,
+  ];
 }
 
 // A path that matches no real href, so the cached tree is built with every

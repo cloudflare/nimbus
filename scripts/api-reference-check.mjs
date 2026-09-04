@@ -254,8 +254,7 @@ function extractApiMarkdownUrls(text) {
       try {
         const url = new URL(value);
         return (
-          url.pathname.startsWith("/api/") &&
-          url.pathname.endsWith("/index.md")
+          url.pathname.startsWith("/api/") && url.pathname.endsWith("/index.md")
         );
       } catch {
         return false;
@@ -291,7 +290,10 @@ function sortObject(value) {
 }
 
 function sameJson(left, right) {
-  return JSON.stringify(sortObject(left ?? {})) === JSON.stringify(sortObject(right ?? {}));
+  return (
+    JSON.stringify(sortObject(left ?? {})) ===
+    JSON.stringify(sortObject(right ?? {}))
+  );
 }
 
 function packageMetadata(packageJson) {
@@ -353,16 +355,18 @@ function assertFrozenNimbusMetadata(lockText, nimbusPackage, consumerPackage) {
     ...consumerPackage.dependencies,
     ...consumerPackage.devDependencies,
   };
-  const requiredPeers = Object.keys(nimbusPackage.peerDependencies ?? {}).filter(
-    (name) => !nimbusPackage.peerDependenciesMeta?.[name]?.optional,
-  );
+  const requiredPeers = Object.keys(
+    nimbusPackage.peerDependencies ?? {},
+  ).filter((name) => !nimbusPackage.peerDependenciesMeta?.[name]?.optional);
   for (const name of requiredPeers) {
     assert(
       consumerDependencies[name],
       `generated consumer does not declare required Nimbus peer ${name}`,
     );
   }
-  const optionalPeers = Object.keys(nimbusPackage.peerDependencies ?? {}).filter(
+  const optionalPeers = Object.keys(
+    nimbusPackage.peerDependencies ?? {},
+  ).filter(
     (name) =>
       nimbusPackage.peerDependenciesMeta?.[name]?.optional &&
       consumerDependencies[name],
@@ -588,12 +592,17 @@ function reportLockDiff(before, after, cap = 60) {
   const afterLines = after.split("\n");
   const beforeSet = new Set(beforeLines);
   const afterSet = new Set(afterLines);
-  const removed = beforeLines.filter((line) => !afterSet.has(line) && line.trim());
-  const added = afterLines.filter((line) => !beforeSet.has(line) && line.trim());
+  const removed = beforeLines.filter(
+    (line) => !afterSet.has(line) && line.trim(),
+  );
+  const added = afterLines.filter(
+    (line) => !beforeSet.has(line) && line.trim(),
+  );
   process.stderr.write(
     `${PREFIX} lock drift: ${removed.length} line(s) removed, ${added.length} added\n`,
   );
-  for (const line of removed.slice(0, cap)) process.stderr.write(`  - ${line}\n`);
+  for (const line of removed.slice(0, cap))
+    process.stderr.write(`  - ${line}\n`);
   if (removed.length > cap)
     process.stderr.write(`  … ${removed.length - cap} more removed\n`);
   for (const line of added.slice(0, cap)) process.stderr.write(`  + ${line}\n`);
@@ -649,9 +658,61 @@ async function assertRecipeFixtureParity() {
   }
 }
 
+async function wireApiProductNavigation() {
+  const recipe = await readFile(API_REFERENCE_RECIPE, "utf8");
+  const importBlock = recipeFixtureBlock(
+    recipe,
+    "src/components/Header.astro#import",
+    "ts",
+  );
+  const setupBlock = recipeFixtureBlock(
+    recipe,
+    "src/components/Header.astro#setup",
+    "ts",
+  );
+  const markupBlock = recipeFixtureBlock(
+    recipe,
+    "src/components/Header.astro#markup",
+    "astro",
+  );
+  const headerPath = join(site, "src", "components", "Header.astro");
+  let header = await readFile(headerPath, "utf8");
+  const importAnchor =
+    'import { getSidebarSections } from "@cloudflare/nimbus-docs/runtime";';
+  const setupAnchor = `const sections =
+  sectionsProp ?? (await getSidebarSections(currentSlug, { collection }));`;
+  const markupAnchor = "      {showSections && (";
+
+  for (const [anchor, label] of [
+    [importAnchor, "import"],
+    [setupAnchor, "setup"],
+    [markupAnchor, "markup"],
+  ]) {
+    assert(
+      occurrences(header, anchor) === 1,
+      `generated Header has no unique product-navigation ${label} anchor`,
+    );
+  }
+
+  const indentedMarkup = markupBlock
+    .split("\n")
+    .map((line) => (line ? `      ${line}` : line))
+    .join("\n");
+  header = header.replace(importAnchor, importBlock);
+  header = header.replace(setupAnchor, `${setupAnchor}\n${setupBlock}`);
+  header = header.replace(markupAnchor, `${indentedMarkup}\n\n${markupAnchor}`);
+  await writeFile(headerPath, header);
+}
+
 async function applyOverlay() {
-  const generatedAstroConfig = await readFile(join(site, "astro.config.ts"), "utf8");
-  const overlayAstroConfig = await readFile(join(OVERLAY, "astro.config.ts"), "utf8");
+  const generatedAstroConfig = await readFile(
+    join(site, "astro.config.ts"),
+    "utf8",
+  );
+  const overlayAstroConfig = await readFile(
+    join(OVERLAY, "astro.config.ts"),
+    "utf8",
+  );
   assert(
     configExport(generatedAstroConfig) === configExport(overlayAstroConfig),
     "API overlay astro.config.ts drifted from the generated starter config",
@@ -670,6 +731,7 @@ async function applyOverlay() {
   }
   await mkdir(join(site, "src", "api"), { recursive: true });
   await cp(SPEC, join(site, "src", "api", "smallco.yaml"));
+  await wireApiProductNavigation();
 }
 
 async function assertProvenance(registryItems, registryUrl, initialNimbus) {
@@ -911,7 +973,9 @@ async function assertArtifactsAndSmoke(dist) {
     assertActive();
     browser = await chromium.launch({ headless: true });
     managedBrowsers.add(browser);
-    context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+    });
     const page = await context.newPage();
     page.on("pageerror", (error) =>
       browserErrors.push(`pageerror: ${error.message}`),
@@ -986,9 +1050,55 @@ async function assertArtifactsAndSmoke(dist) {
     }
 
     const selectors = EXPECTED.browser;
+    await page.goto(`${staticSite.origin}/index/`);
+    const proseApiSection = page.locator('nav[aria-label="Product"] a', {
+      hasText: "SmallCo API",
+    });
+    assert(
+      !(await proseApiSection.isVisible()),
+      "API product link is visible on mobile",
+    );
+    assert(
+      (await proseApiSection.getAttribute("href")) === "/api/",
+      "prose header misses the API section link",
+    );
+    assert(
+      (await proseApiSection.getAttribute("aria-current")) === null,
+      "API section link is active on prose routes",
+    );
+    const proseDocsSection = page.locator('nav[aria-label="Product"] a', {
+      hasText: "Docs",
+    });
+    assert(
+      !(await proseDocsSection.isVisible()),
+      "Docs product link is visible on mobile",
+    );
+    assert(
+      (await proseDocsSection.getAttribute("aria-current")) === "page",
+      "prose product link is not active on prose routes",
+    );
+    assert(
+      (await page
+        .locator('nav[aria-label="Sections"] a', {
+          hasText: "SmallCo API",
+        })
+        .count()) === 0,
+      "API product link was merged into prose sections",
+    );
     await page.goto(`${staticSite.origin}${selectors.operationRoute}`, {
       waitUntil: "networkidle",
     });
+    const apiSection = page.locator('nav[aria-label="Product"] a', {
+      hasText: "SmallCo API",
+    });
+    assert(
+      (await apiSection.getAttribute("href")) === "/api/",
+      "header misses the API section link",
+    );
+    assert(
+      (await apiSection.getAttribute("aria-current")) === "page",
+      "API section link is not active on API routes",
+    );
     const cardinality = await page.evaluate((value) => {
       const count = (selector) => document.querySelectorAll(selector).length;
       return {
@@ -1067,6 +1177,10 @@ async function assertArtifactsAndSmoke(dist) {
     );
 
     await page.setViewportSize({ width: 1600, height: 1000 });
+    assert(
+      await apiSection.isVisible(),
+      "API product link is hidden on desktop",
+    );
     const language = page.locator("[data-nb-lang-select]");
     const options = await language.locator("option").count();
     assert(
@@ -1162,9 +1276,22 @@ async function assertBasePathMetadata() {
     operationHtml.includes(`href="${operationMarkdownUrl}"`),
     "non-root API View as Markdown link uses an unbased URL",
   );
-  const directive = /<aside[^>]*data-ai-agent-directive[^>]*>([\s\S]*?)<\/aside>/.exec(
-    operationHtml,
-  )?.[1];
+  const operationApiSection =
+    /<a\b[^>]*href="\/docs\/api\/"[^>]*>[\s\S]*?SmallCo API[\s\S]*?<\/a>/.exec(
+      operationHtml,
+    )?.[0];
+  assert(
+    operationApiSection,
+    "non-root API header misses its based section link",
+  );
+  assert(
+    operationApiSection.includes('aria-current="page"'),
+    "non-root API header section is not active",
+  );
+  const directive =
+    /<aside[^>]*data-ai-agent-directive[^>]*>([\s\S]*?)<\/aside>/.exec(
+      operationHtml,
+    )?.[1];
   assert(directive, "non-root build has no agent directive");
   for (const url of [
     absoluteUrl("/docs/api/charges/create/index.md"),
@@ -1193,6 +1320,26 @@ async function assertBasePathMetadata() {
     "utf8",
   );
   const ordinaryMarkdownUrl = absoluteUrl("/docs/index.md");
+  const ordinaryApiSection =
+    /<a\b[^>]*href="\/docs\/api\/"[^>]*>[\s\S]*?SmallCo API[\s\S]*?<\/a>/.exec(
+      ordinaryHtml,
+    )?.[0];
+  assert(
+    ordinaryApiSection,
+    "non-root prose header misses the based API section link",
+  );
+  assert(
+    !ordinaryApiSection.includes("aria-current"),
+    "non-root prose header marks the API section active",
+  );
+  const ordinaryDocsSection =
+    /<a\b[^>]*href="\/docs\/"[^>]*>[\s\S]*?Docs[\s\S]*?<\/a>/.exec(
+      ordinaryHtml,
+    )?.[0];
+  assert(
+    ordinaryDocsSection?.includes('aria-current="page"'),
+    "non-root prose product link is missing its based active state",
+  );
   assert(
     ordinaryHtml.includes(`data-md-url="${ordinaryMarkdownUrl}"`),
     "non-root ordinary page actions use an unbased Markdown URL",
@@ -1454,7 +1601,10 @@ async function execute() {
     delete consumerPackage.dependencies[name];
     const peerPath = join(site, "node_modules", ...name.split("/"));
     await rm(peerPath, { recursive: true, force: true });
-    assert(!(await exists(peerPath)), `${name} remained linked before registry add`);
+    assert(
+      !(await exists(peerPath)),
+      `${name} remained linked before registry add`,
+    );
   }
   await writeFile(
     consumerPackagePath,
@@ -1465,15 +1615,21 @@ async function execute() {
   const registry = await startRegistry();
   let addResult;
   try {
-    addResult = await run("pnpm", ["exec", "nimbus-docs", "add", "api-layout", "--yes"], {
-      cwd: site,
-      env: { NIMBUS_REGISTRY_URL: registry.url },
-      timeoutMs: 15 * 60_000,
-    });
+    addResult = await run(
+      "pnpm",
+      ["exec", "nimbus-docs", "add", "api-layout", "--yes"],
+      {
+        cwd: site,
+        env: { NIMBUS_REGISTRY_URL: registry.url },
+        timeoutMs: 15 * 60_000,
+      },
+    );
   } finally {
     await stopRecord(registry.record);
   }
-  const postAddLock = normalizeLockForComparison(await readFile(lockPath, "utf8"));
+  const postAddLock = normalizeLockForComparison(
+    await readFile(lockPath, "utf8"),
+  );
   const normalizedFrozen = normalizeLockForComparison(frozenLock);
   if (postAddLock !== normalizedFrozen)
     reportLockDiff(normalizedFrozen, postAddLock);

@@ -17,8 +17,9 @@ interface Props {
    * Whether the page has a sidebar to open. When `false`, the mobile
    * menu button is hidden — pages that opted out via `sidebar: false`
    * shouldn't show a button that opens an empty dialog. Default `true`.
-   */
+  */
   showSidebar?: boolean;
+  /** Override prose section links. */
   sections?: SidebarSection[];
 }
 
@@ -38,15 +39,15 @@ const showSections = sections.length >= 2;
   <div class="mx-auto flex items-center justify-between gap-3 h-14 px-4 lg:px-6">
     <div class="flex items-center gap-3 min-w-0">
       <slot name="brand">
-        <a href="/" class="group shrink-0">
-          <span class="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+        <a href="/" class="group min-w-0">
+          <span class="block truncate font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
             {config.title}
           </span>
         </a>
       </slot>
 
       {showSections && (
-        <nav aria-label="Sections" class="hidden md:flex items-center gap-1 ml-4 pl-4 border-l border-border h-6 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <nav aria-label="Sections" class="hidden md:flex items-center gap-1 pl-3 border-l border-border h-6 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {sections.map((section) => (
             <a
               href={section.href}

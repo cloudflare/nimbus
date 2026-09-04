@@ -204,7 +204,7 @@ export interface ApiSpec {
    * document object. Not a remote URL in v1. Omit when `versions` is set.
    */
   spec?: string | Record<string, unknown>;
-  /** Human label for build diagnostics (falls back to `collection`). */
+  /** Human label for navigation and build diagnostics (falls back to `collection`). */
   label?: string;
   /**
    * Declares this collection as a version family. Pages are linked across
@@ -268,7 +268,7 @@ export interface ApiVersionSpec {
    * policy; a shared route map may be imported into several versions, but every
    * override key is validated against the concrete version receiving it.
    */
-   routes?: ApiRoutePolicy;
+  routes?: ApiRoutePolicy;
 }
 
 /**
@@ -390,7 +390,10 @@ export interface SearchResult {
 export interface SearchProvider {
   /** Optional lazy setup hook, called before the first search. */
   init?(): Promise<void>;
-  search(query: string, opts?: { signal?: AbortSignal }): Promise<SearchResult[]>;
+  search(
+    query: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<SearchResult[]>;
 }
 
 export interface HeadElement {
@@ -639,9 +642,7 @@ export interface SidebarGroupItem {
 }
 
 export type SidebarItem =
-  | SidebarLinkItem
-  | SidebarExternalLinkItem
-  | SidebarGroupItem;
+  SidebarLinkItem | SidebarExternalLinkItem | SidebarGroupItem;
 
 /**
  * A pass over the final sidebar tree (after scope and isolate), returning

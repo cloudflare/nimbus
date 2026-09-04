@@ -77,6 +77,9 @@ Print a short, exact plan to the user **before** writing anything:
   so `src/content.config.ts` can derive the collection from the same list — no
   second spec declaration.
 - Create `src/pages/api/[...slug].astro` and `src/pages/api/[...slug]/index.md.ts`.
+- Add desktop product navigation to `src/components/Header.astro`; keep it out of
+  mobile navigation for now so the existing sidebar button remains the only
+  mobile menu.
 - Resulting URLs: `/api` (overview), `/api/<slug>` (each page), the matching
   `/api/<slug>/index.md` twins, and `/api/llms.txt`.
 
@@ -150,8 +153,9 @@ import nimbusConfig from "./nimbus.config";
 `spec` is the path from Q1, resolved from the project root (not the current
 working directory — builds from a monorepo root or `--root` resolve correctly).
 `spec` may also be an inline OpenAPI object. Add a `label` for a friendlier name
-in build diagnostics; it defaults to the collection name. To mount more than one
-spec, add more entries to the array and explicitly register each one in 4c.
+in navigation and build diagnostics; it defaults to the collection name. To
+mount more than one spec, add more entries to the array and explicitly register
+each one in 4c.
 
 > **Why the `/config` entry?** `@cloudflare/nimbus-docs/config` exports only the
 > identity `defineConfig` with no side effects, so a `nimbus.config.ts` imported
@@ -333,6 +337,68 @@ The nav is handled by `ApiSidebar` inside `ApiLayout` — there's no separate
 `ApiNavList` to write. To customise the tree's look (icons, grouping, a
 collapse-all affordance), edit `src/components/ui/api-sidebar/`; the active/
 expanded flags and verb come pre-resolved on each `ApiNavItem`.
+
+### 4f. Add desktop product navigation
+
+The default starter is prose-only and deliberately carries no product-navigation
+logic. Since this site now has a second product surface, update its user-owned
+`src/components/Header.astro` to render Docs and configured API families as a
+separate `Product` nav. Do not merge these links into prose `Sections`.
+
+Import the framework mechanism alongside `getSidebarSections`:
+
+<!-- api-reference-fixture:src/components/Header.astro#import -->
+```ts
+import {
+  getProductSections,
+  getSidebarSections,
+} from "@cloudflare/nimbus-docs/runtime";
+```
+
+After the existing `sections` derivation, derive the product links. Preserve the
+Header's explicit `sections` override as a complete automatic-navigation bypass:
+
+<!-- api-reference-fixture:src/components/Header.astro#setup -->
+```ts
+const productSections =
+  sectionsProp === undefined
+    ? await getProductSections(currentSlug, {
+        collection,
+        base: import.meta.env.BASE_URL,
+      })
+    : [];
+const showProductSections = productSections.length >= 2;
+```
+
+Inside the Header's left-hand group, after the brand and before the prose
+`Sections` nav, render:
+
+<!-- api-reference-fixture:src/components/Header.astro#markup -->
+```astro
+{showProductSections && (
+  <nav aria-label="Product" class="hidden md:flex items-center gap-0.5 border-l border-border pl-3">
+    {productSections.map((section) => (
+      <a
+        href={section.href}
+        aria-current={section.isActive ? "page" : undefined}
+        class:list={[
+          "px-2 py-1 rounded-md text-[0.8125rem] font-medium no-underline transition-colors shrink-0 whitespace-nowrap",
+          section.isActive
+            ? "text-foreground bg-accent"
+            : "text-muted-foreground hover:text-foreground hover:bg-accent/60",
+        ]}
+      >
+        {section.label}
+      </a>
+    ))}
+  </nav>
+)}
+```
+
+Keep this nav desktop-only. Do not add another mobile trigger; the existing
+sidebar hamburger remains the sole mobile menu until product switching has a
+single consolidated mobile design.
+
 ## 5. Optional — add to the sidebar
 
 Sidebar layout is taste-laden; ask before editing. If the user wants an "API"
@@ -355,6 +421,8 @@ After writing all files, run the user's build command and confirm:
 4. `dist/api/llms.txt` lists every API page, and the root `dist/llms.txt`
    includes `api` as a top-level section.
 5. `dist/llms-full.txt` (if the site emits a corpus) embeds the API markdown.
+6. The desktop Header shows separate Docs and API product links; both are hidden
+   on mobile, where only the existing sidebar hamburger remains.
 
 Then tell the user the URLs to visit: `/api`, `/api/<slug>`,
 `/api/<slug>/index.md`, `/api/llms.txt`.
