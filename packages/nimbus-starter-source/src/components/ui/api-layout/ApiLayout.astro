@@ -11,7 +11,7 @@ import { ApiSidebar } from "@/components/ui/api-sidebar";
 import { ApiCodeRail } from "@/components/ui/api-code-rail";
 import { Banner } from "@/components/ui/banner";
 import ApiBody from "./ApiBody.astro";
-import { getApiVersionAlternates, getVersionStatus } from "@cloudflare/nimbus-docs/runtime";
+import { getApiVersionAlternates, getVersionStatus, withBase } from "@cloudflare/nimbus-docs/runtime";
 import type { ApiNav, ApiPageProps } from "@cloudflare/nimbus-docs/api";
 
 interface Props {
@@ -35,6 +35,7 @@ const currentSiblingUrl =
     ? ((await getApiVersionAlternates(collection, version, coordinate))?.canonical
         ?.url ?? null)
     : null;
+const currentSiblingHref = withBase(currentSiblingUrl ?? "/", import.meta.env.BASE_URL);
 
 // The rail column is reserved ONLY when it has content — a request sample or a
 // response example (mirrors ApiCodeRail's own gate). A bodyless GET with no
@@ -74,7 +75,7 @@ if (versionStatus?.isHidden) {
             <Banner
               variant="caution"
               class="mt-0 mb-6"
-              content={`<strong>${versionStatus.version}</strong> is deprecated. <a href="${currentSiblingUrl ?? "/"}">See the latest version</a>.`}
+              content={`<strong>${versionStatus.version}</strong> is deprecated. <a href="${currentSiblingHref}">See the latest version</a>.`}
             />
           </div>
         )}

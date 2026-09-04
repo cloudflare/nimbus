@@ -267,6 +267,27 @@ function occurrences(haystack, needle) {
   return haystack.split(needle).length - 1;
 }
 
+function findAnchor(html, href, text) {
+  return (html.match(/<a\b[^>]*>[\s\S]*?<\/a>/g) ?? []).find(
+    (anchor) =>
+      anchor.includes(`href="${href}"`) &&
+      anchor.replace(/<[^>]*>/g, " ").includes(text),
+  );
+}
+
+function assertRootHrefsUseBase(html, label) {
+  const hrefs = [...html.matchAll(/\bhref="(\/(?!\/)[^"]*)"/g)].map(
+    (match) => match[1],
+  );
+  const unbased = hrefs.filter(
+    (href) => href !== "/docs" && !href.startsWith("/docs/"),
+  );
+  assert(
+    unbased.length === 0,
+    `${label} contains unbased root hrefs: ${unbased.join(", ")}`,
+  );
+}
+
 function hasLinkTag(html, attributes) {
   return [...html.matchAll(/<link\b[^>]*>/g)].some(([tag]) =>
     Object.entries(attributes).every(([name, value]) =>
@@ -1272,14 +1293,43 @@ async function assertBasePathMetadata() {
     operationHtml.includes(`data-md-url="${operationMarkdownUrl}"`),
     "non-root API page actions use an unbased Markdown URL",
   );
-  assert(
-    operationHtml.includes(`href="${operationMarkdownUrl}"`),
-    "non-root API View as Markdown link uses an unbased URL",
-  );
-  const operationApiSection =
-    /<a\b[^>]*href="\/docs\/api\/"[^>]*>[\s\S]*?SmallCo API[\s\S]*?<\/a>/.exec(
+  const operationPageActions =
+    /<div\b[^>]*data-nb-page-actions[^>]*>[\s\S]*?<\/div>/.exec(
       operationHtml,
     )?.[0];
+  assert(
+    operationPageActions &&
+      findAnchor(
+        operationPageActions,
+        operationMarkdownUrl,
+        "View as Markdown",
+      ),
+    "non-root API View as Markdown link uses an unbased URL",
+  );
+  assertRootHrefsUseBase(operationHtml, "non-root API page");
+  assert(
+    hasLinkTag(operationHtml, {
+      rel: "stylesheet",
+      href: "/docs/_nimbus/shiki.css",
+    }),
+    "non-root API page has an unbased Shiki stylesheet",
+  );
+  assert(
+    /<link\b(?=[^>]*rel="icon")(?=[^>]*href="\/docs\/favicon\.(?:svg|ico|png)")[^>]*>/.test(
+      operationHtml,
+    ),
+    "non-root API page has an unbased favicon",
+  );
+  const operationProductNav =
+    /<nav\b[^>]*aria-label="Product"[^>]*>[\s\S]*?<\/nav>/.exec(
+      operationHtml,
+    )?.[0];
+  assert(operationProductNav, "non-root API page misses the Product nav");
+  const operationApiSection = findAnchor(
+    operationProductNav,
+    "/docs/api/",
+    "SmallCo API",
+  );
   assert(
     operationApiSection,
     "non-root API header misses its based section link",
@@ -1320,10 +1370,16 @@ async function assertBasePathMetadata() {
     "utf8",
   );
   const ordinaryMarkdownUrl = absoluteUrl("/docs/index.md");
-  const ordinaryApiSection =
-    /<a\b[^>]*href="\/docs\/api\/"[^>]*>[\s\S]*?SmallCo API[\s\S]*?<\/a>/.exec(
+  const ordinaryProductNav =
+    /<nav\b[^>]*aria-label="Product"[^>]*>[\s\S]*?<\/nav>/.exec(
       ordinaryHtml,
     )?.[0];
+  assert(ordinaryProductNav, "non-root prose header misses the Product nav");
+  const ordinaryApiSection = findAnchor(
+    ordinaryProductNav,
+    "/docs/api/",
+    "SmallCo API",
+  );
   assert(
     ordinaryApiSection,
     "non-root prose header misses the based API section link",
@@ -1332,10 +1388,11 @@ async function assertBasePathMetadata() {
     !ordinaryApiSection.includes("aria-current"),
     "non-root prose header marks the API section active",
   );
-  const ordinaryDocsSection =
-    /<a\b[^>]*href="\/docs\/"[^>]*>[\s\S]*?Docs[\s\S]*?<\/a>/.exec(
-      ordinaryHtml,
-    )?.[0];
+  const ordinaryDocsSection = findAnchor(
+    ordinaryProductNav,
+    "/docs/",
+    "Docs",
+  );
   assert(
     ordinaryDocsSection?.includes('aria-current="page"'),
     "non-root prose product link is missing its based active state",
@@ -1359,6 +1416,28 @@ async function assertBasePathMetadata() {
   assert(
     ordinaryDirective?.includes(`href="${ordinaryMarkdownUrl}"`),
     "non-root ordinary agent directive uses an unbased Markdown URL",
+  );
+  assertRootHrefsUseBase(ordinaryHtml, "non-root prose page");
+  const homeHtml = await readFile(
+    join(site, "dist-base", "index.html"),
+    "utf8",
+  );
+  assertRootHrefsUseBase(homeHtml, "non-root home page");
+  for (const href of [
+    "/docs/welcome",
+    "/docs/getting-started",
+    "/docs/components",
+  ]) {
+    assert(homeHtml.includes(`href="${href}"`), `home page is missing ${href}`);
+  }
+  const notFoundHtml = await readFile(
+    join(site, "dist-base", "404.html"),
+    "utf8",
+  );
+  assertRootHrefsUseBase(notFoundHtml, "non-root 404 page");
+  assert(
+    notFoundHtml.includes('href="/docs/"'),
+    "non-root 404 home link is unbased",
   );
   const basedArtifacts = {
     "root agent index": [

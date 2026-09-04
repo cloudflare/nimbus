@@ -1,6 +1,7 @@
 ---
 import ApiFieldRow from "./ApiFieldRow.astro";
 import type { ApiUnionView } from "@cloudflare/nimbus-docs/api";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
 import "./field-list.css";
 
 interface Props {
@@ -29,7 +30,7 @@ const entries =
           <div class="fl-body">
             <div class="fl-sig">
               {variant.href ? (
-                <a href={variant.href} class="fl-type-link fl-variant-link">{variant.label}</a>
+                <a href={withBase(variant.href, import.meta.env.BASE_URL)} class="fl-type-link fl-variant-link">{variant.label}</a>
               ) : (
                 <span class="fl-name">{variant.label}</span>
               )}
@@ -38,7 +39,7 @@ const entries =
             </div>
             {variant.href && (
               <div class="fl-desc">
-                <a href={variant.href}>View {variant.label} schema →</a>
+                <a href={withBase(variant.href, import.meta.env.BASE_URL)}>View {variant.label} schema →</a>
               </div>
             )}
             <details class="fl-expandable" open={i === 0 && AUTO_OPEN_DEPTH >= depth + 1}>
@@ -58,7 +59,7 @@ const entries =
         <li class="fl-item fl-item--child">
           <div class="fl-sig">
             {variant.href ? (
-              <a href={variant.href} class="fl-type-link fl-variant-link">{variant.label}</a>
+              <a href={withBase(variant.href, import.meta.env.BASE_URL)} class="fl-type-link fl-variant-link">{variant.label}</a>
             ) : (
               <span class="fl-name">{variant.label}</span>
             )}

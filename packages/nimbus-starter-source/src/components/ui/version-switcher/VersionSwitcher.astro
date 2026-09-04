@@ -8,6 +8,7 @@ import {
   getVersionAlternates,
   getVersionLandingUrl,
   getVersions,
+  withBase,
 } from "@cloudflare/nimbus-docs/runtime";
 import { Popover, PopoverContent, PopoverTrigger } from "../popover";
 import { cn } from "@/lib/cn";
@@ -156,6 +157,13 @@ if (versions && versions.all.length >= 2) {
     : (versions.current ?? "");
 }
 }
+
+entries = entries.map((entry) => ({
+  ...entry,
+  href: entry.isActive
+    ? entry.href
+    : withBase(entry.href, import.meta.env.BASE_URL),
+}));
 
 const labelId = `nb-version-picker-${Math.random().toString(36).slice(2, 9)}`;
 ---

@@ -22,7 +22,7 @@ import { config } from "virtual:nimbus/config";
 export const prerender = true;
 
 const PRIMARY_COLLECTION = "docs";
-const absoluteUrl = (path: string) =>
+const absoluteAuthoredUrl = (path: string) =>
   new URL(withBase(path, import.meta.env.BASE_URL), config.site).href;
 
 interface SlugProps {
@@ -61,7 +61,7 @@ export async function GET({ props }: { props: SlugProps }) {
     `title: ${JSON.stringify(title)}`,
     ...(description ? [`description: ${JSON.stringify(description)}`] : []),
     ...(socialImage
-      ? [`image: ${JSON.stringify(absoluteUrl(socialImage))}`]
+      ? [`image: ${JSON.stringify(absoluteAuthoredUrl(socialImage))}`]
       : []),
     ...(version ? [`version: ${JSON.stringify(version)}`] : []),
     "---",

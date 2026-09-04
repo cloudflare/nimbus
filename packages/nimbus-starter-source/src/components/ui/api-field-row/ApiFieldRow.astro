@@ -2,6 +2,7 @@
 import ApiUnionExplorer from "./ApiUnionExplorer.astro";
 import { typeTokens, constraintPairs, isExpandable, hasChildPreview } from "./type-display";
 import type { ApiFieldView } from "@cloudflare/nimbus-docs/api";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
 import "./field-list.css";
 
 interface Props {
@@ -47,7 +48,7 @@ const linkSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
         <span class="fl-type-group">
           {toks.map((t) =>
             t.href ? (
-              <a href={t.href} class="fl-type-link" title={t.title}>{t.text}</a>
+              <a href={withBase(t.href, import.meta.env.BASE_URL)} class="fl-type-link" title={t.title}>{t.text}</a>
             ) : (
               <span class="fl-type" title={t.title}>{t.text}</span>
             )

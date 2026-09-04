@@ -24,7 +24,7 @@ const {
   collapsible,
   class: className,
   truncated,
-} = Astro.props;
+}: Props = Astro.props;
 
 const hasFields = fields !== undefined;
 if (hasFields && fields.length === 0) return;

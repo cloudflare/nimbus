@@ -21,7 +21,12 @@ const page = await getDocsPage(Astro);
 if (page instanceof Response) return page;
 const { entry, Content, headings } = page;
 
-const currentSlug = Astro.url.pathname.replace(/\/$/, "") || "/";
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const pathname = Astro.url.pathname;
+const unbasedPathname = basePath && (pathname === basePath || pathname.startsWith(`${basePath}/`))
+  ? pathname.slice(basePath.length) || "/"
+  : pathname;
+const currentSlug = unbasedPathname.replace(/\/$/, "") || "/";
 
 const { sidebar: sidebarOn, tableOfContents: tocOn } = await getRouteFlags(entry);
 
@@ -47,7 +52,8 @@ const toc = tocOn && tocConfig !== false ? getTOC(headings, tocConfig) : false;
 const markdownPath = entry.id === "index" ? "/index.md" : `/${entry.id}/index.md`;
 const basedMarkdownPath = withBase(markdownPath, import.meta.env.BASE_URL);
 const markdownUrl = Astro.site ? new URL(basedMarkdownPath, Astro.site).href : basedMarkdownPath;
-const socialImage = entry.data.socialImage ?? `/og/${entry.id}.png`;
+const socialImage = entry.data.socialImage ??
+  withBase(`/og/${entry.id}.png`, import.meta.env.BASE_URL);
 ---
 
 <DocsLayout

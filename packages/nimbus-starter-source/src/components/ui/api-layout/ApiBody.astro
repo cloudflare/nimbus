@@ -209,7 +209,7 @@ const deprecationHtml = page.deprecated
     <ul class="flex list-none flex-col gap-1 p-0">
       {page.operations.map((op) => (
         <li>
-          <a href={op.href} class="font-medium underline-offset-2 hover:underline">{op.label}</a>
+          <a href={withBase(op.href, import.meta.env.BASE_URL)} class="font-medium underline-offset-2 hover:underline">{op.label}</a>
         </li>
       ))}
     </ul>
@@ -230,7 +230,7 @@ const deprecationHtml = page.deprecated
         <ul class="flex list-none flex-col gap-1 p-0">
           {page.sections.map((s) => (
             <li>
-              <a href={s.href} class="font-medium underline-offset-2 hover:underline">{s.label}</a>
+              <a href={withBase(s.href, import.meta.env.BASE_URL)} class="font-medium underline-offset-2 hover:underline">{s.label}</a>
             </li>
           ))}
         </ul>

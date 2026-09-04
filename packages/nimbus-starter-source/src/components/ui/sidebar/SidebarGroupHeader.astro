@@ -19,6 +19,7 @@ import { cn } from "@/lib/cn";
 import { CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import type { SidebarBadge } from "@cloudflare/nimbus-docs/types";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
 
 interface Props {
   label: string;
@@ -35,6 +36,9 @@ interface Props {
 }
 
 const { label, isOpen, hasActive, badge, indexHref, indexIsCurrent, indexIsExternal, icon, deprecated } = Astro.props;
+const resolvedIndexHref = indexHref?.startsWith("/")
+  ? withBase(indexHref, import.meta.env.BASE_URL)
+  : indexHref;
 
 const rowClass = cn(
   "group/expander flex min-h-[2rem] items-center rounded-lg px-3 py-1 text-[0.8125rem] no-underline transition-colors duration-150 focus-visible:outline-offset-[-2px]",
@@ -54,7 +58,7 @@ const labelClass = cn("break-words", deprecated && "line-through");
       data-nb-sidebar-group-label
     >
       <a
-        href={indexHref}
+        href={resolvedIndexHref}
         aria-current={indexIsCurrent ? "page" : undefined}
         target={indexIsExternal ? "_blank" : undefined}
         rel={indexIsExternal ? "noopener" : undefined}
