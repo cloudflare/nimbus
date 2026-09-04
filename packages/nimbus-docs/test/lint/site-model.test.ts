@@ -333,7 +333,7 @@ test("enumerateStaticPageRoutes skips underscore-prefixed files and directories"
   );
 });
 
-test("enumerateStaticPageRoutes lowercases segments to match Astro's joinSegments", () => {
+test("enumerateStaticPageRoutes preserves static segment casing to match Astro", () => {
   withTempPages(
     {
       "Search.astro": "x",
@@ -342,7 +342,7 @@ test("enumerateStaticPageRoutes lowercases segments to match Astro's joinSegment
     (pagesRoot, projectRoot) => {
       const routes = enumerateStaticPageRoutes(pagesRoot, projectRoot);
       const urls = routes.map((r) => r.url).sort();
-      assert.deepEqual(urls, ["/blog/my-post", "/search"]);
+      assert.deepEqual(urls, ["/Blog/My-Post", "/Search"]);
     },
   );
 });
