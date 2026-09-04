@@ -1196,10 +1196,8 @@ async function resolveProseRoute<C extends string>(
  *   export const prerender = true;
  *   export const getStaticPaths = getDocsStaticPaths;
  *
- * The entry's `id` is used verbatim as the slug. So `docs/index.mdx` →
- * `/index`, `docs/guides/setup.mdx` → `/guides/setup`. If you want a docs
- * entry at the root URL, name it appropriately and decide whether to use
- * a static `pages/index.astro` or let the catch-all handle root.
+ * The root `index` entry maps to the catch-all root. So `docs/index.mdx` →
+ * `/`, `docs/guides/setup.mdx` → `/guides/setup`.
  */
 export const getDocsStaticPaths: GetStaticPaths = async () => {
   // Docs-specific helper: always reads the `docs` collection. Other
@@ -1207,7 +1205,7 @@ export const getDocsStaticPaths: GetStaticPaths = async () => {
   // a one-line `getCollection("<name>")`-based getStaticPaths.
   const entries = await getVisibleEntries(["docs"]);
   return entries.map((entry) => ({
-    params: { slug: entry.id },
+    params: { slug: entry.id === "index" ? undefined : entry.id },
     props: { entry },
     cacheKey: String(entry.digest),
   }));
