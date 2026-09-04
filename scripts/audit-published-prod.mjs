@@ -3,7 +3,18 @@
 import { spawnSync } from "node:child_process";
 
 const BLOCKING_SEVERITIES = new Set(["high", "critical"]);
-const AUDIT_TIMEOUT_MS = 60_000;
+const KNOWN_SEVERITIES = new Set(["info", "low", "moderate", "high", "critical"]);
+const AUDIT_TIMEOUT_MS = 25_000;
+const REGISTRY_ERROR_CODES = new Set([
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ENETUNREACH",
+  "ENOTFOUND",
+  "ERR_SOCKET_TIMEOUT",
+  "ETIMEDOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+]);
 const PUBLISHED_IMPORTERS = new Set([
   "packages/nimbus-docs",
   "packages/create-nimbus-docs",
@@ -20,13 +31,21 @@ const result = spawnSync(
     "--prod",
     "--json",
   ],
-  { encoding: "utf8", timeout: AUDIT_TIMEOUT_MS },
+  {
+    encoding: "utf8",
+    timeout: AUDIT_TIMEOUT_MS,
+    env: {
+      ...process.env,
+      npm_config_fetch_retries: "0",
+      npm_config_fetch_timeout: "15000",
+    },
+  },
 );
 
 if (result.error) {
   if (result.error.code === "ETIMEDOUT") {
     console.error(
-      `pnpm audit timed out after ${AUDIT_TIMEOUT_MS / 1000}s. The npm audit service may be unavailable.`,
+      `pnpm audit exceeded its ${AUDIT_TIMEOUT_MS / 1000}s process timeout without reporting a registry error.`,
     );
     process.exit(1);
   }
@@ -48,8 +67,18 @@ try {
 }
 
 if (isPlainObject(report?.error)) {
+  if (Object.keys(report).some((reportKey) => reportKey !== "error")) {
+    console.error("pnpm audit returned an error mixed with report data.");
+    process.exit(1);
+  }
+  const message = String(
+    report.error.summary ?? report.error.message ?? "unknown registry error",
+  );
+  if (isRegistryUnavailableError(report.error)) {
+    skipUnavailableAudit(message);
+  }
   console.error(
-    `pnpm audit failed: ${String(report.error.summary ?? report.error.message ?? "unknown registry error")}`,
+    `pnpm audit failed: ${message}`,
   );
   process.exit(1);
 }
@@ -71,8 +100,17 @@ if (!isPlainObject(advisories)) {
 const scoped = [];
 
 for (const advisory of Object.values(advisories)) {
-  if (!isPlainObject(advisory)) continue;
-  if (!BLOCKING_SEVERITIES.has(String(advisory.severity))) continue;
+  if (!isPlainObject(advisory)) {
+    failUnexpectedAdvisoryShape("unknown", "advisory is not an object");
+  }
+  const severity = String(advisory.severity ?? "");
+  if (!KNOWN_SEVERITIES.has(severity)) {
+    failUnexpectedAdvisoryShape(
+      String(advisory.github_advisory_id ?? advisory.id ?? "unknown"),
+      `unknown severity ${JSON.stringify(severity)}`,
+    );
+  }
+  if (!BLOCKING_SEVERITIES.has(severity)) continue;
 
   const ghsa = String(advisory.github_advisory_id ?? advisory.id ?? "unknown");
   if (!Array.isArray(advisory.findings) || advisory.findings.length === 0) {
@@ -88,8 +126,12 @@ for (const advisory of Object.values(advisories)) {
     }
 
     for (const path of finding.paths) {
-      if (typeof path !== "string") {
-        failUnexpectedAdvisoryShape(ghsa, "finding path is not a string");
+      if (
+        typeof path !== "string" ||
+        path.trim() === "" ||
+        path.split(" > ").some((segment) => segment.trim() === "")
+      ) {
+        failUnexpectedAdvisoryShape(ghsa, "finding path is not a valid dependency path");
       }
       const importer = firstPathSegment(path);
       if (!PUBLISHED_IMPORTERS.has(importer)) continue;
@@ -148,6 +190,28 @@ function key(ghsa, importer, moduleName) {
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isRegistryUnavailableError(error) {
+  const code = String(error.code ?? "");
+  return REGISTRY_ERROR_CODES.has(code);
+}
+
+function skipUnavailableAudit(reason) {
+  const summary = `Published package audit skipped: ${reason}.`;
+  if (process.env.GITHUB_ACTIONS === "true") {
+    console.warn(`::warning title=Published package audit unavailable::${escapeWorkflowCommand(summary)}`);
+  } else {
+    console.warn(summary);
+  }
+  console.warn(
+    "The npm audit service returned no result; actual vulnerability findings still fail this check.",
+  );
+  process.exit(0);
+}
+
+function escapeWorkflowCommand(value) {
+  return value.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A");
 }
 
 function failUnexpectedAdvisoryShape(ghsa, reason) {

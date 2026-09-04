@@ -1,13 +1,11 @@
 name: CI
 
-# Red/green signal on every PR: typecheck (whole workspace) + test + audit.
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
 
-# Default-deny; each job opts back into the minimum it needs.
 permissions: {}
 
 concurrency:
@@ -32,7 +30,6 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Root script builds nimbus-docs, then runs `pnpm -r typecheck`.
       - run: pnpm typecheck
 
   test:
@@ -94,9 +91,6 @@ jobs:
 
       - run: pnpm --filter @nimbus/www generate-registry
 
-      # Registry payloads must import the scoped package. A bare
-      # `grep 'from "nimbus-docs'` false-passes because the JSON escapes the
-      # quote — match the escaped form / parse `.files[].content`.
       - name: Assert no unscoped nimbus-docs imports
         run: |
           hits=$(grep -rl 'from \\"nimbus-docs' apps/www/public/registry/components || true)
@@ -121,13 +115,8 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      # `pnpm audit` needs the resolved tree to populate advisory paths; without
-      # an install it returns advisories with empty `paths` and the fail-closed
-      # shape guard rejects the run.
       - run: pnpm install --frozen-lockfile
 
-      # Fail closed: a non-JSON or unsupported audit response means this gate
-      # cannot classify published-package risk reliably.
       - name: Audit published package prod deps
         run: pnpm audit:published-prod
 
