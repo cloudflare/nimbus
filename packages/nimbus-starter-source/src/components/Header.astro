@@ -6,7 +6,7 @@ import { LinkButton } from "./ui/link-button";
 import { ThemeToggle } from "./ui/theme-toggle";
 import SearchTrigger from "./ui/search/SearchTrigger.astro";
 import { config } from "virtual:nimbus/config";
-import { getSidebarSections } from "@cloudflare/nimbus-docs/runtime";
+import { getSidebarSections, withBase } from "@cloudflare/nimbus-docs/runtime";
 
 interface Props {
   /** Astro collection id for the current page, forwarded from DocsLayout. */
@@ -32,13 +32,14 @@ const currentSlug = Astro.url.pathname.replace(/\/$/, "") || "/";
 const sections =
   sectionsProp ?? (await getSidebarSections(currentSlug, { collection }));
 const showSections = sections.length >= 2;
+const homeHref = withBase("/", import.meta.env.BASE_URL);
 ---
 
 <header class="sticky top-0 z-30 border-b border-border bg-card/80 backdrop-blur-lg">
   <div class="mx-auto flex items-center justify-between gap-3 h-14 px-4 lg:px-6">
     <div class="flex items-center gap-3 min-w-0">
       <slot name="brand">
-        <a href="/" class="group shrink-0">
+        <a href={homeHref} class="group shrink-0">
           <span class="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
             {config.title}
           </span>
@@ -49,7 +50,7 @@ const showSections = sections.length >= 2;
         <nav aria-label="Sections" class="hidden md:flex items-center gap-1 ml-4 pl-4 border-l border-border h-6 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {sections.map((section) => (
             <a
-              href={section.href}
+              href={withBase(section.href, import.meta.env.BASE_URL)}
               aria-current={section.isActive ? "page" : undefined}
               class:list={[
                 "px-2 py-1 rounded-md text-[0.8125rem] font-medium no-underline transition-colors shrink-0 whitespace-nowrap",
