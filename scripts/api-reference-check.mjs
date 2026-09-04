@@ -803,7 +803,7 @@ async function assertProvenance(registryItems, registryUrl, initialNimbus) {
   }
 }
 
-async function startStaticServer(dist) {
+async function startStaticServer(dist, base = "/") {
   const mime = {
     ".css": "text/css; charset=utf-8",
     ".html": "text/html; charset=utf-8",
@@ -819,7 +819,22 @@ async function startStaticServer(dist) {
       const pathname = decodeURIComponent(
         new URL(request.url ?? "/", "http://localhost").pathname,
       );
-      const relativePath = pathname.replace(/^\/+/, "");
+      const normalizedBase = `/${base.replace(/^\/+|\/+$/g, "")}`;
+      const mountedPath =
+        normalizedBase === "/"
+          ? pathname
+          : pathname === normalizedBase
+            ? "/"
+            : pathname.startsWith(`${normalizedBase}/`)
+              ? pathname.slice(normalizedBase.length)
+              : null;
+      if (mountedPath === null) {
+        response
+          .writeHead(404, { "content-type": "text/plain" })
+          .end("Not found");
+        return;
+      }
+      const relativePath = mountedPath.replace(/^\/+/, "");
       let file = resolve(dist, relativePath || "index.html");
       if (
         !file.startsWith(`${dist}${sep}`) &&
@@ -1469,7 +1484,61 @@ async function assertBasePathMetadata() {
       assert(contents.includes(url), `non-root ${artifact} is missing ${url}`);
     }
   }
-  ok("non-root base is preserved in metadata, directives, and Markdown bodies");
+  const { chromium } = await import("@playwright/test");
+  const staticSite = await startStaticServer(join(site, "dist-base"), "/docs");
+  let browser;
+  let context;
+  const pagefindRequests = [];
+  const browserErrors = [];
+  try {
+    browser = await chromium.launch({ headless: true });
+    managedBrowsers.add(browser);
+    context = await browser.newContext();
+    const page = await context.newPage();
+    page.on("request", (request) => {
+      if (request.url().includes("/pagefind/pagefind.js")) {
+        pagefindRequests.push(new URL(request.url()).pathname);
+      }
+    });
+    page.on("pageerror", (error) => browserErrors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") browserErrors.push(message.text());
+    });
+    await page.goto(`${staticSite.origin}/docs/api/charges/create/`, {
+      waitUntil: "networkidle",
+    });
+    await page.locator(EXPECTED.browser.searchTrigger).click();
+    await page.locator("[data-search-input]").fill("Create a charge");
+    await page
+      .locator("[data-search-results] [role='option']")
+      .first()
+      .waitFor({ timeout: 10_000 });
+    const resultLinks = await page
+      .locator("[data-search-results] [role='option'] a")
+      .evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+    assert(
+      JSON.stringify(pagefindRequests) ===
+        JSON.stringify(["/docs/pagefind/pagefind.js"]),
+      `non-root search requested unexpected Pagefind URLs: ${pagefindRequests.join(", ")}`,
+    );
+    assert(
+      resultLinks.length > 0 &&
+        resultLinks.every((href) => href?.startsWith("/docs/")),
+      "non-root search emitted an unbased result link",
+    );
+    assert(
+      browserErrors.length === 0,
+      `non-root Chromium reported errors: ${browserErrors.join("; ")}`,
+    );
+  } finally {
+    if (context) await context.close().catch(() => {});
+    if (browser) {
+      managedBrowsers.delete(browser);
+      await browser.close().catch(() => {});
+    }
+    await closeServer(staticSite.server);
+  }
+  ok("non-root base is preserved in metadata, directives, Markdown bodies, and browser search");
 }
 
 async function execute() {

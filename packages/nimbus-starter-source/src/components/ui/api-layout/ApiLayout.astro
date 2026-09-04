@@ -10,6 +10,7 @@ import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { ApiSidebar } from "@/components/ui/api-sidebar";
 import { ApiCodeRail } from "@/components/ui/api-code-rail";
 import { Banner } from "@/components/ui/banner";
+import { VersionSwitcher } from "@/components/ui/version-switcher";
 import ApiBody from "./ApiBody.astro";
 import { getApiVersionAlternates, getVersionStatus, withBase } from "@cloudflare/nimbus-docs/runtime";
 import type { ApiNav, ApiPageProps } from "@cloudflare/nimbus-docs/api";
@@ -61,6 +62,12 @@ if (versionStatus?.isHidden) {
     class="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 flex-col overflow-y-auto overscroll-contain border-r border-border bg-background [scrollbar-color:gray_transparent] [scrollbar-width:thin] md:flex lg:w-(--nb-sidebar-width)"
   >
     <div class="flex-1 pt-8 pb-12 pl-6 pr-4">
+      <VersionSwitcher
+        apiCollection={collection}
+        apiVersion={version}
+        {coordinate}
+        variant="sidebar"
+      />
       <ApiSidebar items={nav.items} />
     </div>
     <div class="pointer-events-none sticky bottom-0 h-8 bg-gradient-to-t from-background to-transparent"></div>
@@ -123,6 +130,12 @@ if (versionStatus?.isHidden) {
       </button>
     </div>
     <nav class="px-4 pb-8 pt-5">
+      <VersionSwitcher
+        apiCollection={collection}
+        apiVersion={version}
+        {coordinate}
+        variant="sidebar"
+      />
       <ApiSidebar items={nav.items} />
     </nav>
   </div>
