@@ -6,7 +6,8 @@ import { LinkButton } from "./ui/link-button";
 import { ThemeToggle } from "./ui/theme-toggle";
 import SearchTrigger from "./ui/search/SearchTrigger.astro";
 import { config } from "virtual:nimbus/config";
-import { getSidebarSections, withBase } from "@cloudflare/nimbus-docs/runtime";
+import { getSidebarSections } from "@cloudflare/nimbus-docs/runtime";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
 
 interface Props {
   /** Astro collection id for the current page, forwarded from DocsLayout. */
