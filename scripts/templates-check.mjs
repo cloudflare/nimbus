@@ -27,6 +27,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const GENERATED = resolve(ROOT, ".generated", "templates");
 const SCAFFOLDER_BIN = resolve(ROOT, "packages", "create-nimbus-docs", "dist", "index.js");
+const ROOT_PKG = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8"));
 const NIMBUS_PKG = JSON.parse(
   readFileSync(resolve(ROOT, "packages", "nimbus-docs", "package.json"), "utf8"),
 );
@@ -41,13 +42,10 @@ if (!LANES.includes(LANE)) {
   fail(`TEMPLATES_CHECK_LANE must be one of ${LANES.join(", ")}; received ${LANE}`);
 }
 
-// Package manager for the scaffold install/build. Default is the ambient pnpm
-// (pinned pnpm 9); set SCAFFOLD_PNPM to a corepack spec (e.g. `pnpm@latest`) to
-// exercise the build-scripts gate under a modern pnpm the pin 9 predates.
-const SCAFFOLD_PNPM = process.env.SCAFFOLD_PNPM;
-const [SCAFFOLD_PM_BIN, SCAFFOLD_PM_PREFIX] = SCAFFOLD_PNPM
-  ? ["corepack", [SCAFFOLD_PNPM]]
-  : ["pnpm", []];
+const SCAFFOLD_PNPM = process.env.SCAFFOLD_PNPM ?? ROOT_PKG.packageManager;
+if (!/^pnpm@\d+\.\d+\.\d+$/.test(SCAFFOLD_PNPM)) {
+  fail(`SCAFFOLD_PNPM must be an exact pnpm version; received ${SCAFFOLD_PNPM}`);
+}
 
 const cleanup = [];
 process.on("exit", () => {
@@ -71,7 +69,7 @@ function ok(msg) {
 
 // 1. Build framework + scaffolder, then generate every variant.
 console.log(
-  `[templates-check] ${LANE} scaffold install/build via ${SCAFFOLD_PNPM ? `corepack ${SCAFFOLD_PNPM}` : "ambient pnpm"}`,
+  `[templates-check] ${LANE} scaffold install/build via corepack ${SCAFFOLD_PNPM}`,
 );
 console.log("[templates-check] building nimbus-docs + create-nimbus-docs…");
 run("pnpm", ["--filter", "./packages/nimbus-docs", "--filter", "./packages/create-nimbus-docs", "build"]);
@@ -137,9 +135,9 @@ writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 
 // No --ignore-workspace: it would skip the scaffold's own pnpm-workspace.yaml
 // (the gate config), re-arming the pnpm-11 build-scripts gate (pnpm#12469).
-run(SCAFFOLD_PM_BIN, [...SCAFFOLD_PM_PREFIX, "install", "--no-frozen-lockfile"], { cwd: site });
-run(SCAFFOLD_PM_BIN, [...SCAFFOLD_PM_PREFIX, "typecheck"], { cwd: site });
-run(SCAFFOLD_PM_BIN, [...SCAFFOLD_PM_PREFIX, "build"], { cwd: site });
+run("corepack", [SCAFFOLD_PNPM, "install", "--no-frozen-lockfile"], { cwd: site });
+run("corepack", [SCAFFOLD_PNPM, "typecheck"], { cwd: site });
+run("corepack", [SCAFFOLD_PNPM, "build"], { cwd: site });
 
 const installed = JSON.parse(
   readFileSync(join(site, "node_modules", NIMBUS_NAME, "package.json"), "utf8"),

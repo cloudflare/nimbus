@@ -20,3 +20,15 @@ packages:
 # nanoid@3.3.18 patches GHSA-2v37-7h3g-55p8; postcss ^3.3.17 won't resolve to it
 overrides:
   nanoid: 3.3.18
+
+enablePrePostScripts: true
+
+supportedArchitectures:
+  cpu:
+    - current
+    - wasm32
+
+allowBuilds:
+  esbuild: false
+  sharp: false
+  workerd: false

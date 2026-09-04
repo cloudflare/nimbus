@@ -599,7 +599,7 @@ async function assertNoSourceShortcut() {
   );
 }
 
-// Drop the config-derived, registry-npmjs `tarball:` field (pinned pnpm 9.0.0
+// Drop the config-derived, registry-npmjs `tarball:` field (pinned pnpm
 // format) so the frozen-lock invariant holds regardless of the runner's registry.
 function normalizeLockForComparison(lock) {
   return lock.replace(
@@ -1575,8 +1575,8 @@ async function execute() {
     await run("pnpm", ["--version"], { timeoutMs: 30_000 })
   ).stdout.trim();
   assert(
-    pnpmVersion === "9.0.0",
-    `ambient pnpm 9.0.0 is required; found ${pnpmVersion}. If upgrading pnpm intentionally, update packageManager and regenerate scripts/fixtures/api-reference/pnpm-lock.yaml.template together`,
+    pnpmVersion === "11.25.0",
+    `ambient pnpm 11.25.0 is required; found ${pnpmVersion}. If upgrading pnpm intentionally, update packageManager and regenerate scripts/fixtures/api-reference/pnpm-lock.yaml.template together`,
   );
   ok(`preflight Node ${process.version}, pnpm ${pnpmVersion}`);
 

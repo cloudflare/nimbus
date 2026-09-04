@@ -45,7 +45,7 @@ Before you open a PR:
 
 ### Local development
 
-Requires **Node ≥ 22.12.0** and **pnpm 9** (pinned via `packageManager`, so Corepack fetches it for you).
+Requires **Node ≥ 22.12.0** and **pnpm 11**, pinned via `packageManager`. On Node 22–24, enable Corepack; on Node 25+, install Corepack or pnpm separately.
 
 ```sh
 pnpm install

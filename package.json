@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@11.25.0",
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
