@@ -1,0 +1,47 @@
+apps/www/src/content/components/aside.mdx
+  s_242427c071d51d::t_ab49dd486025bf 13,20-21,23-24,27-28,39-40,43-45,58-59,61-62,76-77,81,87-88
+apps/www/src/content/docs/api-reference.mdx
+  s_242427c071d51d::t_5bda97cc7fed20 1-287
+packages/nimbus-docs/src/_internal/markdown-processor-decorator.ts
+  s_242427c071d51d::t_475d9dcfafff55 1-65
+packages/nimbus-docs/src/_internal/prepared-headings.ts
+  s_e92a75fe09cce4::t_c92a53e7204d0f 1-110
+packages/nimbus-docs/src/_internal/transparent-proxy.ts
+  s_242427c071d51d::t_626a26bd0ccbfc 1-126
+packages/nimbus-docs/src/_internal/twin-artifacts.ts
+  s_242427c071d51d::t_b9d8468a2b1d8a 1-1562
+packages/nimbus-docs/src/build.ts
+  s_e92a75fe09cce4::t_ad27d14aba91df 1-110
+packages/nimbus-docs/test/markdown-processor-decoration.test.ts
+  s_242427c071d51d::t_2c5b7df86c20c7 1-194
+packages/nimbus-docs/test/rendering-policy.test.ts
+  s_e92a75fe09cce4::t_78423d8a3ede69 30-34,55-58,64-67,74,403-408,543-546,807-830
+packages/nimbus-docs/test/twin-artifacts.test.ts
+  s_242427c071d51d::t_9cfa60cf029abf 1-876
+pnpm-lock.yaml
+  s_242427c071d51d::t_111d1bedf02786 67,92,159,269-271,295,331,334,5570,5576,7625,7627,7632,7688
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "cadafb580300a0a0a5e461b62b4d19fd15fbda64",
+  "prompts": {},
+  "sessions": {
+    "s_242427c071d51d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f986b22aaffex8HAFHhvW7q9Qq",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_e92a75fe09cce4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f9199471effezXkMHF6cZytf9d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
