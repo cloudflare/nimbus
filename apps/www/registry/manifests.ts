@@ -308,7 +308,7 @@ export const MANIFESTS = {
     title: "ApiCodeRail",
     description:
       "An operation's code rail: a `LayerCard` of server-provided code samples with a synced language switcher, headed by the method chip (`ApiMethodChip`) and operation title, plus a status toggle that swaps between response examples. Reads an `ApiOperationPage`.",
-    registryDependencies: ["api-sidebar", "code", "layer-card", "cn"],
+    registryDependencies: ["api-sidebar", "layer-card", "cn"],
   },
 
   "api-layout": {

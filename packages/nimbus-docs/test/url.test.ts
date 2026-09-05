@@ -7,7 +7,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { toBrowserHref, toRouteKey, withBase } from "../src/_internal/url.js";
+import {
+  toBrowserHref,
+  toRouteKey,
+  withBase,
+  withBaseRoute,
+} from "../src/_internal/url.js";
 
 test("withBase prefixes internal paths and is idempotent", () => {
   assert.equal(withBase("/api/index.md", "/docs/"), "/docs/api/index.md");
@@ -31,6 +36,12 @@ test("withBase leaves root-base and external URLs unchanged", () => {
   assert.equal(withBase("//cdn.example.com/api", "/docs/"), "//cdn.example.com/api");
   assert.equal(withBase("#top", "/docs/"), "#top");
   assert.equal(withBase("?x=1", "/docs/"), "?x=1");
+});
+
+test("withBaseRoute always composes the base with a logical route", () => {
+  assert.equal(withBaseRoute("/docs/index.md", "/docs/"), "/docs/docs/index.md");
+  assert.equal(withBaseRoute("/guide/index.md", "/docs/"), "/docs/guide/index.md");
+  assert.equal(withBaseRoute("/index.md", "/"), "/index.md");
 });
 
 // ---------------------------------------------------------------------------

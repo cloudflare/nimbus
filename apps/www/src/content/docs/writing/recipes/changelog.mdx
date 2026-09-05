@@ -14,10 +14,10 @@ At work, looking up — the reader maintains an integration that worked yesterda
 
 One changelog per product (or per clearly versioned surface). Two load-bearing distinctions:
 
-- **Record vs. policy** (from the Stripe teardown): dated entries of what changed live here; how versioning works and how to migrate live on their own pages, linked from every breaking entry.
+- **Record vs. policy:** dated entries of what changed live here; how versioning works and how to migrate live on their own pages, linked from every breaking entry.
 - **Two genres, pick by what the reader keys on:**
-  - **Date-headed** — for a continuously shipped product surface (the Cloudflare/Linear shape). Sections per release date; entries titled by the change.
-  - **Version-headed** — for a versioned artifact (an SDK, a named API version): sections per version (`## [2.14.0] — 2026-06-18`, plus an `Unreleased` section for libraries, following the common open-source convention; Stripe's API changelog is version-first the same way). The entry rules below apply *within* each version section. The maintainer's question "what changed between 2.13 and 2.14?" is unanswerable in a date-headed log — if readers pin versions, head by version.
+  - **Date-headed** — for a continuously shipped product surface. Sections per release date; entries titled by the change.
+  - **Version-headed** — for a versioned artifact (an SDK, a named API version): sections per version (`## [2.14.0] — 2026-06-18`, plus an `Unreleased` section for libraries). The entry rules below apply *within* each version section. The maintainer's question "what changed between 2.13 and 2.14?" is unanswerable in a date-headed log — if readers pin versions, head by version.
 
 The changelog is not:
 
@@ -49,7 +49,7 @@ A changelog doesn't end; it accumulates. The contract is at the *top* (policy li
 
 ## Thresholds
 
-- **Entry body ≤ 3 sentences.** Depth beyond that lives on a linked page — a per-entry detail page (the Stripe pattern), the migration guide, or the launch post.
+- **Entry body ≤ 3 sentences.** Depth beyond that lives on a linked detail page, migration guide, or launch post.
 - **Entries that change documented behavior link to the updated docs page.** Fixed and Security entries link to the relevant reference or troubleshooting page when one exists — a fix for behavior the docs never documented has nowhere to point, and that's fine.
 - **Every breaking/deprecation entry carries: who's affected, what to do, and a date.** Missing any of the three, it isn't ready to publish.
 
@@ -62,7 +62,7 @@ The changelog is the site's freshness layer — entries deep-link into stable do
 - The changelog is the **prior-correction surface**: deprecated things live on in training data, so Deprecated/Removed entries are what stop an agent from recommending them. Write them as flat declaratives an agent can act on: "`attempt_count` is deprecated; use `attempt`."
 - Dates in ISO format (`2026-06-18`); "last month" is meaningless in a retrieved chunk.
 - Each entry self-contained: full field names, full feature names — an entry retrieved alone must make sense alone.
-- Personality never replaces the fact. Slack-style whimsy ("all bugs fixed were too small to see") is a non-statement no reader or agent can act on; if you want voice, add it *after* the fact, not instead of it.
+- Personality never replaces the fact. Whimsy without specifics is a non-statement no reader or agent can act on; if you want voice, add it *after* the fact, not instead of it.
 
 ## Checklist
 

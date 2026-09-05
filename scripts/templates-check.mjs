@@ -135,8 +135,8 @@ for (const field of ["dependencies", "devDependencies"]) {
 if (!rewired) fail(`scaffolded project declares no ${NIMBUS_NAME} dependency`);
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 
-// No --ignore-workspace: it would skip the scaffold's own pnpm-workspace.yaml
-// (the gate config), re-arming the pnpm-11 build-scripts gate (pnpm#12469).
+// Keep the scaffold's workspace configuration active so dependency build
+// permissions are honored.
 run(SCAFFOLD_PM_BIN, [...SCAFFOLD_PM_PREFIX, "install", "--no-frozen-lockfile"], { cwd: site });
 run(SCAFFOLD_PM_BIN, [...SCAFFOLD_PM_PREFIX, "typecheck"], { cwd: site });
 run(SCAFFOLD_PM_BIN, [...SCAFFOLD_PM_PREFIX, "build"], { cwd: site });

@@ -28,6 +28,11 @@ import {
 import { getCodeStyleCSS } from "../src/_internal/code-style-registry.js";
 import { parseContentCollections } from "../src/_internal/parse-content-collections.js";
 import {
+  beginPreparedMarkdownLoad,
+  commitPreparedMarkdownCollection,
+  preparedMarkdownRootKey,
+} from "../src/_internal/prepared-markdown-registry.js";
+import {
   requestInventoryEntryUrl,
   requestInventoryVersionStatusKey,
 } from "../src/_internal/request-route-url.js";
@@ -47,23 +52,26 @@ test("request inventory preserves prose ids and only collapses the API root", ()
     requestInventoryEntryUrl("", "guides/index", false),
     "/guides/index",
   );
-  assert.equal(requestInventoryEntryUrl("/blog", "index", false), "/blog/index");
+  assert.equal(
+    requestInventoryEntryUrl("/blog", "index", false),
+    "/blog/index",
+  );
   assert.equal(requestInventoryEntryUrl("/api", "index", true), "/api");
   assert.equal(
     requestInventoryEntryUrl("/api", "guides/index", true),
     "/api/guides/index",
   );
-  assert.equal(requestInventoryVersionStatusKey("docs-v1", false, "v1"), "docs-v1");
+  assert.equal(
+    requestInventoryVersionStatusKey("docs-v1", false, "v1"),
+    "docs-v1",
+  );
   assert.equal(requestInventoryVersionStatusKey("api", true, "v1"), "api@v1");
 });
 
 test("request inventory reader removes root and base-prefixed candidates", async (t) => {
   const root = await mkdtemp(path.join(tmpdir(), "nimbus-request-inventory-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const rootInventory = path.join(
-    root,
-    "_nimbus/request-route-inventory.json",
-  );
+  const rootInventory = path.join(root, "_nimbus/request-route-inventory.json");
   const basedInventory = path.join(
     root,
     "docs/_nimbus/request-route-inventory.json",
@@ -392,10 +400,12 @@ async function generateRequestSitemap(
   const sitemapIntegration = integration.configUpdates
     .flatMap(
       (update) =>
-        (update.integrations as Array<{
-          name: string;
-          hooks: Record<string, (...args: never[]) => unknown>;
-        }> | undefined) ?? [],
+        (update.integrations as
+          | Array<{
+              name: string;
+              hooks: Record<string, (...args: never[]) => unknown>;
+            }>
+          | undefined) ?? [],
     )
     .find((candidate) => candidate.name === "@astrojs/sitemap");
   assert.ok(sitemapIntegration);
@@ -530,7 +540,10 @@ test("upstream sitemap chunks request pages read from a mutable customPages arra
     5,
   );
   assert.ok(chunks.every((xml) => (xml.match(/<url>/g)?.length ?? 0) <= 2));
-  assert.match(await readFile(path.join(root, "sitemap-index.xml"), "utf8"), /sitemap-2\.xml/);
+  assert.match(
+    await readFile(path.join(root, "sitemap-index.xml"), "utf8"),
+    /sitemap-2\.xml/,
+  );
 });
 
 test("request inventory is removed before downstream build failures", async (t) => {
@@ -791,6 +804,30 @@ test("configured request routes are explained to the build invariant", async (t)
       },
     ],
   } as never);
+  const preparedRoot = preparedMarkdownRootKey(integration.root);
+  for (const [collection, entries] of [
+    [
+      "docs",
+      [
+        {
+          id: "index",
+          body: "# Docs\n\n```js\nconst requestRendered = true;\n```\n",
+          data: { title: "Docs" },
+        },
+      ],
+    ],
+    ["blog", []],
+    ["docs-v1", []],
+  ] as const) {
+    const epoch = beginPreparedMarkdownLoad(preparedRoot, collection, true);
+    commitPreparedMarkdownCollection(
+      preparedRoot,
+      collection,
+      epoch,
+      { generation: 1, base: "/" },
+      entries,
+    );
+  }
   await integration.buildStart({} as never);
 
   const dist = path.join(integration.root, "dist");

@@ -5,7 +5,10 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-import { buildCorpusMarkdown, type CorpusBlock } from "../src/_internal/corpus.ts";
+import {
+  buildCorpusMarkdown,
+  type CorpusBlock,
+} from "../src/_internal/corpus.ts";
 
 const HEADER = {
   title: "Acme Docs",
@@ -39,6 +42,19 @@ describe("buildCorpusMarkdown", () => {
     const mid = out.indexOf("# Mid");
     assert.ok(alpha !== -1 && mid !== -1 && zulu !== -1);
     assert.ok(alpha < mid && mid < zulu);
+  });
+
+  test("sorts non-ASCII URLs without locale-dependent collation", () => {
+    const out = buildCorpusMarkdown(
+      [
+        block({ title: "Aether", url: "/äther/" }),
+        block({ title: "Zulu", url: "/zulu/" }),
+        block({ title: "Alpha", url: "/Alpha/" }),
+      ],
+      HEADER,
+    );
+    assert.ok(out.indexOf("# Alpha") < out.indexOf("# Zulu"));
+    assert.ok(out.indexOf("# Zulu") < out.indexOf("# Aether"));
   });
 
   test("is deterministic: same input set yields identical bytes", () => {
@@ -87,6 +103,18 @@ describe("buildCorpusMarkdown", () => {
       base: "/docs/",
     });
     assert.ok(relative.includes("Index: /docs/llms.txt"));
+  });
+
+  test("applies the base to logical paths that share its first segment", () => {
+    const out = buildCorpusMarkdown(
+      [block({ url: "/docs/guide/", markdownUrl: "/docs/guide/index.md" })],
+      { ...HEADER, base: "/docs" },
+    );
+    assert.ok(
+      out.includes(
+        "Source: https://docs.acme.dev/docs/docs/guide/ · Markdown: https://docs.acme.dev/docs/docs/guide/index.md",
+      ),
+    );
   });
 
   test("omits the description blockquote when absent — no empty lines", () => {

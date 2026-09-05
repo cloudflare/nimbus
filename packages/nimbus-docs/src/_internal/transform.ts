@@ -18,6 +18,7 @@ export interface MarkdownComponentRenderContext {
   name: string;
   attrs: Record<string, string | boolean>;
   children: string;
+  base: string;
 }
 
 export type MarkdownComponentRenderer = (
@@ -37,17 +38,24 @@ export interface RenderEntryAsMarkdownOptions {
    * citations, else rendering throws rather than emitting a raw sentinel.
    */
   citationIndex?: CitationIndex;
+  /** Active Astro base path for build-time component renderers. */
+  base?: string;
 }
 
 interface MarkdownEntry {
   body?: string;
 }
 
-function protectCode(markdown: string): { markdown: string; restore: (value: string) => string } {
+function protectCode(markdown: string): {
+  markdown: string;
+  restore: (value: string) => string;
+} {
   const protectedChunks: string[] = [];
   function store(chunk: string): string {
     const token = `@@NIMBUS_MD_CODE_${protectedChunks.length}@@`;
-    protectedChunks.push(chunk.startsWith("```") ? chunk.replace(/\n[ \t]{4}/g, "\n") : chunk);
+    protectedChunks.push(
+      chunk.startsWith("```") ? chunk.replace(/\n[ \t]{4}/g, "\n") : chunk,
+    );
     return token;
   }
 
@@ -58,8 +66,9 @@ function protectCode(markdown: string): { markdown: string; restore: (value: str
   return {
     markdown: next,
     restore(value: string): string {
-      return value.replace(/@@NIMBUS_MD_CODE_(\d+)@@/g, (_match, index: string) =>
-        protectedChunks[Number(index)] ?? "",
+      return value.replace(
+        /@@NIMBUS_MD_CODE_(\d+)@@/g,
+        (_match, index: string) => protectedChunks[Number(index)] ?? "",
       );
     },
   };
@@ -67,7 +76,8 @@ function protectCode(markdown: string): { markdown: string; restore: (value: str
 
 function parseAttrs(raw = ""): Record<string, string | boolean> {
   const attrs: Record<string, string | boolean> = {};
-  const re = /([A-Za-z_:][\w:.-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|\{([^}]*)\}|([^\s>]+)))?/g;
+  const re =
+    /([A-Za-z_:][\w:.-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|\{([^}]*)\}|([^\s>]+)))?/g;
   for (const match of raw.matchAll(re)) {
     const [, name, dq, sq, expr, bare] = match;
     if (!name) continue;
@@ -90,11 +100,16 @@ function blockquote(body: string): string {
     .join("\n");
 }
 
-function asTitle(value: string | boolean | undefined, fallback: string): string {
+function asTitle(
+  value: string | boolean | undefined,
+  fallback: string,
+): string {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
-function renderPackageManagers(attrs: Record<string, string | boolean>): string {
+function renderPackageManagers(
+  attrs: Record<string, string | boolean>,
+): string {
   const pkg = typeof attrs.pkg === "string" ? attrs.pkg : undefined;
   const args = typeof attrs.args === "string" ? attrs.args : undefined;
   const type = typeof attrs.type === "string" ? attrs.type : "install";
@@ -152,7 +167,10 @@ function applyDefaultComponentTransforms(markdown: string): string {
     (_match, rawAttrs: string, children: string) => {
       const attrs = parseAttrs(rawAttrs);
       const type = asTitle(attrs.type, "note").toUpperCase();
-      const title = asTitle(attrs.title, type.charAt(0) + type.slice(1).toLowerCase());
+      const title = asTitle(
+        attrs.title,
+        type.charAt(0) + type.slice(1).toLowerCase(),
+      );
       const body = cleanChildren(children);
       return blockquote(`**${title}**\n\n${body}`);
     },
@@ -175,35 +193,41 @@ function applyDefaultComponentTransforms(markdown: string): string {
       const attrs = parseAttrs(rawAttrs);
       const title = asTitle(attrs.title, "Link");
       const href = typeof attrs.href === "string" ? attrs.href : "";
-      const description = typeof attrs.description === "string" ? attrs.description : "";
+      const description =
+        typeof attrs.description === "string" ? attrs.description : "";
       const label = href ? `[${title}](${href})` : `**${title}**`;
       return `- ${label}${description ? ` — ${description}` : ""}`;
     },
   );
 
-  out = out.replace(/<Steps\b[^>]*>([\s\S]*?)<\/Steps>/g, (_match, children: string) => {
-    let index = 0;
-    return children.replace(
-      /<Step\b([^>]*)>([\s\S]*?)<\/Step>/g,
-      (_stepMatch, rawAttrs: string, stepChildren: string) => {
-        index += 1;
-        const attrs = parseAttrs(rawAttrs);
-        const title = asTitle(attrs.title, `Step ${index}`);
-        const body = cleanChildren(stepChildren);
-        return `${index}. **${title}**${body ? `\n\n   ${body.replace(/\n/g, "\n   ")}` : ""}`;
-      },
-    );
-  });
+  out = out.replace(
+    /<Steps\b[^>]*>([\s\S]*?)<\/Steps>/g,
+    (_match, children: string) => {
+      let index = 0;
+      return children.replace(
+        /<Step\b([^>]*)>([\s\S]*?)<\/Step>/g,
+        (_stepMatch, rawAttrs: string, stepChildren: string) => {
+          index += 1;
+          const attrs = parseAttrs(rawAttrs);
+          const title = asTitle(attrs.title, `Step ${index}`);
+          const body = cleanChildren(stepChildren);
+          return `${index}. **${title}**${body ? `\n\n   ${body.replace(/\n/g, "\n   ")}` : ""}`;
+        },
+      );
+    },
+  );
 
-  out = out.replace(/<Tabs\b[^>]*>([\s\S]*?)<\/Tabs>/g, (_match, children: string) =>
-    children.replace(
-      /<TabItem\b([^>]*)>([\s\S]*?)<\/TabItem>/g,
-      (_tabMatch, rawAttrs: string, tabChildren: string) => {
-        const attrs = parseAttrs(rawAttrs);
-        const label = asTitle(attrs.label, "Option");
-        return `### ${label}\n\n${cleanChildren(tabChildren)}`;
-      },
-    ),
+  out = out.replace(
+    /<Tabs\b[^>]*>([\s\S]*?)<\/Tabs>/g,
+    (_match, children: string) =>
+      children.replace(
+        /<TabItem\b([^>]*)>([\s\S]*?)<\/TabItem>/g,
+        (_tabMatch, rawAttrs: string, tabChildren: string) => {
+          const attrs = parseAttrs(rawAttrs);
+          const label = asTitle(attrs.label, "Option");
+          return `### ${label}\n\n${cleanChildren(tabChildren)}`;
+        },
+      ),
   );
 
   // If user content includes raw component wrappers we don't know about,
@@ -217,17 +241,30 @@ function applyDefaultComponentTransforms(markdown: string): string {
 function applyCustomComponentTransforms(
   markdown: string,
   componentMap: Record<string, MarkdownComponentRenderer>,
+  base: string,
 ): string {
   let out = markdown;
   for (const [name, render] of Object.entries(componentMap)) {
-    const paired = new RegExp(`<${name}\\b([^>]*)>([\\s\\S]*?)<\\/${name}>`, "g");
+    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const paired = new RegExp(
+      `<${escapedName}(?=[\\s/>])([^>]*)>([\\s\\S]*?)<\\/${escapedName}>`,
+      "g",
+    );
     out = out.replace(paired, (_match, rawAttrs: string, children: string) =>
-      render({ name, attrs: parseAttrs(rawAttrs), children: cleanChildren(children) }),
+      render({
+        name,
+        attrs: parseAttrs(rawAttrs),
+        children: cleanChildren(children),
+        base,
+      }),
     );
 
-    const selfClosing = new RegExp(`<${name}\\b([^>]*)\\/>`, "g");
+    const selfClosing = new RegExp(
+      `<${escapedName}(?=[\\s/>])([^>]*)\\/>`,
+      "g",
+    );
     out = out.replace(selfClosing, (_match, rawAttrs: string) =>
-      render({ name, attrs: parseAttrs(rawAttrs), children: "" }),
+      render({ name, attrs: parseAttrs(rawAttrs), children: "", base }),
     );
   }
   return out;
@@ -246,6 +283,13 @@ export function renderEntryAsMarkdown(
 ): string {
   const stripFrontmatter = options.stripFrontmatter ?? true;
   let markdown = entry.body ?? "";
+
+  if (/<Render(?=[\s/>])/.test(protectCode(markdown).markdown)) {
+    throw new Error(
+      "nimbus-docs: renderEntryAsMarkdown no longer expands <Render> partials at runtime. " +
+        "Use the prepared twin and corpus helpers from @cloudflare/nimbus-docs/build.",
+    );
+  }
 
   if (stripFrontmatter) {
     markdown = markdown.replace(/^---\n[\s\S]*?\n---\n?/, "");
@@ -269,7 +313,11 @@ export function renderEntryAsMarkdown(
   markdown = protectedCode.markdown;
 
   if (options.componentMap) {
-    markdown = applyCustomComponentTransforms(markdown, options.componentMap);
+    markdown = applyCustomComponentTransforms(
+      markdown,
+      options.componentMap,
+      options.base ?? "/",
+    );
   }
   markdown = applyDefaultComponentTransforms(markdown);
   markdown = protectedCode.restore(markdown);

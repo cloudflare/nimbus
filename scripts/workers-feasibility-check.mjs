@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   cpSync,
   existsSync,
@@ -15,6 +16,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gzipSync } from "node:zlib";
 import { generateTemplates } from "../packages/create-nimbus-docs/scripts/copy-template.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -29,10 +31,15 @@ const SCAFFOLDER = join(
 const NIMBUS_PACKAGE = join(ROOT, "packages", "nimbus-docs", "package.json");
 const FIXTURE = join(ROOT, "scripts", "fixtures", "workers-feasibility");
 const STARTER = join(ROOT, "packages", "nimbus-starter-source", "src");
+const SIZE_BUDGET = JSON.parse(
+  readFileSync(join(ROOT, "scripts", "worker-size-budget.json"), "utf8"),
+);
 const PREFIX = "[workers-feasibility]";
+const ASTRO_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 const cleanup = [];
 
 process.on("exit", () => {
+  if (process.env.NIMBUS_KEEP_WORKERS_FIXTURE === "1") return;
   for (const path of cleanup) rmSync(path, { recursive: true, force: true });
 });
 
@@ -66,6 +73,24 @@ function outputText(path) {
   return filesUnder(path)
     .map((file) => readFileSync(file).toString("utf8"))
     .join("\n");
+}
+
+function directorySnapshot(directory) {
+  return Object.fromEntries(
+    filesUnder(directory)
+      .map((file) => [
+        relative(directory, file).split(sep).join("/"),
+        createHash("sha256").update(readFileSync(file)).digest("hex"),
+      ])
+      .sort(([left], [right]) => left.localeCompare(right)),
+  );
+}
+
+function snapshotDifference(before, after) {
+  const paths = [
+    ...new Set([...Object.keys(before), ...Object.keys(after)]),
+  ].sort((left, right) => left.localeCompare(right));
+  return paths.filter((path) => before[path] !== after[path]);
 }
 
 function routeForHtml(clientRoot, path) {
@@ -311,6 +336,7 @@ async function assertStaticSurfaces(origin) {
     ["/runtime/index.mdx", '<Aside type="note"'],
     ["/api/Health/ping/index.md", "Ping"],
     ["/llms.txt", "Workers request prose"],
+    ["/llms-full.txt", "Request prose body."],
     ["/api/llms.txt", "Ping"],
     ["/robots.txt", "Sitemap:"],
   ]) {
@@ -458,11 +484,17 @@ async function stop(child) {
 async function withWorkerd(site, check) {
   const port = await freePort();
   const child = spawn(
-    "pnpm",
-    ["exec", "wrangler", "dev", "--port", String(port)],
+    join(
+      site,
+      "node_modules",
+      ".bin",
+      process.platform === "win32" ? "wrangler.cmd" : "wrangler",
+    ),
+    ["dev", "--port", String(port)],
     {
       cwd: site,
       detached: process.platform !== "win32",
+      shell: process.platform === "win32",
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
     },
@@ -495,6 +527,52 @@ async function withWorkerd(site, check) {
   }
 }
 
+function assertSizeBudgets(site) {
+  const workerFiles = filesUnder(join(site, "dist", "server")).map((file) =>
+    readFileSync(file),
+  );
+  const workerBytes = workerFiles.reduce(
+    (total, body) => total + body.length,
+    0,
+  );
+  const workerGzipBytes = workerFiles.reduce(
+    (total, body) => total + gzipSync(body).length,
+    0,
+  );
+  assert(
+    workerBytes <= SIZE_BUDGET.worker.maxBytes,
+    `Worker output is ${workerBytes} bytes; budget is ${SIZE_BUDGET.worker.maxBytes}`,
+  );
+  assert(
+    workerGzipBytes <= SIZE_BUDGET.worker.maxGzipBytes,
+    `Worker output is ${workerGzipBytes} gzip bytes; budget is ${SIZE_BUDGET.worker.maxGzipBytes}`,
+  );
+
+  const twinRoot = join(site, ".astro", "nimbus", "twins");
+  const manifest = JSON.parse(
+    readFileSync(join(twinRoot, "manifest.json"), "utf8"),
+  );
+  const sourceBodies = manifest.artifacts
+    .filter((artifact) => artifact.surface === "source")
+    .map((artifact) => readFileSync(join(twinRoot, artifact.path)));
+  const sourceBytes = sourceBodies.reduce(
+    (total, body) => total + body.length,
+    0,
+  );
+  const sourceGzipBytes = sourceBodies.reduce(
+    (total, body) => total + gzipSync(body).length,
+    0,
+  );
+  assert(
+    sourceBytes <= SIZE_BUDGET.preparedSource.maxBytes,
+    `prepared source is ${sourceBytes} bytes; budget is ${SIZE_BUDGET.preparedSource.maxBytes}`,
+  );
+  assert(
+    sourceGzipBytes <= SIZE_BUDGET.preparedSource.maxGzipBytes,
+    `prepared source is ${sourceGzipBytes} gzip bytes; budget is ${SIZE_BUDGET.preparedSource.maxGzipBytes}`,
+  );
+}
+
 async function request(origin, route, probe) {
   const response = await fetch(`${origin}${route}`, {
     headers: probe ? { "x-nimbus-probe": probe } : {},
@@ -505,17 +583,154 @@ async function request(origin, route, probe) {
 
 function build(site, policy) {
   writeRenderingPolicy(site, policy);
-  run("pnpm", ["build"], { cwd: site });
+  run("pnpm", ["build"], { cwd: site, env: { ASTRO_KEY } });
   assertDiscoverySurfaces(site);
-  const serverJavaScript = filesUnder(join(site, "dist", "server"))
-    .filter((file) => file.endsWith(".js"))
-    .map((file) => readFileSync(file, "utf8"))
-    .join("\n");
-  const forbiddenSpecifier =
-    /["'](?:satteri(?:\/browser)?|@astrojs\/markdown-satteri|@bruits\/satteri-[^"']+)["']/;
+  assertWorkerPurity(join(site, "dist", "server"));
+}
+
+async function verifyPackageManagerConsumer(site, manager) {
+  const root = mkdtempSync(join(tmpdir(), `nimbus-${manager.name}-consumer-`));
+  cleanup.push(root);
+  const candidate = join(root, "site");
+  cpSync(site, candidate, {
+    recursive: true,
+    filter: (source) => {
+      const top = relative(site, source).split(sep)[0];
+      return !["node_modules", "dist", ".astro"].includes(top);
+    },
+  });
+  for (const lockfile of ["package-lock.json", "pnpm-lock.yaml", "yarn.lock"]) {
+    rmSync(join(candidate, lockfile), { force: true });
+  }
+  const packagePath = join(candidate, "package.json");
+  const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
+  packageJson.packageManager = manager.packageManager;
+  writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
+  if (manager.name === "yarn") {
+    writeFileSync(join(candidate, ".yarnrc.yml"), "nodeLinker: node-modules\n");
+  }
+
+  console.log(`${PREFIX} installing clean ${manager.name} consumer`);
+  const installArgs = [manager.command, "install"];
+  if (manager.name === "yarn") installArgs.push("--no-immutable");
+  run("corepack", installArgs, { cwd: candidate });
+  writeRenderingPolicy(candidate, { docs: "request", api: "request" });
+  run("corepack", [manager.command, "run", "typecheck"], { cwd: candidate });
+  run("corepack", [manager.command, "run", "build"], { cwd: candidate });
+  assertWorkerPurity(join(candidate, "dist", "server"));
+  await withWorkerd(candidate, async (origin) => {
+    const prose = await request(origin, "/runtime/");
+    assert(prose.response.status === 200, `${manager.name} prose was not 200`);
+    assertProse(prose.html);
+    const api = await request(origin, "/api/Health/ping/");
+    assert(api.response.status === 200, `${manager.name} API was not 200`);
+    assertPreparedApi(api.html, "operation");
+    await assertStaticSurfaces(origin);
+  });
+}
+
+const WORKER_TEXT_DENYLIST = [
+  {
+    category: "parser",
+    pattern:
+      /(?:@astrojs[\\/]markdown-satteri|@bruits[\\/]|node_modules[\\/]satteri(?:[\\/]|$)|(?:from\s*|import\s*\(?|require\s*\()\s*["']satteri(?:[\\/][^"']*)?["']|(?:node_modules[\\/]|["'])(?:unified|micromark|mdast-util-from-markdown|@mdx-js[\\/]mdx)(?:[\\/"']|$)|remark-(?:parse|mdx))/,
+  },
+  { category: "worker partial parser", pattern: /worker-partial-headings/ },
+  {
+    category: "build helper",
+    pattern:
+      /(?:@cloudflare\/nimbus-docs\/build|nimbus-docs[\\/](?:(?:src|dist)[\\/])?build\.(?:[cm]?[jt]s)|(?:from\s*|import\s*\(?|require\s*\()\s*["'](?:\.\.?[\\/])+build\.js["']|(?:^|[\\/])build-markdown(?:-[^\\/"']+)?\.js)/m,
+  },
+  {
+    category: "twin artifact",
+    pattern: /\.astro[\\/]nimbus[\\/]twins|nimbus\/twins\/manifest\.json/,
+  },
+  {
+    category: "native binding",
+    pattern: /(?:^|[\\/])[^\\/\n]+\.node(?:$|[?\n])|["'][^"']+\.node["']/m,
+  },
+  { category: "embedded wasm", pattern: /AGFzb[A-Za-z0-9+/=]/ },
+];
+
+function workerPurityViolations(files) {
+  const violations = [];
+  for (const file of files) {
+    if (file.body.indexOf(Buffer.from([0x00, 0x61, 0x73, 0x6d])) !== -1) {
+      violations.push(`${file.path}: wasm payload`);
+    }
+    const text = `${file.path}\n${file.body.toString("utf8")}`;
+    for (const denied of WORKER_TEXT_DENYLIST) {
+      const match = text.match(denied.pattern);
+      if (match) {
+        violations.push(
+          `${file.path}: ${denied.category} (${JSON.stringify(match[0])})`,
+        );
+      }
+    }
+  }
+  return violations;
+}
+
+function assertWorkerPurity(directory) {
+  const violations = workerPurityViolations(
+    filesUnder(directory).map((file) => ({
+      path: file,
+      body: readFileSync(file),
+    })),
+  );
   assert(
-    !forbiddenSpecifier.test(serverJavaScript),
-    "Worker server output contains a Satteri module specifier",
+    violations.length === 0,
+    `Worker output violates the build/runtime boundary:\n${violations.join("\n")}`,
+  );
+}
+
+function assertWorkerPurityScanner() {
+  const fixtures = [
+    ['import "@astrojs/markdown-satteri"', "parser"],
+    ['import satteri from "satteri"', "parser"],
+    ['require("satteri/browser")', "parser"],
+    ["/bundle/node_modules/satteri/browser.js", "parser"],
+    ['import("remark-parse")', "parser"],
+    ['import("micromark")', "parser"],
+    ['from "mdast-util-from-markdown"', "parser"],
+    ['require("@mdx-js/mdx")', "parser"],
+    ["worker-partial-headings", "worker partial parser"],
+    ['from "@cloudflare/nimbus-docs/build"', "build helper"],
+    ['import("../build.js")', "build helper"],
+    ["/server/chunks/build-markdown-CX42.js", "build helper"],
+    ["/node_modules/@cloudflare/nimbus-docs/src/build.ts", "build helper"],
+    ["/node_modules/@cloudflare/nimbus-docs/dist/build.js", "build helper"],
+    [".astro/nimbus/twins/manifest.json", "twin artifact"],
+    ['require("binding.node")', "native binding"],
+    ["/server/binding.node", "native binding"],
+    ['WebAssembly.instantiate(atob("AGFzbAAAA"))', "embedded wasm"],
+  ];
+  for (const [source, category] of fixtures) {
+    const violations = workerPurityViolations([
+      { path: `${category}.js`, body: Buffer.from(source) },
+    ]);
+    assert(
+      violations.some((violation) => violation.includes(`: ${category} (`)),
+      `Worker purity scanner missed its ${category} negative control`,
+    );
+  }
+  assert(
+    workerPurityViolations([
+      {
+        path: "parser.wasm",
+        body: Buffer.from([0x00, 0x61, 0x73, 0x6d]),
+      },
+    ]).some((violation) => violation.endsWith("wasm payload")),
+    "Worker purity scanner missed its WASM negative control",
+  );
+  assert(
+    workerPurityViolations([
+      {
+        path: "astro.config.js",
+        body: Buffer.from('markdown: { syntaxHighlight: "satteri" }'),
+      },
+    ]).length === 0,
+    "Worker purity scanner rejected Satteri configuration text",
   );
 }
 
@@ -528,6 +743,7 @@ function writeRenderingPolicy(site, policy) {
 }
 
 assertNormalizerSafety();
+assertWorkerPurityScanner();
 console.log(`${PREFIX} building packages and generating the starter`);
 const nimbusPackage = JSON.parse(readFileSync(NIMBUS_PACKAGE, "utf8"));
 for (const dependency of ["micromark", "micromark-extension-gfm"]) {
@@ -634,7 +850,30 @@ writeRenderingPolicy(site, { docs: "build", api: "build" });
 run("pnpm", ["typecheck"], { cwd: site });
 
 console.log(`${PREFIX} establishing the all-build baseline`);
+for (const output of ["dist", ".astro", join("node_modules", ".vite")]) {
+  rmSync(join(site, output), { recursive: true, force: true });
+}
 build(site, { docs: "build", api: "build" });
+const firstWorkerBuild = directorySnapshot(join(site, "dist", "server"));
+const firstTwinBuild = directorySnapshot(
+  join(site, ".astro", "nimbus", "twins"),
+);
+for (const output of ["dist", ".astro", join("node_modules", ".vite")]) {
+  rmSync(join(site, output), { recursive: true, force: true });
+}
+build(site, { docs: "build", api: "build" });
+const secondWorkerBuild = directorySnapshot(join(site, "dist", "server"));
+const secondTwinBuild = directorySnapshot(
+  join(site, ".astro", "nimbus", "twins"),
+);
+assert(
+  JSON.stringify(secondWorkerBuild) === JSON.stringify(firstWorkerBuild),
+  `two clean Worker builds differed: ${snapshotDifference(firstWorkerBuild, secondWorkerBuild).join(", ")}`,
+);
+assert(
+  JSON.stringify(secondTwinBuild) === JSON.stringify(firstTwinBuild),
+  `two clean twin builds differed: ${snapshotDifference(firstTwinBuild, secondTwinBuild).join(", ")}`,
+);
 const staticPages = captureStaticPages(site);
 const proseStatic = prosePages(staticPages);
 assert(
@@ -758,6 +997,7 @@ await withWorkerd(site, async (origin) => {
 
 console.log(`${PREFIX} proving both route families in request mode`);
 build(site, { docs: "request", api: "request" });
+assertSizeBudgets(site);
 const requestOnlyPages = captureStaticPages(site);
 assert(
   prosePages(requestOnlyPages).length === 0,
@@ -812,7 +1052,29 @@ await withWorkerd(site, async (origin) => {
   await assertStaticSurfaces(origin);
 });
 
+cpSync(FIXTURE, site, { recursive: true });
+for (const manager of [
+  {
+    name: "pnpm",
+    packageManager: "pnpm@11.25.0",
+    command: "pnpm@11.25.0",
+  },
+  {
+    name: "yarn",
+    packageManager: "yarn@4.9.2",
+    command: "yarn@4.9.2",
+  },
+]) {
+  await verifyPackageManagerConsumer(site, manager);
+}
+
 console.log(`${PREFIX} validating the production deployment bundle`);
-run("pnpm", ["exec", "wrangler", "deploy", "--dry-run"], { cwd: site });
+const deployOutput = join(workRoot, "wrangler-output");
+run(
+  "pnpm",
+  ["exec", "wrangler", "deploy", "--dry-run", "--outdir", deployOutput],
+  { cwd: site },
+);
+assertWorkerPurity(deployOutput);
 
 console.log(`${PREFIX} OK - technical build/request matrix passed on workerd`);

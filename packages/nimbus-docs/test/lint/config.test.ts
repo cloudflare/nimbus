@@ -201,8 +201,7 @@ test("validateLintOptions rejects configuring an unimplemented rule (when implem
 });
 
 test("validateLintOptions accepts `off` for an unimplemented rule (forward-config)", () => {
-  // A project that wants to forward-configure a planned rule can opt out
-  // ahead of time without tripping the implementation check.
+  // Disabled registered rules do not need an implementation module.
   const { rules } = validateLintOptions(
     { rules: { "nimbus/orphan-page": "off" } },
     IMPLEMENTED_CODES,

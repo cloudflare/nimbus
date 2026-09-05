@@ -31,7 +31,7 @@ The illustrative test for a borderline snippet: if removing it loses an *example
 
 ## 3. Title & description
 
-- **Title:** a concise noun phrase naming the concept — "Delivery guarantees," "Webhook signing." Banned titles (GitLab's rule, worth adopting verbatim): "Overview," "Introduction," "How it works" — they name the genre, not the subject. Self-check: a good title still reads naturally with "About" in front of it ("About delivery guarantees" ✓).
+- **Title:** a concise noun phrase naming the concept — "Delivery guarantees," "Webhook signing." Avoid "Overview," "Introduction," and "How it works" because they name the genre, not the subject. Self-check: a good title still reads naturally with "About" in front of it ("About delivery guarantees" ✓).
 - **Description formula:** *What the concept is, and what it means for the reader's code or choices.*
 
 ## 4. Skeleton
@@ -51,8 +51,8 @@ type: concept
     the constraint or tradeoff that shaped it ("we chose at-least-once
     because…" — opinion belongs here); for domain-inherent concepts (OAuth,
     pooling), the domain constraint plus your product's stance on it —
-    don't re-derive what the field already documents, add your perspective
-    (Cloudflare's rule). This section is what separates a concept page from
+    don't re-derive what the field already documents, add your perspective.
+    This section is what separates a concept page from
     a dictionary entry, and it's the section authors skip. */}
 
 {/* ## <The model, unpacked> — 1–3 sections developing the idea: how the
@@ -75,7 +75,7 @@ type: concept
 - **Comparison tables** fit in Boundaries when there's a genuine either/or.
 - **Doesn't fit:** Steps (the defining ban — a concept has no procedural steps or walkthroughs), Tabs (a concept doesn't vary by platform; if it does, it's two concepts), Cards.
 - **Ending, in order:** Boundaries → See also. Ending on scope — stating what the concept is *not*, next to its confusable neighbors — is the type's signature move and the cheapest way to make the model stick. Never end on the definition.
-- **Thresholds:** a shallow-but-correct model by the end of paragraph two; at least one sentence of design rationale (a concept with no "why" is a glossary entry stretched to a page); ≤ ~1,500 words standalone (pages in an explicitly ordered core-concepts sequence meant to be read start-to-finish, like Tailwind's essay course, are exempt — a standalone concept that outgrows the cap splits in two).
+- **Thresholds:** a shallow-but-correct model by the end of paragraph two; at least one sentence of design rationale (a concept with no "why" is a glossary entry stretched to a page); ≤ ~1,500 words standalone (pages in an explicitly ordered core-concepts sequence meant to be read start-to-finish are exempt — a standalone concept that outgrows the cap splits in two).
 
 ## 6. Write the page
 

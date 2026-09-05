@@ -50,4 +50,14 @@ describe("renderEntryAsMarkdown: coordinate citations", () => {
     );
     assert.match(out, /api\.ref:zones:createZone/);
   });
+
+  test("rejects runtime partial expansion with migration guidance", () => {
+    assert.throws(
+      () => renderEntryAsMarkdown({ body: '<Render file="shared" />' }),
+      /prepared twin and corpus helpers/,
+    );
+    assert.doesNotThrow(() =>
+      renderEntryAsMarkdown({ body: '```mdx\n<Render file="example" />\n```' }),
+    );
+  });
 });

@@ -34,7 +34,7 @@ Install the recipe — your coding agent reads the full skeleton and checklist a
 
 <PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add content-example" />
 
-**The cookbook form.** Several related examples can share one page (the Rust Cookbook / OpenAI Cookbook shape): the page takes a **noun-phrase category title** ("Signature verification," "Batching"), and each `##` entry follows the single-page skeleton the scaffold installs, minus the frontmatter — goal line, assumptions line, code, shown result, How-it-works. One `lastVerified` for the page means its *oldest-verified* entry. Split an entry to its own page when its code outgrows a screen. Adding a related example goes on the category page first; a new page needs a new category or an outgrown entry.
+**The cookbook form.** Several related examples can share one page: the page takes a **noun-phrase category title** ("Signature verification," "Batching"), and each `##` entry follows the single-page skeleton the scaffold installs, minus the frontmatter — goal line, assumptions line, code, shown result, How-it-works. One `lastVerified` for the page means its *oldest-verified* entry. Split an entry to its own page when its code outgrows a screen. Adding a related example goes on the category page first; a new page needs a new category or an outgrown entry.
 
 ## Component guidance
 
@@ -50,7 +50,7 @@ Install the recipe — your coding agent reads the full skeleton and checklist a
 
 - **One goal per example.** The title test: if it needs "and," split it.
 - **Explanation must not outgrow the code.** When How-it-works starts needing paragraphs instead of bullets, a concept or how-to is trying to get out — link it instead.
-- **Handle the errors the pattern is about; let the rest throw.** The Rust Cookbook states its error convention up front for exactly this reason — without one, entries oscillate between bare happy path and production hardening. Hedging code the goal doesn't need is prose in disguise.
+- **Handle the errors the pattern is about; let the rest throw.** State the error convention up front so entries don't oscillate between a bare happy path and production hardening. Hedging code the goal doesn't need is prose in disguise.
 - **Cookbook pages: same internal template per entry**, goal-indexed, most-wanted first.
 
 ## Links & freshness

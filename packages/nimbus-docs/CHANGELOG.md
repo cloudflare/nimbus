@@ -54,7 +54,7 @@
 
 - [#71](https://github.com/cloudflare/nimbus/pull/71) [`e5d74f9`](https://github.com/cloudflare/nimbus/commit/e5d74f9d8452caa0c8ae6b02b61c8e83ff3c9f1f) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Enable MDX optimization by default to reduce large-site build memory usage. Sites can opt out with `mdx: { optimize: false }`.
 
-  Verified the generated starter with optimization on and with `mdx: { optimize: false }` forced; the rendered HTML is structurally equivalent for element names, attributes, and non-whitespace text. AC#3 is treated as semantic/structural render parity rather than byte identity: raw bytes differ due to serializer escaping and inter-block whitespace, but the rendered document is lossless.
+  Verified the generated starter with optimization on and with `mdx: { optimize: false }` forced; the rendered HTML is structurally equivalent for element names, attributes, and non-whitespace text. Render parity is semantic and structural rather than byte-identical: raw bytes differ due to serializer escaping and inter-block whitespace, but the rendered document is lossless.
 
   Spot-checked the starter `components` page, which includes JSX tags in prose, inline code with `<...>`, quoted code, and package names. The optimized and opt-out renders preserve those special-character text probes and match structurally.
 
@@ -170,8 +170,7 @@
   those headings to the parent page's "On this page" table of contents, in
   document order, recursively. Pass `partialHeadings: { resolvePartialId }`
   to `getDocsPageProps()` / `getCollectionPageProps()` to customise how
-  `<Render>` attributes map to a partial collection id (e.g. cloudflare-docs'
-  `product` convention).
+  `<Render>` attributes map to a partial collection id.
 
 ## 0.7.0
 

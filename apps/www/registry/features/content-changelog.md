@@ -27,9 +27,9 @@ Inspect the repo before writing — do not assume:
 
 One changelog per product (or per clearly versioned surface). Two load-bearing distinctions:
 
-- **Record vs. policy** (the Stripe split): dated entries of what changed live here; how versioning works and how to migrate live on their own pages, linked from every breaking entry.
+- **Record vs. policy:** dated entries of what changed live here; how versioning works and how to migrate live on their own pages, linked from every breaking entry.
 - **Two genres, pick by what the reader keys on:**
-  - **Date-headed** — for a continuously shipped surface (the Cloudflare/Linear shape). Sections per release date; entries titled by the change.
+  - **Date-headed** — for a continuously shipped surface. Sections per release date; entries titled by the change.
   - **Version-headed** — for a versioned artifact (an SDK, a named API version): sections per version (`## [2.14.0] — 2026-06-18`, plus an `Unreleased` section for libraries). The entry rules apply *within* each version section. "What changed between 2.13 and 2.14?" is unanswerable in a date-headed log — if readers pin versions, head by version.
 
 It is **not** a commit log (curated, benefit-first entries, not a dump of merge messages), **not** release marketing (an entry informs; link the launch post, don't replace the entry with it), and **not** a migration guide (an entry says *that* something breaks and links out; the steps are a how-to).

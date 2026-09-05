@@ -670,6 +670,10 @@ async function applyOverlay() {
   }
   await mkdir(join(site, "src", "api"), { recursive: true });
   await cp(SPEC, join(site, "src", "api", "smallco.yaml"));
+  await writeFile(
+    join(site, "src", "content", "docs", "guide.mdx"),
+    "---\ntitle: Guide\n---\n\n# Guide\n",
+  );
 }
 
 async function assertProvenance(registryItems, registryUrl, initialNimbus) {
@@ -1174,10 +1178,10 @@ async function assertBasePathMetadata() {
     );
   }
   const ordinaryHtml = await readFile(
-    join(site, "dist-base", "index", "index.html"),
+    join(site, "dist-base", "guide", "index.html"),
     "utf8",
   );
-  const ordinaryMarkdownUrl = absoluteUrl("/docs/index.md");
+  const ordinaryMarkdownUrl = absoluteUrl("/docs/guide/index.md");
   assert(
     ordinaryHtml.includes(`data-md-url="${ordinaryMarkdownUrl}"`),
     "non-root ordinary page actions use an unbased Markdown URL",
@@ -1215,8 +1219,8 @@ async function assertBasePathMetadata() {
       ],
     ],
     "ordinary Markdown": [
-      await readFile(join(site, "dist-base", "index.md"), "utf8"),
-      [absoluteUrl("/docs/llms.txt"), absoluteUrl("/docs/index.mdx")],
+      await readFile(join(site, "dist-base", "guide", "index.md"), "utf8"),
+      [absoluteUrl("/docs/llms.txt"), absoluteUrl("/docs/guide/index.mdx")],
     ],
     robots: [
       await readFile(join(site, "dist-base", "robots.txt"), "utf8"),

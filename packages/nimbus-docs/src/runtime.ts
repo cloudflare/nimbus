@@ -42,8 +42,8 @@ import {
   scopeToCurrentSection,
   sidebarHash,
 } from "./_internal/sidebar.js";
-import { entryRouteUrl } from "./_internal/astro-slug.js";
-import { toBrowserHref, withBase } from "./_internal/url.js";
+import { entryRouteKey, entryRouteUrl } from "./_internal/astro-slug.js";
+import { toBrowserHref, withBase, withBaseRoute } from "./_internal/url.js";
 import {
   PRIMARY_COLLECTION,
   collectionLabel as resolveCollectionSlug,
@@ -143,7 +143,7 @@ export { defineConfig } from "./config.js";
 export { sidebarHash };
 
 /** Prefix a site-root-relative URL with Astro's configured base path. */
-export { withBase };
+export { entryRouteKey, withBase, withBaseRoute };
 
 /** The `noindex` visibility contract — filter custom index/corpus routes with this. */
 export { isDiscoverable };
@@ -161,18 +161,7 @@ export async function getEntryMarkdown(
 ): Promise<string> {
   const { loadCitationIndex } =
     await import("./_internal/api/load-citation-index.js");
-  let expandedEntry = entry;
-  if (entry.body?.includes("<Render")) {
-    const { expandWorkerPartials } =
-      await import("./_internal/worker-partial-headings.js");
-    expandedEntry = {
-      ...entry,
-      body: await expandWorkerPartials(entry.body, (collection, id) =>
-        getVisibleEntry(collection, id),
-      ),
-    };
-  }
-  return renderEntryAsMarkdown(expandedEntry, {
+  return renderEntryAsMarkdown(entry, {
     ...options,
     citationIndex: await loadCitationIndex(),
   });
@@ -1068,16 +1057,6 @@ function pageResolutionContext(astro: AstroGlobal): PageResolutionContext {
 async function resolveAstroProsePage(
   astro: AstroGlobal,
   collection: string | undefined,
-  partialHeadings: PartialHeadingOptions | undefined,
-  mergePartialHeadings: (
-    body: string | undefined,
-    headings: { depth: number; text: string; slug: string }[],
-    getEntry: (collection: string, id: string) => Promise<unknown>,
-    render: (entry: unknown) => Promise<{
-      headings: { depth: number; text: string; slug: string }[];
-    }>,
-    options?: PartialHeadingOptions,
-  ) => Promise<{ depth: number; text: string; slug: string }[]>,
 ): Promise<PageResolution<ProsePage>> {
   const context = pageResolutionContext(astro);
   const result = await resolveProsePage(
@@ -1102,25 +1081,11 @@ async function resolveAstroProsePage(
           );
         }
         const { Content, headings } = rendered;
-        let merged: typeof headings;
-        try {
-          merged = await mergePartialHeadings(
-            entry.body,
-            headings,
-            (partialCollection: string, id: string) =>
-              getVisibleEntry(partialCollection, id, context.projection),
-            render as (
-              entry: unknown,
-            ) => Promise<{ headings: typeof headings }>,
-            partialHeadings,
-          );
-        } catch (error) {
-          throw new Error(
-            `nimbus-docs: failed to merge partial headings for "${entry.collection}:${entry.id}".`,
-            { cause: error },
-          );
-        }
-        return { Content, headings: merged };
+        const { getPreparedHeadings } =
+          await import("./_internal/prepared-headings.js");
+        const prepared = await getPreparedHeadings(entry.collection, entry.id);
+        if (prepared) return { Content, headings: prepared };
+        return { Content, headings };
       },
     },
   );
@@ -1132,6 +1097,11 @@ type ProsePageProps<C extends string> = {
   Content: import("astro/runtime/server/index.js").AstroComponentFactory;
   headings: { depth: number; text: string; slug: string }[];
 };
+
+interface LegacyPartialHeadingRouteOptions {
+  /** @deprecated Configure `twins.partialResolver` on the Nimbus integration. */
+  partialHeadings?: PartialHeadingOptions;
+}
 
 function proseResolutionResponse(
   astro: AstroGlobal,
@@ -1151,9 +1121,6 @@ async function resolveProseRoute<C extends string>(
   collection: string | undefined,
   partialHeadings: PartialHeadingOptions | undefined,
   missingPropsMessage: string,
-  loadPartialHeadingMerger: () => Promise<
-    Parameters<typeof resolveAstroProsePage>[3]
-  >,
 ): Promise<ProsePageProps<C> | Response> {
   const entry = (
     astro.props as {
@@ -1163,13 +1130,12 @@ async function resolveProseRoute<C extends string>(
   if (!entry && astro.isPrerendered !== false) {
     throw new Error(missingPropsMessage);
   }
-  const mergePartialHeadings = await loadPartialHeadingMerger();
-  const result = await resolveAstroProsePage(
-    astro,
-    collection,
-    partialHeadings,
-    mergePartialHeadings,
-  );
+  if (partialHeadings) {
+    throw new Error(
+      "nimbus-docs: route-level partialHeadings moved to nimbus(config, { twins: { partialResolver: { revision, resolve } } }).",
+    );
+  }
+  const result = await resolveAstroProsePage(astro, collection);
   if (result.status !== "found") return proseResolutionResponse(astro, result);
   return {
     entry: result.page.entry as import("astro:content").CollectionEntry<C>,
@@ -1207,7 +1173,7 @@ export const getDocsStaticPaths: GetStaticPaths = async () => {
   // a one-line `getCollection("<name>")`-based getStaticPaths.
   const entries = await getVisibleEntries(["docs"]);
   return entries.map((entry) => ({
-    params: { slug: entry.id },
+    params: { slug: entryRouteKey(entry.id) },
     props: { entry },
     cacheKey: String(entry.digest),
   }));
@@ -1218,10 +1184,8 @@ export const getDocsStaticPaths: GetStaticPaths = async () => {
  * pieces a docs page needs: the typed entry, the renderable `<Content />`
  * component, and the headings list (for TOC generation).
  *
- * Headings from `<Render file="..." />` partials are recursively merged
- * into the returned list in document order. Pass `partialHeadings:
- * { resolvePartialId }` to customise how `<Render>` attributes map to
- * a partial collection id (e.g. cloudflare-docs' `product` convention).
+ * Headings from public `<Render file="..." />` partials are recursively
+ * merged at build time and loaded as compact prepared data.
  *
  * Pass the page's `Astro` global. Throws if `Astro.props.entry` is missing,
  * which indicates the page didn't wire `getDocsStaticPaths` (or a custom
@@ -1231,18 +1195,12 @@ export const getDocsStaticPaths: GetStaticPaths = async () => {
  *
  *   const { entry, Content, headings } = await getDocsPageProps(Astro);
  *
- * With a custom partial-id resolver:
- *
- *   const { entry, Content, headings } = await getDocsPageProps(Astro, {
- *     partialHeadings: {
- *       resolvePartialId: ({ file, product }) =>
- *         product ? `${product}/${file}` : file,
- *     },
- *   });
+ * Configure custom partial ids through `twins.partialResolver` on the Nimbus
+ * integration so the resolver stays out of request-time Worker bundles.
  */
 export async function getDocsPageProps(
   astro: AstroGlobal,
-  options?: { partialHeadings?: PartialHeadingOptions },
+  options?: LegacyPartialHeadingRouteOptions,
 ): Promise<{
   entry: import("astro:content").CollectionEntry<"docs">;
   Content: import("astro/runtime/server/index.js").AstroComponentFactory;
@@ -1255,9 +1213,6 @@ export async function getDocsPageProps(
     "getDocsPageProps(): expected `entry` in Astro.props. " +
       "Ensure your route uses `getStaticPaths = getDocsStaticPaths` " +
       "(or passes an entry via custom getStaticPaths).",
-    async () =>
-      (await import("./_internal/worker-partial-headings.js"))
-        .mergeWorkerPartialHeadings,
   );
   if (page instanceof Response) {
     throw new Error(
@@ -1270,7 +1225,7 @@ export async function getDocsPageProps(
 
 export function getDocsPage(
   astro: AstroGlobal,
-  options?: { partialHeadings?: PartialHeadingOptions },
+  options?: LegacyPartialHeadingRouteOptions,
 ): Promise<ProsePageProps<"docs"> | Response> {
   return resolveProseRoute(
     astro,
@@ -1279,9 +1234,6 @@ export function getDocsPage(
     "getDocsPageProps(): expected `entry` in Astro.props. " +
       "Ensure your route uses `getStaticPaths = getDocsStaticPaths` " +
       "(or passes an entry via custom getStaticPaths).",
-    async () =>
-      (await import("./_internal/worker-partial-headings.js"))
-        .mergeWorkerPartialHeadings,
   );
 }
 
@@ -1335,7 +1287,7 @@ export function getCollectionStaticPaths(collection: string): GetStaticPaths {
   return async () => {
     const entries = await getVisibleEntries([collection]);
     return entries.map((entry) => ({
-      params: { slug: entry.id },
+      params: { slug: entryRouteKey(entry.id) },
       props: { entry },
       cacheKey: String(entry.digest),
     }));
@@ -1350,9 +1302,8 @@ export function getCollectionStaticPaths(collection: string): GetStaticPaths {
  * non-primary collections (`api`, `blog`, …) instead of `getDocsPageProps`,
  * which is typed to the `docs` collection.
  *
- * Headings from `<Render file="..." />` partials are recursively merged
- * into the returned list in document order. See `getDocsPageProps` for
- * the `partialHeadings` option.
+ * Headings from public `<Render file="..." />` partials are recursively
+ * merged at build time. See `getDocsPageProps`.
  *
  * Pass the collection name as a type parameter for the entry's data
  * shape to narrow correctly:
@@ -1361,7 +1312,7 @@ export function getCollectionStaticPaths(collection: string): GetStaticPaths {
  */
 export async function getCollectionPageProps<C extends string>(
   astro: AstroGlobal,
-  options?: { partialHeadings?: PartialHeadingOptions },
+  options?: LegacyPartialHeadingRouteOptions,
 ): Promise<{
   entry: import("astro:content").CollectionEntry<C>;
   Content: import("astro/runtime/server/index.js").AstroComponentFactory;
@@ -1373,9 +1324,6 @@ export async function getCollectionPageProps<C extends string>(
     options?.partialHeadings,
     "getCollectionPageProps(): expected `entry` in Astro.props. " +
       "Ensure your route uses `getStaticPaths = getCollectionStaticPaths(<collection>)`.",
-    async () =>
-      (await import("./_internal/worker-partial-headings.js"))
-        .mergeWorkerPartialHeadings,
   );
   if (page instanceof Response) {
     throw new Error(
@@ -1388,7 +1336,7 @@ export async function getCollectionPageProps<C extends string>(
 
 export function getCollectionPage<C extends string>(
   astro: AstroGlobal,
-  options?: { partialHeadings?: PartialHeadingOptions },
+  options?: LegacyPartialHeadingRouteOptions,
 ): Promise<ProsePageProps<C> | Response> {
   return resolveProseRoute(
     astro,
@@ -1396,9 +1344,6 @@ export function getCollectionPage<C extends string>(
     options?.partialHeadings,
     "getCollectionPageProps(): expected `entry` in Astro.props. " +
       "Ensure your route uses `getStaticPaths = getCollectionStaticPaths(<collection>)`.",
-    async () =>
-      (await import("./_internal/worker-partial-headings.js"))
-        .mergeWorkerPartialHeadings,
   );
 }
 

@@ -46,12 +46,57 @@ export function activatePreparedApiNav(
 export function isPreparedApiPage(value: unknown): value is PreparedApiPage {
   if (!value || typeof value !== "object") return false;
   const prepared = value as Partial<PreparedApiPage>;
-  return (
+  if (
     prepared.version === preparedApiVersion &&
     typeof prepared.navEntryId === "string" &&
     !!prepared.page &&
     typeof prepared.page === "object"
-  );
+  ) {
+    const page = prepared.page as ApiPageProps;
+    if (page.kind !== "operation") return true;
+    if (
+      !Array.isArray(page.samples) ||
+      page.samples.some(
+        (sample) =>
+          !sample ||
+          typeof sample !== "object" ||
+          typeof sample.highlightedHtml !== "string" ||
+          sample.highlightedHtml.length === 0,
+      )
+    ) {
+      return false;
+    }
+    if (
+      !Array.isArray(page.responses) ||
+      page.responses.some(
+        (response) =>
+          !response ||
+          typeof response !== "object" ||
+          (response.example !== undefined &&
+            (!response.example ||
+              typeof response.example !== "object" ||
+              typeof response.example.highlightedHtml !== "string" ||
+              response.example.highlightedHtml.length === 0)),
+      )
+    ) {
+      return false;
+    }
+    if (page.additionalBodies === undefined) return true;
+    return (
+      Array.isArray(page.additionalBodies) &&
+      !page.additionalBodies.some(
+        (body) =>
+          !body ||
+          typeof body !== "object" ||
+          (body.example !== undefined &&
+            (!body.example ||
+              typeof body.example !== "object" ||
+              typeof body.example.highlightedHtml !== "string" ||
+              body.example.highlightedHtml.length === 0)),
+      )
+    );
+  }
+  return false;
 }
 
 export function isPreparedApiNav(value: unknown): value is PreparedApiNav {

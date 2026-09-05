@@ -31,7 +31,7 @@ jobs:
             git diff --name-only "$BASE_SHA" "$GITHUB_SHA" > "$changed_files"
             while IFS= read -r file; do
               case "$file" in
-                packages/nimbus-docs/*|packages/nimbus-docs/**|packages/nimbus-starter-source/*|packages/nimbus-starter-source/**|packages/create-nimbus-docs/*|packages/create-nimbus-docs/**|apps/www/registry/features/*|apps/www/registry/features/**|scripts/workers-feasibility-check.mjs|scripts/fixtures/workers-feasibility/*|scripts/fixtures/workers-feasibility/**|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|.npmrc|tsconfig.base.json|.github/workflows/workers-feasibility.yml)
+                packages/nimbus-docs/*|packages/nimbus-docs/**|packages/nimbus-starter-source/*|packages/nimbus-starter-source/**|packages/create-nimbus-docs/*|packages/create-nimbus-docs/**|apps/www/registry/features/*|apps/www/registry/features/**|scripts/workers-feasibility-check.mjs|scripts/worker-size-budget.json|scripts/fixtures/workers-feasibility/*|scripts/fixtures/workers-feasibility/**|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|.npmrc|tsconfig.base.json|.github/workflows/workers-feasibility.yml)
                   relevant=true
                   break
                   ;;

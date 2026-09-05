@@ -1,9 +1,4 @@
-/**
- * The rule registry. Authoring rules implemented so far span the content
- * shape, markdown formatting, and route awareness (`internal-link`). The
- * remaining sidebar-aware rules (`orphan-page`, `sidebar-entry`) and build
- * validators land in later increments.
- */
+/** Authoring rules for content shape, Markdown formatting, and route awareness. */
 
 import type { RuleCode } from "../diagnostic.js";
 import type { Rule } from "../rule.js";

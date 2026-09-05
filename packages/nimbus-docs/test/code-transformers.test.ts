@@ -87,12 +87,7 @@ test("parser: quoted forms and wrap keyword", () => {
   assert.equal(m.wrap, true);
 });
 
-// ---------------------------------------------------------------------------
-// Acceptance criteria, proven through rendered HTML.
-// ---------------------------------------------------------------------------
-
-// AC1 — title
-test("AC1 title= → figcaption.nb-code-title", async () => {
+test("title= → figcaption.nb-code-title", async () => {
   const html = await render(SMALL, 'title="src/foo.ts"');
   const { document } = new JSDOM(html).window;
   const cap = document.querySelector("figure.nb-code-figure-titled figcaption.nb-code-title");
@@ -100,19 +95,17 @@ test("AC1 title= → figcaption.nb-code-title", async () => {
   assert.match(cap!.textContent ?? "", /src\/foo\.ts/);
 });
 
-// AC2 — {2-3} and {1,3-5}
-test("AC2 {2-3} highlights lines 2,3", async () => {
+test("{2-3} highlights lines 2,3", async () => {
   const html = await render(SMALL, "{2-3}");
   assert.deepEqual(linesWith(html, "highlighted"), [2, 3]);
 });
 
-test("AC2 {1,3-5} highlights lines 1,3,4,5", async () => {
+test("{1,3-5} highlights lines 1,3,4,5", async () => {
   const html = await render(NUMBERED, "{1,3-5}");
   assert.deepEqual(linesWith(html, "highlighted"), [1, 3, 4, 5]);
 });
 
-// AC3 — spaced ranges match the no-space form
-test("AC3 {5-16, 21-40} (spaced) == no-space form", async () => {
+test("spaced ranges match the no-space form", async () => {
   const spaced = linesWith(await render(NUMBERED, "{5-16, 21-40}"), "highlighted");
   const tight = linesWith(await render(NUMBERED, "{5-16,21-40}"), "highlighted");
   assert.deepEqual(spaced, tight);
@@ -120,56 +113,51 @@ test("AC3 {5-16, 21-40} (spaced) == no-space form", async () => {
   assert.ok(!spaced.includes(17) && !spaced.includes(20));
 });
 
-// AC4 — wrap
-test("AC4 wrap → data-nb-wrap on pre and figure", async () => {
+test("wrap → data-nb-wrap on pre and figure", async () => {
   const html = await render(SMALL, "wrap");
   const { document } = new JSDOM(html).window;
   assert.ok(document.querySelector("pre[data-nb-wrap]"), "pre[data-nb-wrap]");
   assert.ok(document.querySelector("figure[data-nb-wrap]"), "figure[data-nb-wrap]");
 });
 
-// AC5 — ins={3} / del={2}
-test("AC5 ins={3} → line 3 diff add", async () => {
+test("ins={3} → line 3 diff add", async () => {
   const html = await render(SMALL, "ins={3}");
   assert.deepEqual(linesWith(html, "diff"), [3]);
   assert.deepEqual(linesWith(html, "add"), [3]);
 });
 
-test("AC5 del={2} → line 2 diff remove", async () => {
+test("del={2} → line 2 diff remove", async () => {
   const html = await render(SMALL, "del={2}");
   assert.deepEqual(linesWith(html, "diff"), [2]);
   assert.deepEqual(linesWith(html, "remove"), [2]);
 });
 
-// AC6 — ins="TOKEN" / del="TOKEN"
-test('AC6 ins="TOKEN" → matching lines diff add', async () => {
+test('ins="TOKEN" → matching lines diff add', async () => {
   const code = "const keep = 1;\nconst TOKEN = 2;\nconst alsoTOKEN = 3;\nconst other = 4;";
   const html = await render(code, 'ins="TOKEN"');
   assert.deepEqual(linesWith(html, "add"), [2, 3]);
   assert.deepEqual(linesWith(html, "highlighted"), []);
 });
 
-test('AC6 del="TOKEN" → matching line diff remove', async () => {
+test('del="TOKEN" → matching line diff remove', async () => {
   const code = "const keep = 1;\nconst TOKEN = 2;\nconst other = 3;";
   const html = await render(code, 'del="TOKEN"');
   assert.deepEqual(linesWith(html, "remove"), [2]);
 });
 
-// AC7 — del={2} ins={3}, order-independent
-test("AC7 del={2} ins={3} → line2 remove, line3 add", async () => {
+test("del={2} ins={3} → line2 remove, line3 add", async () => {
   const html = await render(SMALL, "del={2} ins={3}");
   assert.deepEqual(linesWith(html, "remove"), [2]);
   assert.deepEqual(linesWith(html, "add"), [3]);
 });
 
-test("AC7 ins={3} del={2} (reversed) → same result", async () => {
+test("ins={3} del={2} (reversed) → same result", async () => {
   const html = await render(SMALL, "ins={3} del={2}");
   assert.deepEqual(linesWith(html, "remove"), [2]);
   assert.deepEqual(linesWith(html, "add"), [3]);
 });
 
-// AC8 — "needle"
-test('AC8 "needle" → highlighted-word spans', async () => {
+test('"needle" → highlighted-word spans', async () => {
   const code = 'const x = findThe("needle");\nconst y = 2;\nconst z = "needle";';
   const html = await render(code, '"needle"');
   const { document } = new JSDOM(html).window;
@@ -178,15 +166,13 @@ test('AC8 "needle" → highlighted-word spans', async () => {
   for (const w of words) assert.equal(w.textContent, "needle");
 });
 
-// AC9 — collapse={2-4} → no false highlight
-test("AC9 collapse={2-4} → lines 2-4 NOT highlighted", async () => {
+test("collapse={2-4} → lines 2-4 are not highlighted", async () => {
   const html = await render(SMALL, "collapse={2-4}");
   assert.deepEqual(linesWith(html, "highlighted"), [], "no false highlight on collapse lines");
   assert.deepEqual(linesWith(html, "diff"), []);
 });
 
-// AC10 — notation // [!code highlight]
-test("AC10 // [!code highlight] → line highlighted, comment stripped", async () => {
+test("// [!code highlight] → line highlighted, comment stripped", async () => {
   const code = "const x = 1; // [!code highlight]\nconst y = 2;";
   const html = await render(code, "");
   assert.deepEqual(linesWith(html, "highlighted"), [1]);
@@ -194,8 +180,7 @@ test("AC10 // [!code highlight] → line highlighted, comment stripped", async (
   assert.ok(!(document.querySelector("pre code")!.textContent ?? "").includes("[!code highlight]"), "notation comment stripped");
 });
 
-// AC11 — no meta leak into code text or lang badge
-test("AC11 meta does not leak into rendered code or lang badge", async () => {
+test("meta does not leak into rendered code or lang badge", async () => {
   const html = await render(SMALL, 'title="src/foo.ts" {2-3} ins={4} "needle" wrap');
   const { document } = new JSDOM(html).window;
   const codeText = document.querySelector("pre code")!.textContent ?? "";

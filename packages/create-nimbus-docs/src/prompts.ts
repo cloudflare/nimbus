@@ -10,7 +10,7 @@ export type { AdapterId };
 /** The known adapter ids, derived from the framework's recipe table. */
 export const ADAPTER_IDS = Object.keys(ADAPTER_RECIPES) as AdapterId[];
 
-// @TODO: Expose other SSR adapters after Nimbus supports request rendering on them.
+// Interactive scaffolding currently supports the Cloudflare adapter.
 export const INTERACTIVE_ADAPTER_OPTIONS = [
   { value: "cloudflare", label: "Cloudflare" },
 ] satisfies Array<{ value: AdapterId; label: string }>;

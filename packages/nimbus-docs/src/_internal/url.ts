@@ -59,6 +59,18 @@ export function withBase(path: string, base: string): string {
   return `${based}${suffix}`;
 }
 
+/** Prefix a logical route even when its first segment matches the base. */
+export function withBaseRoute(path: string, base: string): string {
+  if (isAbsoluteUrl(path)) return path;
+  if (path.startsWith("#") || path.startsWith("?")) return path;
+  let end = base.length;
+  while (end > 0 && base[end - 1] === "/") end--;
+  const prefix = base.slice(0, end);
+  const [pathname, suffix] = splitSuffix(path);
+  const normalized = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  return `${prefix}${normalized}${suffix}`;
+}
+
 /**
  * Detect whether the final path segment looks like a file (has an
  * extension). HTML document routes don't carry an extension under

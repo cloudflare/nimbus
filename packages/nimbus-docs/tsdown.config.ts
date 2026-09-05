@@ -9,6 +9,7 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     runtime: "src/runtime.ts",
+    build: "src/build.ts",
     config: "src/config.ts",
     content: "src/content.ts",
     schemas: "src/schemas.ts",
@@ -24,6 +25,8 @@ export default defineConfig({
     "_internal/request-route-inventory":
       "src/_internal/request-route-inventory.ts",
     "_internal/git-last-updated": "src/_internal/git-last-updated.ts",
+    "_internal/twin-artifacts": "src/_internal/twin-artifacts.ts",
+    "_internal/api-loader": "src/_internal/api-loader.ts",
   },
   format: "esm",
   dts: true,
@@ -75,6 +78,16 @@ export default defineConfig({
   outputOptions: {
     entryFileNames: "[name].js",
     chunkFileNames: "[name]-[hash].js",
+    codeSplitting: {
+      includeDependenciesRecursively: false,
+      groups: [
+        {
+          name: "build-markdown",
+          test: /(?:authored-links|build-partials|default-markdown-processor|partial-headings|scan-code-langs|lint[\\/]parse|markdown[\\/]render)\.ts$/,
+          priority: 10,
+        },
+      ],
+    },
   },
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),

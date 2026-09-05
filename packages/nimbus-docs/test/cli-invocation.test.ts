@@ -1,4 +1,4 @@
-// NX-3: user-facing CLI hints must print a runnable, *scoped* invocation — never
+// User-facing CLI hints must print a runnable, scoped invocation, never
 // the bare `nimbus-docs` bin (not on PATH for a dlx/npx first-run, and unscoped
 // `nimbus-docs` on npm is a different, legacy package).
 

@@ -132,8 +132,8 @@ function verifyVariants(generatedDir, nimbusVersion) {
     writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 
     log(`verify: install + build ${variant} against the packed tarball…`);
-    // No --ignore-workspace: it would skip the variant's own pnpm-workspace.yaml
-    // (the gate config), re-arming the pnpm-11 build-scripts gate (pnpm#12469).
+    // Keep the variant's workspace configuration active so dependency build
+    // permissions are honored.
     run("pnpm", ["install", "--no-frozen-lockfile"], { cwd: work });
     run("pnpm", ["build"], { cwd: work });
 

@@ -131,7 +131,7 @@
 
 ### Minor Changes
 
-- [#27](https://github.com/cloudflare/nimbus/pull/27) [`1ebfb6c`](https://github.com/cloudflare/nimbus/commit/1ebfb6ccb275aee75d2c39b55407dcf731e4e142) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Align the sidebar + add a mobile "On this page" TOC matching cloudflare-docs, and tighten the docs layout's mobile and horizontal-overflow handling.
+- [#27](https://github.com/cloudflare/nimbus/pull/27) [`1ebfb6c`](https://github.com/cloudflare/nimbus/commit/1ebfb6ccb275aee75d2c39b55407dcf731e4e142) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Align the sidebar, add a mobile "On this page" TOC, and tighten the docs layout's mobile and horizontal-overflow handling.
 
   - **Sidebar + TOC:** the sidebar filter gains a `press / to focus` kbd hint and a `placeholder` prop; sidebar groups render an optional leading icon (from `sidebar.group.icon`); and a sticky native-`<select>` "On this page" TOC now appears under the page title on viewports below `xl`, where the desktop TOC rail hides.
   - **Mobile sidebar drawer:** the drawer no longer dims or blurs the page — it slides in over a transparent overlay so the page copy stays readable, with a hairline edge instead of a shadow. Both the drawer panel and the desktop sidebar now paint their own background and contain overscroll, fixing a "no background" flash on fast/momentum scroll.
