@@ -1,0 +1,23 @@
+apps/www/src/content/docs/ai/agent-surfaces.mdx
+  s_242427c071d51d::t_181e528f6c3841 13,35-36
+packages/nimbus-docs/src/_internal/authored-links.ts
+  s_242427c071d51d::t_2417124b1b7815 2,189-191,193-202,205-230,233-245,254,259-304,307,309,316,319,324,332-334,337,340,343-347,351-355,360,363-367,377,379,384-388,393,396,402,430,438-443,459,461
+packages/nimbus-docs/src/_internal/markdown-loader.ts
+  s_242427c071d51d::t_4f1c7a203b829e 11,175,292,353-359
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "04b49f953bb21570c40c946e9310c8c5deed6038",
+  "prompts": {},
+  "sessions": {
+    "s_242427c071d51d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f986b22aaffex8HAFHhvW7q9Qq",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
