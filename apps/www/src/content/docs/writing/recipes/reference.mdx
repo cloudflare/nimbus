@@ -18,7 +18,7 @@ Write reference when the content is an enumeration of facts about one surface (a
 - **A concept.** Reference is neutral and complete; opinion and rationale live on the concept page. One orienting sentence with a concept link is the entire *prose* allowance at the top — per-entry links to concepts and how-tos are expected (see Links & freshness).
 - **A dumping ground.** "Miscellaneous" reference pages are where facts go to become unfindable. Every reference page covers one nameable surface; its structure mirrors the product's structure so readers navigate both in parallel.
 
-The two laws of the type, from Diátaxis and every gold-standard site: **completeness** (a missing entry breaks a reference the way a missing word breaks a dictionary) and **uniformity** (every entry answers the same questions in the same order).
+The two laws of the type are **completeness** (a missing entry breaks a reference the way a missing word breaks a dictionary) and **uniformity** (every entry answers the same questions in the same order).
 
 ## Title & description
 
@@ -42,7 +42,7 @@ The scaffold's definition line adapts per surface:
 
 ## Component guidance
 
-- **Tables** are the signature component. The quick-reference table above the entries is strongly recommended — it's what makes the common lookup zero-scroll (Tailwind's utility pages are the purest case; note that Vite and Astro skip it and lean on the TOC instead, which works but makes every lookup a jump). Simple tables only; merged cells and meaning-by-layout break both scanning and extraction.
+- **Tables** are the signature component. A quick-reference table above the entries is strongly recommended because it makes common lookups zero-scroll. Simple tables only; merged cells and meaning-by-layout break both scanning and extraction.
 - **Per-entry definition lines** (type · default · constraints) in a fixed order — bold or badge them consistently.
 - **Doesn't fit:** Steps, Cards, callouts (a fact that needs a warning callout usually belongs *in* the entry as a constraint), tabs or accordions that hide entries (an entry inside a collapsed surface is invisible to search-and-grab readers and to extraction).
 
@@ -54,7 +54,7 @@ Reference pages don't end — they stop after the last entry (plus the boilerpla
 
 - **Complete or clearly scoped — nothing in between.** Every entry the surface accepts is present; if a subset is deliberately elsewhere, the first line says where.
 - **Entry description prose ≤ 3 sentences, neutral** — with the structured escape valve: enumerable facts beyond that (per-value semantics, interactions, warnings) go in a list or sub-table under the entry, not more prose.
-- **One surface per page**, where a surface's own seams define granularity (a top-level config section or a subcommand is itself a surface when split). Around ~30 entries is the signal to consider splitting along those seams — but one long page with stable anchors is a valid, agent-friendly choice (Astro keeps ~85 config entries on one page; Vite splits the same kind of surface — the field genuinely diverges). Never split alphabetically.
+- **One surface per page**, where a surface's own seams define granularity (a top-level config section or a subcommand is itself a surface when split). Around ~30 entries is the signal to consider splitting along those seams, but one long page with stable anchors is a valid, agent-friendly choice. Never split alphabetically.
 
 ## Links & freshness
 

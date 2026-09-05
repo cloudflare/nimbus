@@ -176,6 +176,7 @@ export interface ApiOperationPage extends ApiPageBase {
 export interface ApiExampleView {
   mediaType: string;
   value: JsonValue;
+  highlightedHtml?: string;
 }
 
 export interface ApiRequestBodyView {
@@ -194,6 +195,7 @@ export interface ApiCodeSampleView {
   lang: string;
   label: string;
   source: string;
+  highlightedHtml?: string;
 }
 
 export interface ApiScalarView {

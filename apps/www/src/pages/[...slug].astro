@@ -11,7 +11,8 @@ import {
   getEditUrl,
   getLastUpdated,
   getTOC,
-  withBase,
+  entryRouteKey,
+  withBaseRoute,
 } from "@cloudflare/nimbus-docs";
 import { components } from "../components";
 
@@ -51,12 +52,9 @@ const editUrl = await getEditUrl(entry);
 const lastUpdated = entry.data.lastUpdated ?? await getLastUpdated(entry);
 const tocConfig = entry.data.tableOfContents;
 const toc = tocOn && tocConfig !== false ? getTOC(headings, tocConfig) : false;
-// Root index (`entry.id === "index"`) emits at `/index.md`; every other
-// entry at `/<entry.id>/index.md`. Mirrors the `.md` twin route's mapping so
-// the home page's "View as Markdown" link resolves.
-const markdownPath =
-  entry.id === "index" ? "/index.md" : `/${entry.id}/index.md`;
-const basedMarkdownPath = withBase(markdownPath, import.meta.env.BASE_URL);
+const routeKey = entryRouteKey(entry.id);
+const markdownPath = routeKey ? `/${routeKey}/index.md` : "/index.md";
+const basedMarkdownPath = withBaseRoute(markdownPath, import.meta.env.BASE_URL);
 const markdownUrl = Astro.site ? new URL(basedMarkdownPath, Astro.site).href : basedMarkdownPath;
 const socialImage = entry.data.socialImage ?? `/og/${entry.id}.png`;
 ---

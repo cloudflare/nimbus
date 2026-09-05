@@ -78,11 +78,11 @@ Adapt the definition line per surface: config field carries *type · default · 
 
 ## 5. Structure & components
 
-- **Tables are the signature component.** The quick-reference table above the entries makes the common lookup zero-scroll (Tailwind's utility pages are the purest case; Vite and Astro skip it and lean on the TOC, which works but makes every lookup a jump). Simple tables only — merged cells and meaning-by-layout break both scanning and extraction.
+- **Tables are the signature component.** The quick-reference table above the entries makes common lookups zero-scroll. Simple tables only — merged cells and meaning-by-layout break both scanning and extraction.
 - **Definition lines** (type · default · constraints) in a fixed order — bold or badge them consistently.
 - **Doesn't fit:** Steps, Cards, and callouts (a fact needing a warning usually belongs *in* the entry as a constraint), plus tabs or accordions that hide entries — a collapsed entry is invisible to search-and-grab readers and to extraction. The `.md` twin needs no special handling *because* nothing is hidden; the twin of a reference page is the page.
 - **Ending:** reference pages don't end — they stop after the last entry (plus the boilerplate tail, if any). No next-steps footer; the reader who got their value already left, and the one who didn't needs the concept link at the top.
-- **Thresholds:** complete or clearly scoped, nothing in between — if a subset lives elsewhere, line one says where. Entry prose ≤ 3 sentences, neutral, overflow into lists/sub-tables. One surface per page; ~30 entries is the signal to consider splitting along the surface's own seams (Astro keeps ~85 config entries on one page; Vite splits the same kind — never split alphabetically). Facts have exactly one source: generate values that live in code or schema; hand-maintained fact pages (limits, quotas) carry a visible `lastVerified` date.
+- **Thresholds:** complete or clearly scoped, nothing in between — if a subset lives elsewhere, line one says where. Entry prose ≤ 3 sentences, neutral, overflow into lists/sub-tables. One surface per page; ~30 entries is the signal to consider splitting along the surface's own seams, but never split alphabetically. Facts have exactly one source: generate values that live in code or schema; hand-maintained fact pages (limits, quotas) carry a visible `lastVerified` date.
 
 ## 6. Write the page
 

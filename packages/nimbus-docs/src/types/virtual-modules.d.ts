@@ -27,6 +27,12 @@ declare module "virtual:nimbus/config" {
   };
 }
 
+declare module "virtual:nimbus/headings" {
+  export const generation: number;
+  export const base: string;
+  export const records: import("../_internal/prepared-headings.js").PreparedHeadingRecord[];
+}
+
 declare module "virtual:nimbus/api-build-config" {
   export const api: import("../types.js").ApiSpec[];
   export const root: string;

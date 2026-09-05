@@ -24,9 +24,6 @@
  *     `nimbus-docs/content` and registers them themselves.
  *   - MDX globals injection. The user passes `components={components}`
  *     when rendering `<Content />`.
- *
- * Planned (not shipped):
- *   - `/llms.txt` and `/robots.txt` route injection.
  */
 
 import { execFile } from "node:child_process";
@@ -91,6 +88,8 @@ import {
   type IconPluginOptions,
 } from "./_internal/icon-virtual.js";
 import { scanCodeBlocks } from "./_internal/scan-code-langs.js";
+import { walkFilesSync } from "./_internal/fs-walk.js";
+import { registerAuthoredLinkNormalizer } from "./_internal/authored-link-normalizer.js";
 import {
   clearCodeStyleRegistry,
   getCodeStyleCSS,
@@ -125,6 +124,14 @@ import { safeDecode, withBase } from "./_internal/url.js";
 import { buildLastUpdatedIndex } from "./_internal/git-last-updated.js";
 import { virtualLastUpdatedPlugin } from "./_internal/last-updated-virtual.js";
 import { pagefindDocument } from "./_internal/pagefind-document.js";
+import {
+  beginPreparedMarkdownSession,
+  getPreparedMarkdownSnapshot,
+} from "./_internal/prepared-markdown-registry.js";
+import type {
+  TwinComponentTransform,
+  TwinPartialResolver,
+} from "./_internal/twin-artifacts.js";
 import type { NimbusConfig, RenderingMode } from "./types.js";
 
 /**
@@ -145,12 +152,27 @@ const REQUEST_ROUTE_INVENTORY_ENTRYPOINT = new URL(
   import.meta.url,
 );
 
+type TwinArtifactsModule = typeof import("./_internal/twin-artifacts.js");
+
+function loadTwinArtifacts(): Promise<TwinArtifactsModule> {
+  const extension = import.meta.url.endsWith(".ts") ? "ts" : "js";
+  const specifier = ["./_internal/", "twin-artifacts.", extension].join("");
+  return import(
+    new URL(specifier, import.meta.url).href
+  ) as Promise<TwinArtifactsModule>;
+}
+
 export interface SitemapOptions {
   serialize?: SitemapSerialize;
   customPages?: string[];
 }
 
 export interface NimbusIntegrationOptions {
+  /** Build-time transforms for clean Markdown twins. */
+  twins?: {
+    componentMap?: Record<string, TwinComponentTransform>;
+    partialResolver?: TwinPartialResolver;
+  };
   /** MDX options forwarded to `@astrojs/mdx`. */
   mdx?: Parameters<typeof mdx>[0];
   /**
@@ -311,6 +333,39 @@ export function nimbus(
   options: NimbusIntegrationOptions = {},
 ): AstroIntegration {
   const config = validateNimbusConfig(rawConfig);
+  for (const [name, transform] of Object.entries(
+    options.twins?.componentMap ?? {},
+  )) {
+    if (!name || !transform || typeof transform.render !== "function") {
+      throw new TypeError(
+        `nimbus-docs: twins.componentMap.${name || "<empty>"} must define a render function.`,
+      );
+    }
+    if (
+      typeof transform.revision !== "string" ||
+      transform.revision.trim().length === 0
+    ) {
+      throw new TypeError(
+        `nimbus-docs: twins.componentMap.${name}.revision must be a non-empty string.`,
+      );
+    }
+  }
+  const partialResolver = options.twins?.partialResolver;
+  if (partialResolver) {
+    if (typeof partialResolver.resolve !== "function") {
+      throw new TypeError(
+        "nimbus-docs: twins.partialResolver must define a resolve function.",
+      );
+    }
+    if (
+      typeof partialResolver.revision !== "string" ||
+      partialResolver.revision.trim().length === 0
+    ) {
+      throw new TypeError(
+        "nimbus-docs: twins.partialResolver.revision must be a non-empty string.",
+      );
+    }
+  }
   // Validate the lint half of the options up front (build validators can't
   // take a severity; `collections` is reserved). Throws on misconfig.
   const lintOptions = validateLintOptions(
@@ -338,6 +393,8 @@ export function nimbus(
   let sitemapExcludedPaths = new Set<string>();
   let sitemapTrailingSlash: "always" | "never" | "ignore" = "ignore";
   let building = false;
+  let indexedCollectionsForBuild: string[] = [];
+  let apiCollectionsForBuild: string[] = [];
 
   // Built eagerly at config:setup, reassigned by the dev re-bake; both the
   // citation plugin and virtual:nimbus/coordinates read it through a getter.
@@ -364,6 +421,103 @@ export function nimbus(
         // content/assets stay root-relative via their collection bases.
         const srcDir = fileURLToPath(astroConfig.srcDir);
         const projectRoot = fileURLToPath(astroConfig.root);
+        beginPreparedMarkdownSession(astroConfig.root);
+        const twinArtifacts = await loadTwinArtifacts();
+        twinArtifacts.configureTwinArtifactRoot(
+          astroConfig.root,
+          command === "build" ? "build" : "dev",
+          async () => {
+            const hiddenApiVersions = new Map(
+              (config.api ?? []).map((entry) => [
+                entry.collection,
+                new Set(
+                  (entry.versions ?? [])
+                    .filter((version) => version.hidden)
+                    .map((version) => version.version),
+                ),
+              ]),
+            );
+            return twinArtifacts.bakePreparedTwins({
+              root: projectRoot,
+              base: astroConfig.base || "/",
+              site: config.site,
+              title: config.title,
+              description: config.description,
+              socialImage: config.socialImage,
+              indexedCollections: indexedCollectionsForBuild,
+              apiCollections: apiCollectionsForBuild,
+              versions: config.versions,
+              citationIndex,
+              componentMap: options.twins?.componentMap,
+              partialResolver,
+              loadApiEntries: async () => {
+                const apiEntries: Array<{
+                  collection: string;
+                  id: string;
+                  data: Record<string, unknown>;
+                  hidden: boolean;
+                }> = [];
+                if (apiCollectionsForBuild.length === 0) return apiEntries;
+                const snapshot = getPreparedMarkdownSnapshot(projectRoot);
+                for (const collection of apiCollectionsForBuild) {
+                  const entries =
+                    snapshot?.collections.get(collection)?.entries;
+                  if (!entries) {
+                    throw new Error(
+                      `nimbus-docs: API collection "${collection}" was not prepared during content sync.`,
+                    );
+                  }
+                  for (const entry of entries.values()) {
+                    apiEntries.push({
+                      collection,
+                      id: entry.id,
+                      data: (entry.data ?? {}) as Record<string, unknown>,
+                      hidden:
+                        typeof entry.data.version === "string" &&
+                        (hiddenApiVersions
+                          .get(collection)
+                          ?.has(entry.data.version) ??
+                          false),
+                    });
+                  }
+                }
+                return apiEntries;
+              },
+            });
+          },
+          () =>
+            twinArtifacts.bakePreparedHeadings({
+              root: projectRoot,
+              base: astroConfig.base || "/",
+              indexedCollections: indexedCollectionsForBuild,
+              partialResolver,
+            }),
+          astroConfig.base || "/",
+        );
+        if (
+          building &&
+          [
+            ...walkFilesSync(path.join(srcDir, "pages"), {
+              extensions: [
+                ".astro",
+                ".js",
+                ".jsx",
+                ".mjs",
+                ".cjs",
+                ".ts",
+                ".tsx",
+                ".mts",
+                ".cts",
+              ],
+            }),
+          ].some(({ abs }) =>
+            /(?:from\s*|import\s*\()\s*["'](?:@cloudflare\/)?nimbus-docs\/build["']/.test(
+              fs.readFileSync(abs, "utf8"),
+            ),
+          )
+        ) {
+          twinArtifacts.registerTwinArtifactDemand(astroConfig.root);
+        }
         const publicDir = astroConfig.publicDir
           ? fileURLToPath(astroConfig.publicDir)
           : path.join(projectRoot, "public");
@@ -540,6 +694,8 @@ export function nimbus(
             ...apiCollections,
           ]),
         ];
+        indexedCollectionsForBuild = indexedCollections;
+        apiCollectionsForBuild = apiCollections;
 
         renderingRoutes = new Map();
         requestRenderingConfigured = false;
@@ -851,6 +1007,7 @@ export function nimbus(
         const citationContentDirs = ["src/content"].map((d) =>
           path.isAbsolute(d) ? d : path.join(projectRoot, d),
         );
+        const authoredLinkSourceDirs = [srcDir];
         const lastUpdatedByPath = requestRenderingConfigured
           ? await buildLastUpdatedIndex(projectRoot)
           : null;
@@ -863,6 +1020,23 @@ export function nimbus(
             hastPlugins: options.markdown?.hastPlugins,
             mdastPlugins: options.markdown?.mdastPlugins,
           });
+        const authoredLinks = await import("./_internal/authored-links.js");
+        registerAuthoredLinkNormalizer(authoredLinks.normalizeAuthoredLinks);
+        const { decorateMarkdownProcessor } =
+          await import("./_internal/markdown-processor-decorator.js");
+        const { markdownSourcePlugin } =
+          await import("./_internal/markdown-source-vite-plugin.js");
+        const authoredLinkBase = astroConfig.base || "/";
+        const preparedMarkdownProcessor = decorateMarkdownProcessor(
+          markdownProcessor as import("astro/markdown").MarkdownProcessor,
+          (source, renderOptions) =>
+            authoredLinks.normalizeAuthoredLinks(source, {
+              base: authoredLinkBase,
+              sourceId: renderOptions?.fileURL
+                ? fileURLToPath(renderOptions.fileURL)
+                : undefined,
+            }),
+        );
 
         updateConfig({
           // Bridge `nimbusConfig.site` → Astro's top-level `site`. The
@@ -895,7 +1069,7 @@ export function nimbus(
             // applies), so existing sites are unaffected. A full `processor`
             // override bypasses this. The `*Input[]` → `*Definition[]` cast is
             // safe: `markdownToHtml` resolves factory entries at runtime.
-            processor: markdownProcessor as never,
+            processor: preparedMarkdownProcessor as never,
             // Dual-theme Shiki output. `defaultColor: false` makes Shiki
             // emit BOTH themes as inline CSS variables (`--shiki-light`,
             // `--shiki-dark`, `--shiki-light-bg`, `--shiki-dark-bg`)
@@ -963,7 +1137,19 @@ export function nimbus(
           //      the llms.txt routes) and the versioning alternates
           //      table.
           vite: {
+            define: {
+              "import.meta.env.NIMBUS_PROJECT_ROOT":
+                JSON.stringify(projectRoot),
+            },
             plugins: [
+              markdownSourcePlugin({
+                contentDirs: authoredLinkSourceDirs,
+                transform: (source, filePath) =>
+                  authoredLinks.normalizeAuthoredLinks(source, {
+                    base: authoredLinkBase,
+                    sourceId: filePath,
+                  }),
+              }),
               ...admonitionVitePlugins,
               // HTML-path citation rewrite; runs before @astrojs/mdx compiles
               // the file. Reads the current citation index so a dev re-bake applies.
@@ -975,6 +1161,7 @@ export function nimbus(
                 coordinates: Object.fromEntries(citationIndex),
                 manifest: coordinatesManifest,
               })),
+              twinArtifacts.preparedHeadingsPlugin(astroConfig.root),
               virtualApiBuildConfigPlugin(config.api, projectRoot),
               virtualLastUpdatedPlugin(lastUpdatedByPath),
               virtualConfigPlugin(config, {
@@ -1003,7 +1190,6 @@ export function nimbus(
                   // to load JSON files at runtime, which breaks when Vite
                   // bundles them into prerender chunks. Redirect bare
                   // imports to the browser bundles which have data inlined.
-                  // https://github.com/csstree/csstree/issues/314
                   const browserBundle: Record<string, string> = {
                     "css-tree": "css-tree/dist/csstree.esm",
                     csso: "csso/dist/csso.esm",
@@ -1138,6 +1324,10 @@ export function nimbus(
           if (!isContentFile(file)) return;
           const { clearNavCaches } = await import("./index.js");
           clearNavCaches();
+          (await loadTwinArtifacts()).invalidatePreparedTwins(
+            projectRootForBuild,
+          );
+          server.moduleGraph.invalidateAll();
         };
         server.watcher.on("add", invalidate);
         server.watcher.on("change", invalidate);
@@ -1169,6 +1359,9 @@ export function nimbus(
               );
               citationIndex = index;
               coordinatesManifest = manifest;
+              (await loadTwinArtifacts()).invalidatePreparedTwins(
+                projectRootForBuild,
+              );
               server.moduleGraph.invalidateAll();
             } catch (err) {
               server.config.logger.error(
@@ -1184,6 +1377,13 @@ export function nimbus(
       "astro:build:start": async () => {
         const { clearNavCaches } = await import("./index.js");
         clearNavCaches();
+        const twinArtifacts = await loadTwinArtifacts();
+        if (requestRenderingConfigured) {
+          twinArtifacts.registerTwinArtifactDemand(projectRootForBuild);
+        }
+        if (twinArtifacts.isTwinArtifactRequested(projectRootForBuild)) {
+          await twinArtifacts.ensurePreparedTwins(projectRootForBuild);
+        }
       },
       "astro:routes:resolved": ({ routes }) => {
         requestRoutePatterns =
@@ -1313,9 +1513,7 @@ export function nimbus(
         if (config.search !== false && config.search?.provider !== "custom") {
           await runPagefind(
             distDir,
-            inventory.filter(
-              (entry) => entry.request && entry.searchable,
-            ),
+            inventory.filter((entry) => entry.request && entry.searchable),
           );
         }
       },
@@ -1432,7 +1630,9 @@ export function readRequestRouteInventory(
   const distRoot = path.resolve(distDir);
   const candidates = [
     path.resolve(distRoot, relativeInventoryPath),
-    ...(basePath ? [path.resolve(distRoot, basePath, relativeInventoryPath)] : []),
+    ...(basePath
+      ? [path.resolve(distRoot, basePath, relativeInventoryPath)]
+      : []),
   ].map((candidate) => assertSafeInventoryPath(distRoot, candidate));
   const inventoryPath = candidates.find((candidate) => {
     assertSafeInventoryPath(distRoot, candidate);
@@ -1845,9 +2045,7 @@ export async function runPagefind(
         );
         continue;
       }
-      if (
-        (stats.dev !== file.dev || stats.ino !== file.ino)
-      ) {
+      if (stats.dev !== file.dev || stats.ino !== file.ino) {
         continue;
       }
       cleanupErrors.push(

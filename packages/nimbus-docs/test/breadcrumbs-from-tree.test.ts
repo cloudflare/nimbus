@@ -24,7 +24,7 @@ test("LP default: index-less module shown as a non-interactive crumb", () => {
   assert.equal(workers.href, undefined); // non-interactive
 });
 
-test("resolveLabel → null drops the index-less module crumb (CF parity)", () => {
+test("resolveLabel → null drops the index-less module crumb", () => {
   const tree = buildSidebarTree({ docs: lpEntries } as any, "docs", slug, lpConfig as any);
   const crumbs = breadcrumbsFromTree(tree, slug, {
     resolveLabel: ({ node }) =>

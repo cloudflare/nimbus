@@ -16,7 +16,6 @@ import { Banner } from "@/components/ui/banner";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { ApiFieldList, ApiUnionExplorer } from "@/components/ui/api-field-row";
 import { PageActions } from "@/components/ui/page-actions";
-import Code from "@/components/ui/code/Code.astro";
 import ApiEndpointCard from "./ApiEndpointCard.astro";
 import { authFields } from "./auth";
 import { cn } from "@/lib/cn";
@@ -35,12 +34,12 @@ const detail = (v: unknown): string => JSON.stringify(v);
 const mediaBadge = (mediaType: string): string =>
   (mediaType.split("/").pop() ?? mediaType).toUpperCase();
 
-const exampleCode = (e: { mediaType: string; value: unknown }): string =>
-  typeof e.value === "string" && !e.mediaType.includes("json")
-    ? e.value
-    : JSON.stringify(e.value, null, 2);
-const exampleLang = (e: { mediaType: string }): "json" | "text" =>
-  e.mediaType.includes("json") ? "json" : "text";
+const preparedCode = (example: { highlightedHtml?: string }): string => {
+  if (!example.highlightedHtml) {
+    throw new Error("Nimbus API code was not prepared during content sync.");
+  }
+  return example.highlightedHtml;
+};
 
 // HTTP status (or a range like "4XX") → semantic text colour: 2xx success, 3xx
 // info, 4xx/5xx danger, else neutral. Keyed on the leading digit so ranges and
@@ -133,7 +132,7 @@ const deprecationHtml = page.deprecated
           ) : null}
           {body.example && (
             <div class="mt-2 overflow-hidden rounded-lg bg-card ring ring-border">
-              <Code code={exampleCode(body.example)} lang={exampleLang(body.example)} />
+              <Fragment set:html={preparedCode(body.example)} />
             </div>
           )}
         </section>

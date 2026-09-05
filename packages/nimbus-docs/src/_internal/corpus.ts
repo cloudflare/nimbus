@@ -7,7 +7,7 @@
  * version/hidden filtering; this module only formats.
  */
 
-import { withBase } from "./url.js";
+import { isAbsoluteUrl } from "./url.js";
 
 export interface CorpusBlock {
   /** Display title — becomes the block's `#`-level heading. */
@@ -53,7 +53,14 @@ export function buildCorpusMarkdown(
   header: CorpusHeader,
 ): string {
   const abs = (p: string): string => {
-    const based = withBase(p, header.base ?? "/");
+    const base = header.base ?? "/";
+    let end = base.length;
+    while (end > 0 && base[end - 1] === "/") end--;
+    const prefix = base.slice(0, end);
+    const based =
+      isAbsoluteUrl(p) || p.startsWith("#") || p.startsWith("?") || !prefix
+        ? p
+        : `${prefix}${p.startsWith("/") ? p : `/${p}`}`;
     return header.site ? new URL(based, header.site).href : based;
   };
 
@@ -61,7 +68,9 @@ export function buildCorpusMarkdown(
   if (header.description) lines.push(`> ${header.description}`, "");
   lines.push(`Index: ${abs("/llms.txt")}`, "");
 
-  const sorted = [...blocks].sort((a, b) => a.url.localeCompare(b.url));
+  const sorted = [...blocks].sort((a, b) =>
+    a.url < b.url ? -1 : a.url > b.url ? 1 : 0,
+  );
   for (const block of sorted) {
     lines.push(`# ${block.title}`, "");
     if (block.description) lines.push(`> ${block.description}`, "");

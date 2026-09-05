@@ -453,8 +453,7 @@ export function definePartialsSchema<
 // The standalone lint CLI can't yet see a site's extended
 // `content.config.ts` schema, so it validates the *types* of the fields
 // the framework owns while tolerating user-added fields (passthrough).
-// Unknown-key detection is deferred to when the engine can load the real
-// per-collection schema.
+// Unknown keys remain valid because custom schemas may extend these fields.
 // ---------------------------------------------------------------------------
 
 /** Docs frontmatter, framework fields type-checked, extra keys allowed. */

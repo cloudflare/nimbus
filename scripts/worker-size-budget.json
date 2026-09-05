@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "worker": {
+    "baselineBytes": 5411480,
+    "baselineGzipBytes": 1163910,
+    "maxBytes": 6500000,
+    "maxGzipBytes": 1500000
+  },
+  "preparedSource": {
+    "baselineBytes": 1024,
+    "baselineGzipBytes": 768,
+    "maxBytes": 4096,
+    "maxGzipBytes": 3072
+  }
+}

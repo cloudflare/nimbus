@@ -50,16 +50,12 @@ export async function lintCommand(flags: LintCliFlags): Promise<void> {
       );
       process.exit(1);
     }
-    // `isRuleCode` accepts every registered code, including build validators
-    // (which run inside `astro build`, not here) and planned codes that
-    // don't have a rule module yet. Either case would silently exit clean
-    // with zero coverage — a worse outcome than "unknown rule" for a
-    // command users invoke specifically because they trust it to enforce
-    // something.
+    // Build validators run inside `astro build`; this command accepts only
+    // authoring rules with an available rule module.
     if (!IMPLEMENTED_CODES.has(flags.rule)) {
       process.stderr.write(
         `Rule \`${flags.rule}\` is not an implemented lint rule. ` +
-          `Build validators run inside \`astro build\`, not here; planned rules haven't shipped yet. ` +
+          `Build validators run inside \`astro build\`, not here. ` +
           `Implemented authoring rules: ${[...IMPLEMENTED_CODES].sort().join(", ")}.\n`,
       );
       process.exit(1);

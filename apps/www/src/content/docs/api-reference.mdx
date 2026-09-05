@@ -1,0 +1,287 @@
+---
+title: API reference
+description: Generate routed, versioned API documentation from an OpenAPI specification.
+aiGenerated: true
+sidebar:
+  order: 10
+---
+
+Nimbus generates API references from machine-readable specifications. Each supported format has its own source, configuration, and content loader.
+
+## OpenAPI
+
+Nimbus currently supports OpenAPI 3.x. Nimbus turns a local OpenAPI document into a content collection that powers reference pages, navigation, Markdown alternates, search entries, agent indexes, and stable links from prose documentation.
+
+The OpenAPI document remains the source of truth. You do not create one MDX file per operation or schema.
+
+### Add an API reference
+
+Start with an OpenAPI 3.x document stored in your repository. Convert Swagger 2.0 documents to OpenAPI 3.x first. `src/api/openapi.yaml` is the usual location, but Nimbus accepts any project-relative local path or an inline document object. Remote specification URLs are not supported.
+
+Run the API reference recipe from the project root:
+
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add api-reference --print" />
+
+Review the printed plan, start from a clean worktree, and then pass it to your coding agent. The recipe tells the agent to inspect your project, ask for the specification path and collection name, and then:
+
+1. Installs the editable API layout and its parser dependencies.
+2. Declares the specification in `nimbus.config.ts`.
+3. Registers a loader-backed Astro content collection.
+4. Adds the HTML catch-all route and static Markdown route.
+5. Connects the collection to Nimbus's existing search and agent surfaces.
+
+### How the pieces fit
+
+```text
+src/api/openapi.yaml
+        ↓
+nimbus.config.ts → apiCollection() → prepared Astro content entries
+                                      ↓
+                    /api/* HTML, Markdown, search, llms.txt
+                                      ↓
+                       stable coordinate citations
+```
+
+| File | Responsibility |
+| --- | --- |
+| `src/api/openapi.yaml` | The API contract and documentation source. |
+| `nimbus.config.ts` | Declares the specification, versions, routes, and rendering policy. |
+| `src/content.config.ts` | Registers the generated entries as an Astro content collection. |
+| `src/pages/api/[...slug].astro` | Renders API HTML through the user-owned API layout. |
+| `src/pages/api/[...slug]/index.md.ts` | Publishes a clean Markdown alternate for every API page. |
+| `src/components/ui/api-*/` | Owns the reference's appearance and interaction design. |
+
+#### Why the specification is not in `src/content`
+
+`src/content/docs/` contains authored MDX entries. An OpenAPI document is an input to a loader: Nimbus projects it into many operation, schema, tag, and webhook entries in the registered `api` collection.
+
+Keeping the source under `src/api/` makes that distinction visible. The path is only a convention; `src/content/api/openapi.yaml` also works if the configured `spec` points there.
+
+### Configure one specification
+
+Declare the specification once in a shared config module:
+
+```ts title="nimbus.config.ts"
+import { defineConfig } from "@cloudflare/nimbus-docs/config";
+
+export default defineConfig({
+  site: "https://docs.example.com",
+  title: "Acme Docs",
+  api: [
+    {
+      collection: "api",
+      label: "Acme API",
+      spec: "./src/api/openapi.yaml",
+      requireOperationId: true,
+    },
+  ],
+});
+```
+
+The collection name is also its URL prefix: `api` mounts the reference at `/api`.
+
+Import this config into `astro.config.ts` and pass it to the Nimbus integration. Use the side-effect-free `/config` import above because `src/content.config.ts` also imports the same object.
+
+Register the collection with a literal key:
+
+```ts title="src/content.config.ts"
+import { defineCollection } from "astro:content";
+import { apiCollection, docsCollection } from "@cloudflare/nimbus-docs/content";
+import nimbusConfig from "../nimbus.config";
+
+const api = nimbusConfig.api?.find((entry) => entry.collection === "api");
+if (!api) throw new Error('Missing the "api" collection in nimbus.config.ts');
+
+export const collections = {
+  docs: defineCollection(docsCollection()),
+  api: defineCollection(apiCollection(api)),
+};
+```
+
+This does not duplicate the specification declaration. It tells Astro which loader should turn that declaration into content entries. Keep the collection key explicit so Nimbus can discover it during configuration and build validation.
+
+### Coordinates and routes
+
+A **coordinate** is the stable identity of an API item. For an operation, its OpenAPI `operationId` is its coordinate:
+
+```yaml
+paths:
+  /v1/events/{event_id}:
+    get:
+      operationId: retrieveEvent
+      summary: Retrieve an event
+```
+
+Coordinates are not URLs. `retrieveEvent` can keep its identity while the public documentation route becomes `/api/events/retrieve`.
+
+Use the optional route policy to derive readable resource/action URLs:
+
+```ts
+api: [
+  {
+    collection: "api",
+    spec: "./src/api/openapi.yaml",
+    requireOperationId: true,
+    routes: {
+      convention: "resource-action-v1",
+      stripPathPrefixes: ["/v1"],
+    },
+  },
+],
+```
+
+Here, Nimbus derives `events/retrieve` from `GET /v1/events/{event_id}` while the coordinate remains `retrieveEvent`. Add an operation override only when derivation is ambiguous or an existing URL must be preserved:
+
+```ts
+routes: {
+  convention: "resource-action-v1",
+  operations: {
+    retrieveEvent: "events/get",
+  },
+},
+```
+
+Without a route policy, Nimbus uses the operation ID as the page slug and prefixes it with the first tag when present. `requireOperationId: true` makes a missing operation ID a build error. Without it, Nimbus can fall back to an identity derived from the method and path, but that coordinate will move if the API path changes.
+
+#### Link from prose by coordinate
+
+Use an `api.ref:` destination in Markdown or MDX under `src/content`:
+
+```md
+See how to [retrieve an event](api.ref:api:retrieveEvent).
+```
+
+Nimbus resolves the citation during the build:
+
+- `api` identifies the API collection.
+- `retrieveEvent` identifies the operation independently of its route.
+- A citation without a version targets the API family's default version.
+- An unknown coordinate in a known collection fails the authored-content build and suggests close matches.
+
+Pin a historical version only when the prose specifically discusses it:
+
+```md
+Review the [v1 operation](api.ref:api@v1:retrieveEvent).
+```
+
+Changing a coordinate is a breaking documentation change. Renaming an operation ID, schema, tag, or webhook means updating citations that use that identity.
+
+#### Coordinate shapes
+
+Nimbus publishes coordinates for pages and for addressable details within them:
+
+| API item | Coordinate example |
+| --- | --- |
+| API root | `api` |
+| Tag | `tags.Events` |
+| Operation | `retrieveEvent` |
+| Request field | `retrieveEvent.event_id` |
+| Parameter | `retrieveEvent.path.event_id` |
+| Response | `retrieveEvent.response.200` |
+| Schema | `Event` |
+| Schema field | `Event.created_at` |
+| Webhook | `delivery.succeeded` |
+
+Use `/nimbus-api/coordinates.json` to inspect the exact coordinates and resolved URLs published by a built site.
+
+### Versioned API references
+
+API versions live inside the `api` entry. This is separate from the top-level `versions` option used for authored prose documentation.
+
+```ts title="nimbus.config.ts"
+api: [
+  {
+    collection: "api",
+    label: "Acme API",
+    requireOperationId: true,
+    versions: [
+      {
+        version: "v2",
+        spec: "./src/api/openapi-v2.yaml",
+        default: true,
+        status: "ga",
+      },
+      {
+        version: "v1",
+        spec: "./src/api/openapi-v1.yaml",
+        status: "deprecated",
+      },
+    ],
+  },
+],
+```
+
+The default version owns `/api`; other versions mount below their version, such as `/api/v1`. Nimbus links pages across versions when they share a coordinate. A deprecated version renders its status in the reference UI.
+
+Route policies belong to each version in a version family. This makes URL decisions explicit when two specifications use different base paths or need different overrides.
+
+### Build or request rendering
+
+API HTML is prerendered by default. To render only the API collection when a visitor requests it, use Cloudflare server output and set:
+
+```ts title="nimbus.config.ts"
+rendering: {
+  default: "build",
+  collections: {
+    api: "request",
+  },
+},
+```
+
+The recipe's API catch-all uses Nimbus runtime helpers to resolve either mode. Request rendering changes the canonical HTML pages only. Markdown alternates, coordinate data, search records, sitemaps, and agent indexes remain build products, and requests consume prepared content entries rather than parsing the OpenAPI document.
+
+See [Configuration](/configuration#rendering-policy) for the Cloudflare adapter and Wrangler requirements.
+
+### Published outputs
+
+For a collection named `api`, the reference integrates with these routes when their corresponding starter routes are present:
+
+| Route | Purpose |
+| --- | --- |
+| `/api` | Default-version API overview. |
+| `/api/<page-slug>` | Operation, schema, tag, or webhook page. |
+| `/api/<page-slug>/index.md` | Clean Markdown alternate. |
+| `/api/llms.txt` | API-only agent index. |
+| `/llms.txt` and `/llms-full.txt` | Site-wide agent discovery and corpus. |
+| `/nimbus-api/coordinates.json` | Public coordinate-to-URL manifest. |
+
+The API entries also join the existing Pagefind search, sitemap, and OG-image routes when those features are enabled in the project.
+
+### Cite an API hosted elsewhere
+
+A documentation site can cite a reference published by another Nimbus site without mounting or republishing it:
+
+```ts
+apiReferences: [
+  {
+    collection: "api",
+    manifest: "https://api.example.com/nimbus-api/coordinates.json",
+    origin: "https://api.example.com",
+  },
+],
+```
+
+`collection` must match the collection key published by the remote manifest. `origin` is required when the manifest contains site-relative URLs and the API reference lives on another origin.
+
+The remote collection then uses the same prose syntax: `api.ref:api:retrieveEvent`. Remote references provide citation targets only; they do not add the remote pages to local search or agent outputs.
+
+Nimbus fetches HTTPS manifests during the build. An unavailable or malformed remote manifest produces warnings and its citations resolve to `#`; it does not stop the build. You can instead commit a manifest and use a project-relative path when builds must work offline. An unreadable local manifest, invalid JSON, or invalid top-level shape fails the build; malformed entries inside an otherwise valid manifest are warned and ignored.
+
+### Verify the reference
+
+Run a production build after adding or changing a specification:
+
+```sh
+pnpm build
+```
+
+Confirm that:
+
+1. The build reports the number of indexed API pages.
+2. `/api` and one operation page render.
+3. The same operation's `/index.md` route returns Markdown.
+4. `/api/llms.txt` lists the reference pages.
+5. `/nimbus-api/coordinates.json` contains a known operation ID.
+6. A prose `api.ref:` link resolves to the expected route.
+
+For request rendering, test the production Worker locally with Wrangler rather than relying only on Astro's development server.

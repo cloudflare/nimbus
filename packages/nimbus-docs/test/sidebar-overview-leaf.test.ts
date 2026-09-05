@@ -48,9 +48,7 @@ test("lift: group index becomes a leading Overview leaf under a disclosure heade
 });
 
 test("lift: author's _indexLabel wins over the overviewLabel default on the leaf", () => {
-  // Reproduces the reported page: title-derived group label "Custom hostnames"
-  // + an authored sidebar.label "About" on the landing → header keeps the
-  // section name, leaf reads "About" (not the forced "Overview").
+  // The title supplies the group label while sidebar.label supplies the leaf.
   const tree = [
     group({
       label: "Custom hostnames",
@@ -248,9 +246,7 @@ test("full scope: every top-level product group is lifted; pin no-ops without a 
 });
 
 test("end-to-end (buildSidebarTree → applyOverviewLeaf): title names the group, sidebar.label names the leaf", () => {
-  // The reported page: `domain-support/index.mdx` sets title "Custom hostnames"
-  // + sidebar.label "About". Group label must come from title (A); the lifted
-  // leaf must read the authored "About" (B). Prod parity: "Custom hostnames > About".
+  // The group label comes from the title; the lifted leaf uses sidebar.label.
   const entries = [
     { id: "saas", data: { title: "SaaS", sidebar: { order: 1 } } },
     {

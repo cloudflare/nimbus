@@ -1,8 +1,6 @@
-# `nimbus-docs lint` — engine architecture & decisions
+# `nimbus-docs lint` — engine architecture
 
-The authoring-quality verdict for MDX content. User-facing reference:
-[Authoring lints](../../../../apps/www/src/content/docs/wip/specs/lints/index.mdx).
-What's shipped vs open: [Lints — status](../../../../apps/www/src/content/docs/wip/specs/lints/lints-status.mdx).
+The authoring-quality engine for MDX content.
 
 ## Architecture
 
@@ -29,9 +27,7 @@ src/lint/
 
 src/_internal/
   astro-slug.ts          canonicalSlug + canonicalEntryUrl — mirror of Astro's content-layer
-                         slug normalization (github-slugger + trailing-/index strip). Used by
-                         every framework URL builder; documented as a band-aid pending the
-                         routes-manifest refactor (see below).
+                         slug normalization (github-slugger + trailing-/index strip).
   collection-mount.ts    PRIMARY_COLLECTION + collectionMountPrefix — single source of truth
                          for "where does collection X mount?". Shared by index.ts and
                          site-model.ts so duplicate-slug can't drift from real routing.
@@ -48,9 +44,8 @@ The 8 commodity rules (heading hygiene, list/emphasis style, code-block
 flags, bare URLs) delegate detection to remark-lint via the adapter.
 The 6 irreducible-core rules (anything that needs Nimbus-specific
 knowledge: frontmatter schemas, sidebar truth, components registry,
-deploy URL, prompt-prefix conventions) stay hand-rolled. The split is recorded in the
-[reference](../../../../apps/www/src/content/docs/wip/specs/lints/index.mdx#build-vs-buy)
-and verified by the two spike tests under `test/lint/remark-spike-*.test.ts`.
+deploy URL, prompt-prefix conventions) stay hand-rolled. Tests under
+`test/lint/remark-spike-*.test.ts` verify the adapter boundary.
 
 The remark-lint stack (`unified`, `vfile`, every `remark-lint-*`
 package) is inlined into `dist` via tsdown's `noExternal`. Consuming
@@ -102,21 +97,16 @@ render-time transforms, not direct parse calls.
 
 ### Positions: unist character offsets, canonical
 
-Taken straight from the AST. No bespoke position math; no byte/UTF-16
-drift. Vale (a future phase) reports byte spans — those convert to
-character offsets at the one ingest boundary, not across every diagnostic.
+Taken straight from the AST. No bespoke position math and no byte/UTF-16
+drift.
 
 ### `duplicate-slug` runs pre-build, groups by mounted URL
 
 Three design calls hold this rule together:
 
-- **Pre-build, in `astro:config:setup`.** An earlier draft planned to
-  detect collisions post-build by scanning Astro's emitted `pages` array,
-  reasoning that "Astro is the truth." But Astro's content layer
-  *silently dedupes* colliding routes — by the time `astro:build:done`
-  fires, one entry has already shadowed the other and the collision is
-  invisible. So we run the check before the build wastes a cycle.
-  (Empirically verified — see commit history.)
+- **Pre-build, in `astro:config:setup`.** Astro's content layer silently
+  dedupes colliding routes, so post-build inspection cannot recover every
+  owner. The check runs before one entry shadows another.
 
 - **Two URL sources, one bucket.** Collisions span two surfaces:
   *content entries* under `src/content/<base>/` and *static page files*
@@ -136,8 +126,7 @@ Three design calls hold this rule together:
     stripped to match Astro's `joinSegments`. Dynamic-segment files
     (`pages/[id].astro`) are skipped because their URLs come from
     `getStaticPaths` at build time and we can't enumerate them
-    pre-build. This catches the load-bearing case the original draft
-    missed: `pages/search.astro` shadowing
+    pre-build. This catches `pages/search.astro` shadowing
     `content/docs/search.mdx` at `/search`.
 
 - **Scoped to indexable collections, honors custom bases.** Only
@@ -179,14 +168,9 @@ match what Astro actually serves, each runs through `canonicalEntryUrl`
 in `_internal/astro-slug.ts`, which mirrors Astro's content-layer
 normalization (`github-slugger` per segment + trailing-`/index` strip).
 
-This is a documented band-aid. The honest architectural fix is to refactor
-those URL builders to consume Astro's resolved routes
-(`astro:routes:resolved` for build-time builders, a build-emitted lookup
-for the sidebar). The band-aid header (`_internal/astro-slug.ts`) names
-the queued refactor and the caveats — `data.slug` frontmatter overrides
-and custom `generateId` loaders aren't honored by the mirror, so a user
-who relies on either will see drift between framework URLs and Astro's.
-Until the refactor lands, the mirror covers the common case.
+`data.slug` frontmatter overrides and custom `generateId` loaders aren't
+honored by this mirror, so projects using either must supply route-aware
+values at the public helper boundary.
 
 `github-slugger` is bundled into `dist/` via tsdown's `noExternal`, so
 this doesn't add a transitive dep for consumers.
@@ -215,20 +199,15 @@ rules. The build/lint contract is straightforward:
   so a link from a published page to a draft page is genuinely broken in
   production. The materialized truth correctly excludes drafts.
 
-**Why not reconstruct from filesystem?** The earlier draft of this
-feature did, and the result was a maintenance hazard. Mirroring Astro's
-URL-normalization meant tracking two specific lines in
-`astro/dist/core/routing/parse-route.js` plus the `github-slugger`
-algorithm used by the content layer, with no test that catches
-divergence on an Astro version bump. Using the emitted `pages` list
-removes the mirror entirely.
+**Why not reconstruct from filesystem?** Filesystem reconstruction must
+duplicate Astro's routing and content-layer normalization. Using the
+emitted `pages` list avoids that coupling.
 
 **Trade-off: lint requires `astro build`.** `astro sync` and `astro dev`
 don't emit pages, so they don't update `.nimbus/routes.json`. CI is
-typically build-then-lint anyway. Local pre-commit hooks running
-`nimbus-docs lint` should chain `astro build` first (the `lint-precommit`
-recipe will wire this when it ships). The rule's behavior when
-`routes.json` is absent or stale is documented below.
+typically build-then-lint. Local hooks running `nimbus-docs lint` should
+chain `astro build` first. The rule's behavior when `routes.json` is absent
+or stale is documented below.
 
 **Missing route truth → silent skip.** When `.nimbus/routes.json` is
 absent, `nimbus/internal-link` writes one warning line to stderr and
@@ -247,51 +226,18 @@ PascalCase validator uses.
 
 **`ignore` — full glob syntax via `picomatch`.** Both `internal-link` and
 `image-ref` share `_internal/ignore-glob.ts` for matching their `ignore:
-string[]` option — `**`, `*`, `{a,b}`, extglobs, etc., not just an exact
-match or a `prefix` immediately followed by a two-star suffix. An earlier
-version hand-rolled just that two-case matcher specifically to avoid the
-`picomatch` dependency; it covered the common patterns (`/api/**`,
-`/changelog/**`) but couldn't express an any-depth *leading* wildcard
-(matching a given filename at any depth), which turned out to matter in
-practice migrating a site off a `picomatch`-backed links validator,
-whose exclude list had exactly that shape of pattern.
+string[]` option — `**`, `*`, `{a,b}`, extglobs, and exact paths. This
+supports leading any-depth wildcards as well as path-prefix patterns.
 Compiled matchers are cached per `ignore` array identity, so a run
 compiles each rule's list once per lint run, not once per file — callers
 must pass the option through unfiltered for that cache to do anything
 (see the helper's own doc comment).
 
-**Deferred:**
+**Unsupported coverage:**
 
-- `nimbus/internal-link-hash` (`#section-id` anchor validation) is its own
-  rule. Heading-slug computation must match Sätteri's slugifier byte-for-byte
-  or the rule cries wolf; isolating it means projects can run
-  page-existence enforcement without committing to hash fidelity.
-- Component prop coverage (`<LinkCard href>`, `<Card link>`) — v1 only
-  checks plain `link`/`linkReference`/`<a href>` nodes. Cards are a known
-  gap; add framework-component coverage or a `components: [["MyCard",
-  "href"]]` config knob when first asked.
-
-## Remaining work
-
-- `orphan-page`, `sidebar-entry` (both need the sidebar config + entry
-  set; `sidebar-entry` can reuse the existing `console.warn` site in
-  `_internal/sidebar.ts`).
-- Re-home `partial-exists` as a framework rule (today the check lives in the
-  starter's `Render.astro`).
-- **Refactor framework URL builders to consume `astro:routes:resolved`** —
-  the `_internal/astro-slug.ts` mirror is a documented band-aid. Sidebar
-  hrefs, indexed-entry URLs, and version-alternate URLs would consume
-  Astro's resolved routes directly, removing the mirror entirely and
-  closing the `data.slug` / custom `generateId` gaps it can't cover.
-- Per-collection rule overrides (`collections.<name>.rules`) — reserved in
-  config today, rejected at runtime. Required to lint the starter's
-  `partials` collection clean without per-file disables.
-- `internal-link-hash` — `#section-id` anchor validation as a separate
-  rule code (`internal-link` covers page existence only).
-- Component prop coverage in `internal-link` — currently plain
-  `link`/`linkReference`/`<a href>` only; `<LinkCard href>` etc. uncovered.
-- The single shared mdast walk (perf): rules currently walk the parsed tree
-  independently; parse-once already makes this cheap, but one visitor pass
-  is the planned optimization.
-- Enforcement recipes (`lint-precommit`, `lint-ci`) — registry features.
-- Vale recipe + `prose` option; `--fix` for Vale, incremental mode, LSP.
+- Hash-fragment validation is outside `internal-link`; it validates page
+  existence only.
+- Component URL props such as `<LinkCard href>` and `<Card link>` are not
+  inspected; plain Markdown links, references, and `<a href>` are supported.
+- Dynamic page routes cannot participate in pre-build duplicate detection.
+- Per-collection rule overrides are not supported.

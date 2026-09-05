@@ -32,6 +32,17 @@ import {
   partialsSchema,
 } from "./schemas.js";
 import type { ApiRoutePolicy, ApiVersionSpec } from "./types.js";
+import { getAuthoredLinkNormalizer } from "./_internal/authored-link-normalizer.js";
+import { prepareMarkdownLoader } from "./_internal/markdown-loader.js";
+import {
+  beginPreparedMarkdownLoad,
+  cancelPreparedMarkdownLoad,
+  commitPreparedDataCollection,
+  getPreparedMarkdownSession,
+  preparedMarkdownRootKey,
+  runPreparedMarkdownTransaction,
+} from "./_internal/prepared-markdown-registry.js";
+import { transparentProxy } from "./_internal/transparent-proxy.js";
 
 // Re-export the public schema factories from `nimbus-docs/content` so users
 // have a single import for content-config concerns (collections + schemas).
@@ -103,6 +114,50 @@ export interface PartialsCollectionOptions<
 }
 
 const DEFAULT_PATTERN = "**/*.{md,mdx}";
+const NIMBUS_MARKDOWN_GENERATION = 1;
+const wrappedMarkdownLoaders = new WeakMap<Loader, Loader>();
+
+type ApiLoaderModule = typeof import("./_internal/api-loader.js");
+
+function loadApiLoader(): Promise<ApiLoaderModule> {
+  const extension = import.meta.url.endsWith(".ts") ? "ts" : "js";
+  const specifier = ["./_internal/", "api-loader.", extension].join("");
+  return import(
+    /* @vite-ignore */ new URL(specifier, import.meta.url).href
+  ) as Promise<ApiLoaderModule>;
+}
+
+export function withNimbusMarkdown<T extends Loader>(loader: T): T {
+  const existing = wrappedMarkdownLoaders.get(loader);
+  if (existing) return existing as T;
+
+  const wrappedLoad: Loader["load"] = async (context) => {
+    const base = context.config.base || "/";
+    const normalizeAuthoredLinks = getAuthoredLinkNormalizer();
+    const prepared = prepareMarkdownLoader(loader, {
+      generation: NIMBUS_MARKDOWN_GENERATION,
+      base,
+      transformRenderMarkdown: false,
+      transform: (source, sourceId) =>
+        normalizeAuthoredLinks(source, {
+          base,
+          sourceId: sourceId
+            ? `${context.collection}:${sourceId}`
+            : context.collection,
+        }),
+    });
+    await Reflect.apply(
+      Reflect.get(prepared, "load", prepared) as Loader["load"],
+      prepared,
+      [context],
+    );
+  };
+
+  const wrapped = transparentProxy(loader, new Map([["load", wrappedLoad]]));
+  wrappedMarkdownLoaders.set(loader, wrapped);
+  wrappedMarkdownLoaders.set(wrapped, wrapped);
+  return wrapped;
+}
 
 /**
  * Returns an Astro content-collection config (`{ loader, schema }`) for the
@@ -119,7 +174,7 @@ export function docsCollection<
   });
 
   return {
-    loader: glob({ base, pattern }),
+    loader: withNimbusMarkdown(glob({ base, pattern })),
     schema,
   };
 }
@@ -144,7 +199,7 @@ export function partialsCollection<
     : partialsSchema;
 
   return {
-    loader: glob({ base, pattern }),
+    loader: withNimbusMarkdown(glob({ base, pattern })),
     schema,
   };
 }
@@ -177,7 +232,7 @@ export function componentsCollection(
   const pattern = options.pattern ?? DEFAULT_PATTERN;
 
   return {
-    loader: glob({ base, pattern }),
+    loader: withNimbusMarkdown(glob({ base, pattern })),
     schema: componentsSchema,
   };
 }
@@ -256,26 +311,25 @@ export function apiCollection(options: ApiCollectionOptions): {
 
       assertSupportedNode();
 
-      const [
-        {
-          buildApiModel,
-          getApiNav,
-          getApiPageIndex,
-          getApiPageProps,
-          getApiRouteProvenance,
-          clearApiModelCache,
-        },
-        { resolveSpecSource },
-        { resolveApiFamily, apiPageRoute },
-        { prepareApiNav, preparedApiVersion },
-      ] = await Promise.all([
-        import("./api/index.js"),
-        import("./_internal/api/resolve-spec.js"),
-        import("./_internal/api/resolve-versions.js"),
-        import("./_internal/api/prepared.js"),
-      ]);
+      const {
+        apiPageRoute,
+        buildApiModel,
+        clearApiModelCache,
+        getApiNav,
+        getApiPageIndex,
+        getApiPageProps,
+        getApiRouteProvenance,
+        prepareApiNav,
+        prepareApiPageCode,
+        preparedApiVersion,
+        resolveApiFamily,
+        resolveSpecSource,
+      } = await loadApiLoader();
 
       const rootDir = fileURLToPath(astroConfig.root);
+      const preparedRoot = preparedMarkdownRootKey(astroConfig.root);
+      const preparedSession = getPreparedMarkdownSession(preparedRoot);
+      const reportedErrors = new WeakSet<Error>();
       const targets = resolveApiFamily({
         collection,
         spec,
@@ -295,7 +349,7 @@ export function apiCollection(options: ApiCollectionOptions): {
         .map((t) => t.version!);
 
       const index = async () => {
-        store.clear();
+        const nextEntries: Array<Parameters<typeof store.set>[0]> = [];
         // Default-version top segment → the route provenances that produced it
         // ("override"/"derived"/"fallback", or "identity" for a page with none),
         // so the shadow diagnostic names the lever that actually moves each. Per
@@ -329,6 +383,7 @@ export function apiCollection(options: ApiCollectionOptions): {
             logger.error(
               `Failed to build the API reference for "${target.label}":\n${(err as Error).message}`,
             );
+            if (err instanceof Error) reportedErrors.add(err);
             throw err;
           }
 
@@ -373,13 +428,15 @@ export function apiCollection(options: ApiCollectionOptions): {
                 ...(target.version ? { version: target.version } : {}),
                 prepared: {
                   version: preparedApiVersion,
-                  page: getApiPageProps(model, coordinate),
+                  page: await prepareApiPageCode(
+                    getApiPageProps(model, coordinate),
+                  ),
                   navEntryId,
                   ...(id === navEntryId ? { nav: preparedNav } : {}),
                 },
               },
             });
-            store.set({ id, data });
+            nextEntries.push({ id, data });
           }
         }
         for (const versionId of nonDefaultVersionIds) {
@@ -418,12 +475,51 @@ export function apiCollection(options: ApiCollectionOptions): {
               `override in each version to keep the URL stable across versions.`,
           );
         }
-        logger.info(
-          `Indexed ${store.keys().length} API pages for "${collection}".`,
-        );
+        return nextEntries;
       };
 
-      await index();
+      const updateIndex = () =>
+        runPreparedMarkdownTransaction(
+          preparedRoot,
+          `api:${collection}`,
+          async () => {
+            if (getPreparedMarkdownSession(preparedRoot) !== preparedSession) {
+              return;
+            }
+            const epoch = beginPreparedMarkdownLoad(
+              preparedRoot,
+              collection,
+              false,
+            );
+            try {
+              const nextEntries = await index();
+              if (getPreparedMarkdownSession(preparedRoot) !== preparedSession) {
+                cancelPreparedMarkdownLoad(preparedRoot, collection, epoch);
+                return;
+              }
+              if (
+                !commitPreparedDataCollection(
+                  preparedRoot,
+                  collection,
+                  epoch,
+                  nextEntries,
+                )
+              ) {
+                return;
+              }
+              store.clear();
+              for (const entry of nextEntries) store.set(entry);
+              logger.info(
+                `Indexed ${store.keys().length} API pages for "${collection}".`,
+              );
+            } catch (error) {
+              cancelPreparedMarkdownLoad(preparedRoot, collection, epoch);
+              throw error;
+            }
+          },
+        );
+
+      await updateIndex();
 
       // Dev only: reparse when any on-disk version spec changes. Inline-object
       // specs have no file to watch.
@@ -434,14 +530,20 @@ export function apiCollection(options: ApiCollectionOptions): {
           specPaths.set(path.resolve(rootDir, target.spec), true);
         }
         if (specPaths.size > 0) {
-          const onChange = async (changed: string) => {
+          const onChange = (changed: string) => {
             if (!specPaths.has(path.resolve(changed))) return;
             clearApiModelCache(collection);
-            await index();
+            void updateIndex().catch((error: unknown) => {
+              if (error instanceof Error && reportedErrors.has(error)) return;
+              logger.error(
+                `Failed to update the API reference for "${collection}":\n${error instanceof Error ? error.message : String(error)}`,
+              );
+            });
           };
           for (const specPath of specPaths.keys()) watcher.add(specPath);
           watcher.on("change", onChange);
           watcher.on("add", onChange);
+          watcher.on("unlink", onChange);
         }
       }
     },

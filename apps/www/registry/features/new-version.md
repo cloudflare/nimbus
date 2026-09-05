@@ -359,7 +359,8 @@ import {
   getEditUrl,
   getLastUpdated,
   getTOC,
-  withBase,
+  entryRouteKey,
+  withBaseRoute,
 } from "@cloudflare/nimbus-docs";
 import { components } from "../../components";
 
@@ -376,13 +377,16 @@ const prevNext = await getPrevNext(currentSlug, {
   sidebarTree: sidebar,
   overrides: { prev: entry.data.prev, next: entry.data.next },
 });
-const breadcrumbs = await getBreadcrumbs(currentSlug);
+const breadcrumbs = await getBreadcrumbs(currentSlug, { collection: entry.collection });
 const editUrl = await getEditUrl(entry);
 const lastUpdated = entry.data.lastUpdated ??
   await getLastUpdated(entry);
 const toc = getTOC(headings, entry.data.tableOfContents);
-const markdownPath = `/<slug>/${entry.id}/index.md`;
-const basedMarkdownPath = withBase(markdownPath, import.meta.env.BASE_URL);
+const routeKey = entryRouteKey(entry.id);
+const markdownPath = routeKey
+  ? `/<slug>/${routeKey}/index.md`
+  : "/<slug>/index.md";
+const basedMarkdownPath = withBaseRoute(markdownPath, import.meta.env.BASE_URL);
 const markdownUrl = Astro.site ? new URL(basedMarkdownPath, Astro.site).href : basedMarkdownPath;
 const socialImage = entry.data.socialImage ?? `/og/<slug>/${entry.id}.png`;
 ---
@@ -448,69 +452,26 @@ Write `src/pages/<slug>/[...slug]/index.md.ts`:
 
 ```ts
 import {
-  getIndexedEntries,
-  renderEntryAsMarkdown,
-  type IndexedEntry,
-  withBase,
-} from "@cloudflare/nimbus-docs";
-import { config } from "virtual:nimbus/config";
+  getPreparedTwinArtifact,
+  getPreparedTwinStaticPaths,
+  type PreparedTwinReference,
+} from "@cloudflare/nimbus-docs/build";
 
 export const prerender = true;
 
 const COLLECTION = "docs-<slug>";
-const absoluteUrl = (path: string) =>
-  new URL(withBase(path, import.meta.env.BASE_URL), config.site).href;
 
 interface SlugProps {
-  item: IndexedEntry;
+  artifact: PreparedTwinReference;
 }
 
-export async function getStaticPaths() {
-  const indexed = await getIndexedEntries();
-  return indexed
-    .filter((item) => item.collection === COLLECTION)
-    .map((item) => ({
-      params: { slug: item.entry.id },
-      props: { item } as SlugProps,
-    }));
-}
+export const getStaticPaths = () =>
+  getPreparedTwinStaticPaths({ collection: COLLECTION, surface: "markdown" });
 
 export async function GET({ props }: { props: SlugProps }) {
-  const { item } = props;
-  const { entry, title, description, markdownUrl, sourceUrl, version } = item;
-  const data = (entry.data ?? {}) as Record<string, unknown>;
-  const rawImage = data.socialImage;
-  const socialImage =
-    typeof rawImage === "string" && rawImage.length > 0
-      ? rawImage
-      : config.socialImage;
-
-  const markdown = renderEntryAsMarkdown(entry);
-
-  const body = [
-    "---",
-    `title: ${JSON.stringify(title)}`,
-    ...(description ? [`description: ${JSON.stringify(description)}`] : []),
-    ...(socialImage
-      ? [`image: ${JSON.stringify(absoluteUrl(socialImage))}`]
-      : []),
-    ...(version ? [`version: ${JSON.stringify(version)}`] : []),
-    "---",
-    "",
-    "> Documentation Index",
-    `> Fetch the complete documentation index at: ${absoluteUrl("/llms.txt")}`,
-    "> Use this file to discover all available pages before exploring further.",
-    "",
-    `# ${title}`,
-    "",
-    markdown,
-    "",
-    `Source: ${absoluteUrl(sourceUrl ?? markdownUrl)}`,
-    "",
-  ].join("\n");
-
-  return new Response(body, {
-    headers: { "Content-Type": "text/markdown; charset=utf-8" },
+  const artifact = await getPreparedTwinArtifact(props.artifact);
+  return new Response(artifact.body, {
+    headers: { "Content-Type": artifact.mediaType },
   });
 }
 ```
@@ -519,12 +480,9 @@ Substitute the user's version slug for every `<slug>` token in the
 snippet above (the directory name in the file path, plus the
 `COLLECTION` constant value at the top).
 
-The `version` frontmatter key labels each alternate with its version slug
-(resolved by the framework — see `IndexedEntry.version`), so agents can
-pin a version. To also serve the raw authored source for this version,
-mirror the starter's `src/pages/[...slug]/index.mdx.ts` at
-`src/pages/<slug>/[...slug]/index.mdx.ts`: filter on `item.sourceUrl`,
-emit the same frontmatter block, and return `entry.body` verbatim.
+The prepared artifact includes the version frontmatter so agents can pin a
+version. To also serve the expanded source form, mirror this route with
+`surface: "source"` at `src/pages/<slug>/[...slug]/index.mdx.ts`.
 
 ### 4f. Install the version-switcher picker (skip if already installed)
 

@@ -37,7 +37,7 @@ export const aiEntries: Entry[] = [
   { id: "ai/models/openai/gpt", data: { title: "GPT", sidebar: { order: 2 } } },
 ];
 
-// AI config uses a manual group with the Phase-3 `segment`/`landing` keys.
+// AI config uses a manual group with `segment` and `landing` keys.
 export const aiConfig = {
   items: [
     {

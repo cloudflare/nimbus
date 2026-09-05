@@ -122,7 +122,7 @@ pnpm exec textlint --format=json 'src/content/**/*.{md,mdx}'
 
 Be upfront about the trade-offs:
 
-- **No brand-style enforcement.** This recipe ships `write-good` + `alex` + `terminology` only. If the user wants Microsoft / Google / GitLab style enforcement, that's Vale territory; textlint doesn't have first-class equivalents.
+- **No organization-specific style enforcement.** This recipe ships `write-good` + `alex` + `terminology` only. Use a dedicated prose-style tool for a custom editorial style guide.
 - **textlint runs separately from `nimbus-docs lint`.** Two CLIs, two reports. The rule sets don't overlap — `nimbus-docs lint` covers structural rules (frontmatter, internal links, heading hierarchy, sidebar correctness), textlint covers prose style. Both layers are opt-in independently.
 - **Per-line / per-file disables are textlint-native.** Comments like `<!-- textlint-disable write-good -->` and `<!-- textlint-disable-next-line alex -->` work. They have nothing to do with `nimbusDisableRules`.
 - **Adding more rules.** textlint's ecosystem is on npm. `pnpm add -D textlint-rule-<name>` and add to `.textlintrc.rules`. We're shipping a conservative baseline; the user expands from there.

@@ -8,7 +8,10 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { apiCollection } from "../src/content.js";
-import { activatePreparedApiNav } from "../src/_internal/api/prepared.js";
+import {
+  activatePreparedApiNav,
+  isPreparedApiPage,
+} from "../src/_internal/api/prepared.js";
 import {
   buildApiModel,
   clearApiModelCache,
@@ -17,6 +20,7 @@ import {
   getApiPageSlugs,
   apiSchemaVersion,
   type ApiModel,
+  type ApiPageProps,
 } from "../src/api/index.js";
 
 function fixturePath(rel: string): string {
@@ -98,6 +102,19 @@ async function runLoader(
   return { store, logs };
 }
 
+function withoutPreparedCode(page: ApiPageProps): ApiPageProps {
+  const copy = structuredClone(page);
+  if (copy.kind !== "operation") return copy;
+  for (const sample of copy.samples) delete sample.highlightedHtml;
+  for (const response of copy.responses) {
+    if (response.example) delete response.example.highlightedHtml;
+  }
+  for (const body of copy.additionalBodies ?? []) {
+    if (body.example) delete body.example.highlightedHtml;
+  }
+  return copy;
+}
+
 let smallco: ApiModel;
 before(async () => {
   smallco = await buildApiModel({
@@ -157,6 +174,35 @@ describe("apiCollection loader — prepared index", () => {
     );
   });
 
+  test("prepared runtime validation requires UI-consumed code HTML", async () => {
+    const { store } = await runLoader("api", "test/fixtures/api/smallco.yaml");
+    const operation = [...store.values()].find(
+      (entry) =>
+        (entry.data.prepared as { page?: { kind?: string } }).page?.kind ===
+        "operation",
+    );
+    assert.ok(operation);
+    const prepared = structuredClone(operation.data.prepared);
+    assert.equal(isPreparedApiPage(prepared), true);
+    const page = (prepared as { page: ApiPageProps }).page;
+    assert.equal(page.kind, "operation");
+    if (page.kind !== "operation") return;
+    delete page.samples[0]?.highlightedHtml;
+    assert.equal(isPreparedApiPage(prepared), false);
+    for (const malformed of [null, { highlightedHtml: "" }]) {
+      const invalid = structuredClone(operation.data.prepared) as {
+        page: { samples: unknown[] };
+      };
+      invalid.page.samples = [malformed];
+      assert.equal(isPreparedApiPage(invalid), false);
+    }
+    const invalidBodies = structuredClone(operation.data.prepared) as {
+      page: { additionalBodies: unknown };
+    };
+    invalidBodies.page.additionalBodies = {};
+    assert.equal(isPreparedApiPage(invalidBodies), false);
+  });
+
   test("versioned prepared navigation matches direct model projection", async () => {
     const spec = smallcoAsObject();
     const { store } = await runLoaderOpts({
@@ -184,11 +230,11 @@ describe("apiCollection loader — prepared index", () => {
           : entry.id !== "v1" && !entry.id.startsWith("v1/");
         if (!belongsToVersion) continue;
         const prepared = entry.data.prepared as {
-          page: { coordinate: string };
+          page: ApiPageProps;
         };
         assert.equal(entry.data.version, version);
         assert.deepEqual(
-          prepared.page,
+          withoutPreparedCode(prepared.page),
           getApiPageProps(model, prepared.page.coordinate),
         );
         assert.deepEqual(

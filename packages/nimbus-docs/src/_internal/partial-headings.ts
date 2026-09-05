@@ -29,9 +29,8 @@
  *
  *   - Dynamic `file={expr}` attributes are ignored — the collector
  *     only resolves literal string values.
- *   - Headings produced by runtime component output (e.g.
- *     `AnchorHeading` in cloudflare-docs) are invisible to this
- *     collector. Those require a site-specific fix.
+ *   - Headings produced by runtime component output are invisible to this
+ *     collector and require application-level handling.
  *   - Missing partials are silently skipped — `Render.astro` owns
  *     the build-time "not found" error with its helpful suggestions.
  */

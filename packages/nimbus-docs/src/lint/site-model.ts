@@ -136,10 +136,8 @@ export interface DuplicateGroup {
  *     Catches the page-vs-content collision (`pages/search.astro`
  *     shadowing `content/docs/search.mdx` at `/search`).
  *
- * Doesn't honor `data.slug` frontmatter overrides — entries that use those
- * may produce false negatives. Reading frontmatter from every entry
- * pre-build would add noticeable I/O for a v1 feature; tracked as a
- * follow-up.
+ * Doesn't honor `data.slug` frontmatter overrides, so entries that use them
+ * may produce false negatives.
  */
 export function findDuplicateRoutes(
   owners: readonly RouteOwner[],
