@@ -611,7 +611,9 @@ async function verifyPackageManagerConsumer(site, manager) {
   }
 
   console.log(`${PREFIX} installing clean ${manager.name} consumer`);
-  run("corepack", [manager.command, "install"], { cwd: candidate });
+  const installArgs = [manager.command, "install"];
+  if (manager.name === "yarn") installArgs.push("--no-immutable");
+  run("corepack", installArgs, { cwd: candidate });
   writeRenderingPolicy(candidate, { docs: "request", api: "request" });
   run("corepack", [manager.command, "run", "typecheck"], { cwd: candidate });
   run("corepack", [manager.command, "run", "build"], { cwd: candidate });
