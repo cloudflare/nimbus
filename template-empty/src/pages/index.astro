@@ -2,6 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Header from "../components/Header.astro";
 import { config } from "virtual:nimbus/config";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
 
 // Prerender explicitly so the homepage stays a static route under
 // `output: "server"` — an adapter alone must add zero on-demand routes.
@@ -24,21 +25,21 @@ export const prerender = true;
 
       <div class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <a
-          href="/welcome"
+          href={withBase("/welcome", import.meta.env.BASE_URL)}
           class="block rounded-lg border border-border p-4 transition-colors hover:border-border-strong no-underline"
         >
           <div class="font-medium text-foreground">Welcome</div>
           <div class="mt-0.5 text-sm text-muted-foreground">Start here</div>
         </a>
         <a
-          href="/getting-started"
+          href={withBase("/getting-started", import.meta.env.BASE_URL)}
           class="block rounded-lg border border-border p-4 transition-colors hover:border-border-strong no-underline"
         >
           <div class="font-medium text-foreground">Getting Started</div>
           <div class="mt-0.5 text-sm text-muted-foreground">Install + configure</div>
         </a>
         <a
-          href="/components"
+          href={withBase("/components", import.meta.env.BASE_URL)}
           class="block rounded-lg border border-border p-4 transition-colors hover:border-border-strong no-underline"
         >
           <div class="font-medium text-foreground">Components</div>

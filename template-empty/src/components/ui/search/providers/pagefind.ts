@@ -40,10 +40,8 @@ function withBase(url: string): string {
  *
  * Versioning: when the site has a `versions.deprecated` list, the
  * layout emits `data-pagefind-filter="status:deprecated"` on every
- * deprecated-version page. Search defaults to excluding those results
- * (readers searching for "auth" want the current version's auth page,
- * not the deprecated one). Future UI work can expose a "include
- * deprecated" toggle; for now the default is current + non-deprecated.
+ * deprecated-version page. Search defaults to current and non-deprecated
+ * results.
  *
  * Versions are still searchable individually — readers on a v0 page
  * who explicitly search from there can opt the UI into a version-scoped

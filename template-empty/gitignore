@@ -2,6 +2,7 @@ node_modules/
 dist/
 .astro/
 .wrangler/
+.nimbus/
 
 .env
 .env.local

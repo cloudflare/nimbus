@@ -48,13 +48,15 @@ const llmsIndexPath = collection
   ? await getCollectionLlmsUrl(collection)
   : "/llms.txt";
 const baseUrl = import.meta.env.BASE_URL;
+const basedLlmsUrl = withBase(llmsIndexPath, baseUrl);
 const llmsUrl = Astro.site
-  ? new URL(withBase(llmsIndexPath, baseUrl), Astro.site).href
-  : llmsIndexPath;
+  ? new URL(basedLlmsUrl, Astro.site).href
+  : basedLlmsUrl;
+const basedMarkdownUrl = markdownUrl ? withBase(markdownUrl, baseUrl) : undefined;
 const resolvedMarkdownUrl =
-  markdownUrl && Astro.site
-    ? new URL(withBase(markdownUrl, baseUrl), Astro.site).href
-    : markdownUrl;
+  basedMarkdownUrl && Astro.site
+    ? new URL(basedMarkdownUrl, Astro.site).href
+    : basedMarkdownUrl;
 ---
 
 <!doctype html>

@@ -1,5 +1,6 @@
 ---
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 
@@ -9,6 +10,9 @@ interface Props extends HTMLAttributes<"div"> {
 }
 
 const { markdownUrl, lastUpdated, class: className, ...attrs } = Astro.props;
+const resolvedMarkdownUrl = markdownUrl
+  ? withBase(markdownUrl, import.meta.env.BASE_URL)
+  : undefined;
 
 const baseBtn =
   "inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-transparent px-2 py-1 text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2";
@@ -21,7 +25,7 @@ const formattedDate = lastUpdated
 {(markdownUrl || lastUpdated) && (
   <div
     data-nb-page-actions
-    data-md-url={markdownUrl}
+    data-md-url={resolvedMarkdownUrl}
     class={cn("not-prose -ml-2 flex flex-wrap items-center gap-y-1 text-[0.8125rem]", className)}
     {...attrs}
   >
@@ -47,7 +51,7 @@ const formattedDate = lastUpdated
         <span aria-hidden="true" class="select-none text-muted-foreground/40">|</span>
 
         <a
-          href={markdownUrl}
+          href={resolvedMarkdownUrl}
           target="_blank"
           rel="noopener noreferrer"
           class={baseBtn}
