@@ -1,0 +1,151 @@
+README.md
+  s_2963f4fdee932d::t_904c1ff9f517c9 72,81
+apps/www/registry/features/ai-native.md
+  s_2963f4fdee932d::t_da8b4f5dfa09b5 5-7,11,13,22,24-25,39-68,70-106,108,115,118-119
+apps/www/registry/features/api-reference.md
+  s_2963f4fdee932d::t_9a90e92e24808a 6,15-16,41-46,55-56,84,170,191,193-194,201,203,265,357,361
+apps/www/registry/features/changelog.md
+  s_2963f4fdee932d::t_2cfbe2ba55a362 957-959,970,974,978,1037-1039,1045,1049,1053
+apps/www/registry/features/content-changelog.md
+  s_2963f4fdee932d::t_f3bc63a352dfe1 14
+apps/www/registry/features/content-concept.md
+  s_2963f4fdee932d::t_e7ee6d256cef4b 14
+apps/www/registry/features/content-example.md
+  s_2963f4fdee932d::t_191fb8e3bca0cf 14
+apps/www/registry/features/content-how-to.md
+  s_2963f4fdee932d::t_4cf3aab0ef30a7 14,51,72
+apps/www/registry/features/content-overview.md
+  s_2963f4fdee932d::t_65d1abe5cfd28a 14,76
+apps/www/registry/features/content-quickstart.md
+  s_2963f4fdee932d::t_20ff0b7ac70542 14,85
+apps/www/registry/features/content-reference.md
+  s_2963f4fdee932d::t_7d418222916fb3 14,83
+apps/www/registry/features/content-troubleshooting.md
+  s_2963f4fdee932d::t_20181dda60bed1 14
+apps/www/registry/features/content-tutorial.md
+  s_2963f4fdee932d::t_384459eb38ae5b 14
+apps/www/registry/features/new-collection.md
+  s_2963f4fdee932d::t_5378cb6c395f60 34,39,65,118,276,282,284,288-290,298,302,305
+apps/www/registry/features/new-version.md
+  s_2963f4fdee932d::t_532dc767f02ce4 454-456,464,468,471
+apps/www/src/content/docs/ai/docs-for-agents.mdx
+  s_2963f4fdee932d::t_e00d467f0cf53a 2-3,9,13-15,17,33,35,37-45,53
+apps/www/src/content/docs/ai/metadata-and-seo.mdx
+  s_2963f4fdee932d::t_379b5cea902fcb 6,13,44-45
+apps/www/src/content/docs/ai/publish-markdown.mdx
+  s_2963f4fdee932d::t_c7e52760021bcd 1-165
+apps/www/src/content/docs/api-reference.mdx
+  s_2963f4fdee932d::t_a67f4af5939431 13,17,21,23,25-27,33,44,53,55,74-84,86,90-94,102,107,111-113,121,124,126,142-146,157-159,174-175,185,192,203,228,234-238,249-276,288-290,309
+apps/www/src/content/docs/cli.mdx
+  s_2963f4fdee932d::t_a4f1dc8df83476 90
+apps/www/src/content/docs/configuration.mdx
+  s_2963f4fdee932d::t_ad38ea475853a4 60,66,68,70,72,79,109-121,123-149,161,174-201
+apps/www/src/content/docs/get-started.mdx
+  s_2963f4fdee932d::t_0e83756b6bcf1e 17
+apps/www/src/content/docs/installation.mdx
+  s_2963f4fdee932d::t_7ff298c824819e 10
+apps/www/src/content/docs/philosophy.mdx
+  s_2963f4fdee932d::t_1aa2a2dc85993c 81,83,98,140,146,148,177,216
+apps/www/src/content/docs/project-structure.mdx
+  s_2963f4fdee932d::t_83f0ddd72b3aac 35,48
+apps/www/src/content/docs/registry.mdx
+  s_2963f4fdee932d::t_87143d62b475bc 50,57
+apps/www/src/content/docs/writing/frontmatter.mdx
+  s_2963f4fdee932d::t_c9b8e56223db19 21-22,27,48-77
+apps/www/src/content/docs/writing/markdown-and-mdx.mdx
+  s_2963f4fdee932d::t_a8b465c5d910a0 11-26
+apps/www/src/content/docs/writing/pages-and-routing.mdx
+  s_2963f4fdee932d::t_f1861f417653b1 45,61-100
+apps/www/src/content/docs/writing/recipes/how-to.mdx
+  s_2963f4fdee932d::t_55692ac70f8d99 36,59
+apps/www/src/content/docs/writing/recipes/overview.mdx
+  s_2963f4fdee932d::t_a1dd418fba947c 36,56
+apps/www/src/content/docs/writing/recipes/quickstart.mdx
+  s_2963f4fdee932d::t_ddb27e51a5de89 62
+apps/www/src/content/docs/writing/recipes/reference.mdx
+  s_2963f4fdee932d::t_f685061fbb530f 68
+apps/www/src/content/docs/writing/reusable-snippets.mdx
+  s_2963f4fdee932d::t_b6a7f0c5fc75d6 16,37-61
+apps/www/src/pages/[...slug].astro
+  s_2963f4fdee932d::t_27054ba94fdf40 21
+apps/www/src/pages/[...slug]/index.md.ts
+  s_2963f4fdee932d::t_2b74a369de22db 76
+apps/www/src/pages/[...slug]/index.mdx.ts
+  s_2963f4fdee932d::t_904df0c6a36000 5-6,8,11,40
+apps/www/src/pages/components/[slug]/index.md.ts
+  s_2963f4fdee932d::t_4d32ddf8078fd4 2
+apps/www/src/pages/llms-full.txt.ts
+  s_2963f4fdee932d::t_588c4f03450423 1,3-4,10
+apps/www/src/pages/llms.txt.ts
+  s_2963f4fdee932d::t_3f3a7e153eb345 34
+packages/nimbus-docs/README.md
+  s_2963f4fdee932d::t_5eed69352e3045 30
+packages/nimbus-docs/src/_internal/request-route-inventory.ts
+  s_2963f4fdee932d::t_90f626b09ad702 17,67
+packages/nimbus-docs/src/_internal/transform.ts
+  s_2963f4fdee932d::t_2d12938bc3799a 2,290
+packages/nimbus-docs/src/cli/_registry.generated.ts
+  s_2963f4fdee932d::t_c8b8f411f9f13f 257-258,264
+packages/nimbus-docs/src/components/NimbusHead.astro
+  s_2963f4fdee932d::t_b57f2a6228e938 46
+packages/nimbus-docs/test/api-allof.test.ts
+  s_2963f4fdee932d::t_58297d21bd36c3 93
+packages/nimbus-docs/test/api-bounding.test.ts
+  s_2963f4fdee932d::t_4610cc7f6e513b 2,5
+packages/nimbus-docs/test/api-loader.test.ts
+  s_2963f4fdee932d::t_bd2cffc5de4ee4 307
+packages/nimbus-docs/test/api-param-union.test.ts
+  s_2963f4fdee932d::t_11c11e51ac39ad 163,171,210
+packages/nimbus-docs/test/api-production-gauntlet.test.ts
+  s_2963f4fdee932d::t_eebc001e88bc61 1
+packages/nimbus-docs/test/api-request-body-media.test.ts
+  s_2963f4fdee932d::t_6265c98fc8a523 92,166
+packages/nimbus-docs/test/api-resilience.test.ts
+  s_2963f4fdee932d::t_cdc3940d55e64d 170
+packages/nimbus-docs/test/api-samples.test.ts
+  s_2963f4fdee932d::t_96c9c613f1a3b4 3,94,334,393
+packages/nimbus-docs/test/api-view-model.test.ts
+  s_2963f4fdee932d::t_abc629a8133f64 77,113,1006
+packages/nimbus-docs/test/api-webhooks.test.ts
+  s_2963f4fdee932d::t_7df1fbd995ad6f 104
+packages/nimbus-docs/test/integration-markdown-options.test.ts
+  s_2963f4fdee932d::t_e639a3ea45585a 1-73
+packages/nimbus-docs/test/llms-full.test.ts
+  s_2963f4fdee932d::t_a098dbb59ffb37 1,9-11,19,30,32,48,65-66,71,79,85,90-91,101,109,121,126,134
+packages/nimbus-docs/test/prepared-artifact-lifecycle.test.ts
+  s_2963f4fdee932d::t_597f87ac541dfb 27-30,59,74,80,82,84,91,94,101,104,111,113,115,137-153,158-163,176-180,183,190,198
+packages/nimbus-docs/test/transform-citations.test.ts
+  s_2963f4fdee932d::t_33dc3737549f5d 1,57
+packages/nimbus-docs/tsdown.config.ts
+  s_2963f4fdee932d::t_02f5322da51682 28-29
+packages/nimbus-starter-source/src/pages/[...slug]/index.md.ts
+  s_2963f4fdee932d::t_cfb1f37c4d696c 2-4,10,14,17
+packages/nimbus-starter-source/src/pages/[...slug]/index.mdx.ts
+  s_2963f4fdee932d::t_6f2159d7cf209a 2-4,10,14,17
+packages/nimbus-starter-source/src/pages/[section]/llms.txt.ts
+  s_2963f4fdee932d::t_381ea8ce53223e 2-4,10,13,16
+packages/nimbus-starter-source/src/pages/llms-full.txt.ts
+  s_2963f4fdee932d::t_f3a1a2218053d4 1,6
+packages/nimbus-starter-source/src/pages/llms.txt.ts
+  s_2963f4fdee932d::t_aedbbaf3d11236 1,6
+scripts/api-reference-check.mjs
+  s_2963f4fdee932d::t_d6d66bcb09a6a1 852,863,873,1248
+scripts/fixtures/api-reference/src/pages/api/[...slug]/index.md.ts
+  s_2963f4fdee932d::t_0d65e7398fcfe4 2,4,66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "3c0d7940e50792acc6b1781e0c099026d60dbf1d",
+  "prompts": {},
+  "sessions": {
+    "s_2963f4fdee932d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8a48780bffeBmkV3zIXAjHNb6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
