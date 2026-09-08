@@ -180,3 +180,39 @@ test("rejects an invalid deployment base", () => {
     );
   }
 });
+
+test("normalizes hrefs on JSX elements whose children contain JSX-like tokens", () => {
+  const source = `<Tabs syncKey="x" href="/guide">
+
+\`\`\`js
+{
+\`\`\`
+
+</Tabs>`;
+  assert.equal(
+    normalizeAuthoredLinks(source, { base: "/docs" }),
+    `<Tabs syncKey="x" href="/docs/guide">
+
+\`\`\`js
+{
+\`\`\`
+
+</Tabs>`,
+  );
+});
+
+test("skips JSX elements whose raw slice spans blockquote markers", () => {
+  const source = `> Example:
+> <PackageManagers
+> \ttype="create"
+> \tpkg="vike@latest"
+> />`;
+  assert.equal(normalizeAuthoredLinks(source, { base: "/docs" }), source);
+});
+
+test("skips blockquote-mangled JSX hrefs instead of failing", () => {
+  const source = `> <Card
+> \thref="/card"
+> />`;
+  assert.equal(normalizeAuthoredLinks(source, { base: "/docs" }), source);
+});
