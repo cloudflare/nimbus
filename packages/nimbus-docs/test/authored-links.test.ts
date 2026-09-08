@@ -216,3 +216,26 @@ test("skips blockquote-mangled JSX hrefs instead of failing", () => {
 > />`;
   assert.equal(normalizeAuthoredLinks(source, { base: "/docs" }), source);
 });
+
+test("leaves plain Markdown files untouched", () => {
+  const source = `<!-- Auto Generated Below -->
+
+<a name="module_x"></a>
+
+[Guide](/guide)`;
+  assert.equal(
+    normalizeAuthoredLinks(source, { base: "/docs", sourceId: "generated.md" }),
+    source,
+  );
+});
+
+test("still normalizes links in MDX files with a .mdx sourceId", () => {
+  const source = `[Guide](/guide)`;
+  assert.equal(
+    normalizeAuthoredLinks(source, {
+      base: "/docs",
+      sourceId: "generated.mdx",
+    }),
+    `[Guide](/docs/guide)`,
+  );
+});

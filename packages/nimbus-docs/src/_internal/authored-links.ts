@@ -409,6 +409,12 @@ export function normalizeAuthoredLinks(
   source: string,
   options: NormalizeAuthoredLinksOptions,
 ): string {
+  // Authored-link normalization targets MDX. Plain `.md` files are not
+  // guaranteed to be valid MDX (for example, legacy files with HTML comments
+  // or prose containing `{key: value}`), so leave them untouched rather than
+  // failing the build on a parse error.
+  if (options.sourceId?.endsWith(".md")) return source;
+
   const prefix = basePrefix(options.base);
 
   let tree: MdNode;
