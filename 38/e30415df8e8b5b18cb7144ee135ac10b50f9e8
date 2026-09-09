@@ -1,0 +1,21 @@
+.changeset/tidy-melons-attack.md
+  s_f78b14d6e41361::t_35120122506078 8-9
+packages/nimbus-docs/test/authored-links.test.ts
+  s_f78b14d6e41361::t_2e89c0aca04a0a 219-241
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "38e30415df8e8b5b18cb7144ee135ac10b50f9e8",
+  "prompts": {},
+  "sessions": {
+    "s_f78b14d6e41361": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7dddb119ffe3aJGp5TANItixm",
+        "model": "@cf/deepseek-ai/deepseek-v4-flash-0731"
+      },
+      "human_author": "mvm <vance@cloudflare.com>"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+packages/nimbus-docs/src/_internal/authored-links.ts
+  s_f78b14d6e41361::t_4582201c2a49e1 418-422
+packages/nimbus-docs/test/authored-links.test.ts
+  s_f78b14d6e41361::t_5334f0f16a395d 220,232,237
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c83cfdf65852017cdd452e6ab6a7661e6952c5b5",
+  "prompts": {},
+  "sessions": {
+    "s_f78b14d6e41361": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7dddb119ffe3aJGp5TANItixm",
+        "model": "@cf/deepseek-ai/deepseek-v4-flash-0731"
+      },
+      "human_author": "mvm <vance@cloudflare.com>"
+    }
+  }
+}
