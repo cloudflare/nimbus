@@ -986,6 +986,21 @@ export function nimbus(
                 ),
             }),
           });
+          const configureSitemap = sitemapIntegration.hooks["astro:config:done"];
+          sitemapIntegration.hooks["astro:config:done"] = async (options) => {
+            const { config: astroConfig } = options;
+            // Sitemap joins the empty home-page path to base verbatim, but
+            // adds a slash for the same root's route in directory builds.
+            const base =
+              astroConfig.build.format === "directory" &&
+              astroConfig.trailingSlash !== "never"
+              ? `${astroConfig.base.replace(/\/$/, "")}/`
+              : astroConfig.base;
+            await configureSitemap?.({
+              ...options,
+              config: { ...astroConfig, base },
+            });
+          };
           integrationsToAdd.push(sitemapIntegration);
         }
 
