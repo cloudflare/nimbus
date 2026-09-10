@@ -1,5 +1,11 @@
 # @cloudflare/nimbus-docs
 
+## 0.13.2
+
+### Patch Changes
+
+- [#122](https://github.com/cloudflare/nimbus/pull/122) [`4b51ebb`](https://github.com/cloudflare/nimbus/commit/4b51ebbab227449e271bbe5a627ecd796c1c9e02) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Allow user-owned Astro pages and scaffolded Markdown and `llms.txt` endpoints to use native rendering semantics while retaining entrypoint-aware checks for active Nimbus contracts and composing with unrelated integration routes. These dynamic endpoints now resolve their payloads when rendered on request. Endpoint helpers now live at `@cloudflare/nimbus-docs/agent-endpoints`; the existing `@cloudflare/nimbus-docs/publication` entrypoint remains supported.
+
 ## 0.13.1
 
 ### Patch Changes
