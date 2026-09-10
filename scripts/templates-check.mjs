@@ -396,12 +396,8 @@ if (LANE === "static") {
   const readPage = (slug) => new JSDOM(readFileSync(join(site, "dist", "integrity", slug, "index.html"), "utf8")).window.document;
   const plain = readPage("plain");
   const composed = readPage("composed");
-  assert.deepEqual([...composed.querySelectorAll("aside[role=note]")].map(node => node.getAttribute("aria-label")), ["Wrapper", "Outer", 'Say “hello”', "When name and class_name differ — guide"]);
+  assert.deepEqual([...composed.querySelectorAll("aside[role=note]")].map(node => node.getAttribute("aria-label")), ["Wrapper", "Outer", 'Say "hello"']);
   assert.equal(composed.querySelectorAll("aside[role=note] aside[role=note]").length, 1);
-  const rich = [...composed.querySelectorAll("aside")].find(node => node.getAttribute("aria-label") === "When name and class_name differ — guide");
-  assert.deepEqual([...rich.querySelectorAll(":scope > div > p code")].map(node => node.textContent), ["name", "class_name"]);
-  assert.equal(rich.querySelector(":scope > div > p a")?.getAttribute("href"), "/integrity/plain/");
-  assert.equal(rich.querySelector("pre")?.textContent, '{ "name": "COUNTER_DO", "class_name": "CounterAgent" }');
   assert.equal([...plain.querySelectorAll("a")].find(node => node.textContent === "HTML link")?.getAttribute("href"), "/integrity/composed/");
   assert.equal([...plain.querySelectorAll("a")].find(node => node.textContent === "MDX guide")?.getAttribute("href"), "/integrity/composed/");
   assert.ok(composed.querySelector('a[href="/integrity/plain/"]'));

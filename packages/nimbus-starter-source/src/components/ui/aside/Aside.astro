@@ -36,9 +36,7 @@ const displayTitle = title ?? c.label;
     {type === "danger" && <Icon name="ph:warning-circle" class="w-[1em] h-[1em]" />}
   </span>
   <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-    <p class="m-0 text-base font-semibold leading-snug">
-      <slot name="title-content">{displayTitle}</slot>
-    </p>
+    <p class="m-0 text-base font-semibold leading-snug">{displayTitle}</p>
     <div class="aside-card-body text-sm leading-normal">
       <slot />
     </div>
@@ -58,10 +56,10 @@ const displayTitle = title ?? c.label;
 
   .aside-card-body :global(p) { margin: 0; }
   .aside-card-body :global(p + p) { margin-top: 0.375rem; }
-  .aside-card :global(a) { text-decoration: underline; text-underline-offset: 2px; }
+  .aside-card-body :global(a) { text-decoration: underline; text-underline-offset: 2px; }
 
   /* Inline code only — exclude code inside Expressive Code pre blocks */
-  .aside-card :global(code:not(:where(pre *))) {
+  .aside-card-body :global(code:not(:where(pre *))) {
     font-family: var(--nb-font-mono);
     font-size: 0.8125em;
     background: color-mix(in oklch, var(--_c) 10%, transparent);

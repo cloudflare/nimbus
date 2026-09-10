@@ -1,11 +1,4 @@
-import {
-  markdownToHtml,
-  mdxToMdast,
-  type Features,
-  type MdastNode,
-} from "satteri";
-import { fromHtml } from "hast-util-from-html";
-import { defaultSchema, sanitize } from "hast-util-sanitize";
+import { mdxToMdast, type Features, type MdastNode } from "satteri";
 
 export type AsideType = "note" | "tip" | "caution" | "danger";
 export interface AdmonitionTransformOptions {
@@ -24,85 +17,7 @@ const LITERAL = new Set(["pre", "code", "script", "style", "textarea"]);
 const childrenOf = (node: MdastNode): MdastNode[] =>
   "children" in node ? (node.children as MdastNode[]) : [];
 
-// Re-emit native semantic definitions without their Markdown container prefixes.
-// Entity escaping preserves decoded URLs/titles through the native second parse.
-function titleDefinition(
-  node: Extract<MdastNode, { type: "definition" }>,
-): string {
-  const escape = (value: string) =>
-    value
-      .replaceAll("&", "&amp;")
-      .replaceAll("\\", "\\\\")
-      .replaceAll("\r", "&#13;")
-      .replaceAll("\n", "&#10;");
-  const url = escape(node.url).replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-  const title =
-    node.title == null ? "" : ` "${escape(node.title).replaceAll('"', '\\"')}"`;
-  return `[${node.identifier}]: <${url}>${title}`;
-}
-
-/** Static phrasing only: component/expression-looking title text is never MDX. */
-function renderTitle(source: string, definitions: string, features: Features) {
-  const html = markdownToHtml(`${source}\n\n${definitions}`, {
-    features: { ...features, directive: false },
-  }).html;
-  const tree = sanitize(fromHtml(html, { fragment: true }), {
-    ...defaultSchema,
-    tagNames: [
-      "a",
-      "code",
-      "em",
-      "strong",
-      "del",
-      "s",
-      "kbd",
-      "sub",
-      "sup",
-      "span",
-      "br",
-    ],
-    attributes: { a: ["href", "title"] },
-    strip: [...(defaultSchema.strip ?? []), "style"],
-  });
-  if (tree.type !== "root") throw new Error("Expected a title fragment");
-  type Node = (typeof tree.children)[number];
-  const text = (node: Node): string =>
-    node.type === "text"
-      ? node.value
-      : node.type === "element"
-        ? node.tagName === "br"
-          ? " "
-          : node.children.map(text).join("")
-        : "";
-  const convert = (node: Node): MdastNode[] => {
-    if (node.type === "text") return [{ type: "text", value: node.value }];
-    if (node.type !== "element") return [];
-    return [
-      {
-        type: "mdxJsxTextElement",
-        name: node.tagName,
-        attributes: Object.entries(node.properties).map(([name, value]) => ({
-          type: "mdxJsxAttribute",
-          name,
-          value: String(value),
-        })),
-        children: node.children.flatMap(convert) as never,
-      },
-    ];
-  };
-  // The native renderer ends paragraphs with a newline; it is not title text.
-  while (
-    tree.children.at(-1)?.type === "text" &&
-    !(tree.children.at(-1) as { value: string }).value.trim()
-  )
-    tree.children.pop();
-  return {
-    label: tree.children.map(text).join("").trim(),
-    children: tree.children.flatMap(convert),
-  };
-}
-
-/** Native directive parsing with a small adapter for user-owned Asides. */
+/** Native directive parsing with a small adapter for Nimbus's plain-title contract. */
 export function parseAdmonitions(
   source: string,
   options: AdmonitionTransformOptions = {},
@@ -219,8 +134,8 @@ export function parseAdmonitions(
     points
       .slice(node.position!.start.offset!, node.position!.end.offset!)
       .join("");
-  // Locate the original label, respecting parser-owned inline syntax inside it.
-  // Its raw text is rendered as static Markdown, never as executable MDX.
+  // Native labels allow Markdown/MDX; Aside's existing title is a literal string.
+  // Locate just that label, respecting parser-owned inline syntax inside it.
   function header(node: MdastNode) {
     const start = node.position!.start.offset!;
     let end = start + Array.from(/^:+[\w-]+/.exec(slice(node))![0]).length;
@@ -318,11 +233,6 @@ export function parseAdmonitions(
     children.forEach(rebase);
     return children;
   }
-  // Native reference resolution needs the definitions from the containing file.
-  const definitions = [...originals.values()]
-    .filter((node) => node.type === "definition")
-    .map(titleDefinition)
-    .join("\n");
   function visit(node: MdastNode): MdastNode[] {
     if ("name" in node && LITERAL.has(node.name ?? ""))
       return features.directive ? [node] : literal(node);
@@ -334,9 +244,6 @@ export function parseAdmonitions(
         return [node];
       }
       const { title } = header(node);
-      const richTitle = title
-        ? renderTitle(title, definitions, features)
-        : undefined;
       return [
         {
           type: "mdxJsxFlowElement",
@@ -349,39 +256,19 @@ export function parseAdmonitions(
                   {
                     type: "mdxJsxAttribute" as const,
                     name: "title",
-                    value:
-                      richTitle!.label ||
-                      type.charAt(0).toUpperCase() + type.slice(1),
+                    value: title,
                   },
                 ]
               : []),
           ],
-          children: [
-            ...(richTitle?.children.length
-              ? [
-                  {
-                    type: "mdxJsxFlowElement" as const,
-                    name: "span",
-                    attributes: [
-                      {
-                        type: "mdxJsxAttribute" as const,
-                        name: "slot",
-                        value: "title-content",
-                      },
-                    ],
-                    children: richTitle.children,
-                  },
-                ]
-              : []),
-            ...node.children
-              .filter(
-                (child) =>
-                  child.position!.start.offset! >=
-                  node.position!.start.offset! +
-                    Array.from(/^[^\r\n]*/.exec(slice(node))![0]).length,
-              )
-              .flatMap(visit),
-          ] as never,
+          children: node.children
+            .filter(
+              (child) =>
+                child.position!.start.offset! >=
+                node.position!.start.offset! +
+                  Array.from(/^[^\r\n]*/.exec(slice(node))![0]).length,
+            )
+            .flatMap(visit) as never,
         },
       ];
     }

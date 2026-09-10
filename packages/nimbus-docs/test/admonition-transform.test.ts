@@ -9,7 +9,6 @@ import {
   defineMdastPlugin,
   type MdastNode,
 } from "satteri";
-import { normalizeAuthoredLinks } from "../src/_internal/authored-links.js";
 import { parseAdmonitions } from "../src/_internal/admonition-transform.js";
 import { satteri } from "@astrojs/markdown-satteri";
 import {
@@ -63,30 +62,29 @@ test("native directive maps aliases and plain title attributes to Aside", () => 
     /"value":"tip"/,
   );
 });
-for (const [title, label] of [
-  ["`Age` response header", "Age response header"],
-  ["Run <code>traceroute</code>", "Run traceroute"],
-  ["**Strong** and *emphasis*", "Strong and emphasis"],
-  ["[Link](https://example.com)", "Link"],
-  ["😀 `Age` &amp; cache", "😀 Age & cache"],
-  ["{value}", "{value}"],
-  ["<code title={value}>Run</code>", "Run"],
-  ["Escaped \\] bracket", "Escaped ] bracket"],
-  ["Run `x]:y`", "Run x]:y"],
-] as const) {
-  test(`formatted title supplies readable fallback: ${title}`, () => {
+for (const title of [
+  "`Age` response header",
+  "Run <code>traceroute</code>",
+  "**Strong** and *emphasis*",
+  "[Link](https://example.com)",
+  "😀 `Age` &amp; cache",
+  "{value}",
+  "<code title={value}>Run</code>",
+  "Escaped \\] bracket",
+  "Run `x]:y`",
+]) {
+  test(`title stays a plain string: ${title}`, () => {
     const source = `:::note[${title}]\nBody\n:::`;
     const node = asides(source)[0]!;
     assert.ok(node?.type === "mdxJsxFlowElement");
     assert.deepEqual(node.attributes[1], {
       type: "mdxJsxAttribute",
       name: "title",
-      value: label,
+      value: title,
     });
     assert.doesNotThrow(() => compile(source));
   });
 }
-
 for (const protectedSource of [
   "```mdx\n:::note\nliteral\n:::\n```",
   "````mdx\n:::note\n```txt\n:::\n```\n:::\n````",
@@ -226,18 +224,18 @@ test("legacy body stays inside its enclosing list and Aside", () => {
     /Quick tip/,
   );
 });
-for (const [title, label] of [
-  ['Run <code title="]">x</code>', "Run x"],
-  ["Run <code>items]</code>", "Run items]"],
-] as const) {
-  test(`JSX brackets in formatted titles: ${title}`, () => {
+for (const title of [
+  'Run <code title="]">x</code>',
+  "Run <code>items]</code>",
+]) {
+  test(`JSX brackets in plain titles: ${title}`, () => {
     const source = `:::note[${title}]\nBody\n:::`;
     const aside = asides(source)[0];
     assert.ok(aside?.type === "mdxJsxFlowElement");
     assert.deepEqual(aside.attributes[1], {
       type: "mdxJsxAttribute",
       name: "title",
-      value: label,
+      value: title,
     });
     assert.doesNotThrow(() => compile(source));
   });
@@ -381,46 +379,5 @@ test("arbitrary literal titles can use the existing direct Aside contract", () =
   for (const title of ["Use <T>", "Use {foo bar}", "Set {name to value"]) {
     assert.throws(() => compile(`:::note[${title}]\nBody\n:::`));
     assert.doesNotThrow(() => compile(`<Aside title="${title}">Body</Aside>`));
-  }
-});
-
-test("title references preserve native definitions and base paths without leaking container text", () => {
-  for (const definition of [
-    '[g]: /guide "Title"',
-    '> [g]:\n>   /guide\n>   "Title"',
-    '- [g]:\n    /guide\n    "Title"',
-    '[g]: /guide "one&#10;&#10;two"',
-  ]) {
-    const base = definition.startsWith(">") ? "/" : "/docs";
-    const source = normalizeAuthoredLinks(
-      `:::note[[Guide][g]]\nBody\n:::\n\n:::tip[\`Age\` header]\nBody\n:::\n\n${definition}`,
-      { base, sourceId: "/content/page.mdx" },
-    );
-    const tree = parseAdmonitions(source);
-    const nodes = tree.children.filter(
-      (node) => node.type === "mdxJsxFlowElement",
-    );
-    assert.deepEqual(
-      nodes.map((node) => node.attributes[1]),
-      [
-        { type: "mdxJsxAttribute", name: "title", value: "Guide" },
-        { type: "mdxJsxAttribute", name: "title", value: "Age header" },
-      ],
-    );
-    const slot = nodes[0]!.children[0]!;
-    assert.ok("children" in slot);
-    const link = slot.children.find(
-      (node) => node.type === "mdxJsxTextElement" && node.name === "a",
-    );
-    assert.ok(link?.type === "mdxJsxTextElement");
-    assert.ok(
-      link.attributes.some(
-        (attr) =>
-          attr.type === "mdxJsxAttribute" &&
-          attr.name === "href" &&
-          attr.value === `${base === "/" ? "" : base}/guide`,
-      ),
-    );
-    assert.doesNotThrow(() => compile(source));
   }
 });

@@ -8,7 +8,7 @@ props:
     description: Visual treatment that conveys the callout's intent.
   - name: title
     type: string
-    description: Plain-text heading and accessible label. Defaults to the capitalised type label.
+    description: Optional heading override. Defaults to the capitalised type label.
 ---
 
 import Showcase from "@/components/showcase/Showcase.astro";
@@ -66,33 +66,6 @@ Override the heading without losing the icon and color.
     </Aside>
   </div>
 </Example>
-
-### Formatted title
-
-Use the optional `title-content` slot for inline formatting. Keep `title` as the
-plain-text equivalent for the accessible label and Markdown export:
-
-```mdx
-<Aside title="Age response header">
-  <span slot="title-content"><code>Age</code> response header</span>
-
-  The header reports how long a response has been cached.
-</Aside>
-```
-
-Nimbus supplies this slot automatically for [admonition titles](/writing/markdown-and-mdx#admonitions).
-The `title` prop itself remains plain text.
-
-Existing projects own their Aside component. To adopt formatted titles, replace
-`{displayTitle}` inside its title element with:
-
-```astro
-<slot name="title-content">{displayTitle}</slot>
-```
-
-Keep the existing plain title fallback and `aria-label`, and include the title in
-your inline-code and link styles. Components without this slot continue to show
-the plain-text title.
 
 ### In context
 
