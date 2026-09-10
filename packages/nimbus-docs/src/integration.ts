@@ -34,7 +34,10 @@ import type { AstroIntegration, ShikiConfig } from "astro";
 import mdx from "@astrojs/mdx";
 import type { HastPluginInput, MdastPluginInput } from "satteri";
 import sitemap from "@astrojs/sitemap";
-import { admonitionPlugin } from "./_internal/admonition-vite-plugin.js";
+import {
+  configureAdmonitions,
+  type AdmonitionOptions,
+} from "./_internal/admonition-processor.js";
 import {
   analyzeBuild,
   formatInvariantFailure,
@@ -166,11 +169,9 @@ type AgentEndpointAssetsModule = typeof import("./_internal/agent-endpoint-asset
 
 function loadAgentEndpointAssets(): Promise<AgentEndpointAssetsModule> {
   const extension = import.meta.url.endsWith(".ts") ? "ts" : "js";
-  const specifier = [
-    "./_internal/",
-    "agent-endpoint-assets.",
-    extension,
-  ].join("");
+  const specifier = ["./_internal/", "agent-endpoint-assets.", extension].join(
+    "",
+  );
   return import(
     new URL(specifier, import.meta.url).href
   ) as Promise<AgentEndpointAssetsModule>;
@@ -181,9 +182,14 @@ export interface SitemapOptions {
   customPages?: string[];
 }
 
+export type NimbusMdxOptions = Omit<
+  NonNullable<Parameters<typeof mdx>[0]>,
+  "remarkPlugins" | "rehypePlugins" | "remarkRehype"
+>;
+
 export interface NimbusIntegrationOptions {
-  /** MDX options forwarded to `@astrojs/mdx`. */
-  mdx?: Parameters<typeof mdx>[0];
+  /** Native MDX options. Extend Sätteri using markdown.mdastPlugins/hastPlugins. */
+  mdx?: NimbusMdxOptions;
   /**
    * Sitemap behavior. Defaults: enabled when `site.url` is set, default
    * `@astrojs/sitemap` output. `false` disables it. Pass an object to
@@ -275,23 +281,25 @@ export interface NimbusIntegrationOptions {
         skip?: (filePath: string) => boolean;
       };
   /**
-   * Rewrite `:::type[title]` fenced directives to `<Aside>` components
-   * in MDX/MD source before the markdown compiler sees them. Built-in
+   * Render native Sätteri `:::type[title]` directives with `<Aside>` in MDX.
+   * No source-level delimiter scanning or body reindentation. Built-in
    * types: `note`, `info`, `tip`, `caution`, `warning`, `important`,
    * `danger` (mapped to Nimbus's 4 Aside slots).
    *
-   *   - `true` (default): rewrite against `src/content/**\/*.{md,mdx}`.
+   *   - `true` (default): rewrite against `src/content/**\/*.mdx`.
    *   - `false`: skip the transform; `:::` syntax renders as literal text.
    *   - `{ typeAliases }`: extra type → Aside mappings for product
    *     synonyms (`{ heads: "tip" }`).
    *   - `{ contentDirs }`: override the scanned directories.
    *   - `{ skip }`: per-file opt-out.
    *
-   * Runs as a Vite plugin (content pass) so it survives the
-   * `markdown.processor` swap that disables remark plugins under
-   * Sätteri. Aside must be in the user's `src/components.ts` globals
+   * Runs as a scoped native Sätteri AST pass. Other Markdown processors
+   * keep their own syntax; Nimbus does not install a remark fallback.
+   * Aside must be in the user's `src/components.ts` globals
    * registry — the default starter exports it; if your registry doesn't,
-   * the MDX validator surfaces a clean build error.
+   * the MDX validator surfaces a clean build error. Titles remain plain strings
+   * passed through the existing `title` prop. Markdown (.md) and raw
+   * imports remain unchanged because they do not render Astro components.
    */
   admonitions?:
     | boolean
@@ -338,8 +346,19 @@ export interface NimbusIntegrationOptions {
 }
 
 export function resolveMdxOptions(
-  options: Parameters<typeof mdx>[0] | undefined,
+  options: NimbusMdxOptions | undefined,
 ): Parameters<typeof mdx>[0] {
+  for (const key of [
+    "remarkPlugins",
+    "rehypePlugins",
+    "remarkRehype",
+  ] as const) {
+    if (options && Object.hasOwn(options, key)) {
+      throw new Error(
+        `Nimbus does not support mdx.${key}. Use markdown.mdastPlugins or markdown.hastPlugins with Sätteri instead.`,
+      );
+    }
+  }
   return { optimize: true, ...options };
 }
 
@@ -534,7 +553,9 @@ export function nimbus(
             ),
           )
         ) {
-          agentEndpointAssets.registerAgentEndpointAssetDemand(astroConfig.root);
+          agentEndpointAssets.registerAgentEndpointAssetDemand(
+            astroConfig.root,
+          );
         }
         const publicDir = astroConfig.publicDir
           ? fileURLToPath(astroConfig.publicDir)
@@ -1041,26 +1062,21 @@ export function nimbus(
           integrationsToAdd.push(sitemapIntegration);
         }
 
-        // Admonition transform plugin: only constructed when enabled
-        // (default on). Same `contentDirs` defaulting as the MDX
-        // validator — keeps the two scans aligned.
-        const admonitionVitePlugins = [] as Array<
-          ReturnType<typeof admonitionPlugin>
-        >;
-        if (options.admonitions !== false) {
-          const admoOpts =
-            typeof options.admonitions === "object" ? options.admonitions : {};
-          const contentDirs = (admoOpts.contentDirs ?? ["src/content"]).map(
-            (d) => (path.isAbsolute(d) ? d : path.join(projectRoot, d)),
-          );
-          admonitionVitePlugins.push(
-            admonitionPlugin({
-              contentDirs,
-              typeAliases: admoOpts.typeAliases,
-              skip: admoOpts.skip,
-            }),
-          );
-        }
+        const admonitionOptions: AdmonitionOptions | undefined =
+          options.admonitions === false
+            ? undefined
+            : {
+                ...(typeof options.admonitions === "object"
+                  ? options.admonitions
+                  : {}),
+                contentDirs: (
+                  (typeof options.admonitions === "object"
+                    ? options.admonitions.contentDirs
+                    : undefined) ?? ["src/content"]
+                ).map((d) =>
+                  path.isAbsolute(d) ? d : path.join(projectRoot, d),
+                ),
+              };
 
         const citationContentDirs = ["src/content"].map((d) =>
           path.isAbsolute(d) ? d : path.join(projectRoot, d),
@@ -1070,7 +1086,7 @@ export function nimbus(
           ? await buildLastUpdatedIndex(projectRoot)
           : null;
 
-        const markdownProcessor =
+        const baseMarkdownProcessor =
           options.markdown?.processor ??
           (
             await import("./_internal/default-markdown-processor.js")
@@ -1078,6 +1094,16 @@ export function nimbus(
             hastPlugins: options.markdown?.hastPlugins,
             mdastPlugins: options.markdown?.mdastPlugins,
           });
+        const markdownProcessor = admonitionOptions
+          ? configureAdmonitions(
+            baseMarkdownProcessor as import("astro/markdown").MarkdownProcessor,
+            admonitionOptions,
+            {
+              gfm: astroConfig.markdown.gfm !== false,
+              smartPunctuation: astroConfig.markdown.smartypants !== false,
+            },
+          )
+          : baseMarkdownProcessor;
         const authoredLinks = await import("./_internal/authored-links.js");
         registerAuthoredLinkNormalizer(authoredLinks.normalizeAuthoredLinks);
         const { decorateMarkdownProcessor } =
@@ -1184,16 +1210,8 @@ export function nimbus(
                 ),
               }
             : {}),
-          // Vite plugins. Order is significant:
-          //   1. `admonitionPlugin` (enforce: "pre") — rewrites `:::type`
-          //      directives to `<Aside>` so the markdown compiler sees
-          //      JSX rather than literal `:::` text. Must run before
-          //      @astrojs/mdx parses the file.
-          //   2. `virtualConfigPlugin` — exposes the validated config via
-          //      `virtual:nimbus/config`, plus the build-time-resolved
-          //      `indexedCollections` list (see `getIndexedEntries()` and
-          //      the llms.txt routes) and the versioning alternates
-          //      table.
+          // Source passes run before Astro's compiler. Admonitions are handled
+          // by Sätteri's native AST pass in the configured processor.
           vite: {
             define: {
               "import.meta.env.NIMBUS_PROJECT_ROOT":
@@ -1208,7 +1226,6 @@ export function nimbus(
                     sourceId: filePath,
                   }),
               }),
-              ...admonitionVitePlugins,
               // HTML-path citation rewrite; runs before @astrojs/mdx compiles
               // the file. Reads the current citation index so a dev re-bake applies.
               citationPlugin({
@@ -1220,7 +1237,9 @@ export function nimbus(
                 manifest: coordinatesManifest,
               })),
               agentEndpointAssets.preparedHeadingsPlugin(astroConfig.root),
-              agentEndpointAssets.agentEndpointAssetsRuntimePlugin(astroConfig.root),
+              agentEndpointAssets.agentEndpointAssetsRuntimePlugin(
+                astroConfig.root,
+              ),
               agentEndpointAssets.agentEndpointAssetLoaderPlugin(
                 () => adapterNameForBuild,
               ),
@@ -1231,10 +1250,15 @@ export function nimbus(
                   environment.name === "client",
                 async writeBundle(outputOptions) {
                   if (!outputOptions.dir) return;
-                  const outputRoot = path.resolve(projectRoot, outputOptions.dir);
+                  const outputRoot = path.resolve(
+                    projectRoot,
+                    outputOptions.dir,
+                  );
                   if (
                     outputModeForBuild === "server" &&
-                    agentEndpointAssets.isAgentEndpointAssetRequested(projectRoot)
+                    agentEndpointAssets.isAgentEndpointAssetRequested(
+                      projectRoot,
+                    )
                   ) {
                     await agentEndpointAssets.stageAgentEndpointAssets(
                       projectRoot,
@@ -1464,10 +1488,16 @@ export function nimbus(
         clearNavCaches();
         const agentEndpointAssets = await loadAgentEndpointAssets();
         if (requestRenderingConfigured) {
-          agentEndpointAssets.registerAgentEndpointAssetDemand(projectRootForBuild);
+          agentEndpointAssets.registerAgentEndpointAssetDemand(
+            projectRootForBuild,
+          );
         }
-        if (agentEndpointAssets.isAgentEndpointAssetRequested(projectRootForBuild)) {
-          await agentEndpointAssets.ensureAgentEndpointAssets(projectRootForBuild);
+        if (
+          agentEndpointAssets.isAgentEndpointAssetRequested(projectRootForBuild)
+        ) {
+          await agentEndpointAssets.ensureAgentEndpointAssets(
+            projectRootForBuild,
+          );
         }
       },
       "astro:routes:resolved": ({ routes }) => {
@@ -1508,9 +1538,9 @@ export function nimbus(
         contentRoutePatternsForBuild = new Set(
           inventory.map((entry) => canonicalizePathname(entry.url)),
         );
-        const prerenderedContentCount = [...contentRoutePatternsForBuild].filter(
-          (pathname) => prerenderedRoutes.has(pathname),
-        ).length;
+        const prerenderedContentCount = [
+          ...contentRoutePatternsForBuild,
+        ].filter((pathname) => prerenderedRoutes.has(pathname)).length;
         const requestRoutes = inventory
           .filter((entry) => entry.request)
           .map((entry) => canonicalizePathname(entry.url))

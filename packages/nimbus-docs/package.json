@@ -186,8 +186,6 @@
 		"astro": "~7.0.9",
 		"jsdom": "^29.1.1",
 		"openapi-sampler": "^1.7.4",
-		"remark-mdx": "^3.1.1",
-		"remark-parse": "^11.0.0",
 		"tsdown": "^0.20.3",
 		"tsx": "^4.22.3"
 	}

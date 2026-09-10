@@ -62,32 +62,103 @@ A pre-build content pass checks every PascalCase tag in `src/content/**/*.mdx` a
 
 ## Admonitions
 
-Fenced `:::` directives rewrite to `<Aside>` before the compiler runs:
+In `.mdx` files, Sätteri parses fenced `:::` directives and Nimbus renders them with `<Aside>`:
 
-```md
+```mdx
 :::tip
 This becomes an Aside.
 :::
 ```
 
+### Rendered examples
+
+These callouts are authored with directive syntax and rendered through Sätteri.
+
+:::note
+A default note with **bold text**, a [link](#admonitions), and `inline code`.
+:::
+
+:::tip[Worth knowing]
+Use a title to describe the guidance in your callout.
+:::
+
+:::warning[Say "hello"]
+Quoted titles stay plain strings. The `warning` alias uses the caution variant.
+:::
+
+:::danger[`Cache-Control` header]
+Formatting in the title stays literal; body formatting such as **this** still works.
+:::
+
+::::note[Nested guidance]
+The outer note contains a tip and a source example.
+
+:::tip
+Nested callouts use the same Aside component.
+:::
+
+```mdx
+:::note
+This fenced example stays code.
+:::
+```
+::::
+
+### Syntax and behavior
+
 Built-in types: `note`, `info`, `tip`, `caution`, `warning`, `important`, `danger`. Add synonyms with `admonitions: { typeAliases: { heads: "tip" } }`. `Aside` must be in your components registry (the default starter exports it).
 
-## The Sätteri constraint
+Titles use the existing plain `title` prop. Sätteri emits the string attribute;
+quotes and expression-looking text are not evaluated. Markup in titles remains
+literal text. Directive titles must still be valid MDX syntax because Sätteri
+parses the document before the AST pass runs. For arbitrary text such as an
+unclosed `<T>` or `{`, use the direct component's string prop:
 
-Nimbus wires the Rust-based **Sätteri** markdown processor by default for speed. Consequence: remark/rehype plugins attached via `mdx({ remarkPlugins })` silently no-op. Framework validators that would normally be remark plugins run as pre-build content passes instead.
-
-If you depend on the unified ecosystem (custom remark plugins, Mermaid, math), swap the processor. First install `@astrojs/markdown-remark` — Astro's MDX integration pulls it in transitively, but pnpm won't let you import a package you haven't declared:
-
-```sh
-pnpm add "@astrojs/markdown-remark@^7.2.0"
+```mdx
+<Aside title="Use <T>">Body content.</Aside>
 ```
+
+No Aside component update is required.
+
+Sätteri parses the directives and their bodies; Nimbus maps recognized directive
+nodes to Aside. Body indentation is not rewritten. Code examples, frontmatter,
+expressions and JSX attributes remain protected. The existing opening-line body
+form is retained for compatibility.
+
+Nesting and fence termination follow Sätteri's native grammar. Use a longer outer
+fence for nested admonitions:
+
+```mdx
+::::note
+Outer content.
+
+:::tip
+Inner content.
+:::
+::::
+```
+
+Unknown directives remain literal by default. If your Sätteri processor explicitly
+enables native directives, unrecognized nodes remain available to your own AST
+plugins. Files containing standalone carriage returns
+also remain literal because the installed native directive parser does not handle
+those line endings consistently; LF and CRLF are supported.
+
+This feature uses Nimbus's Sätteri processor. If you supply another processor,
+that processor owns directive support. `.md` files, raw imports and files outside
+`admonitions.contentDirs` are unchanged. Use `admonitions.skip` for per-file opt-outs
+or `admonitions: false` to disable the feature.
+
+## Extending Markdown
+
+Extend Sätteri with `markdown.mdastPlugins` for Markdown AST transformations and
+`markdown.hastPlugins` for HTML AST transformations. Nimbus provides native
+plugins through `@cloudflare/nimbus-docs/markdown`:
 
 ```ts title="astro.config.ts"
-import { unified } from "@astrojs/markdown-remark";
+import { externalLinks } from "@cloudflare/nimbus-docs/markdown";
 
 nimbus(config, {
-  markdown: { processor: unified({ remarkPlugins: [/* … */] }) },
+  markdown: { hastPlugins: [externalLinks()] },
 });
 ```
-
-This trades the Sätteri performance win for plugin extensibility.

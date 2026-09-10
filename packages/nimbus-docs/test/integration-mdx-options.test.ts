@@ -11,10 +11,22 @@ test("MDX optimize remains opt-out", () => {
   assert.deepEqual(resolveMdxOptions({ optimize: false }), { optimize: false });
 });
 
-test("custom MDX options pass through", () => {
-  const rehypePlugins = [() => undefined];
-  assert.deepEqual(resolveMdxOptions({ rehypePlugins }), {
+test("native MDX options pass through", () => {
+  assert.deepEqual(resolveMdxOptions({ gfm: false, smartypants: false }), {
     optimize: true,
-    rehypePlugins,
+    gfm: false,
+    smartypants: false,
   });
 });
+
+for (const key of ["remarkPlugins", "rehypePlugins", "remarkRehype"]) {
+  test(`unsupported ${key} fails with a native extension path`, () => {
+    assert.throws(
+      () =>
+        resolveMdxOptions({ [key]: [] } as Parameters<
+          typeof resolveMdxOptions
+        >[0]),
+      /Use markdown\.mdastPlugins or markdown\.hastPlugins with Sätteri instead/,
+    );
+  });
+}
