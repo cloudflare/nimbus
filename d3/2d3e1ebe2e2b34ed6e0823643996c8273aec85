@@ -1,0 +1,25 @@
+.github/workflows/preview-release.yml
+  s_7993b5610db05b::t_f543c8aa197c11 43-44,91-99
+packages/create-nimbus-docs/scripts/repin-preview.mjs
+  s_7993b5610db05b::t_1f058dd4cb2fc3 11-12,35-38,45-47
+packages/create-nimbus-docs/test/repin-preview.test.ts
+  s_7993b5610db05b::t_2cbd67cc41042d 9,38,49,52,54,57-58,73
+packages/create-nimbus-docs/tsdown.config.ts
+  s_7993b5610db05b::t_1c3827f39ad200 13,22-28,51-52,60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d32d3e1ebe2e2b34ed6e0823643996c8273aec85",
+  "prompts": {},
+  "sessions": {
+    "s_7993b5610db05b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7525c193ffeKq3vee53jErCf5",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
