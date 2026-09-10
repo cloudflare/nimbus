@@ -180,3 +180,62 @@ test("rejects an invalid deployment base", () => {
     );
   }
 });
+
+test("normalizes hrefs on JSX elements whose children contain JSX-like tokens", () => {
+  const source = `<Tabs syncKey="x" href="/guide">
+
+\`\`\`js
+{
+\`\`\`
+
+</Tabs>`;
+  assert.equal(
+    normalizeAuthoredLinks(source, { base: "/docs" }),
+    `<Tabs syncKey="x" href="/docs/guide">
+
+\`\`\`js
+{
+\`\`\`
+
+</Tabs>`,
+  );
+});
+
+test("skips JSX elements whose raw slice spans blockquote markers", () => {
+  const source = `> Example:
+> <PackageManagers
+> \ttype="create"
+> \tpkg="vike@latest"
+> />`;
+  assert.equal(normalizeAuthoredLinks(source, { base: "/docs" }), source);
+});
+
+test("skips blockquote-mangled JSX hrefs instead of failing", () => {
+  const source = `> <Card
+> \thref="/card"
+> />`;
+  assert.equal(normalizeAuthoredLinks(source, { base: "/docs" }), source);
+});
+
+test("leaves plain Markdown files that are not valid MDX untouched", () => {
+  const source = `<!-- Auto Generated Below -->
+
+<a name="module_x"></a>
+
+[Guide](/guide)`;
+  assert.equal(
+    normalizeAuthoredLinks(source, { base: "/docs", sourceId: "generated.md" }),
+    source,
+  );
+});
+
+test("still normalizes links in Markdown files that are valid MDX", () => {
+  const source = `[Guide](/guide)`;
+  assert.equal(
+    normalizeAuthoredLinks(source, {
+      base: "/docs",
+      sourceId: "generated.md",
+    }),
+    `[Guide](/docs/guide)`,
+  );
+});

@@ -241,8 +241,8 @@ interface ParsedJsxRange {
   sourceBase: number;
 }
 
-function jsxRangeKey(start: number, end: number): string {
-  return `${start}:${end}`;
+function jsxStartKey(start: number): string {
+  return `${start}`;
 }
 
 function staticHrefOffsets(
@@ -256,7 +256,16 @@ function staticHrefOffsets(
   if (!Array.isArray(node.attributes)) {
     fail("missing JSX attributes", source, sourceId, sourceStart);
   }
-  const key = jsxRangeKey(sourceStart, sourceStart + raw.length);
+  const hasHref = (
+    node.attributes as Array<{ type?: string; name?: unknown }>
+  ).some(
+    (attribute) =>
+      attribute?.type === "mdxJsxAttribute" &&
+      typeof attribute.name === "string" &&
+      isHref(node, attribute.name),
+  );
+  if (!hasHref) return [];
+  const key = jsxStartKey(sourceStart);
   if (!parsedRanges.has(key)) {
     const prefix = "const element = (";
     const parsed = ts.createSourceFile(
@@ -273,13 +282,11 @@ function staticHrefOffsets(
         ts.isJsxSelfClosingElement(candidate) ||
         ts.isJsxFragment(candidate)
       ) {
-        parsedRanges.set(
-          jsxRangeKey(
-            candidate.getStart(parsed) + sourceBase,
-            candidate.getEnd() + sourceBase,
-          ),
-          { node: candidate, sourceFile: parsed, sourceBase },
-        );
+        parsedRanges.set(jsxStartKey(candidate.getStart(parsed) + sourceBase), {
+          node: candidate,
+          sourceFile: parsed,
+          sourceBase,
+        });
       }
       ts.forEachChild(candidate, collect);
     };
@@ -299,12 +306,9 @@ function staticHrefOffsets(
   const properties = ts.isJsxElement(element)
     ? element.openingElement.attributes.properties
     : element.attributes.properties;
-  if (properties.length !== node.attributes.length) {
-    fail("ambiguous JSX attributes", source, sourceId, sourceStart);
-  }
   const offsets: number[] = [];
 
-  for (const [index, value] of node.attributes.entries()) {
+  for (const value of node.attributes) {
     if (!value || typeof value !== "object") {
       fail("invalid JSX attribute", source, sourceId, sourceStart);
     }
@@ -313,32 +317,27 @@ function staticHrefOffsets(
       name?: unknown;
       value?: unknown;
     };
-    const property = properties[index]!;
 
     if (attribute.type === "mdxJsxExpressionAttribute") {
-      if (!ts.isJsxSpreadAttribute(property)) {
-        fail(
-          "ambiguous JSX spread expression",
-          source,
-          sourceId,
-          property.getStart(parsed) + sourceBase,
-        );
-      }
       continue;
     }
 
     if (
       attribute.type !== "mdxJsxAttribute" ||
-      typeof attribute.name !== "string" ||
-      !ts.isJsxAttribute(property) ||
-      property.name.getText(parsed) !== attribute.name
+      typeof attribute.name !== "string"
     ) {
-      fail(
-        "unsupported JSX attribute",
-        source,
-        sourceId,
-        property.getStart(parsed) + sourceBase,
-      );
+      fail("unsupported JSX attribute", source, sourceId, sourceStart);
+    }
+    const property = properties.find(
+      (candidate) =>
+        ts.isJsxAttribute(candidate) &&
+        candidate.name.getText(parsed) === attribute.name,
+    );
+    if (!property || !ts.isJsxAttribute(property)) {
+      // The TypeScript parse could not reconcile this attribute with the
+      // mdast node (for example, the raw slice spans blockquote markers that
+      // are not valid JSX). Skip it rather than failing the whole source.
+      continue;
     }
     if (attribute.value === null) {
       if (property.initializer) {
@@ -416,6 +415,11 @@ export function normalizeAuthoredLinks(
   try {
     tree = mdxToMdast(source) as MdNode;
   } catch (error) {
+    // Plain `.md` files are not guaranteed to be valid MDX (for example,
+    // legacy files with HTML comments or prose containing `{key: value}`).
+    // Leave them untouched rather than failing the build on a parse error.
+    // `.mdx` sources still fail closed.
+    if (options.sourceId?.endsWith(".md")) return source;
     const detail = error instanceof Error ? error.message : String(error);
     const location = detail.match(/^(\d+):(\d+):\s*/);
     if (location) {
