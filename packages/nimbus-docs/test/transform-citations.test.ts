@@ -61,3 +61,33 @@ describe("renderEntryAsMarkdown: coordinate citations", () => {
     );
   });
 });
+
+test("Aside exports use the plain title and preserve body content and custom renderers", () => {
+  const children = [
+    '<span slot="title-content"><code>Age</code> response header</span>',
+    '<span>Body 😀.</span>',
+    '<span><span slot="title-content">Nested content.</span></span>',
+    '<span slot="other">Other slot.</span>',
+    "",
+    "```mdx",
+    '<span slot="title-content">Literal example.</span>',
+    "```",
+  ].join("\n");
+  const body = `前文 😀.\n\n<Aside title="Age response header">\n${children}\n</Aside>`;
+  const out = renderEntryAsMarkdown({ filePath: "page.mdx", body });
+  assert.match(out, /^前文 😀\./);
+  assert.equal(out.match(/Age response header/g)?.length, 1);
+  assert.doesNotMatch(out, /<code>Age<\/code>/);
+  assert.match(out, /<span>Body 😀\.<\/span>/);
+  assert.match(out, /<span slot="title-content">Nested content\.<\/span>/);
+  assert.match(out, /<span slot="other">Other slot\.<\/span>/);
+  assert.match(out, /<span slot="title-content">Literal example\.<\/span>/);
+
+  let customChildren = "";
+  renderEntryAsMarkdown(
+    { filePath: "page.mdx", body },
+    { componentMap: { Aside: ({ children }) => (customChildren = children) } },
+  );
+  assert.match(customChildren, /<code>Age<\/code>/);
+  assert.equal(renderEntryAsMarkdown({ filePath: "page.md", body }), body);
+});

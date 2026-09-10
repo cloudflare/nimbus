@@ -1,8 +1,7 @@
 /**
  * MDX → Markdown transform for generated static routes.
  *
- * This intentionally starts small and dependency-free: it operates on the
- * raw MDX body that Astro's content layer exposes and maps the starter's
+ * This operates on the raw MDX body that Astro's content layer exposes and maps the starter's
  * default components to plain markdown equivalents. The route that calls this
  * lives in user code, so replacing or bypassing this transformer is a one-line
  * edit.
@@ -13,6 +12,7 @@ import {
   resolveCitations,
   type CitationIndex,
 } from "./api/citations.js";
+import { mdxToMdast, type MdastNode } from "satteri";
 
 export interface MarkdownComponentRenderContext {
   name: string;
@@ -92,6 +92,42 @@ function cleanChildren(children: string): string {
     .replace(/^\s+/g, "")
     .replace(/\s+$/g, "")
     .replace(/\n[ \t]+/g, "\n");
+}
+
+/** The plain title prop supplies the export heading; its rich slot is not body. */
+function stripAsideTitleSlots(markdown: string): string {
+  if (!markdown.includes("<Aside") || !markdown.includes("title-content"))
+    return markdown;
+  const ranges: [number, number][] = [];
+  function visit(node: MdastNode): void {
+    if (!("children" in node)) return;
+    for (const child of node.children as MdastNode[]) {
+      if (
+        (node.type === "mdxJsxFlowElement" ||
+          node.type === "mdxJsxTextElement") &&
+        node.name === "Aside" &&
+        (child.type === "mdxJsxFlowElement" ||
+          child.type === "mdxJsxTextElement") &&
+        child.attributes.some(
+          (attribute) =>
+            attribute.type === "mdxJsxAttribute" &&
+            attribute.name === "slot" &&
+            attribute.value === "title-content",
+        )
+      ) {
+        const start = child.position?.start.offset;
+        const end = child.position?.end.offset;
+        if (start !== undefined && end !== undefined) ranges.push([start, end]);
+      } else {
+        visit(child);
+      }
+    }
+  }
+  visit(mdxToMdast(markdown));
+  const points = Array.from(markdown);
+  for (const [start, end] of ranges.sort((a, b) => b[0] - a[0]))
+    points.splice(start, end - start);
+  return points.join("");
 }
 
 function blockquote(body: string): string {
@@ -323,6 +359,7 @@ export function renderEntryAsMarkdown(
       options.base ?? "/",
     );
   }
+  if (!options.componentMap?.Aside) markdown = stripAsideTitleSlots(markdown);
   markdown = applyDefaultComponentTransforms(markdown);
   markdown = protectedCode.restore(markdown);
 

@@ -83,11 +83,11 @@ Use a title to describe the guidance in your callout.
 :::
 
 :::warning[Say "hello"]
-Quoted titles stay plain strings. The `warning` alias uses the caution variant.
+Quotes are preserved in titles. The `warning` alias uses the caution variant.
 :::
 
 :::danger[`Cache-Control` header]
-Formatting in the title stays literal; body formatting such as **this** still works.
+Inline code renders in the title, and body formatting such as **this** still works.
 :::
 
 ::::note[Nested guidance]
@@ -108,17 +108,23 @@ This fenced example stays code.
 
 Built-in types: `note`, `info`, `tip`, `caution`, `warning`, `important`, `danger`. Add synonyms with `admonitions: { typeAliases: { heads: "tip" } }`. `Aside` must be in your components registry (the default starter exports it).
 
-Titles use the existing plain `title` prop. Sätteri emits the string attribute;
-quotes and expression-looking text are not evaluated. Markup in titles remains
-literal text. Directive titles must still be valid MDX syntax because Sätteri
-parses the document before the AST pass runs. For arbitrary text such as an
-unclosed `<T>` or `{`, use the direct component's string prop:
+Titles support inline code, emphasis, strong text, strikethrough, and links,
+including reference links. Static phrasing HTML such as `<code>` is also supported.
+Nimbus parses and sanitizes this formatting, then supplies a `title-content` slot
+and a plain-text `title` fallback to your Aside component. Expressions are not
+evaluated, and unsafe HTML is removed.
+
+Existing projects need the small [Aside slot update](/components/aside#formatted-title)
+to display formatted titles. Without it, titles remain readable plain text.
+Direct `<Aside title="...">` calls keep their plain-string behavior.
+
+Directive titles must still be valid MDX syntax because Sätteri parses the document
+before the AST pass runs. For arbitrary text such as an unclosed `<T>` or `{`, use
+the direct component's string prop:
 
 ```mdx
 <Aside title="Use <T>">Body content.</Aside>
 ```
-
-No Aside component update is required.
 
 Sätteri parses the directives and their bodies; Nimbus maps recognized directive
 nodes to Aside. Body indentation is not rewritten. Code examples, frontmatter,

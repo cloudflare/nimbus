@@ -40,6 +40,22 @@ const source = [
   "",
   '<Aside type="danger">Default danger.</Aside>',
   "",
+  ":::note[When `name` and `class_name` differ]",
+  "```json",
+  '{"name":"agent","class_name":"Agent"}',
+  "```",
+  ":::",
+  "",
+  ":::note[Read *the* [guide][g]]",
+  "Reference body.",
+  ":::",
+  "",
+  ':::note[<script>throw new Error("unsafe title")</script><code onclick="throw 1">safe</code> {(() => { throw new Error("executed title") })()}]',
+  "Safe body.",
+  ":::",
+  "",
+  "[g]: /guide",
+  "",
   "````mdx",
   ":::note",
   "Literal example.",
@@ -52,7 +68,7 @@ const source = [
 ].join("\n");
 
 for (const processor of ["satteri", "nimbus"] as const) {
-  test(`Astro ${processor} renders the unchanged Aside with plain titles and protected code`, async () => {
+  test(`Astro ${processor} renders rich titles with legacy fallback and protected code`, async () => {
     const root = await realpath(
       await mkdtemp(path.join(os.tmpdir(), "nimbus-aside-render-")),
     );
@@ -63,15 +79,19 @@ for (const processor of ["satteri", "nimbus"] as const) {
         "dir",
       );
       await mkdir(path.join(root, "src/pages"), { recursive: true });
-      await writeFile(
-        path.join(root, "src/Aside.astro"),
-        await readFile(
-          path.resolve(
-            import.meta.dirname,
-            "../../nimbus-starter-source/src/components/ui/aside/Aside.astro",
-          ),
-          "utf8",
+      const asideSource = await readFile(
+        path.resolve(
+          import.meta.dirname,
+          "../../nimbus-starter-source/src/components/ui/aside/Aside.astro",
         ),
+        "utf8",
+      );
+      const titleSlot = '<slot name="title-content">{displayTitle}</slot>';
+      assert.ok(asideSource.includes(titleSlot));
+      await writeFile(path.join(root, "src/Aside.astro"), asideSource);
+      await writeFile(
+        path.join(root, "src/LegacyAside.astro"),
+        asideSource.replace(titleSlot, "{displayTitle}"),
       );
       await writeFile(
         path.join(root, "src/cn.ts"),
@@ -84,6 +104,10 @@ for (const processor of ["satteri", "nimbus"] as const) {
       await writeFile(
         path.join(root, "src/pages/index.mdx"),
         `import Aside from "../Aside.astro";\n\n${source}`,
+      );
+      await writeFile(
+        path.join(root, "src/pages/legacy.mdx"),
+        `import Aside from "../LegacyAside.astro";\n\n${source}`,
       );
       await writeFile(
         path.join(root, "src/pages/plain.md"),
@@ -142,31 +166,81 @@ for (const processor of ["satteri", "nimbus"] as const) {
       const html = await readFile(path.join(root, "dist/index.html"), "utf8");
       const document = new JSDOM(html).window.document;
       const asides = [...document.querySelectorAll("aside")];
-      assert.equal(asides.length, 6);
+      assert.equal(asides.length, 9);
       const labels = [
-        "`Age` response header",
-        "Run <code>traceroute</code>",
-        'Say "hi"',
+        "Age response header",
+        "Run traceroute",
+        "Say “hi”",
         "Caution",
         "Custom",
         "Danger",
+        "When name and class_name differ",
+        "Read the guide",
+        'safe {(() => { throw new Error("executed title") })()}',
       ];
       assert.deepEqual(
         asides.map((aside) => aside.getAttribute("aria-label")),
         labels,
       );
       assert.deepEqual(
-        asides.map((aside) => aside.querySelector("p")!.textContent),
+        asides.map((aside) => aside.querySelector("p")!.textContent?.trim()),
         labels,
       );
-      assert.equal(asides[0]!.querySelector("p")!.querySelector("code"), null);
-      assert.equal(asides[1]!.querySelector("p")!.querySelector("code"), null);
+      assert.equal(asides[0]!.querySelector("p code")?.textContent, "Age");
+      assert.equal(
+        asides[1]!.querySelector("p code")?.textContent,
+        "traceroute",
+      );
+      assert.deepEqual(
+        [...asides[6]!.querySelectorAll("p code")].map(
+          (node) => node.textContent,
+        ),
+        ["name", "class_name"],
+      );
+      assert.equal(
+        asides[6]!.querySelector("pre code")?.textContent?.trim(),
+        '{"name":"agent","class_name":"Agent"}',
+      );
+      assert.equal(asides[7]!.querySelector("p em")?.textContent, "the");
+      assert.equal(
+        asides[7]!.querySelector("p a")?.getAttribute("href"),
+        "/guide",
+      );
+      assert.equal(asides[8]!.querySelector("script, [onclick]"), null);
+      assert.equal(asides[8]!.querySelector("p code")?.textContent, "safe");
+      const legacy = new JSDOM(
+        await readFile(path.join(root, "dist/legacy/index.html"), "utf8"),
+      ).window.document;
+      const legacyAsides = [...legacy.querySelectorAll("aside")];
+      assert.deepEqual(
+        legacyAsides.map((aside) => aside.getAttribute("aria-label")),
+        labels,
+      );
+      assert.deepEqual(
+        legacyAsides.map((aside) =>
+          aside.querySelector("p")!.textContent?.trim(),
+        ),
+        labels,
+      );
+      assert.equal(legacy.querySelector("[slot]"), null);
+      for (const aside of legacyAsides)
+        assert.equal(aside.querySelector("p")!.querySelector("code"), null);
+      assert.deepEqual(
+        legacyAsides.map(
+          (aside) => aside.querySelector(".aside-card-body")?.textContent,
+        ),
+        asides.map(
+          (aside) => aside.querySelector(".aside-card-body")?.textContent,
+        ),
+      );
       assert.equal(
         asides[0]!.querySelector(".aside-card-body code")?.textContent,
         "code",
       );
       assert.ok(
-        document.querySelector("pre")?.textContent?.includes(":::note"),
+        [...document.querySelectorAll("pre")].some((node) =>
+          node.textContent?.includes(":::note"),
+        ),
       );
       assert.equal(document.querySelector("fragment"), null);
       const plain = await readFile(
