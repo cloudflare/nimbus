@@ -180,3 +180,148 @@ test("rejects an invalid deployment base", () => {
     );
   }
 });
+
+test("normalizes opening-tag links around MDX bodies that are not TSX", () => {
+  const source = [
+    '<Card href="/card">',
+    "",
+    "```ts",
+    "const example = <Unclosed>;",
+    '<a href="/literal">example</a>',
+    "```",
+    "",
+    "[Guide](/guide)",
+    "",
+    '<Card href={"/nested"}>',
+    "",
+    "```ts",
+    "export default { fetch() {} } satisfies Handler<Env>;",
+    "```",
+    "",
+    "</Card>",
+    "",
+    "</Card>",
+  ].join("\n");
+  assert.equal(
+    normalizeAuthoredLinks(source, { base: "/docs" }),
+    source
+      .replace('href="/card"', 'href="/docs/card"')
+      .replace("[Guide](/guide)", "[Guide](/docs/guide)")
+      .replace('href={"/nested"}', 'href={"/docs/nested"}'),
+  );
+  assert.equal(normalizeAuthoredLinks(source, { base: "/" }), source);
+});
+
+test("traverses attribute-free wrappers containing fenced code and nested links", () => {
+  const source = [
+    "1. Configure the prefix.",
+    "",
+    '   <Tabs> <TabItem label="IRR record">',
+    "",
+    "   ```txt",
+    "   cf-validation: <OWNERSHIP_VALIDATION_TOKEN>",
+    "   ```",
+    "",
+    '   <a href="/guide">Guide</a>',
+    "",
+    "   </TabItem> </Tabs>",
+    "",
+    "<TypeScriptExample>",
+    "",
+    "```ts",
+    "export default { fetch() {} } satisfies ExportedHandler<Env>;",
+    "```",
+    "",
+    "</TypeScriptExample>",
+  ].join("\n");
+  assert.equal(normalizeAuthoredLinks(source, { base: "/" }), source);
+  assert.equal(
+    normalizeAuthoredLinks(source, { base: "/docs" }),
+    source.replace('href="/guide"', 'href="/docs/guide"'),
+  );
+});
+
+test("normalization preserves unrelated source across format, nesting, Unicode and line endings", () => {
+  for (const format of ["md", "mdx"] as const) {
+    for (const newline of ["\n", "\r\n"]) {
+      for (const prefix of ["", "😀 文档\n\n"]) {
+        for (const wrapper of format === "md"
+          ? ["plain", "quote", "list"]
+          : ["plain", "quote", "list", "component"]) {
+          const link =
+            format === "md"
+              ? '<a\nHREF = "&sol;html">HTML</a>'
+              : '<Card href={"/html"}>HTML</Card>';
+          const body = [
+            format === "md"
+              ? "<!-- generated {comment} -->"
+              : "{/* comment */}",
+            "",
+            "[Guide](/guide?x=1#top)",
+            "",
+            link,
+            "",
+            "<code>www.example.org</code>",
+            "",
+            '<template>\n<a href="/template">Template</a>\n</template>',
+            "",
+            "```tsx",
+            '<a href="/literal">example</a>',
+            "const value = <Unclosed>;",
+            "```",
+            "",
+            "`[Inline](/literal)`",
+          ].join("\n");
+          const wrap = (text: string) =>
+            wrapper === "quote"
+              ? text
+                  .split("\n")
+                  .map((line) => `> ${line}`)
+                  .join("\n")
+              : wrapper === "list"
+                ? `1. Item\n\n${text
+                    .split("\n")
+                    .map((line) => `   ${line}`)
+                    .join("\n")}`
+                : wrapper === "component" && format === "mdx"
+                  ? `<Card href="/outer">\n\n${text}\n\n</Card>`
+                  : text;
+          const source = (prefix + wrap(body)).replaceAll("\n", newline);
+          const expected = source
+            .replace("[Guide](/guide?x=1#top)", "[Guide](/docs/guide?x=1#top)")
+            .replace('HREF = "&sol;html"', 'HREF = "/docs&sol;html"')
+            .replace('href={"/html"}', 'href={"/docs/html"}')
+            .replace('href="/outer"', 'href="/docs/outer"')
+            .replace('href="/template"', 'href="/docs/template"');
+          const sourceId = `docs:fixture.${format}`;
+          const label = JSON.stringify({ format, newline, prefix, wrapper });
+          assert.equal(
+            normalizeAuthoredLinks(source, { base: "/", sourceId }),
+            source,
+            label,
+          );
+          assert.equal(
+            normalizeAuthoredLinks(source, { base: "/docs", sourceId }),
+            expected,
+            label,
+          );
+        }
+      }
+    }
+  }
+  for (const href of [
+    '"/../escape"',
+    '"&sol;../escape"',
+    "'/safe/%2fescape'",
+  ]) {
+    for (const source of [
+      `<a href=${href}>Link</a>`,
+      `> <a\n> href=${href}>Link</a>`,
+    ]) {
+      assert.throws(
+        () => normalizeAuthoredLinks(source, { base: "/", format: "md" }),
+        /destination escapes its canonical path/,
+      );
+    }
+  }
+});

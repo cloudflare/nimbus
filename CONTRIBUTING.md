@@ -43,6 +43,13 @@ Before you open a PR:
 - Add a changeset for anything user-facing. Starter edits need a `create-nimbus-docs` changeset, or the freshness guard fails the PR.
 - Check that `pnpm typecheck`, `pnpm -r test`, and `pnpm templates:check` pass.
 
+For Markdown pipeline changes, extend the small mixed-format fixture in
+`scripts/fixtures/content-integrity/`. The template check installs the packed
+framework into a starter and verifies rendered content across clean and warm
+builds. Use bounded combinations in unit tests to check preservation of unrelated
+source across formats, nesting, Unicode, and line endings. A parser-only pass or
+one production corpus is not sufficient evidence of consumer compatibility.
+
 ### Local development
 
 Requires **Node ≥ 22.12.0** and **pnpm 9** (pinned via `packageManager`, so Corepack fetches it for you).

@@ -258,7 +258,7 @@ describe("Markdown loader preparation", () => {
     const metadata = JSON.parse(
       harness.metadata.get(NIMBUS_MARKDOWN_META_KEY)!,
     );
-    assert.equal(metadata.version, 2);
+    assert.equal(metadata.version, 3);
     assert.equal(metadata.generation, 1);
     assert.equal(metadata.base, "/docs");
     assert.match(metadata.digest, /^sha256:[a-f0-9]{64}$/u);

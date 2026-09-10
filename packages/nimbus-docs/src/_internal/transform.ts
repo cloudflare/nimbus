@@ -44,6 +44,7 @@ export interface RenderEntryAsMarkdownOptions {
 
 interface MarkdownEntry {
   body?: string;
+  filePath?: string;
 }
 
 function protectCode(markdown: string): {
@@ -284,7 +285,8 @@ export function renderEntryAsMarkdown(
   const stripFrontmatter = options.stripFrontmatter ?? true;
   let markdown = entry.body ?? "";
 
-  if (/<Render(?=[\s/>])/.test(protectCode(markdown).markdown)) {
+  const isMdx = !entry.filePath?.endsWith(".md");
+  if (isMdx && /<Render(?=[\s/>])/.test(protectCode(markdown).markdown)) {
     throw new Error(
       "nimbus-docs: renderEntryAsMarkdown no longer expands <Render> partials at runtime. " +
         "Serve it with getMarkdownPayload from @cloudflare/nimbus-docs/agent-endpoints.",
@@ -308,6 +310,8 @@ export function renderEntryAsMarkdown(
       citationIndex: options.citationIndex,
     }).code;
   }
+
+  if (!isMdx) return markdown.trim();
 
   const protectedCode = protectCode(markdown);
   markdown = protectedCode.markdown;

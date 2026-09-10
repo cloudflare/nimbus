@@ -1284,12 +1284,12 @@ export async function bakeAgentEndpointAssets(
       );
     }
     const expanded = await expandPreparedPartials(entry.body, {
-      sourceId: `${entry.collection}:${entry.id}`,
+      sourceId: `${entry.collection}:${entry.filePath ?? entry.id}`,
       getPartial,
       resolvePartialId: options.partialResolver?.resolve,
     });
     const markdown = renderEntryAsMarkdown(
-      { body: expanded },
+      { body: expanded, filePath: entry.filePath },
       {
         citationIndex: basedCitationIndex,
         componentMap: renderers,
@@ -1300,7 +1300,7 @@ export async function bakeAgentEndpointAssets(
     llmsRoutePages.push(page);
     if (isDiscoverable(entry)) preparedLlmsPages.push(page);
     if (entry.headings) {
-      const headings = await mergePartialHeadings(
+      const headings = entry.filePath?.endsWith(".md") ? entry.headings : await mergePartialHeadings(
         entry.body,
         entry.headings,
         async (collection, id) =>

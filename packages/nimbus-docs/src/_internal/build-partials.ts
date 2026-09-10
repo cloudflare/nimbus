@@ -231,6 +231,8 @@ async function expand(
   options: ExpandPreparedPartialsOptions,
   chain: string[],
 ): Promise<string> {
+  // Plain Markdown has no JSX component invocations or props expressions.
+  if (/\.md$/iu.test(options.sourceId)) return source;
   const prepared = applyParams(source, params, options.sourceId);
   const tree = parseSource(prepared, options.sourceId);
   const offsets = offsetMap(prepared);
@@ -277,7 +279,7 @@ async function expand(
       value: await expand(
         partial.body,
         invocation.params,
-        { ...options, sourceId: `partials:${partial.id}` },
+        { ...options, sourceId: `partials:${partial.filePath ?? partial.id}` },
         [...chain, invocation.file],
       ),
     });

@@ -11,6 +11,8 @@
  */
 
 import { spawn, spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
+import assert from "node:assert/strict";
 import {
   existsSync,
   mkdtempSync,
@@ -250,6 +252,13 @@ const scaffoldArgs = [
 if (LANE !== "static") scaffoldArgs.push("--adapter", LANE);
 run("node", scaffoldArgs, { cwd: work });
 const site = join(work, "ci-site");
+// Keep a small mixed-format consumer fixture in the existing packed-package
+// gate: unit-level compilation does not exercise content sync or starter renderers.
+const integrityDir = join(site, "src", "content", "docs", "integrity");
+mkdirSync(integrityDir, { recursive: true });
+for (const name of ["plain.md", "composed.mdx"]) {
+  writeFileSync(join(integrityDir, name), readFileSync(join(ROOT, "scripts", "fixtures", "content-integrity", name)));
+}
 mkdirSync(join(site, "src", "pages", "api"), { recursive: true });
 writeFileSync(
   join(site, "src", "pages", "custom-static.astro"),
@@ -381,6 +390,34 @@ writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 run(SCAFFOLD_PM_BIN, [...SCAFFOLD_PM_PREFIX, "install", "--no-frozen-lockfile"], { cwd: site });
 run(SCAFFOLD_PM_BIN, [...SCAFFOLD_PM_PREFIX, "typecheck"], { cwd: site });
 run(SCAFFOLD_PM_BIN, [...SCAFFOLD_PM_PREFIX, "build"], { cwd: site });
+
+if (LANE === "static") {
+  const { JSDOM } = createRequire(join(ROOT, "packages", "nimbus-docs", "package.json"))("jsdom");
+  const readPage = (slug) => new JSDOM(readFileSync(join(site, "dist", "integrity", slug, "index.html"), "utf8")).window.document;
+  const plain = readPage("plain");
+  const composed = readPage("composed");
+  assert.deepEqual([...composed.querySelectorAll("aside[role=note]")].map(node => node.getAttribute("aria-label")), ["Wrapper", "Outer", 'Say "hello"']);
+  assert.equal(composed.querySelectorAll("aside[role=note] aside[role=note]").length, 1);
+  assert.equal([...plain.querySelectorAll("a")].find(node => node.textContent === "HTML link")?.getAttribute("href"), "/integrity/composed/");
+  assert.equal([...plain.querySelectorAll("a")].find(node => node.textContent === "MDX guide")?.getAttribute("href"), "/integrity/composed/");
+  assert.ok(composed.querySelector('a[href="/integrity/plain/"]'));
+  assert.ok(composed.body.textContent.includes("This text lives in"), "partial renders through the starter");
+  for (const document of [plain, composed]) {
+    assert.ok([...document.querySelectorAll("pre")].some(node => node.textContent.includes('<a href="/untouched">{notAnExpression}</a>')), "fenced examples retain their literal content");
+    assert.equal(document.querySelector('a[href="/untouched"]'), null);
+  }
+  // Reuse the content cache: prepared links and callouts must not change on a
+  // second build of the same installed consumer.
+  const snapshot = (document) => ({
+    callouts: [...document.querySelectorAll("aside[role=note]")].map(node => [node.getAttribute("aria-label"), node.textContent]),
+    code: [...document.querySelectorAll("pre")].map(node => node.textContent),
+    links: [...document.querySelectorAll('a[href^="/integrity/"]')].map(node => node.getAttribute("href")),
+  });
+  const before = [snapshot(plain), snapshot(composed)];
+  run(SCAFFOLD_PM_BIN, [...SCAFFOLD_PM_PREFIX, "build"], { cwd: site });
+  assert.deepEqual([snapshot(readPage("plain")), snapshot(readPage("composed"))], before);
+  ok("mixed Markdown/MDX content, partials, literal examples and warm builds preserve their output");
+}
 
 const staticRouteCandidates = [
   join(site, "dist", "custom-static", "index.html"),

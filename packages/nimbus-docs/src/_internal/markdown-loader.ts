@@ -325,7 +325,7 @@ export function prepareMarkdownLoader<T extends Loader>(
       );
       const reusable =
         context.meta.get(NIMBUS_MARKDOWN_META_KEY) ===
-        JSON.stringify({ version: 2, ...currentCapability });
+        JSON.stringify({ version: 3, ...currentCapability });
       const epoch = beginPreparedMarkdownLoad(
         root,
         context.collection,
@@ -383,7 +383,7 @@ export function prepareMarkdownLoader<T extends Loader>(
           );
           context.meta.set(
             NIMBUS_MARKDOWN_META_KEY,
-            JSON.stringify({ version: 2, ...sealed }),
+            JSON.stringify({ version: 3, ...sealed }),
           );
         }
         return committed;

@@ -25,3 +25,7 @@ and their bundler entries. Retain the dependencies used by lint rules and
 custom-processor compatibility tests.
 
 Update the generated starter's agent guidance with native Sätteri extension points.
+
+Fix link normalization for Markdown files containing HTML and MDX components
+containing fenced code. Preserve literal examples and normalize static links
+using the parser for each source format.

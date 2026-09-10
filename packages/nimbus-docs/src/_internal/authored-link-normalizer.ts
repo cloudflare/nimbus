@@ -1,6 +1,6 @@
 export type AuthoredLinkNormalizer = (
   source: string,
-  options: { base: string; sourceId?: string },
+  options: { base: string; sourceId?: string; format?: "md" | "mdx" },
 ) => string;
 
 const NORMALIZER_KEY = Symbol.for(

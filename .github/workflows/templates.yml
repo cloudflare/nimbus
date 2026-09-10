@@ -11,6 +11,7 @@ on:
       - "packages/create-nimbus-docs/**"
       - "packages/nimbus-docs/**"
       - "scripts/templates-check.mjs"
+      - "scripts/fixtures/content-integrity/**"
       - ".github/workflows/templates.yml"
   pull_request:
     branches: [main]
@@ -19,6 +20,7 @@ on:
       - "packages/create-nimbus-docs/**"
       - "packages/nimbus-docs/**"
       - "scripts/templates-check.mjs"
+      - "scripts/fixtures/content-integrity/**"
       - ".github/workflows/templates.yml"
 
 permissions:
