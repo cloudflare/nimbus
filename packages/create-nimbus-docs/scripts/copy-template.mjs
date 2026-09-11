@@ -53,6 +53,7 @@ const EXCLUDED_DIRS = new Set([
   "dist",
   "pnpm-lock.yaml",
   ".nimbus",
+  "nimbus.json",
   // Templates dir holds per-variant content overrides for the generator.
   // It is internal to the source tree and never ships in a template.
   "templates",

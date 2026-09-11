@@ -1,0 +1,15 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    versioning-strategy: increase
+    schedule:
+      interval: weekly
+      day: tuesday
+    groups:
+      non-major:
+        update-types:
+          - minor
+          - patch
+        patterns:
+          - "*"

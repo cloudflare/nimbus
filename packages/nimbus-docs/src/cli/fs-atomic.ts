@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 export function writeFileAtomic(
   file: string,
   content: string,
-  options: { overwrite?: boolean } = {},
+  options: { overwrite?: boolean; expectedContent?: string } = {},
 ): void {
   const tmp = `${file}.nimbus-tmp-${process.pid}-${randomUUID()}`;
   try {
@@ -23,6 +23,17 @@ export function writeFileAtomic(
       fs.fsyncSync(fd);
     } finally {
       fs.closeSync(fd);
+    }
+    if (options.expectedContent !== undefined) {
+      let current: string;
+      try {
+        current = fs.readFileSync(file, "utf8");
+      } catch {
+        throw new Error(`Refusing to replace ${file} because it changed or became unreadable during the write.`);
+      }
+      if (current !== options.expectedContent) {
+        throw new Error(`Refusing to replace ${file} because it changed during the write.`);
+      }
     }
     if (options.overwrite === false) {
       fs.linkSync(tmp, file);

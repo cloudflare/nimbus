@@ -8,9 +8,8 @@ const DEP_FIELDS = ["dependencies", "devDependencies", "peerDependencies"];
 const NIMBUS_DOCS = "@cloudflare/nimbus-docs";
 // Coupled to preview-release.yml's `pkg-pr-new publish --compact` URL shape.
 
-export function repinPreview(templatesDir, pr) {
-  const normalizedPr = validatePr(pr);
-  const previewUrl = `https://pkg.pr.new/${NIMBUS_DOCS}@${normalizedPr}`;
+export function repinPreview(templatesDir, ref) {
+  const previewUrl = `https://pkg.pr.new/${NIMBUS_DOCS}@${validatePreviewRef(ref)}`;
 
   for (const entry of readdirSync(templatesDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
@@ -33,19 +32,19 @@ export function repinPreview(templatesDir, pr) {
   }
 }
 
-function validatePr(pr) {
-  const value = String(pr ?? "");
-  if (!/^[1-9]\d*$/.test(value)) {
-    throw new Error("PR number must be a positive integer.");
+function validatePreviewRef(ref) {
+  const value = String(ref ?? "");
+  if (!/^[0-9a-f]{7}$/.test(value)) {
+    throw new Error("Preview ref must be a 7-character Git commit.");
   }
   return value;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
-    const [templatesDir, pr] = process.argv.slice(2);
-    if (!templatesDir) throw new Error("Usage: repin-preview.mjs <templatesDir> <pr>");
-    repinPreview(templatesDir, pr);
+    const [templatesDir, ref] = process.argv.slice(2);
+    if (!templatesDir) throw new Error("Usage: repin-preview.mjs <templatesDir> <preview-ref>");
+    repinPreview(templatesDir, ref);
   } catch (err) {
     console.error(err instanceof Error ? err.message : String(err));
     process.exit(1);

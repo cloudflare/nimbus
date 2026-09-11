@@ -5,6 +5,7 @@
 
 import path from "node:path";
 import { spawnSync, type StdioOptions } from "node:child_process";
+import fs from "node:fs";
 
 import * as p from "@clack/prompts";
 
@@ -30,12 +31,14 @@ export interface CheckCliFlags {
   structure?: boolean;
   lint?: boolean;
   types?: boolean;
+  migrations?: boolean;
   fix?: boolean;
   json?: boolean;
   format?: string;
   quiet?: boolean;
   color?: boolean;
   yes?: boolean;
+  srcDir?: string;
 }
 
 export async function checkCommand(flags: CheckCliFlags): Promise<void> {
@@ -50,7 +53,7 @@ export async function checkCommand(flags: CheckCliFlags): Promise<void> {
   const scopes = resolveScopes(flags);
   const wantJson = flags.json === true || flags.format === "json";
 
-  let result = await runChecks(cwd, scopes);
+  let result = await runChecks(cwd, scopes, { srcDir: flags.srcDir });
   let interrupted = false;
 
   if (flags.fix) {
@@ -76,7 +79,7 @@ export async function checkCommand(flags: CheckCliFlags): Promise<void> {
     } finally {
       process.off("SIGINT", onSigint);
     }
-    result = await runChecks(cwd, scopes);
+    result = await runChecks(cwd, scopes, { srcDir: flags.srcDir });
   }
 
   if (wantJson) {
@@ -96,13 +99,14 @@ export async function checkCommand(flags: CheckCliFlags): Promise<void> {
 }
 
 export function resolveScopes(flags: CheckCliFlags): CheckScopes {
-  const any = flags.env || flags.structure || flags.lint || flags.types;
+  const any = flags.env || flags.structure || flags.lint || flags.types || flags.migrations;
   if (!any) return ALL_SCOPES;
   return {
     env: flags.env === true,
     structure: flags.structure === true,
     authoring: flags.lint === true,
     types: flags.types === true,
+    migrations: flags.migrations === true,
   };
 }
 
@@ -175,9 +179,20 @@ async function fixSetConfig(
     },
   });
   if (p.isCancel(value)) return;
+  let currentSource: string;
+  try {
+    currentSource = fs.readFileSync(result.location.file, "utf8");
+  } catch {
+    p.log.warn(`Skipped updating ${path.relative(cwd, result.location.file)} because it changed or became unreadable while Nimbus was waiting for input. Rerun nimbus-docs check.`);
+    return;
+  }
+  if (currentSource !== result.location.source) {
+    p.log.warn(`Skipped updating ${path.relative(cwd, result.location.file)} because it changed while Nimbus was waiting for input. Rerun nimbus-docs check.`);
+    return;
+  }
 
   const next = rewriteConfigField(result.location, "site", value);
-  writeFileAtomic(result.location.file, next);
+  writeFileAtomic(result.location.file, next, { expectedContent: result.location.source });
   applied.push(`set site to ${value} in ${path.relative(cwd, result.location.file)}`);
 }
 

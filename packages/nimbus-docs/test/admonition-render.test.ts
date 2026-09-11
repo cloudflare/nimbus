@@ -18,6 +18,7 @@ import { build } from "astro";
 import { JSDOM } from "jsdom";
 import nimbus from "../src/index.js";
 import { satteriAdmonitions } from "../src/_internal/admonition-processor.js";
+import { runningNimbusVersion } from "../src/_internal/upgrades.js";
 
 const source = [
   ":::note[`Age` response header]",
@@ -94,6 +95,10 @@ for (const processor of ["satteri", "nimbus"] as const) {
       await writeFile(
         path.join(root, "src/pages/plain.md"),
         ":::note[`Age` response header]\nPlain Markdown.\n:::\n",
+      );
+      await writeFile(
+        path.join(root, "nimbus.json"),
+        `${JSON.stringify({ lastReviewedNimbusVersion: runningNimbusVersion() })}\n`,
       );
       await build({
         root: pathToFileURL(`${root}/`),

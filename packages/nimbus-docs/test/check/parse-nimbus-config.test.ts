@@ -99,6 +99,63 @@ export default { integrations: [nimbus({ site: "https://x.dev/a", title: "X" })]
   assert.equal(r.config.site, "https://x.dev/a");
 });
 
+test("a regex literal before the Nimbus call does not hide the config", () => {
+  const r = ok(
+    parse(`${IMPORT}
+const quotedValue = /(["'])value\\1/;
+const nimbusConfig = { site: "https://x.dev", sidebar: { items: buildItems() } };
+export default { integrations: [nimbus(nimbusConfig, { markdown: true })] };`),
+  );
+  assert.equal(r.config.site, "https://x.dev");
+  assert.ok(r.unresolved.includes("sidebar"));
+});
+
+test("resolves the imported Nimbus call and its lexical config binding", () => {
+  const r = ok(
+    parse(`${IMPORT}
+function unrelated(nimbus: (value: unknown) => unknown) {
+  const config = { site: "https://wrong.example" };
+  return nimbus(config);
+}
+const config = { site: "https://right.example" };
+export default { integrations: [nimbus(config)] };`),
+  );
+  assert.equal(r.config.site, "https://right.example");
+});
+
+test("rejects multiple imported Nimbus integration calls as ambiguous", () => {
+  const r = parse(`${IMPORT}
+const first = nimbus({ site: "https://one.example" });
+const second = nimbus({ site: "https://two.example" });`);
+  assert.equal(r.ok, false);
+  assert.equal((r as { reason: string }).reason, "no-object");
+
+  const emptyDecoy = parse(`${IMPORT}
+const decoy = nimbus({ site: "https://decoy.example" });
+export default { integrations: [nimbus()] };`);
+  assert.equal(emptyDecoy.ok, false);
+  assert.equal((emptyDecoy as { reason: string }).reason, "no-object");
+});
+
+test("rejects multiple Nimbus default import bindings as ambiguous", () => {
+  const r = parse(`import first from "@cloudflare/nimbus-docs";
+import second from "@cloudflare/nimbus-docs";
+export default { integrations: [first({ site: "https://one.example" }), second({ site: "https://two.example" })] };`);
+  assert.equal(r.ok, false);
+  assert.equal((r as { reason: string }).reason, "no-object");
+});
+
+test("rejects mutable or multiply-referenced config bindings", () => {
+  for (const declaration of [
+    `let config = { site: "https://initial.example" };\nconfig = { site: computed };`,
+    `const config = { site: "https://initial.example" };\nconsume(config);`,
+  ]) {
+    const r = parse(`${IMPORT}\n${declaration}\nexport default { integrations: [nimbus(config)] };`);
+    assert.equal(r.ok, false);
+    assert.equal((r as { reason: string }).reason, "no-object");
+  }
+});
+
 test("missing config file → no-config-file", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-cfg-"));
   try {

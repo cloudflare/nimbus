@@ -1,6 +1,6 @@
 ---
 title: CLI
-description: The nimbus-docs CLI — list what's available, add it to your project, lint your content.
+description: Use the nimbus-docs CLI to install registry features, migrate package APIs, review copied code, and check content.
 sidebar:
   order: 2
 ---
@@ -47,7 +47,7 @@ If a component is already installed, `add` keeps your copy — it never clobbers
 
 <PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add badge --overwrite" />
 
-`--yes` assents to prompts (e.g. dependency installs) without touching existing files — so it's safe in CI. Use `--overwrite` when you actually mean "replace my files."
+For `add`, `--yes` assents to prompts such as dependency installs but still keeps existing files. Use `--overwrite` when you actually mean "replace my files."
 
 Once installed, the component lives in your repo. Edit freely — there's no upstream API to break. Each `add` also appends an entry to your [`nimbus.json`](/project-structure) — slug, source registry, the registry release it came from, and a content hash — so later upgrades can track what you own.
 
@@ -107,23 +107,56 @@ It scans your installed components, matches each against the registry, and write
 - **modified** — you've edited it; the record keeps the source identity so upgrades can still compare.
 - **hand-authored** — yours, from no registry.
 
-The starter version and `templates-v*` tag can't be recovered from the repo alone, so they're left blank (and flagged `reconstructed`) for you to fill in if you know them.
+The starter version, `templates-v*` tag, and previously reviewed Nimbus version can't be recovered from the repo alone, so they're left blank (and flagged `reconstructed`). Use `migrate --from <version>` to establish the upgrade range.
 
 <PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="init --root packages/docs" comment="scan a nested package (monorepo)" />
 <PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="init --force" comment="rebuild an existing record" />
 
 ## Keeping up to date
 
-You own your files, so upgrades are opt-in — nothing changes under you. Two commands, one for each tier:
+Package managers update Nimbus itself; Nimbus updates known API usage and reviews copied code:
+
+```sh
+pnpm up @cloudflare/nimbus-docs --latest
+pnpm exec nimbus-docs migrate
+pnpm exec nimbus-docs outdated
+```
+
+### `nimbus-docs migrate`
+
+Composes every declared breaking change between the project's `lastReviewedNimbusVersion` and the installed Nimbus version. It shows complete diffs for statically proven edits and bounded review tasks for everything else. Customized or ambiguous code is never forced.
+
+Existing projects without a reviewed baseline must provide the exact Nimbus version whose migrations they last completed:
+
+```sh
+pnpm exec nimbus-docs migrate --from PREVIOUS_VERSION
+```
+
+Use `--dry-run` or `--diff` for a read-only plan, `--yes --json` for an agent-safe apply loop, and `--print` for a self-contained Markdown handoff. A computed Astro `srcDir` can be supplied explicitly with `--src-dir <relative-dir>`.
+
+Nimbus applies an edit only when it recognizes the source and can prove the change is safe. Customized or ambiguous code remains unchanged and is returned as a review task. `migrate --print` emits that task for any agent or workflow; Nimbus does not launch one itself.
+
+Migration output includes the selected version range, required reviews, planned diffs, blockers, and errors. Files outside the reported scan boundary are not claimed as checked.
+
+After completing all reported work, explicitly confirm it and advance the committed reviewed baseline:
+
+```sh
+pnpm exec nimbus-docs migrate --from PREVIOUS_VERSION --yes
+```
+
+Repeat `--from` only when the project has no recorded baseline. A clean interactive rerun asks before recording the reviewed version; agents provide that consent with `--yes`. Nimbus never records completion while a detectable migration remains. Then run `outdated` to review user-owned starter and registry code, followed by `nimbus-docs check`, `astro check`, and the production build. The `migrate` output is the version-selected upgrade guide.
 
 ### `nimbus-docs outdated`
 
-The read-only "am I behind?" check, across both tiers:
+The read-only "am I behind?" overview across package APIs, starter files, and registry components:
 
 <PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="outdated" />
 
-- **Registry components** — compares each recorded content hash against the current registry; run `add <slug> --overwrite` to update.
-- **Starter files** — compares your scaffolded files against the upstream `templates-v*` tag. Because those files came from a tag that was never in your git history, plain `git diff` can't show this. Content files are hidden by default (`--all` to include them).
+- **Package APIs** — points pending source migrations and version-selected reviews to `migrate`.
+- **Registry components** — compares each recorded content hash against the current registry and classifies the recorded local footprint. Registry updates remain review-only because overwrite can also affect dependencies.
+- **Starter files** — compares your scaffolded files against the upstream `templates-v*` tag, including additions and removals. Because those files came from a tag that was never in your git history, plain `git diff` can't show this. Content files are hidden by default (`--all` to include them).
+
+Pass `--json` for deterministic agent-readable findings. Projects without complete `nimbus.json` provenance still receive Package API results and an explicit partial-coverage result.
 
 ### `nimbus-docs diff [file]`
 
@@ -132,11 +165,11 @@ Read-only detail for starter files — what you changed, and what changed upstre
 <PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="diff" comment="every changed starter file" />
 <PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="diff src/components/ui/aside/Aside.astro" comment="one file" />
 
-Each file is one of: **clean to pull** (upstream changed, you didn't), **hand-merge** (you both changed it), or **your changes** (you edited it, upstream didn't). For a clean file you can let the CLI write the upstream version:
+Each file is one of: **clean to pull** (upstream changed, you didn't), **added/removed upstream**, **hand-merge** (you both changed it), or **your changes** (you edited it, upstream didn't). For clean updates, additions, and removals, you can let the CLI apply one reviewed change:
 
 <PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="diff src/components/ui/aside/Aside.astro --apply" />
 
-`--apply` is explicit and per-file, and refuses anything you've edited — it only pulls clean upstream changes, never merges. Review with `git diff` afterward. Pass `--to <templates-vX.Y.Z>` to target a specific tag, or `--template-dir <path>` to compare offline against a local checkout.
+`--apply` is explicit and per-file, rejects symlink/path escapes, and rechecks the clean preimage or absence before writing — it never merges. Review with `git diff` afterward. Pass `--to <templates-vX.Y.Z>` to target a specific tag, or `--template-dir <path>` to compare offline against a local checkout.
 
 ## `nimbus-docs lint`
 

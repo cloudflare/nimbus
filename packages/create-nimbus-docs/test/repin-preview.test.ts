@@ -6,7 +6,7 @@ import { test } from "node:test";
 
 import { repinPreview } from "../scripts/repin-preview.mjs";
 
-const PREVIEW_URL = "https://pkg.pr.new/@cloudflare/nimbus-docs@42";
+const PREVIEW_URL = "https://pkg.pr.new/@cloudflare/nimbus-docs@9283890";
 
 function makeTemplates() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-repin-"));
@@ -35,7 +35,7 @@ function readPackage(root: string, variant: string) {
 test("repinPreview rewrites generated variants to the compact pkg.pr.new URL", () => {
   const root = makeTemplates();
   try {
-    repinPreview(root, "42");
+    repinPreview(root, "9283890");
     assert.equal(readPackage(root, "template").dependencies["@cloudflare/nimbus-docs"], PREVIEW_URL);
     assert.equal(
       readPackage(root, "template-empty").dependencies["@cloudflare/nimbus-docs"],
@@ -46,15 +46,16 @@ test("repinPreview rewrites generated variants to the compact pkg.pr.new URL", (
   }
 });
 
-test("repinPreview is idempotent and validates PR numbers", () => {
+test("repinPreview is idempotent and validates preview refs", () => {
   const root = makeTemplates();
   try {
-    repinPreview(root, "42");
+    repinPreview(root, "abcdef0");
     const once = fs.readFileSync(path.join(root, "template", "package.json"), "utf8");
-    repinPreview(root, "42");
+    repinPreview(root, "abcdef0");
     const twice = fs.readFileSync(path.join(root, "template", "package.json"), "utf8");
     assert.equal(twice, once);
-    assert.throws(() => repinPreview(root, "not-a-pr"), /positive integer/);
+    assert.throws(() => repinPreview(root, "129"), /7-character Git commit/);
+    assert.throws(() => repinPreview(root, "9283890b"), /7-character Git commit/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -69,7 +70,7 @@ test("repinPreview fails when a variant is missing nimbus-docs", () => {
     );
 
     assert.throws(
-      () => repinPreview(root, "42"),
+      () => repinPreview(root, "abcdef0"),
       /template-empty\/package\.json does not depend on @cloudflare\/nimbus-docs/,
     );
   } finally {

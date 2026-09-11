@@ -1,5 +1,5 @@
-import { markdownToMdast, mdxToMdast } from "satteri";
 import { fromHtml } from "hast-util-from-html";
+import { markdownToMdast, mdxToMdast } from "satteri";
 import ts from "typescript";
 
 interface MdNode {
@@ -38,7 +38,7 @@ function hasCanonicalSegments(pathname: string): boolean {
 export interface NormalizeAuthoredLinksOptions {
   base: string;
   sourceId?: string;
-  format?: "md" | "mdx";
+  format?: "markdown" | "mdx";
 }
 
 function fail(
@@ -48,8 +48,13 @@ function fail(
   offset = 0,
 ): never {
   const before = source.slice(0, offset);
-  const line = before.split("\n").length;
-  const column = offset - before.lastIndexOf("\n");
+  const breaks = [...before.matchAll(/\r\n|\r|\n/gu)];
+  const lastBreak = breaks.at(-1);
+  const line = breaks.length + 1;
+  const column =
+    offset -
+    (lastBreak ? lastBreak.index + lastBreak[0].length : 0) +
+    1;
   throw new Error(
     `Nimbus authored-link normalization failed in ${sourceId ?? "Markdown source"}:${line}:${column}: ${message}`,
   );
@@ -82,6 +87,62 @@ function assertCanonicalDestination(
   if (!hasCanonicalSegments(pathname)) {
     fail("destination escapes its canonical path", source, sourceId, offset);
   }
+}
+
+function browserNormalizedDestination(destination: string): string {
+  const normalized = destination.replace(/[\t\n\r]/gu, "");
+  let start = 0;
+  let end = normalized.length;
+  while (start < end && normalized.charCodeAt(start) <= 0x20) start += 1;
+  while (end > start && normalized.charCodeAt(end - 1) <= 0x20) end -= 1;
+  const trimmed = normalized.slice(start, end);
+  const suffixStart = trimmed.search(/[?#]/u);
+  if (suffixStart === -1) return trimmed.replaceAll("\\", "/");
+  return `${trimmed.slice(0, suffixStart).replaceAll("\\", "/")}${trimmed.slice(suffixStart)}`;
+}
+
+function couldBeRootRelativeDestination(destination: string): boolean {
+  const normalized = browserNormalizedDestination(destination);
+  return (
+    (destination.startsWith("/") && !destination.startsWith("//")) ||
+    (normalized.startsWith("/") && !normalized.startsWith("//"))
+  );
+}
+
+function rootRelativeInsertionOffset(
+  destination: string,
+  source: string,
+  sourceId: string | undefined,
+  offset: number,
+): number | null {
+  const normalized = browserNormalizedDestination(destination);
+  const authoredRoot = destination.startsWith("/") && !destination.startsWith("//");
+  const normalizedRoot = normalized.startsWith("/") && !normalized.startsWith("//");
+  let insertionOffset = offset;
+  if (normalized !== destination && (authoredRoot || normalizedRoot)) {
+    let leadingSpaces = 0;
+    let trailingSpaces = 0;
+    while (destination[leadingSpaces] === " ") leadingSpaces += 1;
+    while (destination[destination.length - trailingSpaces - 1] === " ") {
+      trailingSpaces += 1;
+    }
+    const literalSpacesOnly =
+      destination.slice(leadingSpaces, destination.length - trailingSpaces) ===
+        normalized &&
+      source.slice(offset, offset + destination.length) === destination;
+    if (!literalSpacesOnly) {
+      fail(
+        "destination escapes its canonical path through URL control normalization",
+        source,
+        sourceId,
+        offset,
+      );
+    }
+    insertionOffset += leadingSpaces;
+  }
+  if (!normalizedRoot) return null;
+  assertCanonicalDestination(normalized, source, sourceId, offset);
+  return insertionOffset;
 }
 
 function buildOffsetMap(source: string): number[] {
@@ -200,9 +261,7 @@ function expressionLiteral(
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
       return {
         value: node.text,
-        slashOffset: node.text.startsWith("/")
-          ? node.getStart(sourceFile) + 1 + sourceBase
-          : -1,
+        slashOffset: node.getStart(sourceFile) + 1 + sourceBase,
       };
     }
     if (ts.isConditionalExpression(node)) {
@@ -350,19 +409,16 @@ function staticHrefOffsets(
         parsed,
         sourceBase,
       );
-      if (
-        isHref(node, attribute.name) &&
-        literal?.value.startsWith("/") &&
-        !literal.value.startsWith("//")
-      ) {
-        assertCanonicalDestination(
-          literal.value,
-          source,
-          sourceId,
-          literal.slashOffset,
-        );
-        offsets.push(literal.slashOffset);
-      }
+      const insertionOffset =
+        isHref(node, attribute.name) && literal
+          ? rootRelativeInsertionOffset(
+              literal.value,
+              source,
+              sourceId,
+              literal.slashOffset,
+            )
+          : null;
+      if (insertionOffset !== null) offsets.push(insertionOffset);
       continue;
     }
 
@@ -379,14 +435,15 @@ function staticHrefOffsets(
       );
     }
     const valueStart = property.initializer.getStart(parsed) + 1 + sourceBase;
-    if (
-      isHref(node, attribute.name) &&
-      attribute.value.startsWith("/") &&
-      !attribute.value.startsWith("//")
-    ) {
-      assertCanonicalDestination(attribute.value, source, sourceId, valueStart);
-      offsets.push(valueStart);
-    }
+    const insertionOffset = isHref(node, attribute.name)
+      ? rootRelativeInsertionOffset(
+        attribute.value,
+        source,
+        sourceId,
+        valueStart,
+      )
+      : null;
+    if (insertionOffset !== null) offsets.push(insertionOffset);
   }
   return offsets;
 }
@@ -401,7 +458,13 @@ function htmlHrefOffsets(
   sourceStart: number,
 ): number[] {
   const offsets: number[] = [];
-  const tree = fromHtml(html, { fragment: true, verbose: true });
+  let tree: ReturnType<typeof fromHtml>;
+  try {
+    tree = fromHtml(html, { fragment: true, verbose: true });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    fail(`could not parse HTML: ${detail}`, source, sourceId, sourceStart);
+  }
   // Native Markdown removes container prefixes from HTML node values. Anchor
   // parser offsets to each original line's matching suffix, preserving quotes,
   // list indentation and CRLF without re-parsing Markdown container syntax.
@@ -430,13 +493,12 @@ function htmlHrefOffsets(
     );
   };
   const walk = (node: (typeof tree)["children"][number] | typeof tree) => {
-    if (node.type === "element") {
+    if (
+      node.type === "element" &&
+      (node.tagName === "a" || node.tagName === "area")
+    ) {
       const href = node.properties.href;
-      if (
-        typeof href === "string" &&
-        href.startsWith("/") &&
-        !href.startsWith("//")
-      ) {
+      if (typeof href === "string" && couldBeRootRelativeDestination(href)) {
         const range = node.data?.position?.properties?.href;
         const start = range?.start.offset;
         const end = range?.end.offset;
@@ -458,8 +520,13 @@ function htmlHrefOffsets(
             sourceStart + start,
           );
         const offset = sourceOffset(start + value[0].length);
-        assertCanonicalDestination(href, source, sourceId, offset);
-        offsets.push(offset);
+        const insertionOffset = rootRelativeInsertionOffset(
+          href,
+          source,
+          sourceId,
+          offset,
+        );
+        if (insertionOffset !== null) offsets.push(insertionOffset);
       }
     }
     if (node.type === "element" && node.content) walk(node.content);
@@ -474,14 +541,14 @@ export function normalizeAuthoredLinks(
   options: NormalizeAuthoredLinksOptions,
 ): string {
   const prefix = basePrefix(options.base);
+  const format =
+    options.format ??
+    (/\.md(?:$|[?#])/iu.test(options.sourceId ?? "") ? "markdown" : "mdx");
 
   let tree: MdNode;
   try {
-    const format =
-      options.format ??
-      (/\.md(?:$|[?#])/iu.test(options.sourceId ?? "") ? "md" : "mdx");
     tree = (
-      format === "md" ? markdownToMdast(source) : mdxToMdast(source)
+      format === "markdown" ? markdownToMdast(source) : mdxToMdast(source)
     ) as MdNode;
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
@@ -495,12 +562,12 @@ export function normalizeAuthoredLinks(
   }
   const offsetMap = buildOffsetMap(source);
   const insertions = new Set<number>();
+  let rawTextElement: string | null = null;
   visit(tree, (node) => {
     if (
       (node.type === "link" || node.type === "definition") &&
       typeof node.url === "string" &&
-      node.url.startsWith("/") &&
-      !node.url.startsWith("//")
+      couldBeRootRelativeDestination(node.url)
     ) {
       const offset = destinationOffset(
         source,
@@ -508,16 +575,41 @@ export function normalizeAuthoredLinks(
         offsetMap,
         options.sourceId,
       );
-      assertCanonicalDestination(node.url, source, options.sourceId, offset);
-      insertions.add(offset);
-      return;
+      const insertionOffset = rootRelativeInsertionOffset(
+        node.url,
+        source,
+        options.sourceId,
+        offset,
+      );
+      if (insertionOffset !== null) {
+        insertions.add(insertionOffset);
+        return;
+      }
     }
 
     if (node.type === "html") {
       const [start, end] = nodeRange(node, offsetMap, source, options.sourceId);
+      const raw = source.slice(start, end);
+      const html = typeof node.value === "string" ? node.value : raw;
+      if (rawTextElement) {
+        if (html.toLowerCase().includes(`</${rawTextElement}`)) {
+          rawTextElement = null;
+        }
+        return;
+      }
+      const rawTextStart = /^<(script|style|textarea|title|xmp|iframe|noembed|noframes|plaintext)(?:[\t\n\f\r />])/iu.exec(
+        html,
+      );
+      if (
+        rawTextStart &&
+        !html.toLowerCase().includes(`</${rawTextStart[1]!.toLowerCase()}`)
+      ) {
+        rawTextElement = rawTextStart[1]!.toLowerCase();
+        return;
+      }
       for (const offset of htmlHrefOffsets(
-        source.slice(start, end),
-        typeof node.value === "string" ? node.value : source.slice(start, end),
+        raw,
+        html,
         source,
         options.sourceId,
         start,

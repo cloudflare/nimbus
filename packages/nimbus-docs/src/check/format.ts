@@ -29,6 +29,7 @@ export interface PrettyOptions {
 const SCOPE_LABELS: Record<CheckScope, string> = {
   env: "Environment",
   structure: "Structure",
+  migrations: "Migrations",
   authoring: "Authoring",
   types: "Types",
 };
@@ -67,6 +68,7 @@ export function formatCheckJson(result: CheckResult): string {
         message: f.message,
         fixable: f.fixable,
         ...(f.fix ? { fix: f.fix } : {}),
+        ...(f.migration ? { migration: f.migration } : {}),
       })),
     },
     null,
@@ -227,8 +229,8 @@ function passedHeadline(
     warnings > 0 && !opts.quiet
       ? paint(COLORS.dim, ` (${warnings} advisory warning${warnings === 1 ? "" : "s"})`)
       : "";
-  const { env, structure, authoring, types } = result.requested;
-  const headline = env && structure && authoring && types
+  const { env, structure, authoring, types, migrations } = result.requested;
+  const headline = env && structure && authoring && types && migrations !== false
     ? `  ✓ Ready — buildability + correctness passed in ${secs}s`
     : `  ✓ ${scopeList(result).join(" + ")} passed — checked in ${secs}s`;
   return [paint(COLORS.green, headline) + advisory];

@@ -38,6 +38,7 @@ import { loadDotenv } from "./dotenv.js";
 import { installFeature, shouldUseAgentHandoff } from "./feature.js";
 import { initCommand } from "./init.js";
 import { lintCommand } from "./lint.js";
+import { migrateCommand } from "./migrate.js";
 import {
   readNimbusJson,
   recordInstalled,
@@ -95,11 +96,14 @@ interface CliArgs {
   overwrite: boolean;
   all: boolean;
   apply: boolean;
+  diff: boolean;
   env: boolean;
   structure: boolean;
   lint: boolean;
   types: boolean;
   json: boolean;
+  migrations: boolean;
+  "dry-run": boolean;
   type?: string;
   format?: string;
   rule?: string;
@@ -107,6 +111,9 @@ interface CliArgs {
   to?: string;
   adapter?: string;
   "template-dir"?: string;
+  cwd?: string;
+  "src-dir"?: string;
+  from?: string;
   color?: boolean;
 }
 
@@ -119,27 +126,33 @@ const HELP = `
                                    Opt into server output: flip \`output\` to "server" + wire the adapter
     add adapter-<vercel|node|netlify|cloudflare>
                                    Alias for server-output adapter installs
-    check                          Build-free preflight: env + structure + authoring + types (--fix, --json)
+    check                          Build-free preflight: env + structure + authoring + types + migrations
+    migrate                        Plan and apply known Nimbus package API migrations
     init                           Create the committed nimbus.json record (adopt an existing project)
-    outdated                       Show what's behind upstream (starter files + registry components)
+    outdated                       Show outdated starter, registry, and package API work
     diff [file]                    Show upstream/your changes to starter files (read-only)
     lint                           Lint .mdx content for authoring-quality issues
 
   Flags:
-    --yes, -y                      Assume yes for prompts; keep existing files on conflict
+    --yes, -y                      Assume yes for prompts (command-specific writes still apply)
     --overwrite                    \`add\`: replace existing files with registry versions (upgrade)
     --apply                        \`diff <file>\`: write the upstream change (clean files only)
+    --dry-run                      \`migrate\`: plan without prompting or writing
+    --diff                         \`migrate\`: print proposed edits without prompting or writing
     --all                          \`outdated\`/\`diff\`: include content files (hidden by default)
     --to <templates-vX.Y.Z>        \`outdated\`/\`diff\`: compare against a specific tag (default latest)
     --template-dir <path>          \`outdated\`/\`diff\`: compare against a local checkout (offline)
-    --print                        \`add\`: print a feature or Cloudflare adapter recipe
+    --print                        \`add\`/\`migrate\`: print an agent task without writing
     --force                        \`init\`: rebuild an existing nimbus.json
     --root <dir>                   \`init\`: src dir to scan (monorepo; default src)
-    --env, --structure, --lint, --types
+    --env, --structure, --lint, --types, --migrations
                                    \`check\`: run only the named categories (default: all)
     --type <ui|lib|feature>        \`list\`: filter by type
     --format <json>                \`lint\`/\`check\`: machine-readable output
-    --json                         \`check\`: machine-readable output (alias for --format=json)
+    --json                         \`check\`/\`migrate\`/\`outdated\`: machine-readable output
+    --cwd <dir>                    \`migrate\`: target a nested Astro project
+    --src-dir <dir>                Migration scan source dir when Astro config is computed
+    --from <version>               \`migrate\`: previous reviewed Nimbus version when nimbus.json has no baseline
     --rule <nimbus/...>            \`lint\`: run a single rule
     --fix                          \`lint\`/\`check\`: apply auto-fixes in place
     --quiet                        \`lint\`/\`check\`: errors only, suppress warnings
@@ -149,9 +162,11 @@ const HELP = `
   Examples (run with your package manager — see Usage above):
     nimbus-docs add dialog                              # component: resolve + install
     nimbus-docs add card --overwrite                    # re-install over your copy (review with git)
-    nimbus-docs check                                   # build-free preflight (env + structure + authoring + types)
+    nimbus-docs check                                   # build-free preflight (env + structure + authoring + types + migrations)
     nimbus-docs check --json                            # agent-readable findings + fixes
     nimbus-docs check --fix                             # apply safe fixes, prompt for the rest
+    nimbus-docs migrate                                 # review package API migrations
+    nimbus-docs migrate --yes --json                    # apply safe migrations for an agent
     nimbus-docs outdated                                # what's behind upstream (starter + registry)
     nimbus-docs init                                    # adopt an existing repo — writes nimbus.json
     nimbus-docs add 404-page --print | claude           # explicit pipe to claude
@@ -172,8 +187,8 @@ const HELP = `
 
 async function main(): Promise<void> {
   const args = mri(process.argv.slice(2), {
-    boolean: ["yes", "print", "help", "version", "quiet", "color", "fix", "force", "overwrite", "all", "apply", "env", "structure", "lint", "types", "json"],
-    string: ["type", "format", "rule", "root", "to", "adapter", "template-dir"],
+    boolean: ["yes", "print", "help", "version", "quiet", "color", "fix", "force", "overwrite", "all", "apply", "diff", "dry-run", "env", "structure", "lint", "types", "migrations", "json"],
+    string: ["type", "format", "rule", "root", "to", "adapter", "template-dir", "cwd", "src-dir", "from"],
     default: { color: undefined },
     alias: { y: "yes", h: "help", v: "version" },
   }) as unknown as CliArgs;
@@ -199,12 +214,14 @@ async function main(): Promise<void> {
       structure: args.structure,
       lint: args.lint,
       types: args.types,
+      migrations: args.migrations,
       fix: args.fix,
       json: args.json,
       format: args.format,
       quiet: args.quiet,
       color: args.color,
       yes: args.yes,
+      srcDir: args["src-dir"],
     });
     return;
   }
@@ -228,7 +245,22 @@ async function main(): Promise<void> {
   }
 
   if (command === "outdated") {
-    await outdatedCommand({ all: args.all, to: args.to, templateDir: args["template-dir"] });
+    await outdatedCommand({ all: args.all, to: args.to, templateDir: args["template-dir"], json: args.json, srcDir: args["src-dir"] });
+    return;
+  }
+
+  if (command === "migrate") {
+    await migrateCommand({
+      yes: args.yes,
+      json: args.json,
+      print: args.print,
+      dryRun: args["dry-run"],
+      diff: args.diff,
+      cwd: args.cwd,
+      srcDir: args["src-dir"],
+      fromVersion: args.from,
+      color: args.color,
+    });
     return;
   }
 

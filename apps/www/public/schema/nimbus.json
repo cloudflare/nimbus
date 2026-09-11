@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nimbus-docs.com/schema/nimbus.json",
+  "title": "Nimbus project record",
+  "type": "object",
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "type": ["string", "null"] },
+    "lastReviewedNimbusVersion": { "type": ["string", "null"] },
+    "templatesTag": { "type": ["string", "null"] },
+    "variant": { "type": ["string", "null"] },
+    "registry": { "type": "string" },
+    "reconstructed": { "type": "boolean" },
+    "preview": { "type": "object" },
+    "serverOutput": {
+      "type": "object",
+      "properties": {
+        "adapter": { "type": "string" }
+      },
+      "required": ["adapter"],
+      "additionalProperties": true
+    },
+    "install": {
+      "type": "object",
+      "properties": {
+        "root": { "type": "string" },
+        "aliases": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slug": { "type": "string" },
+          "type": { "type": "string" },
+          "version": { "type": ["string", "null"] },
+          "source": { "type": ["string", "null"] },
+          "hash": { "type": ["string", "null"] },
+          "files": { "type": "array", "items": { "type": "string" } },
+          "modified": { "type": "boolean" },
+          "handAuthored": { "type": "boolean" }
+        },
+        "required": ["slug", "type", "source", "hash", "files"],
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

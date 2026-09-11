@@ -15,6 +15,7 @@ import {
 } from "../_internal/parse-nimbus-config.js";
 import { checkAuthoring } from "./authoring.js";
 import { checkEnv } from "./env.js";
+import { checkMigrations } from "./migrations.js";
 import {
   deriveReadiness,
   deriveScopeStatus,
@@ -37,6 +38,7 @@ export interface CheckScopes {
   structure: boolean;
   authoring: boolean;
   types: boolean;
+  migrations: boolean;
 }
 
 export const ALL_SCOPES: CheckScopes = {
@@ -44,6 +46,7 @@ export const ALL_SCOPES: CheckScopes = {
   structure: true,
   authoring: true,
   types: true,
+  migrations: true,
 };
 
 /** A runner's `ScopeReport` plus its derived verdict, ready to render. */
@@ -74,6 +77,7 @@ export interface CheckResult {
 export async function runChecks(
   cwd: string,
   scopes: CheckScopes = ALL_SCOPES,
+  options: { srcDir?: string } = {},
 ): Promise<CheckResult> {
   const started = performance.now();
 
@@ -82,6 +86,7 @@ export async function runChecks(
   const reports: ScopeReport[] = [];
   if (scopes.env) reports.push(checkEnv(cwd, parsed));
   if (scopes.structure) reports.push(await checkStructure(cwd, parsed));
+  if (scopes.migrations) reports.push(checkMigrations(cwd, options.srcDir));
   if (scopes.authoring) reports.push(checkAuthoring(cwd));
   if (scopes.types) reports.push(checkTypes(cwd));
 

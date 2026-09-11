@@ -180,6 +180,9 @@ function baseDocSchema() {
           : `"title" must be a string, received ${typeof iss.input}`,
     }),
     description: z.string({ error: '"description" must be a string' }).optional(),
+    nimbusDisableRules: z
+      .array(z.string(), { error: '"nimbusDisableRules" must be an array of rule codes' })
+      .optional(),
     mode: z
       .enum(["doc", "custom"], {
         error: '"mode" must be "doc" or "custom"',

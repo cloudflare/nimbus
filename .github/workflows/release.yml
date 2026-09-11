@@ -68,6 +68,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - run: pnpm upgrades:check
+
       # Build only what gets published. The root `build` also builds the private
       # @nimbus/www site + starter source; a failure there must not block the npm
       # release. release.mjs re-verifies the templates against the packed bits.
@@ -120,7 +122,7 @@ jobs:
         if: "!(github.event_name == 'workflow_dispatch' && inputs.publish_only)"
         uses: changesets/action@3841a0683d3cfa6dae0f9bb335290003010fe3f0 # v1.9.0
         with:
-          version: pnpm changeset version
+          version: pnpm changeset:version
           publish: node scripts/release.mjs publish
           commit: "chore: bump package versions"
           title: "chore: bump package versions"

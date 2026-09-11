@@ -41,6 +41,7 @@ Before you open a PR:
 - Put the change in the right place: framework bugs and plumbing in `nimbus-docs`, styling and layout in the starter, optional extras in the registry.
 - Edit `packages/nimbus-starter-source/`, never the `templates` branch — that's generated, and direct edits get clobbered on the next release.
 - Add a changeset for anything user-facing. Starter edits need a `create-nimbus-docs` changeset, or the freshness guard fails the PR.
+- For every intentional public API break, apply the `breaking-change` PR label and add a linked entry to the comprehensive upgrade manifest. Every entry carries manual guidance; add a migration ID, detector, transform, bounded task, and focused fixtures only when maintainers deliberately classify the change as common, mechanical, and canonically detectable. Run `pnpm upgrades:check`. CI verifies the declaration, pending changeset, and manifest continuity.
 - Check that `pnpm typecheck`, `pnpm -r test`, and `pnpm templates:check` pass.
 
 For Markdown pipeline changes, extend the small mixed-format fixture in

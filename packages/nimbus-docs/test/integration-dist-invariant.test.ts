@@ -27,6 +27,7 @@ import { pathToFileURL } from "node:url";
 import nimbus from "../src/index.js";
 import type { RedirectConfigLike } from "../src/_internal/redirect-emitters.js";
 import type { ResolvedRouteLike } from "../src/_internal/build-report.js";
+import { runningNimbusVersion } from "../src/_internal/upgrades.js";
 
 const dirUrl = (p: string) => pathToFileURL(p + path.sep);
 
@@ -90,6 +91,10 @@ async function driveBuild(
     await mkdir(path.dirname(full), { recursive: true });
     await writeFile(full, body, "utf8");
   };
+  await write(
+    "nimbus.json",
+    `${JSON.stringify({ lastReviewedNimbusVersion: runningNimbusVersion() })}\n`,
+  );
   await write(
     "src/content/docs/index.md",
     "---\ntitle: Home\ndescription: D\n---\n\nHi.\n",
@@ -354,10 +359,7 @@ test("project pages and endpoints reach build completion as custom on-demand rou
     await readFile(path.join(projectRoot, ".nimbus/routes.json"), "utf8"),
   );
   assert.equal(routeTruth.base, "/docs");
-  assert.deepEqual(
-    routeTruth.knownRoutes,
-    ["/", "/api/ping", "/foo"],
-  );
+  assert.deepEqual(routeTruth.knownRoutes, ["/", "/api/ping", "/foo"]);
 });
 
 test("unrelated integration routes reach build completion separately", async (t) => {
@@ -376,9 +378,7 @@ test("unrelated integration routes reach build completion separately", async (t)
   });
   assert.ok(
     infos.some((message) =>
-      /integration on-demand routes=1 \(\/integration\/status\)/.test(
-        message,
-      ),
+      /integration on-demand routes=1 \(\/integration\/status\)/.test(message),
     ),
   );
   assert.deepEqual(

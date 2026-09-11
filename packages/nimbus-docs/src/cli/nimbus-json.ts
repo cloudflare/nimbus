@@ -47,6 +47,7 @@ const nimbusJsonSchema = z
   .object({
     $schema: z.string().optional(),
     version: z.string().nullable().optional(),
+    lastReviewedNimbusVersion: z.string().nullable().optional(),
     templatesTag: z.string().nullable().optional(),
     variant: z.string().nullable().optional(),
     registry: z.string().optional(),

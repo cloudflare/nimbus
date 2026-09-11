@@ -7,6 +7,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import ts from "typescript";
 
 import { findMatchingBrace } from "./parse-object-literal.js";
 
@@ -73,7 +74,8 @@ export function parseNimbusConfig(cwd: string): ConfigParseResult {
   // blanked, offsets identical); values are read from `source`.
   const masked = maskSource(source);
 
-  const local = findDefaultImportName(source, masked, NIMBUS_PACKAGE);
+  const parsed = parseNimbusCall(file, source);
+  const local = parsed.local;
   if (!local) {
     return {
       ok: false,
@@ -82,9 +84,16 @@ export function parseNimbusConfig(cwd: string): ConfigParseResult {
       file,
     };
   }
+  if (parsed.ambiguous) {
+    return {
+      ok: false,
+      reason: "no-object",
+      detail: `${path.basename(file)} has multiple default Nimbus imports or integration calls. Keep one unambiguous \`${local}(config)\` call for static checks.`,
+      file,
+    };
+  }
 
-  const argText = findFirstCallArg(masked, local);
-  if (!argText) {
+  if (!parsed.argument) {
     return {
       ok: false,
       reason: "no-call",
@@ -93,7 +102,7 @@ export function parseNimbusConfig(cwd: string): ConfigParseResult {
     };
   }
 
-  const objectStart = locateConfigObject(masked, argText);
+  const objectStart = parsed.objectStart;
   if (objectStart === -1) {
     return {
       ok: false,
@@ -126,12 +135,20 @@ export function parseNimbusConfig(cwd: string): ConfigParseResult {
  * Length-preserving copy with comments AND string interiors blanked. String
  * awareness is load-bearing: the shared `stripComments` would treat the `//`
  * in `site: "https://example.com"` as a comment and corrupt the literal.
- * Regex literals aren't distinguished from division (rare in config); a
- * mis-mask degrades the read, never a false "valid", and can't corrupt a
- * `--fix` write (`rewriteConfigField` re-verifies the span).
+ * TypeScript's scanner identifies regex literals before this lightweight
+ * pass so quotes inside them cannot hide later config structure.
  */
 function maskSource(source: string): string {
   const out = source.split("");
+  const regexEnds = new Map<number, number>();
+  const sourceFile = ts.createSourceFile("astro.config.ts", source, ts.ScriptTarget.Latest, true);
+  const collectRegex = (node: ts.Node): void => {
+    if (ts.isRegularExpressionLiteral(node)) {
+      regexEnds.set(node.getStart(sourceFile), node.getEnd());
+    }
+    ts.forEachChild(node, collectRegex);
+  };
+  collectRegex(sourceFile);
   let inString: string | null = null;
   for (let i = 0; i < source.length; i++) {
     const ch = source[i];
@@ -146,6 +163,14 @@ function maskSource(source: string): string {
         continue;
       }
       if (ch !== "\n") out[i] = " ";
+      continue;
+    }
+    const regexEnd = regexEnds.get(i);
+    if (regexEnd !== undefined) {
+      for (let j = i; j < regexEnd; j++) {
+        if (source[j] !== "\n") out[j] = " ";
+      }
+      i = regexEnd - 1;
       continue;
     }
     if (ch === '"' || ch === "'" || ch === "`") {
@@ -192,132 +217,155 @@ function findConfigFile(cwd: string): { file: string; source: string } | null {
   return null;
 }
 
-// Anchor on `from "pkg"` then walk back to the nearest `import` — robust to
-// semicolonless code, and the exact-quote match ignores subpath specifiers.
-// The `from` regex runs over raw `source` (masked blanks the package string);
-// the `import` anchor uses `masked`, so a `from "pkg"` inside a comment/string
-// has no real preceding import and is skipped.
-function findDefaultImportName(source: string, masked: string, pkg: string): string | null {
-  const safePkg = pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const fromRe = new RegExp(`from\\s+(["'])${safePkg}\\1`, "g");
-  const importPositions = [...masked.matchAll(/\bimport\b/g)].map((m) => m.index!);
-
-  let match: RegExpExecArray | null;
-  while ((match = fromRe.exec(source)) !== null) {
-    let importIdx = -1;
-    for (const idx of importPositions) {
-      if (idx < match.index) importIdx = idx;
-      else break;
+function parseNimbusCall(file: string, source: string): {
+  local: string | null;
+  argument: { start: number; end: number } | null;
+  objectStart: number;
+  ambiguous: boolean;
+} {
+  const options: ts.CompilerOptions = { allowJs: true, noResolve: true, target: ts.ScriptTarget.Latest };
+  const host = ts.createCompilerHost(options);
+  const getSourceFile = host.getSourceFile.bind(host);
+  const selectedFile = path.resolve(file);
+  host.getSourceFile = (fileName, languageVersion, onError, shouldCreateNewSourceFile) =>
+    path.resolve(fileName) === selectedFile
+      ? ts.createSourceFile(file, source, languageVersion, true, configScriptKind(file))
+      : getSourceFile(fileName, languageVersion, onError, shouldCreateNewSourceFile);
+  const program = ts.createProgram({ rootNames: [file], options, host });
+  const sourceFile = program.getSourceFile(file) ?? ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+  const checker = program.getTypeChecker();
+  const importBindings: ts.Identifier[] = [];
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      statement.moduleSpecifier.text !== NIMBUS_PACKAGE ||
+      statement.importClause?.isTypeOnly
+    ) continue;
+    if (statement.importClause?.name) {
+      importBindings.push(statement.importClause.name);
+      continue;
     }
-    if (importIdx === -1) continue;
-
-    const clause = masked.slice(importIdx + "import".length, match.index).trim();
-    if (/\bimport\b/.test(clause)) continue;
-
-    const explicit = clause.match(/\bdefault\s+as\s+([A-Za-z_$][\w$]*)/);
-    if (explicit) return explicit[1]!;
-
-    const beforeBrace = clause.split(/[{*]/)[0]!.trim().replace(/,\s*$/, "");
-    if (/^[A-Za-z_$][\w$]*$/.test(beforeBrace)) return beforeBrace;
-  }
-  return null;
-}
-
-function findFirstCallArg(masked: string, name: string): string | null {
-  const safeName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const callRe = new RegExp(`\\b${safeName}\\s*\\(`, "g");
-  let match: RegExpExecArray | null;
-  while ((match = callRe.exec(masked)) !== null) {
-    if (masked[match.index - 1] === ".") continue; // skip `x.nimbus(...)`
-    const arg = captureFirstArg(masked, match.index + match[0].length - 1);
-    if (arg) return arg; // non-empty only: `nimbus()` → "" is not a config
-  }
-  return null;
-}
-
-function captureFirstArg(input: string, openParen: number): string | null {
-  let depth = 0;
-  let inString: string | null = null;
-  const start = openParen + 1;
-  for (let i = start; i < input.length; i++) {
-    const ch = input[i];
-    if (inString) {
-      if (ch === "\\") {
-        i++;
-        continue;
+    const bindings = statement.importClause?.namedBindings;
+    if (bindings && ts.isNamedImports(bindings)) {
+      const item = bindings.elements.find((element) => element.propertyName?.text === "default" && !element.isTypeOnly);
+      if (item) {
+        importBindings.push(item.name);
       }
-      if (ch === inString) inString = null;
-      continue;
     }
-    if (ch === '"' || ch === "'" || ch === "`") inString = ch;
-    else if (ch === "(" || ch === "{" || ch === "[") depth++;
-    else if (ch === ")" || ch === "}" || ch === "]") {
-      if (depth === 0) return input.slice(start, i).trim();
-      depth--;
-    } else if (ch === "," && depth === 0) return input.slice(start, i).trim();
   }
-  return null;
-}
+  const importBinding = importBindings[0];
+  const local = importBinding?.text ?? null;
+  if (!local || !importBinding) return { local: null, argument: null, objectStart: -1, ambiguous: false };
+  if (importBindings.length !== 1) return { local, argument: null, objectStart: -1, ambiguous: true };
 
-function locateConfigObject(masked: string, argText: string): number {
-  const arg = argText.trim();
-  if (/^[A-Za-z_$][\w$]*$/.test(arg)) {
-    const declValue = findDeclarationValueOffset(masked, arg);
-    return declValue === -1 ? -1 : resolveObjectBrace(masked, declValue);
-  }
-  const argStart = masked.indexOf(arg);
-  return argStart === -1 ? -1 : resolveObjectBrace(masked, argStart);
-}
-
-// Supports only `{ … }` and single-argument `defineNimbusConfig({ … })`. A
-// multi-arg call is rejected (we can't know which arg is the config) →
-// `no-object`, never a wrong read.
-function resolveObjectBrace(masked: string, from: number): number {
-  let i = skipWs(masked, from);
-  if (masked[i] === "{") return i;
-
-  const idMatch = /^[A-Za-z_$][\w$]*/.exec(masked.slice(i));
-  if (!idMatch) return -1;
-  i = skipWs(masked, i + idMatch[0].length);
-  if (masked[i] !== "(") return -1;
-
-  const braceStart = skipWs(masked, i + 1);
-  if (masked[braceStart] !== "{") return -1;
-  const braceEnd = findMatchingBrace(masked, braceStart);
-  if (braceEnd === -1) return -1;
-  if (masked[skipWs(masked, braceEnd + 1)] !== ")") return -1;
-  return braceStart;
-}
-
-function skipWs(input: string, from: number): number {
-  let i = from;
-  while (i < input.length && /\s/.test(input[i]!)) i++;
-  return i;
-}
-
-function findDeclarationValueOffset(masked: string, identifier: string): number {
-  const safeId = identifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const declRe = new RegExp(`\\b(?:const|let|var)\\s+${safeId}\\b`, "g");
-  let match: RegExpExecArray | null;
-  while ((match = declRe.exec(masked)) !== null) {
-    const eqIdx = findAssignmentEquals(masked, match.index + match[0].length);
-    if (eqIdx !== -1) return eqIdx + 1;
-  }
-  return -1;
-}
-
-// First `=` that's an assignment (skips `==`, `===`, `=>`, `<=`, `>=`, `!=`).
-function findAssignmentEquals(source: string, from: number): number {
-  for (let i = from; i < source.length; i++) {
-    if (source[i] !== "=") continue;
-    if (source[i + 1] === "=" || source[i + 1] === ">") {
-      i++;
-      continue;
+  const importSymbol = checker.getSymbolAtLocation(importBinding);
+  const calls: ts.CallExpression[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node)) {
+      const callee = node.expression;
+      if (
+        ts.isIdentifier(callee) &&
+        callee.text === local &&
+        checker.getSymbolAtLocation(callee) === importSymbol
+      ) {
+        calls.push(node);
+      }
     }
-    if (source[i - 1] === "!" || source[i - 1] === "<" || source[i - 1] === ">") continue;
-    return i;
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  const call = calls.length === 1 && calls[0]!.arguments[0] ? calls[0]! : null;
+  if (!call) return {
+    local,
+    argument: calls[0]?.arguments[0] ? nodeSpan(calls[0].arguments[0]!, sourceFile) : null,
+    objectStart: -1,
+    ambiguous: calls.length > 1,
+  };
+  const argument = call.arguments[0]!;
+  return {
+    local,
+    argument: nodeSpan(argument, sourceFile),
+    objectStart: configObjectExpression(argument, checker)?.getStart(sourceFile) ?? -1,
+    ambiguous: false,
+  };
+}
+
+function configScriptKind(file: string): ts.ScriptKind {
+  return /\.[cm]?js$/.test(file) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+}
+
+function nodeSpan(node: ts.Node, sourceFile: ts.SourceFile): { start: number; end: number } {
+  return { start: node.getStart(sourceFile), end: node.getEnd() };
+}
+
+function configObjectExpression(
+  expression: ts.Expression,
+  checker: ts.TypeChecker,
+  seen = new Set<ts.Symbol>(),
+): ts.ObjectLiteralExpression | null {
+  let current = expression;
+  while (
+    ts.isParenthesizedExpression(current) ||
+    ts.isAsExpression(current) ||
+    ts.isSatisfiesExpression(current) ||
+    ts.isNonNullExpression(current)
+  ) current = current.expression;
+  if (ts.isObjectLiteralExpression(current)) return current;
+  if (ts.isCallExpression(current)) {
+    return ts.isIdentifier(current.expression) &&
+      isNimbusConfigWrapper(current.expression, checker) &&
+      current.arguments.length === 1
+      ? configObjectExpression(current.arguments[0]!, checker, seen)
+      : null;
   }
-  return -1;
+  if (!ts.isIdentifier(current)) return null;
+  const symbol = checker.getSymbolAtLocation(current);
+  if (!symbol || seen.has(symbol)) return null;
+  seen.add(symbol);
+  const declarations = symbol.declarations ?? [];
+  const declaration = declarations[0];
+  if (
+    declarations.length !== 1 ||
+    !declaration ||
+    !ts.isVariableDeclaration(declaration) ||
+    !declaration.initializer ||
+    !ts.isVariableDeclarationList(declaration.parent) ||
+    !(declaration.parent.flags & ts.NodeFlags.Const) ||
+    hasOtherSymbolReference(declaration.getSourceFile(), checker, symbol, declaration.name, current)
+  ) return null;
+  return configObjectExpression(declaration.initializer, checker, seen);
+}
+
+function isNimbusConfigWrapper(identifier: ts.Identifier, checker: ts.TypeChecker): boolean {
+  const declarations = checker.getSymbolAtLocation(identifier)?.declarations ?? [];
+  const imported = declarations[0];
+  if (declarations.length !== 1 || !imported || !ts.isImportSpecifier(imported)) return false;
+  const declaration = imported.parent.parent.parent;
+  return (imported.propertyName?.text ?? imported.name.text) === "defineConfig" &&
+    ts.isImportDeclaration(declaration) &&
+    ts.isStringLiteral(declaration.moduleSpecifier) &&
+    declaration.moduleSpecifier.text === NIMBUS_PACKAGE;
+}
+
+function hasOtherSymbolReference(
+  sourceFile: ts.SourceFile,
+  checker: ts.TypeChecker,
+  symbol: ts.Symbol,
+  declarationName: ts.BindingName,
+  allowedReference: ts.Identifier,
+): boolean {
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (found || node === declarationName || node === allowedReference) return;
+    if (ts.isIdentifier(node) && checker.getSymbolAtLocation(node) === symbol) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return found;
 }
 
 interface FieldRead {

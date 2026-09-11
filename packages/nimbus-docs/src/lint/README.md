@@ -9,9 +9,8 @@ src/lint/
   diagnostic.ts          Diagnostic envelope + RULE_CODES registry (+ diagnostic.schema.json)
   parse.ts               Sätteri mdxToMdast → mdast + unist positions; graceful parse-error
                          capture; findNodeAt helper (position → node) used by adapter rules
-  zod-adapter.ts         ZodError → RuleReport[] (for frontmatter-shape)
   remark-lint-adapter.ts unified Plugin → RuleReport[] — runs remark-lint rules against
-                         Sätteri's mdast tree; the buy-side counterpart to zod-adapter
+                          Sätteri's mdast tree
   rule.ts                Rule contract (code + run(ctx))
   config.ts              severity resolution + validateLintOptions (build/lint split,
                          IMPLEMENTED_CODES gate)
@@ -43,7 +42,7 @@ pretty caret never drift on multibyte content.
 The 8 commodity rules (heading hygiene, list/emphasis style, code-block
 flags, bare URLs) delegate detection to remark-lint via the adapter.
 The 6 irreducible-core rules (anything that needs Nimbus-specific
-knowledge: frontmatter schemas, sidebar truth, components registry,
+knowledge: frontmatter directives, sidebar truth, components registry,
 deploy URL, prompt-prefix conventions) stay hand-rolled. Tests under
 `test/lint/remark-spike-*.test.ts` verify the adapter boundary.
 
@@ -65,7 +64,7 @@ projects get zero new transitive deps when they install `nimbus-docs`.
 
 | Rule | Tier | Detector | Auto-fix |
 |---|---|---|---|
-| `frontmatter-shape` | authoring | hand-rolled (zod-adapter) | — |
+| `frontmatter-shape` | authoring | YAML parser | — |
 | `description-required` | authoring | hand-rolled | — |
 | `single-h1` | authoring | remark-lint | — |
 | `heading-hierarchy` | authoring | remark-lint | — |

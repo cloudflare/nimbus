@@ -207,6 +207,7 @@ export async function initCommand(flags: InitFlags): Promise<void> {
     // create-nimbus-docs version + templates tag aren't recoverable from the
     // repo alone; the upgrade commands read `reconstructed` to know starter provenance is partial.
     version: null,
+    lastReviewedNimbusVersion: null,
     templatesTag: null,
     variant: null,
     registry: registrySource(),
@@ -240,6 +241,7 @@ async function reportReadiness(cwd: string): Promise<void> {
     const result = await runChecks(cwd, {
       env: true,
       structure: false,
+      migrations: false,
       authoring: false,
       types: false,
     });

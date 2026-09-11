@@ -6,6 +6,7 @@ name: Freshness guard
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:
   contents: read
@@ -19,7 +20,19 @@ jobs:
           # Need the base branch present locally to diff against it.
           fetch-depth: 0
 
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
       - name: Require a create-nimbus-docs changeset when templates change
         run: node scripts/freshness-guard.mjs
         env:
           BASE_REF: ${{ github.base_ref }}
+      - name: Validate upgrade declarations
+        run: pnpm upgrades:check
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          BREAKING_CHANGE: ${{ contains(github.event.pull_request.labels.*.name, 'breaking-change') }}

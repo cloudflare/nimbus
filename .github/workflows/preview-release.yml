@@ -40,6 +40,8 @@ jobs:
       id-token: write # pkg.pr.new authenticates the publish via GitHub OIDC (no npm token, no secret)
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
 
@@ -86,14 +88,15 @@ jobs:
       #     unauthenticated URLs and does not support private repos — same
       #     public-flip prerequisite the npm release already depends on.
       - name: Publish preview
-        run: >-
-          pnpm exec pkg-pr-new publish
-          --pnpm
-          --compact
-          --no-template
-          --packageManager=pnpm
-          ./packages/nimbus-docs
-          ./packages/create-nimbus-docs
+        run: |
+          PREVIEW_SHA="$(git rev-parse HEAD)"
+          NIMBUS_PREVIEW_REF="${PREVIEW_SHA:0:7}" pnpm exec pkg-pr-new publish \
+            --pnpm \
+            --compact \
+            --no-template \
+            --packageManager=pnpm \
+            ./packages/nimbus-docs \
+            ./packages/create-nimbus-docs
         env:
           NIMBUS_PREVIEW: "1"
           PR_NUMBER: ${{ github.event.pull_request.number }}

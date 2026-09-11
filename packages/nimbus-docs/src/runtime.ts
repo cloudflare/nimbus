@@ -1192,6 +1192,7 @@ export async function getDocsPageProps(astro: AstroGlobal): Promise<{
   Content: import("astro/runtime/server/index.js").AstroComponentFactory;
   headings: { depth: number; text: string; slug: string }[];
 }> {
+  rejectRemovedPartialHeadingOptions("getDocsPageProps", arguments.length);
   const page = await resolveProseRoute<"docs">(
     astro,
     PRIMARY_COLLECTION,
@@ -1211,6 +1212,7 @@ export async function getDocsPageProps(astro: AstroGlobal): Promise<{
 export function getDocsPage(
   astro: AstroGlobal,
 ): Promise<ProsePageProps<"docs"> | Response> {
+  rejectRemovedPartialHeadingOptions("getDocsPage", arguments.length);
   return resolveProseRoute(
     astro,
     PRIMARY_COLLECTION,
@@ -1300,6 +1302,7 @@ export async function getCollectionPageProps<C extends string>(
   Content: import("astro/runtime/server/index.js").AstroComponentFactory;
   headings: { depth: number; text: string; slug: string }[];
 }> {
+  rejectRemovedPartialHeadingOptions("getCollectionPageProps", arguments.length);
   const page = await resolveProseRoute<C>(
     astro,
     undefined,
@@ -1318,11 +1321,20 @@ export async function getCollectionPageProps<C extends string>(
 export function getCollectionPage<C extends string>(
   astro: AstroGlobal,
 ): Promise<ProsePageProps<C> | Response> {
+  rejectRemovedPartialHeadingOptions("getCollectionPage", arguments.length);
   return resolveProseRoute(
     astro,
     undefined,
     "getCollectionPageProps(): expected `entry` in Astro.props. " +
       "Ensure your route uses `getStaticPaths = getCollectionStaticPaths(<collection>)`.",
+  );
+}
+
+function rejectRemovedPartialHeadingOptions(helper: string, argumentCount: number): void {
+  if (argumentCount <= 1) return;
+  throw new Error(
+    `${helper}(Astro, options) was removed in Nimbus 0.13. ` +
+      "Run `nimbus-docs migrate` to move partialHeadings.resolvePartialId to the integration's markdown.partialResolver option.",
   );
 }
 

@@ -140,6 +140,20 @@ test("deriveReadiness: a build-validator error in the authoring scope → blocke
   );
 });
 
+test("deriveReadiness: migration errors block the same builds as the integration", () => {
+  assert.equal(
+    deriveReadiness([
+      report({ scope: "env" }),
+      report({ scope: "structure" }),
+      report({
+        scope: "migrations",
+        findings: [finding({ scope: "migrations", code: "nimbus/migration", severity: "error" })],
+      }),
+    ]),
+    "blocked",
+  );
+});
+
 test("deriveTopStatus: failed on any error, partial on a gap, else passed", () => {
   assert.equal(
     deriveTopStatus([report({ findings: [finding({ severity: "error", scope: "types" })] })]),

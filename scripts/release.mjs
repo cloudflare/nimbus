@@ -312,7 +312,12 @@ const { cmd, flags } = parse(process.argv.slice(2));
 
 const main = async () => {
   if (cmd === "publish") return publish(flags);
-  if (cmd === "publish-only") return publishOnly({ pushTags: true });
+  if (cmd === "publish-only") {
+    if (flags.dryRun || flags.haltAfter !== undefined) {
+      die("publish-only does not support --dry-run or --halt-after.");
+    }
+    return publishOnly({ pushTags: true });
+  }
   die(`unknown command "${cmd ?? ""}". Use "publish" or "publish-only".`);
 };
 

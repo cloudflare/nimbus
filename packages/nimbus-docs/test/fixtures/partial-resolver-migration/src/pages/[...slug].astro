@@ -1,0 +1,21 @@
+---
+import { getDocsPageProps, getDocsStaticPaths } from "@cloudflare/nimbus-docs";
+
+export const getStaticPaths = getDocsStaticPaths;
+const page = await getDocsPageProps(Astro, {
+  partialHeadings: {
+    resolvePartialId: ({ file, product }) => {
+      if (!file) return undefined;
+      return product ? `${product}/${file}` : file;
+    },
+  },
+});
+const { Content, headings } = page;
+---
+
+<html lang="en">
+  <body>
+    <Content />
+    <pre id="headings">{JSON.stringify(headings)}</pre>
+  </body>
+</html>

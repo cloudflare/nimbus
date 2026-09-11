@@ -130,10 +130,25 @@ test("happy path writes and transforms the project", async () => {
       fs.readFileSync(path.join(target, "nimbus.json"), "utf8"),
     );
     assert.equal(typeof nimbus.version, "string");
+    assert.equal(nimbus.lastReviewedNimbusVersion, null);
     assert.equal(nimbus.templatesTag, `templates-v${nimbus.version}`);
     assert.equal(nimbus.install.root, "src");
     assert.deepEqual(nimbus.install.aliases, { "@/*": "src/*" });
     assert.deepEqual(nimbus.components, []);
+  } finally {
+    cleanup(cwd, tmpl);
+  }
+});
+
+test("records the installed Nimbus version as the fresh upgrade baseline", async () => {
+  const cwd = makeCwd();
+  const tmpl = makeTemplate(`{ "name": "template", "version": "0.0.0", "dependencies": { "@cloudflare/nimbus-docs": "^0.13.1" } }`);
+  try {
+    await scaffold({ ...BASE_OPTIONS, dir: "my-docs" }, internals(cwd, tmpl));
+    const nimbus = JSON.parse(
+      fs.readFileSync(path.join(cwd, "my-docs", "nimbus.json"), "utf8"),
+    );
+    assert.equal(nimbus.lastReviewedNimbusVersion, "0.13.1");
   } finally {
     cleanup(cwd, tmpl);
   }
@@ -217,6 +232,7 @@ test("preview mode scaffolds bundled templates and records preview provenance", 
       fs.readFileSync(path.join(cwd, "my-docs", "nimbus.json"), "utf8"),
     );
     assert.equal(nimbus.templatesTag, null);
+    assert.equal(nimbus.lastReviewedNimbusVersion, null);
     assert.deepEqual(nimbus.preview, { pr: "42", templates: "bundled" });
   } finally {
     cleanup(cwd, templates);

@@ -4,6 +4,7 @@ import {
   cpSync,
   existsSync,
   lstatSync,
+  readFileSync,
   realpathSync,
   readdirSync,
   renameSync,
@@ -68,6 +69,7 @@ function writeNimbusJson(
   const record = {
     $schema: "https://nimbus-docs.com/schema/nimbus.json",
     version,
+    lastReviewedNimbusVersion: preview ? null : frameworkVersion(target),
     templatesTag: preview ? null : `templates-v${version}`,
     variant: options.content,
     registry: DEFAULT_REGISTRY_URL,
@@ -87,6 +89,23 @@ function writeNimbusJson(
     join(target, "nimbus.json"),
     JSON.stringify(record, null, 2) + "\n",
   );
+}
+
+function frameworkVersion(target: string): string | null {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(join(target, "package.json"), "utf8"),
+    ) as {
+      dependencies?: Record<string, unknown>;
+      devDependencies?: Record<string, unknown>;
+    };
+    const spec = pkg.dependencies?.["@cloudflare/nimbus-docs"] ??
+      pkg.devDependencies?.["@cloudflare/nimbus-docs"];
+    if (typeof spec !== "string") return null;
+    return /^[~^]?([0-9]+\.[0-9]+\.[0-9]+)(?:$|[-+\s])/.exec(spec.trim())?.[1] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // Entries that must never survive into a scaffolded project, whether the

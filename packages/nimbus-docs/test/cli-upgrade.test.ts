@@ -3,7 +3,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { classifyStarter, labelWithVersions, registryDrift } from "../src/cli/upgrade.js";
+import {
+  classifyStarter,
+  labelWithVersions,
+  registryDrift,
+  selectStarterApplyTarget,
+} from "../src/cli/upgrade.js";
 import { bytesHash } from "../src/cli/nimbus-json.js";
 import type { NimbusJson } from "../src/cli/nimbus-json.js";
 import type { ComponentItem, RegistryFile } from "../src/cli/resolver.js";
@@ -68,6 +73,53 @@ test("classifyStarter display path honors a monorepo srcRoot", () => {
     readDisk: () => "A1",
   });
   assert.equal(findings[0]!.file, "packages/docs/src/components/ui/a/A.astro");
+});
+
+test("starter apply rejects an ambiguous suffix", () => {
+  const finding = (file: string) => ({
+    file,
+    treeFile: file,
+    surface: "components",
+    status: "clean" as const,
+  });
+  assert.throws(
+    () =>
+      selectStarterApplyTarget("Button.astro", [
+        finding("src/one/Button.astro"),
+        finding("src/two/Button.astro"),
+      ]),
+    /matches multiple starter files/,
+  );
+  assert.equal(
+    selectStarterApplyTarget("src/one/Button.astro", [
+      finding("src/one/Button.astro"),
+    ])?.file,
+    "src/one/Button.astro",
+  );
+});
+
+test("classifyStarter discovers safe upstream additions and removals", () => {
+  const base = { "src/old.ts": "old", "src/changed.ts": "before" };
+  const upstream = { "src/new.ts": "new", "src/changed.ts": "after" };
+  const disk: Record<string, string | null> = {
+    "old.ts": "old",
+    "new.ts": null,
+    "changed.ts": "before",
+  };
+  const findings = classifyStarter({
+    srcRoot: "src",
+    baseFiles: Object.keys(base),
+    upstreamFiles: Object.keys(upstream),
+    readBase: (file) => base[file as keyof typeof base] ?? null,
+    readUpstream: (file) => upstream[file as keyof typeof upstream] ?? null,
+    readDisk: (file) => disk[file] ?? null,
+  });
+  const statuses = Object.fromEntries(findings.map((finding) => [finding.treeFile, finding.status]));
+  assert.deepEqual(statuses, {
+    "src/changed.ts": "clean",
+    "src/new.ts": "added",
+    "src/old.ts": "removed",
+  });
 });
 
 test("registryDrift reports version drift (from → to) and labels it", async () => {

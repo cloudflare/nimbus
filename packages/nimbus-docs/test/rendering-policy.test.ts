@@ -38,6 +38,7 @@ import {
   requestInventoryVersionStatusKey,
 } from "../src/_internal/request-route-url.js";
 import { validateNimbusConfig } from "../src/_internal/validate.js";
+import { runningNimbusVersion } from "../src/_internal/upgrades.js";
 import type { NimbusConfig, RenderingConfig } from "../src/types.js";
 
 const baseConfig = (rendering?: RenderingConfig): NimbusConfig => ({
@@ -282,6 +283,7 @@ async function setupIntegration(
   } = {},
   base = "",
   trailingSlash: "always" | "never" | "ignore" = "ignore",
+  buildFormat: "directory" | "file" = "directory",
 ) {
   const root = await mkdtemp(path.join(tmpdir(), "nimbus-rendering-policy-"));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -291,6 +293,10 @@ async function setupIntegration(
     await mkdir(path.dirname(file), { recursive: true });
     await writeFile(file, body, "utf8");
   };
+  await write(
+    "nimbus.json",
+    `${JSON.stringify({ lastReviewedNimbusVersion: runningNimbusVersion() })}\n`,
+  );
   await write("src/content.config.ts", contentConfig);
   await write("src/components.ts", "export const components = {};\n");
   const { omitCanonicalDocsRoute = false, ...options } = integrationOptions;
@@ -335,6 +341,7 @@ async function setupIntegration(
       cacheDir: pathToFileURL(`${path.join(root, ".cache")}${path.sep}`),
       base,
       trailingSlash,
+      build: { format: buildFormat },
     },
     logger: {
       info: () => {},
@@ -432,26 +439,38 @@ async function generateRequestSitemap(
   sitemapOptions: NonNullable<NimbusIntegrationOptions["sitemap"]> = {},
   base = "/",
   trailingSlash: "always" | "never" | "ignore" = "ignore",
+  buildFormat: "directory" | "file" = "directory",
+  sitemapRoutes: readonly Record<string, unknown>[] = [],
+  renderingMode: "build" | "request" = "request",
 ) {
   const integration = await setupIntegration(
     t,
-    { collections: { docs: "request" } },
+    renderingMode === "request"
+      ? { collections: { docs: "request" } }
+      : undefined,
     "build",
     undefined,
     undefined,
     { sitemap: sitemapOptions },
     base,
     trailingSlash,
+    buildFormat,
   );
   await integration.routeSetup({
     route: { component: "src/pages/[...slug].astro", prerender: true },
   } as never);
   integration.configDone({
     injectTypes: () => new URL("file:///noop"),
-    config: { output: "server", adapter: { name: "cloudflare" } },
-    buildOutput: "server",
+    config:
+      renderingMode === "request"
+        ? { output: "server", adapter: { name: "cloudflare" } }
+        : { output: "static", adapter: null },
+    buildOutput: renderingMode === "request" ? "server" : "static",
   } as never);
-  const routes = resolvedNimbusRoutes(integration.injectedRoutes, "request");
+  const routes = [
+    ...resolvedNimbusRoutes(integration.injectedRoutes, renderingMode),
+    ...sitemapRoutes,
+  ];
   integration.routesResolved({ routes } as never);
 
   const sitemapIntegration = integration.configUpdates
@@ -471,11 +490,11 @@ async function generateRequestSitemap(
       site: "https://example.test",
       base,
       trailingSlash,
-      build: { format: "directory" },
+      build: { format: buildFormat },
     },
   } as never);
   await sitemapIntegration.hooks["astro:routes:resolved"]?.({
-    routes: [],
+    routes: sitemapRoutes,
   } as never);
 
   const dist = path.join(integration.root, "dist");
@@ -541,15 +560,115 @@ test("mixed sitemap includes prerendered and request-rendered pages", async (t) 
   assert.match(xml, /<loc>https:\/\/example\.test\/runtime\/<\/loc>/);
 });
 
-test("sitemap deduplicates the deployment root across trailing slash forms", async (t) => {
+test("sitemap deduplicates the deployment root across trailing slash policies", async (t) => {
+  const rootRoute = {
+    pattern: "/",
+    entrypoint: "src/pages/index.astro",
+    type: "page",
+    pathname: "/",
+    generate: () => "/",
+    fallbackRoutes: [],
+    isPrerendered: true,
+    origin: "project",
+  };
+  for (const { base, trailingSlash, buildFormat, expected } of [
+    {
+      base: "/docs",
+      trailingSlash: "ignore",
+      buildFormat: "directory",
+      expected: "https://example.test/docs/",
+    },
+    {
+      base: "/docs/",
+      trailingSlash: "always",
+      buildFormat: "directory",
+      expected: "https://example.test/docs/",
+    },
+    {
+      base: "/docs",
+      trailingSlash: "never",
+      buildFormat: "directory",
+      expected: "https://example.test/docs",
+    },
+    {
+      base: "/docs",
+      trailingSlash: "ignore",
+      buildFormat: "file",
+      expected: "https://example.test/docs",
+    },
+  ] as const) {
+    const serialized: string[] = [];
+    const xml = await generateRequestSitemap(
+      t,
+      [],
+      [{ pathname: "" }],
+      {
+        serialize: ({ url }) => {
+          serialized.push(url);
+          return { url };
+        },
+      },
+      base,
+      trailingSlash,
+      buildFormat,
+      [rootRoute],
+      "build",
+    );
+
+    assert.equal(serialized.length, 1);
+    assert.equal(
+      xml.match(/<loc>https:\/\/example\.test\/docs\/?<\/loc>/g)?.length,
+      1,
+    );
+    assert.match(
+      xml,
+      new RegExp(`<loc>${expected.replaceAll("/", "\\/")}<\\/loc>`),
+    );
+  }
+});
+
+test("sitemap preserves a custom-only bare deployment root", async (t) => {
   const xml = await generateRequestSitemap(
     t,
-    [{ collection: "docs", url: "/", request: true, discoverable: true }],
-    [{ pathname: "" }],
-    {},
+    [],
+    [],
+    { customPages: ["https://example.test/docs"] },
     "/docs",
   );
 
+  assert.match(xml, /<loc>https:\/\/example\.test\/docs<\/loc>/);
+});
+
+test("sitemap deduplicates a request-rendered root against its resolved route", async (t) => {
+  const serialized: string[] = [];
+  const xml = await generateRequestSitemap(
+    t,
+    [{ collection: "docs", url: "/", request: true, discoverable: true }],
+    [],
+    {
+      serialize: ({ url }) => {
+        serialized.push(url);
+        return { url };
+      },
+    },
+    "/docs",
+    "never",
+    "directory",
+    [
+      {
+        pattern: "/",
+        entrypoint: "src/pages/index.astro",
+        type: "page",
+        pathname: "/",
+        generate: () => "/",
+        fallbackRoutes: [],
+        isPrerendered: false,
+        origin: "project",
+      },
+    ],
+  );
+
+  assert.equal(serialized.length, 1);
   assert.equal(
     xml.match(/<loc>https:\/\/example\.test\/docs\/?<\/loc>/g)?.length,
     1,
@@ -575,8 +694,7 @@ test("sitemap deduplicates mixed routes for every trailing slash policy", async 
     );
 
     assert.equal(
-      xml.match(/<loc>https:\/\/example\.test\/docs\/guide\/?<\/loc>/g)
-        ?.length,
+      xml.match(/<loc>https:\/\/example\.test\/docs\/guide\/?<\/loc>/g)?.length,
       1,
     );
 

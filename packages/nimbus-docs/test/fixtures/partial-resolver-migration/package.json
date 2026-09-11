@@ -1,0 +1,17 @@
+{
+  "name": "partial-resolver-migration-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "astro build",
+    "typecheck": "astro check"
+  },
+  "dependencies": {
+    "@cloudflare/nimbus-docs": "0.13.1",
+    "astro": "~7.0.9"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.8",
+    "typescript": "^5.8.3"
+  }
+}

@@ -10,12 +10,20 @@ const pkg = JSON.parse(
 const minNodeVersion = pkg.engines?.node?.replace(/^>=/, "") ?? "20.0.0";
 const isPreview = process.env.NIMBUS_PREVIEW === "1";
 const previewPr = process.env.PR_NUMBER ?? null;
+const previewRef = process.env.NIMBUS_PREVIEW_REF ?? null;
 
 function requirePreviewPr(): string {
   if (!previewPr || !/^[1-9]\d*$/.test(previewPr)) {
     throw new Error("NIMBUS_PREVIEW=1 requires a positive integer PR_NUMBER.");
   }
   return previewPr;
+}
+
+function requirePreviewRef(): string {
+  if (!previewRef || !/^[0-9a-f]{7}$/.test(previewRef)) {
+    throw new Error("NIMBUS_PREVIEW=1 requires a 7-character Git commit in NIMBUS_PREVIEW_REF.");
+  }
+  return previewRef;
 }
 
 export default defineConfig({
@@ -40,7 +48,8 @@ export default defineConfig({
     async "build:done"(ctx) {
       if (!isPreview) return;
 
-      const pr = requirePreviewPr();
+      requirePreviewPr();
+      const ref = requirePreviewRef();
       const templatesDir = resolve(ctx.options.outDir, "templates");
       const [{ generateTemplates }, { repinPreview }] = await Promise.all([
         import("./scripts/copy-template.mjs"),
@@ -48,7 +57,7 @@ export default defineConfig({
       ]);
 
       generateTemplates(templatesDir);
-      repinPreview(templatesDir, pr);
+      repinPreview(templatesDir, ref);
     },
   },
 });

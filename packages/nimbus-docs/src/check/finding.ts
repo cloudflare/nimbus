@@ -13,7 +13,7 @@
 
 import { isBuildValidator, isRuleCode, type Diagnostic } from "../lint/diagnostic.js";
 
-export type CheckScope = "env" | "structure" | "authoring" | "types";
+export type CheckScope = "env" | "structure" | "migrations" | "authoring" | "types";
 
 export type CheckSeverity = "error" | "warn";
 
@@ -45,6 +45,12 @@ export interface CheckFinding {
   message: string;
   fixable: boolean;
   fix?: CheckFix;
+  migration?: {
+    id: string;
+    introducedIn: string;
+    state: "available" | "blocked";
+    command: { bin: string; args: string[]; cwd: string; display: string };
+  };
 }
 
 /** A sub-check that could not run. Not a finding; resolves by making something exist. */
@@ -112,7 +118,7 @@ export function deriveScopeStatus(r: ScopeReport): ScopeStatus {
  */
 function isBuildBreaking(f: CheckFinding): boolean {
   if (f.severity !== "error") return false;
-  if (f.scope === "env" || f.scope === "structure") return true;
+  if (f.scope === "env" || f.scope === "structure" || f.scope === "migrations") return true;
   return isRuleCode(f.code) && isBuildValidator(f.code);
 }
 
@@ -161,8 +167,9 @@ export function sortFindings(findings: CheckFinding[]): CheckFinding[] {
   const scopeRank: Record<CheckScope, number> = {
     env: 0,
     structure: 1,
-    authoring: 2,
-    types: 3,
+    migrations: 2,
+    authoring: 3,
+    types: 4,
   };
   return findings.sort(
     (a, b) =>

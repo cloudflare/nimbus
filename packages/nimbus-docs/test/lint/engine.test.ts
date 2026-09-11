@@ -57,6 +57,26 @@ no lang
   assert.deepEqual(lintFile(parse(src)), []);
 });
 
+test("frontmatter shape delegates collection schemas and transforms to Astro", () => {
+  const src = `---
+prev: true
+next: true
+compatibility_date: 2026-01-01
+---
+`;
+  const diags = lintFile(parse(src, "compatibility-flags"), {
+    rules: { "nimbus/frontmatter-shape": "error" },
+  });
+  assert.ok(!codes(diags).includes("nimbus/frontmatter-shape"));
+});
+
+test("frontmatter shape still reports malformed YAML", () => {
+  const diags = lintFile(parse(`---\ntitle: [broken\n---\n`), {
+    rules: { "nimbus/frontmatter-shape": "error" },
+  });
+  assert.ok(codes(diags).includes("nimbus/frontmatter-shape"));
+});
+
 test("--rule force-enables a rule that's off by default", () => {
   // The CLI's --rule=<code> flag would silently print nothing if it just
   // filtered: every authoring rule starts off. Engine compensates by

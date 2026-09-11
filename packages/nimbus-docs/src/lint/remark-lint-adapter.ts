@@ -1,6 +1,6 @@
 /**
  * Adapter: run a remark-lint rule against the Sätteri mdast tree, return
- * `RuleReport[]`. Mirrors the `zod-adapter` shape — a tiny translation
+ * `RuleReport[]`. Uses a tiny translation
  * layer that keeps the diagnostic envelope intact while letting us inherit
  * remark-lint's battle-tested detector logic.
  *

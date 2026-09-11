@@ -15,8 +15,17 @@ import { pathToFileURL } from "node:url";
 import { build } from "astro";
 
 import nimbus from "../src/index.ts";
+import { runningNimbusVersion } from "../src/_internal/upgrades.ts";
 
 const roots: string[] = [];
+
+async function markReviewed(root: string): Promise<void> {
+  await writeFile(
+    path.join(root, "nimbus.json"),
+    `${JSON.stringify({ lastReviewedNimbusVersion: runningNimbusVersion() })}\n`,
+    "utf8",
+  );
+}
 
 afterEach(async () => {
   await Promise.all(
@@ -29,6 +38,7 @@ test("bakes agent-endpoint assets at astro:build:start for prerendered endpoints
     path.join(os.tmpdir(), "nimbus-generated-markdown-lifecycle-"),
   );
   roots.push(root);
+  await markReviewed(root);
   await symlink(
     path.resolve(import.meta.dirname, "../node_modules"),
     path.join(root, "node_modules"),
@@ -160,7 +170,10 @@ export async function GET({ props, request }) {
     ],
   });
 
-  const markdown = await readFile(path.join(root, "dist/guide/index.md"), "utf8");
+  const markdown = await readFile(
+    path.join(root, "dist/guide/index.md"),
+    "utf8",
+  );
   assert.match(markdown, /\[Guide\]\(\/docs\/guide\)/);
   assert.match(markdown, /\*\*Cloud\*\*/);
   assert.match(markdown, /## Shared/);
@@ -178,7 +191,10 @@ export async function GET({ props, request }) {
     await readFile(path.join(root, "dist/nested/llms.txt"), "utf8"),
     /Nested/,
   );
-  const llmsFull = await readFile(path.join(root, "dist/llms-full.txt"), "utf8");
+  const llmsFull = await readFile(
+    path.join(root, "dist/llms-full.txt"),
+    "utf8",
+  );
   assert.match(llmsFull, /# Guide/);
   assert.match(llmsFull, /## Shared/);
   assert.match(llmsFull, /\[Root\]\(\/docs\/\)/);
@@ -200,8 +216,11 @@ export async function GET({ props, request }) {
 });
 
 test("does not bake for unrelated Markdown endpoints", async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "nimbus-unrelated-markdown-route-"));
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), "nimbus-unrelated-markdown-route-"),
+  );
   roots.push(root);
+  await markReviewed(root);
   await symlink(
     path.resolve(import.meta.dirname, "../node_modules"),
     path.join(root, "node_modules"),

@@ -1,0 +1,10 @@
+---
+import { getEntry, render } from "astro:content";
+
+const { file, product } = Astro.props;
+const partial = await getEntry("partials", product ? `${product}/${file}` : file);
+if (!partial) throw new Error("Missing migration fixture partial");
+const { Content } = await render(partial);
+---
+
+<Content />
