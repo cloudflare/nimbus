@@ -13,24 +13,24 @@
   },
   "dependencies": {
     "@cloudflare/nimbus-docs": "workspace:*",
-    "@fontsource-variable/inter": "^5.2.8",
-    "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@iconify-json/ph": "^1.2.0",
-    "astro": "7.2.8",
-    "astro-og-canvas": "^0.13.0",
-    "canvaskit-wasm": "^0.41.1",
+    "astro": "7.3.1",
+    "astro-og-canvas": "^0.13.1",
+    "canvaskit-wasm": "^0.42.0",
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.8",
+    "@astrojs/check": "^0.9.10",
     "@tailwindcss/vite": "^4.1.4",
-    "@types/react": "^19.2.6",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
     "pagefind": "^1.5.2",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "tailwindcss": "^4.1.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.8.3"
   }
 }
