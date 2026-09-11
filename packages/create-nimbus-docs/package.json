@@ -51,7 +51,7 @@
   },
   "devDependencies": {
     "@types/mri": "^1.1.4",
-    "@types/node": "^20.17.0",
+    "@types/node": "^26.5.0",
     "tsdown": "^0.20.3",
     "tsx": "^4.22.3"
   }
