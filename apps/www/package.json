@@ -23,7 +23,7 @@
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@iconify-json/ph": "^1.2.0",
     "@resvg/resvg-js": "^2.6.2",
-    "astro": "~7.0.9",
+    "astro": "7.2.8",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.24",
     "react": "^19.2.0",

@@ -400,9 +400,9 @@ test("rejects a non-string or conflicting adapter declaration", async () => {
 
 test("accepts equivalent, narrower, and exact compatible adapter ranges", async () => {
   for (const range of [
-    ">=11.0.0 <11.1.3",
-    ">=11.0.0 <11.1.2",
-    "11.1.2",
+    "^11.1.3",
+    ">=11.1.3 <11.2.0",
+    "11.1.3",
   ]) {
     const dir = scratch();
     project(dir);

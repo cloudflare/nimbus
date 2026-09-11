@@ -76,8 +76,8 @@ export const ADAPTER_RECIPES: Record<AdapterId, AdapterRecipe> = {
   node: {
     id: "node",
     pkg: "@astrojs/node",
-    // Pin <11.1.3 (11.1.3 bumped its astro peer to ^7.2.1; we pin astro <7.1.0).
-    installSpec: "@astrojs/node@>=11.0.0 <11.1.3",
+    // 11.1.3 adopted the logger API used by Astro 7.2.1 and later.
+    installSpec: "@astrojs/node@^11.1.3",
     extraDeps: [],
     importName: "node",
     importStatement: 'import node from "@astrojs/node";',
