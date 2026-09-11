@@ -1,0 +1,23 @@
+packages/nimbus-docs/src/_internal/admonition-transform.ts
+  s_045d9d4ec5cbfb::t_90e0d7a0e492e7 48,63-64,85-111
+packages/nimbus-docs/test/admonition-render.test.ts
+  s_045d9d4ec5cbfb::t_b5679ad555ffe7 24-27,159-162
+packages/nimbus-docs/test/admonition-transform.test.ts
+  s_045d9d4ec5cbfb::t_ba2bce8951530e 65-117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "71537e2c66ba831776e51fc75bb988c9fc091c5b",
+  "prompts": {},
+  "sessions": {
+    "s_045d9d4ec5cbfb": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f72d34794ffeSRCWY9AickaOyk",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
