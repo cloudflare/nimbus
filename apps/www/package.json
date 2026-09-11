@@ -35,7 +35,7 @@
     "@astrojs/check": "^0.9.8",
     "@astrojs/mdx": "~7.0.3",
     "@tailwindcss/vite": "^4.1.4",
-    "@types/node": "^20.17.0",
+    "@types/node": "^26.5.0",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
     "pagefind": "^1.5.2",
