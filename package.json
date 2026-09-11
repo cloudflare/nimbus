@@ -30,15 +30,15 @@
     "node": ">=22.12.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.62.1",
+    "@playwright/test": "1.63.0",
     "@changesets/changelog-github": "^0.7.0",
     "@changesets/cli": "^2.31.0",
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.8.0",
+    "eslint": "^10.10.0",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "pkg-pr-new": "^0.0.79",
+    "pkg-pr-new": "^0.0.88",
     "semver": "7.8.5",
-    "typescript-eslint": "^8.66.0",
+    "typescript-eslint": "^8.70.0",
     "yaml": "2.9.0"
   }
 }
