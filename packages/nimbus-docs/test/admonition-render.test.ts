@@ -21,6 +21,10 @@ import { satteriAdmonitions } from "../src/_internal/admonition-processor.js";
 import { runningNimbusVersion } from "../src/_internal/upgrades.js";
 
 const source = [
+  "[Reference target][target-ref]",
+  "",
+  "[target-ref]: /target#reference",
+  "",
   ":::note[`Age` response header]",
   "Body with `code`.",
   ":::",
@@ -152,6 +156,10 @@ for (const processor of ["satteri", "nimbus"] as const) {
       });
       const html = await readFile(path.join(root, "dist/index.html"), "utf8");
       const document = new JSDOM(html).window.document;
+      assert.equal(
+        document.querySelector('a[href="/target#reference"]')?.textContent,
+        "Reference target",
+      );
       const asides = [...document.querySelectorAll("aside")];
       assert.equal(asides.length, 7);
       const labels = [

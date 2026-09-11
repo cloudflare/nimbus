@@ -62,6 +62,59 @@ test("native directive maps aliases and plain title attributes to Aside", () => 
     /"value":"tip"/,
   );
 });
+
+test("reference links and definitions survive native directive parsing", () => {
+  const source = `See [Reference target][target-ref] and [Angle][angle-ref].
+
+Before ![Reference image][image-ref] after.
+
+[target-ref]: /target#reference
+[image-ref]: /image.png
+[angle-ref]: <https://example.com/a:b>
+
+:::note
+Body
+:::`;
+  const tree = parseAdmonitions(source);
+  assert.equal(
+    nodes(tree).filter((node) => node.type === "linkReference").length,
+    2,
+  );
+  assert.equal(
+    nodes(tree).filter((node) => node.type === "imageReference").length,
+    1,
+  );
+  assert.equal(
+    nodes(tree).filter((node) => node.type === "definition").length,
+    3,
+  );
+  assert.doesNotThrow(() => compile(source));
+
+  for (const protectedSource of [
+    `[Reference][a:::b]
+
+[a:::b]: /target`,
+    `[Reference][ref]
+
+[ref]: /target "
+::leaf[label]
+"`,
+  ]) {
+    const withAdmonition = `${protectedSource}
+
+:::note
+Body
+:::`;
+    const ordinary = nodes(mdxToMdast(withAdmonition)).filter((node) =>
+      ["definition", "linkReference", "imageReference"].includes(node.type),
+    );
+    const transformed = nodes(parseAdmonitions(withAdmonition)).filter((node) =>
+      ["definition", "linkReference", "imageReference"].includes(node.type),
+    );
+    assert.deepEqual(transformed, ordinary);
+    assert.doesNotThrow(() => compile(withAdmonition));
+  }
+});
 for (const title of [
   "`Age` response header",
   "Run <code>traceroute</code>",

@@ -45,6 +45,7 @@ export function parseAdmonitions(
     }
     remember(ordinary);
     const colonRanges: [number, number][] = [];
+    const definitionRanges: [number, number][] = [];
     function protect(node: MdastNode) {
       if (
         [
@@ -59,8 +60,8 @@ export function parseAdmonitions(
           node.position!.end.offset!,
         ];
         protectedRanges.push(range);
-        if (node.type === "inlineCode" || node.type === "definition")
-          colonRanges.push(range);
+        if (node.type === "inlineCode") colonRanges.push(range);
+        if (node.type === "definition") definitionRanges.push(range);
       } else {
         if (
           node.type === "mdxJsxFlowElement" ||
@@ -81,6 +82,33 @@ export function parseAdmonitions(
     const masked = [...points];
     for (const [a, b] of colonRanges)
       for (let i = a; i < b; i++) if (masked[i] === ":") masked[i] = marker;
+    for (const [a, b] of definitionRanges) {
+      let start = a;
+      while (start < b) {
+        if (masked[start] !== "]" || masked[start + 1] !== ":") {
+          start++;
+          continue;
+        }
+        let backslashes = 0;
+        for (let i = start - 1; i >= a && masked[i] === "\\"; i--) {
+          backslashes++;
+        }
+        start += backslashes % 2 === 0 ? 2 : 1;
+        if (backslashes % 2 === 0) break;
+      }
+      while (start < b) {
+        if (masked[start] !== ":") {
+          start++;
+          continue;
+        }
+        let end = start + 1;
+        while (end < b && masked[end] === ":") end++;
+        if (end - start >= 2) {
+          for (let i = start; i < end; i++) masked[i] = marker;
+        }
+        start = end;
+      }
+    }
     let bracketCode = markerCode + 1;
     while (source.includes(String.fromCodePoint(bracketCode))) bracketCode++;
     const bracketMarker = String.fromCodePoint(bracketCode);
