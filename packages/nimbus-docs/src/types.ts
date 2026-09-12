@@ -185,6 +185,25 @@ export interface CoordinatesManifest {
   >;
 }
 
+/** Single-file v2 transport. Legacy CoordinatesManifest and its helper remain v1. */
+export interface CompactCoordinatesManifest {
+  version: 2;
+  collections: Record<string, {
+    defaultVersion: string | null;
+    /** Explicit bare targets; never inferred from defaultVersion. */
+    pages: CoordinatePageGroup[];
+    /** Explicit version-qualified targets, independent of the bare targets. */
+    versions?: Record<string, CoordinatePageGroup[]>;
+  }>;
+}
+
+export interface CoordinatePageGroup {
+  /** Exact URL before the first #, including any query string. */
+  url: string;
+  /** null: no fragment; 0: fragment equals coordinate; string: exact fragment. */
+  entries: Record<string, null | 0 | string>;
+}
+
 /**
  * One remote coordinate manifest this site cites but does not own. See
  * {@link NimbusConfig.apiReferences}.

@@ -79,6 +79,7 @@ import type {
   ApiVersionStatus,
   Breadcrumb,
   CoordinatesManifest,
+  CompactCoordinatesManifest,
   PrevNext,
   PrevNextOverrides,
   ResolvedVersions,
@@ -173,6 +174,15 @@ export async function getCoordinatesManifest(): Promise<CoordinatesManifest> {
   const { loadCoordinatesManifest } =
     await import("./_internal/api/load-citation-index.js");
   return loadCoordinatesManifest();
+}
+
+/**
+ * Single-file v2 citation transport for prerendered endpoints. Consumers must
+ * support v2 before a publisher switches from getCoordinatesManifest().
+ */
+export async function getCompactCoordinatesManifest(): Promise<CompactCoordinatesManifest> {
+  const { compactCoordinatesManifest } = await import("./_internal/api/compact-coordinates.js");
+  return compactCoordinatesManifest(await getCoordinatesManifest());
 }
 
 /**
