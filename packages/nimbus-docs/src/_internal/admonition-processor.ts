@@ -113,8 +113,8 @@ export function configureAdmonitions<T extends MarkdownProcessor>(
   const settings = processor.options as NonNullable<
     Parameters<typeof satteri>[0]
   >;
-  // Astro 7.2 reads options directly; MDX 8 delegates to createMdxRenderer.
-  // Keep the reusable processor immutable in both generations.
+  // MDX inspects processor options before delegating to createMdxRenderer.
+  // Override both without mutating the reusable processor or its Markdown path.
   const configured = satteri({
     ...settings,
     features: { ...settings.features },
