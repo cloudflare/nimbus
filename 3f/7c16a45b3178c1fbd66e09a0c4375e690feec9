@@ -1,0 +1,29 @@
+.github/workflows/templates.yml
+  s_045d9d4ec5cbfb::t_b6d2ae6103d224 14,23
+CONTRIBUTING.md
+  s_045d9d4ec5cbfb::t_b1d1abb3650c1b 47-53
+packages/nimbus-docs/src/_internal/authored-links.ts
+  s_045d9d4ec5cbfb::t_5c95a574bb28d1 8,51-57,308-317,319-334,336-345,415-417,419,451-538,544-546,550-552,579-583,593,595,601,605,610,612,625-633
+packages/nimbus-docs/src/_internal/build-partials.ts
+  s_045d9d4ec5cbfb::t_f788e9b507be6d 234-235,282
+packages/nimbus-docs/src/_internal/transform.ts
+  s_045d9d4ec5cbfb::t_2980d4980b1bf4 47,288-289,314-315
+packages/nimbus-docs/test/authored-links.test.ts
+  s_045d9d4ec5cbfb::t_118c7c318a3a7c 338-483
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "3f7c16a45b3178c1fbd66e09a0c4375e690feec9",
+  "prompts": {},
+  "sessions": {
+    "s_045d9d4ec5cbfb": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f72d34794ffeSRCWY9AickaOyk",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
