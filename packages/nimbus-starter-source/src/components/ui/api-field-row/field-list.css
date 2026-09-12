@@ -14,6 +14,18 @@
   --fl-guide: calc(var(--fl-icon) / 2);
 }
 
+/* Repeated field icons share paint here instead of repeating five SVG
+   presentation attributes on every field and union preview in the HTML. */
+@layer base {
+  :where(.fl-anchor svg, .fl-expand-icon) {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+}
+
 /* ---- Section header ---- */
 .fl-head {
   display: flex;
