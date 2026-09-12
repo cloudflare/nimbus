@@ -1,6 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { isSatteriProcessor } from "@astrojs/markdown-satteri";
+import { isSatteriProcessor, satteri } from "@astrojs/markdown-satteri";
 import {
   defineMdastPlugin,
   mdxToMdast,
@@ -102,31 +102,30 @@ export function configureAdmonitions<T extends MarkdownProcessor>(
   features: Features = {},
   optionPath = "markdown.processor",
 ): T {
-  if (!isSatteriProcessor(processor) || processor.createMdxRenderer) {
+  if (
+    !isSatteriProcessor(processor) ||
+    typeof processor.createMdxRenderer !== "function"
+  ) {
     throw new Error(
       `Nimbus admonitions require Astro's native Sätteri MDX pipeline. Use a compatible Sätteri processor for ${optionPath}, remove the override to inherit one, or set admonitions: false.`,
     );
   }
-  const settings = processor.options as {
-    features: Features;
-    mdastPlugins: unknown[];
-  };
-  // Astro's MDX integration reads processor.options directly. Own that options
-  // view without mutating a reusable processor or rebinding its Markdown renderer.
-  return transparentProxy(
-    processor,
-    new Map([
-      [
-        "options",
-        {
-          ...settings,
-          features: { ...settings.features },
-          mdastPlugins: [
-            satteriAdmonitions(options, { ...features, ...settings.features }),
-            ...settings.mdastPlugins,
-          ],
-        },
-      ],
-    ]),
-  );
+  const settings = processor.options as NonNullable<
+    Parameters<typeof satteri>[0]
+  >;
+  // Astro 7.2 reads options directly; MDX 8 delegates to createMdxRenderer.
+  // Keep the reusable processor immutable in both generations.
+  const configured = satteri({
+    ...settings,
+    features: { ...settings.features },
+    mdastPlugins: [
+      satteriAdmonitions(options, { ...features, ...settings.features }),
+      ...(settings.mdastPlugins ?? []),
+    ],
+  });
+  const overrides = new Map<PropertyKey, unknown>([
+    ["options", configured.options],
+    ["createMdxRenderer", configured.createMdxRenderer],
+  ]);
+  return transparentProxy(processor, overrides);
 }

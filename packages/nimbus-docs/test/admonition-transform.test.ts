@@ -410,6 +410,27 @@ test("admonition configuration is isolated from reusable and frozen processors",
     assert.doesNotMatch(run(unchanged), /_jsx\(Aside/);
   }
   assert.equal(processor.options.mdastPlugins.length, 0);
+  assert.notEqual(enabled.options.features, processor.options.features);
+  assert.notEqual(enabled.options.hastPlugins, processor.options.hastPlugins);
+  assert.notEqual(enabled.options.mdastPlugins, processor.options.mdastPlugins);
+  let latePluginRan = false;
+  enabled.options.mdastPlugins.push(() =>
+    defineMdastPlugin({
+      name: "late-plugin",
+      paragraph() {
+        latePluginRan = true;
+      },
+    }),
+  );
+  const mdxRenderer = await enabled.createMdxRenderer(
+    { syntaxHighlight: false } as never,
+    { optimize: false, srcDir: new URL("file:///src/"), sourcemap: false },
+  );
+  assert.match(
+    (await mdxRenderer.process(source, "/docs/page.mdx", {})).code,
+    /_jsx\(Aside/,
+  );
+  assert.equal(latePluginRan, true);
   const renderer = await enabled.createRenderer({
     syntaxHighlight: false,
   } as Parameters<typeof enabled.createRenderer>[0]);
@@ -430,7 +451,7 @@ test("admonition configuration rejects incompatible processors", () => {
   assert.throws(
     () =>
       configureAdmonitions(
-        { ...satteri(), createMdxRenderer: async () => undefined } as never,
+        { ...satteri(), createMdxRenderer: undefined } as never,
         { contentDirs: ["/docs"] },
         {},
         "mdx.processor",
