@@ -70,6 +70,9 @@ Rules:
 | Upgrade a starter file | `pnpm exec nimbus-docs diff <file>` to review, `diff --apply <file>` to pull a clean upstream change. |
 | Upgrade a registry component | `pnpm exec nimbus-docs add <slug> --overwrite`, then review with `git diff`. |
 
+Extend Sätteri using `markdown.mdastPlugins` for Markdown AST transformations or `markdown.hastPlugins` for HTML AST transformations.
+If the site replaces Sätteri with another processor, set `admonitions: false` and keep that processor's existing callout implementation.
+
 List installable items: `pnpm exec nimbus-docs list`.
 
 ## Upgrading Nimbus
@@ -117,7 +120,6 @@ End with `Summary: N errors, N warnings.`
 
 - Hand-add components under `src/components/ui/` that exists in the nimbus-docs registry — use `nimbus-docs add` so deps resolve.
 - Import `.mdx` files directly — use `<Render file="..." />`.
-- Attach remark/rehype plugins via `mdx({ remarkPlugins })` — Sätteri silently drops them. Framework-side transformations run as content passes.
 - Remove `<AgentDirective />` unless asked.
 - Edit `src/components.ts` to bypass registration — if a component is used in `.mdx`, register it.
 

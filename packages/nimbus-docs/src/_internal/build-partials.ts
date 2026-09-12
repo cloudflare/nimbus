@@ -1,4 +1,4 @@
-import { mdxToMdast } from "satteri";
+import { mdxToMdast } from "satteri-source-parser";
 
 import type { PreparedMarkdownEntry } from "./prepared-markdown-registry.js";
 
