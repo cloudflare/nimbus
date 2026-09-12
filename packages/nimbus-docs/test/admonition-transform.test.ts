@@ -303,6 +303,24 @@ test("inline literal JSX retains native node kind and original positions", () =>
   );
   assert.deepEqual(after, before);
 });
+test("positionless autolinks outside admonitions do not break parsing", () => {
+  const source = "<code>www.example.org</code>\n\n:::note\nBody\n:::";
+  const tree = parseAdmonitions(source);
+  const before = nodes(mdxToMdast(source)).find(
+    (node) => node.type === "mdxJsxFlowElement" && node.name === "code",
+  );
+  const after = nodes(tree).find(
+    (node) => node.type === "mdxJsxFlowElement" && node.name === "code",
+  );
+  assert.deepEqual(after, before);
+  assert.equal(
+    nodes(tree).filter(
+      (node) => node.type === "mdxJsxFlowElement" && node.name === "Aside",
+    ).length,
+    1,
+  );
+  assert.doesNotThrow(() => compile(source));
+});
 test("explicit compiler GFM and smart punctuation overrides are retained", () => {
   const source = '~~outside~~ "quoted"\n\n:::note\n\n~~inside~~ "quoted"\n:::';
   const code = mdxToJs(source, {

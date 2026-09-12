@@ -113,8 +113,14 @@ export function parseAdmonitions(
     while (source.includes(String.fromCodePoint(bracketCode))) bracketCode++;
     const bracketMarker = String.fromCodePoint(bracketCode);
     for (const token of originals.values()) {
-      const a = token.position!.start.offset!,
-        b = token.position!.end.offset!;
+      const { position } = token;
+      if (
+        position?.start.offset === undefined ||
+        position.end.offset === undefined
+      )
+        continue;
+      const a = position.start.offset,
+        b = position.end.offset;
       if (token.type === "inlineCode") {
         for (let i = a; i < b; i++)
           if (masked[i] === "]") masked[i] = bracketMarker;
