@@ -11,10 +11,25 @@ test("MDX optimize remains opt-out", () => {
   assert.deepEqual(resolveMdxOptions({ optimize: false }), { optimize: false });
 });
 
-test("custom MDX options pass through", () => {
-  const rehypePlugins = [() => undefined];
-  assert.deepEqual(resolveMdxOptions({ rehypePlugins }), {
+test("native MDX options pass through", () => {
+  const remark = () => undefined;
+  const rehype = () => undefined;
+  const recma = () => undefined;
+  const remarkRehype = { allowDangerousHtml: true };
+  assert.deepEqual(resolveMdxOptions({
+    gfm: false,
+    smartypants: false,
+    remarkPlugins: [remark],
+    rehypePlugins: [rehype],
+    recmaPlugins: [recma],
+    remarkRehype,
+  }), {
     optimize: true,
-    rehypePlugins,
+    gfm: false,
+    smartypants: false,
+    remarkPlugins: [remark],
+    rehypePlugins: [rehype],
+    recmaPlugins: [recma],
+    remarkRehype,
   });
 });

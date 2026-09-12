@@ -1,181 +1,479 @@
-/**
- * Tests for the admonition transform (`:::type … :::` → `<Aside>`).
- *
- * Regression focus: a directive nested inside indented JSX (e.g. `:::note`
- * inside a `<TabItem>` that itself sits inside a list item) must emit an
- * `<Aside>` at the SAME indentation. Emitting it flush-left at column 0
- * would dedent out of the enclosing element and orphan its closing tag,
- * making `@mdx-js/mdx` throw "Expected a closing tag for `<TabItem>`". The
- * e2e test below compiles the transformed output through the real MDX
- * compiler to prove this; the string tests pin the exact indentation
- * behavior.
- */
-
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
+import { pathToFileURL } from "node:url";
+import {
+  mdxToMdast,
+  mdxToJs,
+  markdownToHtml,
+  defineMdastPlugin,
+  type MdastNode,
+} from "satteri";
+import { parseAdmonitions } from "../src/_internal/admonition-transform.js";
+import { satteri } from "@astrojs/markdown-satteri";
+import { unified } from "@astrojs/markdown-remark";
+import {
+  configureAdmonitions,
+  satteriAdmonitions,
+} from "../src/_internal/admonition-processor.js";
 
-import { compile } from "@mdx-js/mdx";
-
-import { transformAdmonitions } from "../src/_internal/admonition-transform.js";
-
-// The minimal source that reproduces the bug: a `:::note` inside an inner
-// `<Tabs>/<TabItem>` that is indented inside a numbered-list item. (A
-// non-indented Tabs does NOT reproduce it — the enclosing `listItem` context
-// is what makes a dedented Aside orphan the TabItem.)
-const NESTED_NOTE_IN_TAB = `<Tabs> <TabItem label="Dashboard">
-
-1. Step one.
-2. Nested tabs:
-
-        <Tabs> <TabItem label="Add an IP">
-
-        Body line.
-
-        :::note
-
-        Note body.
-        :::
-
-        </TabItem> </Tabs>
-
-</TabItem> </Tabs>
-`;
-
-// ---------------------------------------------------------------------------
-// E2E: output must compile through @mdx-js/mdx
-// ---------------------------------------------------------------------------
-
-test("e2e: nested note-in-tab output compiles through @mdx-js/mdx", async () => {
-  const out = transformAdmonitions(NESTED_NOTE_IN_TAB);
-  // Must not throw "Expected a closing tag for <TabItem>".
-  await assert.doesNotReject(() => compile(out));
-});
-
-test("e2e: the OLD flush-left emit would fail to compile (proves the test is real)", async () => {
-  // Reconstruct a flush-left emit: the Aside dedented to column 0 inside the
-  // indented TabItem. This MUST throw, otherwise the e2e test above proves
-  // nothing.
-  const oldStyle = NESTED_NOTE_IN_TAB.replace(
-    /[ \t]*:::note\n\n([\s\S]*?)\n[ \t]*:::/,
-    '\n\n<Aside type="note">\n\n$1\n\n</Aside>\n\n',
+const nodes = (node: MdastNode): MdastNode[] => [
+  node,
+  ...("children" in node ? node.children.flatMap(nodes) : []),
+];
+const asides = (source: string) =>
+  nodes(parseAdmonitions(source)).filter(
+    (node) => node.type === "mdxJsxFlowElement" && node.name === "Aside",
   );
-  await assert.rejects(() => compile(oldStyle), /Expected a closing tag/i);
+const codeValues = (node: MdastNode) =>
+  nodes(node)
+    .filter((n) => n.type === "code" || n.type === "inlineCode")
+    .map((n) => ("value" in n ? n.value : undefined));
+const plugin = satteriAdmonitions({
+  contentDirs: ["/docs"],
+  skip: (file) => file.endsWith("skip.mdx"),
+});
+const compile = (source: string, file = "/docs/page.mdx") =>
+  mdxToJs(source, { fileURL: pathToFileURL(file), mdastPlugins: [plugin] })
+    .code;
+
+test("native directive maps aliases and plain title attributes to Aside", () => {
+  for (const [alias, type] of Object.entries({
+    note: "note",
+    info: "note",
+    tip: "tip",
+    warning: "caution",
+    important: "caution",
+    caution: "caution",
+    danger: "danger",
+  })) {
+    const node = asides(`:::${alias}[Say "hi"]\nBody\n:::`)[0]!;
+    assert.ok(node.type === "mdxJsxFlowElement");
+    assert.deepEqual(node.attributes, [
+      { type: "mdxJsxAttribute", name: "type", value: type },
+      { type: "mdxJsxAttribute", name: "title", value: 'Say "hi"' },
+    ]);
+  }
+  assert.match(
+    JSON.stringify(
+      parseAdmonitions(":::heads\nBody\n:::", {
+        typeAliases: { heads: "tip" },
+      }),
+    ),
+    /"value":"tip"/,
+  );
 });
 
-// ---------------------------------------------------------------------------
-// Indentation behavior (string-level)
-// ---------------------------------------------------------------------------
+test("reference links and definitions survive native directive parsing", () => {
+  const source = `See [Reference target][target-ref] and [Angle][angle-ref].
 
-test("indented note is re-indented to the directive's depth (fails on old code)", () => {
-  const src = [
-    '<Tabs> <TabItem label="A">',
-    "",
-    "        :::note",
-    "",
-    "        Inside note.",
-    "        :::",
-    "",
-    "        </TabItem> </Tabs>",
-    "",
-  ].join("\n");
-  const out = transformAdmonitions(src);
-  // Aside + closing tag at the directive's 8-space indent.
-  assert.match(out, /\n {8}<Aside type="note">/);
-  assert.match(out, /\n {8}<\/Aside>/);
-  // Body kept at exactly 8 spaces — not flush-left and not over-indented.
-  assert.match(out, /\n {8}Inside note\./);
-  // No column-0 Aside leaked out of the TabItem.
-  assert.doesNotMatch(out, /\n<Aside/);
+Before ![Reference image][image-ref] after.
+
+[target-ref]: /target#reference
+[image-ref]: /image.png
+[angle-ref]: <https://example.com/a:b>
+
+:::note
+Body
+:::`;
+  const tree = parseAdmonitions(source);
+  assert.equal(
+    nodes(tree).filter((node) => node.type === "linkReference").length,
+    2,
+  );
+  assert.equal(
+    nodes(tree).filter((node) => node.type === "imageReference").length,
+    1,
+  );
+  assert.equal(
+    nodes(tree).filter((node) => node.type === "definition").length,
+    3,
+  );
+  assert.doesNotThrow(() => compile(source));
+
+  for (const protectedSource of [
+    `[Reference][a:::b]
+
+[a:::b]: /target`,
+    `[Reference][ref]
+
+[ref]: /target "
+::leaf[label]
+"`,
+  ]) {
+    const withAdmonition = `${protectedSource}
+
+:::note
+Body
+:::`;
+    const ordinary = nodes(mdxToMdast(withAdmonition)).filter((node) =>
+      ["definition", "linkReference", "imageReference"].includes(node.type),
+    );
+    const transformed = nodes(parseAdmonitions(withAdmonition)).filter((node) =>
+      ["definition", "linkReference", "imageReference"].includes(node.type),
+    );
+    assert.deepEqual(transformed, ordinary);
+    assert.doesNotThrow(() => compile(withAdmonition));
+  }
+});
+for (const title of [
+  "`Age` response header",
+  "Run <code>traceroute</code>",
+  "**Strong** and *emphasis*",
+  "[Link](https://example.com)",
+  "😀 `Age` &amp; cache",
+  "{value}",
+  "<code title={value}>Run</code>",
+  "Escaped \\] bracket",
+  "Run `x]:y`",
+]) {
+  test(`title stays a plain string: ${title}`, () => {
+    const source = `:::note[${title}]\nBody\n:::`;
+    const node = asides(source)[0]!;
+    assert.ok(node?.type === "mdxJsxFlowElement");
+    assert.deepEqual(node.attributes[1], {
+      type: "mdxJsxAttribute",
+      name: "title",
+      value: title,
+    });
+    assert.doesNotThrow(() => compile(source));
+  });
+}
+for (const protectedSource of [
+  "```mdx\n:::note\nliteral\n:::\n```",
+  "````mdx\n:::note\n```txt\n:::\n```\n:::\n````",
+  "~~~~mdx\n:::note\n~~~txt\n:::\n~~~\n:::\n~~~~",
+  "---\ndescription: |\n  :::note\n  literal\n  :::\n---",
+  '+++\ndescription = """\n:::note\nliteral\n:::\n"""\n+++',
+  "{`\n:::note\nliteral\n:::\n`}",
+  "export const example = `\n:::note\nliteral\n:::\n`;",
+  "<pre>\n:::note\nliteral\n:::\n</pre>",
+  "<Box value={`\n:::note\nliteral\n:::\n`} />",
+  "`\n:::note\nliteral\n:::\n`",
+  "[example]:\n:::note",
+  '[example]: /url "\n:::note\nliteral\n:::\n"',
+]) {
+  test(`native syntax protection: ${protectedSource.slice(0, 25)}`, () => {
+    const source = `${protectedSource}\n\n:::tip\nReal\n:::\n`;
+    assert.equal(asides(source).length, 1);
+    assert.deepEqual(
+      codeValues(parseAdmonitions(source)),
+      codeValues(mdxToMdast(source)),
+    );
+    assert.doesNotThrow(() => compile(source));
+  });
+}
+for (const body of [
+  "  - Plain\n  - With `code`",
+  "  - Plain\n  - With <code>code</code>",
+  '  - Plain\n  - With {"code"}',
+  "  - Plain\n  - With `some\n    multiline code`\n  - Last",
+  "  Plain `some\n    multiline code`",
+  "  - With `some\nmultiline code`",
+  "```txt\nkeep\rthese\n```",
+]) {
+  test(`native bodies retain code values: ${body.slice(0, 25)}`, () => {
+    const source = `:::note\n\n${body}\n:::\n`;
+    const tree = parseAdmonitions(source);
+    assert.equal(asides(source).length, body.includes("\r") ? 0 : 1);
+    assert.deepEqual(codeValues(tree), codeValues(mdxToMdast(source)));
+    assert.doesNotThrow(() => compile(source));
+    if (body.includes("- Plain")) {
+      const list = nodes(tree).find((n) => n.type === "list");
+      assert.ok(list?.type === "list");
+      assert.equal(list.children.length, body.includes("- Last") ? 3 : 2);
+    }
+  });
+}
+for (const newline of ["\n", "\r\n", "\r"]) {
+  test(`native newline handling ${JSON.stringify(newline)}`, () => {
+    const source = [":::note", "Body", ":::", ""].join(newline);
+    assert.equal(asides(source).length, newline === "\r" ? 0 : 1);
+    assert.match(compile(source), /Body/);
+  });
+}
+test("legacy opening-line bodies are parsed by Sätteri without text loss", () => {
+  for (const source of [
+    ":::note Quick tip. :::\n",
+    ":::note[Title] First line.\nSecond line.\n:::\n",
+  ]) {
+    const code = compile(source);
+    assert.equal(asides(source).length, 1);
+    assert.match(code, /Quick tip\.|First line/);
+    if (source.includes("Second")) assert.match(code, /Second line/);
+  }
+});
+test("native nesting and longer fences remain structured", () => {
+  assert.equal(asides("::::note\nOuter\n:::tip\nInner\n:::\n::::\n").length, 2);
+});
+test("unknown and non-container directives stay literal", () => {
+  const source =
+    ":::custom\nBody\n:::\n\nText :badge[hello].\n\n::leaf[label]\n\n:::note\nReal\n:::\n";
+  assert.equal(asides(source).length, 1);
+  const output = compile(source);
+  assert.match(output, /:::custom/);
+  assert.match(output, /:badge\[hello\]/);
+  assert.match(output, /::leaf\[label\]/);
+});
+test("scope, skip and Markdown are untouched", () => {
+  const source = ":::note\nBody\n:::";
+  for (const file of ["/docs/page.md", "/docs/skip.mdx", "/other/page.mdx"]) {
+    assert.doesNotMatch(compile(source, file), /_jsx\(Aside/);
+    assert.match(compile(source, file), /:::note/);
+  }
+  assert.match(
+    markdownToHtml(source, {
+      fileURL: pathToFileURL("/docs/page.md"),
+      mdastPlugins: [plugin],
+    }).html,
+    /:::note/,
+  );
+});
+test("consumer plugins see the generated Aside and original body", () => {
+  let found = false;
+  const consumer = defineMdastPlugin({
+    name: "consumer",
+    mdxJsxFlowElement(node) {
+      if (node.name === "Aside") found = true;
+    },
+  });
+  mdxToJs(":::note\nBody\n:::", {
+    fileURL: pathToFileURL("/docs/page.mdx"),
+    mdastPlugins: [plugin, consumer],
+  });
+  assert.equal(found, true);
+});
+test("full Cloudflare fixture emits three Asides and retains every code node", async () => {
+  const source = await readFile(
+    new URL(
+      "./fixtures/admonitions/code-block-guidelines.mdx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.equal(asides(source).length, 3);
+  assert.deepEqual(
+    codeValues(parseAdmonitions(source)),
+    codeValues(mdxToMdast(source)),
+  );
+  assert.doesNotThrow(() => compile(source));
+});
+test("nested JSX and list bodies compile without source reindentation", () => {
+  const source =
+    "<Tabs>\n\n1. Item\n\n   <TabItem>\n\n   :::note\n   Body `code`\n   :::\n\n   </TabItem>\n\n</Tabs>\n";
+  assert.equal(asides(source).length, 1);
+  assert.doesNotThrow(() => compile(source));
 });
 
-test("multi-line body preserves relative nesting without becoming a code block", () => {
-  // Directive at 6 spaces; a child line 2 spaces deeper (8). The child must
-  // end up exactly 2 spaces deeper than the Aside (8), NOT 4+ deeper (which
-  // markdown would render as a code block).
-  const src = [
-    "      :::note",
-    "",
-    "      Lead line.",
-    "        Nested two-space-deeper line.",
-    "      :::",
-    "",
-  ].join("\n");
-  const out = transformAdmonitions(src);
-  assert.match(out, /\n {6}<Aside type="note">/);
-  assert.match(out, /\n {6}Lead line\./);
-  assert.match(out, /\n {8}Nested two-space-deeper line\./);
-  // Not pushed to code-block depth (10 = 4 deeper than the Aside).
-  assert.doesNotMatch(out, /\n {10}Nested two-space-deeper line\./);
+test("legacy body stays inside its enclosing list and Aside", () => {
+  const tree = parseAdmonitions("- Item\n\n  :::note Quick tip. :::\n\n  More");
+  assert.equal(tree.children.length, 1);
+  const aside = nodes(tree).find(
+    (n) => n.type === "mdxJsxFlowElement" && n.name === "Aside",
+  );
+  assert.ok(aside);
+  assert.match(JSON.stringify(aside), /Quick tip/);
+  assert.match(
+    compile("- Item\n\n  :::note Quick tip. :::\n\n  More"),
+    /Quick tip/,
+  );
+});
+for (const title of [
+  'Run <code title="]">x</code>',
+  "Run <code>items]</code>",
+]) {
+  test(`JSX brackets in plain titles: ${title}`, () => {
+    const source = `:::note[${title}]\nBody\n:::`;
+    const aside = asides(source)[0];
+    assert.ok(aside?.type === "mdxJsxFlowElement");
+    assert.deepEqual(aside.attributes[1], {
+      type: "mdxJsxAttribute",
+      name: "title",
+      value: title,
+    });
+    assert.doesNotThrow(() => compile(source));
+  });
+}
+test("inline literal JSX retains native node kind and original positions", () => {
+  const source = "Intro.\n\n:::note\n\nWith <code>x</code>.\n:::\n";
+  const before = nodes(mdxToMdast(source)).find(
+    (n) => n.type === "mdxJsxTextElement" && n.name === "code",
+  );
+  const after = nodes(parseAdmonitions(source)).find(
+    (n) => n.type === "mdxJsxTextElement" && n.name === "code",
+  );
+  assert.deepEqual(after, before);
+});
+test("positionless autolinks outside admonitions do not break parsing", () => {
+  const source = "<code>www.example.org</code>\n\n:::note\nBody\n:::";
+  const tree = parseAdmonitions(source);
+  const before = nodes(mdxToMdast(source)).find(
+    (node) => node.type === "mdxJsxFlowElement" && node.name === "code",
+  );
+  const after = nodes(tree).find(
+    (node) => node.type === "mdxJsxFlowElement" && node.name === "code",
+  );
+  assert.deepEqual(after, before);
+  assert.equal(
+    nodes(tree).filter(
+      (node) => node.type === "mdxJsxFlowElement" && node.name === "Aside",
+    ).length,
+    1,
+  );
+  assert.doesNotThrow(() => compile(source));
+});
+test("explicit compiler GFM and smart punctuation overrides are retained", () => {
+  const source = '~~outside~~ "quoted"\n\n:::note\n\n~~inside~~ "quoted"\n:::';
+  const code = mdxToJs(source, {
+    features: { gfm: false, smartPunctuation: false },
+    fileURL: pathToFileURL("/docs/page.mdx"),
+    mdastPlugins: [
+      satteriAdmonitions(
+        { contentDirs: ["/docs"] },
+        { gfm: true, smartPunctuation: true },
+      ),
+    ],
+  }).code;
+  assert.match(code, /~~outside~~/);
+  assert.match(code, /~~inside~~/);
+  assert.doesNotMatch(code, /“/);
+  assert.match(code, /_jsx\(Aside/);
+});
+test("already-enabled directives containing only code still become Aside", () => {
+  const code = mdxToJs(":::note\n```txt\nx\n```\n:::", {
+    features: { directive: true },
+    fileURL: pathToFileURL("/docs/page.mdx"),
+    mdastPlugins: [
+      satteriAdmonitions({ contentDirs: ["/docs"] }, { directive: true }),
+    ],
+  }).code;
+  assert.match(code, /_jsx\(Aside|_jsxs\(Aside/);
+  assert.match(code, /children: "x\\n"/);
+});
+test("JavaScript brackets and colons outside titles remain valid", () => {
+  const source =
+    "export const obj = {items: [1,2]};\n\n<Box value={{items: [1,2]}} />\n\n:::note\n{obj.items[0]}\n:::";
+  assert.doesNotThrow(() => compile(source));
+  assert.equal(asides(source).length, 1);
 });
 
-// ---------------------------------------------------------------------------
-// Line-anchoring behavior
-// ---------------------------------------------------------------------------
-
-test("a mid-line `:::` is not treated as an opener", () => {
-  const src = "Prose with a stray :::note token mid-sentence ::: and more.\n";
-  assert.equal(transformAdmonitions(src), src);
+test("titles remain attached inside enclosing JSX", () => {
+  const aside = asides("<Tabs>\n  :::note[Title]\n  Body\n  :::\n</Tabs>")[0];
+  assert.ok(aside?.type === "mdxJsxFlowElement");
+  assert.deepEqual(aside.attributes[1], {
+    type: "mdxJsxAttribute",
+    name: "title",
+    value: "Title",
+  });
+});
+test("legacy body stays inside a blockquote", () => {
+  const tree = parseAdmonitions("> :::note Quick tip. :::\n> More");
+  assert.equal(tree.children.length, 1);
+  assert.equal(tree.children[0]?.type, "blockquote");
+  const aside = nodes(tree).find(
+    (n) => n.type === "mdxJsxFlowElement" && n.name === "Aside",
+  );
+  assert.ok(aside);
+  assert.match(JSON.stringify(aside), /Quick tip/);
 });
 
-test("a closer with trailing text on its line does not close the directive", () => {
-  // Closer not at line end → not a valid closer → left untouched.
-  const src = ":::note\nbody\n::: trailing text\n";
-  assert.equal(transformAdmonitions(src), src);
+test("unknown blocks retain their paragraph structure", () => {
+  const source = ":::unknown\nBody\n:::";
+  assert.deepEqual(
+    parseAdmonitions(source),
+    structuredClone(mdxToMdast(source)),
+  );
 });
 
-// ---------------------------------------------------------------------------
-// Documented guarantees
-// ---------------------------------------------------------------------------
-
-test("transform is idempotent", () => {
-  const once = transformAdmonitions(NESTED_NOTE_IN_TAB);
-  const twice = transformAdmonitions(once);
-  assert.equal(twice, once);
+test("admonition configuration is isolated from reusable and frozen processors", async () => {
+  const processor = satteri();
+  Object.freeze(processor.options.mdastPlugins);
+  Object.freeze(processor.options);
+  Object.freeze(processor);
+  const enabled = configureAdmonitions(processor, { contentDirs: ["/docs"] });
+  const skipped = configureAdmonitions(processor, {
+    contentDirs: ["/docs"],
+    skip: () => true,
+  });
+  const elsewhere = configureAdmonitions(processor, {
+    contentDirs: ["/other"],
+  });
+  const source = ":::note\nBody\n:::";
+  const run = (value: typeof processor) =>
+    mdxToJs(source, {
+      fileURL: pathToFileURL("/docs/page.mdx"),
+      mdastPlugins: value.options.mdastPlugins,
+    }).code;
+  assert.match(run(enabled), /_jsx\(Aside/);
+  for (const unchanged of [processor, skipped, elsewhere]) {
+    assert.match(run(unchanged), /:::note/);
+    assert.doesNotMatch(run(unchanged), /_jsx\(Aside/);
+  }
+  assert.equal(processor.options.mdastPlugins.length, 0);
+  const renderer = await enabled.createRenderer({
+    syntaxHighlight: false,
+  } as Parameters<typeof enabled.createRenderer>[0]);
+  assert.match(
+    (await renderer.render(source, { frontmatter: {} })).code,
+    /:::note/,
+  );
 });
 
-test("`:::` inside frontmatter is never rewritten (frontmatter is split off)", () => {
-  // Block scalar containing the directive token: only a real `splitFrontmatter`
-  // keeps this intact. (A `tip:` key with no `:::` would pass trivially even if
-  // splitting were broken — so the value must carry a `:::` to be a true test.)
-  const src =
-    "---\ndescription: |\n  :::note\n  in frontmatter\n  :::\n---\n\n:::tip\nreal body\n:::\n";
-  const out = transformAdmonitions(src);
-  // The `:::` inside the YAML block scalar survives untouched...
-  assert.match(out, /description: \|\n {2}:::note\n {2}in frontmatter\n {2}:::/);
-  // ...while the real body below the frontmatter is still transformed.
-  assert.match(out, /<Aside type="tip">/);
+test("admonition configuration rejects incompatible processors", () => {
+  assert.throws(
+    () =>
+      configureAdmonitions(unified(), {
+        contentDirs: ["/docs"],
+      }),
+    /compatible Sätteri processor for markdown\.processor.*admonitions: false/,
+  );
+  assert.throws(
+    () =>
+      configureAdmonitions(
+        { ...satteri(), createMdxRenderer: async () => undefined } as never,
+        { contentDirs: ["/docs"] },
+        {},
+        "mdx.processor",
+      ),
+    /compatible Sätteri processor for mdx\.processor.*admonitions: false/,
+  );
 });
 
-test("adjacent admonitions do not merge", () => {
-  const out = transformAdmonitions(":::note\nfirst\n:::\n\n:::tip\nsecond\n:::\n");
-  assert.match(out, /<Aside type="note">\n\nfirst/);
-  assert.match(out, /<Aside type="tip">\n\nsecond/);
+test("consumer plugins retain opted-in native custom directive nodes", () => {
+  const seen: string[] = [];
+  const observer = defineMdastPlugin({
+    name: "custom-directives",
+    containerDirective(node) {
+      seen.push(node.name);
+    },
+    leafDirective(node) {
+      seen.push(node.name);
+    },
+    textDirective(node) {
+      seen.push(node.name);
+    },
+  });
+  const source =
+    "Term\n: Definition\n\n:::custom\nCustom\n:::\n\nText :badge[hello].\n\n::leaf[label]\n\n:::note\nNote\n:::";
+  const code = mdxToJs(source, {
+    features: { definitionList: true, directive: true },
+    fileURL: pathToFileURL("/docs/page.mdx"),
+    mdastPlugins: [
+      satteriAdmonitions(
+        { contentDirs: ["/docs"] },
+        { definitionList: true, directive: true },
+      ),
+      observer,
+    ],
+  }).code;
+  assert.deepEqual(seen, ["custom", "badge", "leaf"]);
+  assert.match(code, /_jsx\(Aside/);
+  assert.match(code, /_components\.dl/);
 });
 
-// ---------------------------------------------------------------------------
-// Baseline behavior guards
-// ---------------------------------------------------------------------------
-
-test("flush-left block admonition still emits flush-left", () => {
-  const out = transformAdmonitions("Intro.\n\n:::tip[Heads up]\nBody.\n:::\n");
-  assert.match(out, /\n<Aside type="tip" title="Heads up">/);
-});
-
-test("inline single-line admonition is rewritten", () => {
-  assert.match(transformAdmonitions(":::note Quick tip. :::\n"), /<Aside type="note">/);
-});
-
-test("MyST type aliases fold into the four Aside slots", () => {
-  assert.match(transformAdmonitions(":::warning\nx\n:::\n"), /type="caution"/);
-  assert.match(transformAdmonitions(":::info\nx\n:::\n"), /type="note"/);
-});
-
-test("unknown directive types are left untouched", () => {
-  const src = ":::custom\nbody\n:::\n";
-  assert.equal(transformAdmonitions(src), src);
-});
-
-test("`:::` inside a fenced code block is preserved verbatim", () => {
-  const src = "```md\n:::note\nnot an admonition\n:::\n```\n";
-  assert.equal(transformAdmonitions(src), src);
+test("arbitrary literal titles can use the existing direct Aside contract", () => {
+  for (const title of ["Use <T>", "Use {foo bar}", "Set {name to value"]) {
+    assert.throws(() => compile(`:::note[${title}]\nBody\n:::`));
+    assert.doesNotThrow(() => compile(`<Aside title="${title}">Body</Aside>`));
+  }
 });

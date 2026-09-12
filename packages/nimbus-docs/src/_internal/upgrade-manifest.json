@@ -159,6 +159,26 @@
         "Build with the production deployment base and inspect every affected URL.",
         "Run astro check and the production build."
       ]
+    },
+    {
+      "id": "explicit-markdown-processor",
+      "introducedIn": "0.14.0",
+      "mode": "review-required",
+      "changeset": "safe-admonition-titles",
+      "summary": "Review processors and Markdown files for native admonition compatibility.",
+      "affected": "Projects setting markdown.processor or mdx.processor while Nimbus admonitions are enabled, or projects containing admonition directives in .md files.",
+      "instructions": [
+        "Review explicit markdown.processor and mdx.processor overrides in the Nimbus integration.",
+        "Keep a compatible Sätteri processor, or remove the override to use Nimbus's default Sätteri processor.",
+        "Move Sätteri plugins to markdown.mdastPlugins or markdown.hastPlugins and use Astro's markdown.smartypants option for smart punctuation.",
+        "For unified or another custom processor, set admonitions: false and preserve that processor's existing callout implementation.",
+        "Move admonition directives in .md files to MDX, or keep them literal and provide a separate Markdown callout implementation; native Nimbus admonitions now transform only .mdx files."
+      ],
+      "verify": [
+        "Search .md files for ::: directives and review every Markdown callout.",
+        "Build representative MDX containing an admonition and confirm it renders as Aside, or confirm admonitions are explicitly disabled.",
+        "Run nimbus-docs check, astro check, and the production build."
+      ]
     }
   ]
 }
