@@ -16,6 +16,8 @@ import type { ApiSpec } from "../../types.js";
 import { citationKey, isSafeCitationPath } from "./citations.js";
 import { resolveSpecSource } from "./resolve-spec.js";
 import { resolveAllApiCollections } from "./resolve-versions.js";
+import { expandCompactCollection } from "./compact-coordinates.js";
+import type { CompactCoordinatesManifest } from "../../types.js";
 
 export type { CoordinatesManifest } from "../../types.js";
 import type { CoordinatesManifest } from "../../types.js";
@@ -111,7 +113,7 @@ export async function buildCitationIndex(
 export function ingestRemoteManifest(
   citationIndex: Map<string, string>,
   collection: string,
-  manifest: CoordinatesManifest,
+  manifest: CoordinatesManifest | CompactCoordinatesManifest,
   origin?: string,
 ): string[] {
   const diagnostics: string[] = [];
@@ -119,7 +121,17 @@ export function ingestRemoteManifest(
   // a hostile manifest can't smuggle values in via numeric indices.
   const isRecord = (v: unknown): v is Record<string, unknown> =>
     typeof v === "object" && v !== null && !Array.isArray(v);
-  const collectionRecord = manifest.collections?.[collection];
+  const collectionRecord: unknown = isRecord(manifest.collections) && Object.hasOwn(manifest.collections, collection)
+    ? manifest.collections[collection] : undefined;
+  if (collectionRecord === undefined) {
+    return [`remote manifest for "${collection}" has no such collection (or a malformed one) — citations to it will resolve to "#".`];
+  }
+  if (manifest.version === 2) {
+    const expanded = expandCompactCollection(collectionRecord);
+    return [...expanded.diagnostics, ...ingestRemoteManifest(citationIndex, collection, {
+      version: 1, collections: { [collection]: expanded.collection },
+    }, origin)];
+  }
   const entries = isRecord(collectionRecord) ? collectionRecord.entries : undefined;
   if (!isRecord(entries)) {
     diagnostics.push(
