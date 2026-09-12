@@ -138,7 +138,7 @@
 	},
 	"dependencies": {
 		"@astrojs/markdown-satteri": "^0.3.4",
-		"@astrojs/mdx": "~7.0.3",
+		"@astrojs/mdx": "~8.0.0",
 		"@astrojs/sitemap": "3.7.2",
 		"@clack/prompts": "^0.9.1",
 		"@iconify/tools": "^5.0.12",
