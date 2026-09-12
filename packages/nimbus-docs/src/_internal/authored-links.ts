@@ -1,5 +1,5 @@
 import { fromHtml } from "hast-util-from-html";
-import { markdownToMdast, mdxToMdast } from "satteri";
+import { markdownToMdast, mdxToMdast } from "satteri-source-parser";
 import ts from "typescript";
 
 interface MdNode {
