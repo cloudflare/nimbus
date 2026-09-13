@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { afterEach, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { runningNimbusVersion } from "../src/_internal/upgrades.js";
+import { runningNimbusVersion, selectUpgradeEntries } from "../src/_internal/upgrades.js";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const cli = path.join(packageRoot, "src", "cli", "index.ts");
@@ -115,6 +115,8 @@ test("migrate plans, diffs, applies, preserves modes, and becomes idempotent", (
 });
 
 test("historical jumps stay blocked until a clean consented rerun records the range", () => {
+  const expectedReviewIds = selectUpgradeEntries("0.11.0", CURRENT_VERSION).map(entry => entry.id);
+  assert.ok(expectedReviewIds.includes("partial-resolver-to-markdown"));
   const root = makeProject();
   const nimbusFile = path.join(root, "nimbus.json");
   fs.writeFileSync(nimbusFile, `${JSON.stringify({ lastReviewedNimbusVersion: "0.11.0" }, null, 2)}\n`);
@@ -124,7 +126,8 @@ test("historical jumps stay blocked until a clean consented rerun records the ra
   const plan = JSON.parse(planned.stdout);
   assert.equal(plan.status, "blocked");
   assert.equal(plan.baseline.fromVersion, "0.11.0");
-  assert.equal(plan.reviews.length, 9);
+  assert.equal(plan.baseline.targetVersion, CURRENT_VERSION);
+  assert.deepEqual(plan.reviews.map((review: { id: string }) => review.id), expectedReviewIds);
   assert.equal(plan.migrations[0].state, "available");
   const dryRun = run(root, ["migrate", "--dry-run", "--from", "0.11.0"]);
   assert.equal(dryRun.status, 1, dryRun.stderr);
@@ -137,7 +140,10 @@ test("historical jumps stay blocked until a clean consented rerun records the ra
 
   const pendingCheck = run(root, ["check", "--migrations", "--json"]);
   assert.equal(pendingCheck.status, 1, pendingCheck.stderr);
-  assert.equal(JSON.parse(pendingCheck.stdout).findings.length, 9);
+  assert.deepEqual(
+    JSON.parse(pendingCheck.stdout).findings.map((finding: { migration: { id: string } }) => finding.migration.id),
+    expectedReviewIds,
+  );
   assert.ok(JSON.parse(pendingCheck.stdout).findings.every((finding: { code: string }) => finding.code === "nimbus/upgrade-review"));
 
   const completed = run(root, ["migrate", "--yes", "--json"]);
@@ -145,7 +151,7 @@ test("historical jumps stay blocked until a clean consented rerun records the ra
   const result = JSON.parse(completed.stdout);
   assert.equal(result.status, "passed");
   assert.equal(result.baseline.recorded, true);
-  assert.equal(result.reviews.length, 9);
+  assert.deepEqual(result.reviews.map((review: { id: string }) => review.id), expectedReviewIds);
   assert.equal(JSON.parse(fs.readFileSync(nimbusFile, "utf8")).lastReviewedNimbusVersion, CURRENT_VERSION);
 
   const checked = run(root, ["check", "--migrations", "--json"]);

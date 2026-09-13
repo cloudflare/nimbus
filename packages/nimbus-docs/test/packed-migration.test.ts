@@ -6,10 +6,15 @@ import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { runningNimbusVersion, selectUpgradeEntries } from "../src/_internal/upgrades.js";
+
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fixture = path.join(packageRoot, "test", "fixtures", "partial-resolver-migration");
 
 test("published failure becomes a packed migration and preserves partial-heading behavior", { timeout: 240_000 }, () => {
+  const targetVersion = runningNimbusVersion();
+  const expectedReviewIds = selectUpgradeEntries("0.11.0", targetVersion).map(entry => entry.id);
+  assert.ok(expectedReviewIds.includes("partial-resolver-to-markdown"));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-packed-migration-"));
   const previousNpmrc = process.env.NPM_CONFIG_USERCONFIG;
   const emptyNpmrc = path.join(root, "empty-npmrc");
@@ -42,7 +47,8 @@ test("published failure becomes a packed migration and preserves partial-heading
     assert.notEqual(applied.status, 0, applied.output);
     assert.equal(JSON.parse(applied.stdout).status, "blocked");
     assert.equal(JSON.parse(applied.stdout).migrations[0].state, "applied");
-    assert.equal(JSON.parse(applied.stdout).reviews.length, 9);
+    assert.equal(JSON.parse(applied.stdout).baseline.targetVersion, targetVersion);
+    assert.deepEqual(JSON.parse(applied.stdout).reviews.map((review: { id: string }) => review.id), expectedReviewIds);
 
     const reviewBlocked = run(root, ["exec", "astro", "check"]);
     assert.notEqual(reviewBlocked.status, 0, reviewBlocked.output);

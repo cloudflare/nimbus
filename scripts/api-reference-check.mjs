@@ -82,6 +82,7 @@ const PINNED_REGISTRY_PEERS = Object.entries(PEERS).map(
   ([name, version]) => `${name}@${version}`,
 );
 const TARBALL_INTEGRITY_PLACEHOLDER = "{{NIMBUS_TARBALL_INTEGRITY}}";
+const NIMBUS_VERSION_PLACEHOLDER = "{{NIMBUS_VERSION}}";
 
 const managedChildren = new Set();
 const managedServers = new Set();
@@ -1516,11 +1517,21 @@ async function execute() {
     occurrences(lockTemplate, TARBALL_INTEGRITY_PLACEHOLDER) === 1,
     "consumer lock template must contain exactly one tarball integrity placeholder",
   );
-  const frozenLock = lockTemplate.replace(
-    TARBALL_INTEGRITY_PLACEHOLDER,
-    tarballIntegrity,
+  assert(
+    occurrences(lockTemplate, NIMBUS_VERSION_PLACEHOLDER) === 1,
+    "consumer lock template must contain exactly one Nimbus version placeholder",
   );
   const nimbusPackage = JSON.parse(await readFile(NIMBUS_PACKAGE, "utf8"));
+  assert(
+    typeof nimbusPackage.version === "string" &&
+      satisfies(nimbusPackage.version, "*", { includePrerelease: true }),
+    "Nimbus package version must be valid semver",
+  );
+  // Only the local artifact's version and integrity vary with a release.
+  // Dependency resolutions and the remaining package metadata stay reviewed.
+  const frozenLock = lockTemplate
+    .replace(TARBALL_INTEGRITY_PLACEHOLDER, tarballIntegrity)
+    .replace(NIMBUS_VERSION_PLACEHOLDER, nimbusPackage.version);
   assertFrozenNimbusMetadata(frozenLock, nimbusPackage, consumerPackage);
   const lockPath = join(site, "pnpm-lock.yaml");
   await writeFile(lockPath, frozenLock);

@@ -23,7 +23,7 @@
     "local:reset": "node scripts/local.mjs --auto --reset",
     "local:add": "node scripts/local-add.mjs",
     "changeset": "changeset",
-    "changeset:version": "changeset version && node scripts/sync-reviewed-baselines.mjs",
+    "changeset:version": "changeset version && node scripts/sync-reviewed-baselines.mjs && pnpm --filter @nimbus/www generate-registry",
     "changeset:publish": "changeset publish"
   },
   "engines": {
