@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   loadPreviousManifest,
+  resolveUpgradeBaseRef,
   validateBreakingDeclaration,
   validateManifestContinuity,
   validateUpgradeManifest,
@@ -20,6 +21,35 @@ function entry(id, extra = {}) {
     ...extra,
   };
 }
+
+test("base ref falls back to main for local, push and dispatch environments", () => {
+  for (const env of [
+    {},
+    { GITHUB_BASE_REF: "" },
+    { BASE_REF: "", GITHUB_BASE_REF: "" },
+    { BASE_REF: " \t", GITHUB_BASE_REF: "\n " },
+  ]) {
+    assert.equal(resolveUpgradeBaseRef(env), "main");
+  }
+});
+
+test("base ref uses the PR target when the explicit override is absent or blank", () => {
+  assert.equal(resolveUpgradeBaseRef({ GITHUB_BASE_REF: "release/next" }), "release/next");
+  assert.equal(resolveUpgradeBaseRef({ BASE_REF: " ", GITHUB_BASE_REF: " release/next " }), "release/next");
+});
+
+test("an explicit base ref takes precedence over the PR target", () => {
+  assert.equal(resolveUpgradeBaseRef({ BASE_REF: " stable ", GITHUB_BASE_REF: "main" }), "stable");
+});
+
+test("an invalid non-empty override still fails closed instead of falling back", () => {
+  const baseRef = resolveUpgradeBaseRef({
+    BASE_REF: "definitely-not-a-real-base-ref",
+    GITHUB_BASE_REF: "main",
+  });
+  assert.equal(baseRef, "definitely-not-a-real-base-ref");
+  assert.throws(() => loadPreviousManifest(baseRef), /Could not resolve base ref/);
+});
 
 test("manifest validation rejects duplicates and incomplete automatic entries", () => {
   assert.throws(

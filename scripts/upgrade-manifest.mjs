@@ -189,6 +189,10 @@ function pendingChangesets() {
   return values;
 }
 
+export function resolveUpgradeBaseRef(env = process.env) {
+  return env.BASE_REF?.trim() || env.GITHUB_BASE_REF?.trim() || "main";
+}
+
 export function runUpgradeManifestCheck({
   breaking = false,
   baseRef = "main",
@@ -219,7 +223,7 @@ if (
       breaking:
         process.env.BREAKING_CHANGE === "1" ||
         process.env.BREAKING_CHANGE === "true",
-      baseRef: process.env.BASE_REF ?? process.env.GITHUB_BASE_REF ?? "main",
+      baseRef: resolveUpgradeBaseRef(),
     });
     console.log("[upgrade-manifest] valid");
   } catch (error) {
