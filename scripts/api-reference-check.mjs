@@ -307,9 +307,14 @@ function packageMetadata(packageJson) {
 }
 
 function resolvedVersion(reference) {
-  return /^([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)/.exec(
+  return /(?:^|@)([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)/.exec(
     String(reference ?? ""),
   )?.[1];
+}
+
+function resolvedRange(range) {
+  const value = String(range);
+  return value.startsWith("npm:") ? value.slice(value.lastIndexOf("@") + 1) : value;
 }
 
 function assertFrozenNimbusMetadata(lockText, nimbusPackage, consumerPackage) {
@@ -391,7 +396,8 @@ function assertFrozenNimbusMetadata(lockText, nimbusPackage, consumerPackage) {
       const reference = snapshot[field]?.[name];
       const version = resolvedVersion(reference);
       assert(
-        version && satisfies(version, range, { includePrerelease: true }),
+        version &&
+          satisfies(version, resolvedRange(range), { includePrerelease: true }),
         `consumer lock resolves ${name} to ${reference}; expected ${range}`,
       );
     }
@@ -405,7 +411,8 @@ function assertFrozenNimbusMetadata(lockText, nimbusPackage, consumerPackage) {
     const reference = snapshot[field]?.[name];
     const version = resolvedVersion(reference);
     assert(
-      version && satisfies(version, range, { includePrerelease: true }),
+      version &&
+        satisfies(version, resolvedRange(range), { includePrerelease: true }),
       `consumer lock resolves peer ${name} to ${reference}; expected ${range}`,
     );
   }

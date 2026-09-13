@@ -123,13 +123,22 @@ test("selectUpgradeEntries composes the open-closed version range", () => {
   assert.equal(selectUpgradeEntries("0.13.0", "0.13.1").length, 0);
   for (const from of ["0.13.0", "0.13.1"]) {
     assert.deepEqual(selectUpgradeEntries(from, "0.14.0").map(entry => entry.id),
-      ["compact-coordinate-manifest"]);
+      ["compact-coordinate-manifest", "explicit-markdown-processor"]);
   }
   const coordinates = UPGRADE_MANIFEST.entries.find(entry => entry.id === "compact-coordinate-manifest");
   assert.equal(coordinates?.mode, "review-required");
   assert.equal(coordinates?.changeset, "compact-coordinate-manifest");
   assert.match(coordinates?.instructions.join("\n") ?? "", /no mixed-version compatibility window/);
   assert.match(coordinates?.instructions.join("\n") ?? "", /Do not just change the version number/);
+  const processor = UPGRADE_MANIFEST.entries.find(
+    (entry) => entry.id === "explicit-markdown-processor",
+  );
+  assert.equal(processor?.mode, "review-required");
+  assert.equal(processor?.changeset, "safe-admonition-titles");
+  assert.match(processor?.instructions.join("\n") ?? "", /markdown\.processor/);
+  assert.match(processor?.instructions.join("\n") ?? "", /admonitions: false/);
+  assert.match(processor?.affected ?? "", /\.md files/);
+  assert.match(processor?.instructions.join("\n") ?? "", /only \.mdx files/);
 });
 
 test("selectUpgradeEntries rejects unsupported and reversed ranges", () => {

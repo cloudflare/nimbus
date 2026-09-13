@@ -1,27 +1,10 @@
-/**
- * Rewrites `:::type[title]...:::` fenced directives to `<Aside>` in MDX source,
- * as a Vite content transform that runs before the markdown compiler.
- *
- * Indentation is load-bearing: a directive nested inside indented JSX (e.g.
- * `:::note` inside `<TabItem>`) must emit its `<Aside>` at the same column. A
- * flush-left `<Aside>` dedents out of the enclosing element and `@mdx-js/mdx`
- * rejects the orphaned tag. The body is dedented to a common baseline then
- * re-prefixed with the directive's indent so nested structure survives.
- *
- * Not handled: nested admonitions with extra colons (`::::note … :::sub …`),
- * and bodies indented less than the `:::` opener (the common-baseline dedent
- * keys on the shallowest line, so an under-indented line pushes its siblings
- * into a code block). Author bodies at least as far as the opener.
- */
-
-export interface AdmonitionTransformOptions {
-  /** Extra type aliases on top of the built-in set. */
-  typeAliases?: Record<string, AsideType>;
-}
+import { mdxToMdast, type Features, type MdastNode } from "satteri";
 
 export type AsideType = "note" | "tip" | "caution" | "danger";
-
-const BUILTIN_TYPES: Record<string, AsideType> = {
+export interface AdmonitionTransformOptions {
+  typeAliases?: Record<string, AsideType>;
+}
+const TYPES: Record<string, AsideType> = {
   note: "note",
   info: "note",
   tip: "tip",
@@ -30,90 +13,314 @@ const BUILTIN_TYPES: Record<string, AsideType> = {
   important: "caution",
   danger: "danger",
 };
+const LITERAL = new Set(["pre", "code", "script", "style", "textarea"]);
+const childrenOf = (node: MdastNode): MdastNode[] =>
+  "children" in node ? (node.children as MdastNode[]) : [];
 
-/** Transform a single MDX source string. Idempotent. */
-export function transformAdmonitions(
+/** Native directive parsing with a small adapter for Nimbus's plain-title contract. */
+export function parseAdmonitions(
   source: string,
   options: AdmonitionTransformOptions = {},
-): string {
-  const typeMap = { ...BUILTIN_TYPES, ...(options.typeAliases ?? {}) };
-
-  const { frontmatter, body, bodyOffset: _ } = splitFrontmatter(source);
-
-  const { stashed, restore } = stashCodeBlocks(body);
-
-  const rewritten = stashed.replace(
-    ADMONITION_PATTERN,
-    (match, rawIndent, rawType, rawTitle, rawContent) => {
-      const type = String(rawType).toLowerCase();
-      const aside = typeMap[type];
-      if (!aside) {
-        return match;
+  features: Features = {},
+): Extract<MdastNode, { type: "root" }> {
+  const types = { ...TYPES, ...options.typeAliases };
+  const typeOf = (name: string) =>
+    Object.hasOwn(types, name.toLowerCase())
+      ? types[name.toLowerCase()]
+      : undefined;
+  const parse = (text: string, directive: boolean) =>
+    mdxToMdast(text, { features: { ...features, directive } });
+  const points = Array.from(source);
+  let protectedRanges: [number, number][] = [];
+  let originals = new Map<string, MdastNode>();
+  const key = (node: MdastNode) =>
+    `${node.position?.start.offset}:${node.position?.end.offset}`;
+  function nativeParse(): ReturnType<typeof mdxToMdast> {
+    const ordinary = parse(source, false);
+    protectedRanges = [];
+    originals = new Map();
+    function remember(node: MdastNode) {
+      originals.set(node.type + key(node), node);
+      childrenOf(node).forEach(remember);
+    }
+    remember(ordinary);
+    const colonRanges: [number, number][] = [];
+    const definitionRanges: [number, number][] = [];
+    function protect(node: MdastNode) {
+      if (
+        [
+          "inlineCode",
+          "definition",
+          "mdxFlowExpression",
+          "mdxTextExpression",
+        ].includes(node.type)
+      ) {
+        const range: [number, number] = [
+          node.position!.start.offset!,
+          node.position!.end.offset!,
+        ];
+        protectedRanges.push(range);
+        if (node.type === "inlineCode") colonRanges.push(range);
+        if (node.type === "definition") definitionRanges.push(range);
+      } else {
+        if (
+          node.type === "mdxJsxFlowElement" ||
+          node.type === "mdxJsxTextElement"
+        )
+          protectedRanges.push([
+            node.position!.start.offset!,
+            node.position!.end.offset!,
+          ]);
+        childrenOf(node).forEach(protect);
       }
-      const indent = typeof rawIndent === "string" ? rawIndent : "";
-      const title = typeof rawTitle === "string" ? rawTitle.trim() : "";
-      const titleAttr = title ? ` title=${JSON.stringify(title)}` : "";
-
-      const body = reindentBody(String(rawContent), indent);
-
-      return `\n\n${indent}<Aside type="${aside}"${titleAttr}>\n\n${body}\n\n${indent}</Aside>\n\n`;
-    },
-  );
-
-  const restored = restore(rewritten);
-
-  return frontmatter + restored;
-}
-
-const ADMONITION_PATTERN =
-  /^([ \t]*):::([a-zA-Z]+)(?:\[([^\]]*)\])?[ \t]*(?:\n|[ \t]+)([\s\S]*?)\n?[ \t]*:::[ \t]*$/gm;
-
-/** Dedent the body to a common baseline, then re-prefix with the directive's indent. */
-function reindentBody(content: string, indent: string): string {
-  const lines = content.replace(/^\n+/, "").replace(/\n+$/, "").split("\n");
-  const widths = lines
-    .filter((l) => l.trim() !== "")
-    .map((l) => (l.match(/^[ \t]*/)?.[0].length ?? 0));
-  const common = widths.length ? Math.min(...widths) : 0;
-  return lines
-    .map((l) => (l.trim() === "" ? "" : indent + l.slice(common)))
-    .join("\n");
-}
-
-interface FrontmatterSplit {
-  frontmatter: string;
-  body: string;
-  bodyOffset: number;
-}
-
-function splitFrontmatter(source: string): FrontmatterSplit {
-  const match = source.match(/^---\n[\s\S]*?\n---\n?/);
-  if (!match) return { frontmatter: "", body: source, bodyOffset: 0 };
-  return {
-    frontmatter: match[0],
-    body: source.slice(match[0].length),
-    bodyOffset: match[0].length,
-  };
-}
-
-/** Replace fenced code blocks with placeholders so `:::` inside code is preserved. */
-function stashCodeBlocks(body: string): { stashed: string; restore: (src: string) => string } {
-  const blocks: string[] = [];
-  const PLACEHOLDER = "\x00NIMBUS_CODEBLOCK_";
-  const PLACEHOLDER_END = "\x00";
-
-  const stashed = body.replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g, (match) => {
-    const index = blocks.length;
-    blocks.push(match);
-    return `${PLACEHOLDER}${index}${PLACEHOLDER_END}`;
-  });
-
-  function restore(src: string): string {
-    return src.replace(
-      new RegExp(`${PLACEHOLDER}(\\d+)${PLACEHOLDER_END}`, "g"),
-      (_match, index) => blocks[Number(index)] ?? "",
-    );
+    }
+    protect(ordinary);
+    // Use a single code point so native source positions remain valid.
+    let markerCode = 0xe000;
+    while (source.includes(String.fromCodePoint(markerCode))) markerCode++;
+    const marker = String.fromCodePoint(markerCode);
+    const masked = [...points];
+    for (const [a, b] of colonRanges)
+      for (let i = a; i < b; i++) if (masked[i] === ":") masked[i] = marker;
+    for (const [a, b] of definitionRanges) {
+      let start = a;
+      while (start < b) {
+        if (masked[start] !== "]" || masked[start + 1] !== ":") {
+          start++;
+          continue;
+        }
+        let backslashes = 0;
+        for (let i = start - 1; i >= a && masked[i] === "\\"; i--) {
+          backslashes++;
+        }
+        start += backslashes % 2 === 0 ? 2 : 1;
+        if (backslashes % 2 === 0) break;
+      }
+      while (start < b) {
+        if (masked[start] !== ":") {
+          start++;
+          continue;
+        }
+        let end = start + 1;
+        while (end < b && masked[end] === ":") end++;
+        if (end - start >= 2) {
+          for (let i = start; i < end; i++) masked[i] = marker;
+        }
+        start = end;
+      }
+    }
+    let bracketCode = markerCode + 1;
+    while (source.includes(String.fromCodePoint(bracketCode))) bracketCode++;
+    const bracketMarker = String.fromCodePoint(bracketCode);
+    for (const token of originals.values()) {
+      const { position } = token;
+      if (
+        position?.start.offset === undefined ||
+        position.end.offset === undefined
+      )
+        continue;
+      const a = position.start.offset,
+        b = position.end.offset;
+      if (token.type === "inlineCode") {
+        for (let i = a; i < b; i++)
+          if (masked[i] === "]") masked[i] = bracketMarker;
+      } else if (
+        [
+          "mdxJsxTextElement",
+          "mdxJsxFlowElement",
+          "mdxTextExpression",
+          "mdxFlowExpression",
+        ].includes(token.type)
+      ) {
+        let lineStart = a;
+        while (lineStart > 0 && !/[\r\n]/.test(points[lineStart - 1]!))
+          lineStart--;
+        if (
+          /^[ \t]*:{3,}[\w-]+\[/.test(points.slice(lineStart, a).join("")) &&
+          !/[\r\n]/.test(points.slice(a, b).join(""))
+        )
+          for (let i = a; i < b; i++) masked[i] = "x";
+      }
+    }
+    const result = parse(masked.join(""), true);
+    function restore(value: unknown): unknown {
+      if (typeof value === "string")
+        return value.replaceAll(marker, ":").replaceAll(bracketMarker, "]");
+      if (Array.isArray(value)) return value.map(restore);
+      if (value && typeof value === "object")
+        for (const key of Object.keys(value))
+          (value as Record<string, unknown>)[key] = restore(
+            (value as Record<string, unknown>)[key],
+          );
+      return value;
+    }
+    return restore(result) as ReturnType<typeof mdxToMdast>;
+  }
+  // The installed native directive parser drops CR-only bodies. Keep these
+  // files literal until upstream supports standalone CR consistently.
+  if (/\r(?!\n)/.test(source))
+    return structuredClone(parse(source, false)) as Extract<
+      MdastNode,
+      { type: "root" }
+    >;
+  let tree = nativeParse();
+  const slice = (node: MdastNode) =>
+    points
+      .slice(node.position!.start.offset!, node.position!.end.offset!)
+      .join("");
+  // Native labels allow Markdown/MDX; Aside's existing title is a literal string.
+  // Locate just that label, respecting parser-owned inline syntax inside it.
+  function header(node: MdastNode) {
+    const start = node.position!.start.offset!;
+    let end = start + Array.from(/^:+[\w-]+/.exec(slice(node))![0]).length;
+    const labelStart = end;
+    if (points[end] !== "[") return { end, title: undefined };
+    let depth = 1;
+    for (end++; end < points.length && !/[\r\n]/.test(points[end]!); end++) {
+      const span = protectedRanges.find(
+        ([a, b]) => a > labelStart && a <= end && end < b,
+      );
+      if (span) {
+        end = span[1] - 1;
+        continue;
+      }
+      if (points[end] === "\\") {
+        end++;
+        continue;
+      }
+      if (points[end] === "[") depth++;
+      if (points[end] === "]" && --depth === 0)
+        return {
+          end: end + 1,
+          title: points
+            .slice(labelStart + 1, end)
+            .join("")
+            .trim(),
+        };
+    }
+    return { end: labelStart, title: undefined };
   }
 
-  return { stashed, restore };
+  // Sätteri owns delimiter recognition. Only normalize its recognized opening
+  // lines for the legacy `:::note Body :::` / `:::note Body` authoring forms.
+  const edits: { start: number; end: number; value: string }[] = [];
+  function legacy(node: MdastNode): void {
+    if ("name" in node && LITERAL.has(node.name ?? "")) return;
+    if (node.type === "containerDirective" && typeOf(node.name)) {
+      const raw = slice(node);
+      const line = /^[^\r\n]*/.exec(raw)![0];
+      const headerLength = header(node).end - node.position!.start.offset!;
+      const opening = Array.from(line).slice(0, headerLength).join("");
+      const tail = Array.from(line).slice(headerLength).join("");
+      // Attribute syntax belongs to the native parser, not the legacy body form.
+      if (tail.trim() && !tail.trimStart().startsWith("{")) {
+        const newline = /\r\n|[\r\n]/.exec(source)?.[0] ?? "\n";
+        const start = node.position!.start.offset!;
+        let lineStart = start;
+        while (lineStart > 0 && !/[\r\n]/.test(points[lineStart - 1]!))
+          lineStart--;
+        const indent = points
+          .slice(lineStart, start)
+          .join("")
+          .replace(/[^ \t>]/g, " ");
+        const body = tail
+          .trim()
+          .replace(/[ \t]+(:{3,})[ \t]*$/, `${newline}${indent}$1`);
+        edits.push({
+          start: node.position!.start.offset!,
+          end: node.position!.start.offset! + Array.from(line).length,
+          value: `${opening}${newline}${indent}${body}`,
+        });
+      }
+    }
+    childrenOf(node).forEach(legacy);
+  }
+  legacy(tree);
+  if (edits.length) {
+    for (const edit of edits.sort((a, b) => b.start - a.start))
+      points.splice(
+        edit.start,
+        edit.end - edit.start,
+        ...Array.from(edit.value),
+      );
+    source = points.join("");
+    tree = nativeParse();
+  }
+  function literal(node: MdastNode): MdastNode[] {
+    const original =
+      originals.get(node.type + key(node)) ??
+      [...originals.values()].find(
+        (candidate) =>
+          candidate.type !== "root" && key(candidate) === key(node),
+      );
+    if (original) return [original];
+    const children = childrenOf(parse(slice(node), false));
+    function rebase(child: MdastNode) {
+      if (child.position)
+        for (const point of [child.position.start, child.position.end]) {
+          point.offset! += node.position!.start.offset!;
+          if (point.line === 1) point.column += node.position!.start.column - 1;
+          point.line += node.position!.start.line - 1;
+        }
+      childrenOf(child).forEach(rebase);
+    }
+    children.forEach(rebase);
+    return children;
+  }
+  function visit(node: MdastNode): MdastNode[] {
+    if ("name" in node && LITERAL.has(node.name ?? ""))
+      return features.directive ? [node] : literal(node);
+    if (node.type === "containerDirective") {
+      const type = typeOf(node.name);
+      if (!type) {
+        if (!features.directive) return literal(node);
+        node.children = node.children.flatMap(visit) as never;
+        return [node];
+      }
+      const { title } = header(node);
+      return [
+        {
+          type: "mdxJsxFlowElement",
+          name: "Aside",
+          position: node.position,
+          attributes: [
+            { type: "mdxJsxAttribute", name: "type", value: type },
+            ...(title
+              ? [
+                  {
+                    type: "mdxJsxAttribute" as const,
+                    name: "title",
+                    value: title,
+                  },
+                ]
+              : []),
+          ],
+          children: node.children
+            .filter(
+              (child) =>
+                child.position!.start.offset! >=
+                node.position!.start.offset! +
+                  Array.from(/^[^\r\n]*/.exec(slice(node))![0]).length,
+            )
+            .flatMap(visit) as never,
+        },
+      ];
+    }
+    if (node.type === "textDirective")
+      return features.directive
+        ? [node]
+        : (literal(node).flatMap((child) =>
+            child.type === "paragraph" ? child.children : [child],
+          ) as MdastNode[]);
+    if (node.type === "leafDirective")
+      return features.directive ? [node] : literal(node);
+    if ("children" in node)
+      node.children = childrenOf(node).flatMap(visit) as never;
+    return [node];
+  }
+  // Detach native arena identities before inserting into the compiler's tree.
+  return structuredClone(visit(tree)[0]) as Extract<
+    MdastNode,
+    { type: "root" }
+  >;
 }

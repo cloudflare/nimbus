@@ -65,8 +65,6 @@ export default defineConfig({
   // the same way Astro's content layer does.
   noExternal: [
     "github-slugger",
-    "remark-mdx",
-    "remark-parse",
     "unified",
     "vfile",
     /^remark-lint-/,
