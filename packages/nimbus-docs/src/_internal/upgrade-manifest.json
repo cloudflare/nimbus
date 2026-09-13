@@ -3,6 +3,28 @@
   "oldestSupportedVersion": "0.11.0",
   "entries": [
     {
+      "id": "compact-coordinate-manifest",
+      "introducedIn": "0.14.0",
+      "mode": "review-required",
+      "changeset": "compact-coordinate-manifest",
+      "summary": "Rebuild API coordinate publishers and consumers for the compact v2 format.",
+      "affected": "Sites publishing or consuming coordinates.json through apiReferences, and custom tools reading CoordinatesManifest.",
+      "instructions": [
+        "No action is needed if the project neither publishes nor consumes API coordinate manifests.",
+        "Coordinate the rollout of publishers and consuming sites onto the same Nimbus release. Old readers cannot consume v2; new readers no longer consume v1. There is no mixed-version compatibility window.",
+        "Keep the existing getCoordinatesManifest import, endpoint path, headers and prerender setting. Rebuild publishers to emit v2, then rebuild consumers against that output. Stage both before switching live sites when uninterrupted citations matter.",
+        "Regenerate any checked-in v1 manifests from the upgraded publisher before building consumers. Do not just change the version number in old JSON.",
+        "Update custom CoordinatesManifest readers to use collection.pages and collection.versions page groups. Each group has a literal url and coordinate-keyed entries: null means no fragment, 0 means the coordinate is the fragment, and a string is the exact fragment.",
+        "A local v1 reference fails the build with guidance; a remote v1 reference warns and is skipped. Treat those warnings as an incomplete migration.",
+        "To roll back, restore the previous Nimbus release and v1 artifacts on both publishers and consumers together."
+      ],
+      "verify": [
+        "Confirm each published and checked-in coordinates.json reports version 2.",
+        "Build publishers and consumers and verify operation, field, response and historical-version citation links with no unsupported-manifest warnings.",
+        "The introducedIn value is the planned next minor release; confirm the actual release version before coordinating deployment."
+      ]
+    },
+    {
       "id": "remove-gated-config",
       "introducedIn": "0.12.0",
       "mode": "review-required",

@@ -5,12 +5,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildCitationIndex, ingestRemoteManifest } from "../src/_internal/api/citation-index.ts";
-import { compactCoordinatesManifest } from "../src/_internal/api/compact-coordinates.ts";
+import { createPageGroups } from "../src/_internal/api/coordinate-manifest.ts";
 import { ingestApiReferences } from "../src/_internal/api/ingest-references.ts";
-import type { ApiSpec, CompactCoordinatesManifest, CoordinatePageGroup, CoordinatesManifest } from "../src/types.ts";
+import type { ApiSpec, CoordinatePageGroup, CoordinatesManifest } from "../src/types.ts";
 
 const spec = fileURLToPath(new URL("./fixtures/api/smallco.yaml", import.meta.url));
-const decode = (manifest: CoordinatesManifest | CompactCoordinatesManifest, origin?: string) => {
+const decode = (manifest: CoordinatesManifest, origin?: string) => {
   const index = new Map<string, string>();
   for (const name of Object.keys(manifest.collections)) {
     assert.deepEqual(ingestRemoteManifest(index, name, manifest, origin), []);
@@ -18,13 +18,27 @@ const decode = (manifest: CoordinatesManifest | CompactCoordinatesManifest, orig
   return index;
 };
 
+test("empty API declarations publish an empty v2 manifest", async () => {
+  assert.deepEqual((await buildCitationIndex(undefined, ".")).manifest,
+    { version: 2, collections: Object.create(null) });
+});
+
+test("producer bytes are independent of collection and version declaration order", async () => {
+  const api: ApiSpec[] = ["z", "svc"].map(collection => ({
+    collection, versions: [{ version: "v2", default: true, spec }, { version: "v1", spec }],
+  }));
+  const reversed = [...api].reverse().map(value => ({ ...value, versions: [...value.versions!].reverse() }));
+  assert.equal(JSON.stringify((await buildCitationIndex(api, ".")).manifest),
+    JSON.stringify((await buildCitationIndex(reversed, ".")).manifest));
+});
+
 for (const versioned of [false, true]) {
   test(`compact transport preserves actual ${versioned ? "versioned" : "unversioned"} producer citations`, async () => {
     const api: ApiSpec[] = [versioned
       ? { collection: "svc", versions: [{ version: "v2", default: true, spec }, { version: "v1", spec }] }
       : { collection: "svc", spec }];
     const { manifest, index } = await buildCitationIndex(api, ".");
-    const compact = JSON.parse(JSON.stringify(compactCoordinatesManifest(manifest)));
+    const compact = JSON.parse(JSON.stringify(manifest));
     assert.deepEqual(decode(compact), index);
     assert.deepEqual(decode(compact, "https://example.com/"), decode(manifest, "https://example.com/"));
     assert.equal(compact.collections.svc.defaultVersion, versioned ? "v2" : null);
@@ -33,19 +47,22 @@ for (const versioned of [false, true]) {
 }
 
 test("opaque coordinates and literal fragments survive JSON transport without normalization", () => {
-  const entries = Object.fromEntries([
-    ["root", { url: "/api?mode=a%2Fb" }],
-    ["empty", { url: "/api?mode=a%2Fb#" }],
-    ["a:b.雪", { url: "/api?a=1#different#second" }],
-    ["__proto__", { url: "/api#__proto__" }],
-    ["constructor", { versions: { v1: "/v1/api#constructor" } }],
-    ["encoded", { url: "/api#%E9%9B%AA%2Fvalue" }],
-    ["Case", { url: "/api#Case" }],
-    ["case", { url: "/api#case" }],
-    ["field@revision", { url: "/api#field@revision" }],
-  ]);
-  const manifest: CoordinatesManifest = { version: 1, collections: { svc: { defaultVersion: "v2", entries } } };
-  const compact = compactCoordinatesManifest(manifest);
+  const targets = [
+    { coordinate: "root", url: "/api?mode=a%2Fb" },
+    { coordinate: "empty", url: "/api?mode=a%2Fb#" },
+    { coordinate: "a:b.雪", url: "/api?a=1#different#second" },
+    { coordinate: "__proto__", url: "/api#__proto__" },
+    { coordinate: "encoded", url: "/api#%E9%9B%AA%2Fvalue" },
+    { coordinate: "Case", url: "/api#Case" },
+    { coordinate: "case", url: "/api#case" },
+    { coordinate: "field@revision", url: "/api#field@revision" },
+  ];
+  const manifest: CoordinatesManifest = { version: 2, collections: { svc: {
+    defaultVersion: "v2", pages: createPageGroups(targets),
+    versions: { v1: createPageGroups([{ coordinate: "constructor", url: "/v1/api#constructor" }]) },
+  } } };
+  for (const { coordinate, url } of targets) assert.equal(decode(manifest).get("svc:" + coordinate), url);
+  const compact = manifest;
   assert.deepEqual(decode(JSON.parse(JSON.stringify(compact))), decode(manifest));
   assert.equal(decode(compact).has("svc:constructor"), false, "version-only coordinates must not gain bare aliases");
   assert.equal(decode(compact).get("svc:empty"), "/api?mode=a%2Fb#");
@@ -61,19 +78,16 @@ test("actual producer preserves non-api collection and version mount paths", asy
   const { manifest, index } = await buildCitationIndex([{ collection: "reference", versions: [
     { version: "v2", default: true, spec }, { version: "v1", spec },
   ] }], ".");
-  const compactIndex = decode(JSON.parse(JSON.stringify(compactCoordinatesManifest(manifest))));
+  const compactIndex = decode(JSON.parse(JSON.stringify(manifest)));
   assert.deepEqual(compactIndex, index);
   assert.equal(compactIndex.get("reference:reference"), "/reference");
   assert.equal(compactIndex.get("reference@v1:reference"), "/reference/v1");
   assert.match(compactIndex.get("reference@v1:create.response.200")!, /^\/reference\/v1\/.*#response-200$/);
 });
 
-test("missing collections warn consistently for old and compact manifests", () => {
-  const index = new Map<string, string>([["existing:page", "/existing"]]);
-  const oldWarnings = ingestRemoteManifest(index, "missing", { version: 1, collections: {} });
-  const compactWarnings = ingestRemoteManifest(index, "missing", { version: 2, collections: {} });
-  assert.ok(oldWarnings.length > 0);
-  assert.deepEqual(compactWarnings, oldWarnings);
+test("missing collections warn without modifying the index", () => {
+  const index = new Map([["existing:page", "/existing"]]);
+  assert.equal(ingestRemoteManifest(index, "missing", { version: 2, collections: {} }).length, 1);
   assert.deepEqual(index, new Map([["existing:page", "/existing"]]));
 });
 
@@ -95,21 +109,11 @@ test("a local malformed compact entry warns while preserving a valid sibling", a
   }
 });
 
-test("packing produces identical bytes independently of input insertion order", () => {
-  const collection = (reverse: boolean) => ({ defaultVersion: "v2", entries: Object.fromEntries(
-    (reverse ? ["b", "a"] : ["a", "b"]).map(key => [key, {
-      url: `/api/${key}#${key}`,
-      versions: Object.fromEntries((reverse ? ["v2", "v1"] : ["v1", "v2"]).map(v => [v, `/${v}/${key}#${key}`])),
-    }]),
-  ) });
-  const manifest = (reverse: boolean): CoordinatesManifest => ({ version: 1, collections: Object.fromEntries(
-    (reverse ? ["z", "svc"] : ["svc", "z"]).map(name => [name, collection(reverse)]),
-  ) });
-  const before = JSON.stringify(manifest(false));
-  assert.equal(JSON.stringify(compactCoordinatesManifest(manifest(false))), JSON.stringify(compactCoordinatesManifest(manifest(true))));
-  const input = manifest(false);
-  compactCoordinatesManifest(input);
-  assert.equal(JSON.stringify(input), before, "packing must not mutate the native v1 helper's result");
+test("packing is deterministic and does not mutate its input", () => {
+  const targets = [{ coordinate: "b", url: "/b#b" }, { coordinate: "a", url: "/a#" }];
+  const before = JSON.stringify(targets);
+  assert.equal(JSON.stringify(createPageGroups(targets)), JSON.stringify(createPageGroups([...targets].reverse())));
+  assert.equal(JSON.stringify(targets), before);
 });
 
 test("malformed records and reconstructed unsafe URLs are dropped without losing valid neighbors", () => {
@@ -121,7 +125,7 @@ test("malformed records and reconstructed unsafe URLs are dropped without losing
     null,
   ], versions: { "bad@version": [{ url: "/bad", entries: { x: null } }], v1: [{ url: "/v1", entries: { good: 0 } }] } } } };
   const index = new Map<string, string>();
-  const warnings = ingestRemoteManifest(index, "svc", manifest as unknown as CompactCoordinatesManifest);
+  const warnings = ingestRemoteManifest(index, "svc", manifest as unknown as CoordinatesManifest);
   assert.ok(warnings.length > 0);
   assert.deepEqual(index, new Map([["svc:good", "/api#good"], ["svc@v1:good", "/v1#good"]]));
 });
@@ -129,7 +133,7 @@ test("malformed records and reconstructed unsafe URLs are dropped without losing
 test("duplicate coordinates are rejected per namespace, regardless of group order", () => {
   const pages: CoordinatePageGroup[] = [{ url: "/one", entries: { duplicate: null, kept: 0 } }, { url: "/two", entries: { duplicate: 0 } }];
   for (const groups of [pages, [...pages].reverse()]) {
-    const manifest: CompactCoordinatesManifest = { version: 2, collections: { svc: { defaultVersion: "v2", pages: groups, versions: {
+    const manifest: CoordinatesManifest = { version: 2, collections: { svc: { defaultVersion: "v2", pages: groups, versions: {
       v1: [{ url: "/v1", entries: { duplicate: null } }],
       v2: [{ url: "/v2/a", entries: { other: null } }, { url: "/v2/b", entries: { other: null } }],
     } } } };
@@ -166,29 +170,38 @@ test("collection-shape failures are actionable locally and best-effort remotely,
   }
 });
 
-test("HTTPS ingestion accepts v1 and v2 with the same trusted-origin targets", async () => {
-  const manifest: CoordinatesManifest = { version: 1, collections: {
-    reference: { defaultVersion: "v2", entries: {
-      operation: { url: "/reference/create", versions: { v1: "/reference/v1/create" } },
-      response: { url: "/reference/create#response-200" },
-    } },
-  } };
+test("v1 is rejected locally and warned remotely without losing existing citations", async () => {
+  const root = mkdtempSync(join(tmpdir(), "nimbus-v1-rejection-"));
   const realFetch = globalThis.fetch;
   try {
-    for (const value of [manifest, compactCoordinatesManifest(manifest)]) {
-      globalThis.fetch = async () => new Response(JSON.stringify(value));
-      const index = new Map<string, string>([["local:keep", "/keep"]]);
-      const warnings: string[] = [];
-      await ingestApiReferences([{ collection: "reference", manifest: "https://publisher.example/coordinates.json", origin: "https://publisher.example/docs" }], index, ".", { warn: message => warnings.push(message) });
-      assert.deepEqual(warnings, []);
-      assert.deepEqual(index, new Map([
-        ["local:keep", "/keep"],
-        ["reference:operation", "https://publisher.example/docs/reference/create"],
-        ["reference@v1:operation", "https://publisher.example/docs/reference/v1/create"],
-        ["reference:response", "https://publisher.example/docs/reference/create#response-200"],
-      ]));
-    }
+    const raw = { version: 1, collections: { svc: { defaultVersion: null, entries: { old: { url: "/old" } } } } };
+    writeFileSync(join(root, "coordinates.json"), JSON.stringify(raw));
+    const index = new Map([["existing:page", "/existing"]]);
+    const warnings: string[] = [];
+    const logger = { warn: (message: string) => warnings.push(message) };
+    await assert.rejects(ingestApiReferences([{ collection: "svc", manifest: "coordinates.json" }], index, root, logger), /Rebuild the publisher.*v1 is no longer supported/);
+    globalThis.fetch = async () => new Response(JSON.stringify(raw));
+    await ingestApiReferences([{ collection: "svc", manifest: "https://example.com/coordinates.json" }], index, root, logger);
+    assert.match(warnings[0]!, /Rebuild the publisher.*v1 is no longer supported/);
+    assert.deepEqual(index, new Map([["existing:page", "/existing"]]));
+    assert.throws(() => ingestRemoteManifest(index, "svc", raw as unknown as CoordinatesManifest), /v1 is no longer supported/);
   } finally {
     globalThis.fetch = realFetch;
+    rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("HTTPS ingestion preserves trusted-origin targets and existing local citations", async () => {
+  const { manifest, index: expected } = await buildCitationIndex([{ collection: "svc", versions: [
+    { version: "v2", default: true, spec }, { version: "v1", spec },
+  ] }], ".");
+  const realFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => new Response(JSON.stringify(manifest));
+    const index = new Map([["local:keep", "/keep"]]);
+    const warnings: string[] = [];
+    await ingestApiReferences([{ collection: "svc", manifest: "https://example.com/coordinates.json", origin: "https://example.com/docs/" }], index, ".", { warn: message => warnings.push(message) });
+    assert.deepEqual(warnings, []);
+    assert.deepEqual(index, new Map([["local:keep", "/keep"], ...[...expected].map(([key, url]): [string, string] => [key, "https://example.com/docs" + url])]));
+  } finally { globalThis.fetch = realFetch; }
 });

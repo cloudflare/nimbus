@@ -6,7 +6,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-import type { ApiReference, CompactCoordinatesManifest } from "../../types.js";
+import type { ApiReference } from "../../types.js";
 import { ingestRemoteManifest, type CoordinatesManifest } from "./citation-index.js";
 
 interface Logger {
@@ -21,11 +21,11 @@ function isRemote(source: string): boolean {
   return /^https:\/\//i.test(source);
 }
 
-function isManifestShape(value: unknown): value is CoordinatesManifest | CompactCoordinatesManifest {
+function isManifestShape(value: unknown): value is CoordinatesManifest {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const m = value as Record<string, unknown>;
   return (
-    (m.version === 1 || m.version === 2) &&
+    m.version === 2 &&
     typeof m.collections === "object" &&
     m.collections !== null &&
     !Array.isArray(m.collections)
@@ -65,9 +65,9 @@ export async function ingestApiReferences(
       continue;
     }
     if (!isManifestShape(raw)) {
-      const detail = `apiReferences manifest for "${ref.collection}" from ${ref.manifest} is not a valid coordinates.json (expected version 1 or 2 and collections).`;
+      const detail = `apiReferences manifest for "${ref.collection}" from ${ref.manifest} is not a valid coordinates.json (expected { version: 2, collections }). Rebuild the publisher with the same Nimbus release and refresh any checked-in manifest; v1 is no longer supported.`;
       if (!isRemote(ref.manifest)) {
-        throw new Error(`nimbus-docs: ${detail} Fix the file, or point at an https URL for a best-effort remote reference.`);
+        throw new Error(`nimbus-docs: ${detail}`);
       }
       logger.warn(`nimbus-docs: ${detail} Citations to it will resolve to "#".`);
       continue;

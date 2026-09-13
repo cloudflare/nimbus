@@ -2,16 +2,21 @@
 "@cloudflare/nimbus-docs": minor
 ---
 
-Support reading both existing v1 and compact v2 API coordinate manifests.
-Add an opt-in `getCompactCoordinatesManifest()` runtime helper that stores repeated
-page URLs once in a single JSON file, preserving citation syntax, URLs and anchors.
+**Breaking:** API coordinate manifests now use the compact v2 format exclusively.
+The existing `getCoordinatesManifest()` helper emits it by default; the endpoint,
+citation syntax, page URLs and anchors are unchanged. Repeated page URLs are stored
+once per namespace in a single JSON file. There is no additional helper or setting.
 
-Default publishing is unchanged: starter endpoints and `getCoordinatesManifest()`
-still emit v1. No migration or configuration change is required.
+Upgrade publishers and consuming sites together, rebuild publishers, and refresh
+checked-in manifests before rebuilding consumers. Old readers cannot consume v2,
+and new readers no longer consume v1. Stage both sides before switching live sites
+if uninterrupted citations are required. Local v1 references fail with rebuild
+guidance; remote v1 references warn and are skipped.
 
-Before opting into compact publishing, upgrade all consuming sites to a framework
-release containing v2 reader support. Older readers cannot consume v2. Switch the
-owned endpoint's import and call to `getCompactCoordinatesManifest()`, preserving
-its headers and prerender setting. Restore `getCoordinatesManifest()` to roll back.
+Custom `CoordinatesManifest` readers must use collection `pages` and `versions`
+page groups instead of the old flat `entries`. Each group has a literal `url` and
+coordinate-keyed fragments: `null` means no fragment, `0` means the coordinate
+itself, and a string is the exact fragment. Do not relabel old JSON as v2.
 
-This does not change Astro's content store or SSR behavior.
+The linked upgrade-manifest entry includes rollout, verification and rollback
+guidance. This changes citation transport, not Astro's content store or SSR behavior.

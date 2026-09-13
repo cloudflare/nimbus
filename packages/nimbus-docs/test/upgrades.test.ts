@@ -121,8 +121,15 @@ test("selectUpgradeEntries composes the open-closed version range", () => {
     ],
   );
   assert.equal(selectUpgradeEntries("0.13.0", "0.13.1").length, 0);
-  assert.equal(selectUpgradeEntries("0.13.0", "0.14.0").length, 0);
-  assert.equal(selectUpgradeEntries("0.13.1", "0.14.0").length, 0);
+  for (const from of ["0.13.0", "0.13.1"]) {
+    assert.deepEqual(selectUpgradeEntries(from, "0.14.0").map(entry => entry.id),
+      ["compact-coordinate-manifest"]);
+  }
+  const coordinates = UPGRADE_MANIFEST.entries.find(entry => entry.id === "compact-coordinate-manifest");
+  assert.equal(coordinates?.mode, "review-required");
+  assert.equal(coordinates?.changeset, "compact-coordinate-manifest");
+  assert.match(coordinates?.instructions.join("\n") ?? "", /no mixed-version compatibility window/);
+  assert.match(coordinates?.instructions.join("\n") ?? "", /Do not just change the version number/);
 });
 
 test("selectUpgradeEntries rejects unsupported and reversed ranges", () => {

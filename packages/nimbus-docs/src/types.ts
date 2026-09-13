@@ -162,37 +162,13 @@ export interface RenderingConfig {
  * change.
  */
 export interface CoordinatesManifest {
-  version: 1;
-  collections: Record<
-    string,
-    {
-      /** The family-default version id, or `null` for an unversioned collection. */
-      defaultVersion: string | null;
-      /**
-       * One entry per coordinate. The coordinate is the map key (opaque — may
-       * contain any character, including `@` or spaces), so the encoding is
-       * lossless. `url` is the family-default target; `versions` maps a version
-       * id to its per-version target.
-       */
-      entries: Record<
-        string,
-        {
-          url?: string;
-          versions?: Record<string, string>;
-        }
-      >;
-    }
-  >;
-}
-
-/** Single-file v2 transport. Legacy CoordinatesManifest and its helper remain v1. */
-export interface CompactCoordinatesManifest {
   version: 2;
   collections: Record<string, {
+    /** The family-default version id, or null for an unversioned collection. */
     defaultVersion: string | null;
-    /** Explicit bare targets; never inferred from defaultVersion. */
+    /** Explicit bare targets; not inferred from defaultVersion. */
     pages: CoordinatePageGroup[];
-    /** Explicit version-qualified targets, independent of the bare targets. */
+    /** Explicit version-qualified targets, independent of bare targets. */
     versions?: Record<string, CoordinatePageGroup[]>;
   }>;
 }

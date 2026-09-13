@@ -26,9 +26,9 @@ function writeManifest(name: string, value: unknown): string {
 describe("ingestApiReferences", () => {
   test("folds a local manifest into the citation index, prefixing origin", async () => {
     const manifestFile = writeManifest("good.json", {
-      version: 1,
+      version: 2,
       collections: {
-        billing: { defaultVersion: null, entries: { getInvoice: { url: "/billing/get-invoice" } } },
+        billing: { defaultVersion: null, pages: [{ url: "/billing/get-invoice", entries: { getInvoice: null } }] },
       },
     });
     const index = new Map<string, string>();
