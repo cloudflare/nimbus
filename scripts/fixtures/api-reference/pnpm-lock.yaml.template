@@ -323,7 +323,7 @@ packages:
 
   '@cloudflare/nimbus-docs@file:vendor/nimbus-docs.tgz':
     resolution: {integrity: {{NIMBUS_TARBALL_INTEGRITY}}, tarball: file:vendor/nimbus-docs.tgz}
-    version: 0.13.1
+    version: {{NIMBUS_VERSION}}
     engines: {node: '>=22.12.0'}
     hasBin: true
     peerDependencies:
