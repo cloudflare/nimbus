@@ -1,21 +1,37 @@
 import {
-  getPreparedMarkdownArtifact,
-  getPreparedMarkdownStaticPaths,
-  type PreparedMarkdownReference,
-} from "@cloudflare/nimbus-docs/build";
+  getMarkdownPayload,
+  getMarkdownStaticPaths,
+  type MarkdownEndpointReference,
+} from "@cloudflare/nimbus-docs/agent-endpoints";
+import { agentEndpointResponse } from "../../utils/agent-endpoint-response";
 
 export const prerender = true;
 
 interface SlugProps {
-  artifact: PreparedMarkdownReference;
+  reference: MarkdownEndpointReference;
 }
 
-export const getStaticPaths = () =>
-  getPreparedMarkdownStaticPaths({ collection: "docs", surface: "markdown" });
+interface SlugContext {
+  params: { slug?: string };
+  props: Partial<SlugProps>;
+  request: Request;
+}
 
-export async function GET({ props }: { props: SlugProps }) {
-  const artifact = await getPreparedMarkdownArtifact(props.artifact);
-  return new Response(artifact.body, {
-    headers: { "Content-Type": artifact.mediaType },
+export const getStaticPaths = async () =>
+  getMarkdownStaticPaths({
+    collection: "docs",
+    surface: "markdown",
   });
+
+export async function GET({ params, props, request }: SlugContext) {
+  return agentEndpointResponse(() =>
+    getMarkdownPayload({
+      collection: "docs",
+      surface: "markdown",
+      slug: params.slug,
+      reference: props.reference,
+      context: { request },
+    }),
+    prerender,
+  );
 }

@@ -1,13 +1,17 @@
-import { getPreparedLlmsArtifact } from "@cloudflare/nimbus-docs/build";
+import { getLlmsPayload } from "@cloudflare/nimbus-docs/agent-endpoints";
+import { agentEndpointResponse } from "../utils/agent-endpoint-response";
 
 export const prerender = true;
 
-export async function GET() {
-  const artifact = await getPreparedLlmsArtifact({
-    scope: "site",
-    surface: "full",
-  });
-  return new Response(artifact.body, {
-    headers: { "Content-Type": artifact.mediaType },
-  });
+export async function GET(context: { request: Request }) {
+  return agentEndpointResponse(() =>
+    getLlmsPayload(
+      {
+        scope: "site",
+        surface: "full",
+      },
+      context,
+    ),
+    prerender,
+  );
 }

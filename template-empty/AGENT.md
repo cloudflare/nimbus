@@ -1,11 +1,14 @@
 # This Nimbus docs site
 
+> `CLAUDE.md` delegates here. Keep project instructions canonical in this file.
+
 Astro-based docs. The `nimbus-docs` package handles content schemas, sidebar/TOC, MDX→markdown, build hooks, and the `nimbus` CLI. Everything in `src/` is yours to edit.
 
 ## File layout
 
 ```
 astro.config.ts              # imports nimbus + defineNimbusConfig
+nimbus.json                  # records the last reviewed Nimbus package version
 src/
 ├── components.ts            # MDX globals registry — every component used in .mdx must be listed
 ├── components/              # AgentDirective, Header, Render + ui/<slug>/
@@ -63,10 +66,27 @@ Rules:
 | Custom page route | Add a file under `src/pages/`. |
 | Custom OG style | Edit `src/pages/og/_og-card-config.ts`. |
 | Check for updates | `pnpm exec nimbus-docs outdated` — starter files behind their tag + registry components behind. |
+| Upgrade Nimbus | Update the package, then run `pnpm exec nimbus-docs migrate --dry-run --diff`. Review every change and required manual step before applying. |
 | Upgrade a starter file | `pnpm exec nimbus-docs diff <file>` to review, `diff --apply <file>` to pull a clean upstream change. |
 | Upgrade a registry component | `pnpm exec nimbus-docs add <slug> --overwrite`, then review with `git diff`. |
 
+Extend Sätteri using `markdown.mdastPlugins` for Markdown AST transformations or `markdown.hastPlugins` for HTML AST transformations.
+If the site replaces Sätteri with another processor, set `admonitions: false` and keep that processor's existing callout implementation.
+
 List installable items: `pnpm exec nimbus-docs list`.
+
+## Upgrading Nimbus
+
+Keep `nimbus.json` committed. Its `lastReviewedNimbusVersion` is the baseline Nimbus uses to select the versioned reviews crossed by a package upgrade; state-detected migrations come from the current project files. It is not a package pin and should not be edited by hand.
+
+1. Update `@cloudflare/nimbus-docs` with the project's package manager.
+2. Preview the complete plan with `pnpm exec nimbus-docs migrate --dry-run --diff`. If no baseline exists yet, add `--from <previous-version>`.
+3. Review every versioned entry and resolve each blocked/manual item.
+4. Apply safe edits only with explicit consent: `pnpm exec nimbus-docs migrate --yes`. Review the resulting diff, then rerun the preview.
+5. When no migration remains, run `pnpm exec nimbus-docs migrate --yes` again to record the completed review in `nimbus.json`.
+6. Run the project's typecheck and production build, then run `pnpm exec nimbus-docs check` again for post-build coverage.
+
+Except for task-printing mode (`--print`), `migrate` exits nonzero while work or review remains; that is a pending-upgrade signal, not necessarily a command failure. Never skip versions by changing `nimbus.json` directly.
 
 ## Audit this site
 
@@ -100,7 +120,6 @@ End with `Summary: N errors, N warnings.`
 
 - Hand-add components under `src/components/ui/` that exists in the nimbus-docs registry — use `nimbus-docs add` so deps resolve.
 - Import `.mdx` files directly — use `<Render file="..." />`.
-- Attach remark/rehype plugins via `mdx({ remarkPlugins })` — Sätteri silently drops them. Framework-side transformations run as content passes.
 - Remove `<AgentDirective />` unless asked.
 - Edit `src/components.ts` to bypass registration — if a component is used in `.mdx`, register it.
 
