@@ -30,7 +30,7 @@ export function parseAdmonitions(
       : undefined;
   const parse = (text: string, directive: boolean) =>
     mdxToMdast(text, { features: { ...features, directive } });
-  const points = Array.from(source);
+  const points = source.split("");
   let protectedRanges: [number, number][] = [];
   let originals = new Map<string, MdastNode>();
   const key = (node: MdastNode) =>
@@ -172,7 +172,7 @@ export function parseAdmonitions(
   // Locate just that label, respecting parser-owned inline syntax inside it.
   function header(node: MdastNode) {
     const start = node.position!.start.offset!;
-    let end = start + Array.from(/^:+[\w-]+/.exec(slice(node))![0]).length;
+    let end = start + /^:+[\w-]+/.exec(slice(node))![0].length;
     const labelStart = end;
     if (points[end] !== "[") return { end, title: undefined };
     let depth = 1;
@@ -210,8 +210,8 @@ export function parseAdmonitions(
       const raw = slice(node);
       const line = /^[^\r\n]*/.exec(raw)![0];
       const headerLength = header(node).end - node.position!.start.offset!;
-      const opening = Array.from(line).slice(0, headerLength).join("");
-      const tail = Array.from(line).slice(headerLength).join("");
+      const opening = line.slice(0, headerLength);
+      const tail = line.slice(headerLength);
       // Attribute syntax belongs to the native parser, not the legacy body form.
       if (tail.trim() && !tail.trimStart().startsWith("{")) {
         const newline = /\r\n|[\r\n]/.exec(source)?.[0] ?? "\n";
@@ -228,7 +228,7 @@ export function parseAdmonitions(
           .replace(/[ \t]+(:{3,})[ \t]*$/, `${newline}${indent}$1`);
         edits.push({
           start: node.position!.start.offset!,
-          end: node.position!.start.offset! + Array.from(line).length,
+          end: node.position!.start.offset! + line.length,
           value: `${opening}${newline}${indent}${body}`,
         });
       }
@@ -241,7 +241,7 @@ export function parseAdmonitions(
       points.splice(
         edit.start,
         edit.end - edit.start,
-        ...Array.from(edit.value),
+        ...edit.value.split(""),
       );
     source = points.join("");
     tree = nativeParse();
@@ -300,7 +300,7 @@ export function parseAdmonitions(
               (child) =>
                 child.position!.start.offset! >=
                 node.position!.start.offset! +
-                  Array.from(/^[^\r\n]*/.exec(slice(node))![0]).length,
+                  /^[^\r\n]*/.exec(slice(node))![0].length,
             )
             .flatMap(visit) as never,
         },
