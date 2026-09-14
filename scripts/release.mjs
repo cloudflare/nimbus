@@ -16,7 +16,6 @@
 
 import { spawnSync } from "node:child_process";
 import {
-  cpSync,
   existsSync,
   mkdtempSync,
   readdirSync,
@@ -36,6 +35,7 @@ import { syncTemplatesRepo } from "./sync-templates-repo.mjs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const CLI_PKG = resolve(ROOT, "packages", "create-nimbus-docs", "package.json");
+const SCAFFOLDER_BIN = resolve(ROOT, "packages", "create-nimbus-docs", "dist", "index.js");
 const NIMBUS_DIR = resolve(ROOT, "packages", "nimbus-docs");
 const NIMBUS_PKG = resolve(NIMBUS_DIR, "package.json");
 const NIMBUS_NAME = JSON.parse(readFileSync(NIMBUS_PKG, "utf8")).name;
@@ -113,13 +113,32 @@ function verifyVariants(generatedDir, nimbusVersion) {
   for (const variant of variantNames()) {
     const work = mkdtempSync(join(tmpdir(), `nimbus-verify-${variant}-`));
     cleanup.push(work);
-    cpSync(join(generatedDir, variant), work, { recursive: true });
+    const siteName = "site";
+    const site = join(work, siteName);
+    run("node", [
+      SCAFFOLDER_BIN,
+      siteName,
+      "--yes",
+      "--skip-install",
+      "--no-git",
+      "--content",
+      variant === "template-empty" ? "empty" : "starter",
+      "--template-dir",
+      generatedDir,
+    ], { cwd: work });
+
+    const nimbus = readPkg(join(site, "nimbus.json"));
+    if (nimbus.lastReviewedNimbusVersion !== nimbusVersion) {
+      throw new Error(
+        `variant ${variant} recorded upgrade baseline ${nimbus.lastReviewedNimbusVersion ?? "none"}, expected ${nimbusVersion}`,
+      );
+    }
 
     // Rewrite the nimbus-docs dep to the packed tarball. `local.mjs` edits dep
     // specs the same way (to workspace:*); here the target is the tarball so
     // the variant is exercised against the exact bits being released. Avoid
     // pnpm.overrides file-mappings — they are pnpm-version-fragile.
-    const pkgPath = join(work, "package.json");
+    const pkgPath = join(site, "package.json");
     const pkg = readPkg(pkgPath);
     let rewired = false;
     for (const field of ["dependencies", "devDependencies"]) {
@@ -134,10 +153,10 @@ function verifyVariants(generatedDir, nimbusVersion) {
     log(`verify: install + build ${variant} against the packed tarball…`);
     // Keep the variant's workspace configuration active so dependency build
     // permissions are honored.
-    run("pnpm", ["install", "--no-frozen-lockfile"], { cwd: work });
-    run("pnpm", ["build"], { cwd: work });
+    run("pnpm", ["install", "--no-frozen-lockfile"], { cwd: site });
+    run("pnpm", ["build"], { cwd: site });
 
-    const installed = readPkg(join(work, "node_modules", NIMBUS_NAME, "package.json"));
+    const installed = readPkg(join(site, "node_modules", NIMBUS_NAME, "package.json"));
     if (installed.version !== nimbusVersion) {
       throw new Error(
         `variant ${variant} resolved ${NIMBUS_NAME}@${installed.version}, expected ${nimbusVersion}`,

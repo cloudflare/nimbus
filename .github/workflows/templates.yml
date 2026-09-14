@@ -11,6 +11,7 @@ on:
       - "packages/create-nimbus-docs/**"
       - "packages/nimbus-docs/**"
       - "scripts/templates-check.mjs"
+      - "scripts/release.mjs"
       - "scripts/fixtures/content-integrity/**"
       - ".github/workflows/templates.yml"
   pull_request:
@@ -20,6 +21,7 @@ on:
       - "packages/create-nimbus-docs/**"
       - "packages/nimbus-docs/**"
       - "scripts/templates-check.mjs"
+      - "scripts/release.mjs"
       - "scripts/fixtures/content-integrity/**"
       - ".github/workflows/templates.yml"
 
@@ -49,6 +51,10 @@ jobs:
         env:
           TEMPLATES_CHECK_LANE: ${{ matrix.lane }}
         run: node scripts/templates-check.mjs
+
+      - name: Verify every release variant without publishing
+        if: matrix.lane == 'static'
+        run: node scripts/release.mjs publish --halt-after verify
 
   # Scaffold + install a variant under pnpm@latest, so a build-scripts gate
   # regression fails a PR instead of a user. The monorepo's pin to pnpm 9
