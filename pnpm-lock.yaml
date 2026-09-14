@@ -20,6 +20,9 @@ importers:
       '@playwright/test':
         specifier: 1.62.1
         version: 1.62.1
+      cross-spawn:
+        specifier: 7.0.6
+        version: 7.0.6
       eslint:
         specifier: ^10.8.0
         version: 10.8.0(jiti@2.7.0)

@@ -10,7 +10,6 @@
  *      scaffold resolves the in-repo code, not whatever is on npm).
  */
 
-import { spawn, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import assert from "node:assert/strict";
 import {
@@ -27,6 +26,7 @@ import { createServer } from "node:net";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateTemplates } from "../packages/create-nimbus-docs/scripts/copy-template.mjs";
+import { spawnCommand, spawnCommandSync } from "./child-process.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -60,8 +60,11 @@ process.on("exit", () => {
 });
 
 function run(bin, args, opts = {}) {
-  const res = spawnSync(bin, args, { stdio: "inherit", cwd: ROOT, ...opts });
-  if (res.status !== 0) fail(`\`${bin} ${args.join(" ")}\` failed (exit ${res.status ?? res.signal})`);
+  const res = spawnCommandSync(bin, args, { stdio: "inherit", cwd: ROOT, ...opts });
+  if (res.status !== 0) {
+    const reason = res.error?.message ?? `exit ${res.status ?? res.signal}`;
+    fail(`\`${bin} ${args.join(" ")}\` failed (${reason})`);
+  }
   return res;
 }
 
@@ -116,7 +119,7 @@ async function verifyRuntime(site, lane) {
           ],
           env: {},
         };
-  const child = spawn(command.bin, command.args, {
+  const child = spawnCommand(command.bin, command.args, {
     cwd: site,
     env: { ...process.env, ...command.env },
     stdio: "inherit",
@@ -463,7 +466,7 @@ if (LANE === "node" || LANE === "cloudflare") {
 }
 if (LANE === "cloudflare") {
   rmSync(join(site, "src", "pages", "[...slug].astro"));
-  const missingCanonical = spawnSync(
+  const missingCanonical = spawnCommandSync(
     SCAFFOLD_PM_BIN,
     [...SCAFFOLD_PM_PREFIX, "build"],
     { cwd: site, encoding: "utf8" },
@@ -483,7 +486,7 @@ if (LANE === "node") {
     join(site, "src", "pages", "owned-by-slug.astro"),
     "---\nexport const prerender = true;\n---\n<h1>collision</h1>\n",
   );
-  const collision = spawnSync(
+  const collision = spawnCommandSync(
     SCAFFOLD_PM_BIN,
     [...SCAFFOLD_PM_PREFIX, "build"],
     { cwd: site, encoding: "utf8" },
