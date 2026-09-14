@@ -1,5 +1,30 @@
 # @cloudflare/create-nimbus-docs
 
+## 0.7.4
+
+### Patch Changes
+
+- [#129](https://github.com/cloudflare/nimbus/pull/129) [`3fd7d15`](https://github.com/cloudflare/nimbus/commit/3fd7d15581feedf1799735b3c71d54ee394b88d1) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Add a versioned breaking-change manifest, explicit reviewed upgrade baselines, agent-readable migration plans, shared `check` and `outdated` diagnostics, safe starter drift updates, starter agent upgrade guidance, and automatic migration guidance during Astro configuration.
+
+- [#122](https://github.com/cloudflare/nimbus/pull/122) [`4b51ebb`](https://github.com/cloudflare/nimbus/commit/4b51ebbab227449e271bbe5a627ecd796c1c9e02) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Allow user-owned Astro pages and scaffolded Markdown and `llms.txt` endpoints to use native rendering semantics while retaining entrypoint-aware checks for active Nimbus contracts and composing with unrelated integration routes. These dynamic endpoints now resolve their payloads when rendered on request. Endpoint helpers now live at `@cloudflare/nimbus-docs/agent-endpoints`; the existing `@cloudflare/nimbus-docs/publication` entrypoint remains supported. Sub-path sitemaps now list the deployment root once.
+
+- [#141](https://github.com/cloudflare/nimbus/pull/141) [`7790b7c`](https://github.com/cloudflare/nimbus/commit/7790b7c56d7cde72cdf8f05286f2313dd3ab95d8) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Reduce repeated API field-icon markup by sharing SVG paint settings in the existing field-list stylesheet. Preserve icon shapes, field content, links, and disclosure behavior. Existing sites can apply the owned component and stylesheet changes together; framework upgrades do not overwrite owned files.
+
+- [#139](https://github.com/cloudflare/nimbus/pull/139) [`ea8cd46`](https://github.com/cloudflare/nimbus/commit/ea8cd46ae8f3a607881f7b744f1a604305e59980) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Render MDX admonitions with Sätteri's native directive parser, preserving nested
+  content, code examples, plain titles, aliases, and scoped opt-outs. Use
+  `markdown.mdastPlugins` and `markdown.hastPlugins` for native extensions.
+  Explicit incompatible processors must disable Nimbus admonitions, while Astro
+  MDX options continue to pass through unchanged. Native admonitions now apply to
+  `.mdx` only; review existing admonition directives in `.md` files. Astro 7.2.6
+  or newer is required.
+
+- [#137](https://github.com/cloudflare/nimbus/pull/137) [`728e753`](https://github.com/cloudflare/nimbus/commit/728e7536600e3e46f5ac9541291c70204f6d2d84) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Update generated projects to Astro 7.2.8 and align the Node adapter with Astro's updated runtime API.
+
+- [#140](https://github.com/cloudflare/nimbus/pull/140) [`a6ccf99`](https://github.com/cloudflare/nimbus/commit/a6ccf9902c7068166483edfa845da0f6189909d3) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Reserve the desktop API code-rail column before streamed rail HTML arrives, preventing the main content from shifting sideways. Preserve mobile stacking, no-rail layouts, and custom rail width. Existing sites can copy the updated owned ApiLayout component if desired; updating the framework does not overwrite it. This prevents layout shift without making the rail arrive sooner.
+
+- Updated dependencies [[`3fd7d15`](https://github.com/cloudflare/nimbus/commit/3fd7d15581feedf1799735b3c71d54ee394b88d1), [`4b51ebb`](https://github.com/cloudflare/nimbus/commit/4b51ebbab227449e271bbe5a627ecd796c1c9e02), [`5343933`](https://github.com/cloudflare/nimbus/commit/53439333949669b03cf9d66df0ee2bb0a2b0e636), [`3f7c16a`](https://github.com/cloudflare/nimbus/commit/3f7c16a45b3178c1fbd66e09a0c4375e690feec9), [`ea8cd46`](https://github.com/cloudflare/nimbus/commit/ea8cd46ae8f3a607881f7b744f1a604305e59980), [`728e753`](https://github.com/cloudflare/nimbus/commit/728e7536600e3e46f5ac9541291c70204f6d2d84)]:
+  - @cloudflare/nimbus-docs@0.14.0
+
 ## 0.7.3
 
 ### Patch Changes

@@ -1,5 +1,48 @@
 # @cloudflare/nimbus-docs
 
+## 0.14.0
+
+### Minor Changes
+
+- [#129](https://github.com/cloudflare/nimbus/pull/129) [`3fd7d15`](https://github.com/cloudflare/nimbus/commit/3fd7d15581feedf1799735b3c71d54ee394b88d1) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Add a versioned breaking-change manifest, explicit reviewed upgrade baselines, agent-readable migration plans, shared `check` and `outdated` diagnostics, safe starter drift updates, starter agent upgrade guidance, and automatic migration guidance during Astro configuration.
+
+- [#142](https://github.com/cloudflare/nimbus/pull/142) [`5343933`](https://github.com/cloudflare/nimbus/commit/53439333949669b03cf9d66df0ee2bb0a2b0e636) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - **Breaking:** API coordinate manifests now use the compact v2 format exclusively.
+  The existing `getCoordinatesManifest()` helper emits it by default; the endpoint,
+  citation syntax, page URLs and anchors are unchanged. Repeated page URLs are stored
+  once per namespace in a single JSON file. There is no additional helper or setting.
+
+  Upgrade publishers and consuming sites together, rebuild publishers, and refresh
+  checked-in manifests before rebuilding consumers. Old readers cannot consume v2,
+  and new readers no longer consume v1. Stage both sides before switching live sites
+  if uninterrupted citations are required. Local v1 references fail with rebuild
+  guidance; remote v1 references warn and are skipped.
+
+  Custom `CoordinatesManifest` readers must use collection `pages` and `versions`
+  page groups instead of the old flat `entries`. Each group has a literal `url` and
+  coordinate-keyed fragments: `null` means no fragment, `0` means the coordinate
+  itself, and a string is the exact fragment. Do not relabel old JSON as v2.
+
+  The linked upgrade-manifest entry includes rollout, verification and rollback
+  guidance. This changes citation transport, not Astro's content store or SSR behavior.
+
+- [#139](https://github.com/cloudflare/nimbus/pull/139) [`ea8cd46`](https://github.com/cloudflare/nimbus/commit/ea8cd46ae8f3a607881f7b744f1a604305e59980) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Render MDX admonitions with Sätteri's native directive parser, preserving nested
+  content, code examples, plain titles, aliases, and scoped opt-outs. Use
+  `markdown.mdastPlugins` and `markdown.hastPlugins` for native extensions.
+  Explicit incompatible processors must disable Nimbus admonitions, while Astro
+  MDX options continue to pass through unchanged. Native admonitions now apply to
+  `.mdx` only; review existing admonition directives in `.md` files. Astro 7.2.6
+  or newer is required.
+
+### Patch Changes
+
+- [#122](https://github.com/cloudflare/nimbus/pull/122) [`4b51ebb`](https://github.com/cloudflare/nimbus/commit/4b51ebbab227449e271bbe5a627ecd796c1c9e02) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Allow user-owned Astro pages and scaffolded Markdown and `llms.txt` endpoints to use native rendering semantics while retaining entrypoint-aware checks for active Nimbus contracts and composing with unrelated integration routes. These dynamic endpoints now resolve their payloads when rendered on request. Endpoint helpers now live at `@cloudflare/nimbus-docs/agent-endpoints`; the existing `@cloudflare/nimbus-docs/publication` entrypoint remains supported. Sub-path sitemaps now list the deployment root once.
+
+- [#138](https://github.com/cloudflare/nimbus/pull/138) [`3f7c16a`](https://github.com/cloudflare/nimbus/commit/3f7c16a45b3178c1fbd66e09a0c4375e690feec9) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Preserve authored root-relative links and unrelated source across Markdown and
+  MDX, including HTML containers, fenced examples, Unicode, and CRLF. Keep plain
+  Markdown unchanged when generating Markdown and agent endpoint output.
+
+- [#137](https://github.com/cloudflare/nimbus/pull/137) [`728e753`](https://github.com/cloudflare/nimbus/commit/728e7536600e3e46f5ac9541291c70204f6d2d84) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Update generated projects to Astro 7.2.8 and align the Node adapter with Astro's updated runtime API.
+
 ## 0.13.1
 
 ### Patch Changes
