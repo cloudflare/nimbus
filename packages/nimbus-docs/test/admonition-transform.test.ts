@@ -254,8 +254,9 @@ for (const protectedSource of [
   '[example]: /url "\n:::note\nliteral\n:::\n"',
 ]) {
   test(`native syntax protection: ${protectedSource.slice(0, 25)}`, () => {
-    const withAstral = /^(?:---|\+\+\+)\n/.test(protectedSource)
-      ? protectedSource.replace("\n", "\n# 😀😀😀\n")
+    const frontmatterOpening = /^(?:---|\+\+\+)\n/.exec(protectedSource)?.[0];
+    const withAstral = frontmatterOpening
+      ? `${frontmatterOpening}# 😀😀😀\n${protectedSource.slice(frontmatterOpening.length)}`
       : `😀😀😀\n\n${protectedSource}`;
     const source = `${withAstral}\n\n:::tip\nReal\n:::\n`;
     assert.equal(asides(source).length, 1);
