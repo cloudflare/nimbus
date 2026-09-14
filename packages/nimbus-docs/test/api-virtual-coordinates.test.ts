@@ -24,10 +24,10 @@ describe("virtualCoordinatesPlugin: hostile keys survive as own properties", () 
   test("emits via JSON.parse; a `__proto__` coordinate key does not pollute", () => {
     // Build the payload's entries via JSON.parse so `__proto__` is a genuine
     // OWN data property (a literal would set the prototype in the test itself).
-    const entries = JSON.parse('{"__proto__":{"url":"/zones/proto"},"createZone":{"url":"/zones/create"}}');
+    const entries = JSON.parse('{"__proto__":0,"createZone":null}');
     const payload: CoordinatesPayload = {
       coordinates: { "zones:createZone": "/zones/create" },
-      manifest: { version: 1, collections: { zones: { defaultVersion: null, entries } } },
+      manifest: { version: 2, collections: { zones: { defaultVersion: null, pages: [{ url: "/zones/create", entries }] } } },
     };
 
     const code = virtualCoordinatesPlugin(() => payload).load(COORDINATES_RESOLVED_ID);
@@ -36,7 +36,7 @@ describe("virtualCoordinatesPlugin: hostile keys survive as own properties", () 
     assert.doesNotMatch(code, /export const manifest = \{/, "must not emit a raw object literal");
 
     const mod = evalModule(code);
-    const baked = (mod.manifest as { collections: { zones: { entries: object } } }).collections.zones.entries;
+    const baked = (mod.manifest as { collections: { zones: { pages: { entries: object }[] } } }).collections.zones.pages[0]!.entries;
     assert.ok(
       Object.getOwnPropertyNames(baked).includes("__proto__"),
       "`__proto__` is an own property of the baked entries",
@@ -49,7 +49,7 @@ describe("virtualCoordinatesPlugin: hostile keys survive as own properties", () 
   test("U+2028/U+2029 in a value are escaped, not emitted raw (valid JS everywhere)", () => {
     const payload: CoordinatesPayload = {
       coordinates: { "zones:weird\u2028coord": "/zones/a\u2029b" },
-      manifest: { version: 1, collections: {} },
+      manifest: { version: 2, collections: {} },
     };
     const code = virtualCoordinatesPlugin(() => payload).load(COORDINATES_RESOLVED_ID);
     assert.ok(typeof code === "string");

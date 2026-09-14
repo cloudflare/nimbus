@@ -121,10 +121,15 @@ test("selectUpgradeEntries composes the open-closed version range", () => {
     ],
   );
   assert.equal(selectUpgradeEntries("0.13.0", "0.13.1").length, 0);
-  assert.deepEqual(
-    selectUpgradeEntries("0.13.1", "0.14.0").map((entry) => entry.id),
-    ["explicit-markdown-processor"],
-  );
+  for (const from of ["0.13.0", "0.13.1"]) {
+    assert.deepEqual(selectUpgradeEntries(from, "0.14.0").map(entry => entry.id),
+      ["compact-coordinate-manifest", "explicit-markdown-processor"]);
+  }
+  const coordinates = UPGRADE_MANIFEST.entries.find(entry => entry.id === "compact-coordinate-manifest");
+  assert.equal(coordinates?.mode, "review-required");
+  assert.equal(coordinates?.changeset, "compact-coordinate-manifest");
+  assert.match(coordinates?.instructions.join("\n") ?? "", /no mixed-version compatibility window/);
+  assert.match(coordinates?.instructions.join("\n") ?? "", /Do not just change the version number/);
   const processor = UPGRADE_MANIFEST.entries.find(
     (entry) => entry.id === "explicit-markdown-processor",
   );
