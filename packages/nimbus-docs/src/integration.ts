@@ -428,7 +428,7 @@ export function nimbus(
   // citation plugin and virtual:nimbus/coordinates read it through a getter.
   let citationIndex = new Map<string, string>();
   let coordinatesManifest: CoordinatesManifest = {
-    version: 1,
+    version: 2,
     collections: {},
   };
 

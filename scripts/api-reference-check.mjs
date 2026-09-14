@@ -919,8 +919,14 @@ async function assertArtifactsAndSmoke(dist) {
   const manifest = JSON.parse(
     await readFile(join(dist, "nimbus-api", "coordinates.json"), "utf8"),
   );
-  assert(manifest.version === 1, "coordinate manifest version is not 1");
-  const entries = manifest.collections?.api?.entries;
+  assert(manifest.version === 2, "coordinate manifest version is not 2");
+  const pages = manifest.collections?.api?.pages;
+  assert(Array.isArray(pages), "coordinate manifest has no api page groups");
+  const entries = Object.fromEntries(pages.flatMap(page =>
+    Object.entries(page.entries).map(([coordinate, fragment]) => [coordinate, {
+      url: page.url + (fragment === null ? "" : "#" + (fragment === 0 ? coordinate : fragment)),
+    }]),
+  ));
   assert(
     entries && typeof entries === "object",
     "coordinate manifest has no api collection",

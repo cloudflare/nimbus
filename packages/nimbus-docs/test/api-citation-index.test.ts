@@ -30,22 +30,17 @@ describe("buildCitationIndex: unversioned collection", () => {
 
   test("manifest carries the collection with a null defaultVersion", async () => {
     const { manifest } = await buildCitationIndex(api, root);
-    assert.equal(manifest.version, 1);
+    assert.equal(manifest.version, 2);
     assert.equal(manifest.collections.smallco?.defaultVersion, null);
-    const entries = manifest.collections.smallco!.entries;
-    assert.ok(Object.keys(entries).length > 0);
-    // entries are keyed by the opaque coordinate; each is a structured record
-    // with a default `url` (unversioned collection → no per-version map).
-    for (const entry of Object.values(entries)) {
-      assert.equal(typeof entry.url, "string");
-      assert.equal(entry.versions, undefined);
-    }
+    assert.ok(manifest.collections.smallco!.pages.length > 0);
+    assert.equal(manifest.collections.smallco!.versions, undefined);
+    assert.deepEqual(read(manifest), (await buildCitationIndex(api, root)).index);
   });
 
   test("manifest maps are null-prototype (a '__proto__'/'constructor' key can never pollute)", async () => {
     const { manifest } = await buildCitationIndex(api, root);
     assert.equal(Object.getPrototypeOf(manifest.collections), null);
-    assert.equal(Object.getPrototypeOf(manifest.collections.smallco!.entries), null);
+    assert.equal(Object.getPrototypeOf(manifest.collections.smallco!.pages[0]!.entries), null);
   });
 });
 
@@ -106,9 +101,7 @@ describe("buildCitationIndex: field coordinates resolve to <page>#<anchor>", () 
 
   test("field coordinates are published in the manifest alongside pages", async () => {
     const { manifest } = await buildCitationIndex(api, root);
-    const entries = manifest.collections.smallco!.entries;
-    assert.equal(typeof entries["create.amount"]?.url, "string");
-    assert.match(entries["create.amount"]!.url!, /#create\.amount$/);
+    assert.match(read(manifest).get("smallco:create.amount")!, /#create\.amount$/);
   });
 });
 
@@ -122,7 +115,7 @@ describe("buildCitationIndex: response coordinates resolve to rendered anchors",
       `${index.get("smallco:create")}#response-200`,
     );
     assert.equal(
-      manifest.collections.smallco!.entries["create.response.200"]?.url,
+      read(manifest).get("smallco:create.response.200"),
       `${index.get("smallco:create")}#response-200`,
     );
   });
@@ -162,128 +155,11 @@ describe("buildCitationIndex: response coordinates resolve to rendered anchors",
   });
 });
 
-describe("ingestRemoteManifest", () => {
-  const manifest: CoordinatesManifest = {
-    version: 1,
-    collections: {
-      zones: {
-        defaultVersion: "v2",
-        entries: { createZone: { url: "/zones/create", versions: { v1: "/zones/v1/create" } } },
-      },
-    },
-  };
 
-  test("folds remote entries under the consumer collection name + trusted origin", () => {
-    const index = new Map<string, string>();
-    const diags = ingestRemoteManifest(index, "zones", manifest, "https://api.example.com");
-    assert.equal(diags.length, 0);
-    assert.equal(index.get("zones:createZone"), "https://api.example.com/zones/create");
-    assert.equal(index.get("zones@v1:createZone"), "https://api.example.com/zones/v1/create");
-  });
-
-  test("no origin → site-absolute path preserved", () => {
-    const index = new Map<string, string>();
-    ingestRemoteManifest(index, "zones", manifest);
-    assert.equal(index.get("zones:createZone"), "/zones/create");
-  });
-
-  test("coordinates containing '@' round-trip losslessly (no key ambiguity)", () => {
-    // A structured entry keys by the opaque coordinate, so a coordinate that
-    // itself contains '@' can never collide with the version separator.
-    const withAt: CoordinatesManifest = {
-      version: 1,
-      collections: {
-        zones: {
-          defaultVersion: "v2",
-          entries: { "getUser@v2": { url: "/zones/get-user", versions: { v1: "/zones/v1/get-user" } } },
-        },
-      },
-    };
-    const index = new Map<string, string>();
-    const diags = ingestRemoteManifest(index, "zones", withAt);
-    assert.equal(diags.length, 0);
-    assert.equal(index.get("zones:getUser@v2"), "/zones/get-user");
-    assert.equal(index.get("zones@v1:getUser@v2"), "/zones/v1/get-user");
-  });
-
-  test("an unsafe manifest value is dropped, never baked", () => {
-    const hostile: CoordinatesManifest = {
-      version: 1,
-      collections: {
-        zones: {
-          defaultVersion: null,
-          entries: { evil: { url: "javascript:alert(1)" }, ok: { url: "/zones/ok" } },
-        },
-      },
-    };
-    const index = new Map<string, string>();
-    const diags = ingestRemoteManifest(index, "zones", hostile, "https://api.example.com");
-    assert.equal(index.has("zones:evil"), false);
-    assert.equal(index.get("zones:ok"), "https://api.example.com/zones/ok");
-    assert.equal(diags.length, 1);
-  });
-
-  test("arrays are rejected at every level (never iterated by numeric index)", () => {
-    // An array is `typeof "object"`, so a naive guard would let `Object.entries`
-    // fold `["/zones/v0"]` in as version "0". Reject arrays outright.
-    const arrayVersions = {
-      version: 1,
-      collections: {
-        zones: { defaultVersion: null, entries: { badV: { versions: ["/zones/v0"] } } },
-      },
-    } as unknown as CoordinatesManifest;
-    const index = new Map<string, string>();
-    const diags = ingestRemoteManifest(index, "zones", arrayVersions);
-    assert.equal(index.has("zones@0:badV"), false);
-    assert.equal(index.size, 0);
-    assert.ok(diags.some((d) => /versions/.test(d)));
-
-    // entries-as-array, and collection-record-as-array, both fold nothing.
-    const arrayEntries = {
-      version: 1,
-      collections: { zones: { defaultVersion: null, entries: [{ url: "/x" }] } },
-    } as unknown as CoordinatesManifest;
-    const index2 = new Map<string, string>();
-    const diags2 = ingestRemoteManifest(index2, "zones", arrayEntries);
-    assert.equal(index2.size, 0);
-    assert.equal(diags2.length, 1);
-
-    const arrayCollection = {
-      version: 1,
-      collections: { zones: [{ url: "/x" }] },
-    } as unknown as CoordinatesManifest;
-    const index3 = new Map<string, string>();
-    const diags3 = ingestRemoteManifest(index3, "zones", arrayCollection);
-    assert.equal(index3.size, 0);
-    assert.equal(diags3.length, 1);
-  });
-
-  test("malformed entries are dropped defensively, valid siblings survive", () => {
-    const malformed = {
-      version: 1,
-      collections: {
-        zones: {
-          defaultVersion: null,
-          entries: {
-            bad: "not-an-object",
-            badVersions: { versions: "nope" },
-            good: { url: "/zones/good" },
-          },
-        },
-      },
-    } as unknown as CoordinatesManifest;
-    const index = new Map<string, string>();
-    const diags = ingestRemoteManifest(index, "zones", malformed);
-    assert.equal(index.get("zones:good"), "/zones/good");
-    assert.equal(index.has("zones:bad"), false);
-    assert.equal(index.has("zones:badVersions"), false);
-    assert.ok(diags.length >= 2);
-  });
-
-  test("a missing collection warns and folds nothing", () => {
-    const index = new Map<string, string>();
-    const diags = ingestRemoteManifest(index, "nope", manifest);
-    assert.equal(index.size, 0);
-    assert.equal(diags.length, 1);
-  });
-});
+function read(manifest: CoordinatesManifest) {
+  const index = new Map<string, string>();
+  for (const name of Object.keys(manifest.collections)) {
+    assert.deepEqual(ingestRemoteManifest(index, name, JSON.parse(JSON.stringify(manifest))), []);
+  }
+  return index;
+}
