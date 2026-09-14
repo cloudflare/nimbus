@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -34,6 +35,46 @@ async function site(t: TestContext): Promise<string> {
   t.after(() => rm(root, { recursive: true, force: true }));
   return root;
 }
+
+test("Pagefind launches the project command shim with the site path intact", async (t) => {
+  const root = await site(t);
+  const binDir = path.join(root, "pagefind bin & tools");
+  const siteDir = path.join(root, "site path & output");
+  const capture = path.join(root, "pagefind-args.json");
+  const bin = path.join(
+    binDir,
+    process.platform === "win32" ? "pagefind.cmd" : "pagefind",
+  );
+  await mkdir(binDir, { recursive: true });
+  await mkdir(siteDir, { recursive: true });
+  await writeFile(
+    bin,
+    process.platform === "win32"
+      ? "@echo off\r\nnode -e \"require('node:fs').writeFileSync(process.env.NIMBUS_PAGEFIND_CAPTURE, JSON.stringify(process.argv.slice(1)))\" -- %*\r\n"
+      : '#!/usr/bin/env node\nrequire("node:fs").writeFileSync(process.env.NIMBUS_PAGEFIND_CAPTURE, JSON.stringify(process.argv.slice(2)));\n',
+    "utf8",
+  );
+  if (process.platform !== "win32") await chmod(bin, 0o755);
+
+  const originalPath = process.env.PATH;
+  const originalCapture = process.env.NIMBUS_PAGEFIND_CAPTURE;
+  process.env.PATH = `${binDir}${path.delimiter}${originalPath ?? ""}`;
+  process.env.NIMBUS_PAGEFIND_CAPTURE = capture;
+  t.after(() => {
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
+    if (originalCapture === undefined)
+      delete process.env.NIMBUS_PAGEFIND_CAPTURE;
+    else process.env.NIMBUS_PAGEFIND_CAPTURE = originalCapture;
+  });
+
+  await runPagefind(siteDir, []);
+
+  assert.deepEqual(JSON.parse(await readFile(capture, "utf8")), [
+    "--site",
+    siteDir,
+  ]);
+});
 
 test("Pagefind removes synthetic files and their empty owned directories", async (t) => {
   const root = await site(t);

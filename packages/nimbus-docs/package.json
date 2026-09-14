@@ -148,6 +148,7 @@
 		"@shikijs/types": "^4.4.1",
 		"@vercel/detect-agent": "1.2.3",
 		"clsx": "^2.1.1",
+		"cross-spawn": "7.0.6",
 		"giget": "^3.3.0",
 		"github-slugger": "^2.0.0",
 		"hast-util-from-html": "^2.0.3",
