@@ -13,6 +13,7 @@ import {
   getApiPageSlugs,
 } from "../../api/index.js";
 import type { ApiSpec } from "../../types.js";
+import { createPageGroups } from "./coordinate-manifest.js";
 import { citationKey, isSafeCitationPath } from "./citations.js";
 import { resolveSpecSource } from "./resolve-spec.js";
 import { resolveAllApiCollections } from "./resolve-versions.js";
@@ -44,7 +45,7 @@ export async function buildCitationIndex(
   // Null-prototype maps: coordinates and collection names come from arbitrary
   // (possibly third-party) specs, so keys like `__proto__` or `constructor`
   // must land as plain own properties, never mutate a prototype.
-  const manifest: CoordinatesManifest = { version: 1, collections: Object.create(null) };
+  const manifest: CoordinatesManifest = { version: 2, collections: Object.create(null) };
 
   for (const target of resolveAllApiCollections(api)) {
     const source = await resolveSpecSource(
@@ -62,7 +63,7 @@ export async function buildCitationIndex(
 
     const collection =
       manifest.collections[target.namespace] ??
-      (manifest.collections[target.namespace] = { defaultVersion: null, entries: Object.create(null) });
+      (manifest.collections[target.namespace] = { defaultVersion: null, pages: [] });
     if (target.isDefault) collection.defaultVersion = target.version;
 
     const targets: Array<{ coordinate: string; url: string }> = [];
@@ -83,72 +84,33 @@ export async function buildCitationIndex(
       targets.push({ coordinate, url: `${pageUrl(target.mountPath, slug)}#${anchor}` });
     }
 
-    for (const { coordinate, url } of targets) {
-      if (!isSafeCitationPath(url)) continue;
+    const validTargets = targets.filter(({ url }) => isSafeCitationPath(url));
+    const pages = createPageGroups(validTargets);
+    if (target.version) {
+      (collection.versions ??= Object.create(null))[target.version] = pages;
+    }
+    if (target.isDefault) collection.pages = pages;
 
-      const entry = collection.entries[coordinate] ?? (collection.entries[coordinate] = {});
+    for (const { coordinate, url } of validTargets) {
       if (target.version) {
         index.set(citationKey(target.namespace, target.version, coordinate), url);
-        (entry.versions ??= Object.create(null))[target.version] = url;
       }
       if (target.isDefault) {
         index.set(citationKey(target.namespace, undefined, coordinate), url);
-        entry.url = url;
       }
     }
   }
 
+  // Stable transport bytes independent of declaration ordering.
+  manifest.collections = Object.assign(Object.create(null), Object.fromEntries(
+    Object.entries(manifest.collections).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0),
+  ));
+  for (const collection of Object.values(manifest.collections)) {
+    if (collection.versions) collection.versions = Object.fromEntries(
+      Object.entries(collection.versions).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0),
+    );
+  }
   return { index, manifest };
 }
 
-/**
- * Fold a remote collection's manifest into an existing citation index, under the
- * consumer-declared `collection` name and trusted `origin`. Every value is
- * re-validated on ingest; an unsafe value is dropped with a diagnostic and never
- * baked, so a hostile or buggy manifest cannot inject a dangerous href (the
- * worst it can do is a bad path on an origin the author already trusted).
- */
-export function ingestRemoteManifest(
-  citationIndex: Map<string, string>,
-  collection: string,
-  manifest: CoordinatesManifest,
-  origin?: string,
-): string[] {
-  const diagnostics: string[] = [];
-  // An array is a `typeof "object"` too — reject it explicitly at every level so
-  // a hostile manifest can't smuggle values in via numeric indices.
-  const isRecord = (v: unknown): v is Record<string, unknown> =>
-    typeof v === "object" && v !== null && !Array.isArray(v);
-  const collectionRecord = manifest.collections?.[collection];
-  const entries = isRecord(collectionRecord) ? collectionRecord.entries : undefined;
-  if (!isRecord(entries)) {
-    diagnostics.push(
-      `remote manifest for "${collection}" has no such collection (or a malformed one) — citations to it will resolve to "#".`,
-    );
-    return diagnostics;
-  }
-  const trustedOrigin = origin ? origin.replace(/\/$/, "") : "";
-  const place = (version: string | undefined, coordinate: string, path: unknown): void => {
-    if (typeof path !== "string" || !isSafeCitationPath(path)) {
-      diagnostics.push(`remote manifest for "${collection}": dropped unsafe path ${JSON.stringify(path)}.`);
-      return;
-    }
-    citationIndex.set(citationKey(collection, version, coordinate), `${trustedOrigin}${path}`);
-  };
-  for (const [coordinate, entry] of Object.entries(entries)) {
-    if (!isRecord(entry)) {
-      diagnostics.push(`remote manifest for "${collection}": dropped malformed entry "${coordinate}".`);
-      continue;
-    }
-    const { url, versions } = entry as { url?: unknown; versions?: unknown };
-    if (url !== undefined) place(undefined, coordinate, url);
-    if (versions !== undefined) {
-      if (!isRecord(versions)) {
-        diagnostics.push(`remote manifest for "${collection}": dropped malformed "versions" for "${coordinate}".`);
-      } else {
-        for (const [version, path] of Object.entries(versions)) place(version, coordinate, path);
-      }
-    }
-  }
-  return diagnostics;
-}
+export { ingestRemoteManifest } from "./coordinate-manifest.js";
