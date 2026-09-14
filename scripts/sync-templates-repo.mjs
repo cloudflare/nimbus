@@ -5,7 +5,7 @@
  * never carries generated templates and the `templates` branch never carries
  * source, so giget tarballs of a `templates-v*` tag stay small.
  *
- * Runs before `changeset publish` in the release pipeline, so it must be
+ * Runs before npm package publication in the release pipeline, so it must be
  * idempotent:
  *
  *   - empty diff (branch already current)      → skip the commit, keep going

@@ -12,6 +12,8 @@ on:
       - "packages/nimbus-docs/**"
       - "scripts/templates-check.mjs"
       - "scripts/release.mjs"
+      - "scripts/release.test.mjs"
+      - ".github/workflows/release.yml"
       - "scripts/fixtures/content-integrity/**"
       - ".github/workflows/templates.yml"
   pull_request:
@@ -22,6 +24,8 @@ on:
       - "packages/nimbus-docs/**"
       - "scripts/templates-check.mjs"
       - "scripts/release.mjs"
+      - "scripts/release.test.mjs"
+      - ".github/workflows/release.yml"
       - "scripts/fixtures/content-integrity/**"
       - ".github/workflows/templates.yml"
 
@@ -54,7 +58,9 @@ jobs:
 
       - name: Verify every release variant without publishing
         if: matrix.lane == 'static'
-        run: node scripts/release.mjs publish --halt-after verify
+        run: |
+          node --test scripts/release.test.mjs
+          node scripts/release.mjs publish --halt-after verify
 
   # Scaffold + install a variant under pnpm@latest, so a build-scripts gate
   # regression fails a PR instead of a user. The monorepo's pin to pnpm 9
