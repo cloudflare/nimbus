@@ -26,8 +26,8 @@
  *     when rendering `<Content />`.
  */
 
-import { execFile } from "node:child_process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AstroIntegration, ShikiConfig } from "astro";
@@ -148,6 +148,10 @@ import type {
   NimbusConfig,
   RenderingMode,
 } from "./types.js";
+
+const crossSpawn = createRequire(import.meta.url)(
+  "cross-spawn",
+) as typeof import("node:child_process").spawn;
 
 /**
  * Common shorthand fences that Shiki doesn't recognise out of the box.
@@ -2132,12 +2136,39 @@ function executePagefind(
   args: readonly string[],
 ): Promise<PagefindExecution> {
   return new Promise((resolve) => {
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+    const finish = (error: Error | null) => {
+      if (settled) return;
+      settled = true;
+      resolve({ error, stdout, stderr });
+    };
+
     try {
-      execFile(bin, [...args], (error, stdout, stderr) => {
-        resolve({ error, stdout, stderr });
+      const child = crossSpawn(bin, [...args], {
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      child.stdout.setEncoding("utf8");
+      child.stderr.setEncoding("utf8");
+      child.stdout.on("data", (chunk: string) => (stdout += chunk));
+      child.stderr.on("data", (chunk: string) => (stderr += chunk));
+      child.once("error", finish);
+      child.once("close", (code, signal) => {
+        if (code === 0) {
+          finish(null);
+          return;
+        }
+        const reason = signal ? `signal ${signal}` : `code ${code}`;
+        finish(
+          Object.assign(new Error(`pagefind exited with ${reason}`), {
+            code,
+            signal,
+          }),
+        );
       });
     } catch (err) {
-      resolve({ error: err as Error, stdout: "", stderr: "" });
+      finish(err as Error);
     }
   });
 }
