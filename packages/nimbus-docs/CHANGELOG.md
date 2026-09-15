@@ -1,5 +1,14 @@
 # @cloudflare/nimbus-docs
 
+## 0.14.1
+
+### Patch Changes
+
+- [#151](https://github.com/cloudflare/nimbus/pull/151) [`22ae398`](https://github.com/cloudflare/nimbus/commit/22ae398f5c5e7dba1b0e97ba392d716528765987) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Fix native admonition parsing after astral Unicode characters.
+
+- [#148](https://github.com/cloudflare/nimbus/pull/148) [`dc9e3ff`](https://github.com/cloudflare/nimbus/commit/dc9e3ffb6dd872345b3dd1db40c7b8c826004100) Thanks [@sansynx](https://github.com/sansynx)! - Run the Pagefind indexing step on Windows instead of failing to launch the
+  project command shim.
+
 ## 0.14.0
 
 ### Minor Changes
