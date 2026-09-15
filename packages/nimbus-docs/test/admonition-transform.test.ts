@@ -64,6 +64,106 @@ test("native directive maps aliases and plain title attributes to Aside", () => 
   );
 });
 
+for (const [fixture, source, type, body, suffix] of [
+  [
+    "fenced command output",
+    `Before command.
+
+\`\`\`sh output
+🌀 Starting task
+🌀 Writing file
+🌀 Done!
+\`\`\`
+
+:::caution
+This operation overwrites existing data.
+:::
+
+After command.`,
+    "caution",
+    "This operation overwrites existing data.",
+    "After command.",
+  ],
+  [
+    "repeated component output",
+    `<Details header="First run">
+
+\`\`\`sh output
+⛅️ tool 1.0.0
+🚧 This command is experimental.
+🚧 Its output may change.
+\`\`\`
+
+</Details>
+
+\`\`\`sh output
+⛅️ tool 1.0.0
+🚧 This command is experimental.
+🚧 Its output may change.
+\`\`\`
+
+:::note
+Review the output before continuing.
+:::
+
+After output.`,
+    "note",
+    "Review the output before continuing.",
+    "After output.",
+  ],
+] as const) {
+  test(`astral characters in ${fixture} do not shift a later admonition`, () => {
+    const tree = parseAdmonitions(source);
+    const aside = nodes(tree).find(
+      (node) => node.type === "mdxJsxFlowElement" && node.name === "Aside",
+    );
+    assert.ok(aside?.type === "mdxJsxFlowElement");
+    assert.deepEqual(aside.attributes, [
+      { type: "mdxJsxAttribute", name: "type", value: type },
+    ]);
+    assert.ok(
+      nodes(aside).some((node) => node.type === "text" && node.value === body),
+    );
+    assert.deepEqual(codeValues(tree), codeValues(mdxToMdast(source)));
+    assert.ok(compile(source).includes(suffix));
+  });
+}
+
+test("astral characters keep multiple titled and untitled admonitions aligned", () => {
+  const firstDirective = ":::note[First title]\nFirst body.\n:::";
+  const secondDirective = ":::tip\nSecond body.\n:::";
+  const source = `😀😀😀
+
+${firstDirective}
+
+🚧🚧🚧
+
+${secondDirective}
+
+Complete.`;
+  const found = asides(source);
+  assert.equal(found.length, 2);
+  const [first, second] = found;
+  assert.ok(first?.type === "mdxJsxFlowElement");
+  assert.ok(second?.type === "mdxJsxFlowElement");
+  assert.deepEqual(first.attributes, [
+    { type: "mdxJsxAttribute", name: "type", value: "note" },
+    { type: "mdxJsxAttribute", name: "title", value: "First title" },
+  ]);
+  assert.deepEqual(second.attributes, [
+    { type: "mdxJsxAttribute", name: "type", value: "tip" },
+  ]);
+  assert.equal(
+    source.slice(first.position!.start.offset!, first.position!.end.offset!),
+    firstDirective,
+  );
+  assert.equal(
+    source.slice(second.position!.start.offset!, second.position!.end.offset!),
+    secondDirective,
+  );
+  assert.match(compile(source), /Complete\./);
+});
+
 test("reference links and definitions survive native directive parsing", () => {
   const source = `See [Reference target][target-ref] and [Angle][angle-ref].
 
@@ -154,7 +254,11 @@ for (const protectedSource of [
   '[example]: /url "\n:::note\nliteral\n:::\n"',
 ]) {
   test(`native syntax protection: ${protectedSource.slice(0, 25)}`, () => {
-    const source = `${protectedSource}\n\n:::tip\nReal\n:::\n`;
+    const frontmatterOpening = /^(?:---|\+\+\+)\n/.exec(protectedSource)?.[0];
+    const withAstral = frontmatterOpening
+      ? `${frontmatterOpening}# 😀😀😀\n${protectedSource.slice(frontmatterOpening.length)}`
+      : `😀😀😀\n\n${protectedSource}`;
+    const source = `${withAstral}\n\n:::tip\nReal\n:::\n`;
     assert.equal(asides(source).length, 1);
     assert.deepEqual(
       codeValues(parseAdmonitions(source)),
@@ -193,10 +297,11 @@ for (const newline of ["\n", "\r\n", "\r"]) {
   });
 }
 test("legacy opening-line bodies are parsed by Sätteri without text loss", () => {
-  for (const source of [
+  for (const directive of [
     ":::note Quick tip. :::\n",
     ":::note[Title] First line.\nSecond line.\n:::\n",
   ]) {
+    const source = `😀😀😀\n\n${directive}`;
     const code = compile(source);
     assert.equal(asides(source).length, 1);
     assert.match(code, /Quick tip\.|First line/);
