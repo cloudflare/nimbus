@@ -34,6 +34,7 @@
     "@changesets/changelog-github": "^0.7.0",
     "@changesets/cli": "^2.31.0",
     "@eslint/js": "^10.0.1",
+    "cross-spawn": "7.0.6",
     "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "pkg-pr-new": "^0.0.79",
