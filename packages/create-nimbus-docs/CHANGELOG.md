@@ -1,5 +1,12 @@
 # @cloudflare/create-nimbus-docs
 
+## 0.7.5
+
+### Patch Changes
+
+- Updated dependencies [[`22ae398`](https://github.com/cloudflare/nimbus/commit/22ae398f5c5e7dba1b0e97ba392d716528765987), [`dc9e3ff`](https://github.com/cloudflare/nimbus/commit/dc9e3ffb6dd872345b3dd1db40c7b8c826004100)]:
+  - @cloudflare/nimbus-docs@0.14.1
+
 ## 0.7.4
 
 ### Patch Changes
