@@ -92,6 +92,16 @@
   scroll-margin-top: 5rem;
 }
 
+.docs-content :where([data-footnote-ref][id], [data-footnotes] li[id]) {
+  scroll-margin-top: 8rem;
+}
+
+@media (min-width: 80rem) {
+  .docs-content :where([data-footnote-ref][id], [data-footnotes] li[id]) {
+    scroll-margin-top: 5rem;
+  }
+}
+
 /* Typographic wrapping — balance multi-line headings (no orphan words),
    pretty-wrap body copy (no single-word last lines). Progressive
    enhancement; unsupported browsers ignore both. */
