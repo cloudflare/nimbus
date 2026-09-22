@@ -59,6 +59,7 @@ function statusToneClass(status: string): string {
 }
 
 const authFieldList = page.kind === "operation" ? authFields(page.auth) : [];
+const requestExamples = page.kind === "operation" ? (page.requestExamples ?? []) : [];
 
 // Deprecation notice, built as sanitized HTML for the shared Banner (which takes
 // a content string, mirroring DocsLayout's version-deprecation banner).
@@ -116,6 +117,51 @@ const deprecationHtml = page.deprecated
       ) : page.body.length > 0 ? (
         <ApiFieldList as="h2" title="Request body" badge={mediaBadge(page.bodyMediaType ?? "application/json")} fields={page.body} truncated={page.bodyTruncated} />
       ) : null}
+
+      {requestExamples.length > 0 && (
+        <section
+          class="scroll-mt-24"
+          data-request-examples={requestExamples.length > 1 ? "" : undefined}
+        >
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-sm font-normal text-muted-foreground">
+              {requestExamples.length === 1 ? "Example request" : "Example requests"}
+            </h2>
+            {requestExamples.length > 1 && (
+              <div class="flex flex-wrap gap-1 rounded-lg border border-border bg-muted/40 p-1" role="tablist" aria-label="Request example">
+                {requestExamples.map((example, index) => (
+                  <button
+                    id={`request-example-trigger-${index}`}
+                    type="button"
+                    role="tab"
+                    class="rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground aria-[selected=true]:bg-background aria-[selected=true]:text-foreground aria-[selected=true]:shadow-sm"
+                    aria-controls={`request-example-panel-${index}`}
+                    aria-selected={index === 0 ? "true" : "false"}
+                    tabindex={index === 0 ? 0 : -1}
+                    data-request-example-trigger
+                  >
+                    {example.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {requestExamples.map((example, index) => (
+            <div
+              id={`request-example-panel-${index}`}
+              role={requestExamples.length > 1 ? "tabpanel" : undefined}
+              aria-labelledby={requestExamples.length > 1 ? `request-example-trigger-${index}` : undefined}
+              data-request-example-panel={requestExamples.length > 1 ? "" : undefined}
+              hidden={index !== 0}
+            >
+              {example.description && <p class="mb-2 text-sm text-muted-foreground">{example.description}</p>}
+              <div class="overflow-hidden rounded-lg bg-card ring ring-border">
+                <Fragment set:html={preparedCode(example)} />
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
 
       {page.additionalBodies?.map((body) => (
         <section id={body.anchor} class="scroll-mt-24">
@@ -237,6 +283,10 @@ const deprecationHtml = page.deprecated
     </>
   )}
 </div>
+
+<script>
+  import "./request-examples.client";
+</script>
 
 <style is:global>
   /* Prose treatment for `set:html`-rendered spec descriptions (CommonMark from

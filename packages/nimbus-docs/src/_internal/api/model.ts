@@ -145,6 +145,8 @@ export interface OperationFacts {
   responses: Coordinate[];
   /** Minimal valid request — computed, can't lie. */
   example?: DerivedExample;
+  /** Authored named examples for the primary request media type. */
+  requestExamples?: NamedRequestExample[];
   /** Per-language; `x-codeSamples` from the spec always win. */
   samples: CodeSample[];
   /**
@@ -309,6 +311,12 @@ export interface DerivedExample {
   /** Media type the example is for — the primary media type. */
   mediaType: string;
   value: unknown;
+}
+
+export interface NamedRequestExample extends DerivedExample {
+  id: string;
+  label: string;
+  description?: string;
 }
 
 export interface CodeSample {

@@ -121,7 +121,15 @@ export interface OpenApiMediaType {
   // Per OpenAPI, an entry carries EITHER an inline `value` OR an `externalValue`
   // URL. The engine reads only `value`; `externalValue` is modeled so it can be
   // deliberately skipped (never fetched — the build stays hermetic).
-  examples?: Record<string, { value?: unknown; externalValue?: string }>;
+  examples?: Record<
+    string,
+    {
+      summary?: string;
+      description?: string;
+      value?: unknown;
+      externalValue?: string;
+    }
+  >;
 }
 
 export interface OpenApiSchema {

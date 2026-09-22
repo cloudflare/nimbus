@@ -244,7 +244,7 @@ function renderExample(heading: string, example: ApiExampleView, out: string[]):
     typeof example.value === "string" && !isJson
       ? example.value
       : JSON.stringify(example.value, null, 2);
-  out.push(heading, "");
+  if (heading) out.push(heading, "");
   fenced(isJson ? "json" : "text", body, out);
 }
 
@@ -321,7 +321,16 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
       } else {
         renderFieldSection(bodyHeading, props.body, out, props.bodyTruncated, base);
       }
-      if (props.example) renderExample("## Example request", props.example, out);
+      if ((props.requestExamples?.length ?? 0) > 0) {
+        out.push("## Example requests", "");
+        for (const example of props.requestExamples ?? []) {
+          out.push(`### ${inlineText(example.label)}`, "");
+          if (example.description) out.push(safeBlock(example.description), "");
+          renderExample("", example, out);
+        }
+      } else if (props.example) {
+        renderExample("## Example request", props.example, out);
+      }
       for (const body of props.additionalBodies ?? []) {
         out.push(`## Request body (${body.mediaType})`, "");
         if (body.union) {

@@ -54,7 +54,7 @@ async function highlight(code: string, lang: string): Promise<string> {
   });
 }
 
-async function prepareExample(example: ApiExampleView): Promise<ApiExampleView> {
+async function prepareExample<T extends ApiExampleView>(example: T): Promise<T> {
   return {
     ...example,
     highlightedHtml: await highlight(
@@ -79,6 +79,14 @@ export async function prepareApiPageCode(
   if (page.kind !== "operation") return page;
   return {
     ...page,
+    ...(page.example ? { example: await prepareExample(page.example) } : {}),
+    ...(page.requestExamples
+      ? {
+          requestExamples: await Promise.all(
+            page.requestExamples.map(prepareExample),
+          ),
+        }
+      : {}),
     samples: await Promise.all(page.samples.map(prepareSample)),
     ...(page.additionalBodies
       ? {

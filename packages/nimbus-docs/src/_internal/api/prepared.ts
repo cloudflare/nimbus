@@ -55,6 +55,15 @@ export function isPreparedApiPage(value: unknown): value is PreparedApiPage {
     const page = prepared.page as ApiPageProps;
     if (page.kind !== "operation") return true;
     if (
+      page.example !== undefined &&
+      (!page.example ||
+        typeof page.example !== "object" ||
+        typeof page.example.highlightedHtml !== "string" ||
+        page.example.highlightedHtml.length === 0)
+    ) {
+      return false;
+    }
+    if (
       !Array.isArray(page.samples) ||
       page.samples.some(
         (sample) =>
@@ -78,6 +87,19 @@ export function isPreparedApiPage(value: unknown): value is PreparedApiPage {
               typeof response.example.highlightedHtml !== "string" ||
               response.example.highlightedHtml.length === 0)),
       )
+    ) {
+      return false;
+    }
+    if (
+      page.requestExamples !== undefined &&
+      (!Array.isArray(page.requestExamples) ||
+        page.requestExamples.some(
+          (example) =>
+            !example ||
+            typeof example !== "object" ||
+            typeof example.highlightedHtml !== "string" ||
+            example.highlightedHtml.length === 0,
+        ))
     ) {
       return false;
     }

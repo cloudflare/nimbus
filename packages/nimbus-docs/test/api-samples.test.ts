@@ -427,6 +427,62 @@ describe("derived response examples", () => {
     assert.match(curl.source, /authored-name/, "the authored example, not a re-synthesized body");
   });
 
+  test("authored named request examples preserve labels, descriptions, and order", async () => {
+    const spec = {
+      ...baseSpec,
+      paths: {
+        "/things": {
+          patch: {
+            operationId: "changeThing",
+            requestBody: {
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: { status: { type: "string" } },
+                  },
+                  examples: {
+                    pause: {
+                      summary: "Pause",
+                      description: "Pause this thing.",
+                      value: { status: "pause" },
+                    },
+                    remote: { externalValue: "https://example.com/remote.json" },
+                    resume: { summary: "Resume", value: { status: "resume" } },
+                  },
+                },
+              },
+            },
+            responses: { "200": { description: "ok" } },
+          },
+        },
+      },
+    };
+    const page = await operationPage(spec, "changeThing");
+    assert.deepEqual(page.requestExamples, [
+      {
+        id: "pause",
+        label: "Pause",
+        description: "Pause this thing.",
+        mediaType: "application/json",
+        value: { status: "pause" },
+      },
+      {
+        id: "resume",
+        label: "Resume",
+        mediaType: "application/json",
+        value: { status: "resume" },
+      },
+    ]);
+    assert.deepEqual(page.example?.value, { status: "pause" });
+    const md = renderApiPageMarkdown(page);
+    assert.match(md, /## Example requests/);
+    assert.match(md, /### Pause/);
+    assert.match(md, /Pause this thing\./);
+    assert.match(md, /### Resume/);
+    assert.doesNotMatch(md, /remote\.json/);
+  });
+
   test("a oneOf response yields a deterministic best-effort example (first branch)", async () => {
     const spec = {
       ...baseSpec,
