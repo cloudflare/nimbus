@@ -1,6 +1,5 @@
-// Guards the `apiCollection()` loader: each entry carries its prepared page,
-// the root carries shared navigation, and the root's empty slug maps to Astro's
-// `index` id. It also covers content-addressed parsing and multi-spec isolation.
+// Guards the `apiCollection()` loader's thin static index, prepared server
+// fallback, canonical IDs, content-addressed parsing, and multi-spec isolation.
 
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
@@ -12,6 +11,7 @@ import {
   activatePreparedApiNav,
   isPreparedApiPage,
 } from "../src/_internal/api/prepared.js";
+import { projectApiModelPage } from "../src/_internal/api-loader.js";
 import {
   buildApiModel,
   clearApiModelCache,
@@ -64,7 +64,11 @@ function makeStore() {
     addModuleImport() {},
   };
 }
-function makeContext(collection: string, store: ReturnType<typeof makeStore>) {
+function makeContext(
+  collection: string,
+  store: ReturnType<typeof makeStore>,
+  output: "static" | "server" = "static",
+) {
   const logs: { level: string; msg: string }[] = [];
   const log = (level: string) => (msg: string) =>
     void logs.push({ level, msg });
@@ -82,7 +86,7 @@ function makeContext(collection: string, store: ReturnType<typeof makeStore>) {
         label: "t",
         fork: () => makeContext(collection, store).context.logger,
       } as never,
-      config: { root: pathToFileURL(ROOT) } as never,
+      config: { root: pathToFileURL(ROOT), output } as never,
       parseData: async <T>({ data }: { data: T }) => data,
       renderMarkdown: async () => ({ html: "" }),
       generateDigest: (v: unknown) => JSON.stringify(v).length.toString(36),
@@ -94,25 +98,13 @@ function makeContext(collection: string, store: ReturnType<typeof makeStore>) {
 async function runLoader(
   collection: string,
   spec: string | Record<string, unknown>,
+  output: "static" | "server" = "static",
 ) {
   const store = makeStore();
-  const { logs, context } = makeContext(collection, store);
+  const { logs, context } = makeContext(collection, store, output);
   const { loader } = apiCollection({ collection, spec });
   await loader.load(context);
   return { store, logs };
-}
-
-function withoutPreparedCode(page: ApiPageProps): ApiPageProps {
-  const copy = structuredClone(page);
-  if (copy.kind !== "operation") return copy;
-  for (const sample of copy.samples) delete sample.highlightedHtml;
-  for (const response of copy.responses) {
-    if (response.example) delete response.example.highlightedHtml;
-  }
-  for (const body of copy.additionalBodies ?? []) {
-    if (body.example) delete body.example.highlightedHtml;
-  }
-  return copy;
 }
 
 let smallco: ApiModel;
@@ -123,7 +115,7 @@ before(async () => {
   });
 });
 
-describe("apiCollection loader — prepared index", () => {
+describe("apiCollection loader — output-aware index", () => {
   test("writes exactly one entry per page slug, root mapped to `index`", async () => {
     const slugs = getApiPageSlugs(smallco);
     // The loader reads its own spec via the path form to exercise fs + resolve.
@@ -139,49 +131,69 @@ describe("apiCollection loader — prepared index", () => {
     }
   });
 
-  test("entries carry prepared page data and only roots carry shared navigation", async () => {
+  test("static entries carry route metadata without prepared page payloads", async () => {
     const { store } = await runLoader("api", "test/fixtures/api/smallco.yaml");
     for (const entry of store.values()) {
       const keys = Object.keys(entry.data);
       assert.ok(keys.includes("coordinate"), "carries coordinate");
       assert.ok(keys.includes("title"), "carries title");
-      assert.ok(keys.includes("prepared"), "carries prepared runtime data");
       for (const key of keys)
         assert.ok(
-          ["coordinate", "title", "description", "prepared"].includes(key),
+          ["coordinate", "title", "description"].includes(key),
           `unexpected data key "${key}"`,
         );
       assert.equal(typeof entry.data.coordinate, "string");
       assert.equal(typeof entry.data.title, "string");
-      const prepared = entry.data.prepared as {
-        page: { coordinate: string };
-        nav?: unknown;
-      };
-      assert.equal(prepared.page.coordinate, entry.data.coordinate);
-      assert.equal("nav" in prepared, entry.id === "index");
+      assert.equal(entry.data.prepared, undefined);
       assert.equal(entry.body, undefined, "no MDX body");
       assert.equal(entry.rendered, undefined);
     }
   });
 
-  test("prepared entries stay bounded", async () => {
+  test("static entries stay bounded", async () => {
     const { store } = await runLoader("api", "test/fixtures/api/smallco.yaml");
     const bytes = Buffer.byteLength(JSON.stringify(store.values()));
     const perEntry = bytes / store.keys().length;
     assert.ok(
-      perEntry < 4096,
-      `~${perEntry.toFixed(0)} B/entry should be < 4 KB`,
+      perEntry < 512,
+      `~${perEntry.toFixed(0)} B/entry should be < 512 B`,
     );
   });
 
-  test("prepared runtime validation requires UI-consumed code HTML", async () => {
-    const { store } = await runLoader("api", "test/fixtures/api/smallco.yaml");
+  test("server entries retain prepared pages and shared root navigation", async () => {
+    const { store } = await runLoader(
+      "api",
+      "test/fixtures/api/smallco.yaml",
+      "server",
+    );
+    for (const entry of store.values()) {
+      const prepared = entry.data.prepared as {
+        page: { coordinate: string };
+        nav?: unknown;
+      };
+      assert.equal(isPreparedApiPage(prepared), true);
+      assert.equal(prepared.page.coordinate, entry.data.coordinate);
+      assert.equal("nav" in prepared, entry.id === "index");
+    }
     const operation = [...store.values()].find(
       (entry) =>
         (entry.data.prepared as { page?: { kind?: string } }).page?.kind ===
         "operation",
     );
     assert.ok(operation);
+    const rootPrepared = store.get("index")?.data.prepared as {
+      nav: Parameters<typeof activatePreparedApiNav>[0];
+    };
+    const operationPrepared = operation.data.prepared as {
+      page: { coordinate: string };
+    };
+    assert.deepEqual(
+      activatePreparedApiNav(
+        rootPrepared.nav,
+        operationPrepared.page.coordinate,
+      ),
+      getApiNav(smallco, operationPrepared.page.coordinate),
+    );
     const prepared = structuredClone(operation.data.prepared);
     assert.equal(isPreparedApiPage(prepared), true);
     const page = (prepared as { page: ApiPageProps }).page;
@@ -203,7 +215,25 @@ describe("apiCollection loader — prepared index", () => {
     assert.equal(isPreparedApiPage(invalidBodies), false);
   });
 
-  test("versioned prepared navigation matches direct model projection", async () => {
+  test("the shared projector prepares code and bounds navigation", async () => {
+    for (const { coordinate } of getApiPageSlugs(smallco)) {
+      const projected = await projectApiModelPage(smallco, coordinate);
+      const direct = getApiNav(smallco, coordinate);
+      assert.deepEqual(
+        projected.nav.items.map(({ coordinate }) => coordinate),
+        direct.items.map(({ coordinate }) => coordinate),
+      );
+      if (projected.page.kind === "operation") {
+        assert.ok(
+          projected.page.samples.every(
+            (sample) => typeof sample.highlightedHtml === "string",
+          ),
+        );
+      }
+    }
+  });
+
+  test("versioned static entries retain identity and version metadata", async () => {
     const spec = smallcoAsObject();
     const { store } = await runLoaderOpts({
       collection: "api",
@@ -217,11 +247,6 @@ describe("apiCollection loader — prepared index", () => {
       { version: "v2", rootId: "index", prefix: "", mountPath: "/api" },
       { version: "v1", rootId: "v1", prefix: "v1/", mountPath: "/api/v1" },
     ]) {
-      const root = store.get(rootId);
-      assert.ok(root);
-      const preparedRoot = root.data.prepared as {
-        nav: Parameters<typeof activatePreparedApiNav>[0];
-      };
       const model = await buildApiModel({ collection: "api", spec, mountPath });
 
       for (const entry of store.values()) {
@@ -229,17 +254,11 @@ describe("apiCollection loader — prepared index", () => {
           ? entry.id === rootId || entry.id.startsWith(prefix)
           : entry.id !== "v1" && !entry.id.startsWith("v1/");
         if (!belongsToVersion) continue;
-        const prepared = entry.data.prepared as {
-          page: ApiPageProps;
-        };
         assert.equal(entry.data.version, version);
-        assert.deepEqual(
-          withoutPreparedCode(prepared.page),
-          getApiPageProps(model, prepared.page.coordinate),
-        );
-        assert.deepEqual(
-          activatePreparedApiNav(preparedRoot.nav, prepared.page.coordinate),
-          getApiNav(model, prepared.page.coordinate),
+        assert.equal(entry.data.prepared, undefined);
+        assert.equal(
+          typeof getApiPageProps(model, entry.data.coordinate as string).href,
+          "string",
         );
       }
     }

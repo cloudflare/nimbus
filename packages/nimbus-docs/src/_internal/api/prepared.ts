@@ -29,15 +29,22 @@ export function prepareApiNav(nav: ApiNav): PreparedApiNav {
 export function activatePreparedApiNav(
   prepared: PreparedApiNav,
   coordinate: string,
+  collapseInactiveBranches = false,
 ): ApiNav {
   const path = prepared.paths[coordinate];
   if (!path) return prepared.nav;
   const onPath = new Set(path);
   const overlay = (item: ApiNavItem): ApiNavItem => {
-    if (!onPath.has(item.coordinate)) return item;
-    const next = { ...item, children: item.children.map(overlay) };
+    const exposeChildren =
+      !collapseInactiveBranches ||
+      onPath.has(item.coordinate) ||
+      item.href === undefined;
+    const next = {
+      ...item,
+      children: exposeChildren ? item.children.map(overlay) : [],
+    };
     if (item.coordinate === coordinate) next.active = true;
-    else next.expanded = true;
+    else if (onPath.has(item.coordinate)) next.expanded = true;
     return next;
   };
   return { ...prepared.nav, items: prepared.nav.items.map(overlay) };

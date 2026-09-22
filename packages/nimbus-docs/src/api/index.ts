@@ -66,10 +66,9 @@ export { renderApiPageMarkdown } from "../_internal/api/markdown.js";
 
 const modelStore = new WeakMap<object, DocsModel>();
 const handleCache = new Map<string, Promise<ApiModel>>();
-// Per-collection resolved-source cache, so repeated render-time `getApiModel`
-// calls across Markdown, HTML, and llms-full.txt routes don't re-read
-// and re-hash the whole spec file. Distinct from `handleCache` (content-keyed).
-const sourceCache = new Map<string, Promise<SpecSource>>();
+// Per-version configured-model cache, so repeated render-time `getApiModel`
+// calls across Markdown and HTML routes neither re-read nor re-hash the spec.
+const configuredModelCache = new Map<string, Promise<ApiModel>>();
 
 /** SHA-256 → base64url. Collision-resistant *and* content-addressed. */
 function specDigest(raw: string): string {
@@ -144,13 +143,18 @@ export function clearApiModelCache(collection: string): void {
   for (const key of [...handleCache.keys()]) {
     if (key.startsWith(prefix)) handleCache.delete(key);
   }
-  // Drop the resolved-source memos too, so a watched-spec change forces a
-  // fresh read on the next render. Source keys are per-version (`collection`
+  // Drop the configured model memos too, so a watched-spec change forces a
+  // fresh read on the next render. Keys are per-version (`collection`
   // or `collection@<version>`), so evict the family name and every version.
+  const unversionedPrefix = `${collection}::`;
   const versionPrefix = `${collection}@`;
-  for (const key of [...sourceCache.keys()]) {
-    if (key === collection || key.startsWith(versionPrefix)) {
-      sourceCache.delete(key);
+  for (const key of [...configuredModelCache.keys()]) {
+    if (
+      key === collection ||
+      key.startsWith(unversionedPrefix) ||
+      key.startsWith(versionPrefix)
+    ) {
+      configuredModelCache.delete(key);
     }
   }
 }
@@ -188,8 +192,8 @@ export async function getApiModel(
   // The cache key carries the version so two versions of one family never
   // alias (they share a namespace but not a spec/mount).
   const cacheKey = resolved.versionKey;
-  const cachedSource = sourceCache.get(cacheKey);
-  if (cachedSource) return buildApiModel(await cachedSource);
+  const cached = configuredModelCache.get(cacheKey);
+  if (cached) return cached;
 
   // Resolve against the loader's base (astroConfig.root), not process.cwd() —
   // they differ under monorepo/subpackage/`--root`/Cloudflare builds.
@@ -203,15 +207,16 @@ export async function getApiModel(
       routes: resolved.routes,
     },
     root,
-  );
-  sourceCache.set(cacheKey, promise);
-  // Never leave a rejected resolution cached — a transient read failure (an
-  // editor's atomic write-then-rename) would otherwise stick until the next
-  // watched-file event, mirroring the `handleCache` guard above.
+  ).then(buildApiModel);
+  configuredModelCache.set(cacheKey, promise);
+  // Never leave a rejected load cached — an editor's atomic write-then-rename
+  // can transiently fail before the content watcher sees the replacement.
   promise.catch(() => {
-    if (sourceCache.get(cacheKey) === promise) sourceCache.delete(cacheKey);
+    if (configuredModelCache.get(cacheKey) === promise) {
+      configuredModelCache.delete(cacheKey);
+    }
   });
-  return buildApiModel(await promise);
+  return promise;
 }
 
 export function getApiPageProps(

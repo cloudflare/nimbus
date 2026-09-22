@@ -2,10 +2,22 @@ import { codeToHtml } from "shiki";
 
 import { defaultCodeTransformers } from "./code-transformers.js";
 import type {
+  ApiModel,
+  ApiNav,
   ApiCodeSampleView,
   ApiExampleView,
   ApiPageProps,
 } from "./api/api-view-types.js";
+import {
+  getApiModel,
+  getApiNav,
+  getApiPageProps,
+} from "../api/index.js";
+import {
+  activatePreparedApiNav,
+  prepareApiNav,
+  type PreparedApiNav,
+} from "./api/prepared.js";
 
 export {
   buildApiModel,
@@ -18,6 +30,17 @@ export {
 export { resolveSpecSource } from "./api/resolve-spec.js";
 export { apiPageRoute, resolveApiFamily } from "./api/resolve-versions.js";
 export { prepareApiNav, preparedApiVersion } from "./api/prepared.js";
+
+const preparedNavCache = new WeakMap<ApiModel, PreparedApiNav>();
+
+function projectedNav(model: ApiModel, coordinate: string): ApiNav {
+  let prepared = preparedNavCache.get(model);
+  if (!prepared) {
+    prepared = prepareApiNav(getApiNav(model));
+    preparedNavCache.set(model, prepared);
+  }
+  return activatePreparedApiNav(prepared, coordinate, true);
+}
 
 const HIGHLIGHTABLE = new Set([
   "bash",
@@ -109,4 +132,25 @@ export async function prepareApiPageCode(
       })),
     ),
   };
+}
+
+export async function projectApiModelPage(
+  model: ApiModel,
+  coordinate: string,
+): Promise<{ page: ApiPageProps; nav: ApiNav }> {
+  return {
+    page: await prepareApiPageCode(getApiPageProps(model, coordinate)),
+    nav: projectedNav(model, coordinate),
+  };
+}
+
+export async function projectConfiguredApiPage(
+  collection: string,
+  version: string | null,
+  coordinate: string,
+): Promise<{ page: ApiPageProps; nav: ApiNav }> {
+  return projectApiModelPage(
+    await getApiModel(collection, version ?? undefined),
+    coordinate,
+  );
 }

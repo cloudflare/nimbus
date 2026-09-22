@@ -257,11 +257,11 @@ describe("API page resolution", () => {
     },
   };
 
-  test("uses existing static API identity without request lookup", async () => {
+  test("resolves a static API identity by its lightweight route props", async () => {
     lookups = [];
     collectionLoads = 0;
     const result = await resolveApiPage(
-      context("/api/charges/create/", "ignored", {
+      context("/api/charges/create/", "charges/create", {
         collection: "api",
         version: "v2",
         coordinate: "createCharge",
@@ -274,7 +274,9 @@ describe("API page resolution", () => {
     if (result.status !== "found") return;
     assert.equal(result.page.coordinate, "createCharge");
     assert.equal(result.page.version, "v2");
-    assert.deepEqual(lookups, []);
+    assert.deepEqual(lookups, [
+      { collection: "api", id: "charges/create", audience: "test" },
+    ]);
     assert.equal(collectionLoads, 0);
   });
 
