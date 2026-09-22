@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.8",
+    "@astrojs/language-server": "2.16.13",
     "@tailwindcss/vite": "^4.1.4",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
