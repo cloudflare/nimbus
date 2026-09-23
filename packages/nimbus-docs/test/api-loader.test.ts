@@ -11,7 +11,10 @@ import {
   activatePreparedApiNav,
   isPreparedApiPage,
 } from "../src/_internal/api/prepared.js";
-import { projectApiModelPage } from "../src/_internal/api-loader.js";
+import {
+  projectApiModelPage,
+  projectConfiguredApiPage,
+} from "../src/_internal/api-loader.js";
 import {
   buildApiModel,
   clearApiModelCache,
@@ -228,6 +231,19 @@ describe("apiCollection loader — output-aware index", () => {
         );
       }
     }
+  });
+
+  test("the static loader registers its model for prerender projection", async () => {
+    const { store } = await runLoader("api", "test/fixtures/api/smallco.yaml");
+    const entry = [...store.values()].find(
+      (candidate) => candidate.id !== "index",
+    );
+    assert.ok(entry);
+    const coordinate = entry.data.coordinate as string;
+    const projected = await projectConfiguredApiPage("api", null, coordinate);
+
+    assert.equal(projected.page.coordinate, coordinate);
+    assert.deepEqual(projected.nav, getApiNav(smallco, coordinate));
   });
 
   test("versioned static entries retain identity and version metadata", async () => {

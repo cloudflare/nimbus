@@ -329,6 +329,7 @@ export function apiCollection(options: ApiCollectionOptions): {
         prepareApiNav,
         prepareApiPageCode,
         preparedApiVersion,
+        registerConfiguredApiModel,
         resolveApiFamily,
         resolveSpecSource,
       } = await loadApiLoader();
@@ -385,6 +386,11 @@ export function apiCollection(options: ApiCollectionOptions): {
               rootDir,
             );
             model = await buildApiModel(source);
+            registerConfiguredApiModel(
+              collection,
+              target.version ?? null,
+              model,
+            );
           } catch (err) {
             // `ApiBuildError` already formats a pointed diagnostic list; surface
             // it (plus which spec failed) and fail the build cleanly.

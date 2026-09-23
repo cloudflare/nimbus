@@ -455,6 +455,10 @@ export function nimbus(
         const projectRoot = fileURLToPath(astroConfig.root);
         beginPreparedMarkdownSession(astroConfig.root);
         const agentEndpointAssets = await loadAgentEndpointAssets();
+        if (config.api?.length) {
+          const apiLoader = await import("./_internal/api-loader.js");
+          apiLoader.configureApiProjector(config.api, projectRoot);
+        }
         agentEndpointAssets.configureAgentEndpointAssetRoot(
           astroConfig.root,
           command === "build" ? "build" : "dev",

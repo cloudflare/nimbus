@@ -9,7 +9,7 @@ import type {
   ApiPageProps,
 } from "./api/api-view-types.js";
 import {
-  getApiModel,
+  buildApiModel,
   getApiNav,
   getApiPageProps,
 } from "../api/index.js";
@@ -19,20 +19,49 @@ import {
   type PreparedApiNav,
 } from "./api/prepared.js";
 import { registerConfiguredApiProjector } from "./api-projector.js";
+import { resolveSpecSource } from "./api/resolve-spec.js";
+import { resolveApiVersion } from "./api/resolve-versions.js";
+import type { ApiSpec } from "../types.js";
 
 export {
-  buildApiModel,
   clearApiModelCache,
   getApiNav,
   getApiPageIndex,
   getApiPageProps,
   getApiRouteProvenance,
 } from "../api/index.js";
-export { resolveSpecSource } from "./api/resolve-spec.js";
+export { buildApiModel, resolveSpecSource };
 export { apiPageRoute, resolveApiFamily } from "./api/resolve-versions.js";
 export { prepareApiNav, preparedApiVersion } from "./api/prepared.js";
 
 const preparedNavCache = new WeakMap<ApiModel, PreparedApiNav>();
+const configuredModels = new Map<string, Promise<ApiModel>>();
+let configuredApi: ApiSpec[] = [];
+let configuredRoot = "";
+
+function configuredModelKey(collection: string, version: string | null): string {
+  return `${collection}\0${version ?? ""}`;
+}
+
+export function registerConfiguredApiModel(
+  collection: string,
+  version: string | null,
+  model: ApiModel,
+): void {
+  configuredModels.set(
+    configuredModelKey(collection, version),
+    Promise.resolve(model),
+  );
+}
+
+export function configureApiProjector(
+  api: ApiSpec[],
+  root: string,
+): void {
+  configuredApi = api;
+  configuredRoot = root;
+  configuredModels.clear();
+}
 
 function projectedNav(model: ApiModel, coordinate: string): ApiNav {
   let prepared = preparedNavCache.get(model);
@@ -150,10 +179,36 @@ export async function projectConfiguredApiPage(
   version: string | null,
   coordinate: string,
 ): Promise<{ page: ApiPageProps; nav: ApiNav }> {
-  return projectApiModelPage(
-    await getApiModel(collection, version ?? undefined),
-    coordinate,
-  );
+  const key = configuredModelKey(collection, version);
+  let model = configuredModels.get(key);
+  if (!model) {
+    const target = resolveApiVersion(
+      configuredApi,
+      collection,
+      version,
+    );
+    if (!target || !configuredRoot) {
+      throw new Error(
+        `nimbus-docs: API model for collection "${collection}"${version ? ` version "${version}"` : ""} was not configured by the Nimbus integration.`,
+      );
+    }
+    model = resolveSpecSource(
+      {
+        collection: target.namespace,
+        spec: target.spec,
+        label: target.label,
+        mountPath: target.mountPath,
+        requireOperationId: target.requireOperationId,
+        routes: target.routes,
+      },
+      configuredRoot,
+    ).then(buildApiModel);
+    configuredModels.set(key, model);
+    model.catch(() => {
+      if (configuredModels.get(key) === model) configuredModels.delete(key);
+    });
+  }
+  return projectApiModelPage(await model, coordinate);
 }
 
 registerConfiguredApiProjector(projectConfiguredApiPage);
