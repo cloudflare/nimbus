@@ -36,6 +36,7 @@ import {
   type PreparedMarkdownEntry,
   waitForPreparedMarkdownTransactions,
 } from "./prepared-markdown-registry.js";
+import { registerAgentEndpointAssetReader } from "./agent-endpoint-asset-reader.js";
 import {
   renderEntryAsMarkdown,
 } from "./transform.js";
@@ -1690,3 +1691,5 @@ export async function readLlmsEndpointPayload(
     endRead();
   }
 }
+
+registerAgentEndpointAssetReader(readMarkdownEndpointPayload);

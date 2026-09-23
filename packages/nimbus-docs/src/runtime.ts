@@ -74,6 +74,7 @@ import {
   type PageResolutionContext,
   type ProsePage,
 } from "./_internal/page-resolution.js";
+import { projectConfiguredApiPage } from "./_internal/api-projector.js";
 
 import type {
   ApiVersionStatus,
@@ -514,10 +515,13 @@ export async function renderIndexedEntryMarkdown(
         "is missing its prepared page data — rebuild the apiCollection() index.",
     );
   }
-  const { getApiModel, getApiPageProps } = await import("./api/index.js");
   const version = (item.entry.data as { version?: string }).version;
-  const model = await getApiModel(item.collection, version);
-  return renderApiPageMarkdown(getApiPageProps(model, coordinate), {
+  const { page } = await projectConfiguredApiPage(
+    item.collection,
+    version ?? null,
+    coordinate,
+  );
+  return renderApiPageMarkdown(page, {
     base: options?.base,
   });
 }
@@ -1525,9 +1529,6 @@ async function resolveApiRoute(
         const prepared = (entry.data as { prepared?: unknown }).prepared;
         if (!isPreparedApiPage(prepared)) {
           if (THIN_API_ENTRIES) {
-            const { projectConfiguredApiPage } = await import(
-              "./_internal/api-loader.js"
-            );
             return projectConfiguredApiPage(collection, version, coordinate);
           }
           throw new Error(

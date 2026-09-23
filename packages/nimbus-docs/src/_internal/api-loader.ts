@@ -18,6 +18,7 @@ import {
   prepareApiNav,
   type PreparedApiNav,
 } from "./api/prepared.js";
+import { registerConfiguredApiProjector } from "./api-projector.js";
 
 export {
   buildApiModel,
@@ -154,3 +155,5 @@ export async function projectConfiguredApiPage(
     coordinate,
   );
 }
+
+registerConfiguredApiProjector(projectConfiguredApiPage);

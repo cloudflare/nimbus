@@ -93,10 +93,6 @@
 			"types": "./dist/lib/pkgm.d.ts",
 			"import": "./dist/lib/pkgm.js"
 		},
-		"./_internal/agent-endpoint-assets": {
-			"types": "./dist/_internal/agent-endpoint-assets.d.ts",
-			"import": "./dist/_internal/agent-endpoint-assets.js"
-		},
 		"./components/NimbusHead.astro": "./src/components/NimbusHead.astro",
 		"./components/Icon.astro": "./src/components/Icon.astro"
 	},
