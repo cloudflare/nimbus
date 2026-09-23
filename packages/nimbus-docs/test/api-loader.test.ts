@@ -215,14 +215,11 @@ describe("apiCollection loader — output-aware index", () => {
     assert.equal(isPreparedApiPage(invalidBodies), false);
   });
 
-  test("the shared projector prepares code and bounds navigation", async () => {
+  test("the shared projector prepares code and preserves navigation", async () => {
     for (const { coordinate } of getApiPageSlugs(smallco)) {
       const projected = await projectApiModelPage(smallco, coordinate);
       const direct = getApiNav(smallco, coordinate);
-      assert.deepEqual(
-        projected.nav.items.map(({ coordinate }) => coordinate),
-        direct.items.map(({ coordinate }) => coordinate),
-      );
+      assert.deepEqual(projected.nav, direct);
       if (projected.page.kind === "operation") {
         assert.ok(
           projected.page.samples.every(

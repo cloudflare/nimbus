@@ -39,7 +39,7 @@ function projectedNav(model: ApiModel, coordinate: string): ApiNav {
     prepared = prepareApiNav(getApiNav(model));
     preparedNavCache.set(model, prepared);
   }
-  return activatePreparedApiNav(prepared, coordinate, true);
+  return activatePreparedApiNav(prepared, coordinate);
 }
 
 const HIGHLIGHTABLE = new Set([
