@@ -34,7 +34,11 @@ import type {
   ResponseFacts,
 } from "./model.js";
 import { dedupeParameters, mediaExample, picksNonPrimaryMedia, resolveAuth } from "./facts.js";
-import { buildOperationSamples, resolveExampleValue } from "./samples.js";
+import {
+  buildOperationSamples,
+  resolveExampleValue,
+  resolveNamedExampleValues,
+} from "./samples.js";
 import { addField, walkFields } from "./field-walk.js";
 import {
   asString,
@@ -369,6 +373,12 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
   );
   if (requestEntry && requestExample !== undefined) {
     facts.example = { mediaType: requestEntry.mediaType, value: requestExample };
+  }
+  if (requestEntry) {
+    const requestExamples = resolveNamedExampleValues(
+      mediaExample(requestEntry)?.examples,
+    ).map((example) => ({ ...example, mediaType: requestEntry.mediaType }));
+    if (requestExamples.length > 0) facts.requestExamples = requestExamples;
   }
   if (site.sampleTarget && ctx.sampleTools) {
     facts.samples = buildOperationSamples(ctx.sampleTools, {

@@ -637,6 +637,13 @@ function projectPageWithView(
         const value = jsonOrOmit(f.example.value);
         if (value !== undefined) page.example = { mediaType: f.example.mediaType, value };
       }
+      if (f.requestExamples) {
+        const requestExamples = f.requestExamples.flatMap((example) => {
+          const value = jsonOrOmit(example.value);
+          return value === undefined ? [] : [{ ...example, value }];
+        });
+        if (requestExamples.length > 0) page.requestExamples = requestExamples;
+      }
       if (f.bodyUnion) page.bodyUnion = unionView(view, f.bodyUnion, true);
       if (f.bodyMediaType) page.bodyMediaType = f.bodyMediaType;
       const additionalBodies = additionalBodyViews(view, node.id);

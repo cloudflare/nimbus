@@ -117,7 +117,15 @@ export type ExampleRole = "request" | "response";
 export interface MediaExample {
   mediaType: string;
   example?: unknown;
-  examples?: Record<string, { value?: unknown; externalValue?: string } | undefined>;
+  examples?: Record<
+    string,
+    {
+      summary?: string;
+      description?: string;
+      value?: unknown;
+      externalValue?: string;
+    } | undefined
+  >;
   schema?: OpenApiSchema;
 }
 
@@ -151,6 +159,38 @@ export function resolveExampleValue(
   if (!media.schema || !tools) return undefined;
   const sampled = sampleForRole(tools, media.schema, role);
   return sampled === undefined ? undefined : clampExample(sampled);
+}
+
+export interface NamedExampleValue {
+  id: string;
+  label: string;
+  description?: string;
+  value: unknown;
+}
+
+/** Returns every inline named example; external examples remain hermetic. */
+export function resolveNamedExampleValues(
+  examples: MediaExample["examples"],
+): NamedExampleValue[] {
+  if (!examples) return [];
+  const entries = Object.entries(examples);
+  const defaultIndex = entries.findIndex(([id]) => id === "default");
+  if (defaultIndex > 0) entries.unshift(entries.splice(defaultIndex, 1)[0]!);
+  const resolved: NamedExampleValue[] = [];
+  for (const [id, example] of entries) {
+    if (!example || example.value === undefined) continue;
+    const value = clampExample(example.value);
+    if (value === undefined) continue;
+    resolved.push({
+      id,
+      label: example.summary?.trim() || id,
+      ...(example.description?.trim()
+        ? { description: example.description.trim() }
+        : {}),
+      value,
+    });
+  }
+  return resolved;
 }
 
 // `default` key wins (order-independent, deterministic); otherwise the first

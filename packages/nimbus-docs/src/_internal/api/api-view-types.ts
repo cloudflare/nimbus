@@ -169,6 +169,8 @@ export interface ApiOperationPage extends ApiPageBase {
   responses: ApiResponseView[];
   /** Derived minimal request body, for the request example display. */
   example?: ApiExampleView;
+  /** Authored named examples for the primary request media type. */
+  requestExamples?: ApiRequestExampleView[];
   /** Per-language request samples; `x-codeSamples` from the spec win. */
   samples: ApiCodeSampleView[];
 }
@@ -177,6 +179,12 @@ export interface ApiExampleView {
   mediaType: string;
   value: JsonValue;
   highlightedHtml?: string;
+}
+
+export interface ApiRequestExampleView extends ApiExampleView {
+  id: string;
+  label: string;
+  description?: string;
 }
 
 export interface ApiRequestBodyView {
