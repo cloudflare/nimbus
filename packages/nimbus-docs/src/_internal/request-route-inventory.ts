@@ -14,7 +14,16 @@ import {
   getVersionStatus,
   renderIndexedEntryMarkdown,
 } from "../runtime.js";
-import { readMarkdownEndpointPayload } from "./agent-endpoint-assets.js";
+
+type AgentEndpointAssetsModule = typeof import("./agent-endpoint-assets.js");
+
+function loadAgentEndpointAssets(): Promise<AgentEndpointAssetsModule> {
+  const specifier = [
+    "@cloudflare/nimbus-docs",
+    "_internal/agent-endpoint-assets",
+  ].join("/");
+  return import(/* @vite-ignore */ specifier) as Promise<AgentEndpointAssetsModule>;
+}
 
 export const prerender = true;
 
@@ -72,7 +81,7 @@ export async function GET() {
       route.content = apiCollections.has(collection)
         ? await renderIndexedEntryMarkdown(item, { base: import.meta.env.BASE_URL })
         : (
-            await readMarkdownEndpointPayload(
+            await (await loadAgentEndpointAssets()).readMarkdownEndpointPayload(
               projectRoot,
               {
                 collection,
