@@ -1,0 +1,21 @@
+.changeset/base-aware-api-citations.md
+  s_03f39a76a42608::t_459e701ec7db45 1-5
+packages/nimbus-docs/test/api-citation-base.test.ts
+  s_03f39a76a42608::t_a2e9159400c806 1-242
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d32f981cbe5efc2d92d0f6706033eb053499000d",
+  "prompts": {},
+  "sessions": {
+    "s_03f39a76a42608": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f2bd7d66fffeqacXMj4x4hpF4L",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
