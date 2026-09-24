@@ -414,9 +414,11 @@ if (LANE === "static") {
   for (const document of [plain, composed]) {
     assert.ok([...document.querySelectorAll("pre")].some(node => node.textContent.includes('<a href="/untouched">{notAnExpression}</a>')), "fenced examples retain their literal content");
     assert.equal(document.querySelector('a[href="/untouched"]'), null);
+    assert.ok([...document.querySelectorAll("pre")].some(node => node.textContent.includes("[literal citation](api.ref:api:untouched)")), "fenced citation examples stay literal");
   }
   assert.ok(generated.some(source => source.includes("<!-- Generated Markdown can contain HTML comments and literal {braces}. -->")));
   assert.ok(generated.some(source => source.includes('<a href="/untouched">{notAnExpression}</a>')));
+  assert.ok(generated.every(source => source.includes("[literal citation](api.ref:api:untouched)")), "generated sources keep fenced citation examples literal");
   // Reuse the content cache: prepared links and content must not change on a
   // second build of the same installed consumer.
   const snapshot = (document) => ({
