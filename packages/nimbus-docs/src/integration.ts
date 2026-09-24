@@ -82,7 +82,7 @@ import {
 import { virtualConfigPlugin } from "./_internal/virtual-config.js";
 import { virtualApiBuildConfigPlugin } from "./_internal/virtual-api-build-config.js";
 import { virtualCoordinatesPlugin } from "./_internal/virtual-coordinates.js";
-import { citationPlugin } from "./_internal/api/citation-vite-plugin.js";
+import { createAuthoredCitationResolver } from "./_internal/api/authored-citations.js";
 import {
   buildCitationIndex,
   type CoordinatesManifest,
@@ -429,7 +429,8 @@ export function nimbus(
   let apiCollectionsForBuild: string[] = [];
 
   // Built eagerly at config:setup, reassigned by the dev re-bake; both the
-  // citation plugin and virtual:nimbus/coordinates read it through a getter.
+  // authored-source citation resolver and virtual:nimbus/coordinates read it
+  // through a getter.
   let citationIndex = new Map<string, string>();
   let coordinatesManifest: CoordinatesManifest = {
     version: 2,
@@ -1196,16 +1197,33 @@ export function nimbus(
         const { markdownSourcePlugin } =
           await import("./_internal/markdown-source-vite-plugin.js");
         const authoredLinkBase = astroConfig.base || "/";
+        // One authored-source pipeline for `.md` (processor) and `.mdx` (Vite):
+        // resolve `api.ref:` citations to logical routes, then normalize every
+        // authored link against Astro's base. Reads the current citation index
+        // so a dev re-bake applies.
+        const resolveAuthoredCitations = createAuthoredCitationResolver({
+          contentDirs: citationContentDirs,
+          getCitationIndex: () => citationIndex,
+        });
+        const prepareAuthoredSource = (
+          source: string,
+          sourceId: string | undefined,
+          format: "markdown" | "mdx",
+        ) =>
+          authoredLinks.normalizeAuthoredLinks(
+            resolveAuthoredCitations(source, sourceId),
+            { base: authoredLinkBase, format, sourceId },
+          );
         const preparedMarkdownProcessor = decorateMarkdownProcessor(
           markdownProcessor as import("astro/markdown").MarkdownProcessor,
           (source, renderOptions) =>
-            authoredLinks.normalizeAuthoredLinks(source, {
-              base: authoredLinkBase,
-              format: "markdown",
-              sourceId: renderOptions?.fileURL
+            prepareAuthoredSource(
+              source,
+              renderOptions?.fileURL
                 ? fileURLToPath(renderOptions.fileURL)
                 : undefined,
-            }),
+              "markdown",
+            ),
         );
 
         updateConfig({
@@ -1309,17 +1327,7 @@ export function nimbus(
               markdownSourcePlugin({
                 contentDirs: authoredLinkSourceDirs,
                 transform: (source, filePath) =>
-                  authoredLinks.normalizeAuthoredLinks(source, {
-                    base: authoredLinkBase,
-                    format: "mdx",
-                    sourceId: filePath,
-                  }),
-              }),
-              // HTML-path citation rewrite; runs before @astrojs/mdx compiles
-              // the file. Reads the current citation index so a dev re-bake applies.
-              citationPlugin({
-                contentDirs: citationContentDirs,
-                getCitationIndex: () => citationIndex,
+                  prepareAuthoredSource(source, filePath, "mdx"),
               }),
               virtualCoordinatesPlugin(() => ({
                 coordinates: Object.fromEntries(citationIndex),

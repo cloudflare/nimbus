@@ -698,7 +698,11 @@ async function applyOverlay() {
   await cp(SPEC, join(site, "src", "api", "smallco.yaml"));
   await writeFile(
     join(site, "src", "content", "docs", "guide.mdx"),
-    "---\ntitle: Guide\n---\n\n# Guide\n",
+    "---\ntitle: Guide\n---\n\n# Guide\n\n[Create a charge](api.ref:api:create)\n",
+  );
+  await writeFile(
+    join(site, "src", "content", "docs", "reference.md"),
+    "---\ntitle: Reference\n---\n\n# Reference\n\n[List charges](<api.ref:api:list>)\n",
   );
 }
 
@@ -1269,11 +1273,25 @@ async function assertBasePathMetadata() {
     ordinaryDirective?.includes(`href="${ordinaryMarkdownUrl}"`),
     "non-root ordinary agent directive uses an unbased Markdown URL",
   );
+  const referenceHtml = await readFile(
+    join(site, "dist-base", "reference", "index.html"),
+    "utf8",
+  );
+  for (const [surface, html, href] of [
+    ["MDX", ordinaryHtml, "/docs/api/charges/create"],
+    ["Markdown", referenceHtml, "/docs/api/charges/list"],
+  ]) {
+    assert(
+      html.includes(`href="${href}"`),
+      `non-root ${surface} prose citation does not resolve to ${href}`,
+    );
+  }
   const homeHtml = await readFile(join(site, "dist-base", "index.html"), "utf8");
   const notFoundHtml = await readFile(join(site, "dist-base", "404.html"), "utf8");
   for (const [surface, html] of Object.entries({
     operation: operationHtml,
     ordinary: ordinaryHtml,
+    reference: referenceHtml,
     home: homeHtml,
     "not found": notFoundHtml,
   })) {

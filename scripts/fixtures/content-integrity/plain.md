@@ -10,4 +10,5 @@ title: Integrity Markdown
 
 ```mdx
 <a href="/untouched">{notAnExpression}</a>
+[literal citation](api.ref:api:untouched)
 ```
