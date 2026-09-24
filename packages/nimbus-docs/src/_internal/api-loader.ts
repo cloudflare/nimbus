@@ -174,11 +174,10 @@ export async function projectApiModelPage(
   };
 }
 
-export async function projectConfiguredApiPage(
+function configuredApiModel(
   collection: string,
   version: string | null,
-  coordinate: string,
-): Promise<{ page: ApiPageProps; nav: ApiNav }> {
+): Promise<ApiModel> {
   const key = configuredModelKey(collection, version);
   let model = configuredModels.get(key);
   if (!model) {
@@ -208,7 +207,33 @@ export async function projectConfiguredApiPage(
       if (configuredModels.get(key) === model) configuredModels.delete(key);
     });
   }
-  return projectApiModelPage(await model, coordinate);
+  return model;
 }
 
-registerConfiguredApiProjector(projectConfiguredApiPage);
+export async function projectConfiguredApiPage(
+  collection: string,
+  version: string | null,
+  coordinate: string,
+): Promise<{ page: ApiPageProps; nav: ApiNav }> {
+  return projectApiModelPage(
+    await configuredApiModel(collection, version),
+    coordinate,
+  );
+}
+
+/** Page props without highlighted code or navigation, for Markdown output. */
+export async function projectConfiguredApiPageProps(
+  collection: string,
+  version: string | null,
+  coordinate: string,
+): Promise<ApiPageProps> {
+  return getApiPageProps(
+    await configuredApiModel(collection, version),
+    coordinate,
+  );
+}
+
+registerConfiguredApiProjector({
+  page: projectConfiguredApiPage,
+  pageProps: projectConfiguredApiPageProps,
+});

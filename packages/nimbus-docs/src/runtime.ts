@@ -74,7 +74,10 @@ import {
   type PageResolutionContext,
   type ProsePage,
 } from "./_internal/page-resolution.js";
-import { projectConfiguredApiPage } from "./_internal/api-projector.js";
+import {
+  projectConfiguredApiPage,
+  projectConfiguredApiPageProps,
+} from "./_internal/api-projector.js";
 
 import type {
   ApiVersionStatus,
@@ -516,7 +519,8 @@ export async function renderIndexedEntryMarkdown(
     );
   }
   const version = (item.entry.data as { version?: string }).version;
-  const { page } = await projectConfiguredApiPage(
+  // Markdown renders code from source, so skip the HTML route's highlighting.
+  const page = await projectConfiguredApiPageProps(
     item.collection,
     version ?? null,
     coordinate,

@@ -4,6 +4,7 @@
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { apiCollection } from "../src/content.js";
@@ -14,13 +15,16 @@ import {
 import {
   projectApiModelPage,
   projectConfiguredApiPage,
+  projectConfiguredApiPageProps,
 } from "../src/_internal/api-loader.js";
+import { registerConfiguredApiProjector } from "../src/_internal/api-projector.js";
 import {
   buildApiModel,
   clearApiModelCache,
   getApiNav,
   getApiPageProps,
   getApiPageSlugs,
+  renderApiPageMarkdown,
   apiSchemaVersion,
   type ApiModel,
   type ApiPageProps,
@@ -246,6 +250,27 @@ describe("apiCollection loader — output-aware index", () => {
     assert.deepEqual(projected.nav, getApiNav(smallco, coordinate));
   });
 
+  test("Markdown projection skips highlighting without changing Markdown", async () => {
+    await runLoader("api", "test/fixtures/api/smallco.yaml");
+    let operations = 0;
+    for (const { coordinate } of getApiPageSlugs(smallco)) {
+      const props = await projectConfiguredApiPageProps("api", null, coordinate);
+      assert.deepEqual(props, getApiPageProps(smallco, coordinate));
+      if (props.kind === "operation") {
+        operations++;
+        assert.ok(
+          props.samples.every((sample) => sample.highlightedHtml === undefined),
+        );
+      }
+      const { page } = await projectConfiguredApiPage("api", null, coordinate);
+      assert.equal(
+        renderApiPageMarkdown(props, { base: "/docs" }),
+        renderApiPageMarkdown(page, { base: "/docs" }),
+      );
+    }
+    assert.ok(operations > 0);
+  });
+
   test("versioned static entries retain identity and version metadata", async () => {
     const spec = smallcoAsObject();
     const { store } = await runLoaderOpts({
@@ -274,6 +299,85 @@ describe("apiCollection loader — output-aware index", () => {
           "string",
         );
       }
+    }
+  });
+
+  test("versioned projections match each version's model", async () => {
+    const spec = smallcoAsObject();
+    await runLoaderOpts({
+      collection: "api",
+      versions: [
+        { version: "v2", spec, default: true },
+        { version: "v1", spec },
+      ],
+    });
+
+    for (const { version, mountPath } of [
+      { version: "v2", mountPath: "/api" },
+      { version: "v1", mountPath: "/api/v1" },
+    ]) {
+      const model = await buildApiModel({ collection: "api", spec, mountPath });
+      for (const { coordinate } of getApiPageSlugs(model)) {
+        assert.deepEqual(
+          await projectConfiguredApiPageProps("api", version, coordinate),
+          getApiPageProps(model, coordinate),
+        );
+        const { nav } = await projectConfiguredApiPage("api", version, coordinate);
+        assert.deepEqual(nav, getApiNav(model, coordinate));
+      }
+    }
+  });
+
+  test("thin API Markdown uses page props, not the highlighted HTML projection", async () => {
+    // `runtime.ts` reads this global once at module load, and resolves
+    // `virtual:nimbus/config` lazily, so both are stubbed before importing it.
+    const hooks = registerHooks({
+      resolve(specifier, context, nextResolve) {
+        if (specifier !== "virtual:nimbus/config") {
+          return nextResolve(specifier, context);
+        }
+        return {
+          url: `data:text/javascript,export const apiCollections = ["api"];`,
+          shortCircuit: true,
+        };
+      },
+    });
+    const thinGlobal = globalThis as { __NIMBUS_THIN_API_ENTRIES__?: boolean };
+    thinGlobal.__NIMBUS_THIN_API_ENTRIES__ = true;
+    const calls: unknown[][] = [];
+    registerConfiguredApiProjector({
+      page: () => {
+        throw new Error("Markdown must not request the HTML projection");
+      },
+      pageProps: async (collection, version, coordinate) => {
+        calls.push([collection, version, coordinate]);
+        return getApiPageProps(smallco, coordinate);
+      },
+    });
+    try {
+      const { renderIndexedEntryMarkdown } = await import("../src/runtime.js");
+      const { coordinate } = getApiPageSlugs(smallco).find(({ coordinate }) =>
+        getApiPageProps(smallco, coordinate).kind === "operation",
+      )!;
+      const item = {
+        collection: "api",
+        entry: { id: "thin", data: { coordinate, version: "v1" } },
+      } as unknown as Parameters<typeof renderIndexedEntryMarkdown>[0];
+
+      assert.equal(
+        await renderIndexedEntryMarkdown(item, { base: "/docs" }),
+        renderApiPageMarkdown(getApiPageProps(smallco, coordinate), {
+          base: "/docs",
+        }),
+      );
+      assert.deepEqual(calls, [["api", "v1", coordinate]]);
+    } finally {
+      registerConfiguredApiProjector({
+        page: projectConfiguredApiPage,
+        pageProps: projectConfiguredApiPageProps,
+      });
+      delete thinGlobal.__NIMBUS_THIN_API_ENTRIES__;
+      hooks.deregister();
     }
   });
 
