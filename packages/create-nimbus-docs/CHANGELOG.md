@@ -1,5 +1,16 @@
 # @cloudflare/create-nimbus-docs
 
+## 0.7.6
+
+### Patch Changes
+
+- [#157](https://github.com/cloudflare/nimbus/pull/157) [`cde0751`](https://github.com/cloudflare/nimbus/commit/cde0751aae4002677c995d137c4f74d20e1e8595) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Render authored OpenAPI request examples as selectable examples in API reference pages and generated Markdown.
+
+- [#154](https://github.com/cloudflare/nimbus/pull/154) [`f9aecd8`](https://github.com/cloudflare/nimbus/commit/f9aecd84b54037f22daa636857bdd139f52d904d) Thanks [@sansynx](https://github.com/sansynx)! - Keep footnote targets visible below the sticky header when following note and return links.
+
+- Updated dependencies [[`08b963b`](https://github.com/cloudflare/nimbus/commit/08b963b1f0ce9e0243713a35d37df5f08b0c918f), [`cde0751`](https://github.com/cloudflare/nimbus/commit/cde0751aae4002677c995d137c4f74d20e1e8595), [`9f024b0`](https://github.com/cloudflare/nimbus/commit/9f024b00bd26bdc412557284d31cfb3260d19718)]:
+  - @cloudflare/nimbus-docs@0.14.2
+
 ## 0.7.5
 
 ### Patch Changes
