@@ -1,0 +1,30 @@
+packages/nimbus-docs/test/api-authored-citations.test.ts
+  s_03f39a76a42608::t_f2e50efc3effc1 1-103
+packages/nimbus-docs/test/api-citation-base.test.ts
+  s_03f39a76a42608::t_a2e9159400c806 1-49,62-82,84-91,95-128,130,133,136-193,195-222,227-247,261-264,266-271,273
+  s_03f39a76a42608::t_80d04400214913 50-61,83,92-94,129,131-132,134-135,194,223-226,248-260,265,272
+  s_03f39a76a42608::t_4e21dfea804dfa 274
+.changeset/base-aware-api-citations.md
+  s_03f39a76a42608::t_459e701ec7db45 1-4
+  s_03f39a76a42608::t_556d006936a1ad 5-9
+packages/nimbus-docs/src/integration.ts
+  s_03f39a76a42608::t_66c0dd8d2270f4 85,432-433,1200-1216,1220-1222,1225-1226,1330
+packages/nimbus-docs/src/_internal/api/authored-citations.ts
+  s_03f39a76a42608::t_614ad88e9975f0 2-4,7,12,17-23,25-43,45-47,49-63,65-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "e04d288794e56007b7855bf76ee533b3a959ebe9",
+  "prompts": {},
+  "sessions": {
+    "s_03f39a76a42608": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f2bd7d66fffeqacXMj4x4hpF4L",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
