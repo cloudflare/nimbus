@@ -117,6 +117,44 @@ const apiPage = (title: string) => ({
   },
 });
 
+test("bakes API discovery from thin entries through the projection callback", async () => {
+  const projectRoot = await root();
+  const entry = {
+    collection: "api",
+    id: "charges/create",
+    data: {
+      title: "Create charge",
+      description: "Creates a charge.",
+      coordinate: "createCharge",
+    },
+  };
+  const calls: string[] = [];
+  const options = {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+    indexedCollections: ["api"],
+    apiCollections: ["api"],
+    apiEntries: [entry],
+    renderApiEntryMarkdown: async (candidate: typeof entry, base: string) => {
+      calls.push(`${candidate.collection}:${candidate.id}:${base}`);
+      return "# Create charge\n\nCreates a charge.\n";
+    },
+  };
+
+  configure(projectRoot, options);
+  await bakeAgentEndpointAssets(options);
+
+  assert.deepEqual(calls, ["api:charges/create:/docs"]);
+  const full = await readLlmsEndpointPayload(projectRoot, {
+    scope: "site",
+    surface: "full",
+  });
+  assert.match(full.body, /# Create charge/);
+  assert.match(full.body, /Creates a charge\./);
+});
+
 test("bakes compact headings with a revisioned partial resolver", async () => {
   const projectRoot = await root();
   commit(projectRoot, "docs", [

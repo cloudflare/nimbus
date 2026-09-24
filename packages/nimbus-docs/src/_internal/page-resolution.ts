@@ -195,7 +195,15 @@ export async function resolveApiPage(
   let coordinate = staticCoordinate;
   let entry = context.props.entry as CollectionEntry<string> | undefined;
 
-  if (!hasStaticIdentity) {
+  if (hasStaticIdentity && !entry) {
+    entry =
+      (await dependencies.getVisibleEntry(
+        collection!,
+        normalizedPageId(context.params.slug),
+        context.projection,
+      )) ?? undefined;
+    if (!entry) return { status: "not-found" };
+  } else if (!hasStaticIdentity) {
     const apiCollections = await dependencies.getApiCollections();
     collection ??= mountedCollectionSegment(context) ?? undefined;
     if (!collection || !apiCollections.includes(collection)) {

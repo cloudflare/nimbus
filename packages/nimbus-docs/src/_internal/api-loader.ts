@@ -2,22 +2,75 @@ import { codeToHtml } from "shiki";
 
 import { defaultCodeTransformers } from "./code-transformers.js";
 import type {
+  ApiModel,
+  ApiNav,
   ApiCodeSampleView,
   ApiExampleView,
   ApiPageProps,
 } from "./api/api-view-types.js";
+import {
+  buildApiModel,
+  getApiNav,
+  getApiPageProps,
+} from "../api/index.js";
+import {
+  activatePreparedApiNav,
+  prepareApiNav,
+  type PreparedApiNav,
+} from "./api/prepared.js";
+import { registerConfiguredApiProjector } from "./api-projector.js";
+import { resolveSpecSource } from "./api/resolve-spec.js";
+import { resolveApiVersion } from "./api/resolve-versions.js";
+import type { ApiSpec } from "../types.js";
 
 export {
-  buildApiModel,
   clearApiModelCache,
   getApiNav,
   getApiPageIndex,
   getApiPageProps,
   getApiRouteProvenance,
 } from "../api/index.js";
-export { resolveSpecSource } from "./api/resolve-spec.js";
+export { buildApiModel, resolveSpecSource };
 export { apiPageRoute, resolveApiFamily } from "./api/resolve-versions.js";
 export { prepareApiNav, preparedApiVersion } from "./api/prepared.js";
+
+const preparedNavCache = new WeakMap<ApiModel, PreparedApiNav>();
+const configuredModels = new Map<string, Promise<ApiModel>>();
+let configuredApi: ApiSpec[] = [];
+let configuredRoot = "";
+
+function configuredModelKey(collection: string, version: string | null): string {
+  return `${collection}\0${version ?? ""}`;
+}
+
+export function registerConfiguredApiModel(
+  collection: string,
+  version: string | null,
+  model: ApiModel,
+): void {
+  configuredModels.set(
+    configuredModelKey(collection, version),
+    Promise.resolve(model),
+  );
+}
+
+export function configureApiProjector(
+  api: ApiSpec[],
+  root: string,
+): void {
+  configuredApi = api;
+  configuredRoot = root;
+  configuredModels.clear();
+}
+
+function projectedNav(model: ApiModel, coordinate: string): ApiNav {
+  let prepared = preparedNavCache.get(model);
+  if (!prepared) {
+    prepared = prepareApiNav(getApiNav(model));
+    preparedNavCache.set(model, prepared);
+  }
+  return activatePreparedApiNav(prepared, coordinate);
+}
 
 const HIGHLIGHTABLE = new Set([
   "bash",
@@ -110,3 +163,77 @@ export async function prepareApiPageCode(
     ),
   };
 }
+
+export async function projectApiModelPage(
+  model: ApiModel,
+  coordinate: string,
+): Promise<{ page: ApiPageProps; nav: ApiNav }> {
+  return {
+    page: await prepareApiPageCode(getApiPageProps(model, coordinate)),
+    nav: projectedNav(model, coordinate),
+  };
+}
+
+function configuredApiModel(
+  collection: string,
+  version: string | null,
+): Promise<ApiModel> {
+  const key = configuredModelKey(collection, version);
+  let model = configuredModels.get(key);
+  if (!model) {
+    const target = resolveApiVersion(
+      configuredApi,
+      collection,
+      version,
+    );
+    if (!target || !configuredRoot) {
+      throw new Error(
+        `nimbus-docs: API model for collection "${collection}"${version ? ` version "${version}"` : ""} was not configured by the Nimbus integration.`,
+      );
+    }
+    model = resolveSpecSource(
+      {
+        collection: target.namespace,
+        spec: target.spec,
+        label: target.label,
+        mountPath: target.mountPath,
+        requireOperationId: target.requireOperationId,
+        routes: target.routes,
+      },
+      configuredRoot,
+    ).then(buildApiModel);
+    configuredModels.set(key, model);
+    model.catch(() => {
+      if (configuredModels.get(key) === model) configuredModels.delete(key);
+    });
+  }
+  return model;
+}
+
+export async function projectConfiguredApiPage(
+  collection: string,
+  version: string | null,
+  coordinate: string,
+): Promise<{ page: ApiPageProps; nav: ApiNav }> {
+  return projectApiModelPage(
+    await configuredApiModel(collection, version),
+    coordinate,
+  );
+}
+
+/** Page props without highlighted code or navigation, for Markdown output. */
+export async function projectConfiguredApiPageProps(
+  collection: string,
+  version: string | null,
+  coordinate: string,
+): Promise<ApiPageProps> {
+  return getApiPageProps(
+    await configuredApiModel(collection, version),
+    coordinate,
+  );
+}
+
+registerConfiguredApiProjector({
+  page: projectConfiguredApiPage,
+  pageProps: projectConfiguredApiPageProps,
+});

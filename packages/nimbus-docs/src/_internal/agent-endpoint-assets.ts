@@ -13,7 +13,6 @@ import {
 import path from "node:path";
 
 import { entryRouteUrl } from "./astro-slug.js";
-import { renderApiPageMarkdown } from "./api/markdown.js";
 import { isPreparedApiPage } from "./api/prepared.js";
 import { expandPreparedPartials } from "./build-partials.js";
 import {
@@ -37,6 +36,7 @@ import {
   type PreparedMarkdownEntry,
   waitForPreparedMarkdownTransactions,
 } from "./prepared-markdown-registry.js";
+import { registerAgentEndpointAssetReader } from "./agent-endpoint-asset-reader.js";
 import {
   renderEntryAsMarkdown,
 } from "./transform.js";
@@ -104,6 +104,10 @@ export interface BakeAgentEndpointAssetsOptions {
   decidePublic?: (entry: PreparedMarkdownEntry) => AgentEndpointVisibilityDecision;
   apiEntries?: readonly LlmsEndpointApiEntry[];
   loadApiEntries?: () => Promise<readonly LlmsEndpointApiEntry[]>;
+  renderApiEntryMarkdown?: (
+    entry: LlmsEndpointApiEntry,
+    base: string,
+  ) => Promise<string>;
 }
 
 export interface BakePreparedHeadingsOptions {
@@ -1387,13 +1391,19 @@ export async function bakeAgentEndpointAssets(
       );
     }
     const prepared = entry.data.prepared;
-    if (!isPreparedApiPage(prepared)) {
+    let markdown: string;
+    if (isPreparedApiPage(prepared)) {
+      const { renderApiPageMarkdown } = await import("./api/markdown.js");
+      markdown = renderApiPageMarkdown(prepared.page, { base });
+    } else if (options.renderApiEntryMarkdown) {
+      markdown = await options.renderApiEntryMarkdown(entry, base);
+    } else {
       throw new Error(
         `nimbus-docs: API entry "${entry.id}" in collection "${entry.collection}" is missing its prepared page data — rebuild the apiCollection() index.`,
       );
     }
     preparedLlmsPages.push(
-      preparedLlmsPage(entry, renderApiPageMarkdown(prepared.page, { base }), options),
+      preparedLlmsPage(entry, markdown, options),
     );
   }
   records.sort(
@@ -1681,3 +1691,5 @@ export async function readLlmsEndpointPayload(
     endRead();
   }
 }
+
+registerAgentEndpointAssetReader(readMarkdownEndpointPayload);

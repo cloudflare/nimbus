@@ -455,10 +455,18 @@ export function nimbus(
         const projectRoot = fileURLToPath(astroConfig.root);
         beginPreparedMarkdownSession(astroConfig.root);
         const agentEndpointAssets = await loadAgentEndpointAssets();
+        if (config.api?.length) {
+          const apiLoader = await import("./_internal/api-loader.js");
+          apiLoader.configureApiProjector(config.api, projectRoot);
+        }
         agentEndpointAssets.configureAgentEndpointAssetRoot(
           astroConfig.root,
           command === "build" ? "build" : "dev",
           async () => {
+            const apiMarkdownModels = new Map<
+              string,
+              Promise<import("./api/index.js").ApiModel>
+            >();
             const hiddenApiVersions = new Map(
               (config.api ?? []).map((entry) => [
                 entry.collection,
@@ -514,6 +522,60 @@ export function nimbus(
                   }
                 }
                 return apiEntries;
+              },
+              renderApiEntryMarkdown: async (entry, base) => {
+                const coordinate = entry.data.coordinate;
+                if (typeof coordinate !== "string") {
+                  throw new Error(
+                    `nimbus-docs: API entry "${entry.id}" in collection "${entry.collection}" is missing its coordinate.`,
+                  );
+                }
+                const declaration = (config.api ?? []).find(
+                  (candidate) => candidate.collection === entry.collection,
+                );
+                if (!declaration) {
+                  throw new Error(
+                    `nimbus-docs: API collection "${entry.collection}" is not declared in nimbus.config.ts.`,
+                  );
+                }
+                const apiLoader = await import("./_internal/api-loader.js");
+                const version =
+                  typeof entry.data.version === "string"
+                    ? entry.data.version
+                    : null;
+                const targets = apiLoader.resolveApiFamily(declaration);
+                const target = version
+                  ? targets.find((candidate) => candidate.version === version)
+                  : targets.find((candidate) => candidate.isDefault);
+                if (!target) {
+                  throw new Error(
+                    `nimbus-docs: API entry "${entry.id}" refers to unknown version "${version}".`,
+                  );
+                }
+                const modelKey = target.versionKey;
+                let model = apiMarkdownModels.get(modelKey);
+                if (!model) {
+                  model = apiLoader
+                    .resolveSpecSource(
+                      {
+                        collection: target.namespace,
+                        spec: target.spec,
+                        label: target.label,
+                        mountPath: target.mountPath,
+                        requireOperationId: target.requireOperationId,
+                        routes: target.routes,
+                      },
+                      projectRoot,
+                    )
+                    .then(apiLoader.buildApiModel);
+                  apiMarkdownModels.set(modelKey, model);
+                }
+                const { getApiPageProps, renderApiPageMarkdown } =
+                  await import("./api/index.js");
+                return renderApiPageMarkdown(
+                  getApiPageProps(await model, coordinate),
+                  { base },
+                );
               },
             });
           },
@@ -1237,6 +1299,9 @@ export function nimbus(
           // by Sätteri's native AST pass in the configured processor.
           vite: {
             define: {
+              __NIMBUS_THIN_API_ENTRIES__: JSON.stringify(
+                astroConfig.output === "static",
+              ),
               "import.meta.env.NIMBUS_PROJECT_ROOT":
                 JSON.stringify(projectRoot),
             },

@@ -264,8 +264,9 @@ export interface ApiCollectionOptions {
 /**
  * Content-collection config for one OpenAPI reference spec. The loader is a
  * build artifact: it parses the spec once and writes one DataStore entry per
- * page with its JSON-safe view model. One root entry per version also carries
- * the shared navigation tree used by static and request-rendered routes.
+ * page. Static sites keep those entries to route metadata and project complete
+ * pages during prerendering. Server sites retain prepared page data so request
+ * rendering never parses the source specification.
  *
  *   // src/content.config.ts
  *   import nimbus from "./nimbus.config";
@@ -292,11 +293,17 @@ export function apiCollection(options: ApiCollectionOptions): {
     title: string;
     description?: string;
     version?: string;
-    prepared: import("./_internal/api/prepared.js").PreparedApiPage;
+    prepared?: import("./_internal/api/prepared.js").PreparedApiPage;
   }>;
 } {
-  const { collection, spec, label, versions, requireOperationId, routes } =
-    options;
+  const {
+    collection,
+    spec,
+    label,
+    versions,
+    requireOperationId,
+    routes,
+  } = options;
 
   const loader: Loader = {
     name: "nimbus-docs:api",
@@ -322,11 +329,13 @@ export function apiCollection(options: ApiCollectionOptions): {
         prepareApiNav,
         prepareApiPageCode,
         preparedApiVersion,
+        registerConfiguredApiModel,
         resolveApiFamily,
         resolveSpecSource,
       } = await loadApiLoader();
 
       const rootDir = fileURLToPath(astroConfig.root);
+      const persistPreparedPages = astroConfig.output !== "static";
       const preparedRoot = preparedMarkdownRootKey(astroConfig.root);
       const preparedSession = getPreparedMarkdownSession(preparedRoot);
       const reportedErrors = new WeakSet<Error>();
@@ -377,6 +386,11 @@ export function apiCollection(options: ApiCollectionOptions): {
               rootDir,
             );
             model = await buildApiModel(source);
+            registerConfiguredApiModel(
+              collection,
+              target.version ?? null,
+              model,
+            );
           } catch (err) {
             // `ApiBuildError` already formats a pointed diagnostic list; surface
             // it (plus which spec failed) and fail the build cleanly.
@@ -389,7 +403,9 @@ export function apiCollection(options: ApiCollectionOptions): {
 
           const provenance = getApiRouteProvenance(model);
           const navEntryId = apiPageRoute(target, "").storeId;
-          const preparedNav = prepareApiNav(getApiNav(model));
+          const preparedNav = persistPreparedPages
+            ? prepareApiNav(getApiNav(model))
+            : undefined;
           for (const {
             coordinate,
             slug,
@@ -426,14 +442,18 @@ export function apiCollection(options: ApiCollectionOptions): {
                 title,
                 ...(description === undefined ? {} : { description }),
                 ...(target.version ? { version: target.version } : {}),
-                prepared: {
-                  version: preparedApiVersion,
-                  page: await prepareApiPageCode(
-                    getApiPageProps(model, coordinate),
-                  ),
-                  navEntryId,
-                  ...(id === navEntryId ? { nav: preparedNav } : {}),
-                },
+                ...(persistPreparedPages
+                  ? {
+                      prepared: {
+                        version: preparedApiVersion,
+                        page: await prepareApiPageCode(
+                          getApiPageProps(model, coordinate),
+                        ),
+                        navEntryId,
+                        ...(id === navEntryId ? { nav: preparedNav } : {}),
+                      },
+                    }
+                  : {}),
               },
             });
             nextEntries.push({ id, data });
@@ -557,7 +577,7 @@ export function apiCollection(options: ApiCollectionOptions): {
       description: z.string().optional(),
       version: z.string().optional(),
       prepared:
-        z.custom<import("./_internal/api/prepared.js").PreparedApiPage>(),
+        z.custom<import("./_internal/api/prepared.js").PreparedApiPage>().optional(),
     }),
   };
 }

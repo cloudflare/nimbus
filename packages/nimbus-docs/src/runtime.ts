@@ -74,6 +74,10 @@ import {
   type PageResolutionContext,
   type ProsePage,
 } from "./_internal/page-resolution.js";
+import {
+  projectConfiguredApiPage,
+  projectConfiguredApiPageProps,
+} from "./_internal/api-projector.js";
 
 import type {
   ApiVersionStatus,
@@ -505,13 +509,25 @@ export async function renderIndexedEntryMarkdown(
         `is missing its coordinate — the apiCollection() loader should have set it.`,
     );
   }
-  if (!isPreparedApiPage(apiData.prepared)) {
+  if (isPreparedApiPage(apiData.prepared)) {
+    return renderApiPageMarkdown(apiData.prepared.page, { base: options?.base });
+  }
+  if (!THIN_API_ENTRIES) {
     throw new Error(
       `nimbus-docs: API entry "${item.entry.id}" in collection "${item.collection}" ` +
         "is missing its prepared page data — rebuild the apiCollection() index.",
     );
   }
-  return renderApiPageMarkdown(apiData.prepared.page, { base: options?.base });
+  const version = (item.entry.data as { version?: string }).version;
+  // Markdown renders code from source, so skip the HTML route's highlighting.
+  const page = await projectConfiguredApiPageProps(
+    item.collection,
+    version ?? null,
+    coordinate,
+  );
+  return renderApiPageMarkdown(page, {
+    base: options?.base,
+  });
 }
 
 /**
@@ -1396,7 +1412,6 @@ export function getApiStaticPaths(collection: string): GetStaticPaths {
       return {
         params: { slug: entry.id === "index" ? undefined : entry.id },
         props: {
-          entry,
           collection,
           version: data.version ?? null,
           coordinate: data.coordinate,
@@ -1432,6 +1447,11 @@ interface ApiRouteProps {
   version: string | null;
   coordinate: string;
 }
+
+declare const __NIMBUS_THIN_API_ENTRIES__: boolean;
+const THIN_API_ENTRIES =
+  typeof __NIMBUS_THIN_API_ENTRIES__ !== "undefined" &&
+  __NIMBUS_THIN_API_ENTRIES__;
 
 export async function getApiPage(astro: AstroGlobal): Promise<ApiRouteProps> {
   const props = astro.props as {
@@ -1512,6 +1532,9 @@ async function resolveApiRoute(
           await import("./_internal/api/prepared.js");
         const prepared = (entry.data as { prepared?: unknown }).prepared;
         if (!isPreparedApiPage(prepared)) {
+          if (THIN_API_ENTRIES) {
+            return projectConfiguredApiPage(collection, version, coordinate);
+          }
           throw new Error(
             `nimbus-docs: API entry "${entry.id}" is missing prepared page data. Rebuild the content collection.`,
           );

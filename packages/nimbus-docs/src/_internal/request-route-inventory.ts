@@ -14,7 +14,7 @@ import {
   getVersionStatus,
   renderIndexedEntryMarkdown,
 } from "../runtime.js";
-import { readMarkdownEndpointPayload } from "./agent-endpoint-assets.js";
+import { readConfiguredMarkdownEndpointPayload } from "./agent-endpoint-asset-reader.js";
 
 export const prerender = true;
 
@@ -72,7 +72,7 @@ export async function GET() {
       route.content = apiCollections.has(collection)
         ? await renderIndexedEntryMarkdown(item, { base: import.meta.env.BASE_URL })
         : (
-            await readMarkdownEndpointPayload(
+            await readConfiguredMarkdownEndpointPayload(
               projectRoot,
               {
                 collection,
