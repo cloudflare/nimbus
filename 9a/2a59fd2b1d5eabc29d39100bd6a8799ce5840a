@@ -1,0 +1,25 @@
+.changeset/base-aware-api-citations.md
+  s_03f39a76a42608::t_556d006936a1ad 5-9
+packages/nimbus-docs/src/integration.ts
+  s_03f39a76a42608::t_66c0dd8d2270f4 85,1199-1215,1219-1221,1224-1225,1329
+packages/nimbus-docs/test/api-authored-citations.test.ts
+  s_03f39a76a42608::t_f2e50efc3effc1 1-5,7,9-10,13-14,22-24,26-27,29-30,36,41-48,51-56,59-101
+packages/nimbus-docs/test/api-citation-base.test.ts
+  s_03f39a76a42608::t_80d04400214913 50-61,83,92-94,129,131-132,134-135,194,223-226,248-260,265,272
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "9a2a59fd2b1d5eabc29d39100bd6a8799ce5840a",
+  "prompts": {},
+  "sessions": {
+    "s_03f39a76a42608": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f2bd7d66fffeqacXMj4x4hpF4L",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
