@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -116,4 +116,16 @@ test("feature recipes base dynamic terminal links", async () => {
     await feature("component-showcase"),
     /### `src\/pages\/components\.astro`[\s\S]*import \{ getSidebar, withBase \}[\s\S]*href=\{withBase\(`\/components\/\$\{entry\.id\}`/,
   );
+});
+
+test("new-version's copy fallback includes every file the version switcher needs", async () => {
+  const source = await feature("new-version");
+  const ui = join(dirname(fileURLToPath(import.meta.url)), "../../../packages/nimbus-starter-source/src/components/ui");
+  for (const component of ["popover", "version-switcher"]) {
+    const files = await readdir(join(ui, component));
+    const loop = source.match(new RegExp(`for f in ([^;]+); do\\n\\s+curl -fsSL "\\$base/${component}/`));
+    assert.ok(loop, `missing copy loop for ${component}`);
+    assert.deepEqual(loop[1].trim().split(/\s+/).sort(), files.sort(), component);
+    assert.match(source, new RegExp(`packages/nimbus-starter-source/src/components/ui/${component}/\\n`));
+  }
 });

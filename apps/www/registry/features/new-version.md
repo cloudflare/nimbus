@@ -493,28 +493,35 @@ recover in this priority order:**
    Fall back to copying the files directly from the framework's
    GitHub repo (the registry hosts the same content):
 
+   `VersionSwitcher.astro` imports `../popover`, which fresh sites
+   don't ship either, so copy both components (the CLI installs
+   `popover` for you as a registry dependency):
+
    ```sh
-   curl -fsSL https://raw.githubusercontent.com/cloudflare/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/VersionSwitcher.astro \
-     -o src/components/ui/version-switcher/VersionSwitcher.astro
-   curl -fsSL https://raw.githubusercontent.com/cloudflare/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/index.ts \
-     -o src/components/ui/version-switcher/index.ts
-   curl -fsSL https://raw.githubusercontent.com/cloudflare/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/README.md \
-     -o src/components/ui/version-switcher/README.md
+   base=https://raw.githubusercontent.com/cloudflare/nimbus/main/packages/nimbus-starter-source/src/components/ui
+   mkdir -p src/components/ui/popover src/components/ui/version-switcher
+   for f in Popover.astro PopoverContent.astro PopoverTrigger.astro index.ts popover.client.ts; do
+     curl -fsSL "$base/popover/$f" -o "src/components/ui/popover/$f"
+   done
+   for f in VersionSwitcher.astro index.ts README.md; do
+     curl -fsSL "$base/version-switcher/$f" -o "src/components/ui/version-switcher/$f"
+   done
    ```
 
-   (Create `src/components/ui/version-switcher/` first if it doesn't
-   exist.)
+   Skip the popover files if `src/components/ui/popover/` already
+   exists.
 
 3. **You're an agent running inside the Nimbus monorepo (file system
    access) and neither of the above is convenient.** Read the source
    directly:
 
    ```
+   packages/nimbus-starter-source/src/components/ui/popover/
    packages/nimbus-starter-source/src/components/ui/version-switcher/
    ```
 
-   Copy `VersionSwitcher.astro`, `index.ts`, and `README.md` verbatim
-   into the user's `src/components/ui/version-switcher/`.
+   Copy both folders verbatim into the user's `src/components/ui/`
+   (skip `popover/` if the user already has it).
 
 Do NOT abandon the recipe at this step. If you can't get the picker
 files in via ANY of these three paths, that's a bug — report it
