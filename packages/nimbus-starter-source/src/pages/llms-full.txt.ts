@@ -1,17 +1,4 @@
-import { getLlmsPayload } from "@cloudflare/nimbus-docs/agent-endpoints";
-import { agentEndpointResponse } from "../utils/agent-endpoint-response";
+import { llmsFullRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
 
 export const prerender = true;
-
-export async function GET(context: { request: Request }) {
-  return agentEndpointResponse(() =>
-    getLlmsPayload(
-      {
-        scope: "site",
-        surface: "full",
-      },
-      context,
-    ),
-    prerender,
-  );
-}
+export const { GET } = llmsFullRoute();

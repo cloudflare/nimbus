@@ -415,6 +415,9 @@ function resolvedNimbusRoutes(
             ? injected.entrypoint.href
             : injected.entrypoint,
         type: "endpoint",
+        patternRegex: new RegExp(
+          `^${injected.pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+        ),
         isPrerendered: true,
         origin: "project",
       };
@@ -1240,6 +1243,12 @@ test("collection parsing reports whether registrations are complete", async (t) 
   await writeFile(file, "export const collections = { docs: {}, blog: {} };\n");
   assert.deepEqual(await parseContentCollections(file), {
     names: ["docs", "blog"],
+    complete: true,
+  });
+
+  await writeFile(file, 'export const collections = { docs: {}, "docs-v1.2": {} };\n');
+  assert.deepEqual(await parseContentCollections(file), {
+    names: ["docs", "docs-v1.2"],
     complete: true,
   });
 

@@ -135,3 +135,11 @@ test("toBrowserHref treats version-like segments (with internal dots) as documen
   // But `/v1.2/foo.png` is an asset.
   assert.equal(toBrowserHref("/v1.2/foo.png"), "/v1.2/foo.png");
 });
+
+test("toBrowserHref treats a dotted version root and numeric segments as document routes", () => {
+  assert.equal(toBrowserHref("/v1.2"), "/v1.2/");
+  assert.equal(toBrowserHref("/v2.0.1"), "/v2.0.1/");
+  assert.equal(toBrowserHref("/docs/1.1.1.1"), "/docs/1.1.1.1/");
+  assert.equal(toBrowserHref("/media/clip.mp4"), "/media/clip.mp4");
+  assert.equal(toBrowserHref("/fonts/inter.woff2"), "/fonts/inter.woff2");
+});

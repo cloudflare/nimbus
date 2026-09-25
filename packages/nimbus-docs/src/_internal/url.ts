@@ -70,16 +70,16 @@ export function stripBase(path: string, base: string): string {
  * `build.format: "directory"`; assets like `/og/card.png`,
  * `/llms.txt`, and `/cli/index.md` do.
  *
- * Conservative: only treats short, ASCII-letter-only extensions as files,
- * so paths with dots inside a segment (`/v1.2/foo`, version slugs) still
- * count as document routes.
+ * Conservative: only treats short ASCII extensions containing a letter as
+ * files (`.png`, `.mp4`, `.woff2`), so dotted version slugs and numeric
+ * segments (`/v1.2`, `/v1.2/foo`, `/1.1.1.1`) still count as document routes.
  */
 function hasFileExtension(pathname: string): boolean {
   const lastSegment = pathname.slice(pathname.lastIndexOf("/") + 1);
   const dot = lastSegment.lastIndexOf(".");
   if (dot <= 0) return false;
   const ext = lastSegment.slice(dot + 1);
-  return ext.length > 0 && ext.length <= 6 && /^[a-zA-Z0-9]+$/.test(ext);
+  return ext.length <= 6 && /^[a-zA-Z0-9]+$/.test(ext) && /[a-zA-Z]/.test(ext);
 }
 
 /** `decodeURIComponent` that returns its input untouched on malformed sequences. */

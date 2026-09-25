@@ -3,23 +3,11 @@
 // the URLs it matches without a prerender conflict.
 
 import assert from "node:assert/strict";
-import {
-  mkdir,
-  mkdtemp,
-  readFile,
-  readdir,
-  rm,
-  symlink,
-  writeFile,
-} from "node:fs/promises";
-import os from "node:os";
+import { readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, test } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { build, type AstroIntegration } from "astro";
-
-import nimbus from "../src/index.ts";
 import {
   findOwnMarkdownRoute,
   findUnclaimedMarkdownPaths,
@@ -32,13 +20,26 @@ import {
   recordMarkdownRoutes,
   sharedMarkdownRouteSurface,
 } from "../src/_internal/markdown-routes-plugin.ts";
-import { runningNimbusVersion } from "../src/_internal/upgrades.ts";
+import {
+  agentManifest as manifest,
+  agentSites,
+  siteApp,
+  SMALLCO_SPEC,
+  type AgentSite,
+  type AgentSiteOptions,
+} from "./fixtures/agent-site.ts";
 
-const roots: string[] = [];
+const sites = agentSites();
 
-afterEach(async () => {
-  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true })));
-});
+afterEach(() => sites.cleanup());
+
+const API = {
+  collection: "api",
+  versions: [
+    { version: "v2", default: true, spec: SMALLCO_SPEC },
+    { version: "v1", spec: SMALLCO_SPEC, hidden: true },
+  ],
+};
 
 const moduleUrl = (relative: string) =>
   JSON.stringify(pathToFileURL(path.resolve(import.meta.dirname, relative)).href);
@@ -255,62 +256,13 @@ test("reports URLs a prerendered owner skipped but did not generate", () => {
   );
 });
 
-/** A minimal on-demand adapter: Astro's generated App behind the entrypoint. */
-function testAdapter(entrypoint: string): AstroIntegration {
-  return {
-    name: "test:adapter",
-    hooks: {
-      "astro:config:done": ({ setAdapter }) => {
-        setAdapter({
-          name: "test:adapter",
-          entrypointResolution: "auto",
-          serverEntrypoint: entrypoint,
-          supportedAstroFeatures: { serverOutput: "stable" },
-        });
-      },
-    },
-  };
-}
-
-interface Site {
-  root: string;
-  logs: string;
-}
-
 async function buildSite(
   pages: Record<string, string>,
-  options: {
-    conflict?: "error" | "warn";
-    server?: boolean;
-    logLevel?: "silent" | "warn";
-  } = {},
-): Promise<Site> {
-  const root = await mkdtemp(path.join(os.tmpdir(), "nimbus-markdown-routes-"));
-  roots.push(root);
-  const write = async (relative: string, contents: string) => {
-    await mkdir(path.dirname(path.join(root, relative)), { recursive: true });
-    await writeFile(path.join(root, relative), contents, "utf8");
-  };
-  await write(
-    "nimbus.json",
-    `${JSON.stringify({ lastReviewedNimbusVersion: runningNimbusVersion() })}\n`,
-  );
-  await symlink(
-    path.resolve(import.meta.dirname, "../node_modules"),
-    path.join(root, "node_modules"),
-    process.platform === "win32" ? "junction" : "dir",
-  );
-  const spec = path.resolve(import.meta.dirname, "fixtures/api/smallco.yaml");
-  const api = {
-    collection: "api",
-    versions: [
-      { version: "v2", default: true, spec },
-      { version: "v1", spec, hidden: true },
-    ],
-  };
-  await write(
-    "src/content.config.ts",
-    `import { defineCollection } from "astro:content";
+  options: Pick<AgentSiteOptions, "conflict" | "server" | "logLevel"> = {},
+): Promise<AgentSite> {
+  return sites.buildSite(
+    {
+      "src/content.config.ts": `import { defineCollection } from "astro:content";
 import { z } from "astro/zod";
 import { apiCollection, docsCollection } from ${moduleUrl("../src/content.ts")};
 export const collections = {
@@ -322,75 +274,21 @@ export const collections = {
       schemaFields: { date: z.coerce.date(), tags: z.array(z.string()).default([]) },
     }),
   ),
-  api: defineCollection(apiCollection(${JSON.stringify(api)})),
+  api: defineCollection(apiCollection(${JSON.stringify(API)})),
 };`,
+      "src/content/docs/index.mdx": "---\ntitle: Home\n---\nHome body.\n",
+      "src/content/docs/guide.mdx":
+        "---\ntitle: Guide\ndescription: Read me\n---\nGuide body with [home](/).\n",
+      "src/content/docs-v1/guide.mdx": "---\ntitle: Old guide\n---\nOld guide body.\n",
+      "src/content/changelog/2026-01-01-first.mdx":
+        "---\ntitle: First\ndate: 2026-01-01\ntags: [launch]\n---\nFirst entry.\n",
+      "src/content/changelog/2026-02-01-second.mdx":
+        "---\ntitle: Second\ndate: 2026-02-01\n---\nSecond entry.\n",
+      "src/pages/index.astro": "---\nexport const prerender = true;\n---\n<h1>Home</h1>",
+      ...pages,
+    },
+    { ...options, versions: { current: "v2", others: ["v1"] }, api: [API] },
   );
-  await write("src/content/docs/index.mdx", "---\ntitle: Home\n---\nHome body.\n");
-  await write(
-    "src/content/docs/guide.mdx",
-    "---\ntitle: Guide\ndescription: Read me\n---\nGuide body with [home](/).\n",
-  );
-  await write("src/content/docs-v1/guide.mdx", "---\ntitle: Old guide\n---\nOld guide body.\n");
-  await write(
-    "src/content/changelog/2026-01-01-first.mdx",
-    "---\ntitle: First\ndate: 2026-01-01\ntags: [launch]\n---\nFirst entry.\n",
-  );
-  await write(
-    "src/content/changelog/2026-02-01-second.mdx",
-    "---\ntitle: Second\ndate: 2026-02-01\n---\nSecond entry.\n",
-  );
-  await write("src/pages/index.astro", "---\nexport const prerender = true;\n---\n<h1>Home</h1>");
-  for (const [relative, contents] of Object.entries(pages)) {
-    await write(relative, contents);
-  }
-  let adapter: AstroIntegration | undefined;
-  if (options.server) {
-    await write(
-      "server-entry.mjs",
-      `import { createApp } from "astro/app/entrypoint";\nexport const app = createApp();\n`,
-    );
-    adapter = testAdapter(path.join(root, "server-entry.mjs"));
-  }
-
-  const chunks: string[] = [];
-  const streams = [process.stdout, process.stderr] as const;
-  const realWrites = streams.map((stream) => stream.write);
-  for (const [index, stream] of streams.entries()) {
-    const realWrite = realWrites[index]!.bind(stream) as (...args: unknown[]) => boolean;
-    stream.write = ((chunk: string | Uint8Array, ...rest: unknown[]) => {
-      chunks.push(String(chunk));
-      return realWrite(chunk, ...rest);
-    }) as typeof stream.write;
-  }
-  try {
-    await build({
-      root: pathToFileURL(`${root}${path.sep}`),
-      cacheDir: path.join(root, ".astro"),
-      outDir: "./dist",
-      build: { server: path.join(root, ".server"), client: path.join(root, "dist") },
-      vite: { cacheDir: path.join(root, ".vite") },
-      base: "/docs",
-      prerenderConflictBehavior: options.conflict ?? "error",
-      ...(adapter ? { output: "server" as const, adapter } : {}),
-      logLevel: options.logLevel ?? "silent",
-      integrations: [
-        nimbus(
-          {
-            site: "https://example.test",
-            title: "Test",
-            description: "Test",
-            search: false,
-            versions: { current: "v2", others: ["v1"] },
-            api: [api],
-          },
-          { admonitions: false, sitemap: false, validateMdx: false },
-        ),
-      ],
-    });
-  } finally {
-    for (const [index, stream] of streams.entries()) stream.write = realWrites[index]!;
-  }
-  return { root, logs: chunks.join("") };
 }
 
 async function files(dir: string, prefix = ""): Promise<string[]> {
@@ -411,14 +309,20 @@ async function markdownOutputs(root: string): Promise<string[]> {
     .sort();
 }
 
-async function manifest(root: string) {
-  return JSON.parse(
-    await readFile(path.join(root, ".astro/nimbus/agent-endpoint-assets/manifest.json"), "utf8"),
-  ) as {
-    version: number;
-    markdownAssets: Array<{ collection: string; id: string; surface: string; url: string }>;
-  };
-}
+const LLMS_ROUTES = {
+  "src/pages/llms.txt.ts": `import { llmsRoute } from ${moduleUrl("../src/agent-endpoints.ts")};
+export const prerender = true;
+export const { GET } = llmsRoute();
+`,
+  "src/pages/llms-full.txt.ts": `import { llmsFullRoute } from ${moduleUrl("../src/agent-endpoints.ts")};
+export const prerender = true;
+export const { GET } = llmsFullRoute();
+`,
+  "src/pages/[section]/llms.txt.ts": `import { llmsSectionRoute } from ${moduleUrl("../src/agent-endpoints.ts")};
+export const prerender = true;
+export const { GET, getStaticPaths } = llmsSectionRoute();
+`,
+};
 
 const WRAPPED_CHANGELOG = `import { markdownRoute } from ${moduleUrl("../src/agent-endpoints.ts")};
 export const prerender = true;
@@ -436,11 +340,16 @@ export const GET = () => new Response("first only\\n");
 `;
 
 test("two shared files serve every collection under a base, and a changelog override wins with no conflict", async () => {
-  const site = await buildSite({
-    "src/pages/[...slug]/index.md.ts": SHARED_MD,
-    "src/pages/[...slug]/index.mdx.ts": SHARED_MDX,
-    "src/pages/changelog/[...slug]/index.md.ts": WRAPPED_CHANGELOG,
-  });
+  const site = await buildSite(
+    {
+      "src/pages/[...slug]/index.md.ts": SHARED_MD,
+      "src/pages/[...slug]/index.mdx.ts": SHARED_MDX,
+      "src/pages/changelog/[...slug]/index.md.ts": WRAPPED_CHANGELOG,
+      ...LLMS_ROUTES,
+    },
+    { logLevel: "warn" },
+  );
+  assert.doesNotMatch(site.logs, /not prerendered|did not generate/);
   const baked = await manifest(site.root);
   assert.equal(baked.version, 5);
 
@@ -499,9 +408,21 @@ test("a partial override warns with the skipped paths and the owning route", asy
     /src\/pages\/changelog\/\[\.\.\.slug\]\/index\.md\.ts \(\/changelog\/\[\.\.\.slug\]\/index\.md\) matches but did not generate: \/changelog\/2026-02-01-second\/index\.md/,
   );
   assert.doesNotMatch(site.logs, /conflicts with higher priority route/);
+  assert.doesNotMatch(site.logs, /not prerendered/, "the skipped path is reported once");
   const outputs = await markdownOutputs(site.root);
   assert.ok(outputs.includes("changelog/2026-01-01-first/index.md"));
   assert.ok(!outputs.includes("changelog/2026-02-01-second/index.md"));
+});
+
+test("a partial override stays silent when prerender conflicts are ignored", async () => {
+  const site = await buildSite(
+    {
+      "src/pages/[...slug]/index.md.ts": SHARED_MD,
+      "src/pages/changelog/[...slug]/index.md.ts": PARTIAL_CHANGELOG,
+    },
+    { conflict: "ignore", logLevel: "warn" },
+  );
+  assert.doesNotMatch(site.logs, /did not generate|not prerendered/);
 });
 
 test("a partial override fails the build when prerender conflicts are errors", async () => {
@@ -524,7 +445,7 @@ test("a shared route that is not prerendered fails the build", async () => {
   );
 });
 
-test("on request, GET serves by URL, returns 404 for unknown paths, and 500 without details", async () => {
+test("a re-exported factory rendered on request warns, then serves by URL, 404s unknown paths, and 500s without details", async () => {
   const site = await buildSite(
     {
       "src/lib/markdown.ts": `import { markdownRoute } from ${moduleUrl("../src/agent-endpoints.ts")};
@@ -535,11 +456,19 @@ export const prerender = false;
 export const GET = route.GET;
 `,
     },
-    { server: true },
+    { server: true, logLevel: "warn" },
   );
-  const { app } = (await import(pathToFileURL(path.join(site.root, ".server/entry.mjs")).href)) as {
-    app: { render(request: Request): Promise<Response> };
-  };
+  assert.match(
+    site.logs,
+    /src\/pages\/\[\.\.\.slug\]\/index\.md\.ts \(\/\[\.\.\.slug\]\/index\.md\) is rendered on request, so the build has no file for: \/api\/[^\n]*/,
+  );
+  const markdownCount = (await manifest(site.root)).markdownAssets.filter(
+    (asset) => asset.surface === "markdown",
+  ).length;
+  assert.match(site.logs, new RegExp(`nimbus-docs: ${markdownCount} Markdown or llms\\.txt pages were not prerendered`));
+  assert.match(site.logs, new RegExp(`and ${markdownCount - 10} more\\n`));
+  assert.match(site.logs, /Astro reads it only from the route file/);
+  const app = await siteApp(site);
 
   const guide = await app.render(new Request("https://example.test/docs/guide/index.md"));
   assert.equal(guide.status, 200);

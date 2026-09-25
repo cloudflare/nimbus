@@ -42,7 +42,8 @@ import {
   scopeToCurrentSection,
   sidebarHash,
 } from "./_internal/sidebar.js";
-import { entryRouteKey, entryRouteUrl } from "./_internal/astro-slug.js";
+import { entryRouteKey } from "./_internal/astro-slug.js";
+import { ogImagePageKey, pageUrls } from "./_internal/page-urls.js";
 import { stripBase, toBrowserHref, withBase } from "./_internal/url.js";
 import {
   PRIMARY_COLLECTION,
@@ -244,6 +245,12 @@ export interface IndexedEntry {
    */
   sourceUrl: string | undefined;
   /**
+   * Site-relative URL of the page's generated OG card, `/og/<page>.png`
+   * (`/og/index.png` for the site root), as emitted by the starter's
+   * `src/pages/og/[...slug].ts` from {@link getOgImagePages}.
+   */
+  ogImageUrl: string;
+  /**
    * Version label this entry belongs to, resolved through the site's
    * `versions` manifest: `versions.current` for the primary `docs`
    * collection, `<v>` for a registered `docs-<v>` collection. `undefined`
@@ -362,40 +369,39 @@ export async function getIndexedEntries(
           ? rawDescription
           : undefined;
 
-      // `entry.id` is the final store id, which `getDocsStaticPaths` routes
-      // on verbatim, so use `entryRouteUrl` (no re-slug — see astro-slug.ts).
-      // `toBrowserHref` adds the trailing slash so `url` consumers can emit
-      // the value straight into `<a href>` without a redirect.
-      const canonicalUrl = entryRouteUrl(prefix, entry.id);
-      // The `.md` alternate lives at `<page>/index.md`. For the root index
-      // of a collection (canonical URL is the bare prefix or `/`), append
-      // directly rather than re-derive from the trailing-slash form — the
-      // strip-trailing-slash recipe collapses `/` to `""` and produces the
-      // wrong path.
-      const markdownUrl =
-        canonicalUrl === "/" ? "/index.md" : `${canonicalUrl}/index.md`;
-      // The prepared source version exists only for entries with a string body —
-      // data-loader collections without one get no `.mdx` alternate.
-      const sourceUrl =
-        typeof entry.body === "string" && entry.body.length > 0
-          ? canonicalUrl === "/"
-            ? "/index.mdx"
-            : `${canonicalUrl}/index.mdx`
-          : undefined;
       indexed.push({
         entry,
         collection: name,
         title,
         description,
-        url: toBrowserHref(canonicalUrl),
-        markdownUrl,
-        sourceUrl,
+        ...pageUrls(prefix, entry),
         version: entryVersion,
       });
     }
   }
   indexedEntriesCache.set(cacheKey, indexed);
   return indexed;
+}
+
+/**
+ * The `pages` map for astro-og-canvas's `OGImageRoute`: every indexed page,
+ * keyed so its card is written at the page's `ogImageUrl`. Pass it straight
+ * through from `src/pages/og/[...slug].ts`:
+ *
+ * ```ts
+ * export const { getStaticPaths, GET } = await OGImageRoute({
+ *   pages: await getOgImagePages(),
+ *   getImageOptions: (_path, page) => ({ title: page.title, ...ogCardConfig }),
+ * });
+ * ```
+ */
+export async function getOgImagePages(): Promise<Record<string, IndexedEntry>> {
+  return Object.fromEntries(
+    (await getIndexedEntries()).map((item) => [
+      ogImagePageKey(item.ogImageUrl),
+      item,
+    ]),
+  );
 }
 
 /**
@@ -1112,6 +1118,12 @@ type ProsePageProps<C extends string> = {
   entry: import("astro:content").CollectionEntry<C>;
   Content: import("astro/runtime/server/index.js").AstroComponentFactory;
   headings: { depth: number; text: string; slug: string }[];
+  /** Same as {@link IndexedEntry.markdownUrl}. */
+  markdownUrl: string;
+  /** Same as {@link IndexedEntry.sourceUrl}. */
+  sourceUrl: string | undefined;
+  /** Same as {@link IndexedEntry.ogImageUrl}. */
+  ogImageUrl: string;
 };
 
 function proseResolutionResponse(
@@ -1142,10 +1154,18 @@ async function resolveProseRoute<C extends string>(
   }
   const result = await resolveAstroProsePage(astro, collection);
   if (result.status !== "found") return proseResolutionResponse(astro, result);
+  const { entry: found, Content, headings } = result.page;
+  const { markdownUrl, sourceUrl, ogImageUrl } = pageUrls(
+    resolveCollectionPrefix(found.collection, await getVersions()),
+    found,
+  );
   return {
-    entry: result.page.entry as import("astro:content").CollectionEntry<C>,
-    Content: result.page.Content,
-    headings: result.page.headings,
+    entry: found as import("astro:content").CollectionEntry<C>,
+    Content,
+    headings,
+    markdownUrl,
+    sourceUrl,
+    ogImageUrl,
   };
 }
 
@@ -1187,7 +1207,8 @@ export const getDocsStaticPaths: GetStaticPaths = async () => {
 /**
  * Read the current entry from `Astro.props`, render it, and return the
  * pieces a docs page needs: the typed entry, the renderable `<Content />`
- * component, and the headings list (for TOC generation).
+ * component, the headings list (for TOC generation), and the page's
+ * `markdownUrl`, `sourceUrl`, and `ogImageUrl` (see {@link IndexedEntry}).
  *
  * Headings from public `<Render file="..." />` partials are recursively
  * merged at build time and loaded as compact prepared data.
@@ -1198,16 +1219,14 @@ export const getDocsStaticPaths: GetStaticPaths = async () => {
  *
  * Usage:
  *
- *   const { entry, Content, headings } = await getDocsPageProps(Astro);
+ *   const { entry, Content, headings, markdownUrl } = await getDocsPageProps(Astro);
  *
  * Configure custom partial IDs through `markdown.partialResolver` on the Nimbus
  * integration so the resolver stays out of request-time Worker bundles.
  */
-export async function getDocsPageProps(astro: AstroGlobal): Promise<{
-  entry: import("astro:content").CollectionEntry<"docs">;
-  Content: import("astro/runtime/server/index.js").AstroComponentFactory;
-  headings: { depth: number; text: string; slug: string }[];
-}> {
+export async function getDocsPageProps(
+  astro: AstroGlobal,
+): Promise<ProsePageProps<"docs">> {
   rejectRemovedPartialHeadingOptions("getDocsPageProps", arguments.length);
   const page = await resolveProseRoute<"docs">(
     astro,
@@ -1313,11 +1332,7 @@ export function getCollectionStaticPaths(collection: string): GetStaticPaths {
  */
 export async function getCollectionPageProps<C extends string>(
   astro: AstroGlobal,
-): Promise<{
-  entry: import("astro:content").CollectionEntry<C>;
-  Content: import("astro/runtime/server/index.js").AstroComponentFactory;
-  headings: { depth: number; text: string; slug: string }[];
-}> {
+): Promise<ProsePageProps<C>> {
   rejectRemovedPartialHeadingOptions("getCollectionPageProps", arguments.length);
   const page = await resolveProseRoute<C>(
     astro,

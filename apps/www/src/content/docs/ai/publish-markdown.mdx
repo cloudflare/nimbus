@@ -37,23 +37,10 @@ Both routes must stay prerendered. The build fails if either one is rendered on 
 Create the site-wide discovery index:
 
 ```ts title="src/pages/llms.txt.ts"
-import { getLlmsPayload } from "@cloudflare/nimbus-docs/agent-endpoints";
+import { llmsRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
 
 export const prerender = true;
-
-export async function GET(context: { request: Request }) {
-  const payload = await getLlmsPayload(
-    {
-      scope: "site",
-      surface: "index",
-    },
-    context,
-  );
-  if (!payload) return new Response("Not found", { status: 404 });
-  return new Response(payload.body, {
-    headers: { "Content-Type": payload.mediaType },
-  });
-}
+export const { GET } = llmsRoute();
 ```
 
 ## 3. Add llms-full.txt
@@ -61,23 +48,10 @@ export async function GET(context: { request: Request }) {
 Create the file containing all discoverable documentation:
 
 ```ts title="src/pages/llms-full.txt.ts"
-import { getLlmsPayload } from "@cloudflare/nimbus-docs/agent-endpoints";
+import { llmsFullRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
 
 export const prerender = true;
-
-export async function GET(context: { request: Request }) {
-  const payload = await getLlmsPayload(
-    {
-      scope: "site",
-      surface: "full",
-    },
-    context,
-  );
-  if (!payload) return new Response("Not found", { status: 404 });
-  return new Response(payload.body, {
-    headers: { "Content-Type": payload.mediaType },
-  });
-}
+export const { GET } = llmsFullRoute();
 ```
 
 ## 4. Add section indexes
@@ -85,49 +59,15 @@ export async function GET(context: { request: Request }) {
 Create the route for paths such as `/writing/llms.txt`:
 
 ```ts title="src/pages/[section]/llms.txt.ts"
-import {
-  getLlmsPayload,
-  getLlmsStaticPaths,
-  type LlmsEndpointReference,
-} from "@cloudflare/nimbus-docs/agent-endpoints";
+import { llmsSectionRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
 
 export const prerender = true;
-
-interface SectionProps {
-  reference: LlmsEndpointReference;
-}
-
-interface SectionContext {
-  params: { section?: string };
-  props: Partial<SectionProps>;
-  request: Request;
-}
-
-export const getStaticPaths = async () =>
-  getLlmsStaticPaths();
-
-export async function GET({ params, props, request }: SectionContext) {
-  const reference =
-    props.reference ??
-    (params.section
-      ? ({
-          scope: "section",
-          surface: "index",
-          section: params.section,
-        } satisfies LlmsEndpointReference)
-      : null);
-  if (!reference) return new Response("Not found", { status: 404 });
-  const payload = await getLlmsPayload(reference, {
-    request,
-  });
-  if (!payload) return new Response("Not found", { status: 404 });
-  return new Response(payload.body, {
-    headers: { "Content-Type": payload.mediaType },
-  });
-}
+export const { GET, getStaticPaths } = llmsSectionRoute();
 ```
 
-Keep the `llms.txt` endpoints prerendered unless you deliberately want them rendered on request. The `agent-endpoints` helpers support either mode and require the Nimbus Astro integration.
+Each `GET` returns `404` for an unknown section. Rendered on request, it returns a `500` without details when an index can't be read, and logs the error. To change what a route serves, see [Override a default](/ai/override-markdown#override-an-llmstxt-index).
+
+Keep the `llms.txt` endpoints prerendered unless you deliberately want them rendered on request. The `agent-endpoints` helpers support either mode and require the Nimbus Astro integration. The build warns about every Markdown version or `llms.txt` index that no prerendered route generated, and names the route that serves it; ignore the warning for routes you render on request on purpose.
 
 ## Verify
 

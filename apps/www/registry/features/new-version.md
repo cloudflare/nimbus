@@ -103,12 +103,14 @@ default later ones.
 
 The slug is the URL prefix. Common shapes:
 - Major versions: `v0`, `v1`, `v2`, `v3` — best for SDKs / frameworks
+- Minor versions: `v1.2`, `v2.0` — when minor releases need their own docs
 - Calendar versions: `2024-q4`, `2025-q1` — best for APIs
 - Named versions: `legacy`, `archive` — best when "v1 vs v2" overstates the change
 
 Rules:
-- Lowercase, `a-z` / `0-9` / `-` / `_` only — no dots, no spaces. The
-  slug feeds into URLs.
+- Lowercase, `a-z` / `0-9` / `-` / `_` / `.` only, starting with a
+  letter or digit — no spaces, no slashes, no `..`. The slug feeds into
+  URLs and the collection name `docs-<slug>`.
 - Must not equal the existing `versions.current` value (if one is set).
 
 Tell the user the resulting URL prefix will be `/<slug>/<page>`.
@@ -160,7 +162,7 @@ If yes, the recipe adds `<slug>` to `versions.hidden`. That means the
 version's URLs resolve but it's excluded from:
 - The picker dropdown
 - Pagefind search index entirely
-- `/llms.txt` (root + per-version)
+- `/<slug>/llms.txt` — a hidden version gets no index
 - Cross-version `<link rel="alternate">` tags
 
 Useful for in-progress drafts, marketing-published-but-incomplete
@@ -367,7 +369,6 @@ import {
   getLastUpdated,
   getRouteFlags,
   getTOC,
-  entryRouteKey,
   stripBase,
 } from "@cloudflare/nimbus-docs";
 import { components } from "../../components";
@@ -377,7 +378,7 @@ export const getStaticPaths = getCollectionStaticPaths("docs-<slug>");
 
 const page = await getCollectionPage<"docs-<slug>">(Astro);
 if (page instanceof Response) return page;
-const { entry, Content, headings } = page;
+const { entry, Content, headings, markdownUrl, ogImageUrl } = page;
 
 const currentSlug = stripBase(Astro.url.pathname, import.meta.env.BASE_URL).replace(/\/$/, "") || "/";
 const { tableOfContents: tocOn } = await getRouteFlags(entry);
@@ -392,12 +393,7 @@ const lastUpdated = entry.data.lastUpdated ??
   await getLastUpdated(entry);
 const tocConfig = entry.data.tableOfContents;
 const toc = tocOn && tocConfig !== false ? getTOC(headings, tocConfig) : false;
-const routeKey = entryRouteKey(entry.id);
-const markdownPath = routeKey
-  ? `/<slug>/${routeKey}/index.md`
-  : "/<slug>/index.md";
-const markdownUrl = markdownPath;
-const socialImage = entry.data.socialImage ?? `/og/<slug>/${entry.id}.png`;
+const socialImage = entry.data.socialImage ?? ogImageUrl;
 ---
 
 <DocsLayout
@@ -499,28 +495,35 @@ recover in this priority order:**
    Fall back to copying the files directly from the framework's
    GitHub repo (the registry hosts the same content):
 
+   `VersionSwitcher.astro` imports `../popover`, which fresh sites
+   don't ship either, so copy both components (the CLI installs
+   `popover` for you as a registry dependency):
+
    ```sh
-   curl -fsSL https://raw.githubusercontent.com/cloudflare/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/VersionSwitcher.astro \
-     -o src/components/ui/version-switcher/VersionSwitcher.astro
-   curl -fsSL https://raw.githubusercontent.com/cloudflare/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/index.ts \
-     -o src/components/ui/version-switcher/index.ts
-   curl -fsSL https://raw.githubusercontent.com/cloudflare/nimbus/main/packages/nimbus-starter-source/src/components/ui/version-switcher/README.md \
-     -o src/components/ui/version-switcher/README.md
+   base=https://raw.githubusercontent.com/cloudflare/nimbus/main/packages/nimbus-starter-source/src/components/ui
+   mkdir -p src/components/ui/popover src/components/ui/version-switcher
+   for f in Popover.astro PopoverContent.astro PopoverTrigger.astro index.ts popover.client.ts; do
+     curl -fsSL "$base/popover/$f" -o "src/components/ui/popover/$f"
+   done
+   for f in VersionSwitcher.astro index.ts README.md; do
+     curl -fsSL "$base/version-switcher/$f" -o "src/components/ui/version-switcher/$f"
+   done
    ```
 
-   (Create `src/components/ui/version-switcher/` first if it doesn't
-   exist.)
+   Skip the popover files if `src/components/ui/popover/` already
+   exists.
 
 3. **You're an agent running inside the Nimbus monorepo (file system
    access) and neither of the above is convenient.** Read the source
    directly:
 
    ```
+   packages/nimbus-starter-source/src/components/ui/popover/
    packages/nimbus-starter-source/src/components/ui/version-switcher/
    ```
 
-   Copy `VersionSwitcher.astro`, `index.ts`, and `README.md` verbatim
-   into the user's `src/components/ui/version-switcher/`.
+   Copy both folders verbatim into the user's `src/components/ui/`
+   (skip `popover/` if the user already has it).
 
 Do NOT abandon the recipe at this step. If you can't get the picker
 files in via ANY of these three paths, that's a bug — report it
@@ -628,7 +631,9 @@ After writing all files:
    - `dist/<slug>/welcome/index.html` (or the equivalent first entry)
    - `dist/<slug>/welcome/index.md` and `index.mdx` (served by the shared
      Markdown routes)
-   - `dist/<slug>/llms.txt` (if the version has ≥ 2 entries)
+   - `dist/<slug>/llms.txt`, unless the version is hidden. The root
+     `dist/llms.txt` lists only the current version, so it doesn't link
+     `/<slug>/llms.txt` for any older version, hidden or not.
 4. Tell the user the URLs to visit:
    - `http://localhost:<port>/` (current version)
    - `http://localhost:<port>/<slug>/<page>` (frozen version)

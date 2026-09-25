@@ -45,6 +45,22 @@ export const collections = {
   );
 });
 
+test("parseCollectionBases accepts dotted version collection keys", async () => {
+  await withTempConfig(
+    `
+export const collections = {
+  docs: defineCollection(docsCollection()),
+  "docs-v1.2": defineCollection(docsCollection({ base: "docs-v1.2" })),
+};
+`,
+    async (file) => {
+      const map = await parseCollectionBases(file);
+      assert.ok(map !== null);
+      assert.equal(map.get("docs-v1.2"), "docs-v1.2");
+    },
+  );
+});
+
 test("parseCollectionBases reads `base:` overrides from Nimbus helper calls", async () => {
   await withTempConfig(
     `

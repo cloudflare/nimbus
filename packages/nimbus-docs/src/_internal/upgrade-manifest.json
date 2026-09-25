@@ -243,6 +243,28 @@
         "Confirm the build reports no Markdown paths that a route matches but did not generate.",
         "Request a representative .md URL from each collection, including an API page, and a .mdx URL from each collection with authored source (API pages have none)."
       ]
+    },
+    {
+      "id": "page-urls-and-llms-routes",
+      "introducedIn": "0.15.0",
+      "mode": "review-required",
+      "changeset": "page-urls-and-llms-routes",
+      "summary": "Optionally take page URLs from the page helpers, build OG cards from getOgImagePages(), and reduce the llms.txt routes to one factory call each.",
+      "affected": "Projects whose page routes build markdownUrl or socialImage by hand (the starter's src/pages/[...slug].astro and pages from the new-version, new-collection, and changelog recipes), whose src/pages/og/[...slug].ts computes its own page keys, or whose llms.txt routes import src/utils/agent-endpoint-response.ts.",
+      "instructions": [
+        "No action is needed: hand-built URLs, the existing OG route, and the existing llms.txt routes keep building with unchanged output.",
+        "Update each route below that is an unmodified starter file with nimbus-docs diff <file> --apply. Edit customized routes by hand.",
+        "In page routes that call getDocsPage or getCollectionPage, add markdownUrl and ogImageUrl to the names read from the returned page, then delete the routeKey, markdownPath, and markdownUrl lines and write const socialImage = entry.data.socialImage ?? ogImageUrl;. Remove the entryRouteKey import if nothing else uses it.",
+        "In src/pages/og/[...slug].ts, replace the entries and pages computation with pages: await getOgImagePages() from @cloudflare/nimbus-docs/runtime, and read page.title and page.description ?? \"\" in getImageOptions. Change it together with the page routes: collection and version root pages, such as /blog/, then link to /og/blog.png, the card that is actually written, instead of /og/blog/index.png. Pages whose ID contains a dot, such as v1.2/guide or an API webhook named payment.succeeded, get their own card instead of sharing a truncated file name. noindex pages linked to /og/<id>.png, but the old route skipped them and never wrote that card; now that card exists.",
+        "Replace the bodies of src/pages/llms.txt.ts, src/pages/llms-full.txt.ts, and src/pages/[section]/llms.txt.ts with export const { GET } = llmsRoute();, export const { GET } = llmsFullRoute();, and export const { GET, getStaticPaths } = llmsSectionRoute(); from @cloudflare/nimbus-docs/agent-endpoints. Keep export const prerender in each file.",
+        "Delete src/utils/agent-endpoint-response.ts once no route imports it."
+      ],
+      "verify": [
+        "Build before and after and compare dist: HTML, .md, .mdx, and llms.txt files are unchanged except the og:image URL of collection and version root pages, and OG files change only for those pages, for IDs containing a dot, and for noindex pages.",
+        "Open a collection root page and a page whose ID contains a dot, and confirm each og:image URL serves a PNG.",
+        "Confirm the build logs no warning about Markdown or llms.txt pages that were not prerendered, unless the site serves them on request.",
+        "Request /llms.txt, /llms-full.txt, one section's llms.txt, and an unknown section's llms.txt, which returns 404."
+      ]
     }
   ]
 }
