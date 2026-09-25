@@ -160,7 +160,7 @@ export function clearApiModelCache(collection: string): void {
 }
 
 /**
- * Build (or reuse) the model for a `nimbus.config.ts`-declared collection —
+ * Build (or reuse) the model for a collection declared in the Nimbus config's `api` —
  * the render-side entry point a copied `/<collection>/[...slug]` route uses.
  * Reads the same `api[]` declaration the loader indexed and re-derives the
  * model from the spec (memoized per graph), so render never depends on the
@@ -185,7 +185,7 @@ export async function getApiModel(
     const suffix = version ? ` version "${version}"` : "";
     throw new Error(
       `nimbus-docs api: no spec registered for collection "${collection}"${suffix}. ` +
-        `Declare it in \`nimbus.config.ts\`: api: [{ collection: "${collection}", spec: "./openapi.yaml" }].`,
+        `Declare it in the Nimbus config (astro.config.*): api: [{ collection: "${collection}", spec: "./openapi.yaml" }].`,
     );
   }
 

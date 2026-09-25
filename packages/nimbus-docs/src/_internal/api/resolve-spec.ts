@@ -1,5 +1,5 @@
 /**
- * Resolve a `nimbus.config.ts` `api[]` entry into a `SpecSource` the engine
+ * Resolve a Nimbus config `api[]` entry into a `SpecSource` the engine
  * can parse. A string `spec` is a **local file path** (relative to the project
  * root) and is read to its text contents here; an object `spec` is used inline.
  *

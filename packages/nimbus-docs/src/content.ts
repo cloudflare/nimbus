@@ -32,6 +32,10 @@ import {
   partialsSchema,
 } from "./schemas.js";
 import type { ApiRoutePolicy, ApiVersionSpec } from "./types.js";
+import {
+  noteApiCollectionLoad,
+  resolveRegisteredApiCollection,
+} from "./_internal/api-collection-registry.js";
 import { getAuthoredLinkNormalizer } from "./_internal/authored-link-normalizer.js";
 import { prepareMarkdownLoader } from "./_internal/markdown-loader.js";
 import {
@@ -242,8 +246,7 @@ export interface ApiCollectionOptions {
   collection: string;
   /**
    * Local file path (relative to the project root) or an inline OpenAPI
-   * object. Authored once in `nimbus.config.ts` `api[]`; pass the entry
-   * straight through here. Omit when `versions` is set.
+   * object. Omit when `versions` is set.
    */
   spec?: string | Record<string, unknown>;
   /** Human label for build diagnostics (falls back to `collection`). */
@@ -268,25 +271,38 @@ export interface ApiCollectionOptions {
  * pages during prerendering. Server sites retain prepared page data so request
  * rendering never parses the source specification.
  *
+ * Declare each spec once, in the `api` array of the Nimbus config in
+ * `astro.config.ts`, and register one collection per entry, keyed by its
+ * `collection` name:
+ *
+ *   // astro.config.ts
+ *   const nimbusConfig = defineNimbusConfig({
+ *     site: "https://example.com",
+ *     title: "Example",
+ *     api: [{ collection: "api", spec: "./src/api/openapi.yaml" }],
+ *   });
+ *
  *   // src/content.config.ts
- *   import nimbus from "./nimbus.config";
  *   export const collections = {
  *     docs: defineCollection(docsCollection()),
- *     ...Object.fromEntries(
- *       (nimbus.api ?? []).map((a) => [a.collection, defineCollection(apiCollection(a))]),
- *     ),
+ *     api: defineCollection(apiCollection()),
  *   };
  *
- * For that single source of truth to stay off the integration's module graph
- * (which this early content-config pass must not pull in), have `nimbus.config`
- * build its config with `defineConfig` from the side-effect-free
- * `@cloudflare/nimbus-docs/config` entry — not the main `@cloudflare/nimbus-docs`.
+ * With no argument, the loader reads the `api` entry whose `collection`
+ * matches the collection key, from the entries the Nimbus integration
+ * registers for this project. A key with no matching entry, or an entry with
+ * no matching key, fails the build with a message naming both files.
+ *
+ * Passing the entry explicitly, `apiCollection({ collection, spec, … })`, still
+ * works unchanged and bypasses the lookup — for example from a separate
+ * `nimbus.config.ts` built with `defineConfig` from the side-effect-free
+ * `@cloudflare/nimbus-docs/config` entry.
  *
  * The OpenAPI engine is imported lazily inside `load()` — a prose-only site
  * that never registers an API collection pulls neither the engine nor its
  * parser.
  */
-export function apiCollection(options: ApiCollectionOptions): {
+export function apiCollection(options?: ApiCollectionOptions): {
   loader: Loader;
   schema: z.ZodType<{
     coordinate: string;
@@ -296,14 +312,15 @@ export function apiCollection(options: ApiCollectionOptions): {
     prepared?: import("./_internal/api/prepared.js").PreparedApiPage;
   }>;
 } {
-  const {
-    collection,
-    spec,
-    label,
-    versions,
-    requireOperationId,
-    routes,
-  } = options;
+  // Explicit options are read once, here, exactly as before.
+  const explicit: ApiCollectionOptions | undefined = options && {
+    collection: options.collection,
+    spec: options.spec,
+    label: options.label,
+    versions: options.versions,
+    requireOperationId: options.requireOperationId,
+    routes: options.routes,
+  };
 
   const loader: Loader = {
     name: "nimbus-docs:api",
@@ -317,6 +334,21 @@ export function apiCollection(options: ApiCollectionOptions): {
       } = context;
 
       assertSupportedNode();
+
+      // Without explicit options, read the Nimbus config's `api` entry named
+      // after this collection key. The read happens per load, so a dev refresh
+      // after an astro.config edit sees the edited entry.
+      const {
+        collection,
+        spec,
+        label,
+        versions,
+        requireOperationId,
+        routes,
+      } =
+        explicit ??
+        resolveRegisteredApiCollection(astroConfig.root, context.collection);
+      noteApiCollectionLoad(astroConfig.root, context.collection, collection);
 
       const {
         apiPageRoute,
@@ -542,8 +574,11 @@ export function apiCollection(options: ApiCollectionOptions): {
       await updateIndex();
 
       // Dev only: reparse when any on-disk version spec changes. Inline-object
-      // specs have no file to watch.
-      if (watcher) {
+      // specs have no file to watch. After a dev restart Astro still hands
+      // loaders the previous, closed Vite watcher; chokidar's `add()` would
+      // silently reopen it and leak an fs watch nobody closes, so skip it (the
+      // integration watches specs from the live watcher instead).
+      if (watcher && !(watcher as { closed?: boolean }).closed) {
         const specPaths = new Map<string, true>();
         for (const target of targets) {
           if (typeof target.spec !== "string") continue;
@@ -587,7 +622,7 @@ function assertSupportedNode(): void {
   if (major < 22 || (major === 22 && minor < 12)) {
     throw new Error(
       `nimbus-docs api: Node >=22.12.0 is required to build an API reference ` +
-        `(running ${process.versions.node}). Upgrade Node, or remove the \`api\` block from nimbus.config.`,
+        `(running ${process.versions.node}). Upgrade Node, or remove the \`api\` entries from the Nimbus config.`,
     );
   }
 }
