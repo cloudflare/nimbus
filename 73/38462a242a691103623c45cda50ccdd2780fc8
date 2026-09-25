@@ -1,0 +1,19 @@
+apps/www/src/content/docs/api-reference.mdx
+  s_2fe60549276209::t_712150f94e3af1 194,253
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "7338462a242a691103623c45cda50ccdd2780fc8",
+  "prompts": {},
+  "sessions": {
+    "s_2fe60549276209": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f299254d8ffeV9sOVksn9dA6ET",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
