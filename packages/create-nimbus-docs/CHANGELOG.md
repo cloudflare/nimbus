@@ -1,5 +1,18 @@
 # @cloudflare/create-nimbus-docs
 
+## 0.7.7
+
+### Patch Changes
+
+- [#165](https://github.com/cloudflare/nimbus/pull/165) [`05efc7a`](https://github.com/cloudflare/nimbus/commit/05efc7ab365d2c3bec3f5fb457110e64a739e093) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - The API reference components show whether a request body is required, and its description, beside the request body heading. A response with several media types shows one body per media type, each labeled with its type and with its own example, in the same stacked layout as additional request bodies. `ApiFieldList` accepts optional `required` and `descriptionHtml` props for this.
+
+- [#164](https://github.com/cloudflare/nimbus/pull/164) [`b8f4d05`](https://github.com/cloudflare/nimbus/commit/b8f4d05b90e208c841d8cbd62d927985695e301b) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - The starter's page route takes `markdownUrl` and `ogImageUrl` from `getDocsPage()`, its OG route builds cards from `getOgImagePages()`, and its three `llms.txt` routes call `llmsRoute()`, `llmsFullRoute()`, and `llmsSectionRoute()`. `src/utils/agent-endpoint-response.ts` is removed. Built output is unchanged.
+
+- [#161](https://github.com/cloudflare/nimbus/pull/161) [`b45ca22`](https://github.com/cloudflare/nimbus/commit/b45ca22fc603b96beddc7ff9114d0cfba1f7d84f) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - The starter's `src/pages/[...slug]/index.md.ts` and `index.mdx.ts` routes now use `markdownRoute()` and `markdownSourceRoute()`, so they serve the Markdown and source versions of every collection. Generated files are unchanged.
+
+- Updated dependencies [[`982a47d`](https://github.com/cloudflare/nimbus/commit/982a47ddbc23d899e71770804c3facf757ae15a4), [`c26b52b`](https://github.com/cloudflare/nimbus/commit/c26b52bb47ebf6590bbecb810354c702b6deb8f5), [`05efc7a`](https://github.com/cloudflare/nimbus/commit/05efc7ab365d2c3bec3f5fb457110e64a739e093), [`b8f4d05`](https://github.com/cloudflare/nimbus/commit/b8f4d05b90e208c841d8cbd62d927985695e301b), [`b45ca22`](https://github.com/cloudflare/nimbus/commit/b45ca22fc603b96beddc7ff9114d0cfba1f7d84f)]:
+  - @cloudflare/nimbus-docs@0.15.0
+
 ## 0.7.6
 
 ### Patch Changes
