@@ -40,6 +40,10 @@ declare module "virtual:nimbus/agent-endpoint-assets" {
   export const llmsAssets: import("../_internal/agent-endpoint-assets.js").LlmsEndpointAsset[];
 }
 
+declare module "virtual:nimbus/markdown-routes" {
+  export const routes: import("../_internal/markdown-routes.js").MarkdownRouteRecord[];
+}
+
 declare module "virtual:nimbus/agent-endpoint-asset-loader" {
   export function fetchAgentEndpointAsset(
     path: string,

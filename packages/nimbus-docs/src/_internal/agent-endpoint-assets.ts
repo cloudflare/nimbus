@@ -52,10 +52,11 @@ import type {
   MarkdownEndpointReference,
 } from "../agent-endpoints.js";
 
-export const AGENT_ENDPOINT_ASSET_MANIFEST_VERSION = 4;
+export const AGENT_ENDPOINT_ASSET_MANIFEST_VERSION = 5;
 export const AGENT_ENDPOINT_ASSET_GENERATION = 1;
 
 export interface MarkdownEndpointAsset extends MarkdownEndpointReference {
+  url: string;
   digest: string;
   mediaType: string;
   path: string;
@@ -70,7 +71,7 @@ export type LlmsEndpointAsset = LlmsEndpointReference & {
 };
 
 export interface AgentEndpointAssetManifest {
-  version: 4;
+  version: 5;
   generation: number;
   base: string;
   audience: "public";
@@ -483,7 +484,7 @@ function withAssetBase(base: string, pathname: string): string {
 }
 
 function entryVersion(
-  entry: PreparedMarkdownEntry,
+  entry: Pick<PreparedMarkdownEntry, "collection" | "id" | "data">,
   versions: BakeAgentEndpointAssetsOptions["versions"],
 ): string | undefined {
   if (typeof entry.data.version === "string") return entry.data.version;
@@ -497,7 +498,7 @@ function entryVersion(
 }
 
 function preparedMarkdownUrls(
-  entry: PreparedMarkdownEntry,
+  entry: Pick<PreparedMarkdownEntry, "collection" | "id" | "data">,
   options: BakeAgentEndpointAssetsOptions,
 ) {
   const route = entryRouteUrl(
@@ -511,7 +512,7 @@ function preparedMarkdownUrls(
 }
 
 function frontmatter(
-  entry: PreparedMarkdownEntry,
+  entry: Pick<PreparedMarkdownEntry, "collection" | "id" | "data">,
   options: BakeAgentEndpointAssetsOptions,
 ): string[] {
   const title =
@@ -580,6 +581,31 @@ function markdownAsset(
   const suffix = [
     "",
     `Source: ${absoluteUrl(options.site, options.base, urls.source)}`,
+    "",
+  ].join("\n");
+  return envelopedAsset(`${prefix}\n`, markdown, `\n${suffix}`);
+}
+
+// API pages have no authored source: no `# title` (the emitter renders the
+// page heading) and `Source:` points at the Markdown URL itself. Byte-identical
+// to the `api-reference` recipe's former route.
+function apiMarkdownAsset(
+  entry: LlmsEndpointApiEntry,
+  markdown: string,
+  markdownUrl: string,
+  options: BakeAgentEndpointAssetsOptions,
+): MarkdownEndpointPayloadBody {
+  const prefix = [
+    ...frontmatter(entry, options),
+    "",
+    "> Documentation Index",
+    `> Fetch the complete documentation index at: ${absoluteUrl(options.site, options.base, "/llms.txt")}`,
+    "> Use this file to discover all available pages before exploring further.",
+    "",
+  ].join("\n");
+  const suffix = [
+    "",
+    `Source: ${absoluteUrl(options.site, options.base, markdownUrl)}`,
     "",
   ].join("\n");
   return envelopedAsset(`${prefix}\n`, markdown, `\n${suffix}`);
@@ -1341,6 +1367,7 @@ export async function bakeAgentEndpointAssets(
         headings,
       });
     }
+    const urls = preparedMarkdownUrls(entry, options);
     for (const surface of ["markdown", "source"] as const) {
       const asset =
         surface === "markdown"
@@ -1366,6 +1393,7 @@ export async function bakeAgentEndpointAssets(
         collection: entry.collection,
         id: entry.id,
         surface,
+        url: urls[surface],
         digest: `sha256:${fingerprint}`,
         mediaType:
           surface === "markdown"
@@ -1383,7 +1411,6 @@ export async function bakeAgentEndpointAssets(
     if (decision.status === "exclude") continue;
     const routePage = preparedLlmsPage(entry, "", options);
     llmsRoutePages.push(routePage);
-    if (!isDiscoverable(entry)) continue;
     const coordinate = entry.data.coordinate;
     if (typeof coordinate !== "string") {
       throw new Error(
@@ -1402,9 +1429,40 @@ export async function bakeAgentEndpointAssets(
         `nimbus-docs: API entry "${entry.id}" in collection "${entry.collection}" is missing its prepared page data — rebuild the apiCollection() index.`,
       );
     }
-    preparedLlmsPages.push(
-      preparedLlmsPage(entry, markdown, options),
+    if (isDiscoverable(entry)) {
+      preparedLlmsPages.push(preparedLlmsPage(entry, markdown, options));
+    }
+    const url = preparedMarkdownUrls(entry, options).markdown;
+    const { body, contentStart, contentEnd } = apiMarkdownAsset(
+      entry,
+      markdown,
+      url,
+      options,
     );
+    const fingerprint = digest(
+      JSON.stringify({
+        generation: AGENT_ENDPOINT_ASSET_GENERATION,
+        base,
+        audience: "public",
+        collection: entry.collection,
+        id: entry.id,
+        surface: "markdown",
+        body: digest(body),
+        citations: citationFingerprint,
+      }),
+    );
+    records.push({
+      collection: entry.collection,
+      id: entry.id,
+      surface: "markdown",
+      url,
+      digest: `sha256:${fingerprint}`,
+      mediaType: "text/markdown; charset=utf-8",
+      path: `assets/${fingerprint}.md`,
+      contentStart,
+      contentEnd,
+      body,
+    });
   }
   records.sort(
     (a, b) =>
