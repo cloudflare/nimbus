@@ -311,7 +311,7 @@ styles. If the project's prose root class differs, swap it.
  * year, so there are no year dividers. Owns the timeline layout and the
  * "load older" control.
  */
-import { Icon } from "astro-icon/components";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import type { CollectionEntry } from "astro:content";
 import ChangelogEntry from "./ChangelogEntry.astro";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
@@ -656,7 +656,7 @@ Substitute the title, tagline, and `PAGE_SIZE`.
 
 ```astro
 ---
-import { Icon } from "astro-icon/components";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { getCollection } from "astro:content";
 import ChangelogLayout from "@/layouts/ChangelogLayout.astro";
 import ChangelogFeed from "@/components/changelog/ChangelogFeed.astro";
@@ -729,7 +729,7 @@ route in 5j entirely.
 ```astro
 ---
 import type { GetStaticPaths } from "astro";
-import { Icon } from "astro-icon/components";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import ChangelogLayout from "@/layouts/ChangelogLayout.astro";
 import { Badge } from "@/components/ui/badge";
 import { entryRouteKey, getCollectionStaticPaths, getCollectionPage, withBase } from "@cloudflare/nimbus-docs";

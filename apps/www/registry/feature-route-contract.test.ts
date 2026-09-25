@@ -78,6 +78,12 @@ test("changelog relies on the shared OG route", async () => {
   assert.match(source, /`src\/pages\/og\/\[\.\.\.slug\]\.ts` — confirm it enumerates entries with\s+`getIndexedEntries\(\)`/);
 });
 
+test("changelog uses the Nimbus Icon component", async () => {
+  const source = await feature("changelog");
+  assert.doesNotMatch(source, /astro-icon/);
+  assert.match(source, /import Icon from "@cloudflare\/nimbus-docs\/components\/Icon\.astro";/);
+});
+
 test("changelog reserves its index entry for the feed route", async () => {
   const source = await feature("changelog");
   assert.match(
