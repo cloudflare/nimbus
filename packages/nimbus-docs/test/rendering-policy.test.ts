@@ -415,6 +415,9 @@ function resolvedNimbusRoutes(
             ? injected.entrypoint.href
             : injected.entrypoint,
         type: "endpoint",
+        patternRegex: new RegExp(
+          `^${injected.pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+        ),
         isPrerendered: true,
         origin: "project",
       };
