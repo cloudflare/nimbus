@@ -41,11 +41,20 @@ Inspect the repo to learn its conventions:
   `markdownUrl`, `collection`, `entryId`). ChangelogLayout wraps it.
 - `src/components/Header.astro` — confirm it exists; ChangelogLayout renders
   it. Note whether it accepts `showSidebar`.
+- `src/pages/[...slug]/index.mdx.ts` — confirm it calls
+  `markdownSourceRoute()` from `@cloudflare/nimbus-docs/agent-endpoints`.
+  This shared route serves every entry's `.mdx` source, so the changelog
+  needs no source route.
+  If it instead passes `collection: "docs"` (an older starter), stop: the
+  new pages would get no `.mdx` files. Ask the user to update it first
+  with `nimbus-docs diff <file> --apply` if it is unmodified, or to
+  replace it with the three-line version from the `ai-native` recipe,
+  wrapping it to keep any customizations.
 - `src/components.ts` — the MDX globals registry. Entry bodies render with
   this map, so authored components in entries work like they do in docs.
 - `src/pages/og/[...slug].ts` and `src/pages/og/_og-card-config.ts` —
   the OG card setup. The starter uses `astro-og-canvas`; you will mirror it
-  for the changelog (step 5m).
+  for the changelog (step 5l).
 - `src/styles/globals.css` — confirm Nimbus tokens exist (`--nb-border`,
   `--nb-card`, `--nb-foreground`, `--nb-muted-foreground`, `--nb-h1-size`, …).
   The components use them.
@@ -946,6 +955,12 @@ export async function GET() {
 
 ### 5k. `src/pages/changelog/[...slug]/index.md.ts` (markdown alternate)
 
+The shared `src/pages/[...slug]/index.md.ts` route already serves every
+collection. This more specific route overrides it for the changelog to add
+the entry's date and tags to the frontmatter; the shared route skips these
+paths. Keep it prerendered. The shared `src/pages/[...slug]/index.mdx.ts`
+route serves the changelog's source files, so don't add an `.mdx` route.
+
 ```ts
 /**
  * Per-entry `/changelog/<slug>/index.md` — the clean-markdown alternate.
@@ -1044,47 +1059,7 @@ export async function GET({ params, props, request }: SlugContext) {
 }
 ```
 
-### 5l. `src/pages/changelog/[...slug]/index.mdx.ts` (expanded source)
-
-```ts
-import {
-  getMarkdownPayload,
-  getMarkdownStaticPaths,
-  type MarkdownEndpointReference,
-} from "@cloudflare/nimbus-docs/agent-endpoints";
-
-export const prerender = true;
-
-interface SlugProps {
-  reference: MarkdownEndpointReference;
-}
-
-interface SlugContext {
-  params: { slug?: string };
-  props: Partial<SlugProps>;
-  request: Request;
-}
-
-export const getStaticPaths = async () =>
-  getMarkdownStaticPaths({ collection: "changelog", surface: "source" })
-    .then((paths) => paths.filter((path) => path.params.slug !== undefined));
-
-export async function GET({ params, props, request }: SlugContext) {
-  const payload = await getMarkdownPayload({
-    collection: "changelog",
-    surface: "source",
-    slug: params.slug,
-    reference: props.reference,
-    context: { request },
-  });
-  if (!payload) return new Response("Not found", { status: 404 });
-  return new Response(payload.body, {
-    headers: { "Content-Type": payload.mediaType },
-  });
-}
-```
-
-### 5m. `src/pages/og/changelog/[...slug].ts` (OG cards)
+### 5l. `src/pages/og/changelog/[...slug].ts` (OG cards)
 
 Mirror the project's existing docs OG route for the changelog collection. For
 the default starter (which uses `astro-og-canvas`):
@@ -1117,7 +1092,7 @@ export const { getStaticPaths, GET } = await OGImageRoute({
 If the project uses a custom OG renderer instead, copy its docs OG route and
 swap `getCollection("docs", …)` for `getCollection("changelog", …)`.
 
-### 5n. Seed entry — `src/content/changelog/<YYYY-MM-DD>-welcome.mdx`
+### 5m. Seed entry — `src/content/changelog/<YYYY-MM-DD>-welcome.mdx`
 
 ```mdx
 ---
@@ -1153,7 +1128,8 @@ navigation.
 1. Run the user's build command. Confirm it completes.
 2. Confirm dist output:
    - `dist/changelog/index.html`, `dist/changelog/<slug>/index.html`
-   - `dist/changelog/<slug>/index.md`
+   - `dist/changelog/<slug>/index.md`, with `date` and `tags` in its
+     frontmatter, and `dist/changelog/<slug>/index.mdx`
    - `dist/changelog/page/2/index.html` (only if entries exceed the page size)
    - `dist/changelog/llms.txt` and `changelog` listed in root `dist/llms.txt`
    - `dist/changelog/rss.xml` — only if RSS was chosen

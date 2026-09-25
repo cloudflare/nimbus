@@ -36,7 +36,7 @@ recipe for `api` only when they're writing the API docs by hand.
 
 **This recipe owns the whole setup of a non-version collection.** You
 will create the content directory, register the collection in
-`content.config.ts`, scaffold the page and Markdown routes, and
+`content.config.ts`, scaffold the page route, and
 optionally seed a starter entry. The user does not pre-create files or
 edit configs — you do.
 
@@ -62,8 +62,16 @@ conventions:
 - `src/pages/[...slug].astro` — read it. The new route will mirror this
   shape exactly except for the helper names (`getCollectionStaticPaths` /
   `getCollectionPage` instead of the `Docs` variants).
-- `src/pages/[...slug]/index.md.ts` — read it. The new Markdown route
-  will mirror it.
+- `src/pages/[...slug]/index.md.ts` and `src/pages/[...slug]/index.mdx.ts`
+  — confirm they call `markdownRoute()` and `markdownSourceRoute()` from
+  `@cloudflare/nimbus-docs/agent-endpoints`. These shared routes serve the
+  Markdown and source versions of every collection, so the new collection
+  needs no Markdown routes.
+  If either file instead passes `collection: "docs"` (an older starter),
+  stop: the new pages would get no `.md` or `.mdx` files. Ask the user to
+  update it first with `nimbus-docs diff <file> --apply` if it is
+  unmodified, or to replace it with the three-line version from the
+  `ai-native` recipe, wrapping it to keep any customizations.
 - `src/layouts/DocsLayout.astro` — confirm it exists. The new route uses
   it.
 - `src/components.ts` — note which MDX globals are registered; the user's
@@ -276,61 +284,6 @@ If the user's primary `DocsLayout` accepts an `audience` prop or any other
 field not listed above, mirror it. If it drops one of the props above, drop
 that prop here too.
 
-### 4d. Scaffold the Markdown version
-
-Write `src/pages/<prefix>/[...slug]/index.md.ts`:
-
-```ts
-/**
- * Per-page /<prefix>/<slug>/index.md — clean Markdown version of every
- * indexable entry of the `<collection>` collection. Mirrors the primary
- * Markdown route at src/pages/[...slug]/index.md.ts.
- */
-
-import {
-  getMarkdownPayload,
-  getMarkdownStaticPaths,
-  type MarkdownEndpointReference,
-} from "@cloudflare/nimbus-docs/agent-endpoints";
-
-export const prerender = true;
-
-const COLLECTION = "<collection>";
-
-interface SlugProps {
-  reference: MarkdownEndpointReference;
-}
-
-interface SlugContext {
-  params: { slug?: string };
-  props: Partial<SlugProps>;
-  request: Request;
-}
-
-export const getStaticPaths = async () =>
-  getMarkdownStaticPaths({ collection: COLLECTION, surface: "markdown" });
-
-export async function GET({ params, props, request }: SlugContext) {
-  const payload = await getMarkdownPayload({
-    collection: COLLECTION,
-    surface: "markdown",
-    slug: params.slug,
-    reference: props.reference,
-    context: { request },
-  });
-  if (!payload) return new Response("Not found", { status: 404 });
-  return new Response(payload.body, {
-    headers: { "Content-Type": payload.mediaType },
-  });
-}
-```
-
-Substitute `<collection>` in the `COLLECTION` constant.
-
-To serve the expanded source URL referenced by the Markdown payload,
-mirror this route at `src/pages/<prefix>/[...slug]/index.mdx.ts` with
-`surface: "source"`.
-
 ## 5. Adding a docs version? Stop and use `nimbus-docs add new-version`
 
 If the user's intent is to add a **version of the docs** (a frozen
@@ -379,7 +332,8 @@ After writing all files:
 2. Confirm the build completes without errors.
 3. Confirm the dist output contains the expected files:
    - `dist/<prefix>/welcome/index.html` (if a starter entry was created)
-   - `dist/<prefix>/welcome/index.md` (the .md alternate)
+   - `dist/<prefix>/welcome/index.md` and `index.mdx` (served by the shared
+     Markdown routes)
    - `dist/<prefix>/llms.txt` (emitted automatically when the collection
      has ≥ 1 entry)
    - The root `dist/llms.txt` lists `<prefix>` as a top-level section.
