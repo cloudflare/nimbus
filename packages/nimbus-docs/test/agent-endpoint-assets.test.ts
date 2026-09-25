@@ -1122,3 +1122,103 @@ test("scopes agent-endpoint asset demand to the current configuration session", 
   configure(projectRoot, options);
   assert.equal(isAgentEndpointAssetRequested(projectRoot), false);
 });
+
+test("bakes every Markdown asset at its public URL, API pages included, hidden API versions excluded", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", [
+    { id: "index", body: "Home", data: { title: "Home" } },
+    { id: "guide/index", body: "Guide", data: { title: "Guide" } },
+  ]);
+  commit(projectRoot, "docs-v1", [
+    { id: "old", body: "Old", data: { title: "Old" } },
+  ]);
+  const visible = apiPage("SmallCo API");
+  const options = {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+    socialImage: "/og.png",
+    indexedCollections: ["docs", "docs-v1", "api"],
+    apiCollections: ["api"],
+    versions: { current: "v2", others: ["v1"] },
+    apiEntries: [
+      { ...visible, hidden: false },
+      {
+        ...apiPage("Unlisted"),
+        id: "unlisted",
+        hidden: false,
+        data: { ...apiPage("Unlisted").data, coordinate: "unlisted", noindex: true },
+      },
+      {
+        ...apiPage("Old API"),
+        id: "v0",
+        hidden: true,
+        data: { ...apiPage("Old API").data, coordinate: "v0", version: "v0" },
+      },
+    ],
+  };
+  configure(projectRoot, options);
+  const manifest = await bakeAgentEndpointAssets(options);
+
+  assert.equal(manifest.version, 5);
+  assert.deepEqual(
+    manifest.markdownAssets.map((asset) => `${asset.surface} ${asset.url}`).sort(),
+    [
+      "markdown /api/index.md",
+      "markdown /api/unlisted/index.md",
+      "markdown /guide/index.md",
+      "markdown /index.md",
+      "markdown /v1/old/index.md",
+      "source /guide/index.mdx",
+      "source /index.mdx",
+      "source /v1/old/index.mdx",
+    ],
+  );
+
+  const api = await readMarkdownEndpointPayload(projectRoot, {
+    collection: "api",
+    id: "index",
+    surface: "markdown",
+  });
+  assert.equal(
+    api.body,
+    [
+      "---",
+      'title: "SmallCo API"',
+      'image: "https://example.test/docs/og.png"',
+      "---",
+      "",
+      "> Documentation Index",
+      "> Fetch the complete documentation index at: https://example.test/docs/llms.txt",
+      "> Use this file to discover all available pages before exploring further.",
+      "",
+      api.content,
+      "",
+      "Source: https://example.test/docs/api/index.md",
+      "",
+    ].join("\n"),
+  );
+  assert.doesNotMatch(api.content, /^# /);
+});
+
+test("fails when a docs page and an API page share a public Markdown path", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", [
+    { id: "api", body: "A docs page at /api", data: { title: "Docs API" } },
+  ]);
+  const options = {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+    indexedCollections: ["docs", "api"],
+    apiCollections: ["api"],
+    apiEntries: [{ ...apiPage("SmallCo API"), hidden: false }],
+  };
+  configure(projectRoot, options);
+  await assert.rejects(
+    bakeAgentEndpointAssets(options),
+    /page "api:index" collides with page "docs:api" at generated Markdown route "\/api"/,
+  );
+});

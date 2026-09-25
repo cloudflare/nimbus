@@ -222,6 +222,27 @@
         "Run the production build and confirm it logs \"Indexed N API pages\" for each API collection with the same page counts as before.",
         "In astro dev, edit a spec file and an api entry and confirm the API pages update without a manual restart."
       ]
+    },
+    {
+      "id": "shared-markdown-routes",
+      "introducedIn": "0.15.0",
+      "mode": "review-required",
+      "changeset": "shared-markdown-routes",
+      "summary": "Optionally serve every collection's Markdown and source versions from the two shared starter routes.",
+      "affected": "Projects with per-collection Markdown or source routes, such as src/pages/<collection>/[...slug]/index.md.ts or index.mdx.ts, from the starter or the new-version, new-collection, changelog, ai-native, or api-reference recipes.",
+      "instructions": [
+        "Existing routes keep working: a more specific route still serves its collection, and the shared route skips those paths. No change is required.",
+        "If src/pages/[...slug]/index.md.ts or index.mdx.ts is an unmodified starter file, update it with nimbus-docs diff <file> --apply.",
+        "If either root route is customized, keep its behavior: switch it to markdownRoute() or markdownSourceRoute() only if the customization can be expressed by wrapping the returned GET (see the Override a default guide). Otherwise keep the custom route as it is.",
+        "Delete per-collection Markdown and source routes only after the root routes use the shared factories, and only when they are unmodified recipe output. Keep routes that customize their output, such as the changelog recipe's .md route that adds date and tags.",
+        "Deleting the api-reference recipe's src/pages/<api>/[...slug]/index.md.ts drops the Markdown versions of hidden API versions; the shared route skips hidden versions. Keep that route if those pages must stay published.",
+        "Keep the shared routes prerendered. The build fails if a route using markdownRoute() or markdownSourceRoute() is rendered on request."
+      ],
+      "verify": [
+        "Build and compare the list of generated .md and .mdx files before and after the change.",
+        "Confirm the build reports no Markdown paths that a route matches but did not generate.",
+        "Request a representative .md URL from each collection, including an API page, and a .mdx URL from each collection with authored source (API pages have none)."
+      ]
     }
   ]
 }

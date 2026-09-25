@@ -42,9 +42,17 @@ Before prompting the user or writing anything, inspect the project:
 - `src/pages/[...slug].astro`, `src/pages/[...slug]/index.md.ts`,
   `src/pages/llms.txt.ts`, `src/pages/llms-full.txt.ts`, and
   `src/pages/[section]/llms.txt.ts` — the primary docs page, Markdown version,
-  and index routes. The API routes are siblings that mirror the Markdown
-  route's frontmatter and headers, so match their style.
+  and index routes. The API page route is a sibling of the primary docs page,
+  so match its style.
   If any are missing, stop and install `nimbus-docs add ai-native` first.
+- Confirm `src/pages/[...slug]/index.md.ts` calls `markdownRoute()` from
+  `@cloudflare/nimbus-docs/agent-endpoints`. This shared route serves every
+  API page's `.md` version, so the reference needs no Markdown route.
+  If it instead passes `collection: "docs"` (an older starter), stop: the
+  new pages would get no `.md` files. Ask the user to update it first
+  with `nimbus-docs diff <file> --apply` if it is unmodified, or to
+  replace it with the three-line version from the `ai-native` recipe,
+  wrapping it to keep any customizations.
 - Locate the OpenAPI spec. Ask the user for its path if it isn't obvious
   (common: `src/api/openapi.yaml`, `openapi.json`, `api/spec.yaml`).
 
@@ -81,7 +89,8 @@ Print a short, exact plan to the user **before** writing anything:
 - Register the collection with one line in `src/content.config.ts`:
   `api: defineCollection(apiCollection())`. It reads its entry from the config,
   so the spec is never declared twice.
-- Create `src/pages/api/[...slug].astro` and `src/pages/api/[...slug]/index.md.ts`.
+- Create `src/pages/api/[...slug].astro`. The shared
+  `src/pages/[...slug]/index.md.ts` route serves the Markdown versions.
 - Resulting URLs: `/api` (overview), `/api/<slug>` (each page), the matching
   `/api/<slug>/index.md` versions, and `/api/llms.txt`.
 
@@ -108,7 +117,7 @@ install them.
 
 The components read the frozen view-model only (hrefs, anchors, flags, grouping
 are all pre-resolved) and own nothing but their look — restyle them freely,
-they're yours now. The route in 4e composes them.
+they're yours now. The route in 4d composes them.
 
 Confirm your `src/styles/globals.css` carries the method-colour tokens
 `--nb-m-get`, `--nb-m-post`, `--nb-m-put`, `--nb-m-delete`, and `--nb-m-other`
@@ -162,92 +171,7 @@ names behind a spread. A key with no `api` entry, or an entry with no key,
 fails the build with a message that names both files, and
 `nimbus-docs check` reports the same mismatch without building.
 
-### 4d. Scaffold the Markdown route
-
-Write `src/pages/api/[...slug]/index.md.ts`. This is the clean Markdown
-version of every API page — the render comes from Nimbus's emitter via
-`renderIndexedEntryMarkdown` (which handles both prose and API collections), so
-do **not** prepend a `# title`; the emitter already renders the page heading.
-
-<!-- api-reference-fixture:src/pages/api/[...slug]/index.md.ts -->
-```ts
-/**
- * Per-page `/api/<slug>/index.md` - the clean Markdown version of every
- * entry of the `api` reference collection. Sibling to the primary-collection
- * Markdown route at `pages/[...slug]/index.md.ts`; filtering to `api` keeps the two
- * rest routes from generating conflicting paths.
- */
-
-import {
-  getIndexedEntries,
-  renderIndexedEntryMarkdown,
-  type IndexedEntry,
-  withBase,
-} from "@cloudflare/nimbus-docs";
-import { config } from "virtual:nimbus/config";
-
-export const prerender = true;
-
-const API_COLLECTION = "api";
-const absoluteUrl = (path: string) =>
-  new URL(withBase(path, import.meta.env.BASE_URL), config.site).href;
-
-interface SlugProps {
-  item: IndexedEntry;
-}
-
-export async function getStaticPaths() {
-  const indexed = await getIndexedEntries();
-  return indexed
-    .filter((item) => item.collection === API_COLLECTION)
-    .map((item) => ({
-      // The root overview has entry id "index" -> emit at `/api/index.md`
-      // (undefined rest segment). Every other page emits at
-      // `/api/<id>/index.md`.
-      params: {
-        slug: item.entry.id === "index" ? undefined : item.entry.id,
-      },
-      props: { item } as SlugProps,
-    }));
-}
-
-export async function GET({ props }: { props: SlugProps }) {
-  const { item } = props;
-  const { title, description, markdownUrl, sourceUrl, version } = item;
-
-  const markdown = await renderIndexedEntryMarkdown(item, {
-    base: import.meta.env.BASE_URL,
-  });
-
-  const body = [
-    "---",
-    `title: ${JSON.stringify(title)}`,
-    ...(description ? [`description: ${JSON.stringify(description)}`] : []),
-    ...(config.socialImage
-      ? [`image: ${JSON.stringify(absoluteUrl(config.socialImage))}`]
-      : []),
-    ...(version ? [`version: ${JSON.stringify(version)}`] : []),
-    "---",
-    "",
-    "> Documentation Index",
-    `> Fetch the complete documentation index at: ${absoluteUrl("/llms.txt")}`,
-    "> Use this file to discover all available pages before exploring further.",
-    "",
-    markdown,
-    "",
-    // API pages have no authored `.mdx` source, so `sourceUrl` is undefined -
-    // fall back to the Markdown version's own URL.
-    `Source: ${absoluteUrl(sourceUrl ?? markdownUrl)}`,
-    "",
-  ].join("\n");
-
-  return new Response(body, {
-    headers: { "Content-Type": "text/markdown; charset=utf-8" },
-  });
-}
-```
-
-### 4e. Scaffold the HTML route
+### 4d. Scaffold the HTML route
 
 The route is thin: `getApiStaticPaths` enumerates one path per page, and
 `getApiRoute(Astro)` reads the page props and shared navigation prepared by the

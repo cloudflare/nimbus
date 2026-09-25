@@ -145,6 +145,15 @@ import type { RequestRouteInventoryEntry } from "./_internal/request-route-url.j
 import { safeDecode, withBase } from "./_internal/url.js";
 import { buildLastUpdatedIndex } from "./_internal/git-last-updated.js";
 import { virtualLastUpdatedPlugin } from "./_internal/last-updated-virtual.js";
+import {
+  markdownRoutesPlugin,
+  readRouteSource,
+  recordMarkdownRoutes,
+} from "./_internal/markdown-routes-plugin.js";
+import {
+  findUnclaimedMarkdownPaths,
+  formatUnclaimedMarkdownPaths,
+} from "./_internal/markdown-routes.js";
 import { pagefindDocument } from "./_internal/pagefind-document.js";
 import {
   beginPreparedMarkdownSession,
@@ -446,6 +455,9 @@ export function nimbus(
   let restartedDevServer = false;
   let indexedCollectionsForBuild: string[] = [];
   let apiCollectionsForBuild: string[] = [];
+  const markdownRoutes = markdownRoutesPlugin();
+  let astroRootForBuild: URL | undefined;
+  let prerenderConflictBehaviorForBuild: "error" | "warn" | "ignore" = "warn";
 
   // Built eagerly at config:setup, reassigned by the dev re-bake; both the
   // authored-source citation resolver and virtual:nimbus/coordinates read it
@@ -749,6 +761,9 @@ export function nimbus(
         projectRootForBuild = projectRoot;
         srcDirForBuild = srcDir;
         astroBaseForBuild = astroConfig.base ?? "";
+        astroRootForBuild = astroConfig.root;
+        prerenderConflictBehaviorForBuild =
+          astroConfig.prerenderConflictBehavior ?? "warn";
 
         // Reset here (build cycle's first hook, before `routes:resolved` fills
         // it) — NOT `build:start`, which fires after `routes:resolved` and would
@@ -1364,6 +1379,7 @@ export function nimbus(
               agentEndpointAssets.agentEndpointAssetsRuntimePlugin(
                 astroConfig.root,
               ),
+              markdownRoutes.plugin,
               agentEndpointAssets.agentEndpointAssetLoaderPlugin(
                 () => adapterNameForBuild,
               ),
@@ -1759,6 +1775,14 @@ export function nimbus(
         }
       },
       "astro:routes:resolved": ({ routes }) => {
+        markdownRoutes.update(
+          recordMarkdownRoutes(
+            routes,
+            astroRootForBuild
+              ? readRouteSource(astroRootForBuild)
+              : () => undefined,
+          ),
+        );
         sitemapHasResolvedRootPage = routes.some(
           (route) =>
             route.type === "page" &&
@@ -1870,6 +1894,32 @@ export function nimbus(
         }
         if (report.violations.length > 0) {
           throw new Error(formatInvariantFailure(report.violations));
+        }
+
+        const markdownRouteRecords = markdownRoutes.records();
+        if (
+          prerenderConflictBehaviorForBuild !== "ignore" &&
+          markdownRouteRecords.some(
+            (route) => route.shared && route.prerendered,
+          )
+        ) {
+          const agentEndpointAssets = await loadAgentEndpointAssets();
+          const manifest =
+            await agentEndpointAssets.getAgentEndpointAssetManifest(
+              projectRootForBuild,
+            );
+          const unclaimed = findUnclaimedMarkdownPaths(
+            markdownRouteRecords,
+            manifest.markdownAssets,
+            { has: (url) => fs.existsSync(path.join(distDir, url)) },
+          );
+          if (unclaimed.length > 0) {
+            const message = formatUnclaimedMarkdownPaths(unclaimed);
+            if (prerenderConflictBehaviorForBuild === "error") {
+              throw new Error(message);
+            }
+            logger.warn(message);
+          }
         }
 
         materializeRouteTruthFromPages(

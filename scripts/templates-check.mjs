@@ -175,13 +175,13 @@ async function verifyRuntime(site, lane) {
           "utf8",
         ),
       );
-      const asset = manifest.markdownAssets.find(
+      const asset = manifest.llmsAssets.find(
         (entry) =>
-          entry.collection === "docs" &&
-          entry.id === "owned-by-slug" &&
-          entry.surface === "markdown",
+          entry.scope === "section" &&
+          entry.section === "runtime-section" &&
+          entry.surface === "index",
       );
-      if (!asset) throw new Error("runtime fixture has no known Markdown asset");
+      if (!asset) throw new Error("runtime fixture has no known llms.txt asset");
       rmSync(
         join(
           site,
@@ -192,7 +192,7 @@ async function verifyRuntime(site, lane) {
           asset.path,
         ),
       );
-      const missingAsset = await fetch(`${origin}/owned-by-slug/index.md`, {
+      const missingAsset = await fetch(`${origin}/runtime-section/llms.txt`, {
         signal: AbortSignal.timeout(5_000),
       });
       const missingAssetBody = await missingAsset.text();
@@ -306,8 +306,6 @@ if (LANE !== "static") {
     join(site, "src", "pages", "nimbus-api", "coordinates.json.ts"),
     join(site, "src", "pages", "og.png.ts"),
     join(site, "src", "pages", "og", "[...slug].ts"),
-    join(site, "src", "pages", "[...slug]", "index.md.ts"),
-    join(site, "src", "pages", "[...slug]", "index.mdx.ts"),
     join(site, "src", "pages", "[section]", "llms.txt.ts"),
   ]) {
     writeFileSync(

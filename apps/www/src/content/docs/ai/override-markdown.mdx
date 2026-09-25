@@ -1,0 +1,129 @@
+---
+title: Override a default
+description: Customize the Markdown versions of some or all pages without giving up the shared routes.
+aiGenerated: true
+sidebar:
+  order: 3
+---
+
+The starter's `src/pages/[...slug]/index.md.ts` and `src/pages/[...slug]/index.mdx.ts` routes serve the Markdown and source versions of every page. You can change what they serve at three levels:
+
+- Wrap the shared route to change the output for every page.
+- Replace the shared route with your own code.
+- Add a more specific route file to take over one collection.
+
+The examples use the `.md` route. The `.mdx` route works the same way with `markdownSourceRoute()`.
+
+## Wrap the shared route
+
+Call the shared route's `GET`, then change its response. This example adds a license line to every Markdown version:
+
+```ts title="src/pages/[...slug]/index.md.ts"
+import type { APIRoute } from "astro";
+import { markdownRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+
+export const prerender = true;
+
+const route = markdownRoute();
+export const getStaticPaths = route.getStaticPaths;
+
+export const GET: APIRoute = async (context) => {
+  const response = await route.GET(context);
+  if (!response.ok) return response;
+  const body = await response.text();
+  return new Response(`${body}\nLicensed under CC BY 4.0.\n`, {
+    headers: response.headers,
+  });
+};
+```
+
+## Replace the shared route
+
+Write your own `GET` with the public helpers from `@cloudflare/nimbus-docs/agent-endpoints`. `getMarkdownPayload()` returns a page's generated Markdown as `body`, and only the page content, without the frontmatter and index preamble, as `content`. Keep the shared route's `getStaticPaths`: it lists every collection's pages, skips pages that more specific routes own, and passes each page's `reference` as a prop.
+
+This example serves only the page content:
+
+```ts title="src/pages/[...slug]/index.md.ts"
+import type { APIRoute } from "astro";
+import {
+  getMarkdownPayload,
+  markdownRoute,
+  type MarkdownEndpointReference,
+} from "@cloudflare/nimbus-docs/agent-endpoints";
+
+export const prerender = true;
+
+export const { getStaticPaths } = markdownRoute();
+
+export const GET: APIRoute = async ({ props, request }) => {
+  const { reference } = props as { reference: MarkdownEndpointReference };
+  const payload = await getMarkdownPayload({
+    collection: reference.collection,
+    surface: "markdown",
+    reference,
+    context: { request },
+  });
+  if (!payload) return new Response("Not found", { status: 404 });
+  return new Response(payload.content, {
+    headers: { "Content-Type": payload.mediaType },
+  });
+};
+```
+
+To list pages yourself, `getMarkdownStaticPaths({ collection, surface })` returns one collection's paths. A route built from it serves only the collections it lists.
+
+## Take over one collection
+
+Astro gives a more specific route priority. Add a route file under a collection's URL prefix, and it serves that collection's Markdown versions. The shared route skips every URL the more specific route's pattern matches.
+
+`markdownRoute()` works in any route file and serves only the URLs its route matches. Wrap it to customize one collection:
+
+```ts title="src/pages/blog/[...slug]/index.md.ts"
+import type { APIRoute } from "astro";
+import { markdownRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+
+export const prerender = true;
+
+const route = markdownRoute();
+export const getStaticPaths = route.getStaticPaths;
+
+export const GET: APIRoute = async (context) => {
+  const response = await route.GET(context);
+  if (!response.ok) return response;
+  const body = await response.text();
+  return new Response(`${body}\nSubscribe at https://example.com/blog/rss.xml\n`, {
+    headers: response.headers,
+  });
+};
+```
+
+Or write the route with the public helpers. The changelog recipe (`nimbus-docs add changelog`) adds `src/pages/changelog/[...slug]/index.md.ts`, which builds its own frontmatter with each entry's date and tags:
+
+```ts title="src/pages/changelog/[...slug]/index.md.ts (abridged)"
+export const prerender = true;
+
+export const getStaticPaths = async () =>
+  getMarkdownStaticPaths({ collection: "changelog", surface: "markdown" });
+
+export async function GET({ params, props, request }: SlugContext) {
+  const payload = await getMarkdownPayload({
+    collection: "changelog",
+    surface: "markdown",
+    slug: params.slug,
+    reference: props.reference,
+    context: { request },
+  });
+  if (!payload) return new Response("Not found", { status: 404 });
+  // Build the frontmatter from the entry's data, then append payload.content.
+}
+```
+
+A more specific route must generate every page its pattern matches. If it skips some, those pages have no Markdown version while `llms.txt` still links to them. Nimbus lists the missing paths and the route that owns them as a build warning. The build fails instead when Astro's `prerenderConflictBehavior` is `"error"`.
+
+## What an override changes
+
+An override changes only what that route serves. `llms-full.txt` and hosted MCP keep the Markdown Nimbus generates.
+
+The shared routes and routes that use `markdownRoute()` or `markdownSourceRoute()` must keep `export const prerender = true`. The build fails if one is rendered on request.
+
+Call the factory in the route file itself, as the examples above do. Like Astro's own `prerender` detection, Nimbus finds it by reading the route file, so a factory re-exported from another module is not checked.

@@ -66,8 +66,16 @@ Before prompting the user or writing anything, inspect the project:
   extras almost certainly correspond to the `schemaFields` you'll
   capture below; they must be forwarded on the new version's route
   too (step 4d explains how).
-- `src/pages/[...slug]/index.md.ts` — the primary `.md` alternate
-  route. Same.
+- `src/pages/[...slug]/index.md.ts` and `src/pages/[...slug]/index.mdx.ts`
+  — confirm they call `markdownRoute()` and `markdownSourceRoute()` from
+  `@cloudflare/nimbus-docs/agent-endpoints`. These shared routes serve the
+  Markdown and source versions of every collection, versions included, so
+  the new version needs no Markdown routes.
+  If either file instead passes `collection: "docs"` (an older starter),
+  stop: the new pages would get no `.md` or `.mdx` files. Ask the user to
+  update it first with `nimbus-docs diff <file> --apply` if it is
+  unmodified, or to replace it with the three-line version from the
+  `ai-native` recipe, wrapping it to keep any customizations.
 - `src/layouts/DocsLayout.astro` — must accept `collection` and
   `entryId` props and forward them. If those props are missing, the
   user is on an older starter; tell them to upgrade before continuing
@@ -176,12 +184,11 @@ Print an exact plan before writing anything. Example:
 >    }
 >    ```
 > 4. Write `src/pages/v1/[...slug].astro` (page route).
-> 5. Write `src/pages/v1/[...slug]/index.md.ts` (markdown alternate).
-> 6. Copy `VersionSwitcher.astro`, `index.ts`, and `README.md` into
+> 5. Copy `VersionSwitcher.astro`, `index.ts`, and `README.md` into
 >    `src/components/ui/version-switcher/`.
-> 7. Edit `src/components/Header.astro` to render `<VersionSwitcher
+> 6. Edit `src/components/Header.astro` to render `<VersionSwitcher
 >    collection={collection} entryId={entryId} />`.
-> 8. Edit `src/layouts/DocsLayout.astro` to render the mobile picker
+> 7. Edit `src/layouts/DocsLayout.astro` to render the mobile picker
 >    inside the sidebar drawer.
 >
 > Final result: visit `/` (v2 current) and `/v1/<page>` (frozen v1).
@@ -448,58 +455,7 @@ if the primary route has
 v0 pages with `audience: "human"` render the same "For humans"
 treatment as v1 pages.
 
-### 4e. Scaffold the version's `.md` alternate route
-
-Write `src/pages/<slug>/[...slug]/index.md.ts`:
-
-```ts
-import {
-  getMarkdownPayload,
-  getMarkdownStaticPaths,
-  type MarkdownEndpointReference,
-} from "@cloudflare/nimbus-docs/agent-endpoints";
-
-export const prerender = true;
-
-const COLLECTION = "docs-<slug>";
-
-interface SlugProps {
-  reference: MarkdownEndpointReference;
-}
-
-interface SlugContext {
-  params: { slug?: string };
-  props: Partial<SlugProps>;
-  request: Request;
-}
-
-export const getStaticPaths = async () =>
-  getMarkdownStaticPaths({ collection: COLLECTION, surface: "markdown" });
-
-export async function GET({ params, props, request }: SlugContext) {
-  const payload = await getMarkdownPayload({
-    collection: COLLECTION,
-    surface: "markdown",
-    slug: params.slug,
-    reference: props.reference,
-    context: { request },
-  });
-  if (!payload) return new Response("Not found", { status: 404 });
-  return new Response(payload.body, {
-    headers: { "Content-Type": payload.mediaType },
-  });
-}
-```
-
-Substitute the user's version slug for every `<slug>` token in the
-snippet above (the directory name in the file path, plus the
-`COLLECTION` constant value at the top).
-
-The endpoint payload includes the version frontmatter so agents can pin a
-version. To also serve the expanded source form, mirror this route with
-`surface: "source"` at `src/pages/<slug>/[...slug]/index.mdx.ts`.
-
-### 4f. Install the version-switcher picker (skip if already installed)
+### 4e. Install the version-switcher picker (skip if already installed)
 
 If `src/components/ui/version-switcher/` already exists, skip this
 step — the component is already installed.
@@ -571,7 +527,7 @@ files in via ANY of these three paths, that's a bug — report it
 specifically rather than silently skipping the picker (a "successful"
 recipe run with no picker is the worst outcome).
 
-### 4g. Wire the picker into Header and DocsLayout (skip if already wired)
+### 4f. Wire the picker into Header and DocsLayout (skip if already wired)
 
 **Edit `src/components/Header.astro`:**
 
@@ -670,7 +626,8 @@ After writing all files:
 2. Confirm the build completes without errors.
 3. Confirm the dist output contains:
    - `dist/<slug>/welcome/index.html` (or the equivalent first entry)
-   - `dist/<slug>/welcome/index.md`
+   - `dist/<slug>/welcome/index.md` and `index.mdx` (served by the shared
+     Markdown routes)
    - `dist/<slug>/llms.txt` (if the version has ≥ 2 entries)
 4. Tell the user the URLs to visit:
    - `http://localhost:<port>/` (current version)

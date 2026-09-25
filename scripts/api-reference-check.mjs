@@ -649,7 +649,6 @@ async function assertRecipeFixtureParity() {
   const recipe = await readFile(API_REFERENCE_RECIPE, "utf8");
   for (const [path, language] of [
     ["src/pages/api/[...slug].astro", "astro"],
-    ["src/pages/api/[...slug]/index.md.ts", "ts"],
   ]) {
     const fixtureSource = await readFile(join(OVERLAY, path), "utf8");
     const fixture = fixtureSource.endsWith("\n")
@@ -673,7 +672,6 @@ async function applyOverlay() {
     "astro.config.ts",
     "src/content.config.ts",
     "src/pages/api/[...slug].astro",
-    "src/pages/api/[...slug]/index.md.ts",
   ];
   for (const file of files) {
     const target = join(site, file);

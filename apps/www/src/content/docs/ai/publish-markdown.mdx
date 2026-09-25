@@ -13,88 +13,24 @@ Add the five endpoints that serve alternate Markdown/MDX versions, site and sect
 Create the clean Markdown version:
 
 ```ts title="src/pages/[...slug]/index.md.ts"
-import {
-  getMarkdownPayload,
-  getMarkdownStaticPaths,
-  type MarkdownEndpointReference,
-} from "@cloudflare/nimbus-docs/agent-endpoints";
+import { markdownRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
 
 export const prerender = true;
-
-interface SlugProps {
-  reference: MarkdownEndpointReference;
-}
-
-interface SlugContext {
-  params: { slug?: string };
-  props: Partial<SlugProps>;
-  request: Request;
-}
-
-export const getStaticPaths = async () =>
-  getMarkdownStaticPaths({
-    collection: "docs",
-    surface: "markdown",
-  });
-
-export async function GET({ params, props, request }: SlugContext) {
-  const payload = await getMarkdownPayload({
-    collection: "docs",
-    surface: "markdown",
-    slug: params.slug,
-    reference: props.reference,
-    context: { request },
-  });
-  if (!payload) return new Response("Not found", { status: 404 });
-  return new Response(payload.body, {
-    headers: { "Content-Type": payload.mediaType },
-  });
-}
+export const { GET, getStaticPaths } = markdownRoute();
 ```
 
 Create the MDX source version:
 
 ```ts title="src/pages/[...slug]/index.mdx.ts"
-import {
-  getMarkdownPayload,
-  getMarkdownStaticPaths,
-  type MarkdownEndpointReference,
-} from "@cloudflare/nimbus-docs/agent-endpoints";
+import { markdownSourceRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
 
 export const prerender = true;
-
-interface SlugProps {
-  reference: MarkdownEndpointReference;
-}
-
-interface SlugContext {
-  params: { slug?: string };
-  props: Partial<SlugProps>;
-  request: Request;
-}
-
-export const getStaticPaths = async () =>
-  getMarkdownStaticPaths({
-    collection: "docs",
-    surface: "source",
-  });
-
-export async function GET({ params, props, request }: SlugContext) {
-  const payload = await getMarkdownPayload({
-    collection: "docs",
-    surface: "source",
-    slug: params.slug,
-    reference: props.reference,
-    context: { request },
-  });
-  if (!payload) return new Response("Not found", { status: 404 });
-  return new Response(payload.body, {
-    headers: { "Content-Type": payload.mediaType },
-  });
-}
+export const { GET, getStaticPaths } = markdownSourceRoute();
 ```
 
-These root catch-all endpoints serve only the `docs` collection. For every additional authored collection, create the same `.md.ts` and `.mdx.ts` endpoints below its URL prefix and change `collection` to its literal collection key. For example, a `blog` collection at `/blog` uses `src/pages/blog/[...slug]/index.md.ts`; a `docs-v1` collection at `/v1` uses `src/pages/v1/[...slug]/index.md.ts`. Mirror each alternate Markdown endpoint with an MDX source endpoint.
+These two routes serve every collection, including docs versions, a blog at `/blog`, and API references. API pages have a `.md` version but no `.mdx` source. Pages in hidden versions have neither. Collections you add later need no new route files. To customize the output for some or all pages, see [Override a default](/ai/override-markdown).
+
+Both routes must stay prerendered. The build fails if either one is rendered on request.
 
 ## 2. Add the site index
 
@@ -191,7 +127,7 @@ export async function GET({ params, props, request }: SectionContext) {
 }
 ```
 
-Keep all five endpoints prerendered unless you deliberately want them rendered on request. The `agent-endpoints` helpers support either mode and require the Nimbus Astro integration.
+Keep the `llms.txt` endpoints prerendered unless you deliberately want them rendered on request. The `agent-endpoints` helpers support either mode and require the Nimbus Astro integration.
 
 ## Verify
 
@@ -212,7 +148,7 @@ curl --fail http://localhost:4321/llms-full.txt
 curl --fail http://localhost:4321/writing/llms.txt
 ```
 
-Each command must return content with a successful status. A `404` means the corresponding route file or collection-specific mount is missing. If the build reports an unprepared collection, wrap its Markdown loader with `withNimbusMarkdown()` as described in [Other collections](/writing/pages-and-routing#other-collections). If a section index is absent, confirm that the section has discoverable pages and appears in `/llms.txt`.
+Each command must return content with a successful status. A `404` means the corresponding route file is missing. If the build reports an unprepared collection, wrap its Markdown loader with `withNimbusMarkdown()` as described in [Other collections](/writing/pages-and-routing#other-collections). If a section index is absent, confirm that the section has discoverable pages and appears in `/llms.txt`.
 
 ## Direct rendering
 

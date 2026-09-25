@@ -47,11 +47,41 @@ test("collection recipes guard disabled table-of-contents configuration", async 
   }
 });
 
-test("changelog serves and links its expanded source version", async () => {
+test("changelog overrides only Markdown and links the shared source version", async () => {
   const source = await feature("changelog");
-  assert.match(source, /surface: "source"/);
+  assert.doesNotMatch(source, /changelog\/\[\.\.\.slug\]\/index\.mdx\.ts/);
+  assert.doesNotMatch(source, /surface: "source"/);
   assert.match(source, /sourcePath[\s\S]*index\.mdx/);
   assert.match(source, /Source:.*absoluteUrl\(sourcePath\)/);
+});
+
+test("collection recipes rely on the shared Markdown routes", async () => {
+  for (const name of ["new-collection", "new-version", "api-reference", "ai-native"]) {
+    const source = await feature(name);
+    assert.doesNotMatch(source, /getMarkdownStaticPaths|getMarkdownPayload/);
+    assert.doesNotMatch(source, /src\/pages\/[^`\s]+\/\[\.\.\.slug\]\/index\.mdx?\.ts/);
+  }
+});
+
+test("recipes that rely on the shared routes stop on an older docs-only starter", async () => {
+  for (const name of ["new-collection", "new-version", "api-reference", "changelog"]) {
+    const source = await feature(name);
+    assert.match(source, /calls?\s+`markdown(Source)?Route\(\)`/);
+    assert.match(source, /instead passes `collection: "docs"` \(an older starter\),?\s+stop/);
+  }
+});
+
+test("changelog relies on the shared OG route", async () => {
+  const source = await feature("changelog");
+  assert.doesNotMatch(source, /src\/pages\/og\/changelog/);
+  assert.doesNotMatch(source, /OGImageRoute/);
+  assert.match(source, /`src\/pages\/og\/\[\.\.\.slug\]\.ts` — confirm it enumerates entries with\s+`getIndexedEntries\(\)`/);
+});
+
+test("changelog uses the Nimbus Icon component", async () => {
+  const source = await feature("changelog");
+  assert.doesNotMatch(source, /astro-icon/);
+  assert.match(source, /import Icon from "@cloudflare\/nimbus-docs\/components\/Icon\.astro";/);
 });
 
 test("changelog reserves its index entry for the feed route", async () => {
@@ -60,10 +90,14 @@ test("changelog reserves its index entry for the feed route", async () => {
     source,
     /### 5h\.[\s\S]*?```astro\n---\nimport type \{ GetStaticPaths \} from "astro";/,
   );
-  assert.match(source, /getChangelogStaticPaths[\s\S]*filter\(\(path\) => path\.params\.slug\)/);
+  assert.doesNotMatch(source, /getChangelogStaticPaths/);
+  assert.match(
+    source,
+    /export const getStaticPaths: GetStaticPaths = async \(options\) =>\n  \(await getCollectionStaticPaths\("changelog"\)\(options\)\)\.filter\(\n    \(path\) => path\.params\.slug,\n  \);/,
+  );
   assert.equal(
     source.match(/paths\.filter\(\(path\) => path\.params\.slug !== undefined\)/g)?.length,
-    2,
+    1,
   );
 });
 

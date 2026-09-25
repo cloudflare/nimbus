@@ -41,11 +41,23 @@ Inspect the repo to learn its conventions:
   `markdownUrl`, `collection`, `entryId`). ChangelogLayout wraps it.
 - `src/components/Header.astro` — confirm it exists; ChangelogLayout renders
   it. Note whether it accepts `showSidebar`.
+- `src/pages/[...slug]/index.mdx.ts` — confirm it calls
+  `markdownSourceRoute()` from `@cloudflare/nimbus-docs/agent-endpoints`.
+  This shared route serves every entry's `.mdx` source, so the changelog
+  needs no source route.
+  If it instead passes `collection: "docs"` (an older starter), stop: the
+  new pages would get no `.mdx` files. Ask the user to update it first
+  with `nimbus-docs diff <file> --apply` if it is unmodified, or to
+  replace it with the three-line version from the `ai-native` recipe,
+  wrapping it to keep any customizations.
 - `src/components.ts` — the MDX globals registry. Entry bodies render with
   this map, so authored components in entries work like they do in docs.
-- `src/pages/og/[...slug].ts` and `src/pages/og/_og-card-config.ts` —
-  the OG card setup. The starter uses `astro-og-canvas`; you will mirror it
-  for the changelog (step 5m).
+- `src/pages/og/[...slug].ts` — confirm it enumerates entries with
+  `getIndexedEntries()`, as the starter's does. It then already generates
+  `/og/changelog/<slug>.png` for every entry, so the changelog needs no OG
+  route. If the project's OG route covers only the `docs` collection, extend
+  it to every collection instead of adding a second route under
+  `src/pages/og/`, which would generate the same paths.
 - `src/styles/globals.css` — confirm Nimbus tokens exist (`--nb-border`,
   `--nb-card`, `--nb-foreground`, `--nb-muted-foreground`, `--nb-h1-size`, …).
   The components use them.
@@ -87,7 +99,6 @@ You will **create**:
 - `src/pages/changelog/[...slug].astro`
 - `src/pages/changelog/page/[page].astro`
 - `src/pages/changelog/[...slug]/index.md.ts`
-- `src/pages/og/changelog/[...slug].ts`
 - `src/pages/changelog/rss.xml.ts` — **RSS only** (skip if the user declined).
 
 You will **edit**:
@@ -300,7 +311,7 @@ styles. If the project's prose root class differs, swap it.
  * year, so there are no year dividers. Owns the timeline layout and the
  * "load older" control.
  */
-import { Icon } from "astro-icon/components";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import type { CollectionEntry } from "astro:content";
 import ChangelogEntry from "./ChangelogEntry.astro";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
@@ -645,7 +656,7 @@ Substitute the title, tagline, and `PAGE_SIZE`.
 
 ```astro
 ---
-import { Icon } from "astro-icon/components";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { getCollection } from "astro:content";
 import ChangelogLayout from "@/layouts/ChangelogLayout.astro";
 import ChangelogFeed from "@/components/changelog/ChangelogFeed.astro";
@@ -718,16 +729,17 @@ route in 5j entirely.
 ```astro
 ---
 import type { GetStaticPaths } from "astro";
-import { Icon } from "astro-icon/components";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import ChangelogLayout from "@/layouts/ChangelogLayout.astro";
 import { Badge } from "@/components/ui/badge";
 import { entryRouteKey, getCollectionStaticPaths, getCollectionPage, withBase } from "@cloudflare/nimbus-docs";
 import { components } from "@/components";
 
 export const prerender = true;
-const getChangelogStaticPaths = getCollectionStaticPaths("changelog");
 export const getStaticPaths: GetStaticPaths = async (options) =>
-  (await getChangelogStaticPaths(options)).filter((path) => path.params.slug);
+  (await getCollectionStaticPaths("changelog")(options)).filter(
+    (path) => path.params.slug,
+  );
 
 const page = await getCollectionPage<"changelog">(Astro);
 if (page instanceof Response) return page;
@@ -945,6 +957,12 @@ export async function GET() {
 
 ### 5k. `src/pages/changelog/[...slug]/index.md.ts` (markdown alternate)
 
+The shared `src/pages/[...slug]/index.md.ts` route already serves every
+collection. This more specific route overrides it for the changelog to add
+the entry's date and tags to the frontmatter; the shared route skips these
+paths. Keep it prerendered. The shared `src/pages/[...slug]/index.mdx.ts`
+route serves the changelog's source files, so don't add an `.mdx` route.
+
 ```ts
 /**
  * Per-entry `/changelog/<slug>/index.md` — the clean-markdown alternate.
@@ -1043,80 +1061,7 @@ export async function GET({ params, props, request }: SlugContext) {
 }
 ```
 
-### 5l. `src/pages/changelog/[...slug]/index.mdx.ts` (expanded source)
-
-```ts
-import {
-  getMarkdownPayload,
-  getMarkdownStaticPaths,
-  type MarkdownEndpointReference,
-} from "@cloudflare/nimbus-docs/agent-endpoints";
-
-export const prerender = true;
-
-interface SlugProps {
-  reference: MarkdownEndpointReference;
-}
-
-interface SlugContext {
-  params: { slug?: string };
-  props: Partial<SlugProps>;
-  request: Request;
-}
-
-export const getStaticPaths = async () =>
-  getMarkdownStaticPaths({ collection: "changelog", surface: "source" })
-    .then((paths) => paths.filter((path) => path.params.slug !== undefined));
-
-export async function GET({ params, props, request }: SlugContext) {
-  const payload = await getMarkdownPayload({
-    collection: "changelog",
-    surface: "source",
-    slug: params.slug,
-    reference: props.reference,
-    context: { request },
-  });
-  if (!payload) return new Response("Not found", { status: 404 });
-  return new Response(payload.body, {
-    headers: { "Content-Type": payload.mediaType },
-  });
-}
-```
-
-### 5m. `src/pages/og/changelog/[...slug].ts` (OG cards)
-
-Mirror the project's existing docs OG route for the changelog collection. For
-the default starter (which uses `astro-og-canvas`):
-
-```ts
-import { getCollection } from "astro:content";
-import { OGImageRoute } from "astro-og-canvas";
-import { ogCardConfig } from "../_og-card-config";
-
-const entries = await getCollection("changelog", (entry) => !entry.data.draft);
-
-const pages = Object.fromEntries(
-  entries.map((entry) => [
-    entry.id,
-    { title: entry.data.title, description: entry.data.description ?? "" },
-  ]),
-);
-
-export const { getStaticPaths, GET } = await OGImageRoute({
-  pages,
-  param: "slug",
-  getImageOptions: (_path, page) => ({
-    title: page.title,
-    description: page.description,
-    ...ogCardConfig,
-  }),
-});
-```
-
-If the project uses a custom OG renderer instead, copy its docs OG route and
-swap `getCollection("docs", …)` for `getCollection("changelog", …)`.
-
-### 5n. Seed entry — `src/content/changelog/<YYYY-MM-DD>-welcome.mdx`
+### 5l. Seed entry — `src/content/changelog/<YYYY-MM-DD>-welcome.mdx`
 
 ```mdx
 ---
@@ -1152,7 +1097,9 @@ navigation.
 1. Run the user's build command. Confirm it completes.
 2. Confirm dist output:
    - `dist/changelog/index.html`, `dist/changelog/<slug>/index.html`
-   - `dist/changelog/<slug>/index.md`
+   - `dist/changelog/<slug>/index.md`, with `date` and `tags` in its
+     frontmatter, and `dist/changelog/<slug>/index.mdx`
+   - `dist/og/changelog/<slug>.png`
    - `dist/changelog/page/2/index.html` (only if entries exceed the page size)
    - `dist/changelog/llms.txt` and `changelog` listed in root `dist/llms.txt`
    - `dist/changelog/rss.xml` — only if RSS was chosen

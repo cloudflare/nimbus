@@ -17,6 +17,8 @@ test("agent endpoints retain the publication compatibility entrypoint", () => {
     "getLlmsStaticPaths",
     "getMarkdownPayload",
     "getMarkdownStaticPaths",
+    "markdownRoute",
+    "markdownSourceRoute",
   ]);
   assert.deepEqual(Object.keys(publication).sort(), [
     "getPreparedLlmsRouteArtifact",
