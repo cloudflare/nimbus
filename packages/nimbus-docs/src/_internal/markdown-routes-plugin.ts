@@ -51,7 +51,7 @@ function markdownFileSegment(route: ResolvedRouteInput): string | undefined {
 }
 
 function escapeRegExp(value: string): string {
-  return value.replace(/[$.]/gu, "\\$&");
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 /**
