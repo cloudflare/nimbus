@@ -45,6 +45,7 @@ test("pageUrls derives every URL from the served route", () => {
     sourceUrl: "/blog/index.mdx",
     ogImageUrl: "/og/blog.png",
   });
+  assert.equal(pageUrls("/v1.2", { id: "index", body: "x" }).url, "/v1.2/");
   assert.deepEqual(pageUrls("/v1", { id: "guides/index", body: "" }), {
     url: "/v1/guides/",
     markdownUrl: "/v1/guides/index.md",
@@ -248,6 +249,11 @@ export const { GET, getStaticPaths } = markdownRoute();
   const prose = indexed.filter((item) => item.collection !== "api");
   assert.equal(pages.length, prose.length);
   assert.equal(pages.length, 12);
+  assert.equal(
+    indexed.find((item) => item.collection === "docs-v1.2" && item.id === "index")?.url,
+    "/v1.2/",
+    "a dotted version root keeps its trailing slash",
+  );
 
   const baked = new Set((await agentManifest(site.root)).markdownAssets.map((asset) => asset.url));
   const ogKeys = new Map(ogPages.map(([key, url]) => [url, key]));

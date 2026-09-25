@@ -46,6 +46,10 @@ import {
 const EXPORT_PREFIX_PATTERN =
   /export\s+const\s+collections\s*(?::\s*[^=]+)?=\s*\{/;
 
+// A statically identifiable collection key: `docs`, `docs-v1`, `docs-v1.2`,
+// `_partials`. See `parseContentCollections` for the rationale.
+const COLLECTION_KEY = /^[A-Za-z_][A-Za-z0-9_.-]*$/;
+
 export interface ParsedContentCollections {
   names: string[];
   complete: boolean;
@@ -89,10 +93,11 @@ export async function parseContentCollections(
     // Collection names are conventionally lowercase identifiers
     // (`docs`, `blog`, `api`), but Astro accepts any non-empty string as a
     // collection ID and the versioning convention (`docs-v1`, `docs-2025-q1`)
-    // relies on hyphens. Accept letters/digits/underscores/hyphens after
-    // a leading letter or underscore (the `_*` underscore convention for
-    // hidden-from-indexing collections stays intact).
-    if (/^[A-Za-z_][A-Za-z0-9_-]*$/.test(key)) names.push(key);
+    // relies on hyphens and, for dotted versions (`docs-v1.2`), dots.
+    // Accept letters/digits/underscores/hyphens/dots after a leading letter
+    // or underscore (the `_*` underscore convention for hidden-from-indexing
+    // collections stays intact).
+    if (COLLECTION_KEY.test(key)) names.push(key);
     else complete = false;
   }
 
@@ -176,7 +181,7 @@ export async function parseCollectionBases(
     const colonIdx = entry.indexOf(":");
     const rawKey = colonIdx === -1 ? entry : entry.slice(0, colonIdx);
     const key = rawKey.trim().replace(/^['"`]|['"`]$/g, "");
-    if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(key)) continue;
+    if (!COLLECTION_KEY.test(key)) continue;
 
     // Default the folder to the key name. Override if a literal `base:`
     // appears in the entry's value — or, for shorthand entries (`{ docs }`),

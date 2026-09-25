@@ -103,12 +103,14 @@ default later ones.
 
 The slug is the URL prefix. Common shapes:
 - Major versions: `v0`, `v1`, `v2`, `v3` — best for SDKs / frameworks
+- Minor versions: `v1.2`, `v2.0` — when minor releases need their own docs
 - Calendar versions: `2024-q4`, `2025-q1` — best for APIs
 - Named versions: `legacy`, `archive` — best when "v1 vs v2" overstates the change
 
 Rules:
-- Lowercase, `a-z` / `0-9` / `-` / `_` only — no dots, no spaces. The
-  slug feeds into URLs.
+- Lowercase, `a-z` / `0-9` / `-` / `_` / `.` only, starting with a
+  letter or digit — no spaces, no slashes, no `..`. The slug feeds into
+  URLs and the collection name `docs-<slug>`.
 - Must not equal the existing `versions.current` value (if one is set).
 
 Tell the user the resulting URL prefix will be `/<slug>/<page>`.

@@ -1246,6 +1246,12 @@ test("collection parsing reports whether registrations are complete", async (t) 
     complete: true,
   });
 
+  await writeFile(file, 'export const collections = { docs: {}, "docs-v1.2": {} };\n');
+  assert.deepEqual(await parseContentCollections(file), {
+    names: ["docs", "docs-v1.2"],
+    complete: true,
+  });
+
   await writeFile(
     file,
     "export const collections = { docs: {}, ...extras, [name]: value };\n",
