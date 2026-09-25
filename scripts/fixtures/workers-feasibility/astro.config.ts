@@ -1,9 +1,26 @@
 import cloudflare from "@astrojs/cloudflare";
 import { defineConfig } from "astro/config";
 import tailwindcss from "@tailwindcss/vite";
-import nimbus from "@cloudflare/nimbus-docs";
+import nimbus, {
+  defineConfig as defineNimbusConfig,
+} from "@cloudflare/nimbus-docs";
 import { readFileSync } from "node:fs";
-import nimbusConfig from "./nimbus.config";
+
+const nimbusConfig = defineNimbusConfig({
+  site: "https://workers-feasibility.test",
+  title: "Workers feasibility",
+  description: "BG-1c.0 request-rendering fixture.",
+  locale: "en",
+  github: null,
+  rendering: { collections: { api: "request" } },
+  api: [
+    {
+      collection: "api",
+      spec: "src/content/api/openapi.json",
+      label: "Feasibility API",
+    },
+  ],
+});
 
 const rendering = JSON.parse(
   readFileSync(new URL("./.nimbus/feasibility-rendering.json", import.meta.url), "utf8"),

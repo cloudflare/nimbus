@@ -34,7 +34,7 @@ jobs:
             fi
             while IFS= read -r file; do
               case "$file" in
-                apps/www/package.json|apps/www/registry/manifests.ts|apps/www/registry/features/api-reference.md|apps/www/scripts/generate-registry.ts|apps/www/scripts/serve-registry.mjs|packages/nimbus-docs/*|packages/nimbus-docs/**|packages/nimbus-starter-source/*|packages/nimbus-starter-source/**|packages/create-nimbus-docs/*|packages/create-nimbus-docs/**|scripts/api-reference-check.mjs|scripts/fixtures/api-reference/*|scripts/fixtures/api-reference/**|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|.npmrc|tsconfig.base.json|.github/workflows/api-reference.yml)
+                apps/www/package.json|apps/www/registry/manifests.ts|apps/www/registry/features/api-reference.md|apps/www/scripts/generate-registry.ts|apps/www/scripts/serve-registry.mjs|packages/nimbus-docs/*|packages/nimbus-docs/**|packages/nimbus-starter-source/*|packages/nimbus-starter-source/**|packages/create-nimbus-docs/*|packages/create-nimbus-docs/**|scripts/api-reference-check.mjs|scripts/fixtures/api-reference/*|scripts/fixtures/api-reference/**|scripts/fixtures/api-reference-legacy/*|scripts/fixtures/api-reference-legacy/**|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|.npmrc|tsconfig.base.json|.github/workflows/api-reference.yml)
                   relevant=true
                   break
                   ;;

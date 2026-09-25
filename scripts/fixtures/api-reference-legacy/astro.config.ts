@@ -1,21 +1,8 @@
 import { defineConfig } from "astro/config";
 import tailwindcss from "@tailwindcss/vite";
-import nimbus, {
-  defineConfig as defineNimbusConfig,
-} from "@cloudflare/nimbus-docs";
+import nimbus from "@cloudflare/nimbus-docs";
 import { tableScroll } from "@cloudflare/nimbus-docs/markdown";
-
-const nimbusConfig = defineNimbusConfig({
-  site: "https://docs.smallco.test",
-  title: "SmallCo Docs",
-  description: "Documentation and API reference for SmallCo.",
-  locale: "en",
-  github: null,
-  socialImageAlt: "SmallCo documentation preview",
-  api: [
-    { collection: "api", spec: "./src/api/smallco.yaml", label: "SmallCo API" },
-  ],
-});
+import nimbusConfig from "./nimbus.config";
 
 export default defineConfig({
   // nimbus:adapter
