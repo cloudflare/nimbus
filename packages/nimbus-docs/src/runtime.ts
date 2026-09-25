@@ -1398,7 +1398,7 @@ export function getApiStaticPaths(collection: string): GetStaticPaths {
     const apiCollections = await loadApiCollections();
     if (!apiCollections.includes(collection)) {
       throw new Error(
-        `nimbus-docs: getApiStaticPaths("${collection}") found no matching api collection in nimbus.config.ts.`,
+        `nimbus-docs: getApiStaticPaths("${collection}") found no matching \`api\` entry in the Nimbus config (astro.config.*).`,
       );
     }
     const entries = await getVisibleEntries([collection]);

@@ -80,6 +80,7 @@ import {
   makeHiddenSitemapFilter,
 } from "./_internal/hidden-sitemap.js";
 import { virtualConfigPlugin } from "./_internal/virtual-config.js";
+import { coalesce } from "./_internal/coalesce.js";
 import { virtualApiBuildConfigPlugin } from "./_internal/virtual-api-build-config.js";
 import { virtualCoordinatesPlugin } from "./_internal/virtual-coordinates.js";
 import { createAuthoredCitationResolver } from "./_internal/api/authored-citations.js";
@@ -97,6 +98,13 @@ import { walkFilesSync } from "./_internal/fs-walk.js";
 import { discoverMigrations } from "./_internal/migrations.js";
 import { resolveUpgradeBaseline, selectUpgradeEntries } from "./_internal/upgrades.js";
 import { registerAuthoredLinkNormalizer } from "./_internal/authored-link-normalizer.js";
+import {
+  NIMBUS_CONFIG_FILE,
+  apiCollectionIndexError,
+  apiCollectionLoadCount,
+  missingApiCollectionMessage,
+  registerApiCollections,
+} from "./_internal/api-collection-registry.js";
 import {
   clearCodeStyleRegistry,
   getCodeStyleCSS,
@@ -150,6 +158,7 @@ import { pagefindDocument } from "./_internal/pagefind-document.js";
 import {
   beginPreparedMarkdownSession,
   getPreparedMarkdownSnapshot,
+  preparedMarkdownRootKey,
 } from "./_internal/prepared-markdown-registry.js";
 import type {
   GeneratedMarkdownComponentTransform,
@@ -179,6 +188,15 @@ const REQUEST_ROUTE_INVENTORY_ENTRYPOINT = new URL(
   `./_internal/request-route-inventory.${import.meta.url.endsWith(".ts") ? "ts" : "js"}`,
   import.meta.url,
 );
+
+/**
+ * The first dev server's watcher per project root (real path, like the
+ * prepared-Markdown and API registries). Astro's content layer keeps
+ * handing it to loaders after a dev restart closes it, and a loader's
+ * `watcher.add()` (Astro's `glob()` does this) silently reopens it, which
+ * keeps the process alive. Restarted servers close it again when they stop.
+ */
+const initialDevWatchers = new Map<string, { close(): Promise<void> }>();
 
 type AgentEndpointAssetsModule = typeof import("./_internal/agent-endpoint-assets.js");
 
@@ -434,6 +452,7 @@ export function nimbus(
   let sitemapBareRootUrl: string | null = null;
   let sitemapHasResolvedRootPage = false;
   let building = false;
+  let restartedDevServer = false;
   let indexedCollectionsForBuild: string[] = [];
   let apiCollectionsForBuild: string[] = [];
   const markdownRoutes = markdownRoutesPlugin();
@@ -459,14 +478,17 @@ export function nimbus(
           config: astroConfig,
           logger,
           command,
+          isRestart,
         } = params;
         building = command === "build";
+        restartedDevServer = command === "dev" && isRestart;
 
         // App files (content.config.ts, pages/, components.ts) follow srcDir;
         // content/assets stay root-relative via their collection bases.
         const srcDir = fileURLToPath(astroConfig.srcDir);
         const projectRoot = fileURLToPath(astroConfig.root);
         beginPreparedMarkdownSession(astroConfig.root);
+        registerApiCollections(astroConfig.root, config.api);
         const agentEndpointAssets = await loadAgentEndpointAssets();
         if (config.api?.length) {
           const apiLoader = await import("./_internal/api-loader.js");
@@ -515,9 +537,14 @@ export function nimbus(
                 for (const collection of apiCollectionsForBuild) {
                   const entries =
                     snapshot?.collections.get(collection)?.entries;
-                  if (!entries) {
+                  const indexError = apiCollectionIndexError(
+                    projectRoot,
+                    collection,
+                    entries !== undefined,
+                  );
+                  if (indexError || !entries) {
                     throw new Error(
-                      `nimbus-docs: API collection "${collection}" was not prepared during content sync.`,
+                      indexError ?? missingApiCollectionMessage(collection),
                     );
                   }
                   for (const entry of entries.values()) {
@@ -548,7 +575,7 @@ export function nimbus(
                 );
                 if (!declaration) {
                   throw new Error(
-                    `nimbus-docs: API collection "${entry.collection}" is not declared in nimbus.config.ts.`,
+                    `nimbus-docs: API collection "${entry.collection}" is not declared in \`api\` in ${NIMBUS_CONFIG_FILE}.`,
                   );
                 }
                 const apiLoader = await import("./_internal/api-loader.js");
@@ -1574,7 +1601,59 @@ export function nimbus(
           ].join("\n"),
         });
       },
-      "astro:server:setup": ({ server }) => {
+      "astro:server:setup": async ({ server, refreshContent }) => {
+        if (!restartedDevServer) {
+          initialDevWatchers.set(
+            preparedMarkdownRootKey(projectRootForBuild),
+            server.watcher,
+          );
+        }
+        // Astro re-runs `astro:config:setup` after an astro.config edit, which
+        // begins a new prepared session and re-registers `api` entries, but it
+        // does not re-run loaders. Re-sync every collection so prepared data
+        // (prose and API) repopulates and API collections pick up edited
+        // entries. Awaited on purpose: the refresh runs the loader instances
+        // Astro evaluated through the previous Vite server, which Vite closes
+        // only after this hook returns, so their lazy imports still resolve.
+        if (restartedDevServer && refreshContent) {
+          try {
+            await refreshContent({});
+          } catch (error) {
+            server.config.logger.error(
+              `nimbus-docs: failed to refresh content after a config change: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+          // Astro 7.3 keeps handing loaders the previous Vite server's watcher,
+          // which is closed after a restart, so the API loader's own spec watch
+          // goes deaf. Re-run the API loaders from this server's live watcher.
+          // (If Astro starts passing the live watcher, this only adds a second,
+          // idempotent re-index.)
+          const restartedSpecPaths = new Set(
+            [...collectSpecFilePaths(config.api, projectRootForBuild)].map(
+              canonicalWatchPath,
+            ),
+          );
+          if (restartedSpecPaths.size > 0) {
+            // One refresh at a time; edits made during a refresh queue exactly
+            // one more, so none is lost or satisfied by an earlier run.
+            const scheduleApiRefresh = coalesce(
+              () => refreshApiCollections(refreshContent, projectRootForBuild),
+              (error) => {
+                server.config.logger.error(
+                  `nimbus-docs: failed to refresh API collections after a spec change: ${error instanceof Error ? error.message : String(error)}`,
+                );
+              },
+            );
+            const refreshApi = (file: string) => {
+              if (!restartedSpecPaths.has(canonicalWatchPath(file))) return;
+              void scheduleApiRefresh();
+            };
+            server.watcher.on("add", refreshApi);
+            server.watcher.on("change", refreshApi);
+            server.watcher.on("unlink", refreshApi);
+          }
+        }
+
         server.middlewares.use((req, res, next) => {
           const pathname = new URL(req.url ?? "/", "http://nimbus.local")
             .pathname;
@@ -1615,16 +1694,18 @@ export function nimbus(
         // Re-bake the citation index when a local spec OR a local apiReferences
         // manifest changes; invalidateAll re-runs the citation transform and
         // re-executes load-citation-index.ts.
-        const rebakePaths = new Set([
-          ...collectSpecFilePaths(config.api, projectRootForBuild),
-          ...collectLocalManifestPaths(
-            config.apiReferences,
-            projectRootForBuild,
-          ),
-        ]);
+        const rebakePaths = new Set(
+          [
+            ...collectSpecFilePaths(config.api, projectRootForBuild),
+            ...collectLocalManifestPaths(
+              config.apiReferences,
+              projectRootForBuild,
+            ),
+          ].map(canonicalWatchPath),
+        );
         if (rebakePaths.size > 0) {
           const rebakeCitationIndex = async (file: string) => {
-            if (!rebakePaths.has(path.resolve(file))) return;
+            if (!rebakePaths.has(canonicalWatchPath(file))) return;
             try {
               const { index, manifest } = await buildCitationIndex(
                 config.api,
@@ -1653,7 +1734,30 @@ export function nimbus(
           server.watcher.on("unlink", rebakeCitationIndex);
         }
       },
+      "astro:server:done": async () => {
+        // The restart refresh re-runs loaders against the first server's
+        // watcher (see `initialDevWatchers`); close it again so a stopped dev
+        // server lets the process exit. Idempotent when nothing reopened it.
+        if (restartedDevServer) {
+          await initialDevWatchers
+            .get(preparedMarkdownRootKey(projectRootForBuild))
+            ?.close();
+        }
+      },
       "astro:build:start": async () => {
+        // Content sync has run: every `api` entry must have been indexed by an
+        // `apiCollection()` registered under the same key.
+        if (apiCollectionsForBuild.length > 0) {
+          const snapshot = getPreparedMarkdownSnapshot(projectRootForBuild);
+          for (const collection of apiCollectionsForBuild) {
+            const indexError = apiCollectionIndexError(
+              projectRootForBuild,
+              collection,
+              snapshot?.collections.has(collection) ?? false,
+            );
+            if (indexError) throw new Error(indexError);
+          }
+        }
         const { clearNavCaches } = await import("./index.js");
         clearNavCaches();
         const agentEndpointAssets = await loadAgentEndpointAssets();
@@ -2102,6 +2206,50 @@ function assertSafeInventoryPath(distRoot: string, candidate: string): string {
     }
   }
   return candidate;
+}
+
+/**
+ * Re-run the API loaders through `refreshContent`. Astro skips a refresh while
+ * it reloads the content config, which it does for any changed JSON or YAML
+ * file — including the spec that triggered this refresh. Retry until an API
+ * loader actually runs. Callers serialize this (see `coalesce`), so only a load
+ * that started after the call can end the retries.
+ */
+async function refreshApiCollections(
+  refreshContent: (options: { loaders?: string[] }) => Promise<void>,
+  root: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const before = apiCollectionLoadCount(root);
+    await refreshContent({ loaders: ["nimbus-docs:api"] });
+    if (apiCollectionLoadCount(root) !== before) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(
+    "Astro did not re-run the API loaders after 50 refresh attempts, 100ms apart.",
+  );
+}
+
+/**
+ * A comparable form of a watched path. The Vite watcher reports real paths,
+ * while the project root may sit behind a symlink (macOS `/var` → `/private/var`,
+ * `/tmp` → `/private/tmp`), so compare real paths. A deleted file keeps its
+ * real parent directory.
+ */
+function canonicalWatchPath(file: string): string {
+  const absolute = path.resolve(file);
+  try {
+    return fs.realpathSync.native(absolute);
+  } catch {
+    try {
+      return path.join(
+        fs.realpathSync.native(path.dirname(absolute)),
+        path.basename(absolute),
+      );
+    } catch {
+      return absolute;
+    }
+  }
 }
 
 /** Absolute paths of every local spec file backing `config.api`. */

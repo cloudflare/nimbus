@@ -1,5 +1,5 @@
 /**
- * Expand a `nimbus.config.ts` `api[]` declaration into the flat list of render
+ * Expand a Nimbus config `api[]` declaration into the flat list of render
  * targets — one per version. This is the single source of truth for how a
  * version family maps onto identity, cache keys, and URLs.
  *

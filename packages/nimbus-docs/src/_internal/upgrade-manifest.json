@@ -205,6 +205,25 @@
       ]
     },
     {
+      "id": "api-collections-from-config",
+      "introducedIn": "0.15.0",
+      "mode": "review-required",
+      "changeset": "api-collections-from-config",
+      "summary": "Optionally move API specs back into the inline Nimbus config and register them with a zero-argument apiCollection().",
+      "affected": "Sites whose api-reference recipe created nimbus.config.ts and pass an entry to apiCollection(options) in src/content.config.ts.",
+      "instructions": [
+        "No action is needed: nimbus.config.ts with apiCollection(options) keeps building unchanged. Migrate to let nimbus-docs check validate the whole config, let add adapter-cloudflare edit rendering in place, and have astro dev re-index edits to the api entries (the current shape ignores them until a manual restart).",
+        "Move the object passed to defineConfig in nimbus.config.ts back into astro.config.ts as const nimbusConfig = defineNimbusConfig({ ... }), importing defineConfig as defineNimbusConfig from @cloudflare/nimbus-docs, and keep passing it to nimbus(nimbusConfig).",
+        "Delete nimbus.config.ts and its imports. In src/content.config.ts, remove the nimbus.config import and the api entry lookup, and replace each apiCollection(entry) with apiCollection(), under a collection key equal to the entry's collection.",
+        "Keep one api entry per API collection and one apiCollection() line per entry. A key with no entry, or an entry with no apiCollection() under its key, fails the build."
+      ],
+      "verify": [
+        "Run nimbus-docs check and confirm it reports no nimbus/config-not-evaluated note and no nimbus/api-collection-* findings.",
+        "Run the production build and confirm it logs \"Indexed N API pages\" for each API collection with the same page counts as before.",
+        "In astro dev, edit a spec file and an api entry and confirm the API pages update without a manual restart."
+      ]
+    },
+    {
       "id": "shared-markdown-routes",
       "introducedIn": "0.15.0",
       "mode": "review-required",

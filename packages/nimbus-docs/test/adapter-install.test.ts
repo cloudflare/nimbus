@@ -187,6 +187,43 @@ export default defineConfig({
   assert.match(result.source, /\{ \/\/ Preserve this comment\n      rendering:/);
 });
 
+test("cloudflare edits rendering in place on the api-reference recipe shape", () => {
+  // The recipe adds `api` to the inline config instead of moving the config
+  // into nimbus.config.ts, so the installer can still edit it.
+  const cfg = STARTER_CONFIG.replace(
+    '  title: "Nimbus",\n',
+    `  title: "Nimbus",
+  api: [
+    { collection: "api", spec: "./src/api/openapi.yaml", label: "Example API" },
+    { collection: "billing", versions: [{ id: "v2", spec: "./src/api/v2.yaml" }] },
+  ],
+`,
+  );
+  const result = applyAdapterToConfig(cfg, "cloudflare");
+  assert.equal(result.status, "applied");
+  if (result.status !== "applied") return;
+  assert.equal(result.requestRendering, "inserted");
+  assert.match(
+    result.source,
+    /const nimbusConfig = defineNimbusConfig\(\{\n  rendering: \{ default: "request" \},\n  site:/,
+  );
+  assert.equal((result.source.match(/rendering:/g) ?? []).length, 1);
+  assert.ok(result.source.includes('{ collection: "api", spec: "./src/api/openapi.yaml"'));
+
+  // Today's shape imports the config from nimbus.config.ts: nothing to edit.
+  const imported = applyAdapterToConfig(
+    STARTER_CONFIG.replace(
+      /const nimbusConfig = defineNimbusConfig\(\{[\s\S]*?\}\);\n/,
+      'import nimbusConfig from "./nimbus.config";\n',
+    ),
+    "cloudflare",
+  );
+  assert.equal(imported.status, "applied");
+  if (imported.status !== "applied") return;
+  assert.notEqual(imported.requestRendering, "inserted");
+  assert.doesNotMatch(imported.source, /default:\s*"request"/);
+});
+
 test("cloudflare leaves spread-provided rendering unresolved", () => {
   const cfg = STARTER_CONFIG.replace(
     '  site: "https://example.com",',

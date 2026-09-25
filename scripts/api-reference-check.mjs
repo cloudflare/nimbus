@@ -9,6 +9,7 @@ import {
   readFile,
   readdir,
   realpath,
+  rename,
   rm,
   stat,
   writeFile,
@@ -55,6 +56,10 @@ const API_REFERENCE_RECIPE = join(
   "api-reference.md",
 );
 const OVERLAY = join(ROOT, "scripts", "fixtures", "api-reference");
+// The recipe's previous shape: the Nimbus config in nimbus.config.ts, passed
+// explicitly to apiCollection(options).
+const LEGACY_OVERLAY = join(ROOT, "scripts", "fixtures", "api-reference-legacy");
+const LEGACY_FILES = ["nimbus.config.ts", "astro.config.ts", "src/content.config.ts"];
 const LOCK_TEMPLATE = join(OVERLAY, "pnpm-lock.yaml.template");
 const SPEC = join(
   ROOT,
@@ -664,7 +669,6 @@ async function applyOverlay() {
     "API overlay astro.config.ts drifted from the generated starter config",
   );
   const files = [
-    "nimbus.config.ts",
     "astro.config.ts",
     "src/content.config.ts",
     "src/pages/api/[...slug].astro",
@@ -674,7 +678,42 @@ async function applyOverlay() {
     await mkdir(dirname(target), { recursive: true });
     await cp(join(OVERLAY, file), target);
   }
-  const astroConfigPath = join(site, "astro.config.ts");
+  await forceTrailingSlash(join(site, "astro.config.ts"));
+  await mkdir(join(site, "src", "api"), { recursive: true });
+  await cp(SPEC, join(site, "src", "api", "smallco.yaml"));
+  await writeFile(
+    join(site, "src", "content", "docs", "guide.mdx"),
+    "---\ntitle: Guide\n---\n\n# Guide\n\n[Create a charge](api.ref:api:create)\n",
+  );
+  await writeFile(
+    join(site, "src", "content", "docs", "reference.md"),
+    "---\ntitle: Reference\n---\n\n# Reference\n\n[List charges](<api.ref:api:list>)\n",
+  );
+}
+
+// The recipe keeps the Nimbus config inline, so `nimbus-docs check` evaluates
+// it statically and pairs the `api` entry with its `apiCollection()` key.
+async function assertStaticCheck() {
+  const { stdout } = await run(
+    "pnpm",
+    ["exec", "nimbus-docs", "check", "--env", "--structure", "--json"],
+    { cwd: site },
+  );
+  const report = JSON.parse(stdout);
+  const notes = report.scopes.flatMap((scope) => scope.notes.map((note) => note.code));
+  for (const code of ["nimbus/config-not-evaluated", "nimbus/config-unresolved"]) {
+    assert(!notes.includes(code), `nimbus-docs check reported ${code} on the recipe's config`);
+  }
+  const apiFindings = report.findings.filter((finding) =>
+    finding.code.startsWith("nimbus/api-collection-"),
+  );
+  assert(
+    apiFindings.length === 0,
+    `nimbus-docs check reported API collection mismatches: ${apiFindings.map((finding) => finding.message).join("; ")}`,
+  );
+}
+
+async function forceTrailingSlash(astroConfigPath) {
   const astroConfig = await readFile(astroConfigPath, "utf8");
   const configMarker = "export default defineConfig({";
   assert(
@@ -692,16 +731,80 @@ async function applyOverlay() {
       'export default defineConfig({\n  trailingSlash: "always",',
     ),
   );
-  await mkdir(join(site, "src", "api"), { recursive: true });
-  await cp(SPEC, join(site, "src", "api", "smallco.yaml"));
-  await writeFile(
-    join(site, "src", "content", "docs", "guide.mdx"),
-    "---\ntitle: Guide\n---\n\n# Guide\n\n[Create a charge](api.ref:api:create)\n",
+}
+
+// Sites set up by the previous recipe keep building unchanged: swap in the
+// legacy overlay, typecheck, rebuild, and compare byte for byte with the
+// current recipe's output, then restore the current shape.
+//
+// The legacy build runs in a tree without earlier outputs, like the first
+// build: Tailwind scans every file that isn't gitignored for class names, and
+// only `dist/` is, so `dist-base*` HTML would otherwise change the CSS.
+async function assertLegacyShapeOutput() {
+  phase("typechecking and building the previous nimbus.config.ts shape");
+  const legacyAstroConfig = await readFile(join(LEGACY_OVERLAY, "astro.config.ts"), "utf8");
+  const overlayAstroConfig = await readFile(join(OVERLAY, "astro.config.ts"), "utf8");
+  assert(
+    configExport(legacyAstroConfig) === configExport(overlayAstroConfig),
+    "legacy API overlay astro.config.ts drifted from the current overlay's Astro config",
   );
-  await writeFile(
-    join(site, "src", "content", "docs", "reference.md"),
-    "---\ntitle: Reference\n---\n\n# Reference\n\n[List charges](<api.ref:api:list>)\n",
+  const current = new Map();
+  for (const file of ["astro.config.ts", "src/content.config.ts"]) {
+    current.set(file, await readFile(join(site, file), "utf8"));
+  }
+  const held = join(workRoot, "held-outputs");
+  const outputDirs = (await readdir(site, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith("dist"))
+    .map((entry) => entry.name);
+  await mkdir(held, { recursive: true });
+  for (const dir of outputDirs) await rename(join(site, dir), join(held, dir));
+  const legacyDist = join(workRoot, "dist-legacy");
+  for (const file of LEGACY_FILES) await cp(join(LEGACY_OVERLAY, file), join(site, file));
+  await forceTrailingSlash(join(site, "astro.config.ts"));
+  try {
+    await run("pnpm", ["typecheck"], { cwd: site, timeoutMs: 15 * 60_000 });
+    await run("pnpm", ["build"], { cwd: site, timeoutMs: 15 * 60_000 });
+    await rename(join(site, "dist"), legacyDist);
+  } finally {
+    for (const [file, source] of current) await writeFile(join(site, file), source);
+    await rm(join(site, "nimbus.config.ts"), { force: true });
+    await rm(join(site, "dist"), { recursive: true, force: true });
+    for (const dir of outputDirs) await rename(join(held, dir), join(site, dir));
+  }
+
+  // Pagefind names some index files by content hash in a way that isn't stable
+  // across rebuilds, so its directory is compared by file count; its API routes
+  // are asserted on the current build.
+  const outputs = async (dir) =>
+    new Map(
+      await Promise.all(
+        (await walk(dir)).map(async (file) => [
+          relative(dir, file).split(sep).join("/"),
+          await readFile(file),
+        ]),
+      ),
+    );
+  const [currentFiles, legacyFiles] = await Promise.all([
+    outputs(join(site, "dist")),
+    outputs(legacyDist),
+  ]);
+  const pagefind = (files) => [...files.keys()].filter((file) => file.startsWith("pagefind/"));
+  assert(
+    pagefind(currentFiles).length === pagefind(legacyFiles).length,
+    "legacy shape produced a different number of Pagefind files",
   );
+  const compared = [...currentFiles.keys()].filter((file) => !file.startsWith("pagefind/"));
+  const legacyCompared = [...legacyFiles.keys()].filter((file) => !file.startsWith("pagefind/"));
+  const missing = compared.filter((file) => !legacyFiles.has(file));
+  const extra = legacyCompared.filter((file) => !currentFiles.has(file));
+  const differing = compared.filter(
+    (file) => legacyFiles.has(file) && !currentFiles.get(file).equals(legacyFiles.get(file)),
+  );
+  assert(
+    missing.length === 0 && extra.length === 0 && differing.length === 0,
+    `legacy shape output differs from the current recipe: missing ${missing.slice(0, 5).join(", ") || "none"}; extra ${extra.slice(0, 5).join(", ") || "none"}; differing ${differing.slice(0, 5).join(", ") || "none"}`,
+  );
+  ok(`previous nimbus.config.ts shape builds ${compared.length} identical files`);
 }
 
 async function assertProvenance(registryItems, registryUrl, initialNimbus) {
@@ -1687,6 +1790,8 @@ async function execute() {
 
   phase("applying thin API overlay and SmallCo fixture");
   await applyOverlay();
+  phase("statically checking generated consumer");
+  await assertStaticCheck();
   phase("typechecking generated consumer");
   await run("pnpm", ["typecheck"], { cwd: site, timeoutMs: 15 * 60_000 });
   phase("building generated consumer");
@@ -1711,10 +1816,11 @@ async function execute() {
   );
   await assertArtifactsAndSmoke(join(site, "dist"));
   await assertBasePathMetadata();
+  await assertLegacyShapeOutput();
   assert(
     sha256(normalizeLockForComparison(await readFile(lockPath, "utf8"))) ===
       lockHash,
-    "non-root-base build changed the frozen consumer lock",
+    "non-root-base or legacy-shape builds changed the frozen consumer lock",
   );
   ok(
     `complete acceptance contract passed in ${((Date.now() - started) / 1000).toFixed(1)}s`,

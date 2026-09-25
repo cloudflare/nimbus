@@ -35,9 +35,10 @@ Before prompting the user or writing anything, inspect the project:
   (`pnpm`/`npm`/`yarn`) from the lockfile so later commands match.
 - `src/content.config.ts` — read it in full. Note the `defineCollection`
   import and the existing `collections` object shape so your edit matches.
-- The Nimbus config — inline in `astro.config.ts` for most projects, or split
-  into a `nimbus.config.ts`. Read it; you'll add an `api` entry and, if it's
-  still inline, extract it so `content.config.ts` can share the same list.
+- The Nimbus config — the object passed to `nimbus(...)` in `astro.config.ts`
+  (the starter declares it as `const nimbusConfig = defineNimbusConfig({ … })`).
+  Read it; you'll add an `api` entry there. Leave it where it is: don't move it
+  into another file.
 - `src/pages/[...slug].astro`, `src/pages/[...slug]/index.md.ts`,
   `src/pages/llms.txt.ts`, `src/pages/llms-full.txt.ts`, and
   `src/pages/[section]/llms.txt.ts` — the primary docs page, Markdown version,
@@ -83,10 +84,11 @@ Print a short, exact plan to the user **before** writing anything:
   the API engine's peer packages: `@scalar/openapi-parser` (the spec parser) plus
   `openapi-sampler` and `@readme/httpsnippet` (the code-sample generators). These
   stay out of the framework bundle, so they only land when you mount a spec.
-- Declare the spec **once** in the Nimbus config (an `api` entry); if that config
-  is still inline in `astro.config.ts`, extract it to a shared `nimbus.config.ts`
-  so `src/content.config.ts` can derive the collection from the same list — no
-  second spec declaration.
+- Declare the spec **once**, as an `api` entry in the Nimbus config in
+  `astro.config.ts`.
+- Register the collection with one line in `src/content.config.ts`:
+  `api: defineCollection(apiCollection())`. It reads its entry from the config,
+  so the spec is never declared twice.
 - Create `src/pages/api/[...slug].astro`. The shared
   `src/pages/[...slug]/index.md.ts` route serves the Markdown versions.
 - Resulting URLs: `/api` (overview), `/api/<slug>` (each page), the matching
@@ -129,73 +131,45 @@ If you're wiring the engine by hand instead of via this recipe, install those
 peers yourself: `@scalar/openapi-parser` is required; the other two are optional
 (their absence just omits code samples).
 
-### 4b. Declare the spec once, in a shared Nimbus config
+### 4b. Declare the spec in the Nimbus config
 
-The spec is declared in exactly **one** place — the Nimbus config's `api[]`
-array — and the content collection (4c) derives from it, so the two can never
-drift. For `src/content.config.ts` to read that array without pulling the
-integration into the content layer, the config must be its own module built with
-the **side-effect-free** `defineConfig` entry.
-
-If your Nimbus config is still inline in `astro.config.ts`, extract it into a
-`nimbus.config.ts` at the project root:
+Add an `api` entry to the Nimbus config in `astro.config.ts`, next to the
+existing fields. Edit the config where it already is:
 
 ```ts
-// nimbus.config.ts
-import { defineConfig } from "@cloudflare/nimbus-docs/config";
-
-export default defineConfig({
+const nimbusConfig = defineNimbusConfig({
   // …your existing site / title / etc…
   api: [{ collection: "api", spec: "./src/api/openapi.yaml" }],
 });
 ```
 
-Then import it in `astro.config.ts` (Astro's own `defineConfig` is unchanged):
+`collection` is the name from Q2. `spec` is the path from Q1, resolved from the
+project root (not the current working directory — builds from a monorepo root or
+`--root` resolve correctly). `spec` may also be an inline OpenAPI object. Add a
+`label` for a friendlier name in build diagnostics; it defaults to the
+collection name. To mount more than one spec, add one entry per spec.
 
-```ts
-import nimbus from "@cloudflare/nimbus-docs";
-import nimbusConfig from "./nimbus.config";
+### 4c. Register the collection
 
-// …integrations: [nimbus(nimbusConfig)] …
-```
-
-`spec` is the path from Q1, resolved from the project root (not the current
-working directory — builds from a monorepo root or `--root` resolve correctly).
-`spec` may also be an inline OpenAPI object. Add a `label` for a friendlier name
-in build diagnostics; it defaults to the collection name. To mount more than one
-spec, add more entries to the array and explicitly register each one in 4c.
-
-> **Why the `/config` entry?** `@cloudflare/nimbus-docs/config` exports only the
-> identity `defineConfig` with no side effects, so a `nimbus.config.ts` imported
-> by BOTH `astro.config.ts` and the early `content.config.ts` graph never drags
-> the integration (mdx/sitemap/…) into the content layer. Importing `defineConfig`
-> from the main `@cloudflare/nimbus-docs` barrel would.
-
-### 4c. Register the collection explicitly from that same config
-
-In `src/content.config.ts`, import the config, find the entry selected in 4b,
-and register it under an explicitly visible collection key. This keeps the spec
-declaration in one place while allowing Nimbus's static collection-name parser
-  to include the API reference in `llms.txt` indexes:
+In `src/content.config.ts`, add one line to the `collections` object. Use the
+collection name from 4b as the key:
 
 ```ts
 import { apiCollection } from "@cloudflare/nimbus-docs/content";
-import nimbus from "../nimbus.config";
-
-const apiConfig = nimbus.api?.find((entry) => entry.collection === "api");
-if (!apiConfig) throw new Error('Missing the "api" entry in nimbus.config.ts');
 
 export const collections = {
   // …docs, partials…
-  api: defineCollection(apiCollection(apiConfig)),
+  api: defineCollection(apiCollection()),
 };
 ```
 
-The import path is relative to `src/content.config.ts` (`../nimbus.config` for a
-root-level config). If Q2 chose another collection name, substitute it in the
-lookup and the object key (quote the key if it contains a dash). For multiple
-specs, add one explicit lookup and literal collection key per `api[]` entry;
-Nimbus does not discover collection names hidden behind a dynamic spread.
+`apiCollection()` takes no arguments: it indexes the `api` entry whose
+`collection` matches its key. If Q2 chose another name, use it as the key
+(quote the key if it contains a dash). For multiple specs, add one line per
+`api` entry, each under its own literal key; Nimbus doesn't find collection
+names behind a spread. A key with no `api` entry, or an entry with no key,
+fails the build with a message that names both files, and
+`nimbus-docs check` reports the same mismatch without building.
 
 ### 4d. Scaffold the HTML route
 
@@ -297,6 +271,12 @@ locally, this is why — rename in the spec or build on Linux.
 ## 7. Already installed?
 
 If `src/pages/api/[...slug].astro` already exists, do not overwrite it. Ask the
-user whether to replace, skip, or show a diff first. The `nimbus.config` `api[]`
-entry and the `content.config.ts` derive line may also already exist — check
-before editing.
+user whether to replace, skip, or show a diff first. The `api` entry in the
+Nimbus config and the `apiCollection()` line in `src/content.config.ts` may also
+already exist — check before editing.
+
+Projects set up by an earlier version of this recipe keep the Nimbus config in
+a separate file and pass the entry explicitly, as `apiCollection(apiConfig)`.
+That still builds. Add a new spec to the `api` array in that file and register
+it with a zero-argument `apiCollection()`. Move the config back into
+`astro.config.ts` only if the user asks.

@@ -27,7 +27,7 @@ export const REGISTRY_BASE_URL = "https://nimbus-docs.com/registry";
 
 export const BUNDLED_INDEX: BundledIndex = {
   "version": 1,
-  "registryVersion": "0.14.1",
+  "registryVersion": "0.14.2",
   "items": {
     "cn": {
       "name": "cn",
@@ -207,7 +207,7 @@ export const BUNDLED_INDEX: BundledIndex = {
       "name": "version-switcher",
       "type": "registry:ui",
       "title": "VersionSwitcher",
-      "description": "Header dropdown for switching between docs versions. Reads `versions` from nimbus.config.ts, uses the build-time alternates table to land readers on the same logical page in the target version. Includes deprecation badge and hidden-version exclusion. Renders nothing when versioning is off or only one version is configured."
+      "description": "Header dropdown for switching between docs versions. Reads `versions` from the Nimbus config, uses the build-time alternates table to land readers on the same logical page in the target version. Includes deprecation badge and hidden-version exclusion. Renders nothing when versioning is off or only one version is configured."
     },
     "api-field-row": {
       "name": "api-field-row",
