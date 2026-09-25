@@ -144,6 +144,8 @@ export interface OpenApiSchema {
   /** A schema value = a typed map (`{ [key]: T }`); `true`/absent = free-form. */
   additionalProperties?: boolean | OpenApiSchema;
   enum?: unknown[];
+  /** OAS 3.1 / JSON Schema single-value literal. */
+  const?: unknown;
   default?: unknown;
   example?: unknown;
   nullable?: boolean;

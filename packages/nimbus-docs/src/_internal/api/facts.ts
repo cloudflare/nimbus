@@ -1,6 +1,5 @@
 import {
   type OpenApiParameter,
-  type OpenApiSchema,
   type OpenApiMediaType,
   type OpenApiSecurityRequirement,
   type OpenApiSecurityScheme,
@@ -22,15 +21,6 @@ export function mediaExample(
     examples: entry.media.examples,
     schema: entry.media.schema,
   };
-}
-
-/** True when a non-JSON body/response picks the first of several media types. */
-export function picksNonPrimaryMedia(
-  content: Record<string, { schema?: OpenApiSchema }> | undefined,
-): boolean {
-  if (!content) return false;
-  const keys = Object.keys(content);
-  return keys.length > 1 && !("application/json" in content);
 }
 
 /** Operation parameters override path-level ones by (name, location). */

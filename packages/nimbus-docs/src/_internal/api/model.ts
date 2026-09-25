@@ -27,6 +27,7 @@ export type NodeKind =
   | "schema"
   | "response"
   | "requestBody"
+  | "responseMedia"
   | "errorCode"
   | "change";
 
@@ -81,6 +82,7 @@ export type Facts =
   | SchemaFacts
   | ResponseFacts
   | RequestBodyFacts
+  | ResponseMediaFacts
   | ErrorCodeFacts
   | ChangeFacts;
 
@@ -141,6 +143,11 @@ export interface OperationFacts {
   /** The primary request body's media type, when the operation has a body — so
    *  the renderer labels it correctly instead of assuming JSON. */
   bodyMediaType?: string;
+  /** `requestBody.required`, when the spec states it. Shared by every media
+   *  type, so it lives here beside the primary body rather than per media node. */
+  bodyRequired?: boolean;
+  /** `requestBody.description`, when authored. Shared by every media type. */
+  bodyDescription?: string;
   /** Response children, all statuses. */
   responses: Coordinate[];
   /** Minimal valid request — computed, can't lie. */
@@ -275,6 +282,9 @@ export interface ResponseFacts {
    * union response renders its variants instead of an empty body section.
    */
   union?: UnionShape;
+  /** The primary media type, when the response declares content. Chosen by the
+   *  same precedence as the request body's (`orderedMediaEntries`). */
+  mediaType?: string;
 }
 
 /**
@@ -285,6 +295,19 @@ export interface ResponseFacts {
  */
 export interface RequestBodyFacts {
   kind: "requestBody";
+  mediaType: string;
+  example?: DerivedExample;
+  union?: UnionShape;
+}
+
+/**
+ * A non-primary response media type (e.g. `text/csv` beside the primary JSON
+ * body), a child of its `response` node. The response counterpart of
+ * `RequestBodyFacts`: its fields are child `field` nodes, so the same
+ * field→view→citation pipeline applies.
+ */
+export interface ResponseMediaFacts {
+  kind: "responseMedia";
   mediaType: string;
   example?: DerivedExample;
   union?: UnionShape;

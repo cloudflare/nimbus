@@ -45,6 +45,7 @@ const ALLOWED_TYPES = [
   "ApiExampleView",
   "ApiRequestExampleView",
   "ApiRequestBodyView",
+  "ApiResponseMediaView",
   "ApiResponseView",
   "ApiRouteProvenance",
   "ApiBreadcrumb",

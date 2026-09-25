@@ -159,6 +159,18 @@ export async function prepareApiPageCode(
         ...(response.example
           ? { example: await prepareExample(response.example) }
           : {}),
+        ...(response.additionalMedia
+          ? {
+              additionalMedia: await Promise.all(
+                response.additionalMedia.map(async (media) => ({
+                  ...media,
+                  ...(media.example
+                    ? { example: await prepareExample(media.example) }
+                    : {}),
+                })),
+              ),
+            }
+          : {}),
       })),
     ),
   };

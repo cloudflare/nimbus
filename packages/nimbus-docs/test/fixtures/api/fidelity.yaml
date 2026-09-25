@@ -1,0 +1,197 @@
+# fidelity — a small synthetic fixture for standard OpenAPI facts that must
+# survive into the page model: the Request Body Object's own `required` and
+# `description`, every media type a response declares, and readable labels for
+# anonymous union branches.
+openapi: 3.1.0
+info:
+  title: Fidelity API
+  description: A synthetic API exercising request body facts, response media types, and union labels.
+  version: 1.0.0
+servers:
+  - url: https://api.fidelity.test/v1
+tags:
+  - name: widgets
+    description: Create, update, and export widgets.
+  - name: shapes
+    description: Unions with anonymous branches.
+
+paths:
+  /widgets:
+    post:
+      operationId: createWidget
+      summary: Create a widget
+      tags: [widgets]
+      # A required body with an authored description (CommonMark).
+      requestBody:
+        required: true
+        description: |
+          The widget to create. Names must be **unique** within an account.
+
+          See [naming rules](https://example.com/naming) for details.
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  description: Display name.
+                color:
+                  type: string
+                  enum: [red, green, blue]
+      responses:
+        "201":
+          description: The created widget.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Widget"
+
+  /widgets/{id}:
+    patch:
+      operationId: updateWidget
+      summary: Update a widget
+      tags: [widgets]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      # A body with neither `required` nor `description`.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        "200":
+          description: The updated widget.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Widget"
+
+  /widgets/export:
+    get:
+      operationId: exportWidgets
+      summary: Export widgets
+      tags: [widgets]
+      responses:
+        # One status, two media types: JSON stays primary, CSV is additional.
+        "200":
+          description: Every widget, as JSON or CSV.
+          content:
+            text/csv:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: Widget ID column.
+                    name:
+                      type: string
+                      description: Widget name column.
+              example: |
+                id,name
+                wgt_1,Gear
+            application/json:
+              schema:
+                type: object
+                properties:
+                  widgets:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Widget"
+                  total:
+                    type: integer
+              example:
+                widgets:
+                  - id: wgt_1
+                    name: Gear
+                total: 1
+        "404":
+          description: Nothing to export.
+
+  /widgets/report:
+    get:
+      operationId: widgetReport
+      summary: Widget report
+      tags: [widgets]
+      responses:
+        # Several media types and none of them JSON.
+        "200":
+          description: A plain-text or CSV report.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 1 widget
+            text/csv:
+              schema:
+                type: string
+              example: |
+                count
+                1
+
+  /shapes:
+    get:
+      operationId: getShape
+      summary: Get a shape
+      tags: [shapes]
+      responses:
+        "200":
+          description: A shape.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shape:
+                    $ref: "#/components/schemas/Shape"
+                  level:
+                    $ref: "#/components/schemas/Level"
+
+components:
+  schemas:
+    Widget:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    Circle:
+      type: object
+      properties:
+        radius:
+          type: number
+    # Anonymous branches with no `type` and no `properties` of their own.
+    Shape:
+      oneOf:
+        # allOf-only: labeled by its folded `allOf` (Circle is an object).
+        - allOf:
+            - $ref: "#/components/schemas/Circle"
+            - properties:
+                label:
+                  type: string
+        # enum-only: labeled by the type of its values.
+        - enum: [small, medium, large]
+        # title-only: labeled by its title.
+        - title: Legacy shape
+        # const-only (OpenAPI 3.1): labeled by the type of its value.
+        - const: 42
+        # Fully empty: labeled by its 1-based position.
+        - {}
+    # Enum-only branches whose values mix JSON types.
+    Level:
+      anyOf:
+        - enum: [1, 2]
+        - enum: [1, 2.5]
+        - enum: [low, null]
