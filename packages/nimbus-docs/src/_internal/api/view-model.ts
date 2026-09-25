@@ -17,6 +17,7 @@ import type {
   ParameterFacts,
   RequestBodyFacts,
   ResponseFacts,
+  ResponseMediaFacts,
   ScalarShape,
   SchemaFacts,
   SecuritySchemeFacts,
@@ -39,6 +40,7 @@ import {
   type ApiParamGroup,
   type ApiRef,
   type ApiRequestBodyView,
+  type ApiResponseMediaView,
   type ApiResponseView,
   type ApiRootPage,
   type ApiRouteProvenance,
@@ -498,27 +500,60 @@ function deriveHeaderName(scheme: SecuritySchemeFacts | undefined): string | und
   return undefined;
 }
 
-function additionalBodyViews(view: ModelView, opCoord: Coordinate): ApiRequestBodyView[] {
-  const nodes = view.childrenOf(opCoord).filter((n) => n.kind === "requestBody");
-  const out: ApiRequestBodyView[] = [];
-  for (const node of nodes) {
-    const f = node.facts as RequestBodyFacts;
-    const bounded = boundFields(topLevelFields(view, node.id));
-    const union = f.union ? unionView(view, f.union, true) : undefined;
-    const exampleValue = f.example ? jsonOrOmit(f.example.value) : undefined;
-    const body: ApiRequestBodyView = {
-      mediaType: f.mediaType,
-      anchor: coordinateAnchor(`requestBody-${leafName(node.id)}`),
-      fields: bounded.fields,
-    };
-    if (bounded.truncated) body.truncated = { total: bounded.total };
-    if (union) body.union = union;
-    if (f.example && exampleValue !== undefined) {
-      body.example = { mediaType: f.example.mediaType, value: exampleValue };
-    }
-    out.push(body);
+/** One non-primary media node (request body or response media) → its view.
+ *  Both kinds share a shape: fields as child nodes, plus optional union/example. */
+function mediaView(
+  view: ModelView,
+  node: Node,
+  f: RequestBodyFacts | ResponseMediaFacts,
+  anchor: string,
+): ApiRequestBodyView | ApiResponseMediaView {
+  const bounded = boundFields(topLevelFields(view, node.id));
+  const union = f.union ? unionView(view, f.union, true) : undefined;
+  const exampleValue = f.example ? jsonOrOmit(f.example.value) : undefined;
+  const body: ApiRequestBodyView = {
+    mediaType: f.mediaType,
+    anchor,
+    fields: bounded.fields,
+  };
+  if (bounded.truncated) body.truncated = { total: bounded.total };
+  if (union) body.union = union;
+  if (f.example && exampleValue !== undefined) {
+    body.example = { mediaType: f.example.mediaType, value: exampleValue };
   }
-  return out;
+  return body;
+}
+
+function additionalBodyViews(view: ModelView, opCoord: Coordinate): ApiRequestBodyView[] {
+  return view
+    .childrenOf(opCoord)
+    .filter((n) => n.kind === "requestBody")
+    .map((node) =>
+      mediaView(
+        view,
+        node,
+        node.facts as RequestBodyFacts,
+        coordinateAnchor(`requestBody-${leafName(node.id)}`),
+      ),
+    );
+}
+
+function additionalMediaViews(
+  view: ModelView,
+  respCoord: Coordinate,
+  status: string,
+): ApiResponseMediaView[] {
+  return view
+    .childrenOf(respCoord)
+    .filter((n) => n.kind === "responseMedia")
+    .map((node) =>
+      mediaView(
+        view,
+        node,
+        node.facts as ResponseMediaFacts,
+        coordinateAnchor(`response-${status}-${leafName(node.id)}`),
+      ),
+    );
 }
 
 function responseViews(view: ModelView, opCoord: Coordinate): ApiResponseView[] {
@@ -544,6 +579,9 @@ function responseViews(view: ModelView, opCoord: Coordinate): ApiResponseView[] 
       const value = jsonOrOmit(f.example.value);
       if (value !== undefined) out.example = { mediaType: f.example.mediaType, value };
     }
+    if (f.mediaType) out.mediaType = f.mediaType;
+    const additionalMedia = additionalMediaViews(view, node.id, f.status);
+    if (additionalMedia.length > 0) out.additionalMedia = additionalMedia;
     return out;
   });
 }
@@ -646,6 +684,11 @@ function projectPageWithView(
       }
       if (f.bodyUnion) page.bodyUnion = unionView(view, f.bodyUnion, true);
       if (f.bodyMediaType) page.bodyMediaType = f.bodyMediaType;
+      if (f.bodyRequired !== undefined) page.bodyRequired = f.bodyRequired;
+      if (f.bodyDescription) {
+        page.bodyDescription = f.bodyDescription;
+        page.bodyDescriptionHtml = renderMarkdown(f.bodyDescription);
+      }
       const additionalBodies = additionalBodyViews(view, node.id);
       if (additionalBodies.length > 0) page.additionalBodies = additionalBodies;
       if (f.server) page.server = f.server.replace(/\/+$/, "");
@@ -870,6 +913,10 @@ function pageFieldRoots(page: ApiPageProps): ApiFieldView[] {
     for (const r of page.responses) {
       roots.push(...(r.headers ?? []));
       if (!r.bodyUnion) roots.push(...r.fields);
+      // Additional response media render like additional request bodies.
+      for (const m of r.additionalMedia ?? []) {
+        if (!m.union) roots.push(...m.fields);
+      }
     }
     return roots;
   }

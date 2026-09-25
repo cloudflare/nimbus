@@ -20,7 +20,7 @@ import ApiEndpointCard from "./ApiEndpointCard.astro";
 import { authFields } from "./auth";
 import { cn } from "@/lib/cn";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
-import type { ApiPageProps } from "@cloudflare/nimbus-docs/api";
+import type { ApiPageProps, ApiResponseView } from "@cloudflare/nimbus-docs/api";
 
 interface Props {
   page: ApiPageProps;
@@ -57,6 +57,14 @@ function statusToneClass(status: string): string {
       return "text-muted-foreground";
   }
 }
+
+// A response with several media types renders one stacked body per media type,
+// the primary first, each labeled by its media type — the same shape as the
+// request's additional bodies. The primary's example stays in the code rail.
+const responseBodies = (r: ApiResponseView) => [
+  { mediaType: r.mediaType ?? "application/json", fields: r.fields, truncated: r.truncated, union: r.bodyUnion, anchor: undefined, example: undefined },
+  ...(r.additionalMedia ?? []),
+];
 
 const authFieldList = page.kind === "operation" ? authFields(page.auth) : [];
 const requestExamples = page.kind === "operation" ? (page.requestExamples ?? []) : [];
@@ -111,11 +119,13 @@ const deprecationHtml = page.deprecated
       ))}
 
       {page.bodyUnion ? (
-        <ApiFieldList as="h2" title="Request body" badge={mediaBadge(page.bodyMediaType ?? "application/json")} collapsible>
+        <ApiFieldList as="h2" title="Request body" badge={mediaBadge(page.bodyMediaType ?? "application/json")} required={page.bodyRequired} descriptionHtml={page.bodyDescriptionHtml} collapsible>
           <ApiUnionExplorer union={page.bodyUnion} />
         </ApiFieldList>
       ) : page.body.length > 0 ? (
-        <ApiFieldList as="h2" title="Request body" badge={mediaBadge(page.bodyMediaType ?? "application/json")} fields={page.body} truncated={page.bodyTruncated} />
+        <ApiFieldList as="h2" title="Request body" badge={mediaBadge(page.bodyMediaType ?? "application/json")} required={page.bodyRequired} descriptionHtml={page.bodyDescriptionHtml} fields={page.body} truncated={page.bodyTruncated} />
+      ) : page.bodyRequired !== undefined || page.bodyDescriptionHtml ? (
+        <ApiFieldList as="h2" title="Request body" badge={page.bodyMediaType && mediaBadge(page.bodyMediaType)} required={page.bodyRequired} descriptionHtml={page.bodyDescriptionHtml} />
       ) : null}
 
       {requestExamples.length > 0 && (
@@ -203,7 +213,26 @@ const deprecationHtml = page.deprecated
                   {(r.headers?.length ?? 0) > 0 && (
                     <ApiFieldList as="h4" title="Headers" fields={r.headers ?? []} />
                   )}
-                  {r.bodyUnion ? (
+                  {r.additionalMedia ? (
+                    responseBodies(r).map((b) => (
+                      <div id={b.anchor} class="scroll-mt-24">
+                        {b.union ? (
+                          <ApiFieldList badge={mediaBadge(b.mediaType)} collapsible>
+                            <ApiUnionExplorer union={b.union} />
+                          </ApiFieldList>
+                        ) : b.fields.length > 0 ? (
+                          <ApiFieldList badge={mediaBadge(b.mediaType)} fields={b.fields} truncated={b.truncated} />
+                        ) : (
+                          <ApiFieldList badge={mediaBadge(b.mediaType)} />
+                        )}
+                        {b.example && (
+                          <div class="mt-2 overflow-hidden rounded-lg bg-card ring ring-border">
+                            <Fragment set:html={preparedCode(b.example)} />
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : r.bodyUnion ? (
                     <ApiFieldList badge="JSON" collapsible>
                       <ApiUnionExplorer union={r.bodyUnion} />
                     </ApiFieldList>

@@ -85,7 +85,9 @@ export function isPreparedApiPage(value: unknown): value is PreparedApiPage {
             (!response.example ||
               typeof response.example !== "object" ||
               typeof response.example.highlightedHtml !== "string" ||
-              response.example.highlightedHtml.length === 0)),
+              response.example.highlightedHtml.length === 0)) ||
+          (response.additionalMedia !== undefined &&
+            !preparedMediaList(response.additionalMedia)),
       )
     ) {
       return false;
@@ -104,21 +106,27 @@ export function isPreparedApiPage(value: unknown): value is PreparedApiPage {
       return false;
     }
     if (page.additionalBodies === undefined) return true;
-    return (
-      Array.isArray(page.additionalBodies) &&
-      !page.additionalBodies.some(
-        (body) =>
-          !body ||
-          typeof body !== "object" ||
-          (body.example !== undefined &&
-            (!body.example ||
-              typeof body.example !== "object" ||
-              typeof body.example.highlightedHtml !== "string" ||
-              body.example.highlightedHtml.length === 0)),
-      )
-    );
+    return preparedMediaList(page.additionalBodies);
   }
   return false;
+}
+
+/** A list of additional media bodies (request or response) whose examples, if
+ *  any, were highlighted during content sync. */
+function preparedMediaList(list: unknown): boolean {
+  return (
+    Array.isArray(list) &&
+    !list.some(
+      (body: { example?: { highlightedHtml?: unknown } } | null) =>
+        !body ||
+        typeof body !== "object" ||
+        (body.example !== undefined &&
+          (!body.example ||
+            typeof body.example !== "object" ||
+            typeof body.example.highlightedHtml !== "string" ||
+            body.example.highlightedHtml.length === 0)),
+    )
+  );
 }
 
 export function isPreparedApiNav(value: unknown): value is PreparedApiNav {

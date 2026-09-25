@@ -5,12 +5,15 @@ import {
   bodyMediaFieldCoordinate,
   fallbackOperationCoordinate,
   isShadowingBodyProperty,
-  mediaTypeToken,
+  leadingSegments,
+  mediaTypeTokens,
   operationCoordinate,
   parameterCoordinate,
   RESERVED_ROUTE_SEGMENTS,
   responseCoordinate,
   responseFieldCoordinate,
+  responseMediaCoordinate,
+  responseMediaFieldCoordinate,
   routeIdentityFault,
   sectionCoordinate,
   tagRouteSegment,
@@ -32,8 +35,9 @@ import type {
   ParameterLocation,
   RequestBodyFacts,
   ResponseFacts,
+  ResponseMediaFacts,
 } from "./model.js";
-import { dedupeParameters, mediaExample, picksNonPrimaryMedia, resolveAuth } from "./facts.js";
+import { dedupeParameters, mediaExample, resolveAuth } from "./facts.js";
 import {
   buildOperationSamples,
   resolveExampleValue,
@@ -278,31 +282,38 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
   const bodyUnion = bodySchema
     ? ctx.resolver.unionPreferRaw(rawBodySchema, bodySchema, itemsOf(bodySchema))
     : undefined;
+  const bodyFieldPaths: string[] = [];
   if (bodySchema) {
     for (const c of addBodyFields(ctx, coord, bodySchema, sourceBase, rawBodySchema)) {
       request.push(c);
+      bodyFieldPaths.push(c.slice(coord.length + 1));
     }
   }
-  for (const entry of mediaEntries.slice(1)) {
-    addMediaBody(ctx, coord, entry, sourceBase, rawOp?.requestBody);
-  }
+  // An additional media token sits beside the primary body's fields, so it must
+  // not reuse one of their names (a body property literally named `text-csv`).
+  const bodyEntries = mediaEntries.slice(1);
+  const bodyTokens = mediaTypeTokens(
+    bodyEntries.map((e) => e.mediaType),
+    leadingSegments(bodyFieldPaths),
+  );
+  bodyEntries.forEach((entry, i) => {
+    addMediaBody(ctx, coord, entry, bodyTokens[i]!, sourceBase, rawOp?.requestBody);
+  });
 
   for (const [status, response] of Object.entries(op.responses ?? {})) {
     const respCoord = responseCoordinate(coord, status);
     const respSource = `${sourceBase}/responses/${status}`;
     ctx.registry.register(respCoord, "response", { source: respSource });
-    const respEntry = primaryMediaEntry(response.content);
+    // Every declared media type renders, as on the request side: the primary
+    // (same deterministic precedence) keeps the response's own coordinates, and
+    // each additional media type is a child node under a token segment.
+    const respEntries = orderedMediaEntries(response.content);
+    const respEntry = respEntries[0];
     const respSchema = respEntry?.media.schema;
-    const rawRespSchema = ctx.resolver.rawContentSchema(
-      isPlainObject(rawOp?.responses) ? (rawOp.responses as Record<string, unknown>)[status] : undefined,
-    );
-    if (picksNonPrimaryMedia(response.content)) {
-      ctx.registry.addWarning(
-        `Response "${respCoord}" has multiple media types and no application/json; rendering the first declared type only.`,
-        respCoord,
-        respSource,
-      );
-    }
+    const rawResponse = isPlainObject(rawOp?.responses)
+      ? (rawOp.responses as Record<string, unknown>)[status]
+      : undefined;
+    const rawRespSchema = ctx.resolver.rawContentSchema(rawResponse);
     const facts: ResponseFacts = {
       kind: "response",
       status,
@@ -324,10 +335,13 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
       ? ctx.resolver.unionPreferRaw(rawRespSchema, respSchema, itemsOf(respSchema))
       : undefined;
     if (respUnion) facts.union = respUnion;
+    if (respEntry) facts.mediaType = respEntry.mediaType;
     ctx.node(respCoord, "response", coord, facts);
     responses.push(respCoord);
+    const respFieldPaths: string[] = [];
     if (respSchema) {
       walkFields(ctx.resolver, respSchema, SCHEMA_FIELD_DEPTH, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField) => {
+        respFieldPaths.push(fieldPath);
         const fieldCoord = responseFieldCoordinate(coord, status, fieldPath);
         // A nested response field parents to its container field; a top-level
         // one parents to the response node, not the operation.
@@ -337,6 +351,14 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
         addField(ctx, fieldCoord, parent, fieldSchema, required, "field", respSource, rawField);
       }, rawRespSchema);
     }
+    const extraMedia = respEntries.slice(1);
+    const extraTokens = mediaTypeTokens(
+      extraMedia.map((e) => e.mediaType),
+      leadingSegments(respFieldPaths),
+    );
+    extraMedia.forEach((entry, i) => {
+      addResponseMedia(ctx, { opCoord: coord, status, respCoord, respSource }, entry, extraTokens[i]!, rawResponse);
+    });
     // The first-class error catalogue (`errors.<code>`) is deliberately NOT
     // minted yet. Its identity is semantic (an error code from the spec's
     // error schema, e.g. `errors.card_declined`), not the HTTP status — and
@@ -358,6 +380,13 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
   };
   if (bodyUnion) facts.bodyUnion = bodyUnion;
   if (primaryEntry) facts.bodyMediaType = primaryEntry.mediaType;
+  // `required` and `description` belong to the Request Body Object itself, so
+  // every media type shares them. Only what the spec states is carried.
+  if (isPlainObject(op.requestBody)) {
+    if (typeof op.requestBody.required === "boolean") facts.bodyRequired = op.requestBody.required;
+    const bodyDescription = asString(op.requestBody.description);
+    if (bodyDescription) facts.bodyDescription = bodyDescription;
+  }
   if (site.sampleTarget && ctx.firstServer) facts.server = ctx.firstServer;
 
   // Resolve the request example ONCE (authored `example`/`examples` win, else
@@ -463,10 +492,10 @@ function addMediaBody(
   ctx: ParseContext,
   opCoord: Coordinate,
   entry: { mediaType: string; media: OpenApiMediaType },
+  token: string,
   sourceBase: string,
   rawRequestBody: unknown,
 ): void {
-  const token = mediaTypeToken(entry.mediaType);
   const mediaCoord = bodyMediaCoordinate(opCoord, token);
   const source = `${sourceBase}/requestBody/content/${entry.mediaType}`;
   ctx.registry.register(mediaCoord, "requestBody", { source });
@@ -486,6 +515,40 @@ function addMediaBody(
     walkFields(ctx.resolver, schema, SCHEMA_FIELD_DEPTH, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField) => {
       const coord = bodyMediaFieldCoordinate(opCoord, token, fieldPath);
       const parent = parentPath ? bodyMediaFieldCoordinate(opCoord, token, parentPath) : mediaCoord;
+      addField(ctx, coord, parent, fieldSchema, required, "field", source, rawField);
+    }, rawSchema);
+  }
+}
+
+function addResponseMedia(
+  ctx: ParseContext,
+  response: { opCoord: Coordinate; status: string; respCoord: Coordinate; respSource: string },
+  entry: { mediaType: string; media: OpenApiMediaType },
+  token: string,
+  rawResponse: unknown,
+): void {
+  const { opCoord, status, respCoord, respSource } = response;
+  const mediaCoord = responseMediaCoordinate(opCoord, status, token);
+  const source = `${respSource}/content/${entry.mediaType}`;
+  ctx.registry.register(mediaCoord, "responseMedia", { source });
+
+  const schema = entry.media.schema;
+  const rawSchema = ctx.resolver.rawMediaSchema(rawResponse, entry.mediaType);
+  const facts: ResponseMediaFacts = { kind: "responseMedia", mediaType: entry.mediaType };
+  const union = schema
+    ? ctx.resolver.unionPreferRaw(rawSchema, schema, itemsOf(schema))
+    : undefined;
+  if (union) facts.union = union;
+  const example = resolveExampleValue(mediaExample(entry), "response", ctx.sampleTools);
+  if (example !== undefined) facts.example = { mediaType: entry.mediaType, value: example };
+  ctx.node(mediaCoord, "responseMedia", respCoord, facts, source);
+
+  if (schema) {
+    walkFields(ctx.resolver, schema, SCHEMA_FIELD_DEPTH, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField) => {
+      const coord = responseMediaFieldCoordinate(opCoord, status, token, fieldPath);
+      const parent = parentPath
+        ? responseMediaFieldCoordinate(opCoord, status, token, parentPath)
+        : mediaCoord;
       addField(ctx, coord, parent, fieldSchema, required, "field", source, rawField);
     }, rawSchema);
   }

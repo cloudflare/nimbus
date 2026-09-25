@@ -300,7 +300,7 @@ export class SchemaResolver {
     if (!Array.isArray(branches) || branches.length === 0) return undefined;
     const shape: UnionShape = {
       kind: folded.oneOf ? "oneOf" : "anyOf",
-      variants: branches.map((b) => this.resolveVariant(b)),
+      variants: branches.map((b, i) => this.resolveVariant(b, i)),
     };
     // A `mapping` is meaningless (and invalid OpenAPI) without a `propertyName`;
     // gate its capture on the name so the view-model never carries a mapping the
@@ -319,7 +319,9 @@ export class SchemaResolver {
     return shape;
   }
 
-  private resolveVariant(branch: OpenApiSchema): VariantRef {
+  /** `index` is the branch's 0-based position, used only for the last-resort
+   *  `Option N` label of an anonymous branch; omit it for a lone `$ref`. */
+  private resolveVariant(branch: OpenApiSchema, index = 0): VariantRef {
     const ref = typeof branch.$ref === "string" ? branch.$ref : undefined;
     if (ref) {
       const name = ref.split("/").pop() ?? ref;
@@ -333,7 +335,43 @@ export class SchemaResolver {
         ? { label: name, coordinate: schemaCoordinate(name) }
         : { label: name };
     }
-    return { label: typeLabel(branch) };
+    return { label: this.anonymousBranchLabel(branch, index) };
+  }
+
+  /**
+   * A readable label for a union branch with no `$ref`, in order: its own
+   * `title`; the type of its folded `allOf` (or of the branch itself — the
+   * existing `typeLabel`, so a typed branch keeps its label); a type inferred
+   * from `enum`/`const` values; `object` when it has properties after folding
+   * (covered by `typeLabel`); else `Option N` (1-based). Never `unknown` — that
+   * stays the honest answer for an untyped *field*, but a branch always has its
+   * position to fall back on.
+   */
+  private anonymousBranchLabel(branch: OpenApiSchema, index: number): string {
+    const title = typeof branch.title === "string" ? branch.title.trim() : "";
+    if (title) return title;
+    const folded = this.foldBranch(branch);
+    const type = typeLabel(folded);
+    if (type !== "unknown") return type;
+    return literalType(folded) ?? `Option ${index + 1}`;
+  }
+
+  /** `foldAllOf`, after following each raw `allOf` member's `$ref` (a no-op on a
+   *  dereferenced branch), so a composed branch folds to its members' shape. */
+  private foldBranch(branch: OpenApiSchema): OpenApiSchema {
+    if (!Array.isArray(branch.allOf)) return branch;
+    const members: OpenApiSchema[] = [];
+    const seen = new Set<OpenApiSchema>();
+    const visit = (s: OpenApiSchema | undefined): void => {
+      const resolved = this.rawDeref(s) ?? s;
+      if (!isPlainObject(resolved) || seen.has(resolved)) return;
+      seen.add(resolved);
+      for (const member of Array.isArray(resolved.allOf) ? resolved.allOf : []) visit(member);
+      const { allOf: _allOf, $ref: _ref, ...rest } = resolved;
+      members.push(rest);
+    };
+    visit(branch);
+    return foldAllOf({ allOf: members });
   }
 
   private knownSchema(name: string): boolean {
@@ -343,4 +381,32 @@ export class SchemaResolver {
       | undefined;
     return Boolean(schemas && name in schemas);
   }
+}
+
+/** The JSON type of a schema's `enum`/`const` literals (`string`, `integer`, …),
+ *  joined `a | b` when mixed — or `undefined` when it declares neither. */
+function literalType(schema: OpenApiSchema): string | undefined {
+  const values = Array.isArray(schema.enum) ? [...schema.enum] : [];
+  if ("const" in schema) values.push(schema.const);
+  if (values.length === 0) return undefined;
+  const types: string[] = [];
+  for (const value of values) {
+    if (value === undefined) continue;
+    const type =
+      value === null
+        ? "null"
+        : Array.isArray(value)
+          ? "array"
+          : typeof value === "number"
+            ? Number.isInteger(value)
+              ? "integer"
+              : "number"
+            : typeof value;
+    if (!types.includes(type)) types.push(type);
+  }
+  // Integers are numbers: a mixed set reads as the wider `number`.
+  if (types.includes("number") && types.includes("integer")) {
+    types.splice(types.indexOf("integer"), 1);
+  }
+  return types.length > 0 ? types.join(" | ") : undefined;
 }

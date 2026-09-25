@@ -142,6 +142,14 @@ export interface ApiResponseView {
   /** Derived example response body for this status. Symmetric with the request
    *  `ApiOperationPage.example`; present when the engine could resolve one. */
   example?: ApiExampleView;
+  /** The primary response media type (the one `fields`/`bodyUnion`/`example`
+   *  describe). Present when the response declares content. */
+  mediaType?: string;
+  /** Response bodies for media types BEYOND the primary (e.g. `text/csv` beside
+   *  JSON), mirroring `ApiOperationPage.additionalBodies`. Each renders its own
+   *  field list/example; the fields are citable under
+   *  `<op>.response.<status>.<mediaToken>.…`. Absent for a single-media response. */
+  additionalMedia?: ApiResponseMediaView[];
 }
 
 export interface ApiOperationPage extends ApiPageBase {
@@ -162,6 +170,14 @@ export interface ApiOperationPage extends ApiPageBase {
   /** The primary request body's media type, so the renderer labels it correctly
    *  instead of assuming JSON. Present when the operation has a request body. */
   bodyMediaType?: string;
+  /** `requestBody.required`, shared by every media type. Absent when the spec
+   *  does not state it (OpenAPI then defaults to optional). */
+  bodyRequired?: boolean;
+  /** `requestBody.description` (CommonMark), shared by every media type.
+   *  Absent when not authored. */
+  bodyDescription?: string;
+  /** `bodyDescription` rendered to HTML, like every other `descriptionHtml`. */
+  bodyDescriptionHtml?: string;
   /** Request bodies for media types BEYOND the primary (e.g. a `multipart/form-data`
    *  variant beside JSON). Each renders its own field list/example; the fields are
    *  fully citable under their own coordinates. Absent for a single-media body. */
@@ -188,6 +204,20 @@ export interface ApiRequestExampleView extends ApiExampleView {
 }
 
 export interface ApiRequestBodyView {
+  mediaType: string;
+  anchor: string;
+  fields: ApiFieldView[];
+  /** Set only when `fields` hit `FIELD_INLINE_CEILING` (see `ApiParamGroup`). */
+  truncated?: { total: number };
+  /** The body's union shape, when this media type is a top-level `oneOf`/`anyOf`. */
+  union?: ApiUnionView;
+  /** Derived example for this media type, when the engine could resolve one. */
+  example?: ApiExampleView;
+}
+
+/** A non-primary response media type — the response counterpart of
+ *  `ApiRequestBodyView`, with the same shape. */
+export interface ApiResponseMediaView {
   mediaType: string;
   anchor: string;
   fields: ApiFieldView[];

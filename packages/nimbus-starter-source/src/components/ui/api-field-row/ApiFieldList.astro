@@ -12,6 +12,11 @@ interface Props {
   badge?: string;
   collapsible?: boolean;
   truncated?: { total: number };
+  /** The section's own required-ness (e.g. a request body), beside the title.
+   *  Omit it to show neither "required" nor "optional". */
+  required?: boolean;
+  /** The section's own description, as HTML, under the heading. */
+  descriptionHtml?: string;
   class?: string;
 }
 
@@ -24,6 +29,8 @@ const {
   collapsible,
   class: className,
   truncated,
+  required,
+  descriptionHtml,
 }: Props = Astro.props;
 
 const hasFields = fields !== undefined;
@@ -39,11 +46,13 @@ const TitleTag = title ? HeadTag : "span";
   class:list={["fl-root scroll-mt-24", className]}
   data-api-section
 >
-  {(title || badge || showControls) && (
+  {(title || badge || showControls || required !== undefined) && (
     <div class="fl-head">
       <TitleTag class="fl-title">
         {title}
         {badge && <span class="fl-badge">{badge}</span>}
+        {required === true && <span class="fl-required">required</span>}
+        {required === false && <span class="fl-optional">optional</span>}
       </TitleTag>
       {showControls && (
         <button
@@ -61,6 +70,8 @@ const TitleTag = title ? HeadTag : "span";
       )}
     </div>
   )}
+
+  {descriptionHtml && <div class="fl-desc mb-3" set:html={descriptionHtml} />}
 
   {hasFields ? (
     <ul class="fl-list">

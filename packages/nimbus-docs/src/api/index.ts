@@ -51,6 +51,7 @@ export type {
   ApiExampleView,
   ApiRequestExampleView,
   ApiRequestBodyView,
+  ApiResponseMediaView,
   ApiResponseView,
   ApiRouteProvenance,
   ApiBreadcrumb,

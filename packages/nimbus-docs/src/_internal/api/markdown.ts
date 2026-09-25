@@ -248,25 +248,59 @@ function renderExample(heading: string, example: ApiExampleView, out: string[]):
   fenced(isJson ? "json" : "text", body, out);
 }
 
+/** One media type's body: its union, else its field list (and any omission). */
+function renderMediaBody(
+  body: { fields: ApiFieldView[]; truncated?: { total: number }; union?: ApiUnionView },
+  out: string[],
+  base?: string,
+): void {
+  if (body.union) {
+    renderUnion(body.union, out, base);
+  } else {
+    for (const field of body.fields) renderField(field, 0, out, base);
+    if (body.truncated) renderOmitted(body.truncated.total, body.fields.length, out);
+    if (body.fields.length > 0) out.push("");
+  }
+}
+
 function renderResponses(responses: ApiResponseView[], out: string[], base?: string): void {
   if (responses.length === 0) return;
   out.push("## Responses", "");
   for (const response of responses) {
     out.push(`### ${inlineText(response.status)}`, "");
     if (response.description) out.push(safeBlock(response.description), "");
-    if (response.example) renderExample("#### Example", response.example, out);
-    if (response.headers && response.headers.length > 0) {
-      out.push("Headers:", "");
-      for (const header of response.headers) renderField(header, 0, out, base);
-      out.push("");
+    const primary = {
+      fields: response.fields,
+      truncated: response.truncated,
+      union: response.bodyUnion,
+    };
+    const additional = response.additionalMedia ?? [];
+    if (additional.length === 0) {
+      if (response.example) renderExample("#### Example", response.example, out);
+      renderResponseHeaders(response, out, base);
+      renderMediaBody(primary, out, base);
+      continue;
     }
-    if (response.bodyUnion) {
-      renderUnion(response.bodyUnion, out, base);
-    } else {
-      for (const field of response.fields) renderField(field, 0, out, base);
-      if (response.truncated) renderOmitted(response.truncated.total, response.fields.length, out);
-      if (response.fields.length > 0) out.push("");
+    // Several media types: headers are shared, then one labeled body per media
+    // type, the primary first — the request side's `Request body (<type>)` shape.
+    renderResponseHeaders(response, out, base);
+    const mediaType = response.mediaType ?? response.example?.mediaType;
+    out.push(mediaType ? `#### Body (${inlineText(mediaType)})` : "#### Body", "");
+    renderMediaBody(primary, out, base);
+    if (response.example) renderExample("##### Example", response.example, out);
+    for (const media of additional) {
+      out.push(`#### Body (${inlineText(media.mediaType)})`, "");
+      renderMediaBody(media, out, base);
+      if (media.example) renderExample("##### Example", media.example, out);
     }
+  }
+}
+
+function renderResponseHeaders(response: ApiResponseView, out: string[], base?: string): void {
+  if (response.headers && response.headers.length > 0) {
+    out.push("Headers:", "");
+    for (const header of response.headers) renderField(header, 0, out, base);
+    out.push("");
   }
 }
 
@@ -315,9 +349,21 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
         hasAdditional && props.bodyMediaType
           ? `Request body (${props.bodyMediaType})`
           : "Request body";
+      // The Request Body Object's own facts, shared by every media type: stated
+      // required-ness and the authored description. Omitted when not in the spec.
+      const bodyMeta: string[] = [];
+      if (props.bodyRequired !== undefined) {
+        bodyMeta.push(props.bodyRequired ? "_Required._" : "_Optional._", "");
+      }
+      if (props.bodyDescription) bodyMeta.push(safeBlock(props.bodyDescription), "");
       if (props.bodyUnion) {
-        out.push(`## ${bodyHeading}`, "");
+        out.push(`## ${bodyHeading}`, "", ...bodyMeta);
         renderUnion(props.bodyUnion, out, base);
+      } else if (bodyMeta.length > 0) {
+        out.push(`## ${bodyHeading}`, "", ...bodyMeta);
+        for (const field of props.body) renderField(field, 0, out, base);
+        if (props.bodyTruncated) renderOmitted(props.bodyTruncated.total, props.body.length, out);
+        out.push("");
       } else {
         renderFieldSection(bodyHeading, props.body, out, props.bodyTruncated, base);
       }
@@ -333,13 +379,7 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
       }
       for (const body of props.additionalBodies ?? []) {
         out.push(`## Request body (${body.mediaType})`, "");
-        if (body.union) {
-          renderUnion(body.union, out, base);
-        } else {
-          for (const field of body.fields) renderField(field, 0, out, base);
-          if (body.truncated) renderOmitted(body.truncated.total, body.fields.length, out);
-          if (body.fields.length > 0) out.push("");
-        }
+        renderMediaBody(body, out, base);
         if (body.example) renderExample("### Example", body.example, out);
       }
       if (props.samples.length > 0) {
