@@ -1,0 +1,21 @@
+packages/nimbus-starter-source/src/components/ui/api-field-row/ApiFieldList.astro
+  s_2fe60549276209::t_4e573a76ec9eb3 15-19,32-33,49,54-55,74-75
+packages/nimbus-starter-source/src/components/ui/api-layout/ApiBody.astro
+  s_2fe60549276209::t_748acb12b8f1b0 23,61-68,122,126-128,216-235
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c60a4054bfd3f64a87bc8845f60c066c42158f82",
+  "prompts": {},
+  "sessions": {
+    "s_2fe60549276209": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f299254d8ffeV9sOVksn9dA6ET",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
