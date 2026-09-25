@@ -191,6 +191,7 @@ Operations are not the only addressable items. Nimbus assigns coordinates to pag
 | Request body field | `retrieveEvent.name` |
 | Parameter | `retrieveEvent.path.event_id` |
 | Response | `retrieveEvent.response.200` |
+| Response field in an additional media type | `retrieveEvent.response.200.text-csv.id` |
 | Schema | `Event` |
 | Schema field | `Event.created_at` |
 | Webhook | `delivery.succeeded` |
@@ -249,7 +250,7 @@ The recipe's API catch-all uses Nimbus runtime helpers to resolve either mode. R
 
 #### Prepared code examples
 
-`apiCollection()` highlights request samples, primary and named request examples, responses, and additional body examples while it builds the content index. OpenAPI `requestBody.content.*.examples` entries are available as `ApiOperationPage.requestExamples`, preserving each key, summary, description, media type, and inline value. External-only examples are not fetched.
+`apiCollection()` highlights request samples, primary and named request examples, responses, and the examples of additional request body and response media types while it builds the content index. OpenAPI `requestBody.content.*.examples` entries are available as `ApiOperationPage.requestExamples`, preserving each key, summary, description, media type, and inline value. External-only examples are not fetched.
 
 User-owned renderers should render `highlightedHtml` with Astro's `set:html` rather than importing Shiki or Astro's `Code` component into a request-rendered route:
 
