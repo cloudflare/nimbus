@@ -29,7 +29,7 @@ The recipe tells the agent to inspect your project, ask for the specification pa
 1. Installs the editable API layout and its parser dependencies.
 2. Declares the specification in `nimbus.config.ts`.
 3. Registers a loader-backed Astro content collection.
-4. Adds the HTML catch-all route and static Markdown route.
+4. Adds the HTML catch-all route. The starter's shared Markdown route serves each page's Markdown version.
 5. Connects the collection to search, alternate Markdown versions, and `llms.txt` indexes.
 
 ### How the pieces fit
@@ -41,7 +41,7 @@ The recipe tells the agent to inspect your project, ask for the specification pa
 | `nimbus.config.ts` | Declares the specification, versions, routes, and rendering policy. |
 | `src/content.config.ts` | Registers the generated entries as an Astro content collection. |
 | `src/pages/api/[...slug].astro` | Renders API HTML through the user-owned API layout. |
-| `src/pages/api/[...slug]/index.md.ts` | Serves an alternate Markdown version of every API page. |
+| `src/pages/[...slug]/index.md.ts` | The starter's shared Markdown route. Serves an alternate Markdown version of every API page. |
 | `src/components/ui/api-*/` | Owns the reference's appearance and interaction design. |
 
 #### Why the specification is not in `src/content`

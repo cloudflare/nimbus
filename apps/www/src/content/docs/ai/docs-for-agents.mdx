@@ -10,7 +10,7 @@ Nimbus serves documentation through endpoints that AI tools can read without par
 
 ## What ships
 
-- **Alternate Markdown/MDX versions for every discoverable authored page** — `/<slug>/index.md` contains clean Markdown with components converted to text, while `/<slug>/index.mdx` retains imports, JSX, and directives. Nimbus resolves links and reusable snippets during the build. The `.md` version links to its `.mdx` source. Hidden documentation versions do not emit either file.
+- **Alternate Markdown/MDX versions for every discoverable page** — `/<slug>/index.md` contains clean Markdown with components converted to text, while `/<slug>/index.mdx` retains imports, JSX, and directives. Nimbus resolves links and reusable snippets during the build. The `.md` version links to its `.mdx` source. API reference pages have only the `.md` version. Hidden versions do not emit either file.
 - **A site `llms.txt` index** — names top-level pages and section indexes. Each section index links its discoverable pages to their alternate Markdown versions.
 - **`llms-full.txt`** — combines discoverable pages into one Markdown document, excluding non-current prose versions. AI tools and indexing systems can fetch the current site in one request. Nimbus generates it during the build so rebuilds are byte-identical.
 - **Per-section indexes at `/<section>/llms.txt`** — each top-level group and collection (e.g. a `blog` or a docs version) gets its own index.
