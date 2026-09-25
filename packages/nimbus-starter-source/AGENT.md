@@ -20,7 +20,8 @@ src/
 ├── lib/cn.ts                # Tailwind className merger
 ├── pages/
 │   ├── [...slug].astro
-│   ├── [...slug]/index.md.ts   # per-page markdown alternate
+│   ├── [...slug]/index.md.ts   # Markdown version of every page, all collections
+│   ├── [...slug]/index.mdx.ts  # authored source of every page, all collections
 │   ├── llms.txt.ts
 │   ├── og.png.ts                # site-level OG card
 │   ├── og/
