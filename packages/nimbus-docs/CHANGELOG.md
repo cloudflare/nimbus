@@ -1,5 +1,87 @@
 # @cloudflare/nimbus-docs
 
+## 0.15.0
+
+### Minor Changes
+
+- [#162](https://github.com/cloudflare/nimbus/pull/162) [`982a47d`](https://github.com/cloudflare/nimbus/commit/982a47ddbc23d899e71770804c3facf757ae15a4) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Register API collections from the Nimbus config. `apiCollection()` now takes no arguments and reads the `api` entry whose `collection` matches its key in `src/content.config.ts`, so each spec is declared once, in the inline Nimbus config in `astro.config.ts`:
+
+  ```ts
+  // astro.config.ts
+  const nimbusConfig = defineNimbusConfig({
+    site: "https://example.com",
+    title: "Example",
+    api: [{ collection: "api", spec: "./src/api/openapi.yaml" }],
+  });
+
+  // src/content.config.ts
+  export const collections = {
+    docs: defineCollection(docsCollection()),
+    api: defineCollection(apiCollection()),
+  };
+  ```
+
+  The `api-reference` recipe now uses this shape and no longer creates `nimbus.config.ts`, so `nimbus-docs check` validates the whole config statically and `add adapter-cloudflare` edits `rendering` in place.
+
+  A collection key with no `api` entry fails content sync, and an `api` entry without an `apiCollection()` under its key fails the build, including a key registered with another loader. Both messages name the Nimbus config and `src/content.config.ts`, and `nimbus-docs check` reports the same mismatches without building.
+
+  `apiCollection(options)` and `@cloudflare/nimbus-docs/config` are unchanged, and sites built by earlier versions of the recipe keep building with no changes. **Upgrade note:** in `astro dev`, that shape silently ignores edits to the `api` entry in `nimbus.config.ts` until a manual restart. To pick up edits automatically, move the Nimbus config back into `astro.config.ts`, delete the lookup in `src/content.config.ts`, and register the collection with `apiCollection()`. `nimbus-docs upgrade` lists these steps.
+
+  Also fixes `astro dev` after an `astro.config.*` edit, for every site: collections are re-synced when Astro restarts the dev server, so docs pages keep their partial headings and Markdown routes and `llms.txt` keep working, instead of losing prepared data until a manual restart. Spec edits keep re-indexing API pages after that restart.
+
+- [#165](https://github.com/cloudflare/nimbus/pull/165) [`05efc7a`](https://github.com/cloudflare/nimbus/commit/05efc7ab365d2c3bec3f5fb457110e64a739e093) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Keep more of the OpenAPI document in API reference pages and their Markdown versions:
+
+  - **Request body `required` and `description`.** `ApiOperationPage` gains `bodyRequired`, `bodyDescription`, and `bodyDescriptionHtml`, read from the operation's Request Body Object. Each is present only when the spec states it.
+  - **Every response media type.** The primary media type is chosen exactly as before and is now exposed as `ApiResponseView.mediaType`. Each other media type is listed in `ApiResponseView.additionalMedia` (`ApiResponseMediaView`: `mediaType`, `anchor`, `fields`, and optional `truncated`, `union`, and `example`), with fields citable at `<operation>.response.<status>.<media-token>.<field>`. The build no longer warns that it renders only the first media type. A media type whose coordinate token would clash, with a sibling media type (such as `application/vnd.a+json` beside `application/vnd.a-json`) or with a field of the primary body (a property named `text-csv` beside `text/csv`), no longer fails the build, for responses or request bodies: it gets a short hash suffix instead. Media types that don't clash keep their existing coordinates.
+  - **Readable union branch labels.** A `oneOf`/`anyOf` branch without a `$ref` is labeled by its `title`, then by the type of its folded `allOf`, then by the type of its `enum`/`const` values, then `object` when it has properties, and otherwise `Option N`. Branches are never labeled `unknown`. Field types are unchanged.
+
+  The generated Markdown shows the body's required flag and description, one labeled body per response media type, and the new branch labels. All changes are additive, and `apiSchemaVersion` stays `1`. Pages whose spec uses none of these constructs render the same HTML and Markdown as before.
+
+- [#164](https://github.com/cloudflare/nimbus/pull/164) [`b8f4d05`](https://github.com/cloudflare/nimbus/commit/b8f4d05b90e208c841d8cbd62d927985695e301b) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Return each page's URLs from the page helpers, build OG cards from one path function, and reduce the `llms.txt` routes to one factory call each.
+
+  - `getDocsPage`, `getCollectionPage`, `getDocsPageProps`, and `getCollectionPageProps` now return `markdownUrl`, `sourceUrl`, and `ogImageUrl` alongside `entry`, `Content`, and `headings`. `IndexedEntry` gains `ogImageUrl`. All three are site-relative with no base path and come from the same function, so a page route no longer builds them by hand:
+
+    ```astro
+    const { entry, Content, headings, markdownUrl, ogImageUrl } = page;
+    const socialImage = entry.data.socialImage ?? ogImageUrl;
+    ```
+
+  - `getOgImagePages()` from `@cloudflare/nimbus-docs/runtime` returns the `pages` map for astro-og-canvas's `OGImageRoute`, one entry per indexed page, keyed so each card is written at the page's `ogImageUrl`. `ogImageUrl` is `/og/<page>.png`, derived from the page's route, the same rule the `api-reference` recipe uses. This fixes broken OG cards: collection and version root pages, such as `/blog/`, linked to `/og/blog/index.png` while the card was written at `/og/blog.png`, and IDs containing a dot, such as `v1.2/guide` or the webhook `payment.succeeded`, had their card name cut at the last dot, so several pages shared one card. noindex pages linked to `/og/<id>.png`, but the old OG route skipped them and never wrote that card. Root pages, dotted IDs, and noindex pages now link to cards that exist.
+  - `llmsRoute()`, `llmsFullRoute()`, and `llmsSectionRoute()` from `@cloudflare/nimbus-docs/agent-endpoints` return the `{ GET }` behind `src/pages/llms.txt.ts` and `llms-full.txt.ts`, and the `{ GET, getStaticPaths }` behind `src/pages/[section]/llms.txt.ts`. Each `GET` returns 404 for a missing or unknown index and, on request, a 500 without details when the index can't be read, as the starter's routes did:
+
+    ```ts
+    // src/pages/[section]/llms.txt.ts
+    import { llmsSectionRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+
+    export const prerender = true;
+    export const { GET, getStaticPaths } = llmsSectionRoute();
+    ```
+
+  - The build now warns about every baked Markdown page and every `llms.txt` index that no prerendered route generated, and names the route that serves it. This catches a shared Markdown route that re-exports `markdownRoute()` from another module and is rendered on request. Sites that serve these pages on request on purpose can ignore the warning.
+
+  Hand-built URLs, existing OG routes, and existing `llms.txt` routes keep building with unchanged output. The `page-urls-and-llms-routes` upgrade entry lists the lines each route can drop.
+
+- [#161](https://github.com/cloudflare/nimbus/pull/161) [`b45ca22`](https://github.com/cloudflare/nimbus/commit/b45ca22fc603b96beddc7ff9114d0cfba1f7d84f) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Serve the Markdown and source versions of every collection from two route files. `markdownRoute()` and `markdownSourceRoute()` from `@cloudflare/nimbus-docs/agent-endpoints` return `{ GET, getStaticPaths }`:
+
+  ```ts
+  // src/pages/[...slug]/index.md.ts
+  import { markdownRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+
+  export const prerender = true;
+  export const { GET, getStaticPaths } = markdownRoute();
+  ```
+
+  - One shared route serves every collection's `/<page>/index.md`, including docs versions and API reference pages. `markdownSourceRoute()` serves `/<page>/index.mdx` for every authored page. Collections added later need no new route files.
+  - A more specific route file, such as `src/pages/changelog/[...slug]/index.md.ts`, takes over its collection. The shared route skips every URL that route matches, so Astro reports no route conflicts. If the more specific route doesn't generate every page it matches, the build warns and names the missing paths, or fails when `prerenderConflictBehavior` is `"error"`.
+  - The shared routes must be prerendered. The build fails if a route using `markdownRoute()` or `markdownSourceRoute()` is rendered on request.
+  - API pages now have baked Markdown assets, so `getMarkdownStaticPaths({ collection: "<api>" })` returns their entries. Hidden API versions are excluded, like hidden docs versions.
+
+  Existing per-collection routes keep working and need no change. Sites that delete the `api-reference` recipe's `src/pages/<api>/[...slug]/index.md.ts` no longer publish Markdown for hidden API versions. The `shared-markdown-routes` upgrade entry explains how to remove unmodified per-collection routes.
+
+### Patch Changes
+
+- [#164](https://github.com/cloudflare/nimbus/pull/164) [`c26b52b`](https://github.com/cloudflare/nimbus/commit/c26b52bb47ebf6590bbecb810354c702b6deb8f5) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Support dotted version slugs such as `v1.2`. Links to a dotted version root now keep their trailing slash (`/v1.2/`, not `/v1.2`) in the sidebar, breadcrumbs, version picker, alternate links, and `IndexedEntry.url`; before, the last segment was read as a file extension. `src/content.config.ts` keys such as `"docs-v1.2"` are now recognized, so Nimbus no longer warns that collections can't be identified statically and keeps its collection checks on.
+
 ## 0.14.2
 
 ### Patch Changes
