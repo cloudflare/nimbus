@@ -1,5 +1,19 @@
 # @cloudflare/nimbus-docs
 
+## 0.14.2
+
+### Patch Changes
+
+- [#160](https://github.com/cloudflare/nimbus/pull/160) [`08b963b`](https://github.com/cloudflare/nimbus/commit/08b963b1f0ce9e0243713a35d37df5f08b0c918f) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Prose `api.ref:` citations now resolve correctly in HTML output:
+
+  - They include the site's base path. On a site with `base: "/docs"`, `[change status](api.ref:api:changeWidgetStatus)` now links to `/docs/api/...` instead of `/api/...`, matching the Markdown alternate and `llms-full.txt`.
+  - Citations in `.md` pages now resolve. Previously they rendered as raw `api.ref:` links; only `.mdx` pages were resolved.
+  - Citations resolve when the project directory is reached through a symlink.
+
+- [#157](https://github.com/cloudflare/nimbus/pull/157) [`cde0751`](https://github.com/cloudflare/nimbus/commit/cde0751aae4002677c995d137c4f74d20e1e8595) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Render authored OpenAPI request examples as selectable examples in API reference pages and generated Markdown.
+
+- [#158](https://github.com/cloudflare/nimbus/pull/158) [`9f024b0`](https://github.com/cloudflare/nimbus/commit/9f024b00bd26bdc412557284d31cfb3260d19718) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Reduce static API reference build memory by storing lightweight collection entries and projecting complete pages during prerendering. Server output continues to use prepared entries so requests do not parse OpenAPI specifications. Keep build-only Markdown parsing out of generated server bundles.
+
 ## 0.14.1
 
 ### Patch Changes
