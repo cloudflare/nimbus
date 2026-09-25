@@ -71,6 +71,13 @@ test("recipes that rely on the shared routes stop on an older docs-only starter"
   }
 });
 
+test("changelog relies on the shared OG route", async () => {
+  const source = await feature("changelog");
+  assert.doesNotMatch(source, /src\/pages\/og\/changelog/);
+  assert.doesNotMatch(source, /OGImageRoute/);
+  assert.match(source, /`src\/pages\/og\/\[\.\.\.slug\]\.ts` — confirm it enumerates entries with\s+`getIndexedEntries\(\)`/);
+});
+
 test("changelog reserves its index entry for the feed route", async () => {
   const source = await feature("changelog");
   assert.match(

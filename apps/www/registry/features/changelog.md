@@ -52,9 +52,12 @@ Inspect the repo to learn its conventions:
   wrapping it to keep any customizations.
 - `src/components.ts` — the MDX globals registry. Entry bodies render with
   this map, so authored components in entries work like they do in docs.
-- `src/pages/og/[...slug].ts` and `src/pages/og/_og-card-config.ts` —
-  the OG card setup. The starter uses `astro-og-canvas`; you will mirror it
-  for the changelog (step 5l).
+- `src/pages/og/[...slug].ts` — confirm it enumerates entries with
+  `getIndexedEntries()`, as the starter's does. It then already generates
+  `/og/changelog/<slug>.png` for every entry, so the changelog needs no OG
+  route. If the project's OG route covers only the `docs` collection, extend
+  it to every collection instead of adding a second route under
+  `src/pages/og/`, which would generate the same paths.
 - `src/styles/globals.css` — confirm Nimbus tokens exist (`--nb-border`,
   `--nb-card`, `--nb-foreground`, `--nb-muted-foreground`, `--nb-h1-size`, …).
   The components use them.
@@ -96,7 +99,6 @@ You will **create**:
 - `src/pages/changelog/[...slug].astro`
 - `src/pages/changelog/page/[page].astro`
 - `src/pages/changelog/[...slug]/index.md.ts`
-- `src/pages/og/changelog/[...slug].ts`
 - `src/pages/changelog/rss.xml.ts` — **RSS only** (skip if the user declined).
 
 You will **edit**:
@@ -1059,40 +1061,7 @@ export async function GET({ params, props, request }: SlugContext) {
 }
 ```
 
-### 5l. `src/pages/og/changelog/[...slug].ts` (OG cards)
-
-Mirror the project's existing docs OG route for the changelog collection. For
-the default starter (which uses `astro-og-canvas`):
-
-```ts
-import { getCollection } from "astro:content";
-import { OGImageRoute } from "astro-og-canvas";
-import { ogCardConfig } from "../_og-card-config";
-
-const entries = await getCollection("changelog", (entry) => !entry.data.draft);
-
-const pages = Object.fromEntries(
-  entries.map((entry) => [
-    entry.id,
-    { title: entry.data.title, description: entry.data.description ?? "" },
-  ]),
-);
-
-export const { getStaticPaths, GET } = await OGImageRoute({
-  pages,
-  param: "slug",
-  getImageOptions: (_path, page) => ({
-    title: page.title,
-    description: page.description,
-    ...ogCardConfig,
-  }),
-});
-```
-
-If the project uses a custom OG renderer instead, copy its docs OG route and
-swap `getCollection("docs", …)` for `getCollection("changelog", …)`.
-
-### 5m. Seed entry — `src/content/changelog/<YYYY-MM-DD>-welcome.mdx`
+### 5l. Seed entry — `src/content/changelog/<YYYY-MM-DD>-welcome.mdx`
 
 ```mdx
 ---
@@ -1130,6 +1099,7 @@ navigation.
    - `dist/changelog/index.html`, `dist/changelog/<slug>/index.html`
    - `dist/changelog/<slug>/index.md`, with `date` and `tags` in its
      frontmatter, and `dist/changelog/<slug>/index.mdx`
+   - `dist/og/changelog/<slug>.png`
    - `dist/changelog/page/2/index.html` (only if entries exceed the page size)
    - `dist/changelog/llms.txt` and `changelog` listed in root `dist/llms.txt`
    - `dist/changelog/rss.xml` — only if RSS was chosen
