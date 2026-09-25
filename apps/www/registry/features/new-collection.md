@@ -209,7 +209,6 @@ import {
   getLastUpdated,
   getRouteFlags,
   getTOC,
-  entryRouteKey,
   stripBase,
 } from "@cloudflare/nimbus-docs";
 import { components } from "../../components";
@@ -219,7 +218,7 @@ export const getStaticPaths = getCollectionStaticPaths("<collection>");
 
 const page = await getCollectionPage<"<collection>">(Astro);
 if (page instanceof Response) return page;
-const { entry, Content, headings } = page;
+const { entry, Content, headings, markdownUrl, ogImageUrl } = page;
 
 const currentSlug = stripBase(Astro.url.pathname, import.meta.env.BASE_URL).replace(/\/$/, "") || "/";
 const { tableOfContents: tocOn } = await getRouteFlags(entry);
@@ -237,12 +236,7 @@ const lastUpdated = entry.data.lastUpdated ??
   await getLastUpdated(entry);
 const tocConfig = entry.data.tableOfContents;
 const toc = tocOn && tocConfig !== false ? getTOC(headings, tocConfig) : false;
-const routeKey = entryRouteKey(entry.id);
-const markdownPath = routeKey
-  ? `/<prefix>/${routeKey}/index.md`
-  : "/<prefix>/index.md";
-const markdownUrl = markdownPath;
-const socialImage = entry.data.socialImage ?? `/og/<prefix>/${entry.id}.png`;
+const socialImage = entry.data.socialImage ?? ogImageUrl;
 ---
 
 <DocsLayout

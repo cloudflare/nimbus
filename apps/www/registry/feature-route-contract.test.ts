@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -10,12 +10,13 @@ async function feature(name: string): Promise<string> {
   return readFile(join(FEATURES, `${name}.md`), "utf8");
 }
 
-test("collection recipes canonicalize nested index routes", async () => {
+test("collection recipes take page URLs from the page helper", async () => {
   for (const name of ["new-collection", "new-version", "changelog"]) {
     const source = await feature(name);
-    assert.match(source, /entryRouteKey/);
+    assert.match(source, /markdownUrl, ogImageUrl \} = page;/);
+    assert.match(source, /const socialImage = entry\.data\.socialImage \?\? ogImageUrl;/);
     assert.doesNotMatch(source, /withBaseRoute/);
-    assert.doesNotMatch(source, /\$\{entry\.id\}\/index\.md/);
+    assert.doesNotMatch(source, /\$\{routeKey\}\/index\.md`|`\/og\/[^`]*\$\{/);
   }
 });
 
@@ -73,9 +74,15 @@ test("recipes that rely on the shared routes stop on an older docs-only starter"
 
 test("changelog relies on the shared OG route", async () => {
   const source = await feature("changelog");
-  assert.doesNotMatch(source, /src\/pages\/og\/changelog/);
-  assert.doesNotMatch(source, /OGImageRoute/);
-  assert.match(source, /`src\/pages\/og\/\[\.\.\.slug\]\.ts` — confirm it enumerates entries with\s+`getIndexedEntries\(\)`/);
+  assert.doesNotMatch(source, /src\/pages\/og\/changelog\//);
+  assert.doesNotMatch(source, /OGImageRoute\(/);
+  assert.match(source, /`src\/pages\/og\/\[\.\.\.slug\]\.ts` — confirm it enumerates entries with\s+`getOgImagePages\(\)`/);
+});
+
+test("changelog gives its feed root its own OG card", async () => {
+  const source = await feature("changelog");
+  assert.match(source, /### 5l\. `src\/pages\/og\/changelog\.png\.ts`[\s\S]*?generateOpenGraphImage\(/);
+  assert.equal(source.match(/socialImage="\/og\/changelog\.png"/g)?.length, 3);
 });
 
 test("changelog uses the Nimbus Icon component", async () => {
@@ -115,4 +122,16 @@ test("feature recipes base dynamic terminal links", async () => {
     await feature("component-showcase"),
     /### `src\/pages\/components\.astro`[\s\S]*import \{ getSidebar, withBase \}[\s\S]*href=\{withBase\(`\/components\/\$\{entry\.id\}`/,
   );
+});
+
+test("new-version's copy fallback includes every file the version switcher needs", async () => {
+  const source = await feature("new-version");
+  const ui = join(dirname(fileURLToPath(import.meta.url)), "../../../packages/nimbus-starter-source/src/components/ui");
+  for (const component of ["popover", "version-switcher"]) {
+    const files = await readdir(join(ui, component));
+    const loop = source.match(new RegExp(`for f in ([^;]+); do\\n\\s+curl -fsSL "\\$base/${component}/`));
+    assert.ok(loop, `missing copy loop for ${component}`);
+    assert.deepEqual(loop[1].trim().split(/\s+/).sort(), files.sort(), component);
+    assert.match(source, new RegExp(`packages/nimbus-starter-source/src/components/ui/${component}/\\n`));
+  }
 });

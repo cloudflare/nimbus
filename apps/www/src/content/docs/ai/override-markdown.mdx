@@ -1,6 +1,6 @@
 ---
 title: Override a default
-description: Customize the Markdown versions of some or all pages without giving up the shared routes.
+description: Customize the Markdown versions, llms.txt indexes, and OG cards without giving up the shared routes.
 aiGenerated: true
 sidebar:
   order: 3
@@ -12,7 +12,7 @@ The starter's `src/pages/[...slug]/index.md.ts` and `src/pages/[...slug]/index.m
 - Replace the shared route with your own code.
 - Add a more specific route file to take over one collection.
 
-The examples use the `.md` route. The `.mdx` route works the same way with `markdownSourceRoute()`.
+The examples use the `.md` route. The `.mdx` route works the same way with `markdownSourceRoute()`. The `llms.txt` routes and the OG card route follow the same pattern; see [Override an `llms.txt` index](#override-an-llmstxt-index) and [Customize OG cards](#customize-og-cards).
 
 ## Wrap the shared route
 
@@ -120,10 +120,57 @@ export async function GET({ params, props, request }: SlugContext) {
 
 A more specific route must generate every page its pattern matches. If it skips some, those pages have no Markdown version while `llms.txt` still links to them. Nimbus lists the missing paths and the route that owns them as a build warning. The build fails instead when Astro's `prerenderConflictBehavior` is `"error"`.
 
+## Override an `llms.txt` index
+
+The starter's `llms.txt` routes call `llmsRoute()`, `llmsFullRoute()`, and `llmsSectionRoute()`. Wrap the returned `GET` the same way. This example adds a support link to `/llms.txt`:
+
+```ts title="src/pages/llms.txt.ts"
+import type { APIRoute } from "astro";
+import { llmsRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+
+export const prerender = true;
+
+const route = llmsRoute();
+
+export const GET: APIRoute = async (context) => {
+  const response = await route.GET(context);
+  if (!response.ok) return response;
+  const body = await response.text();
+  return new Response(`${body}\n## Support\n\n- [Contact support](https://example.com/support)\n`, {
+    headers: response.headers,
+  });
+};
+```
+
+For section indexes, keep `llmsSectionRoute()`'s `getStaticPaths`, which lists every section, and wrap its `GET`. To build a body from scratch, call `getLlmsPayload()` with a `reference` such as `{ scope: "section", surface: "index", section: "writing" }`; it returns `null` for an unknown index.
+
+## Customize OG cards
+
+The starter's `src/pages/og/[...slug].ts` passes `getOgImagePages()` to astro-og-canvas. The map has one entry per page, keyed so each card is written at that page's `ogImageUrl`, and each value is the page's `IndexedEntry`. Change the card's look in `src/pages/og/_og-card-config.ts`, or per page in `getImageOptions`. This example labels changelog cards:
+
+```ts title="src/pages/og/[...slug].ts"
+import { getOgImagePages } from "@cloudflare/nimbus-docs/runtime";
+import { OGImageRoute } from "astro-og-canvas";
+import { ogCardConfig } from "./_og-card-config";
+
+export const prerender = true;
+
+export const { getStaticPaths, GET } = await OGImageRoute({
+  pages: await getOgImagePages(),
+  getImageOptions: (_path, page) => ({
+    title: page.collection === "changelog" ? `Changelog: ${page.title}` : page.title,
+    description: page.description ?? "",
+    ...ogCardConfig,
+  }),
+});
+```
+
+Keep the route at `src/pages/og/[...slug].ts`, the map's keys, the default `getSlug`, and PNG output: page routes link to `ogImageUrl`, so a changed location, key, slug, or format leaves pages pointing at cards that don't exist. A page whose frontmatter sets `socialImage` uses that image instead, because the page route passes `entry.data.socialImage ?? ogImageUrl`.
+
 ## What an override changes
 
 An override changes only what that route serves. `llms-full.txt` and hosted MCP keep the Markdown Nimbus generates.
 
 The shared routes and routes that use `markdownRoute()` or `markdownSourceRoute()` must keep `export const prerender = true`. The build fails if one is rendered on request.
 
-Call the factory in the route file itself, as the examples above do. Like Astro's own `prerender` detection, Nimbus finds it by reading the route file, so a factory re-exported from another module is not checked.
+Call the factory in the route file itself, as the examples above do. Like Astro's own `prerender` detection, Nimbus finds it by reading the route file, so a factory re-exported from another module is not checked when the build starts. At the end of the build, Nimbus warns about every Markdown version and `llms.txt` index that no prerendered route generated, and names the route that serves it.

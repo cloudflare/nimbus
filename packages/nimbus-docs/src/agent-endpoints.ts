@@ -1,4 +1,4 @@
-import type { APIRoute, GetStaticPaths } from "astro";
+import type { APIContext, APIRoute, GetStaticPaths } from "astro";
 import { entryRouteKey } from "./_internal/astro-slug.js";
 import type {
   LlmsEndpointAsset,
@@ -250,6 +250,28 @@ export interface MarkdownRoute {
   GET: APIRoute;
 }
 
+/**
+ * The response every route factory returns: the payload, a plain 404 when
+ * there is none, and on request a detail-free 500 when loading fails. A
+ * prerendered route rethrows so the build fails instead.
+ */
+async function endpointResponse(
+  context: APIContext,
+  load: () => Promise<{ body: string; mediaType: string } | null>,
+): Promise<Response> {
+  try {
+    const payload = await load();
+    if (!payload) return new Response("Not found", { status: 404 });
+    return new Response(payload.body, {
+      headers: { "Content-Type": payload.mediaType },
+    });
+  } catch (error) {
+    if (context.isPrerendered) throw error;
+    console.error(error);
+    return new Response("Internal Server Error", { status: 500 });
+  }
+}
+
 function requestAssetUrl(url: URL, base: string): string | undefined {
   const prefix = base.replace(/\/+$/u, "");
   let pathname = url.pathname;
@@ -287,8 +309,8 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
         return [{ params, props: { reference }, cacheKey: asset.digest }];
       });
     },
-    async GET(context) {
-      try {
+    GET: (context) =>
+      endpointResponse(context, async () => {
         const indexes = await markdownIndexes();
         const reference = (
           context.props as { reference?: MarkdownEndpointReference }
@@ -301,21 +323,9 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
           const url = requestAssetUrl(context.url, base);
           asset = url ? indexes.markdownByUrl.get(url) : undefined;
         }
-        if (!asset || asset.surface !== surface) {
-          return new Response("Not found", { status: 404 });
-        }
-        const payload = await markdownPayload(asset, {
-          request: context.request,
-        });
-        return new Response(payload.body, {
-          headers: { "Content-Type": payload.mediaType },
-        });
-      } catch (error) {
-        if (context.isPrerendered) throw error;
-        console.error(error);
-        return new Response("Internal Server Error", { status: 500 });
-      }
-    },
+        if (!asset || asset.surface !== surface) return null;
+        return markdownPayload(asset, { request: context.request });
+      }),
   };
 }
 
@@ -392,4 +402,82 @@ export async function getLlmsStaticPaths(): Promise<
       },
       cacheKey: asset.digest,
     }));
+}
+
+/** The `{ GET }` behind `src/pages/llms.txt.ts` or `llms-full.txt.ts`. */
+export interface LlmsRoute {
+  GET: APIRoute;
+}
+
+/** The `{ getStaticPaths, GET }` behind `src/pages/[section]/llms.txt.ts`. */
+export interface LlmsSectionRoute {
+  getStaticPaths: GetStaticPaths;
+  GET: APIRoute;
+}
+
+function createLlmsRoute(surface: "index" | "full"): LlmsRoute {
+  return {
+    GET: (context) =>
+      endpointResponse(context, () =>
+        getLlmsPayload({ scope: "site", surface }, { request: context.request }),
+      ),
+  };
+}
+
+/**
+ * The site's `/llms.txt` index:
+ *
+ * ```ts
+ * // src/pages/llms.txt.ts
+ * import { llmsRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+ *
+ * export const prerender = true;
+ * export const { GET } = llmsRoute();
+ * ```
+ *
+ * `GET` returns 404 when the index is missing and, on request, a 500 without
+ * details when its asset can't be read. Wrap `GET` to customize the response.
+ */
+export function llmsRoute(): LlmsRoute {
+  return createLlmsRoute("index");
+}
+
+/** The site's `/llms-full.txt`. Same rules as {@link llmsRoute}. */
+export function llmsFullRoute(): LlmsRoute {
+  return createLlmsRoute("full");
+}
+
+/**
+ * Every per-section `/<section>/llms.txt` index, one path per section:
+ *
+ * ```ts
+ * // src/pages/[section]/llms.txt.ts
+ * import { llmsSectionRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+ *
+ * export const prerender = true;
+ * export const { GET, getStaticPaths } = llmsSectionRoute();
+ * ```
+ *
+ * The route's parameter must be named `section`. On request, `GET` reads it
+ * from `params.section` and returns 404 for an unknown section. Same error
+ * rules as {@link llmsRoute}.
+ */
+export function llmsSectionRoute(): LlmsSectionRoute {
+  return {
+    getStaticPaths: getLlmsStaticPaths,
+    GET: (context) =>
+      endpointResponse(context, async () => {
+        const reference =
+          (context.props as { reference?: LlmsEndpointReference }).reference ??
+          (context.params.section
+            ? {
+                scope: "section" as const,
+                surface: "index" as const,
+                section: context.params.section,
+              }
+            : undefined);
+        if (!reference) return null;
+        return getLlmsPayload(reference, { request: context.request });
+      }),
+  };
 }

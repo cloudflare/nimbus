@@ -154,6 +154,12 @@ import {
   findUnclaimedMarkdownPaths,
   formatUnclaimedMarkdownPaths,
 } from "./_internal/markdown-routes.js";
+import {
+  findUngeneratedAgentPages,
+  formatUngeneratedAgentPages,
+  llmsAssetUrl,
+  type EndpointRouteRecord,
+} from "./_internal/agent-endpoint-coverage.js";
 import { pagefindDocument } from "./_internal/pagefind-document.js";
 import {
   beginPreparedMarkdownSession,
@@ -438,6 +444,7 @@ export function nimbus(
   let outputModeForBuild: "static" | "server" = "static";
   let adapterNameForBuild: string | null = null;
   let resolvedRoutesForBuild: ResolvedRouteLike[] = [];
+  let endpointRoutesForBuild: EndpointRouteRecord[] = [];
   // Resolved `redirects` (user ∪ version-alternate) for the platform emitter.
   let redirectsForBuild: Record<string, RedirectConfigLike> = {};
   let renderingRoutes = new Map<string, RenderingMode>();
@@ -770,6 +777,7 @@ export function nimbus(
         // wipe the capture. Also clears stale routes from a prior build that
         // failed between `routes:resolved` and `build:done`.
         resolvedRoutesForBuild = [];
+        endpointRoutesForBuild = [];
 
         // Scan every code-fence language used in `src/content/**/*.{mdx,md}`
         // so Shiki eager-loads grammars at startup. This makes cold-build
@@ -1790,6 +1798,14 @@ export function nimbus(
               (candidate) => candidate.pathname === "/",
             ),
         );
+        endpointRoutesForBuild = routes
+          .filter((route) => route.type === "endpoint")
+          .map((route) => ({
+            pattern: route.pattern,
+            entrypoint: route.entrypoint,
+            regex: route.patternRegex,
+            prerendered: route.isPrerendered,
+          }));
         resolvedRoutesForBuild = routes.map((r) => ({
           pattern: r.pattern,
           type: r.type,
@@ -1897,28 +1913,49 @@ export function nimbus(
         }
 
         const markdownRouteRecords = markdownRoutes.records();
+        const sharedPrerendered = markdownRouteRecords.some(
+          (route) => route.shared && route.prerendered,
+        );
+        const agentEndpointAssets = await loadAgentEndpointAssets();
         if (
-          prerenderConflictBehaviorForBuild !== "ignore" &&
-          markdownRouteRecords.some(
-            (route) => route.shared && route.prerendered,
-          )
+          sharedPrerendered ||
+          agentEndpointAssets.isAgentEndpointAssetRequested(projectRootForBuild)
         ) {
-          const agentEndpointAssets = await loadAgentEndpointAssets();
           const manifest =
             await agentEndpointAssets.getAgentEndpointAssetManifest(
               projectRootForBuild,
             );
-          const unclaimed = findUnclaimedMarkdownPaths(
-            markdownRouteRecords,
-            manifest.markdownAssets,
-            { has: (url) => fs.existsSync(path.join(distDir, url)) },
-          );
-          if (unclaimed.length > 0) {
+          const generated = {
+            has: (url: string) => fs.existsSync(path.join(distDir, url)),
+          };
+          const unclaimed = sharedPrerendered
+            ? findUnclaimedMarkdownPaths(
+                markdownRouteRecords,
+                manifest.markdownAssets,
+                generated,
+              )
+            : [];
+          if (
+            unclaimed.length > 0 &&
+            prerenderConflictBehaviorForBuild !== "ignore"
+          ) {
             const message = formatUnclaimedMarkdownPaths(unclaimed);
             if (prerenderConflictBehaviorForBuild === "error") {
               throw new Error(message);
             }
             logger.warn(message);
+          }
+          const reported = new Set(unclaimed.map(({ url }) => url));
+          const ungenerated = findUngeneratedAgentPages(
+            endpointRoutesForBuild,
+            [
+              ...manifest.markdownAssets.map(({ url }) => url),
+              ...manifest.llmsAssets.map(llmsAssetUrl),
+            ].filter((url) => !reported.has(url)),
+            generated,
+          );
+          if (ungenerated.length > 0) {
+            logger.warn(formatUngeneratedAgentPages(ungenerated));
           }
         }
 
