@@ -1,0 +1,19 @@
+packages/nimbus-docs/test/page-urls.test.ts
+  s_2fe60549276209::t_73c65c76bad90e 1-313
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "83d22b773dceabbba55ac243662bac13a1148d36",
+  "prompts": {},
+  "sessions": {
+    "s_2fe60549276209": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f299254d8ffeV9sOVksn9dA6ET",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
