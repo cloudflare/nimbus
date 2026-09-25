@@ -124,3 +124,26 @@ const href = withBase(`/${route}`, import.meta.env.BASE_URL);
 - `withBase()` adds the configured base when producing a browser URL.
 
 Nimbus rejects ambiguous or unsafe generated routes during the build. Common causes include both `foo` and `foo/index`, collisions with reserved `llms.txt` routes, encoded path separators, and encoded `.` or `..` segments. The build error names the conflicting entries.
+
+## Page URLs
+
+`getDocsPage()` and `getCollectionPage()` return each page's URLs next to `entry`, `Content`, and `headings`, so page routes don't build them by hand. `getIndexedEntries()` returns the same values on each `IndexedEntry`.
+
+| Field | Example | Description |
+| --- | --- | --- |
+| `markdownUrl` | `/blog/welcome/index.md` | The page's clean Markdown version. `/index.md` for the site root. |
+| `sourceUrl` | `/blog/welcome/index.mdx` | The page's authored source. `undefined` for entries without an authored body. |
+| `ogImageUrl` | `/og/blog/welcome.png` | The page's generated OG card. `/og/index.png` for the site root, `/og/blog.png` for the root of a collection mounted at `/blog`. |
+
+Each URL is site-relative, without Astro's deployment base; the starter's layouts add the base when they emit it. The starter's page route uses the URLs directly:
+
+```astro title="src/pages/[...slug].astro (excerpt)"
+---
+const page = await getDocsPage(Astro);
+if (page instanceof Response) return page;
+const { entry, Content, headings, markdownUrl, ogImageUrl } = page;
+const socialImage = entry.data.socialImage ?? ogImageUrl;
+---
+```
+
+`getOgImagePages()` returns the `pages` map for astro-og-canvas's `OGImageRoute`: one entry per indexed page, keyed so the card is written at that page's `ogImageUrl`, with the page's `IndexedEntry` as the value. The starter's `src/pages/og/[...slug].ts` passes it through; see [Customize OG cards](/ai/override-markdown#customize-og-cards).
