@@ -94,11 +94,9 @@ export async function latestTemplatesTag(): Promise<string> {
         `Pass --to <templates-vX.Y.Z> to name one, or --template-dir for offline.`,
     );
   }
+  if (res.status === 403 || res.status === 429) throw await refusedLookupError(res);
   if (!res.ok) {
-    throw new Error(
-      `GitHub tags API returned ${res.status} for ${TEMPLATES_REPO}. ` +
-        `${res.status === 403 ? "Rate-limited — set GIGET_AUTH. " : ""}Pass --to <tag> to skip the lookup.`,
-    );
+    throw new Error(`GitHub tags API returned ${res.status} for ${TEMPLATES_REPO}. Pass --to <tag> to skip the lookup.`);
   }
   // One page (100 tags) — enough while the repo has few; the client-side
   // semver-sort re-orders whatever the page returns.
@@ -135,6 +133,28 @@ export function listTreeFiles(dir: string, subPath = ""): string[] {
   };
   walk(root);
   return out.sort();
+}
+
+async function refusedLookupError(res: Response): Promise<Error> {
+  const skip = "skip the lookup with --to <templates-vX.Y.Z> or --template-dir <path>.";
+  const message = process.env.GIGET_AUTH
+    ? `GitHub refused the template lookup with the token in GIGET_AUTH. Check the token, or ${skip}`
+    : "GitHub refused the template lookup (anonymous requests are limited to 60 per hour). " +
+      `Set GIGET_AUTH to a GitHub token, or ${skip}`;
+  const reset = new Date(Number(res.headers.get("x-ratelimit-reset")) * 1000);
+  if (res.headers.get("x-ratelimit-remaining") === "0" && reset.getTime() > 0) {
+    const at = reset.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    });
+    return new Error(`${message} The limit resets at ${at}.`);
+  }
+  const body = (await res.json().catch(() => null)) as { message?: unknown } | null;
+  return new Error(typeof body?.message === "string" ? `${message} GitHub said: "${body.message}"` : message);
 }
 
 function templateFetchError(err: Error, tag: string): Error {

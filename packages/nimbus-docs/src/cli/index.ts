@@ -159,6 +159,9 @@ const HELP = `
     --help, -h
     --version, -v
 
+  Environment:
+    GIGET_AUTH=<token>             \`outdated\`/\`diff\`: GitHub token for the template lookup (anonymous: 60 requests/hour)
+
   Examples (run with your package manager — see Usage above):
     nimbus-docs add dialog                              # component: resolve + install
     nimbus-docs add card --overwrite                    # re-install over your copy (review with git)
