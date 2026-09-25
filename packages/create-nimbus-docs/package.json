@@ -43,7 +43,7 @@
     "prepack": "tsdown"
   },
   "dependencies": {
-    "@clack/prompts": "^0.9.1",
+    "@clack/prompts": "^1.8.0",
     "@cloudflare/nimbus-docs": "workspace:*",
     "giget": "^3.3.0",
     "mri": "^1.2.0",
