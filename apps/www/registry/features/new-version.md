@@ -162,7 +162,7 @@ If yes, the recipe adds `<slug>` to `versions.hidden`. That means the
 version's URLs resolve but it's excluded from:
 - The picker dropdown
 - Pagefind search index entirely
-- `/llms.txt` (root + per-version)
+- `/<slug>/llms.txt` — a hidden version gets no index
 - Cross-version `<link rel="alternate">` tags
 
 Useful for in-progress drafts, marketing-published-but-incomplete
@@ -631,7 +631,9 @@ After writing all files:
    - `dist/<slug>/welcome/index.html` (or the equivalent first entry)
    - `dist/<slug>/welcome/index.md` and `index.mdx` (served by the shared
      Markdown routes)
-   - `dist/<slug>/llms.txt` (if the version has ≥ 2 entries)
+   - `dist/<slug>/llms.txt`, unless the version is hidden. The root
+     `dist/llms.txt` lists only the current version, so it doesn't link
+     `/<slug>/llms.txt` for any older version, hidden or not.
 4. Tell the user the URLs to visit:
    - `http://localhost:<port>/` (current version)
    - `http://localhost:<port>/<slug>/<page>` (frozen version)
