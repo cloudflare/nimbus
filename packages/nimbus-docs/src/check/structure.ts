@@ -5,6 +5,8 @@
  *   - config Zod       → `validateNimbusConfig`
  *   - duplicate routes → `findDuplicateRoutes`
  *   - MDX components   → `validateMdxContent`
+ *   - API collections  → the `api` entry ↔ `apiCollection()` key pairing the
+ *                        build and loader enforce
  * Sub-checks it can't run statically (a computed config field, a missing
  * `components.ts`) are `notes`, not warnings. Internal-link resolution is left
  * to the authoring `nimbus/internal-link` rule (one implementation), not here.
@@ -19,6 +21,12 @@ import {
   parseContentCollections,
   filterIndexableCollections,
 } from "../_internal/parse-content-collections.js";
+import {
+  missingApiCollectionMessage,
+  nonApiCollectionMessage,
+  unconfiguredApiCollectionMessage,
+} from "../_internal/api-collection-registry.js";
+import { parseApiCollections } from "./parse-api-collections.js";
 import { parseComponentsRegistry } from "../_internal/parse-components-registry.js";
 import {
   canonicalCollectionRouteComponent,
@@ -46,11 +54,87 @@ export async function checkStructure(
   const notes: Note[] = [];
 
   const config = checkConfigZod(findings, notes, parsed);
+  await checkApiCollections(cwd, findings, parsed, config);
   await checkRequestRendering(cwd, findings, notes, parsed, config);
   await checkDuplicateRoutes(cwd, findings, parsed);
   await checkMdxComponents(cwd, findings, notes);
 
   return { scope: "structure", findings, notes, evaluated: true };
+}
+
+/**
+ * Every `api` entry needs an `apiCollection()` registered under its key in
+ * `src/content.config.ts`, and every zero-argument `apiCollection()` needs an
+ * `api` entry for its key. Explicit `apiCollection({ … })` calls carry their
+ * own entry and aren't paired. Anything either side can't read statically is
+ * skipped; the build enforces the same pairing.
+ */
+async function checkApiCollections(
+  cwd: string,
+  findings: CheckFinding[],
+  parsed: ConfigParseResult,
+  config: NimbusConfig | null,
+): Promise<void> {
+  if (
+    !parsed.ok ||
+    config === null ||
+    parsed.unresolved.includes("api") ||
+    parsed.unresolved.includes("...spread")
+  ) {
+    return;
+  }
+  const contentConfigPath = path.join(cwd, "src", "content.config.ts");
+  const [collections, api] = await Promise.all([
+    parseContentCollections(contentConfigPath),
+    parseApiCollections(contentConfigPath),
+  ]);
+  if (collections === null || api === null) return;
+
+  const configured = (config.api ?? []).map((entry) => entry.collection);
+  const kinds = new Map(
+    api.registrations.map((registration) => [registration.key, registration.kind]),
+  );
+  const apiField = parsed.location.fields.get("api");
+  const configFinding = (message: string): CheckFinding => ({
+    scope: "structure",
+    code: "nimbus/api-collection-missing",
+    severity: "error",
+    file: relFile(parsed.location.file),
+    line: lineOf(
+      parsed.location.source,
+      apiField?.keyStart ?? parsed.location.objectStart,
+    ),
+    message,
+    fixable: false,
+  });
+
+  for (const collection of configured) {
+    const kind = kinds.get(collection);
+    if (kind === "other") {
+      findings.push(configFinding(nonApiCollectionMessage(collection)));
+    } else if (
+      kind === undefined &&
+      collections.complete &&
+      !collections.names.includes(collection)
+    ) {
+      findings.push(configFinding(missingApiCollectionMessage(collection)));
+    }
+  }
+
+  for (const registration of api.registrations) {
+    if (registration.kind !== "config" || configured.includes(registration.key)) {
+      continue;
+    }
+    findings.push({
+      scope: "structure",
+      code: "nimbus/api-collection-unconfigured",
+      severity: "error",
+      file: relFile(contentConfigPath),
+      line: lineOf(api.source, registration.offset),
+      message: unconfiguredApiCollectionMessage(registration.key, configured),
+      fixable: false,
+    });
+  }
 }
 
 async function checkRequestRendering(
