@@ -53,11 +53,13 @@ Inspect the repo to learn its conventions:
 - `src/components.ts` — the MDX globals registry. Entry bodies render with
   this map, so authored components in entries work like they do in docs.
 - `src/pages/og/[...slug].ts` — confirm it enumerates entries with
-  `getIndexedEntries()`, as the starter's does. It then already generates
-  `/og/changelog/<slug>.png` for every entry, so the changelog needs no OG
-  route. If the project's OG route covers only the `docs` collection, extend
-  it to every collection instead of adding a second route under
-  `src/pages/og/`, which would generate the same paths.
+  `getOgImagePages()`, as the starter's does (older starters use
+  `getIndexedEntries()`, which also works). It then already generates
+  `/og/changelog/<slug>.png` for every entry, the permalink's
+  `ogImageUrl`, so the changelog needs no OG route. If the project's OG
+  route covers only the `docs` collection, extend it to every collection
+  instead of adding a second route under `src/pages/og/`, which would
+  generate the same paths.
 - `src/styles/globals.css` — confirm Nimbus tokens exist (`--nb-border`,
   `--nb-card`, `--nb-foreground`, `--nb-muted-foreground`, `--nb-h1-size`, …).
   The components use them.
@@ -732,7 +734,7 @@ import type { GetStaticPaths } from "astro";
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import ChangelogLayout from "@/layouts/ChangelogLayout.astro";
 import { Badge } from "@/components/ui/badge";
-import { entryRouteKey, getCollectionStaticPaths, getCollectionPage, withBase } from "@cloudflare/nimbus-docs";
+import { getCollectionStaticPaths, getCollectionPage, withBase } from "@cloudflare/nimbus-docs";
 import { components } from "@/components";
 
 export const prerender = true;
@@ -743,18 +745,13 @@ export const getStaticPaths: GetStaticPaths = async (options) =>
 
 const page = await getCollectionPage<"changelog">(Astro);
 if (page instanceof Response) return page;
-const { entry, Content } = page;
+const { entry, Content, markdownUrl, ogImageUrl } = page;
 const { title, description, date, tags } = entry.data;
 
 const iso = date.toISOString().slice(0, 10);
 const dateLabel = date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
-const routeKey = entryRouteKey(entry.id);
-const markdownPath = routeKey
-  ? `/changelog/${routeKey}/index.md`
-  : "/changelog/index.md";
-const markdownUrl = markdownPath;
-const socialImage = entry.data.socialImage ?? `/og/changelog/${entry.id}.png`;
+const socialImage = entry.data.socialImage ?? ogImageUrl;
 ---
 
 <ChangelogLayout

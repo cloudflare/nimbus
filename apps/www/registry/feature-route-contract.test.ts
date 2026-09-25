@@ -10,12 +10,13 @@ async function feature(name: string): Promise<string> {
   return readFile(join(FEATURES, `${name}.md`), "utf8");
 }
 
-test("collection recipes canonicalize nested index routes", async () => {
+test("collection recipes take page URLs from the page helper", async () => {
   for (const name of ["new-collection", "new-version", "changelog"]) {
     const source = await feature(name);
-    assert.match(source, /entryRouteKey/);
+    assert.match(source, /markdownUrl, ogImageUrl \} = page;/);
+    assert.match(source, /const socialImage = entry\.data\.socialImage \?\? ogImageUrl;/);
     assert.doesNotMatch(source, /withBaseRoute/);
-    assert.doesNotMatch(source, /\$\{entry\.id\}\/index\.md/);
+    assert.doesNotMatch(source, /\$\{routeKey\}\/index\.md`|`\/og\/[^`]*\$\{/);
   }
 });
 
@@ -75,7 +76,7 @@ test("changelog relies on the shared OG route", async () => {
   const source = await feature("changelog");
   assert.doesNotMatch(source, /src\/pages\/og\/changelog/);
   assert.doesNotMatch(source, /OGImageRoute/);
-  assert.match(source, /`src\/pages\/og\/\[\.\.\.slug\]\.ts` — confirm it enumerates entries with\s+`getIndexedEntries\(\)`/);
+  assert.match(source, /`src\/pages\/og\/\[\.\.\.slug\]\.ts` — confirm it enumerates entries with\s+`getOgImagePages\(\)`/);
 });
 
 test("changelog uses the Nimbus Icon component", async () => {
