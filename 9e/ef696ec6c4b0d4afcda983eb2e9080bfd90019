@@ -1,0 +1,21 @@
+packages/nimbus-docs/src/cli/_templates.ts
+  s_744ce8f73be83e::t_d0d59c6b84c3dd 97,99,138-159
+packages/nimbus-docs/test/cli-templates.test.ts
+  s_744ce8f73be83e::t_95bb95db2fa4bf 1-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "9eef696ec6c4b0d4afcda983eb2e9080bfd90019",
+  "prompts": {},
+  "sessions": {
+    "s_744ce8f73be83e": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f26d2bd3effesIeYDgyh4W0iDf",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
