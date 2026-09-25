@@ -231,7 +231,8 @@ export interface ApiRoutePolicy {
 
 /**
  * One OpenAPI reference spec, mounted as a content collection named
- * `collection` at `/<collection>`. Declared once in `nimbus.config.ts`.
+ * `collection` at `/<collection>`. Declared once in the Nimbus config's `api`
+ * array and registered in `src/content.config.ts` with `apiCollection()`.
  *
  * For a single, unversioned reference, set `spec`. For a **version family**,
  * set `versions` instead: the default version mounts at `/<collection>` and
