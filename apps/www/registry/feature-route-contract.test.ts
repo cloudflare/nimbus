@@ -74,9 +74,15 @@ test("recipes that rely on the shared routes stop on an older docs-only starter"
 
 test("changelog relies on the shared OG route", async () => {
   const source = await feature("changelog");
-  assert.doesNotMatch(source, /src\/pages\/og\/changelog/);
-  assert.doesNotMatch(source, /OGImageRoute/);
+  assert.doesNotMatch(source, /src\/pages\/og\/changelog\//);
+  assert.doesNotMatch(source, /OGImageRoute\(/);
   assert.match(source, /`src\/pages\/og\/\[\.\.\.slug\]\.ts` — confirm it enumerates entries with\s+`getOgImagePages\(\)`/);
+});
+
+test("changelog gives its feed root its own OG card", async () => {
+  const source = await feature("changelog");
+  assert.match(source, /### 5l\. `src\/pages\/og\/changelog\.png\.ts`[\s\S]*?generateOpenGraphImage\(/);
+  assert.equal(source.match(/socialImage="\/og\/changelog\.png"/g)?.length, 3);
 });
 
 test("changelog uses the Nimbus Icon component", async () => {

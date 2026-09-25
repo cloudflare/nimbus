@@ -56,10 +56,14 @@ Inspect the repo to learn its conventions:
   `getOgImagePages()`, as the starter's does (older starters use
   `getIndexedEntries()`, which also works). It then already generates
   `/og/changelog/<slug>.png` for every entry, the permalink's
-  `ogImageUrl`, so the changelog needs no OG route. If the project's OG
-  route covers only the `docs` collection, extend it to every collection
-  instead of adding a second route under `src/pages/og/`, which would
-  generate the same paths.
+  `ogImageUrl`, so entries need no OG route of their own. If the project's
+  OG route covers only the `docs` collection, extend it to every collection
+  instead of adding a second `OGImageRoute` under `src/pages/og/`, which
+  would generate the same paths. The feed root is a page, not an entry, so
+  it gets one static card in 5l.
+- `src/pages/og/_og-card-config.ts` — the card styling shared by the
+  starter's OG routes. If it's missing, copy the options from the project's
+  OG route into 5l instead of importing them.
 - `src/styles/globals.css` — confirm Nimbus tokens exist (`--nb-border`,
   `--nb-card`, `--nb-foreground`, `--nb-muted-foreground`, `--nb-h1-size`, …).
   The components use them.
@@ -85,7 +89,7 @@ Ask, with sensible defaults:
 
 Print the exact file list before writing, and the resulting URLs
 (`/changelog`, `/changelog/<slug>`, `/changelog/page/2`,
-`/changelog/<slug>/index.md`, `/changelog/llms.txt`, and — if RSS was
+`/changelog/<slug>/index.md`, `/changelog/llms.txt`, `/og/changelog.png`, and — if RSS was
 chosen — `/changelog/rss.xml`). Wait for confirmation.
 
 You will **create**:
@@ -102,6 +106,7 @@ You will **create**:
 - `src/pages/changelog/page/[page].astro`
 - `src/pages/changelog/[...slug]/index.md.ts`
 - `src/pages/changelog/rss.xml.ts` — **RSS only** (skip if the user declined).
+- `src/pages/og/changelog.png.ts` — the feed's OG card.
 
 You will **edit**:
 
@@ -681,6 +686,7 @@ const description = "New features, improvements, and fixes.";
 <ChangelogLayout
   title={title}
   description={description}
+  socialImage="/og/changelog.png"
   head={[
     {
       tag: "link",
@@ -722,7 +728,7 @@ const description = "New features, improvements, and fixes.";
 ```
 
 **If the user declined RSS:** delete the `head={[...]}` prop (leaving
-`<ChangelogLayout title={title} description={description}>`) and remove the
+`<ChangelogLayout title={title} description={description} socialImage="/og/changelog.png">`) and remove the
 RSS `<a>` button, so the header is just the title. Skip the `rss.xml.ts`
 route in 5j entirely.
 
@@ -855,7 +861,7 @@ const next =
   page < totalPages ? { label: `Page ${page + 1}`, href: `/changelog/page/${page + 1}` } : undefined;
 ---
 
-<ChangelogLayout title={`Changelog — Page ${page}`} description="" noindex>
+<ChangelogLayout title={`Changelog — Page ${page}`} description="" socialImage="/og/changelog.png" noindex>
   <header class="mb-14">
     <a
       href={withBase("/changelog", import.meta.env.BASE_URL)}
@@ -1058,7 +1064,30 @@ export async function GET({ params, props, request }: SlugContext) {
 }
 ```
 
-### 5l. Seed entry — `src/content/changelog/<YYYY-MM-DD>-welcome.mdx`
+### 5l. `src/pages/og/changelog.png.ts` (feed card)
+
+The feed root and its paginated pages link to `/og/changelog.png`. Entries
+already get their cards from the shared `og/[...slug].ts` route; this card
+covers the feed, which isn't an entry. Use the same title and description
+as `index.astro`.
+
+```ts
+import { generateOpenGraphImage } from "astro-og-canvas";
+import { ogCardConfig } from "./_og-card-config";
+
+export const prerender = true;
+
+export async function GET() {
+  const body = await generateOpenGraphImage({
+    title: "Changelog",
+    description: "New features, improvements, and fixes.",
+    ...ogCardConfig,
+  });
+  return new Response(body, { headers: { "Content-Type": "image/png" } });
+}
+```
+
+### 5m. Seed entry — `src/content/changelog/<YYYY-MM-DD>-welcome.mdx`
 
 ```mdx
 ---
@@ -1096,7 +1125,8 @@ navigation.
    - `dist/changelog/index.html`, `dist/changelog/<slug>/index.html`
    - `dist/changelog/<slug>/index.md`, with `date` and `tags` in its
      frontmatter, and `dist/changelog/<slug>/index.mdx`
-   - `dist/og/changelog/<slug>.png`
+   - `dist/og/changelog/<slug>.png`, and `dist/og/changelog.png`, which
+     `dist/changelog/index.html` uses as its `og:image`
    - `dist/changelog/page/2/index.html` (only if entries exceed the page size)
    - `dist/changelog/llms.txt` and `changelog` listed in root `dist/llms.txt`
    - `dist/changelog/rss.xml` — only if RSS was chosen
