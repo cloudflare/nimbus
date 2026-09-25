@@ -1,0 +1,21 @@
+apps/www/registry/feature-route-contract.test.ts
+  s_e586f6ea7c3c7b::t_9a9b839d631f02 81-86
+apps/www/registry/features/changelog.md
+  s_e586f6ea7c3c7b::t_cbf1b6881583f6 314,659,732
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "0a2a7d7fbc7ecc73605f8624f3725a67a90bd163",
+  "prompts": {},
+  "sessions": {
+    "s_e586f6ea7c3c7b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f2a2f002fffe67oKEkFJB2tyAE",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
