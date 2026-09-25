@@ -725,9 +725,10 @@ import { entryRouteKey, getCollectionStaticPaths, getCollectionPage, withBase } 
 import { components } from "@/components";
 
 export const prerender = true;
-const getChangelogStaticPaths = getCollectionStaticPaths("changelog");
 export const getStaticPaths: GetStaticPaths = async (options) =>
-  (await getChangelogStaticPaths(options)).filter((path) => path.params.slug);
+  (await getCollectionStaticPaths("changelog")(options)).filter(
+    (path) => path.params.slug,
+  );
 
 const page = await getCollectionPage<"changelog">(Astro);
 if (page instanceof Response) return page;

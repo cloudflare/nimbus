@@ -60,7 +60,11 @@ test("changelog reserves its index entry for the feed route", async () => {
     source,
     /### 5h\.[\s\S]*?```astro\n---\nimport type \{ GetStaticPaths \} from "astro";/,
   );
-  assert.match(source, /getChangelogStaticPaths[\s\S]*filter\(\(path\) => path\.params\.slug\)/);
+  assert.doesNotMatch(source, /getChangelogStaticPaths/);
+  assert.match(
+    source,
+    /export const getStaticPaths: GetStaticPaths = async \(options\) =>\n  \(await getCollectionStaticPaths\("changelog"\)\(options\)\)\.filter\(\n    \(path\) => path\.params\.slug,\n  \);/,
+  );
   assert.equal(
     source.match(/paths\.filter\(\(path\) => path\.params\.slug !== undefined\)/g)?.length,
     2,
