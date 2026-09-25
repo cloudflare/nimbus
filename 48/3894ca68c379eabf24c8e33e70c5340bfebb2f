@@ -1,0 +1,41 @@
+packages/nimbus-docs/src/_internal/api-loader.ts
+  s_2fe60549276209::t_6a0de8b3a32953 162-173
+packages/nimbus-docs/src/_internal/api/api-view-types.ts
+  s_2fe60549276209::t_205f04a2d017b6 145-152,173-180,218-231
+packages/nimbus-docs/src/_internal/api/coordinates.ts
+  s_2fe60549276209::t_ecd8fef6496c0a 156-176,285-286,295-328
+packages/nimbus-docs/src/_internal/api/markdown.ts
+  s_2fe60549276209::t_b0689707205132 251-265,272-282,284-294,299-306,352-358,360,362-366,382
+packages/nimbus-docs/src/_internal/api/model.ts
+  s_2fe60549276209::t_f309291948ddeb 30,85,146-150,285-287,303-315
+packages/nimbus-docs/src/_internal/api/openapi-types.ts
+  s_2fe60549276209::t_c4210d9aa4f0be 147-148
+packages/nimbus-docs/src/_internal/api/operations.ts
+  s_2fe60549276209::t_aed6a9204a3956 8-9,15-16,38,40,285,289,292-301,307-311,313-316,338,341,344,354-361,383-389,495,522-555
+packages/nimbus-docs/src/_internal/api/prepared.ts
+  s_2fe60549276209::t_8aedb7d6b5df49 88-90,109,114-131
+packages/nimbus-docs/src/_internal/api/schema-resolver.ts
+  s_2fe60549276209::t_8c92d6ab2cf47e 303,322-324,338-374,385-412
+packages/nimbus-docs/src/api/index.ts
+  s_2fe60549276209::t_50de9b8e293a02 54
+packages/nimbus-docs/test/api-openapi-fidelity.test.ts
+  s_2fe60549276209::t_2ccf16b107188f 1-443
+packages/nimbus-docs/test/api-seam-purity.test.ts
+  s_2fe60549276209::t_4cbdf34aaf2692 48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "483894ca68c379eabf24c8e33e70c5340bfebb2f",
+  "prompts": {},
+  "sessions": {
+    "s_2fe60549276209": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f299254d8ffeV9sOVksn9dA6ET",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
