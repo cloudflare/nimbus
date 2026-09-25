@@ -97,7 +97,7 @@ export const collections = {
 
 `apiCollection()` reads the `api` entry whose `collection` matches its key, so the specification is declared only once. The key tells Astro which loader turns that entry into content entries, and lets Nimbus find the collection during configuration and build validation.
 
-To mount several specifications, add one `api` entry and one `apiCollection()` line for each. The build fails if a collection key has no `api` entry, or an entry has no collection. The error names both files. `nimbus-docs check` reports the same mismatches without a build.
+To mount several specifications, add one `api` entry and one `apiCollection()` line for each. The build fails if a collection key has no `api` entry, or an `api` entry has no matching `apiCollection()` under its key. The error names both files. `nimbus-docs check` reports the same mismatches without a build.
 
 In `astro dev`, editing a spec file re-indexes its pages. Editing the `api` entries restarts the dev server and re-indexes the reference, without a manual restart.
 

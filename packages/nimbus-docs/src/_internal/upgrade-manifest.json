@@ -241,7 +241,7 @@
       "verify": [
         "Build and compare the list of generated .md and .mdx files before and after the change.",
         "Confirm the build reports no Markdown paths that a route matches but did not generate.",
-        "Request a representative .md and .mdx URL from each collection, including an API page."
+        "Request a representative .md URL from each collection, including an API page, and a .mdx URL from each collection with authored source (API pages have none)."
       ]
     }
   ]

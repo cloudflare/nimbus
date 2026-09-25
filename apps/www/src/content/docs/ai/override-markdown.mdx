@@ -125,3 +125,5 @@ A more specific route must generate every page its pattern matches. If it skips 
 An override changes only what that route serves. `llms-full.txt` and hosted MCP keep the Markdown Nimbus generates.
 
 The shared routes and routes that use `markdownRoute()` or `markdownSourceRoute()` must keep `export const prerender = true`. The build fails if one is rendered on request.
+
+Call the factory in the route file itself, as the examples above do. Like Astro's own `prerender` detection, Nimbus finds it by reading the route file, so a factory re-exported from another module is not checked.
