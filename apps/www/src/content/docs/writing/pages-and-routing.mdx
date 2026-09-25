@@ -135,6 +135,8 @@ Nimbus rejects ambiguous or unsafe generated routes during the build. Common cau
 | `sourceUrl` | `/blog/welcome/index.mdx` | The page's authored source. `undefined` for entries without an authored body. |
 | `ogImageUrl` | `/og/blog/welcome.png` | The page's generated OG card. `/og/index.png` for the site root, `/og/blog.png` for the root of a collection mounted at `/blog`. |
 
+The URLs follow the entry ID. Astro's glob loader slugifies file paths, which drops dots: `src/content/docs/1.1.1.1/encryption.mdx` gets the ID `1111/encryption`. Dots are kept where Astro doesn't slugify: a version prefix (`/v1.2/guide/`), an API operation (`payment.succeeded`), or a `slug` frontmatter field, which Astro uses as the ID. To allow `slug`, add it with `schemaFields: { slug: z.string().optional() }`.
+
 Each URL is site-relative, without Astro's deployment base; the starter's layouts add the base when they emit it. The starter's page route uses the URLs directly:
 
 ```astro title="src/pages/[...slug].astro (excerpt)"
