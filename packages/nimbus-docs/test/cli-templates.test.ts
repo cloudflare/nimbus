@@ -51,8 +51,8 @@ const cases: Array<{ name: string; respond: () => Response; auth?: string; expec
     expected: `${ANONYMOUS} GitHub said: "Resource protected by SAML enforcement."`,
   },
   {
-    name: "403 with GIGET_AUTH set",
-    respond: () => Response.json({ message: "Bad credentials" }, { status: 403 }),
+    name: "401 with GIGET_AUTH set",
+    respond: () => Response.json({ message: "Bad credentials" }, { status: 401 }),
     auth: "ghp_example",
     expected: `${WITH_TOKEN} GitHub said: "Bad credentials"`,
   },

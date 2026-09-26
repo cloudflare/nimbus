@@ -94,7 +94,7 @@ export async function latestTemplatesTag(): Promise<string> {
         `Pass --to <templates-vX.Y.Z> to name one, or --template-dir for offline.`,
     );
   }
-  if (res.status === 403 || res.status === 429) throw await refusedLookupError(res);
+  if (res.status === 401 || res.status === 403 || res.status === 429) throw await refusedLookupError(res);
   if (!res.ok) {
     throw new Error(`GitHub tags API returned ${res.status} for ${TEMPLATES_REPO}. Pass --to <tag> to skip the lookup.`);
   }
