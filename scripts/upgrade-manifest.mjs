@@ -13,7 +13,7 @@ const MANIFEST = path.join(
   ROOT,
   "packages/nimbus-docs/src/_internal/upgrade-manifest.json",
 );
-const MODES = new Set(["automatic", "detectable-manual", "review-required"]);
+const MODES = new Set(["automatic", "detectable-manual", "review-required", "optional"]);
 
 export function validateUpgradeManifest(value) {
   if (
@@ -44,6 +44,8 @@ export function validateUpgradeManifest(value) {
       throw new Error(`${entry.id} has an invalid mode.`);
     if (entry.mode === "automatic" && !entry.migrationId)
       throw new Error(`${entry.id} automatic entries require migrationId.`);
+    if (entry.mode === "optional" && entry.migrationId)
+      throw new Error(`${entry.id} optional entries cannot have migrationId.`);
     for (const field of ["summary", "affected"]) {
       if (typeof entry[field] !== "string" || !entry[field].trim())
         throw new Error(`${entry.id} requires ${field}.`);
@@ -107,7 +109,7 @@ export function validateBreakingDeclaration({
   }
 }
 
-export function validateManifestContinuity(previousManifest, currentManifest) {
+export function validateManifestContinuity(previousManifest, currentManifest, currentVersion) {
   if (previousManifest.oldestSupportedVersion !== currentManifest.oldestSupportedVersion) {
     throw new Error("Upgrade manifest oldestSupportedVersion cannot be changed.");
   }
@@ -118,7 +120,7 @@ export function validateManifestContinuity(previousManifest, currentManifest) {
       throw new Error(
         `Upgrade manifest entry ${previous.id} cannot be removed.`,
       );
-    if (!isDeepStrictEqual(entry, previous))
+    if (!isDeepStrictEqual(entry, previous) && (!currentVersion || !lt(currentVersion, previous.introducedIn)))
       throw new Error(
         `Upgrade manifest entry ${previous.id} cannot be changed.`,
       );
@@ -199,18 +201,19 @@ export function runUpgradeManifestCheck({
 } = {}) {
   const manifest = loadManifest();
   const previous = loadPreviousManifest(baseRef);
-  if (previous) validateManifestContinuity(previous, manifest);
+  const currentVersion = JSON.parse(
+    fs.readFileSync(
+      path.join(ROOT, "packages/nimbus-docs/package.json"),
+      "utf8",
+    ),
+  ).version;
+  if (previous) validateManifestContinuity(previous, manifest, currentVersion);
   validateBreakingDeclaration({
     breaking,
     previousEntries: previous?.entries ?? null,
     currentEntries: manifest.entries,
     changesets: pendingChangesets(),
-    currentVersion: JSON.parse(
-      fs.readFileSync(
-        path.join(ROOT, "packages/nimbus-docs/package.json"),
-        "utf8",
-      ),
-    ).version,
+    currentVersion,
   });
 }
 

@@ -6,6 +6,7 @@ import { afterEach, test } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { discoverMigrations, resolveMigrationSrcDir } from "../src/_internal/migrations.js";
+import { runningNimbusVersion, UPGRADE_MANIFEST, type UpgradeEntry } from "../src/_internal/upgrades.js";
 import nimbus from "../src/index.js";
 import {
   getCollectionPage,
@@ -52,6 +53,51 @@ export default defineConfig({
 `,
   );
   return root;
+}
+
+function syntheticEntry(id: string, mode: UpgradeEntry["mode"]): UpgradeEntry {
+  return {
+    id,
+    introducedIn: runningNimbusVersion(),
+    mode,
+    summary: `Review ${id}.`,
+    affected: "Existing sites.",
+    instructions: ["Review the entry."],
+    verify: ["Build the site."],
+  };
+}
+
+function invokeBuildCheck(root: string, entries: UpgradeEntry[]): { errors: string[]; infos: string[] } {
+  const previous = UPGRADE_MANIFEST.entries;
+  UPGRADE_MANIFEST.entries = entries;
+  const errors: string[] = [];
+  const infos: string[] = [];
+  try {
+    const integration = nimbus({ site: "https://example.com", title: "Docs" } as never, {
+      validateMdx: false,
+      admonitions: false,
+      sitemap: false,
+      markdown: { processor: {} as never },
+    });
+    const hook = integration.hooks["astro:config:done"];
+    assert.ok(hook);
+    hook!({
+      config: {
+        root: pathToFileURL(`${root}${path.sep}`),
+        srcDir: pathToFileURL(`${path.join(root, "src")}${path.sep}`),
+        output: "static",
+        redirects: {},
+      },
+      injectTypes: () => {},
+      logger: {
+        error: (message: string) => errors.push(message),
+        info: (message: string) => infos.push(message),
+      },
+    } as never);
+    return { errors, infos };
+  } finally {
+    UPGRADE_MANIFEST.entries = previous;
+  }
 }
 
 test("plans the canonical resolver as two byte-preserving edits", () => {
@@ -321,7 +367,60 @@ export default defineConfig({ integrations: [nimbus({ site: "https://example.com
       injectTypes: () => {},
       logger: { error: () => {} },
     } as never),
-    /no reviewed upgrade baseline/,
+    {
+      message: "nimbus-docs: Nimbus has no reviewed upgrade baseline. Run `nimbus-docs migrate --from <version>`, complete every review, then rerun migrate with consent before building.",
+    },
+  );
+});
+
+test("Astro integration treats synthetic optional upgrades as information", () => {
+  const root = project({
+    route: `---\nconst title = "Docs";\n---\n<p>{title}</p>\n`,
+  });
+  fs.writeFileSync(
+    path.join(root, "nimbus.json"),
+    `${JSON.stringify({ lastReviewedNimbusVersion: "0.14.1" })}\n`,
+  );
+  const result = invokeBuildCheck(root, [
+    syntheticEntry("optional-one", "optional"),
+    syntheticEntry("optional-two", "optional"),
+  ]);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.infos, [
+    "Nimbus optional upgrades available (optional-one, optional-two). Run `nimbus-docs migrate` to review them.",
+  ]);
+});
+
+test("Astro integration still blocks required upgrades alone and mixed with optional entries", () => {
+  for (const entries of [
+    [syntheticEntry("required-one", "review-required")],
+    [syntheticEntry("optional-one", "optional"), syntheticEntry("required-one", "review-required")],
+  ]) {
+    const root = project({ route: `---\nconst title = "Docs";\n---\n<p>{title}</p>\n` });
+    fs.writeFileSync(
+      path.join(root, "nimbus.json"),
+      `${JSON.stringify({ lastReviewedNimbusVersion: "0.14.1" })}\n`,
+    );
+    assert.throws(
+      () => invokeBuildCheck(root, entries),
+      {
+        message: "nimbus-docs: Nimbus upgrade review required (required-one). Run `nimbus-docs migrate`, complete every review, then rerun migrate with consent before building.",
+      },
+    );
+  }
+});
+
+test("Astro integration preserves the invalid-baseline build error", () => {
+  const root = project({ route: `---\nconst title = "Docs";\n---\n<p>{title}</p>\n` });
+  fs.writeFileSync(
+    path.join(root, "nimbus.json"),
+    `${JSON.stringify({ lastReviewedNimbusVersion: "invalid" })}\n`,
+  );
+  assert.throws(
+    () => invokeBuildCheck(root, []),
+    {
+      message: "nimbus-docs: nimbus.json lastReviewedNimbusVersion must be an exact semantic version or null. Run `nimbus-docs migrate` to repair the upgrade baseline.",
+    },
   );
 });
 

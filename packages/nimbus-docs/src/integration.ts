@@ -1534,12 +1534,18 @@ export function nimbus(
           }
           if (baseline.fromVersion) {
             const reviews = selectUpgradeEntries(baseline.fromVersion, baseline.targetVersion);
-            if (reviews.length > 0) {
+            const requiredReviews = reviews.filter((entry) => entry.mode !== "optional");
+            if (requiredReviews.length > 0) {
               const message =
-                `Nimbus upgrade review required (${reviews.map((entry) => entry.id).join(", ")}). ` +
+                `Nimbus upgrade review required (${requiredReviews.map((entry) => entry.id).join(", ")}). ` +
                 "Run `nimbus-docs migrate`, complete every review, then rerun migrate with consent before building.";
               logger?.error(message);
               throw new Error(`nimbus-docs: ${message}`);
+            }
+            if (reviews.length > 0) {
+              logger?.info(
+                `Nimbus optional upgrades available (${reviews.map((entry) => entry.id).join(", ")}). Run \`nimbus-docs migrate\` to review them.`,
+              );
             }
           }
         }

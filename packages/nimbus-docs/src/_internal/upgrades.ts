@@ -7,7 +7,7 @@ import rawManifest from "./upgrade-manifest.json";
 
 declare const __APP_VERSION__: string;
 
-export type UpgradeMode = "automatic" | "detectable-manual" | "review-required";
+export type UpgradeMode = "automatic" | "detectable-manual" | "review-required" | "optional";
 
 export interface UpgradeEntry {
   id: string;

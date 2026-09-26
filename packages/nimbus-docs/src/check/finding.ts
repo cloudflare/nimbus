@@ -15,7 +15,7 @@ import { isBuildValidator, isRuleCode, type Diagnostic } from "../lint/diagnosti
 
 export type CheckScope = "env" | "structure" | "migrations" | "authoring" | "types";
 
-export type CheckSeverity = "error" | "warn";
+export type CheckSeverity = "error" | "warn" | "info";
 
 /** Per-scope verdict, derived from findings + `evaluated`. */
 export type ScopeStatus = "passed" | "failed" | "not_evaluated";
@@ -89,7 +89,7 @@ export function summarize(
   let fixable = 0;
   for (const f of findings) {
     if (f.severity === "error") errors++;
-    else warnings++;
+    else if (f.severity === "warn") warnings++;
     if (f.fixable) fixable++;
   }
   return { errors, warnings, notes: noteCount, fixable, durationMs };

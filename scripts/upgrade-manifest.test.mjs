@@ -79,6 +79,24 @@ test("manifest validation rejects duplicates and incomplete automatic entries", 
       }),
     /predates/,
   );
+  assert.throws(
+    () =>
+      validateUpgradeManifest({
+        schemaVersion: 1,
+        oldestSupportedVersion: "0.11.0",
+        entries: [entry("unknown", { mode: "unknown" })],
+      }),
+    /invalid mode/,
+  );
+  assert.throws(
+    () =>
+      validateUpgradeManifest({
+        schemaVersion: 1,
+        oldestSupportedVersion: "0.11.0",
+        entries: [entry("optional", { mode: "optional", migrationId: "optional" })],
+      }),
+    /cannot have migrationId/,
+  );
 });
 
 test("manifest continuity preserves shipped entries", () => {
@@ -116,6 +134,22 @@ test("manifest continuity preserves shipped entries", () => {
   assert.throws(
     () => validateManifestContinuity(manifest([]), manifest([], "0.12.0")),
     /oldestSupportedVersion/,
+  );
+  assert.doesNotThrow(() =>
+    validateManifestContinuity(
+      manifest([entry("unreleased", { introducedIn: "0.15.0" })]),
+      manifest([entry("unreleased", { introducedIn: "0.15.0", mode: "optional" })]),
+      "0.14.2",
+    ),
+  );
+  assert.throws(
+    () =>
+      validateManifestContinuity(
+        manifest([entry("released", { introducedIn: "0.14.0" })]),
+        manifest([entry("released", { introducedIn: "0.14.0", mode: "optional" })]),
+        "0.14.2",
+      ),
+    /cannot be changed/,
   );
 });
 

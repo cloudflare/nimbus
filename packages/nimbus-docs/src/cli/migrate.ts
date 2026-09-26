@@ -111,6 +111,8 @@ export async function migrateCommand(input: MigrateOptions): Promise<void> {
     ? selectUpgradeEntries(baseline.fromVersion, baseline.targetVersion)
     : [];
   const reviews = entries;
+  const requiredReviews = reviews.filter((entry) => entry.mode !== "optional");
+  const optionalOnly = reviews.length > 0 && requiredReviews.length === 0;
   let discovery: ReturnType<typeof discoverMigrations>;
   try {
     discovery = discoverMigrations({
@@ -149,7 +151,7 @@ export async function migrateCommand(input: MigrateOptions): Promise<void> {
 
   if (readOnly && !options.json && !options.diff) {
     printHumanPlan(discovery.plans, reviews, baseline, completionOptions);
-    process.exitCode = discovery.plans.length > 0 || reviews.length > 0 || baselineNeedsRecording ? 1 : 0;
+    process.exitCode = discovery.plans.length > 0 || requiredReviews.length > 0 || (baselineNeedsRecording && !optionalOnly) ? 1 : 0;
     return;
   }
 
@@ -165,7 +167,7 @@ export async function migrateCommand(input: MigrateOptions): Promise<void> {
     for (const plan of blocked) printBlockedPlan(plan);
     printUpgradeReviews(reviews, baseline);
     printCompletionCommand(reviews, baseline, completionOptions);
-    process.exitCode = discovery.plans.length > 0 || reviews.length > 0 || baselineNeedsRecording || (!baseline.fromVersion && baseline.source !== "preview") ? 1 : 0;
+    process.exitCode = discovery.plans.length > 0 || requiredReviews.length > 0 || (baselineNeedsRecording && !optionalOnly) || (!baseline.fromVersion && baseline.source !== "preview") ? 1 : 0;
     return;
   }
   const report = makeReport(baseline, results, reviews, [], false, baselineNeedsRecording);
@@ -323,9 +325,11 @@ function makeReport(
   baselinePending = false,
   baselineRecorded = !baselinePending && Boolean(baseline.fromVersion),
 ): MigrateReport {
+  const requiredReviews = reviews.filter((entry) => entry.mode !== "optional");
+  const optionalOnly = reviews.length > 0 && requiredReviews.length === 0;
   let status: MigrateReport["status"] = "passed";
   if (errors.length > 0 || migrations.some((migration) => migration.state === "failed")) status = "failed";
-  else if ((!baseline.fromVersion && baseline.source !== "preview") || baselinePending || (!reviewsCompleted && reviews.length > 0) || migrations.some((migration) => migration.state === "blocked")) status = "blocked";
+  else if ((!baseline.fromVersion && baseline.source !== "preview") || (baselinePending && !optionalOnly) || (!reviewsCompleted && requiredReviews.length > 0) || migrations.some((migration) => migration.state === "blocked")) status = "blocked";
   else if (migrations.some((migration) => migration.state === "available")) status = "changes_available";
   return {
     schemaVersion: 1,
@@ -493,7 +497,7 @@ function renderTask(
   if (plans.length === 0 && reviews.length === 0 && !baselineNeedsRecording) {
     return "# Nimbus migration task\n\nNo known Nimbus migrations or upgrade reviews are pending.\n";
   }
-  const lines = ["# Nimbus migration task", "", "Review and complete every migration below. Do not overwrite customized behavior.", ""];
+  const lines = ["# Nimbus migration task", "", "Review the migrations and upgrade entries below. Do not overwrite customized behavior.", ""];
   if (!baseline.fromVersion && baseline.source !== "preview") {
     lines.push(
       "## Upgrade baseline required",
@@ -515,9 +519,12 @@ function renderTask(
     for (const instruction of plan.instructions) lines.push(`- ${instruction}`);
     lines.push("");
   }
-  for (const review of reviews) {
+  const requiredReviews = reviews.filter((entry) => entry.mode !== "optional");
+  const optionalReviews = reviews.filter((entry) => entry.mode === "optional");
+  if (requiredReviews.length > 0) lines.push("## Required upgrade reviews", "");
+  for (const review of requiredReviews) {
     lines.push(
-      `## ${review.id}`,
+      `### ${review.id}`,
       "",
       `${review.summary} (${review.introducedIn}, ${review.mode})`,
       "",
@@ -530,9 +537,28 @@ function renderTask(
     for (const verification of review.verify) lines.push(`- ${verification}`);
     lines.push("");
   }
-  if (baseline.fromVersion && baselineNeedsRecording) {
+  if (optionalReviews.length > 0) lines.push("## Optional upgrade entries", "");
+  for (const review of optionalReviews) {
     lines.push(
-      "After completing every required review, rerun with consent before project verification:",
+      `### ${review.id} (optional)`,
+      "",
+      `${review.summary} (${review.introducedIn}, ${review.mode})`,
+      "",
+      `Affected: ${review.affected}`,
+      "",
+      "Optional review:",
+    );
+    for (const instruction of review.instructions) lines.push(`- ${instruction}`);
+    lines.push("", "Verification:");
+    for (const verification of review.verify) lines.push(`- ${verification}`);
+    lines.push("");
+  }
+  if (baseline.fromVersion && baselineNeedsRecording) {
+    const completionMessage = requiredReviews.length > 0
+      ? "After completing every required review, rerun with consent before project verification:"
+      : "To record these optional entries as reviewed, rerun with consent:";
+    lines.push(
+      completionMessage,
       completionCommand(reviews, baseline, completionOptions),
       "",
     );
@@ -597,8 +623,18 @@ function recordUpgradeBaseline(projectRoot: string, targetVersion: string, expec
 
 function printUpgradeReviews(reviews: UpgradeEntry[], baseline: Pick<UpgradeBaseline, "fromVersion" | "targetVersion">): void {
   if (!baseline.fromVersion) return;
-  for (const review of reviews) {
+  const requiredReviews = reviews.filter((entry) => entry.mode !== "optional");
+  const optionalReviews = reviews.filter((entry) => entry.mode === "optional");
+  if (requiredReviews.length > 0) console.log("Required upgrade reviews:");
+  for (const review of requiredReviews) {
     console.log(`${review.id}: review required (${review.introducedIn})`);
+    console.log(`  ${review.summary}`);
+    console.log(`  Affected: ${review.affected}`);
+    for (const instruction of review.instructions) console.log(`  - ${instruction}`);
+  }
+  if (optionalReviews.length > 0) console.log("Optional upgrade entries:");
+  for (const review of optionalReviews) {
+    console.log(`${review.id}: optional (${review.introducedIn})`);
     console.log(`  ${review.summary}`);
     console.log(`  Affected: ${review.affected}`);
     for (const instruction of review.instructions) console.log(`  - ${instruction}`);
@@ -611,7 +647,10 @@ function printCompletionCommand(
   completionOptions: CompletionOptions,
 ): void {
   if (!baseline.fromVersion || reviews.length === 0) return;
-  console.log(`After completing every required review, rerun with consent before project verification:`);
+  const message = reviews.some((entry) => entry.mode !== "optional")
+    ? "After completing every required review, rerun with consent before project verification:"
+    : "To record these optional entries as reviewed, rerun with consent:";
+  console.log(message);
   console.log(`  ${completionCommand(reviews, baseline, completionOptions)}`);
 }
 

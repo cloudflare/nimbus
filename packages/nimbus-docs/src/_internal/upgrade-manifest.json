@@ -207,7 +207,7 @@
     {
       "id": "api-collections-from-config",
       "introducedIn": "0.15.0",
-      "mode": "review-required",
+      "mode": "optional",
       "changeset": "api-collections-from-config",
       "summary": "Optionally move API specs back into the inline Nimbus config and register them with a zero-argument apiCollection().",
       "affected": "Sites whose api-reference recipe created nimbus.config.ts and pass an entry to apiCollection(options) in src/content.config.ts.",
@@ -226,7 +226,7 @@
     {
       "id": "shared-markdown-routes",
       "introducedIn": "0.15.0",
-      "mode": "review-required",
+      "mode": "optional",
       "changeset": "shared-markdown-routes",
       "summary": "Optionally serve every collection's Markdown and source versions from the two shared starter routes.",
       "affected": "Projects with per-collection Markdown or source routes, such as src/pages/<collection>/[...slug]/index.md.ts or index.mdx.ts, from the starter or the new-version, new-collection, changelog, ai-native, or api-reference recipes.",
@@ -247,7 +247,7 @@
     {
       "id": "page-urls-and-llms-routes",
       "introducedIn": "0.15.0",
-      "mode": "review-required",
+      "mode": "optional",
       "changeset": "page-urls-and-llms-routes",
       "summary": "Optionally take page URLs from the page helpers, build OG cards from getOgImagePages(), and reduce the llms.txt routes to one factory call each.",
       "affected": "Projects whose page routes build markdownUrl or socialImage by hand (the starter's src/pages/[...slug].astro and pages from the new-version, new-collection, and changelog recipes), whose src/pages/og/[...slug].ts computes its own page keys, or whose llms.txt routes import src/utils/agent-endpoint-response.ts.",

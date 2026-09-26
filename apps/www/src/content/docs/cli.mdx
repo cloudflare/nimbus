@@ -138,6 +138,8 @@ Nimbus applies an edit only when it recognizes the source and can prove the chan
 
 Migration output includes the selected version range, required reviews, planned diffs, blockers, and errors. Files outside the reported scan boundary are not claimed as checked.
 
+Upgrade entries marked optional appear after required work in `migrate` and as informational Package API notes in `outdated`. They describe improvements that every existing site can skip without changing its build or output, so they never stop a build. Run `migrate --yes` to record them as reviewed when you are ready.
+
 After completing all reported work, explicitly confirm it and advance the committed reviewed baseline:
 
 ```sh

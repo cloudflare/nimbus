@@ -99,12 +99,13 @@ function renderScope(
   const label = SCOPE_LABELS[scope.scope].padEnd(14);
   const errors = scope.findings.filter((f) => f.severity === "error");
   const warns = opts.quiet ? [] : scope.findings.filter((f) => f.severity === "warn");
+  const infos = opts.quiet ? [] : scope.findings.filter((f) => f.severity === "info");
 
   if (scope.status === "failed" && errors.length > 0) {
     const [first, ...rest] = errors as [CheckFinding, ...CheckFinding[]];
     const out = [`  ${label}${paint(COLORS.red, "✗")} ${first.message}`];
     out.push(...findingDetail(first, paint));
-    for (const f of [...rest, ...warns]) out.push(...renderFinding(f, paint));
+    for (const f of [...rest, ...warns, ...infos]) out.push(...renderFinding(f, paint));
     return out;
   }
 
@@ -118,7 +119,7 @@ function renderScope(
     ? `ok · ${paint(COLORS.dim, trailing)}`
     : "ok";
   const out = [`  ${label}${paint(COLORS.green, "✓")} ${summary}`];
-  for (const f of warns) out.push(...renderFinding(f, paint));
+  for (const f of [...warns, ...infos]) out.push(...renderFinding(f, paint));
   return out;
 }
 
@@ -131,8 +132,11 @@ function renderFinding(
   f: CheckFinding,
   paint: (code: string, text: string) => string,
 ): string[] {
-  const mark =
-    f.severity === "error" ? paint(COLORS.red, "✗") : paint(COLORS.yellow, "!");
+  const mark = f.severity === "error"
+    ? paint(COLORS.red, "✗")
+    : f.severity === "warn"
+      ? paint(COLORS.yellow, "!")
+      : paint(COLORS.dim, "i");
   return [`    ${mark} ${f.message}`, ...findingDetail(f, paint)];
 }
 
