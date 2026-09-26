@@ -52,18 +52,22 @@ export function checkMigrations(cwd: string, srcDirOverride?: string): ScopeRepo
       ...(baseline.fromVersion && !baseline.error
         ? entries.map((entry) => ({
             scope: "migrations" as const,
-            code: "nimbus/upgrade-review",
-            severity: "error" as const,
-            message: `${entry.summary} Review upgrade \`${entry.id}\` with \`${command.display}\`.`,
+            code: entry.mode === "optional" ? "nimbus/upgrade-optional" : "nimbus/upgrade-review",
+            severity: entry.mode === "optional" ? ("info" as const) : ("error" as const),
+            message: `${entry.summary} ${entry.mode === "optional" ? "Optional upgrade" : "Review upgrade"} \`${entry.id}\` with \`${command.display}\`.`,
             fixable: false,
-            migration: {
-              id: entry.id,
-              introducedIn: entry.introducedIn,
-              state: "blocked" as const,
-              command,
-            },
+            ...(entry.mode === "optional"
+              ? {}
+              : {
+                  migration: {
+                    id: entry.id,
+                    introducedIn: entry.introducedIn,
+                    state: "blocked" as const,
+                    command,
+                  },
+                }),
           }))
-         : []),
+        : []),
       ...(baselineBlocked
         ? [{
             scope: "migrations" as const,

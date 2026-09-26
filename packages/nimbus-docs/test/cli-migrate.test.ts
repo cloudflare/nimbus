@@ -4,9 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { afterEach, test } from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { runningNimbusVersion, selectUpgradeEntries } from "../src/_internal/upgrades.js";
+import { runningNimbusVersion, selectUpgradeEntries, type UpgradeEntry } from "../src/_internal/upgrades.js";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const cli = path.join(packageRoot, "src", "cli", "index.ts");
@@ -41,6 +41,52 @@ function run(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}) {
     encoding: "utf8",
     env: { ...process.env, NO_COLOR: "1", ...env },
   });
+}
+
+function syntheticEntry(id: string, mode: UpgradeEntry["mode"]): UpgradeEntry {
+  return {
+    id,
+    introducedIn: CURRENT_VERSION,
+    mode,
+    summary: `Review ${id}.`,
+    affected: "Existing sites.",
+    instructions: ["Review the entry."],
+    verify: ["Build the site."],
+  };
+}
+
+function runWithManifest(cwd: string, args: string[], entries: UpgradeEntry[]) {
+  const upgrades = pathToFileURL(path.join(packageRoot, "src", "_internal", "upgrades.ts")).href;
+  const cliUrl = pathToFileURL(cli).href;
+  const source = `
+    import { UPGRADE_MANIFEST } from ${JSON.stringify(upgrades)};
+    UPGRADE_MANIFEST.entries = JSON.parse(process.env.NIMBUS_TEST_ENTRIES);
+    process.argv = [process.execPath, ${JSON.stringify(cli)}, ...JSON.parse(process.env.NIMBUS_TEST_ARGS)];
+    await import(${JSON.stringify(cliUrl)});
+  `;
+  return spawnSync(process.execPath, ["--import", tsx, "--input-type=module", "--eval", source], {
+    cwd,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NO_COLOR: "1",
+      NIMBUS_TEST_ARGS: JSON.stringify(args),
+      NIMBUS_TEST_ENTRIES: JSON.stringify(entries),
+    },
+  });
+}
+
+function makeCleanUpgradeProject(): string {
+  const root = makeProject();
+  fs.writeFileSync(
+    path.join(root, "src", "pages", "[...slug].astro"),
+    `---\nconst title = "Docs";\n---\n<p>{title}</p>\n`,
+  );
+  fs.writeFileSync(
+    path.join(root, "nimbus.json"),
+    `${JSON.stringify({ lastReviewedNimbusVersion: "0.14.1" }, null, 2)}\n`,
+  );
+  return root;
 }
 
 test("migrate plans, diffs, applies, preserves modes, and becomes idempotent", () => {
@@ -157,6 +203,79 @@ test("historical jumps stay blocked until a clean consented rerun records the ra
   const checked = run(root, ["check", "--migrations", "--json"]);
   assert.equal(checked.status, 0, checked.stderr);
   assert.equal(JSON.parse(checked.stdout).findings.length, 0);
+});
+
+test("synthetic optional entries are informational across migrate, check, and outdated", () => {
+  const root = makeCleanUpgradeProject();
+  const entries = [
+    syntheticEntry("optional-one", "optional"),
+    syntheticEntry("optional-two", "optional"),
+  ];
+
+  const planned = runWithManifest(root, ["migrate", "--json"], entries);
+  assert.equal(planned.status, 0, planned.stderr);
+  const report = JSON.parse(planned.stdout);
+  assert.equal(report.status, "passed");
+  assert.equal(report.baseline.recorded, false);
+  assert.deepEqual(report.reviews.map((entry: UpgradeEntry) => entry.mode), ["optional", "optional"]);
+
+  const human = runWithManifest(root, ["migrate", "--dry-run"], entries);
+  assert.equal(human.status, 0, human.stderr);
+  assert.match(human.stdout, /Optional upgrade entries:\noptional-one: optional/);
+
+  const checked = runWithManifest(root, ["check", "--migrations", "--json"], entries);
+  assert.equal(checked.status, 0, checked.stderr || checked.stdout);
+  const checkResult = JSON.parse(checked.stdout);
+  assert.ok(checkResult.findings.every((finding: { code: string; severity: string }) =>
+    finding.code === "nimbus/upgrade-optional" && finding.severity === "info"
+  ));
+
+  const template = path.join(root, "template-source");
+  fs.mkdirSync(path.join(template, "src"), { recursive: true });
+  fs.writeFileSync(path.join(template, "package.json"), "{}\n");
+  fs.writeFileSync(
+    path.join(root, "nimbus.json"),
+    `${JSON.stringify({
+      lastReviewedNimbusVersion: "0.14.1",
+      templatesTag: "templates-v0.7.6",
+      variant: "template",
+      install: { root: "src" },
+      components: [],
+    }, null, 2)}\n`,
+  );
+  const outdated = runWithManifest(root, ["outdated", "--json", "--template-dir", template], entries);
+  assert.equal(outdated.status, 0, outdated.stderr);
+  const outdatedResult = JSON.parse(outdated.stdout);
+  assert.equal(outdatedResult.status, "current");
+  assert.deepEqual(outdatedResult.packageApis.map((entry: { mode: string }) => entry.mode), ["optional", "optional"]);
+  const outdatedHuman = runWithManifest(root, ["outdated", "--template-dir", template], entries);
+  assert.equal(outdatedHuman.status, 0, outdatedHuman.stderr);
+  assert.match(outdatedHuman.stdout, /Package APIs: up to date/);
+  assert.match(outdatedHuman.stdout, /Optional upgrade entries: 2/);
+
+  const completed = runWithManifest(root, ["migrate", "--yes", "--json"], entries);
+  assert.equal(completed.status, 0, completed.stderr);
+  assert.equal(JSON.parse(completed.stdout).baseline.recorded, true);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root, "nimbus.json"), "utf8")).lastReviewedNimbusVersion, CURRENT_VERSION);
+});
+
+test("synthetic required entries still block alone and mixed with optional entries", () => {
+  for (const entries of [
+    [syntheticEntry("required-one", "review-required")],
+    [syntheticEntry("optional-one", "optional"), syntheticEntry("required-one", "review-required")],
+  ]) {
+    const root = makeCleanUpgradeProject();
+    const result = runWithManifest(root, ["migrate", "--json"], entries);
+    assert.equal(result.status, 1, result.stderr);
+    assert.equal(JSON.parse(result.stdout).status, "blocked");
+  }
+
+  const root = makeCleanUpgradeProject();
+  const rendered = runWithManifest(root, ["migrate", "--dry-run"], [
+    syntheticEntry("optional-one", "optional"),
+    syntheticEntry("required-one", "review-required"),
+  ]);
+  assert.ok(rendered.stdout.indexOf("Required upgrade reviews:") < rendered.stdout.indexOf("Optional upgrade entries:"));
 });
 
 test("runtime imports cannot bypass migration completion", () => {

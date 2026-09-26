@@ -26,6 +26,17 @@ test("every automatic manifest entry has a matching codemod", () => {
   );
 });
 
+test("only universally skippable 0.15.0 entries are optional", () => {
+  assert.deepEqual(
+    UPGRADE_MANIFEST.entries.filter((entry) => entry.mode === "optional").map((entry) => entry.id).sort(),
+    ["api-collections-from-config", "page-urls-and-llms-routes", "shared-markdown-routes"],
+  );
+  assert.equal(
+    UPGRADE_MANIFEST.entries.find((entry) => entry.id === "compact-coordinate-manifest")?.mode,
+    "review-required",
+  );
+});
+
 test("upgrade guidance targets canonical agent endpoint APIs", () => {
   const instructions = (id: string) =>
     UPGRADE_MANIFEST.entries.find((entry) => entry.id === id)?.instructions.join("\n") ?? "";

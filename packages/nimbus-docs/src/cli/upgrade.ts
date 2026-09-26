@@ -12,7 +12,7 @@ import * as p from "@clack/prompts";
 
 import { unifiedDiff } from "./_diff.js";
 import { discoverMigrations } from "../_internal/migrations.js";
-import { resolveUpgradeBaseline, selectUpgradeEntries } from "../_internal/upgrades.js";
+import { resolveUpgradeBaseline, selectUpgradeEntries, type UpgradeMode } from "../_internal/upgrades.js";
 import {
   latestTemplatesTag,
   listTreeFiles,
@@ -150,7 +150,7 @@ export interface OutdatedResult {
   schemaVersion: 1;
   status: OutdatedStatus;
   summary: { packageApis: number; starter: number; registry: number; hiddenContent: number };
-  packageApis: Array<{ migrationId: string; locations: string[]; action: OutdatedAction }>;
+  packageApis: Array<{ migrationId: string; mode: UpgradeMode; locations: string[]; action: OutdatedAction }>;
   starter: Array<{ file: string; status: StarterStatus; action: OutdatedAction }>;
   registry: Array<{
     slug: string;
@@ -288,6 +288,7 @@ export async function gatherOutdated(cwd: string, flags: UpgradeFlags = {}): Pro
     ]);
     packageApis.push({
       migrationId: plan.id,
+      mode: "automatic",
       locations: plan.locations.map((location) => `${location.file}:${location.line}:${location.column}`),
       action: { kind: "migrate", command: migrate, automatic, instructions: plan.instructions },
     });
@@ -305,6 +306,7 @@ export async function gatherOutdated(cwd: string, flags: UpgradeFlags = {}): Pro
       if (entry.migrationId && activeMigrationIds.has(entry.migrationId)) continue;
       packageApis.push({
         migrationId: entry.id,
+        mode: entry.mode,
         locations: [],
         action: {
           kind: "review",
@@ -397,7 +399,7 @@ export async function gatherOutdated(cwd: string, flags: UpgradeFlags = {}): Pro
   starter.sort((a, b) => a.file.localeCompare(b.file));
   registry.sort((a, b) => a.slug.localeCompare(b.slug));
   errors.sort((a, b) => a.scope.localeCompare(b.scope) || a.code.localeCompare(b.code));
-  const attention = packageApis.length > 0 || starter.some((item) => item.status !== "local") || registry.some((item) => item.upstream === "behind");
+  const attention = packageApis.some((item) => item.mode !== "optional") || starter.some((item) => item.status !== "local") || registry.some((item) => item.upstream === "behind");
   const partial = errors.some((error) => error.recoverable);
   const status: OutdatedStatus = fatal ? "failed" : partial ? "partial" : attention ? "attention" : "current";
   return {
@@ -484,11 +486,17 @@ function classifyRegistryLocal(cwd: string, nimbus: NimbusJson, component: Insta
 function formatOutdatedPretty(result: OutdatedResult, flags: UpgradeFlags): string {
   const lines: string[] = [];
   const unavailable = (scope: OutdatedResult["errors"][number]["scope"]): boolean => result.errors.some((error) => error.scope === scope);
-  if (result.packageApis.length === 0 && unavailable("package-apis")) lines.push("Package APIs: unavailable");
-  else if (result.packageApis.length === 0) lines.push("Package APIs: up to date ✓");
+  const requiredPackageApis = result.packageApis.filter((item) => item.mode !== "optional");
+  const optionalPackageApis = result.packageApis.filter((item) => item.mode === "optional");
+  if (requiredPackageApis.length === 0 && unavailable("package-apis")) lines.push("Package APIs: unavailable");
+  else if (requiredPackageApis.length === 0) lines.push("Package APIs: up to date ✓");
   else {
-    lines.push(`Package APIs: ${result.packageApis.length} migration${result.packageApis.length === 1 ? "" : "s"} pending`);
-    for (const item of result.packageApis) lines.push(`  ${item.migrationId} → ${item.action.command?.display ?? "nimbus-docs migrate"}`);
+    lines.push(`Package APIs: ${requiredPackageApis.length} migration${requiredPackageApis.length === 1 ? "" : "s"} pending`);
+    for (const item of requiredPackageApis) lines.push(`  ${item.migrationId} → ${item.action.command?.display ?? "nimbus-docs migrate"}`);
+  }
+  if (optionalPackageApis.length > 0) {
+    lines.push(`  Optional upgrade entries: ${optionalPackageApis.length}`);
+    for (const item of optionalPackageApis) lines.push(`  ${item.migrationId} → ${item.action.command?.display ?? "nimbus-docs migrate"}`);
   }
   const upstream = result.starter.filter((item) => item.status !== "local");
   const local = result.starter.filter((item) => item.status === "local");
