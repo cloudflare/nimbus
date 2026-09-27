@@ -10,7 +10,6 @@ import {
   getEditUrl,
   getLastUpdated,
   getTOC,
-  entryRouteKey,
   stripBase,
 } from "@cloudflare/nimbus-docs/runtime";
 import { components } from "../components";
@@ -20,7 +19,7 @@ export const getStaticPaths = getDocsStaticPaths;
 
 const page = await getDocsPage(Astro);
 if (page instanceof Response) return page;
-const { entry, Content, headings } = page;
+const { entry, Content, headings, markdownUrl, ogImageUrl } = page;
 
 const currentSlug = stripBase(Astro.url.pathname, import.meta.env.BASE_URL).replace(/\/$/, "") || "/";
 
@@ -45,10 +44,7 @@ const lastUpdated = entry.data.lastUpdated ??
 // ever sees its options object (or undefined), never `false`.
 const tocConfig = entry.data.tableOfContents;
 const toc = tocOn && tocConfig !== false ? getTOC(headings, tocConfig) : false;
-const routeKey = entryRouteKey(entry.id);
-const markdownPath = routeKey ? `/${routeKey}/index.md` : "/index.md";
-const markdownUrl = markdownPath;
-const socialImage = entry.data.socialImage ?? `/og/${entry.id}.png`;
+const socialImage = entry.data.socialImage ?? ogImageUrl;
 ---
 
 <DocsLayout
