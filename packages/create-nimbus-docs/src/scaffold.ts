@@ -558,6 +558,8 @@ function normalizePackageManagerFiles(
     rmSync(join(dir, entry), { recursive: true, force: true });
   }
 
+  if (packageManager !== "pnpm") rmSync(join(dir, "pnpm-workspace.yaml"), { force: true });
+
   const keep = new Set<string>(LOCKFILES_BY_PACKAGE_MANAGER[packageManager]);
   for (const lockfiles of Object.values(LOCKFILES_BY_PACKAGE_MANAGER)) {
     for (const lockfile of lockfiles) {

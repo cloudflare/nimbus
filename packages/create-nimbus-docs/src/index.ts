@@ -99,6 +99,12 @@ if (adapter !== undefined && deploy !== undefined) {
   p.log.warn(`--deploy is ignored with --adapter (server output uses the adapter's target).`);
 }
 
+if (!args.yes && !process.stdin.isTTY) {
+  die(
+    "No terminal for prompts. Pass --yes to accept the defaults, and flags such as --content, --package-manager, or --adapter to choose others.",
+  );
+}
+
 const responses = await getPromptResponses({
   dir: args._[0],
   yes: args.yes,

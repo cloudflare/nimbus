@@ -97,6 +97,20 @@ function pinNimbusDocsVersion(targetDir) {
 }
 
 /**
+ * Record the pinned nimbus-docs version as the reviewed upgrade baseline, so a
+ * template built straight from the templates branch passes the build's upgrade
+ * check. The scaffolder replaces this file with its full record.
+ */
+function writeReviewedBaseline(targetDir) {
+  const { version } = JSON.parse(readFileSync(NIMBUS_PKG_JSON, "utf8"));
+  const record = {
+    $schema: "https://nimbus-docs.com/schema/nimbus.json",
+    lastReviewedNimbusVersion: version,
+  };
+  writeFileSync(join(targetDir, "nimbus.json"), JSON.stringify(record, null, 2) + "\n");
+}
+
+/**
  * Strip dependencies that only exist to support `registryOnlyPaths` source
  * (e.g. the react deps behind `src/components/react/`). Those paths are
  * absent from shipped templates, so the deps would be dead weight; the
@@ -258,6 +272,7 @@ export function generateTemplates(outDir = DEFAULT_OUT_DIR) {
     renameTemplatePackage(targetDir);
     stripRegistryOnlyDeps(targetDir);
     pinNimbusDocsVersion(targetDir);
+    writeReviewedBaseline(targetDir);
     writeBuildScriptsConfig(targetDir);
     generated.push(targetDir);
     console.log(`[copy-template] generated ${variant}/ → ${relative(REPO_ROOT, targetDir) || targetDir}`);

@@ -54,6 +54,17 @@ test("every generated variant ships the adapter marker and implicit build defaul
       assert.doesNotMatch(cfg, /rendering:\s*\{/);
       const gitignore = fs.readFileSync(path.join(dir, "gitignore"), "utf8");
       assert.match(gitignore, /^\.nimbus\/$/m);
+      const nimbusVersion = JSON.parse(
+        fs.readFileSync(new URL("../../nimbus-docs/package.json", import.meta.url), "utf8"),
+      ).version;
+      assert.deepEqual(
+        JSON.parse(fs.readFileSync(path.join(dir, "nimbus.json"), "utf8")),
+        {
+          $schema: "https://nimbus-docs.com/schema/nimbus.json",
+          lastReviewedNimbusVersion: nimbusVersion,
+        },
+        `${path.basename(dir)} must carry the reviewed baseline of its pinned framework`,
+      );
 
       assert.deepEqual(
         routeEntrypoints(dir),

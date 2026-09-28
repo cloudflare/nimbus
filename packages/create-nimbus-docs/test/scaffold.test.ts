@@ -262,7 +262,7 @@ test("cloudflare target declines workerd's build script alongside wrangler", asy
   const tmpl = makeTemplate();
   try {
     await scaffold(
-      { ...BASE_OPTIONS, deploy: "cloudflare", dir: "my-docs" },
+      { ...BASE_OPTIONS, packageManager: "pnpm", deploy: "cloudflare", dir: "my-docs" },
       internals(cwd, tmpl),
     );
     const target = path.join(cwd, "my-docs");
@@ -289,12 +289,32 @@ test("cloudflare target declines workerd's build script alongside wrangler", asy
   }
 });
 
+test("only pnpm scaffolds keep pnpm-workspace.yaml", async () => {
+  for (const packageManager of ["npm", "pnpm", "yarn", "bun"] as const) {
+    const cwd = makeCwd();
+    const tmpl = makeTemplate();
+    try {
+      await scaffold(
+        { ...BASE_OPTIONS, packageManager, deploy: "cloudflare", dir: "my-docs" },
+        internals(cwd, tmpl),
+      );
+      assert.equal(
+        fs.existsSync(path.join(cwd, "my-docs", "pnpm-workspace.yaml")),
+        packageManager === "pnpm",
+        packageManager,
+      );
+    } finally {
+      cleanup(cwd, tmpl);
+    }
+  }
+});
+
 test("non-cloudflare target leaves the build-scripts config untouched", async () => {
   const cwd = makeCwd();
   const tmpl = makeTemplate();
   try {
     await scaffold(
-      { ...BASE_OPTIONS, deploy: "other", dir: "my-docs" },
+      { ...BASE_OPTIONS, packageManager: "pnpm", deploy: "other", dir: "my-docs" },
       internals(cwd, tmpl),
     );
     const ws = fs.readFileSync(

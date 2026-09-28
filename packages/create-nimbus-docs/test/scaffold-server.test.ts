@@ -215,7 +215,7 @@ test("server + cloudflare pins the adapter in dependencies and wrangler at the s
   const tmpl = makeTemplate();
   try {
     await scaffold(
-      { ...BASE, output: "server", adapter: "cloudflare", dir: "my-docs" },
+      { ...BASE, packageManager: "pnpm", output: "server", adapter: "cloudflare", dir: "my-docs" },
       internals(cwd, tmpl),
     );
 
