@@ -37,7 +37,7 @@ import { installComponents } from "./component.js";
 import { loadDotenv } from "./dotenv.js";
 import { installFeature, shouldUseAgentHandoff } from "./feature.js";
 import { initCommand } from "./init.js";
-import { lintCommand } from "./lint.js";
+import { lintCommand, lintHelp } from "./lint.js";
 import { migrateCommand } from "./migrate.js";
 import {
   readNimbusJson,
@@ -196,6 +196,10 @@ async function main(): Promise<void> {
     alias: { y: "yes", h: "help", v: "version" },
   }) as unknown as CliArgs;
 
+  if (args.help && args._[0] === "lint") {
+    process.stdout.write(lintHelp(invocation("lint [--fix] [--rule <code>] [--format json]")));
+    return;
+  }
   if (args.help) {
     process.stdout.write(
       `\n  Usage:  ${invocation("<command> [args]")}\n` +
@@ -497,7 +501,7 @@ async function addCommand(
     );
   }
 
-  const uiInstalled = installed.filter((i) => i.type === "registry:ui");
+  const uiInstalled = installed.filter((i) => i.type === "registry:ui" && i.name === slug);
   if (uiInstalled.length > 0) {
     const snippets = uiInstalled.map((i) => {
       const names = barrelExports(i);
@@ -604,7 +608,9 @@ function appendRequestRenderingStatus(
     return;
   }
   if (status === "inserted") {
-    lines.push('+ Enabled request rendering in the active Nimbus config.');
+    lines.push(
+      '+ Set rendering: { default: "request" } in the Nimbus config: every collection renders on request.',
+    );
     return;
   }
   if (status === "explicit") {

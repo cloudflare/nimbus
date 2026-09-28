@@ -134,7 +134,7 @@ Ensure the site uses the Cloudflare Astro adapter with server output, and defaul
 ## Steps
 
 1. Inspect the active Astro config in Astro's resolution order: astro.config.mjs, astro.config.js, astro.config.ts, then astro.config.mts.
-2. If Cloudflare server output is not wired yet, install \`@astrojs/cloudflare@>=14.1.0 <14.2.0\`, import its default export, set Astro \`output: "server"\`, and set \`adapter: cloudflare({ prerenderEnvironment: "node" })\`. Preserve unrelated config and fail rather than replacing another adapter.
+2. If Cloudflare server output is not wired yet, install \`${ADAPTER_RECIPES.cloudflare.installSpec}\`, import its default export, set Astro \`output: "server"\`, and set \`adapter: cloudflare({ prerenderEnvironment: "node" })\`. Preserve unrelated config and fail rather than replacing another adapter.
 3. Ensure the project has a server-compatible Wrangler config. Preserve custom Wrangler settings; use \`nodejs_compat\` and do not configure a static assets directory for Nimbus server output.
 4. Find the default Nimbus integration imported from \`@cloudflare/nimbus-docs\`, then locate the config object passed as its first argument. Follow local imports if that config lives in another file.
 5. If the object has no \`rendering\` property, add \`rendering: { default: "request" }\`. If it already has a rendering policy, preserve it and report what it does instead of overwriting user intent.

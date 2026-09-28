@@ -39,6 +39,28 @@ export interface LintCliFlags {
   fix?: boolean;
 }
 
+const LINT_DOCS = "https://nimbus-docs.com/writing/linting/";
+
+export function lintHelp(usage: string): string {
+  return `
+  Usage:  ${usage}
+
+  Lints .mdx files under src/content/ with the rules enabled in the Nimbus
+  integration's \`rules\` option. Exits 1 when an error-severity finding remains.
+
+  Flags:
+    --fix                  apply auto-fixes in place
+    --rule <nimbus/...>    run a single rule
+    --format json          machine-readable output
+    --quiet                errors only, suppress warnings
+
+  Rules:
+${[...IMPLEMENTED_CODES].sort().map((code) => `    ${code}`).join("\n")}
+
+  Rule reference: ${LINT_DOCS}
+`;
+}
+
 export async function lintCommand(flags: LintCliFlags): Promise<void> {
   const cwd = process.cwd();
   const contentDir = path.join(cwd, "src", "content");
@@ -46,7 +68,7 @@ export async function lintCommand(flags: LintCliFlags): Promise<void> {
   if (flags.rule) {
     if (!isRuleCode(flags.rule)) {
       process.stderr.write(
-        `Unknown rule code: \`${flags.rule}\`. See https://nimbus-docs.com/lint for the rule list.\n`,
+        `Unknown rule code: \`${flags.rule}\`. See ${LINT_DOCS} for the rule list.\n`,
       );
       process.exit(1);
     }

@@ -5,6 +5,7 @@ import path from "node:path";
 import { test } from "node:test";
 
 import { runChecks } from "../../src/check/run.js";
+import { exitCodeFor } from "../../src/check/finding.js";
 import { formatCheckJson, formatCheckPretty } from "../../src/check/format.js";
 
 function project(
@@ -53,18 +54,19 @@ const jsonOf = (r: Parameters<typeof formatCheckJson>[0]) =>
     findings: { code: string; severity: string }[];
   };
 
-// The placeholder ships blocked.
-test("placeholder site → status failed · readiness blocked · exit 1 (site-placeholder is a finding)", async () => {
+// The placeholder builds (with a warning), so check warns instead of blocking.
+test("placeholder site → warning, not blocked, exit 0 (site-placeholder is a finding)", async () => {
   const dir = project(
     `{ site: "https://example.com", title: "X", search: false }`,
   );
   try {
     const r = await runChecks(dir, ENV_STRUCT);
     const j = jsonOf(r);
-    assert.equal(j.ok, false);
-    assert.equal(j.status, "failed");
-    assert.equal(j.readiness, "blocked");
-    assert.ok(j.findings.some((f) => f.code === "nimbus/site-placeholder"));
+    assert.equal(j.ok, true);
+    assert.notEqual(j.readiness, "blocked");
+    assert.equal(exitCodeFor(r.summary), 0);
+    const finding = j.findings.find((f) => f.code === "nimbus/site-placeholder");
+    assert.equal(finding?.severity, "warn");
     assert.ok(
       !j.scopes.some((s) =>
         s.notes.some((n) => n.code === "nimbus/site-placeholder"),

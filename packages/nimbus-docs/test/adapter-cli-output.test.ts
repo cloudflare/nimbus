@@ -26,7 +26,7 @@ export default {
     JSON.stringify({
       dependencies: {
         astro: "7.0.9",
-        "@astrojs/cloudflare": "14.1.7",
+        "@astrojs/cloudflare": "14.3.3",
       },
     }),
   );
@@ -44,6 +44,52 @@ export default {
     assert.match(output, /hand request-rendering configuration to your coding agent/);
     assert.match(output, /adapter-cloudflare --print \| claude/);
     assert.doesNotMatch(output, /Nothing to do/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("adapter names the rendering policy it inserts", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-adapter-cli-"));
+  const configPath = path.join(dir, "astro.config.ts");
+  fs.writeFileSync(
+    configPath,
+    `import cloudflare from "@astrojs/cloudflare";
+import { defineConfig } from "astro/config";
+import nimbus, { defineConfig as defineNimbusConfig } from "@cloudflare/nimbus-docs";
+
+const nimbusConfig = defineNimbusConfig({
+  title: "Docs",
+});
+
+export default defineConfig({
+  // nimbus:adapter
+  output: "server",
+  adapter: cloudflare({ prerenderEnvironment: "node" }),
+  integrations: [nimbus(nimbusConfig)],
+});
+`,
+  );
+  fs.writeFileSync(
+    path.join(dir, "package.json"),
+    JSON.stringify({
+      dependencies: { astro: "7.0.9", "@astrojs/cloudflare": "14.3.3" },
+    }),
+  );
+
+  try {
+    const result = spawnSync(
+      process.execPath,
+      ["--import", TSX, CLI, "add", "adapter-cloudflare"],
+      { cwd: dir, encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } },
+    );
+    const output = `${result.stdout}\n${result.stderr}`;
+    assert.equal(result.status, 0, output);
+    assert.match(fs.readFileSync(configPath, "utf8"), /rendering: \{ default: "request" \}/);
+    assert.match(
+      output,
+      /Set rendering: \{ default: "request" \} in the Nimbus config: every collection renders on request\./,
+    );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -146,7 +192,7 @@ export default {
     JSON.stringify({
       dependencies: {
         astro: "7.0.9",
-        "@astrojs/cloudflare": "14.1.7",
+        "@astrojs/cloudflare": "14.3.3",
       },
     }),
   );

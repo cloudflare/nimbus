@@ -24,6 +24,8 @@ export interface PrettyOptions {
   color: boolean;
   quiet?: boolean;
   invocation: string;
+  /** `--fix` already ran without a terminal, so its prompts were skipped. */
+  needsTerminal?: boolean;
 }
 
 const SCOPE_LABELS: Record<CheckScope, string> = {
@@ -266,7 +268,9 @@ function problemHeadline(
   // `blocked` is verified non-buildable; `unknown` is unverified — don't claim either.
   const lead = result.readiness === "blocked" ? "Not buildable — " : "";
   let head = `  ✗ ${lead}${parts.join(" · ")}`;
-  if (autoFixable + needsInput > 0) head += ` → run \`${opts.invocation}\``;
+  if (autoFixable + needsInput > 0) {
+    head += ` → run \`${opts.invocation}\`${opts.needsTerminal ? " in a terminal" : ""}`;
+  }
   return [paint(COLORS.red, head), checkedIn];
 }
 
@@ -316,6 +320,10 @@ function gapLabel(scope: CheckScope, note: Note): string {
       return "opt-in authoring rules";
     case "nimbus/internal-link-skipped":
       return "link checking";
+    case "nimbus/api-collections-skipped":
+      return "API collection checks";
+    case "nimbus/rendering-policy-skipped":
+      return "rendering policy checks";
     default:
       return SCOPE_LABELS[scope].toLowerCase();
   }

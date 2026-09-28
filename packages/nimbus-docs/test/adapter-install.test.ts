@@ -54,10 +54,10 @@ test("flips output and wires each adapter at the marker", () => {
   }
 });
 
-test("cloudflare recipe uses node prerender env and pins <14.2.0", () => {
+test("cloudflare recipe uses node prerender env and pins 14.3.x", () => {
   const cf = ADAPTER_RECIPES.cloudflare;
   assert.match(cf.adapterExpression, /prerenderEnvironment:\s*"node"/);
-  assert.match(cf.installSpec, /<\s*14\.2\.0/);
+  assert.equal(cf.installSpec, "@astrojs/cloudflare@>=14.3.0 <14.4.0");
 });
 
 test("cloudflare inserts request rendering in a semicolonless Nimbus config", () => {

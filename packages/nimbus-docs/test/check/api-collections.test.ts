@@ -71,7 +71,7 @@ const ENV_STRUCTURE = { env: true, structure: true, authoring: false, types: fal
 
 type Json = {
   findings: { code: string; severity: string; file?: string; line?: number; message: string }[];
-  scopes: { scope: string; notes: { code: string }[] }[];
+  scopes: { scope: string; notes: { code: string; reason?: string }[] }[];
 };
 const check = async (dir: string, scopes = STRUCTURE) =>
   JSON.parse(formatCheckJson(await runChecks(dir, scopes))) as Json;
@@ -199,13 +199,39 @@ test("a computed api field or config spread skips the cross-check", async () => 
       nimbusConfig,
       contentConfig: contentConfig(`  payments: defineCollection(apiCollection()),`),
     });
-    assert.deepEqual(apiFindings(await check(dir)), [], nimbusConfig);
+    const json = await check(dir);
+    assert.deepEqual(apiFindings(json), [], nimbusConfig);
+    const skipped = json.scopes
+      .flatMap((scope) => scope.notes)
+      .find((note) => note.code === "nimbus/api-collections-skipped");
+    assert.match(skipped?.reason ?? "", /API collection checks skipped/, nimbusConfig);
   }
 });
 
-test("a missing src/content.config.ts skips the cross-check", async () => {
+test("a missing src/content.config.ts skips the cross-check and says so", async () => {
   const dir = site({ api: `[{ collection: "api", spec: "./src/api/a.yaml" }]` });
-  assert.deepEqual(apiFindings(await check(dir)), []);
+  const json = await check(dir);
+  assert.deepEqual(apiFindings(json), []);
+  const notes = json.scopes.flatMap((scope) => scope.notes.map((note) => note.code));
+  assert.ok(notes.includes("nimbus/api-collections-skipped"), `notes: ${notes.join(", ")}`);
+});
+
+test("a computed rendering policy names the skipped rendering checks", async () => {
+  const dir = site({
+    nimbusConfig: `defineNimbusConfig({ site: "https://docs.acme.test", title: "Acme", search: false, rendering: policy() })`,
+    contentConfig: contentConfig(""),
+  });
+  const notes = (await check(dir)).scopes.flatMap((scope) => scope.notes.map((note) => note.code));
+  assert.ok(notes.includes("nimbus/rendering-policy-skipped"), `notes: ${notes.join(", ")}`);
+});
+
+test("a fully literal config reports no skipped checks", async () => {
+  const dir = site({
+    api: `[{ collection: "payments", spec: "./src/api/a.yaml" }]`,
+    contentConfig: contentConfig(`  payments: defineCollection(apiCollection()),`),
+  });
+  const notes = (await check(dir)).scopes.flatMap((scope) => scope.notes.map((note) => note.code));
+  assert.ok(!notes.some((code) => code.endsWith("-skipped")), `notes: ${notes.join(", ")}`);
 });
 
 test("the inline recipe shape is statically evaluated and still reports a placeholder site", async () => {

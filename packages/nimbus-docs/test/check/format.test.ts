@@ -132,6 +132,27 @@ test("failed + blocked → Not buildable", () => {
   assert.match(out, /✗ Not buildable — 1 problem · 1 needs input → run `nimbus-docs check --fix`/);
 });
 
+test("after a non-interactive --fix, the footer says the prompts need a terminal", () => {
+  const missingDep: CheckFinding = {
+    scope: "env",
+    code: "nimbus/pagefind-missing",
+    severity: "error",
+    message: "pagefind is not installed",
+    fixable: true,
+    fix: { kind: "install-dep", package: "pagefind", requiresInput: false },
+  };
+  const out = formatCheckPretty(
+    result({
+      status: "failed",
+      readiness: "blocked",
+      findings: [missingDep],
+      scopes: [scope({ status: "failed", findings: [missingDep] })],
+    }),
+    { ...OPTS, needsTerminal: true },
+  );
+  assert.match(out, /run `nimbus-docs check --fix` in a terminal/);
+});
+
 test("passed full run → Ready", () => {
   const out = formatCheckPretty(
     result({

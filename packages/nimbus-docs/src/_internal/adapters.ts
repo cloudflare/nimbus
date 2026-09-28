@@ -95,9 +95,10 @@ export const ADAPTER_RECIPES: Record<AdapterId, AdapterRecipe> = {
   cloudflare: {
     id: "cloudflare",
     pkg: "@astrojs/cloudflare",
-    // Pin <14.2.0 (14.2.0 needs Astro 7.2.0's beginContentEntryCollection; we pin
-    // astro <7.1.0). Space in the spec → must be one argv element, never a shell string.
-    installSpec: "@astrojs/cloudflare@>=14.1.0 <14.2.0",
+    // 14.3.0 pre-bundles astro/app/manifest, so a cold `astro dev` no longer
+    // re-optimizes mid-startup and crashes the workerd runner. Space in the spec →
+    // must be one argv element, never a shell string.
+    installSpec: "@astrojs/cloudflare@>=14.3.0 <14.4.0",
     extraDeps: [],
     importName: "cloudflare",
     importStatement: 'import cloudflare from "@astrojs/cloudflare";',
@@ -105,7 +106,7 @@ export const ADAPTER_RECIPES: Record<AdapterId, AdapterRecipe> = {
     // lets Sätteri tree-shake out of a no-feature worker.
     adapterExpression: 'cloudflare({ prerenderEnvironment: "node" })',
     serverWrangler: {
-      // @astrojs/cloudflare 14.1.x → @cloudflare/vite-plugin 1.54.x peer floor.
+      // Above @astrojs/cloudflare 14.3's wrangler peer floor (^4.125.0).
       wranglerFloor: "wrangler@^4.127.1",
       compatibilityFlags: ["nodejs_compat"],
       notFoundHandling: "none",

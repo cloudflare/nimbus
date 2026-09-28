@@ -144,10 +144,10 @@ function checkSitePlaceholder(
   findings.push({
     scope: "env",
     code: "nimbus/site-placeholder",
-    severity: "error",
+    severity: "warn",
     file: relFile(parsed.location.file),
     ...(span ? { line: lineOf(parsed.location.source, span.keyStart) } : {}),
-    message: `site is still "${site}" → breaks canonical URLs, OG, sitemap, and llms.txt.`,
+    message: `site is still the placeholder "${site}": set \`site\` before deploying. Canonical URLs, OG images, the sitemap, and llms.txt use it.`,
     fixable: span !== undefined,
     ...(span
       ? {

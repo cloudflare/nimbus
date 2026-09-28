@@ -90,6 +90,7 @@ export async function checkCommand(flags: CheckCliFlags): Promise<void> {
         color: shouldUseColor(flags.color),
         quiet: flags.quiet,
         invocation: invocation("check --fix", cwd),
+        needsTerminal: flags.fix === true && !isTTY(),
       }),
     );
   }

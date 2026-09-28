@@ -20,7 +20,7 @@ function fixture(installedCloudflareVersion: string | null): string {
     join(cwd, "package.json"),
     JSON.stringify({
       name: "docs",
-      dependencies: { astro: "^7", "@astrojs/cloudflare": ">=14.1.0 <14.2.0" },
+      dependencies: { astro: "^7", "@astrojs/cloudflare": ">=14.3.0 <14.4.0" },
     }),
   );
   if (installedCloudflareVersion) {
@@ -37,13 +37,13 @@ function fixture(installedCloudflareVersion: string | null): string {
 const noopInstaller = async () => ({ ok: true });
 
 test("warns when a pre-installed adapter version is outside the recipe range", async () => {
-  const cwd = fixture("14.2.0");
+  const cwd = fixture("14.1.7");
   try {
     const outcome = await installAdapter("cloudflare", { cwd, installDeps: noopInstaller });
     assert.equal(outcome.status, "applied");
     if (outcome.status !== "applied") return;
     assert.ok(
-      outcome.warnings.some((w) => /@astrojs\/cloudflare@14\.2\.0.*expects.*>=14\.1\.0 <14\.2\.0/.test(w)),
+      outcome.warnings.some((w) => /@astrojs\/cloudflare@14\.1\.7.*expects.*>=14\.3\.0 <14\.4\.0/.test(w)),
       `expected an out-of-range warning; got: ${JSON.stringify(outcome.warnings)}`,
     );
   } finally {
@@ -52,7 +52,7 @@ test("warns when a pre-installed adapter version is outside the recipe range", a
 });
 
 test("no warning when the pre-installed version is in range", async () => {
-  const cwd = fixture("14.1.3");
+  const cwd = fixture("14.3.3");
   try {
     const outcome = await installAdapter("cloudflare", { cwd, installDeps: noopInstaller });
     assert.equal(outcome.status, "applied");

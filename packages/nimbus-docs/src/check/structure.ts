@@ -54,7 +54,7 @@ export async function checkStructure(
   const notes: Note[] = [];
 
   const config = checkConfigZod(findings, notes, parsed);
-  await checkApiCollections(cwd, findings, parsed, config);
+  await checkApiCollections(cwd, findings, notes, parsed, config);
   await checkRequestRendering(cwd, findings, notes, parsed, config);
   await checkDuplicateRoutes(cwd, findings, parsed);
   await checkMdxComponents(cwd, findings, notes);
@@ -72,15 +72,13 @@ export async function checkStructure(
 async function checkApiCollections(
   cwd: string,
   findings: CheckFinding[],
+  notes: Note[],
   parsed: ConfigParseResult,
   config: NimbusConfig | null,
 ): Promise<void> {
-  if (
-    !parsed.ok ||
-    config === null ||
-    parsed.unresolved.includes("api") ||
-    parsed.unresolved.includes("...spread")
-  ) {
+  if (!parsed.ok || config === null) return;
+  if (parsed.unresolved.includes("api") || parsed.unresolved.includes("...spread")) {
+    notes.push(apiCollectionsSkipped("the `api` config isn't a plain literal"));
     return;
   }
   const contentConfigPath = path.join(cwd, "src", "content.config.ts");
@@ -88,7 +86,12 @@ async function checkApiCollections(
     parseContentCollections(contentConfigPath),
     parseApiCollections(contentConfigPath),
   ]);
-  if (collections === null || api === null) return;
+  if (collections === null || api === null) {
+    if ((config.api ?? []).length > 0) {
+      notes.push(apiCollectionsSkipped("src/content.config.ts can't be read statically"));
+    }
+    return;
+  }
 
   const configured = (config.api ?? []).map((entry) => entry.collection);
   const kinds = new Map(
@@ -137,6 +140,14 @@ async function checkApiCollections(
   }
 }
 
+function apiCollectionsSkipped(cause: string): Note {
+  return {
+    code: "nimbus/api-collections-skipped",
+    reason: `API collection checks skipped: ${cause}, so \`api\` entries weren't matched against apiCollection() registrations. A build enforces them.`,
+    requiresBuild: true,
+  };
+}
+
 async function checkRequestRendering(
   cwd: string,
   findings: CheckFinding[],
@@ -144,14 +155,17 @@ async function checkRequestRendering(
   parsed: ConfigParseResult,
   config: NimbusConfig | null,
 ): Promise<void> {
-  if (
-    !parsed.ok ||
-    !config?.rendering ||
-    parsed.unresolved.includes("rendering") ||
-    parsed.unresolved.includes("...spread")
-  ) {
+  if (!parsed.ok || config === null) return;
+  if (parsed.unresolved.includes("rendering") || parsed.unresolved.includes("...spread")) {
+    notes.push({
+      code: "nimbus/rendering-policy-skipped",
+      reason:
+        "Rendering policy checks skipped: the `rendering` config isn't a plain literal, so request-rendered collections and their routes weren't verified. A build enforces them.",
+      requiresBuild: true,
+    });
     return;
   }
+  if (!config.rendering) return;
 
   const srcDir = path.join(cwd, "src");
   const parsedCollections = await parseContentCollections(

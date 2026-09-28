@@ -22,14 +22,13 @@ function cleanup(dir: string): void {
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
-test("placeholder site with search on yields errors and exit 1", async () => {
+test("placeholder site warns; missing search still errors with exit 1", async () => {
   const dir = project(`{ site: "https://example.com", title: "X" }`);
   try {
     const r = await runChecks(dir, { env: true, structure: false, authoring: false, types: false });
-    const codes = r.findings.map((f) => f.code);
-    assert.ok(codes.includes("nimbus/site-placeholder"));
-    assert.ok(codes.includes("nimbus/pagefind-missing"));
-    assert.ok(r.summary.errors >= 2);
+    const severity = (code: string) => r.findings.find((f) => f.code === code)?.severity;
+    assert.equal(severity("nimbus/site-placeholder"), "warn");
+    assert.equal(severity("nimbus/pagefind-missing"), "error");
     assert.equal(exitCodeFor(r.summary), 1);
   } finally {
     cleanup(dir);

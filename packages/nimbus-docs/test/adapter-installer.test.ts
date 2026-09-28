@@ -356,7 +356,7 @@ for (const [adapter, pkg, range] of [
   ["vercel", "@astrojs/vercel", "^12"],
   ["node", "@astrojs/node", "^11"],
   ["netlify", "@astrojs/netlify", "^9"],
-  ["cloudflare", "@astrojs/cloudflare", "^14.2.0"],
+  ["cloudflare", "@astrojs/cloudflare", "~14.1.0"],
 ] as const) {
   test(`rejects a declared ${adapter} range outside Nimbus compatibility`, async () => {
     const dir = scratch();
