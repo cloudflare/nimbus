@@ -1,0 +1,25 @@
+.changeset/links-follow-site-config.md
+  s_91c8d2ab1d77d8::t_582abee3657dd5 9,16
+packages/nimbus-docs/src/_internal/code-regions.ts
+  s_91c8d2ab1d77d8::t_2f1d19c477bca4 23-26,33-35,37-44,51-54
+packages/nimbus-docs/src/_internal/scan-version-frontmatter.ts
+  s_91c8d2ab1d77d8::t_6ab275ad7a787f 63-64,123-129
+packages/nimbus-docs/test/code-regions.test.ts
+  s_91c8d2ab1d77d8::t_d6bb97c675ce12 23-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "0edab173a9bd2146d088ec5bf402c4eb9301aee3",
+  "prompts": {},
+  "sessions": {
+    "s_91c8d2ab1d77d8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1e198162ffeegYrC3FPV5O2c5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
