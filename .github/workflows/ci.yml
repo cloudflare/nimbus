@@ -58,6 +58,39 @@ jobs:
 
       - run: pnpm -r test
 
+  # Apply pending changesets exactly as the release PR will (versions, CHANGELOGs,
+  # reviewed baselines, registry), then test. A test that depends on the version
+  # fails on the feature PR instead of on the release PR. Nothing is committed.
+  test-next-version:
+    name: Test at the next release version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read # changelog-github reads the PR behind each changeset
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0 # changelog-github finds the commit that added each changeset
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm changeset:version
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - run: pnpm --filter ./packages/nimbus-docs build
+
+      - run: pnpm test:upgrades
+
+      - run: pnpm -r test
+
   windows-child-process:
     name: Windows child process
     runs-on: windows-latest

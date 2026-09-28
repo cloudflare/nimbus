@@ -20,6 +20,8 @@ jobs:
       pull-requests: write # open/update the version-bump PR
       id-token: write # npm publish provenance (OIDC)
       actions: write # the App token's own Actions:write authorizes release.mjs's verify-smoke dispatch
+    outputs:
+      published: ${{ steps.changesets.outputs.published }}
     steps:
       # A GitHub App installation token, not GITHUB_TOKEN: App-authored "Version
       # packages" PRs trigger CI (GITHUB_TOKEN-authored ones are suppressed), and
@@ -101,6 +103,7 @@ jobs:
       #     full-history secret scan), or drop this env line + `id-token: write`,
       #     before the first real release.
       - name: Create version-bump PR or publish
+        id: changesets
         uses: changesets/action@3841a0683d3cfa6dae0f9bb335290003010fe3f0 # v1.9.0
         with:
           version: pnpm changeset:version
@@ -120,3 +123,40 @@ jobs:
         run: node scripts/reconcile-github-releases.mjs
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+
+  # The registry is served by the docs site, so every release redeploys it.
+  # Runs only after this run published packages (changesets/action reports
+  # `published` from the tags release.mjs creates); a failed deploy fails the
+  # workflow. To retry, use "Re-run failed jobs", which keeps the release job's
+  # outputs; re-running every job publishes nothing and skips the deploy.
+  #
+  # Prerequisites (one-time, outside this file): repository secrets
+  # CLOUDFLARE_API_TOKEN (a token allowed to deploy Workers on the account that
+  # owns the `nimbus-docs` Worker) and CLOUDFLARE_ACCOUNT_ID.
+  deploy-registry:
+    name: Deploy registry
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # `run deploy`, not `deploy` (a pnpm built-in). Its `predeploy` builds
+      # @cloudflare/nimbus-docs first, so the site never builds against a stale dist.
+      - name: Deploy docs site and registry
+        run: pnpm --filter @nimbus/www run deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

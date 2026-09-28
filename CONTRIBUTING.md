@@ -41,7 +41,7 @@ Before you open a PR:
 - Put the change in the right place: framework bugs and plumbing in `nimbus-docs`, styling and layout in the starter, optional extras in the registry.
 - Edit `packages/nimbus-starter-source/`, never the `templates` branch — that's generated, and direct edits get clobbered on the next release.
 - Add a changeset for anything user-facing. Starter edits need a `create-nimbus-docs` changeset, or the freshness guard fails the PR.
-- For every intentional public API break, apply the `breaking-change` PR label and add a linked entry to the comprehensive upgrade manifest. Use `optional` only when every existing site keeps building with the same output without acting; conditional entries stay `review-required`. Every entry carries manual guidance; add a migration ID, detector, transform, bounded task, and focused fixtures only when maintainers deliberately classify the change as common, mechanical, and canonically detectable. Run `pnpm upgrades:check`. CI verifies the declaration, pending changeset, and manifest continuity.
+- For every intentional public API break, apply the `breaking-change` PR label and add a linked entry to the comprehensive upgrade manifest. Use `optional` only when every existing site keeps building with the same output without acting; conditional entries stay `review-required`. Every entry carries manual guidance; add a migration ID, detector, transform, bounded task, and focused fixtures only when maintainers deliberately classify the change as common, mechanical, and canonically detectable. Run `pnpm upgrades:check`. CI verifies the declaration, pending changeset, and manifest continuity. If a shipped release missed an entry, add it with that release's `introducedIn`, as `review-required` with no migration ID, linked to a pending `@cloudflare/nimbus-docs` changeset; sites upgrading across that release then see it.
 - Check that `pnpm typecheck`, `pnpm -r test`, and `pnpm templates:check` pass.
 
 For Markdown pipeline changes, extend the small mixed-format fixture in
@@ -88,7 +88,11 @@ pnpm add https://pkg.pr.new/@cloudflare/nimbus-docs@<PR#>
 
 The label is removed automatically; re-add it to publish a fresh preview.
 
-Note that `create-nimbus-docs` previews are limited: the scaffolder fetches
-templates pinned to `#templates-v<version>`, so a preview still pulls the last
-*released* templates, not the PR's starter edits. To test starter changes end to
-end, scaffold with `--template-dir` against a local checkout (see `pnpm local`).
+Preview packages carry the version the release PR would give them, as a
+pre-release such as `0.16.0-pr.170.sha<sha>`, so installing one on a site runs the
+next release's upgrade entries. The workflow runs the full test suite at that
+version before publishing. A package without a pending changeset gets a patch bump.
+
+`create-nimbus-docs` previews scaffold from the PR's own starter, bundled into the
+preview package and pinned to the matching `@cloudflare/nimbus-docs` preview. They
+record no reviewed baseline in `nimbus.json`.
