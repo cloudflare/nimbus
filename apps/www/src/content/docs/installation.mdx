@@ -17,26 +17,32 @@ One command sets up a project with layouts, components, content schemas, search,
 
 ## Scaffold
 
-```sh
-npx @cloudflare/create-nimbus-docs@latest
-```
+<PackageManagers type="create" pkg="@cloudflare/nimbus-docs@latest" />
 
-Pick a directory name, then choose your preferences:
+The scaffolder asks:
 
 <Steps>
-  <Step title="Template">
-    Two choices — **full** (core components, demo content, populated theme tokens) or **empty** (the minimum to run, ready for your own content).
+  <Step title="Directory">
+    Where to create the project.
+  </Step>
+  <Step title="Starter content">
+    **Getting started guide + example pages**, or **Empty**, just the shell for your own content. Flag: `--content starter|empty`.
+  </Step>
+  <Step title="Package manager">
+    npm, pnpm, yarn, or bun. It installs dependencies with your choice unless you pass `--skip-install`. Flag: `--package-manager <pm>`.
+  </Step>
+  <Step title="Git">
+    Whether to initialize a repository. Flag: `--no-git` to skip.
   </Step>
   <Step title="Output mode">
-    **Static** prerenders every content collection route and deploys anywhere. **Server** uses Cloudflare to render those routes on request. You can override individual collections later.
+    **Static** prerenders every content collection route and deploys anywhere. **Server** renders those routes on request. You can override individual collections later.
   </Step>
-  <Step title="Target">
-    Static output supports Cloudflare or another static host. Interactive server setup currently offers Cloudflare Workers; explicit `--adapter` flags also support Vercel, Netlify, and Node.
-  </Step>
-  <Step title="Install dependencies">
-    The scaffolder runs your package manager automatically. Skip if you want to edit `package.json` first.
+  <Step title="Deploy target or adapter">
+    Static output asks for a deploy target: Cloudflare or another static host (flag: `--deploy cloudflare|other`). Server output offers Cloudflare; the `--adapter` flag also accepts `vercel`, `netlify`, and `node`.
   </Step>
 </Steps>
+
+Pass `--yes` to accept every default without prompts. Without a terminal, such as in CI or when an agent runs it, `--yes` is required. Pass `--help` to list every flag.
 
 ## What lands in your repo
 

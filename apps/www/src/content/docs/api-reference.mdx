@@ -231,11 +231,7 @@ Route policies belong to each version in a version family. This makes URL decisi
 
 ### Build or request rendering
 
-API HTML is prerendered by default. Request rendering first requires the Cloudflare adapter recipe:
-
-<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add adapter-cloudflare" />
-
-With server output configured, this policy renders only the API collection on request:
+API HTML is prerendered by default. To render only the API collection on request, add this policy to the Nimbus config:
 
 ```ts title="astro.config.ts"
 rendering: {
@@ -245,6 +241,10 @@ rendering: {
   },
 },
 ```
+
+Then run the Cloudflare adapter installer. It keeps an existing rendering policy. Without one, it sets `rendering: { default: "request" }`, which renders every collection on request.
+
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="dlx" args="add adapter-cloudflare" />
 
 The recipe's API catch-all uses Nimbus runtime helpers to resolve either mode. Request rendering changes the canonical HTML pages only. Alternate Markdown versions, coordinate data, search records, sitemaps, and `llms.txt` indexes remain build products, and requests consume prepared content entries rather than parsing the OpenAPI document.
 

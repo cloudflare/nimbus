@@ -19,17 +19,15 @@ Nimbus builds documentation sites on Astro. It ships the invisible plumbing as a
 
 ## Quickstart
 
-```sh
-npx @cloudflare/create-nimbus-docs@latest
-```
+<PackageManagers type="create" pkg="@cloudflare/nimbus-docs@latest" />
 
-Pick a directory name when prompted, choose a template, output mode, and target, then:
+Answer the prompts ([Installation](/installation) lists them). The scaffolder installs dependencies with the package manager you picked, which defaults to the one you ran it with. Then start the dev server:
 
 ```sh
 cd my-docs
-pnpm install
-pnpm dev
 ```
+
+<PackageManagers pkg="dev" type="run" />
 
 Open the URL it prints and edit anything under `src/` — the dev server reloads.
 

@@ -44,7 +44,7 @@ For Cloudflare deploys, also: `wrangler.jsonc` at project root.
 
 ## Writing docs
 
-Frontmatter must validate against `docsSchema` from `nimbus-docs/schemas`. Required: `title`. The schema includes optional fields for description, sidebar overrides, drafts, dates, edit-link suppression — read the schema for the full shape.
+Frontmatter must validate against `docsSchema` from `@cloudflare/nimbus-docs/schemas`. Required: `title`. The schema includes optional fields for description, sidebar overrides, drafts, dates, edit-link suppression — read the schema for the full shape.
 
 ```mdx
 ---
@@ -61,7 +61,7 @@ Content here.
 
 **Partials use `<Render />`.** Don't import `.mdx` files directly. Put shared content in `src/content/partials/<slug>.mdx`, then reference with `<Render file="<slug>" />`. The `Render` component emits a "did you mean" diagnostic for unknown slugs.
 
-**Icons render via `astro-icon` + Phosphor.** Use `<Icon name="ph:<glyph>" class="w-4 h-4" />` from `astro-icon/components`. Don't reintroduce inline `<svg>` blocks for icons. Browse glyphs at [phosphoricons.com](https://phosphoricons.com).
+**Icons render via Nimbus's `Icon` + Phosphor.** Use `<Icon name="ph:<glyph>" class="w-4 h-4" />` from `@cloudflare/nimbus-docs/components/Icon.astro`. Don't reintroduce inline `<svg>` blocks for icons. Browse glyphs at [phosphoricons.com](https://phosphoricons.com).
 
 **`AgentDirective` renders in `BaseLayout.astro`.** It writes an agent-readable hint at the top of every doc and markdown alternate pointing at `/llms.txt`. Don't remove it.
 
@@ -96,7 +96,7 @@ End the report with: `Summary: N errors, N warnings.`
 - Astro `output:` matches the deploy target (`static` for static deploys).
 
 ### Content collections
-- `src/content.config.ts` registers `docsCollection()` from `nimbus-docs/content`. Register `partialsCollection()` too if `src/content/partials/` exists.
+- `src/content.config.ts` registers `docsCollection()` from `@cloudflare/nimbus-docs/content`. Register `partialsCollection()` too if `src/content/partials/` exists.
 - Every `.mdx` file lives inside a registered collection. Loose `.mdx` under `src/content/` outside a registered collection won't be picked up.
 - Every doc's frontmatter validates against `docsSchema`.
 

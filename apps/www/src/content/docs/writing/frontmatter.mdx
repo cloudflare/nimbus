@@ -14,6 +14,7 @@ Frontmatter is validated against a Zod schema at build time, with errors written
 |---|---|---|---|
 | `title` | string | — | **Required.** Page title and default sidebar label. |
 | `description` | string | — | Meta description and search snippet. |
+| `slug` | string | — | Astro's entry ID override. Sets the page URL instead of the file path, for example to keep the dots in a `1.2.3/` folder, which Astro otherwise serves as `/123/`. |
 | `mode` | `"doc"` \| `"custom"` | `"doc"` | `custom` drops all docs chrome. |
 | `sidebar` | `false` \| object | — | `false` removes the sidebar column on this page; use `sidebar.hidden` to hide the page from the rail. See below. |
 | `hideChildren` | boolean | — | Top-level alias of `sidebar.hideChildren` — collapse a section to a single link. |

@@ -106,6 +106,8 @@ rendering: {
 
 Every override must name a registered collection with its own canonical catch-all route. Nimbus fails the build for unknown collection names rather than silently ignoring them.
 
+Keep `export const prerender = true` and `getStaticPaths` in canonical route files: Nimbus switches each route to the configured mode. Astro still logs "getStaticPaths() ignored in dynamic page" for routes rendered on request. The warning is expected and needs no change.
+
 Request-rendered routes are still added to the sitemap and Pagefind search index during the production build. Nimbus uses the content source to create those build-time discovery files; no extra sitemap or search configuration is required.
 
 ##### Cloudflare
