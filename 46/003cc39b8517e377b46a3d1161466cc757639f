@@ -1,0 +1,31 @@
+apps/www/AGENTS.md
+  s_91c8d2ab1d77d8::t_cfb5aff9289e69 47,64,99
+apps/www/src/content/docs/api-reference.mdx
+  s_91c8d2ab1d77d8::t_07f9f43c124553 234,245-248
+apps/www/src/content/docs/cli.mdx
+  s_91c8d2ab1d77d8::t_cba637bd174e53 149,161,176-197
+apps/www/src/content/docs/configuration.mdx
+  s_91c8d2ab1d77d8::t_638e30bfed60b6 109-110
+apps/www/src/content/docs/get-started.mdx
+  s_91c8d2ab1d77d8::t_df7d14f37f4976 22,24,30-31
+apps/www/src/content/docs/installation.mdx
+  s_91c8d2ab1d77d8::t_cec34766249447 20,22,25-26,28-32,34-35,37-41,45-46
+apps/www/src/content/docs/writing/frontmatter.mdx
+  s_91c8d2ab1d77d8::t_67132644383704 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "46003cc39b8517e377b46a3d1161466cc757639f",
+  "prompts": {},
+  "sessions": {
+    "s_91c8d2ab1d77d8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1e198162ffeegYrC3FPV5O2c5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
