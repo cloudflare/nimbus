@@ -1,0 +1,35 @@
+packages/create-nimbus-docs/scripts/copy-template.mjs
+  s_91c8d2ab1d77d8::t_d3816186086af5 99-112,275
+packages/create-nimbus-docs/src/index.ts
+  s_91c8d2ab1d77d8::t_5aafb5ebfa6376 102-107
+packages/create-nimbus-docs/src/scaffold.ts
+  s_91c8d2ab1d77d8::t_b91bcdd4eefffe 561-562
+packages/create-nimbus-docs/test/generate-templates.test.ts
+  s_91c8d2ab1d77d8::t_6e2d03d45f1261 57-67
+packages/create-nimbus-docs/test/prompts.test.ts
+  s_91c8d2ab1d77d8::t_29fb6777bb8dea 2-6,17-39
+packages/create-nimbus-docs/test/scaffold-server.test.ts
+  s_91c8d2ab1d77d8::t_556182e34219c7 218
+packages/create-nimbus-docs/test/scaffold.test.ts
+  s_91c8d2ab1d77d8::t_6d8406e0de8793 265,292-311,317
+packages/nimbus-starter-source/AGENT.md
+  s_91c8d2ab1d77d8::t_74b904129d13ab 38,55
+packages/nimbus-starter-source/src/content/docs/getting-started.mdx
+  s_91c8d2ab1d77d8::t_431d98f6f62e51 17-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "31aeea1241c92a129c16c5f9ac2278eaa41e0628",
+  "prompts": {},
+  "sessions": {
+    "s_91c8d2ab1d77d8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1e198162ffeegYrC3FPV5O2c5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
