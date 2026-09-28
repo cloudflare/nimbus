@@ -216,15 +216,15 @@ function hrefs(html: string): Record<string, string> {
 }
 
 const EXPECTED_ROOT = {
-  "bare link": "/api/charges/create",
-  "angle link": "/api/charges/list",
-  "jsx link": "/api/disputes/openDispute",
-  "versioned link": "/api/v1/search/search",
+  "bare link": "/api/charges/create/",
+  "angle link": "/api/charges/list/",
+  "jsx link": "/api/disputes/openDispute/",
+  "versioned link": "/api/v1/search/search/",
   "plain link": "/guide",
-  "md bare link": "/api/charges/create",
-  "md angle link": "/api/charges/list",
-  "md html link": "/api/disputes/openDispute",
-  "md versioned link": "/api/v1/search/search",
+  "md bare link": "/api/charges/create/",
+  "md angle link": "/api/charges/list/",
+  "md html link": "/api/disputes/openDispute/",
+  "md versioned link": "/api/v1/search/search/",
 };
 
 function expected(prefix: string): Record<string, string> {
@@ -241,16 +241,16 @@ test("prose citations carry a non-root base in HTML, Markdown, and llms-full.txt
   assert.match(built.html, /<code>\[kept\]\(api\.ref:api:create\)<\/code>/);
 
   for (const markdown of [built.markdown, built.llmsFull]) {
-    assert.match(markdown, /\[bare link\]\(\/docs\/api\/charges\/create\)/);
-    assert.match(markdown, /\[angle link\]\(\/docs\/api\/charges\/list\)/);
-    assert.match(markdown, /href="\/docs\/api\/disputes\/openDispute"/);
-    assert.match(markdown, /\[versioned link\]\(\/docs\/api\/v1\/search\/search\)/);
+    assert.match(markdown, /\[bare link\]\(\/docs\/api\/charges\/create\/\)/);
+    assert.match(markdown, /\[angle link\]\(\/docs\/api\/charges\/list\/\)/);
+    assert.match(markdown, /href="\/docs\/api\/disputes\/openDispute\/"/);
+    assert.match(markdown, /\[versioned link\]\(\/docs\/api\/v1\/search\/search\/\)/);
   }
   for (const markdown of [built.mdMarkdown, built.llmsFull]) {
-    assert.match(markdown, /\[md bare link\]\(\/docs\/api\/charges\/create\)/);
-    assert.match(markdown, /\[md angle link\]\(\/docs\/api\/charges\/list\)/);
-    assert.match(markdown, /href="\/docs\/api\/disputes\/openDispute">md html link/);
-    assert.match(markdown, /\[md versioned link\]\(\/docs\/api\/v1\/search\/search\)/);
+    assert.match(markdown, /\[md bare link\]\(\/docs\/api\/charges\/create\/\)/);
+    assert.match(markdown, /\[md angle link\]\(\/docs\/api\/charges\/list\/\)/);
+    assert.match(markdown, /href="\/docs\/api\/disputes\/openDispute\/">md html link/);
+    assert.match(markdown, /\[md versioned link\]\(\/docs\/api\/v1\/search\/search\/\)/);
   }
   for (const output of [
     built.html,
@@ -267,8 +267,8 @@ test("prose citations resolve without a prefix on a root base", async () => {
   const built = await buildFixture("/");
 
   assert.deepEqual(hrefs(built.html), expected(""));
-  assert.match(built.markdown, /\[bare link\]\(\/api\/charges\/create\)/);
-  assert.match(built.markdown, /\[versioned link\]\(\/api\/v1\/search\/search\)/);
-  assert.match(built.llmsFull, /\[angle link\]\(\/api\/charges\/list\)/);
-  assert.match(built.mdMarkdown, /\[md bare link\]\(\/api\/charges\/create\)/);
+  assert.match(built.markdown, /\[bare link\]\(\/api\/charges\/create\/\)/);
+  assert.match(built.markdown, /\[versioned link\]\(\/api\/v1\/search\/search\/\)/);
+  assert.match(built.llmsFull, /\[angle link\]\(\/api\/charges\/list\/\)/);
+  assert.match(built.mdMarkdown, /\[md bare link\]\(\/api\/charges\/create\/\)/);
 });

@@ -34,6 +34,7 @@ import {
 import type { ApiRoutePolicy, ApiVersionSpec } from "./types.js";
 import {
   noteApiCollectionLoad,
+  registeredServerOutput,
   resolveRegisteredApiCollection,
 } from "./_internal/api-collection-registry.js";
 import { getAuthoredLinkNormalizer } from "./_internal/authored-link-normalizer.js";
@@ -367,7 +368,9 @@ export function apiCollection(options?: ApiCollectionOptions): {
       } = await loadApiLoader();
 
       const rootDir = fileURLToPath(astroConfig.root);
-      const persistPreparedPages = astroConfig.output !== "static";
+      const persistPreparedPages =
+        registeredServerOutput(astroConfig.root) ??
+        astroConfig.output !== "static";
       const preparedRoot = preparedMarkdownRootKey(astroConfig.root);
       const preparedSession = getPreparedMarkdownSession(preparedRoot);
       const reportedErrors = new WeakSet<Error>();

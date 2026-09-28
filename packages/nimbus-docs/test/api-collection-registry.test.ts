@@ -120,6 +120,25 @@ describe("apiCollection() without arguments", () => {
     );
   });
 
+  test("loads follow the registered output mode, not the config the loader was handed", async () => {
+    const root = makeProject();
+    projects.push(root);
+    const spec = inlineSpec("Api", "Ping");
+    const { loader } = apiCollection();
+
+    // A dev restart from static to server output re-runs the earlier loader,
+    // whose context still carries `output: "static"`.
+    registerApiCollections(root, [{ collection: "api", spec }], true);
+    const server = makeContext(root, "api");
+    await loader.load(server.context);
+    assert.ok(server.map.get("ping")?.data.prepared, "server output persists prepared pages");
+
+    registerApiCollections(root, [{ collection: "api", spec }], false);
+    const staticOutput = makeContext(root, "api");
+    await loader.load(staticOutput.context);
+    assert.equal(staticOutput.map.get("ping")?.data.prepared, undefined);
+  });
+
   test("a later registration for the same root replaces the entries", async () => {
     const root = makeProject();
     projects.push(root);

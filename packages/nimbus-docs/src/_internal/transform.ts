@@ -13,6 +13,7 @@ import {
   resolveCitations,
   type CitationIndex,
 } from "./api/citations.js";
+import { getTabs, type CommandType } from "../lib/pkgm.js";
 
 export interface MarkdownComponentRenderContext {
   name: string;
@@ -47,29 +48,84 @@ interface MarkdownEntry {
   filePath?: string;
 }
 
+const FENCE_OPEN = /^([ \t]*(?:>[ \t]?)*)(`{3,}|~{3,})([^\r]*)/;
+const QUOTE_PREFIX = /^[ \t]*(?:>[ \t]*)+$/;
+
+// Remove the opening fence's container prefix (indentation, `>` markers)
+// from a content line, as CommonMark does for an indented fence.
+function stripPrefix(line: string, prefix: string): string {
+  let i = 0;
+  while (
+    i < prefix.length &&
+    i < line.length &&
+    /[ \t>]/.test(line[i]!) &&
+    (line[i] === ">") === (prefix[i] === ">")
+  ) {
+    i++;
+  }
+  return line.slice(i);
+}
+
+function protectFences(
+  markdown: string,
+  store: (chunk: string) => string,
+): string {
+  const lines = markdown.split("\n");
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const open = FENCE_OPEN.exec(lines[i]!);
+    const [, prefix = "", fence = "", info = ""] = open ?? [];
+    if (!open || (fence[0] === "`" && info.includes("`"))) {
+      out.push(lines[i]!);
+      continue;
+    }
+    const close = new RegExp(`^${fence[0]}{${fence.length},}[ \\t]*\\r?$`);
+    let end = i + 1;
+    while (end < lines.length && !close.test(stripPrefix(lines[end]!, prefix))) {
+      end++;
+    }
+    if (end === lines.length) {
+      out.push(lines[i]!);
+      continue;
+    }
+    const body = lines
+      .slice(i + 1, end + 1)
+      .map((line) => stripPrefix(line, prefix));
+    out.push(prefix + store([lines[i]!.slice(prefix.length), ...body].join("\n")));
+    i = end;
+  }
+  return out.join("\n");
+}
+
 function protectCode(markdown: string): {
   markdown: string;
   restore: (value: string) => string;
 } {
   const protectedChunks: string[] = [];
-  function store(chunk: string): string {
-    const token = `@@NIMBUS_MD_CODE_${protectedChunks.length}@@`;
-    protectedChunks.push(
-      chunk.startsWith("```") ? chunk.replace(/\n[ \t]{4}/g, "\n") : chunk,
-    );
+  const store = (kind: "FENCE" | "CODE") => (chunk: string) => {
+    const token = `@@NIMBUS_MD_${kind}_${protectedChunks.length}@@`;
+    protectedChunks.push(chunk);
     return token;
-  }
+  };
 
   // Fenced blocks first so inline-code protection doesn't touch backticks inside.
-  let next = markdown.replace(/```[\s\S]*?```/g, store);
-  next = next.replace(/`[^`\n]+`/g, store);
+  let next = protectFences(markdown, store("FENCE"));
+  next = next.replace(/`[^`\n]+`/g, store("CODE"));
 
   return {
     markdown: next,
     restore(value: string): string {
       return value.replace(
-        /@@NIMBUS_MD_CODE_(\d+)@@/g,
-        (_match, index: string) => protectedChunks[Number(index)] ?? "",
+        /@@NIMBUS_MD_(?:FENCE|CODE)_(\d+)@@/g,
+        (_match, index: string, offset: number, whole: string) => {
+          const chunk = protectedChunks[Number(index)] ?? "";
+          const before = whole.slice(whole.lastIndexOf("\n", offset) + 1, offset);
+          if (!QUOTE_PREFIX.test(before)) return chunk;
+          const blank = before.trimEnd();
+          return chunk.replace(/\n([^\n\r]*)/g, (_line, text: string) =>
+            text ? `\n${before}${text}` : `\n${blank}`,
+          );
+        },
       );
     },
   };
@@ -111,48 +167,21 @@ function asTitle(
 function renderPackageManagers(
   attrs: Record<string, string | boolean>,
 ): string {
-  const pkg = typeof attrs.pkg === "string" ? attrs.pkg : undefined;
-  const args = typeof attrs.args === "string" ? attrs.args : undefined;
-  const type = typeof attrs.type === "string" ? attrs.type : "install";
-  const dev = attrs.dev === true || attrs.dev === "true";
-
-  let commands: string[];
-  if (type === "run") {
-    const command = args ?? "dev";
-    commands = [
-      `npm run ${command}`,
-      `pnpm ${command}`,
-      `yarn ${command}`,
-      `bun run ${command}`,
-    ];
-  } else if (type === "exec") {
-    const command = args ?? pkg ?? "";
-    commands = [
-      `npx ${command}`,
-      `pnpm exec ${command}`,
-      `yarn exec ${command}`,
-      `bunx ${command}`,
-    ];
-  } else if (type === "dlx") {
-    const command = args ?? pkg ?? "";
-    commands = [
-      `npx ${command}`,
-      `pnpm dlx ${command}`,
-      `yarn dlx ${command}`,
-      `bunx ${command}`,
-    ];
-  } else if (pkg) {
-    commands = [
-      `npm install ${dev ? "--save-dev " : ""}${pkg}`,
-      `pnpm add ${dev ? "-D " : ""}${pkg}`,
-      `yarn add ${dev ? "-D " : ""}${pkg}`,
-      `bun add ${dev ? "-d " : ""}${pkg}`,
-    ];
-  } else {
-    return "";
-  }
-
-  return ["```sh", ...commands, "```"].join("\n");
+  const string = (value: string | boolean | undefined) =>
+    typeof value === "string" ? value : undefined;
+  const comment = string(attrs.comment);
+  const commands = getTabs(
+    (string(attrs.type) ?? "add") as CommandType,
+    string(attrs.pkg),
+    { args: string(attrs.args), dev: attrs.dev === true || attrs.dev === "true" },
+  ).map((tab) => tab.cmd);
+  if (commands.length === 0) return "";
+  return [
+    "```sh",
+    ...(comment ? [`# ${comment}`] : []),
+    ...commands,
+    "```",
+  ].join("\n");
 }
 
 function applyDefaultComponentTransforms(markdown: string): string {
@@ -324,14 +353,15 @@ export function renderEntryAsMarkdown(
     );
   }
   markdown = applyDefaultComponentTransforms(markdown);
-  markdown = protectedCode.restore(markdown);
 
-  return markdown
+  // Normalize layout before restoring code so code blocks stay byte-identical.
+  markdown = markdown
     .replace(/^[ \t]+(- (?:\*\*|\[))/gm, "$1")
     .replace(/^[ \t]+(\d+\. \*\*)/gm, "$1")
     .replace(/^[ \t]+(### )/gm, "$1")
-    .replace(/^[ \t]+(```)/gm, "$1")
+    .replace(/^[ \t]+(```|@@NIMBUS_MD_FENCE_)/gm, "$1")
     .replace(/^[ \t]+$/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+  return protectedCode.restore(markdown);
 }

@@ -27,7 +27,7 @@ describe("createAuthoredCitationResolver", () => {
   test("resolves an in-scope citation to its logical route", () => {
     assert.equal(
       makeResolver()("See [create](api.ref:zones:createZone).", inScope),
-      "See [create](/api/zones/create-zone).",
+      "See [create](/api/zones/create-zone/).",
     );
   });
 
@@ -71,7 +71,7 @@ describe("createAuthoredCitationResolver", () => {
         getCitationIndex: () => index,
       });
       const source = "[a](api.ref:zones:createZone)";
-      const expected = "[a](/api/zones/create-zone)";
+      const expected = "[a](/api/zones/create-zone/)";
       assert.equal(resolve(source, path.join(linked, "content", "a.mdx")), expected);
       assert.equal(
         resolve(source, path.join(await realpath(real), "content", "a.mdx")),
@@ -86,7 +86,7 @@ describe("createAuthoredCitationResolver", () => {
       '[a](api.ref:zones:createZone) [b](<api.ref:zones:createZone>) <a href="api.ref:zones:createZone">c</a>';
     assert.equal(
       normalizeAuthoredLinks(resolve(mdx, inScope), { base: "/docs/", format: "mdx" }),
-      '[a](/docs/api/zones/create-zone) [b](/docs/api/zones/create-zone) <a href="/docs/api/zones/create-zone">c</a>',
+      '[a](/docs/api/zones/create-zone/) [b](/docs/api/zones/create-zone/) <a href="/docs/api/zones/create-zone/">c</a>',
     );
     const md = "[a](<api.ref:zones:createZone>)\n\n<a href=\"api.ref:zones:createZone\">c</a>\n";
     assert.equal(
@@ -94,7 +94,7 @@ describe("createAuthoredCitationResolver", () => {
         base: "/docs",
         format: "markdown",
       }),
-      "[a](/docs/api/zones/create-zone)\n\n<a href=\"/docs/api/zones/create-zone\">c</a>\n",
+      "[a](/docs/api/zones/create-zone/)\n\n<a href=\"/docs/api/zones/create-zone/\">c</a>\n",
     );
     assert.equal(
       normalizeAuthoredLinks(resolve(mdx, inScope), { base: "/", format: "mdx" }),

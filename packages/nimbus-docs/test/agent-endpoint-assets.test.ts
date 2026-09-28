@@ -315,7 +315,7 @@ test("bakes expanded source and transformed Markdown endpoint assets determinist
   assert.equal(markdown.mediaType, "text/markdown; charset=utf-8");
   assert.match(markdown.body, /\[Nested\]\(\/nested\)/);
   assert.doesNotMatch(markdown.body, /wrong/);
-  assert.match(markdown.body, /\[API\]\(\/docs\/api\/list\)/);
+  assert.match(markdown.body, /\[API\]\(\/docs\/api\/list\/\)/);
   assert.match(
     markdown.body,
     /image: "https:\/\/example\.test\/docs\/og\.png"/,

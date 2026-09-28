@@ -180,6 +180,8 @@ function baseDocSchema() {
           : `"title" must be a string, received ${typeof iss.input}`,
     }),
     description: z.string({ error: '"description" must be a string' }).optional(),
+    /** Astro's glob loader uses `slug` as the entry ID (e.g. to keep dots in `1.2.3/`). */
+    slug: z.string({ error: '"slug" must be a string' }).optional(),
     nimbusDisableRules: z
       .array(z.string(), { error: '"nimbusDisableRules" must be an array of rule codes' })
       .optional(),

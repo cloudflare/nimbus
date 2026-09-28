@@ -14,6 +14,7 @@
 
 import type { NimbusConfig } from "../types.js";
 import type { VersionAlternatesTable } from "./version-alternates.js";
+import { setTrailingSlash } from "./url.js";
 
 // `virtual:nimbus/config` declarations live at
 // `packages/nimbus-docs/src/types/virtual-modules.d.ts` so they're ambient
@@ -26,9 +27,20 @@ let _cachedRequestRenderingCollections: readonly string[] | null = null;
 let _cachedAlternates: VersionAlternatesTable | null = null;
 let _cachedApiCollections: readonly string[] | null = null;
 
+// Runtime config reads go through here, so generated hrefs follow Astro's
+// `trailingSlash` before any helper builds one.
+async function virtualConfig(): Promise<typeof import("virtual:nimbus/config")> {
+  const [mod, astroConfig] = await Promise.all([
+    import("virtual:nimbus/config"),
+    import("astro:config/client"),
+  ]);
+  setTrailingSlash(astroConfig.trailingSlash);
+  return mod;
+}
+
 export async function loadNimbusConfig(): Promise<NimbusConfig> {
   if (_cached) return _cached;
-  const mod = await import("virtual:nimbus/config");
+  const mod = await virtualConfig();
   // Intermediate const so the return path isn't typed `NimbusConfig | null`
   // (the module-scoped `_cached` keeps its union; the value being cached
   // and returned is the same object — observable behavior is identical).
@@ -44,7 +56,7 @@ export async function loadNimbusConfig(): Promise<NimbusConfig> {
  */
 export async function loadIndexedCollections(): Promise<readonly string[]> {
   if (_cachedCollections) return _cachedCollections;
-  const mod = await import("virtual:nimbus/config");
+  const mod = await virtualConfig();
   const value = mod.indexedCollections;
   _cachedCollections = value;
   return value;
@@ -52,7 +64,7 @@ export async function loadIndexedCollections(): Promise<readonly string[]> {
 
 export async function loadRequestRenderingCollections(): Promise<readonly string[]> {
   if (_cachedRequestRenderingCollections) return _cachedRequestRenderingCollections;
-  const mod = await import("virtual:nimbus/config");
+  const mod = await virtualConfig();
   const value = mod.requestRenderingCollections ?? [];
   _cachedRequestRenderingCollections = value;
   return value;
@@ -65,7 +77,7 @@ export async function loadRequestRenderingCollections(): Promise<readonly string
  */
 export async function loadVersionAlternates(): Promise<VersionAlternatesTable> {
   if (_cachedAlternates) return _cachedAlternates;
-  const mod = await import("virtual:nimbus/config");
+  const mod = await virtualConfig();
   // Fall back to an empty table when the virtual module doesn't define
   // `versionAlternates` (e.g. older integration build, or transient
   // dev-server cache state). Downstream lookups (`table[key] ?? null`)
@@ -82,7 +94,7 @@ export async function loadVersionAlternates(): Promise<VersionAlternatesTable> {
  */
 export async function loadApiCollections(): Promise<readonly string[]> {
   if (_cachedApiCollections) return _cachedApiCollections;
-  const mod = await import("virtual:nimbus/config");
+  const mod = await virtualConfig();
   const value = mod.apiCollections ?? [];
   _cachedApiCollections = value;
   return value;

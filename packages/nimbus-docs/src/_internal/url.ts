@@ -1,23 +1,20 @@
 /**
  * Internal URL helpers — one shape for matching, one shape for rendering.
  *
- * Static hosts that serve `page/index.html` (Astro's default `build.format:
- * "directory"`) canonicalize to a trailing-slash URL. If framework helpers
- * emit slashless hrefs, every sidebar click costs a 307 redirect before
- * Astro's client router can pick up the page. The fix splits href shape
- * into two forms:
+ * Generated hrefs must match the URL Astro serves for `trailingSlash`, or
+ * every sidebar click costs a redirect (or a 404 in `preview`). Href shape
+ * splits into two forms:
  *
  *   - `toRouteKey(href)` — slashless canonical form. Used wherever the
  *     framework compares paths for identity (active sidebar state,
  *     prev/next lookup, validation against the indexed route set).
  *
  *   - `toBrowserHref(href)` — what we emit into `<a href>` / `<link>` for
- *     HTML document routes. Adds a trailing slash so the URL matches the
- *     directory-index page the host serves directly.
+ *     HTML document routes, shaped by Astro's `trailingSlash`.
  *
  * Asset URLs (`.md`, `.png`, `.txt`, …), external URLs, and anchor-only
  * hrefs are returned unchanged by `toBrowserHref` — they aren't HTML
- * document routes and adding a slash would break them.
+ * document routes and a slash would break them.
  *
  * `withBase` is public because starter-owned layouts and routes must apply the
  * same sub-path rule as framework-owned metadata. Site-relative inputs are
@@ -122,13 +119,28 @@ export function toRouteKey(href: string): string {
   return decoded.endsWith("/") ? decoded.slice(0, -1) : decoded;
 }
 
+export type TrailingSlash = "always" | "never" | "ignore";
+
+let trailingSlash: TrailingSlash = "ignore";
+
 /**
- * Trailing-slash form for browser-facing hrefs to HTML document routes.
- * Preserves query and hash; root, external URLs, anchor-only hrefs, and
- * asset URLs (paths with a file extension) are returned unchanged.
+ * Follow Astro's `trailingSlash` in generated document hrefs. Set from Astro's
+ * config by the integration (build-time work) and by the runtime config bridge
+ * (page rendering), so every generated link matches the canonical URL.
+ */
+export function setTrailingSlash(value: TrailingSlash): void {
+  trailingSlash = value;
+}
+
+/**
+ * Browser-facing href for an HTML document route, shaped by Astro's
+ * `trailingSlash`: `"never"` drops the trailing slash, `"always"` and
+ * `"ignore"` add it. Preserves query and hash; root, external URLs,
+ * anchor-only hrefs, and asset URLs (paths with a file extension) are
+ * returned unchanged.
  *
- *   /cli              → /cli/
- *   /cli/             → /cli/
+ *   /cli              → /cli/   ("never": /cli)
+ *   /cli/             → /cli/   ("never": /cli)
  *   /cli#install      → /cli/#install
  *   /cli?v=1          → /cli/?v=1
  *   /                 → /
@@ -149,6 +161,11 @@ export function toBrowserHref(href: string): string {
   const [pathname, suffix] = splitSuffix(href);
   if (pathname === "/") return href;
   if (hasFileExtension(pathname)) return href;
+  if (trailingSlash === "never") {
+    let end = pathname.length;
+    while (end > 1 && pathname[end - 1] === "/") end--;
+    return `${pathname.slice(0, end)}${suffix}`;
+  }
   if (pathname.endsWith("/")) return href;
   return `${pathname}/${suffix}`;
 }

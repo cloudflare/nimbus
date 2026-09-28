@@ -19,7 +19,7 @@ describe("renderEntryAsMarkdown: coordinate citations", () => {
       { body: "See [create a zone](api.ref:zones:createZone) first." },
       { citationIndex: index },
     );
-    assert.match(out, /\[create a zone\]\(\/api\/zones\/create-zone\)/);
+    assert.match(out, /\[create a zone\]\(\/api\/zones\/create-zone\/\)/);
     assert.doesNotMatch(out, /api\.ref:/);
   });
 

@@ -330,16 +330,17 @@ describe("apiCollection loader — output-aware index", () => {
 
   test("thin API Markdown uses page props, not the highlighted HTML projection", async () => {
     // `runtime.ts` reads this global once at module load, and resolves
-    // `virtual:nimbus/config` lazily, so both are stubbed before importing it.
+    // `virtual:nimbus/config` and `astro:config/client` lazily, so all are
+    // stubbed before importing it.
+    const stubs: Record<string, string> = {
+      "virtual:nimbus/config": `export const apiCollections = ["api"];`,
+      "astro:config/client": `export const trailingSlash = "ignore";`,
+    };
     const hooks = registerHooks({
       resolve(specifier, context, nextResolve) {
-        if (specifier !== "virtual:nimbus/config") {
-          return nextResolve(specifier, context);
-        }
-        return {
-          url: `data:text/javascript,export const apiCollections = ["api"];`,
-          shortCircuit: true,
-        };
+        const stub = stubs[specifier];
+        if (stub === undefined) return nextResolve(specifier, context);
+        return { url: `data:text/javascript,${stub}`, shortCircuit: true };
       },
     });
     const thinGlobal = globalThis as { __NIMBUS_THIN_API_ENTRIES__?: boolean };

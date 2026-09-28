@@ -417,6 +417,9 @@ if (LANE === "static") {
   assert.ok(generated.some(source => source.includes("<!-- Generated Markdown can contain HTML comments and literal {braces}. -->")));
   assert.ok(generated.some(source => source.includes('<a href="/untouched">{notAnExpression}</a>')));
   assert.ok(generated.every(source => source.includes("[literal citation](api.ref:api:untouched)")), "generated sources keep fenced citation examples literal");
+  const composedMarkdown = readFileSync(join(site, "dist", "integrity", "composed", "index.md"), "utf8");
+  assert.ok(composedMarkdown.includes("> ```yaml\n> paths:\n>   /events:\n>     get:\n>       summary: Indented\n> ```"), "generated Markdown keeps code indentation and quotes every line inside <Aside>");
+  assert.match(composedMarkdown, /^npx @cloudflare\/nimbus-docs list$/m, "generated Markdown keeps the <PackageManagers> package");
   // Reuse the content cache: prepared links and content must not change on a
   // second build of the same installed consumer.
   const snapshot = (document) => ({

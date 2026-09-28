@@ -6,8 +6,8 @@
  * pnpm, yarn, and bun. Pure data + a string-builder — runs at build
  * time in Astro frontmatter, not in the browser.
  *
- * Currently consumed by the PackageManagers component. Free-standing —
- * customize freely or use elsewhere; you own this code.
+ * Consumed by the PackageManagers component, its Markdown output, and the
+ * CLI's printed commands, so all three agree.
  */
 
 export type Manager = "npm" | "yarn" | "pnpm" | "bun";

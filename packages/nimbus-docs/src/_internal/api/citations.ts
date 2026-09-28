@@ -22,6 +22,7 @@
  */
 
 import { suggest } from "../levenshtein.js";
+import { toBrowserHref } from "../url.js";
 
 /** The one prefix that marks a link target as a coordinate citation. */
 export const CITATION_SENTINEL = "api.ref:";
@@ -137,9 +138,13 @@ export function isSafeCitationPath(value: string): boolean {
   return true;
 }
 
-/** Resolve a parsed citation against a citation index. `undefined` when unknown. */
+/**
+ * Resolve a parsed citation against a citation index, shaped like every other
+ * generated page link (Astro's `trailingSlash`). `undefined` when unknown.
+ */
 export function resolveCitation(parsed: ParsedCitation, citationIndex: CitationIndex): string | undefined {
-  return citationIndex.get(citationKey(parsed.collection, parsed.version, parsed.coordinate));
+  const url = citationIndex.get(citationKey(parsed.collection, parsed.version, parsed.coordinate));
+  return url === undefined ? undefined : toBrowserHref(url);
 }
 
 export interface ResolveCitationsResult {

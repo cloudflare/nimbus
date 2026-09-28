@@ -42,6 +42,7 @@ export default defineConfig({
   external: [
     "astro:content",
     "astro:assets",
+    "astro:config/client",
     "react",
     "react-dom",
     /^react\//,

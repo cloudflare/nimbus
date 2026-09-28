@@ -552,6 +552,28 @@ test("request-only sitemap uses upstream filtering, serialization, and deduplica
   assert.match(xml, /<priority>0\.7<\/priority>/);
 });
 
+test("noindex pages stay out of a prerendered sitemap with and without base", async (t) => {
+  for (const base of ["/", "/docs"]) {
+    const prefix = base === "/" ? "" : base;
+    const xml = await generateRequestSitemap(
+      t,
+      [
+        { collection: "docs", url: "/public/", discoverable: true },
+        { collection: "docs", url: "/private/", discoverable: false },
+      ],
+      [{ pathname: "public/" }, { pathname: "private/" }],
+      {},
+      base,
+      "ignore",
+      "directory",
+      [],
+      "build",
+    );
+    assert.match(xml, new RegExp(`<loc>https://example\\.test${prefix}/public/</loc>`), base);
+    assert.doesNotMatch(xml, /private/, base);
+  }
+});
+
 test("mixed sitemap includes prerendered and request-rendered pages", async (t) => {
   const xml = await generateRequestSitemap(
     t,

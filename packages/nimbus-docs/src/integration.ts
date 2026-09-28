@@ -75,10 +75,7 @@ import {
   validateMdxContent,
 } from "./_internal/validate-mdx-content.js";
 import { validateNimbusConfig } from "./_internal/validate.js";
-import {
-  hiddenVersionPrefixes,
-  makeHiddenSitemapFilter,
-} from "./_internal/hidden-sitemap.js";
+import { makeHiddenSitemapFilter } from "./_internal/hidden-sitemap.js";
 import { virtualConfigPlugin } from "./_internal/virtual-config.js";
 import { coalesce } from "./_internal/coalesce.js";
 import { virtualApiBuildConfigPlugin } from "./_internal/virtual-api-build-config.js";
@@ -142,7 +139,7 @@ import {
   STARTER_ROUTE_INVENTORY,
 } from "./_internal/route-ownership.js";
 import type { RequestRouteInventoryEntry } from "./_internal/request-route-url.js";
-import { safeDecode, withBase } from "./_internal/url.js";
+import { safeDecode, setTrailingSlash, withBase } from "./_internal/url.js";
 import { buildLastUpdatedIndex } from "./_internal/git-last-updated.js";
 import { virtualLastUpdatedPlugin } from "./_internal/last-updated-virtual.js";
 import {
@@ -494,8 +491,13 @@ export function nimbus(
         // content/assets stay root-relative via their collection bases.
         const srcDir = fileURLToPath(astroConfig.srcDir);
         const projectRoot = fileURLToPath(astroConfig.root);
+        setTrailingSlash(astroConfig.trailingSlash);
         beginPreparedMarkdownSession(astroConfig.root);
-        registerApiCollections(astroConfig.root, config.api);
+        registerApiCollections(
+          astroConfig.root,
+          config.api,
+          astroConfig.output !== "static",
+        );
         const agentEndpointAssets = await loadAgentEndpointAssets();
         if (config.api?.length) {
           const apiLoader = await import("./_internal/api-loader.js");
@@ -1127,12 +1129,6 @@ export function nimbus(
         const sitemapOpts =
           typeof options.sitemap === "object" ? options.sitemap : undefined;
         if (wantSitemap) {
-          // Injected only when hidden versions exist, so an all-visible site's
-          // sitemap stays byte-identical (no `filter` key).
-          const hiddenPrefixes = hiddenVersionPrefixes(
-            config,
-            astroConfig.base,
-          );
           for (const page of sitemapOpts?.customPages ?? []) {
             sitemapCustomPages.push(page);
           }
@@ -1162,23 +1158,18 @@ export function nimbus(
             ...((sitemapOpts?.customPages || requestRenderingConfigured) && {
               customPages: sitemapCustomPages,
             }),
-            ...((hiddenPrefixes.length > 0 ||
-              requestRenderingConfigured ||
-              sitemapBareRootUrl) && {
-              filter: (url: string) =>
-                hiddenFilter(url) &&
-                (!sitemapHasResolvedRootPage ||
-                  url !== sitemapBareRootUrl) &&
-                !isRequestRouteInventoryPath(
-                  new URL(url, config.site).pathname,
-                  astroConfig.base,
-                ) &&
-                !sitemapExcludedPaths.has(
-                  canonicalizePathname(
-                    safeDecode(new URL(url, config.site).pathname),
-                  ),
+            filter: (url: string) =>
+              hiddenFilter(url) &&
+              (!sitemapHasResolvedRootPage || url !== sitemapBareRootUrl) &&
+              !isRequestRouteInventoryPath(
+                new URL(url, config.site).pathname,
+                astroConfig.base,
+              ) &&
+              !sitemapExcludedPaths.has(
+                canonicalizePathname(
+                  safeDecode(new URL(url, config.site).pathname),
                 ),
-            }),
+              ),
           });
           integrationsToAdd.push(sitemapIntegration);
         }

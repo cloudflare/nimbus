@@ -10,3 +10,10 @@ test("the docs schema accepts Nimbus lint-disable frontmatter", () => {
   });
   assert.equal(result.success, true);
 });
+
+test("the docs schema accepts Astro's slug override", () => {
+  const result = docsSchema.safeParse({ title: "Test", slug: "1.2.3/encryption" });
+  assert.equal(result.success, true);
+  assert.equal(result.data?.slug, "1.2.3/encryption");
+  assert.equal(docsSchema.safeParse({ title: "Test", slug: 1 }).success, false);
+});

@@ -164,6 +164,7 @@ export async function getEntryMarkdown(
 ): Promise<string> {
   const { loadCitationIndex } =
     await import("./_internal/api/load-citation-index.js");
+  await loadNimbusConfig();
   return renderEntryAsMarkdown(entry, {
     ...options,
     citationIndex: await loadCitationIndex(),

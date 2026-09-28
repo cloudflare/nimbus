@@ -17,6 +17,7 @@ import {
   hasCitation,
   type CitationIndex,
 } from "../src/_internal/api/citations.ts";
+import { setTrailingSlash } from "../src/_internal/url.ts";
 
 const index: CitationIndex = new Map([
   ["zones:createZone", "/zones/create"],
@@ -85,16 +86,27 @@ describe("parseCitation: the token grammar", () => {
 
 describe("citationKey + resolveCitation", () => {
   test("unversioned key resolves the family default", () => {
-    assert.equal(resolveCitation({ collection: "zones", coordinate: "createZone" }, index), "/zones/create");
+    assert.equal(resolveCitation({ collection: "zones", coordinate: "createZone" }, index), "/zones/create/");
   });
   test("versioned key resolves that version", () => {
     assert.equal(
       resolveCitation({ collection: "zones", version: "v1", coordinate: "createZone" }, index),
-      "/zones/v1/create",
+      "/zones/v1/create/",
     );
   });
   test("unknown resolves to undefined", () => {
     assert.equal(resolveCitation({ collection: "zones", coordinate: "nope" }, index), undefined);
+  });
+  test("resolved URLs follow Astro's trailingSlash like other page links", (t) => {
+    t.after(() => setTrailingSlash("ignore"));
+    setTrailingSlash("never");
+    assert.equal(resolveCitation({ collection: "zones", coordinate: "createZone" }, index), "/zones/create");
+    assert.equal(
+      resolveCitations("[a](api.ref:zones:createZone)", { mode: "author", citationIndex: index }).code,
+      "[a](/zones/create)",
+    );
+    setTrailingSlash("always");
+    assert.equal(resolveCitation({ collection: "zones", coordinate: "createZone" }, index), "/zones/create/");
   });
   test("key shape", () => {
     assert.equal(citationKey("zones", undefined, "createZone"), "zones:createZone");
@@ -124,7 +136,7 @@ describe("resolveCitations: rewriting link targets", () => {
       "See [create a zone](api.ref:zones:createZone) to start.",
       { mode: "author", citationIndex: index },
     );
-    assert.equal(code, "See [create a zone](/zones/create) to start.");
+    assert.equal(code, "See [create a zone](/zones/create/) to start.");
     assert.equal(diagnostics.length, 0);
   });
 
@@ -133,7 +145,7 @@ describe("resolveCitations: rewriting link targets", () => {
       `<a href="api.ref:accounts:list">list</a>`,
       { mode: "author", citationIndex: index },
     );
-    assert.equal(code, `<a href="/accounts/list">list</a>`);
+    assert.equal(code, `<a href="/accounts/list/">list</a>`);
   });
 
   test("rewrites a versioned citation", () => {
@@ -141,7 +153,7 @@ describe("resolveCitations: rewriting link targets", () => {
       "[old](api.ref:zones@v1:createZone)",
       { mode: "author", citationIndex: index },
     );
-    assert.equal(code, "[old](/zones/v1/create)");
+    assert.equal(code, "[old](/zones/v1/create/)");
   });
 
   test("author mode: unknown coordinate is a build error, no token leaks", () => {
@@ -205,7 +217,7 @@ describe("resolveCitations: rewriting link targets", () => {
       "[a](api.ref:zones:createZone) and [b](api.ref:accounts:list)",
       { mode: "author", citationIndex: index },
     );
-    assert.equal(code, "[a](/zones/create) and [b](/accounts/list)");
+    assert.equal(code, "[a](/zones/create/) and [b](/accounts/list/)");
   });
 
   test("angle-bracket destination cites a space-bearing coordinate; brackets are dropped", () => {
@@ -213,7 +225,7 @@ describe("resolveCitations: rewriting link targets", () => {
       "[section](<api.ref:zones:tags.User Management>)",
       { mode: "author", citationIndex: index },
     );
-    assert.equal(code, "[section](/zones/tags/User-Management)");
+    assert.equal(code, "[section](/zones/tags/User-Management/)");
     assert.equal(diagnostics.length, 0);
   });
 
@@ -222,7 +234,7 @@ describe("resolveCitations: rewriting link targets", () => {
       "[c](<api.ref:zones:createZone>)",
       { mode: "author", citationIndex: index },
     );
-    assert.equal(code, "[c](/zones/create)");
+    assert.equal(code, "[c](/zones/create/)");
   });
 
   test("interior padding inside the angle brackets is tolerated and trimmed", () => {
@@ -232,7 +244,7 @@ describe("resolveCitations: rewriting link targets", () => {
       "[c](<  api.ref:zones:tags.User Management  >)",
     ]) {
       const { code, diagnostics } = resolveCitations(src, { mode: "author", citationIndex: index });
-      assert.match(code, /\]\(\/zones\/tags\/User-Management\)/);
+      assert.match(code, /\]\(\/zones\/tags\/User-Management\/\)/);
       assert.equal(diagnostics.length, 0);
     }
   });
@@ -242,7 +254,7 @@ describe("resolveCitations: rewriting link targets", () => {
       `<a href="api.ref:zones:tags.User Management">section</a>`,
       { mode: "author", citationIndex: index },
     );
-    assert.equal(code, `<a href="/zones/tags/User-Management">section</a>`);
+    assert.equal(code, `<a href="/zones/tags/User-Management/">section</a>`);
     assert.equal(diagnostics.length, 0);
   });
 

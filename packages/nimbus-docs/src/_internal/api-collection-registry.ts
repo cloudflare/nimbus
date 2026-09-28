@@ -11,7 +11,9 @@
  *
  * Read in `load()`, never when the collection is defined: after a dev restart
  * Astro refreshes content with the loader instances it evaluated before the
- * restart, and only a load-time read sees the edited entries.
+ * restart, and only a load-time read sees the edited entries. Those instances
+ * also receive the previous Astro config, so the output mode is registered
+ * here too.
  */
 
 import type { ApiSpec } from "../types.js";
@@ -23,6 +25,8 @@ export const NIMBUS_CONFIG_FILE = "the Nimbus config (astro.config.*)";
 interface ApiCollectionRegistryState {
   version: 1;
   roots: Map<string, readonly ApiSpec[]>;
+  /** Whether the current Astro config uses server output, per root. */
+  serverOutput?: Map<string, boolean>;
   /**
    * `apiCollection()` loads since the last registration: Astro collection key
    * (in `src/content.config.ts`) → the `collection` of the entry it indexed.
@@ -43,21 +47,28 @@ const existingState = registryGlobal[REGISTRY_KEY];
 if (existingState && existingState.version !== 1) {
   throw new Error("Nimbus API collection registry version mismatch");
 }
-const state = (registryGlobal[REGISTRY_KEY] ??= {
+const state: ApiCollectionRegistryState = (registryGlobal[REGISTRY_KEY] ??= {
   version: 1,
   roots: new Map(),
   loads: new Map(),
   loadCounts: new Map(),
 });
 
-/** Replace the `api` entries registered for a project root. */
+/** Replace the `api` entries and output mode registered for a project root. */
 export function registerApiCollections(
   root: URL | string,
   api: readonly ApiSpec[] | undefined,
+  serverOutput = false,
 ): void {
   const key = preparedMarkdownRootKey(root);
   state.roots.set(key, [...(api ?? [])]);
+  (state.serverOutput ??= new Map()).set(key, serverOutput);
   state.loads.delete(key);
+}
+
+/** The registered output mode for a root; `undefined` when the integration has not run. */
+export function registeredServerOutput(root: URL | string): boolean | undefined {
+  return state.serverOutput?.get(preparedMarkdownRootKey(root));
 }
 
 /**
@@ -232,6 +243,7 @@ export function apiCollectionIndexError(
 
 export function clearApiCollectionRegistry(): void {
   state.roots.clear();
+  state.serverOutput?.clear();
   state.loads.clear();
   state.loadCounts.clear();
 }
