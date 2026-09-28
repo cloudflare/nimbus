@@ -1,0 +1,31 @@
+.changeset/config.json
+  s_91c8d2ab1d77d8::t_82f24b1cb0a1dc 14-15
+.changeset/preview-upgrade-entries.md
+  s_91c8d2ab1d77d8::t_24f05e74820d5a 1-5
+.github/workflows/ci.yml
+  s_91c8d2ab1d77d8::t_e5fed8877d2f85 38-41,43,45-54,57,60-61,72-76
+.github/workflows/preview-release.yml
+  s_91c8d2ab1d77d8::t_f11cd3f242f905 45,56-70
+CONTRIBUTING.md
+  s_91c8d2ab1d77d8::t_9268a55362ac67 91-98
+packages/nimbus-docs/src/_internal/upgrades.ts
+  s_91c8d2ab1d77d8::t_3732fc5762ad72 4,53,61-66,68,72-84,121,177
+packages/nimbus-docs/test/upgrades.test.ts
+  s_91c8d2ab1d77d8::t_f178f803b81a74 155-167
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ae346f060e98db1320352703998fbdfd10eb8dcb",
+  "prompts": {},
+  "sessions": {
+    "s_91c8d2ab1d77d8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1e198162ffeegYrC3FPV5O2c5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
