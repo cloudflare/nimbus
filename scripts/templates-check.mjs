@@ -247,6 +247,8 @@ const scaffoldArgs = [
   "--yes",
   "--skip-install",
   "--no-git",
+  "--package-manager",
+  "pnpm",
   "--content",
   VARIANT_CONTENT,
   "--template-dir",
