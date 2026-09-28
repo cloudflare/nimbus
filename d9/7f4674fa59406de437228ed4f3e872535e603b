@@ -1,0 +1,51 @@
+packages/nimbus-docs/src/_internal/adapters.ts
+  s_91c8d2ab1d77d8::t_adc48421a4adaa 98-101,109
+packages/nimbus-docs/src/check/env.ts
+  s_91c8d2ab1d77d8::t_4dd772034024bb 147,150
+packages/nimbus-docs/src/check/format.ts
+  s_91c8d2ab1d77d8::t_33d005378a3f8e 27-28,271-273,323-326
+packages/nimbus-docs/src/check/structure.ts
+  s_91c8d2ab1d77d8::t_4686edc87579a6 57,75,79-81,89-94,143-150,158-165,168
+packages/nimbus-docs/src/cli/adapter.ts
+  s_91c8d2ab1d77d8::t_ed2af016535893 137
+packages/nimbus-docs/src/cli/check.ts
+  s_91c8d2ab1d77d8::t_0c5ba0375aaa52 93
+packages/nimbus-docs/src/cli/index.ts
+  s_91c8d2ab1d77d8::t_16171c136349e8 40,199-202,504,611-613
+packages/nimbus-docs/src/cli/lint.ts
+  s_91c8d2ab1d77d8::t_62ee31ec9181ac 42-63,71
+packages/nimbus-docs/test/adapter-cli-output.test.ts
+  s_91c8d2ab1d77d8::t_fb7177696cc89c 29,52-97,195
+packages/nimbus-docs/test/adapter-install.test.ts
+  s_91c8d2ab1d77d8::t_601b81cf7c1eda 57,60
+packages/nimbus-docs/test/adapter-installer.test.ts
+  s_91c8d2ab1d77d8::t_4dea3bf7031f19 359
+packages/nimbus-docs/test/adapter-version-warning.test.ts
+  s_91c8d2ab1d77d8::t_6ef8807473e5fc 23,40,46,55
+packages/nimbus-docs/test/check/api-collections.test.ts
+  s_91c8d2ab1d77d8::t_b37938418f4635 74,202-207,211,213-234
+packages/nimbus-docs/test/check/format.test.ts
+  s_91c8d2ab1d77d8::t_564c2ad74c8e4f 135-155
+packages/nimbus-docs/test/check/run.test.ts
+  s_91c8d2ab1d77d8::t_169d94bff0a5f2 25,29-31
+packages/nimbus-docs/test/check/signals.test.ts
+  s_91c8d2ab1d77d8::t_9c2229a99c4dc6 8,57-58,65-69
+packages/nimbus-docs/test/cli-help.test.ts
+  s_91c8d2ab1d77d8::t_be8d0578c11ffc 1-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d97f4674fa59406de437228ed4f3e872535e603b",
+  "prompts": {},
+  "sessions": {
+    "s_91c8d2ab1d77d8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1e198162ffeegYrC3FPV5O2c5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
