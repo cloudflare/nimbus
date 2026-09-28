@@ -959,6 +959,18 @@ async function assertArtifactsAndSmoke(dist) {
     join(dist, "api", "charges", "create", "index.html"),
     "utf8",
   );
+  const titleOf = (html) => /<title>([^<]*)<\/title>/.exec(html)?.[1];
+  const overviewTitle = titleOf(
+    await readFile(join(dist, "api", "index.html"), "utf8"),
+  );
+  assert(
+    overviewTitle && !overviewTitle.includes(" · API |"),
+    "the API overview title must not append \" · API\"",
+  );
+  assert(
+    titleOf(operationHtml)?.includes(" · API |"),
+    "API leaf page titles must end with \" · API\"",
+  );
   const apiNav = /<nav[^>]*data-nb-api-nav[^>]*>([\s\S]*?)<\/nav>/.exec(
     operationHtml,
   )?.[1];
@@ -1379,8 +1391,8 @@ async function assertBasePathMetadata() {
     "utf8",
   );
   for (const [surface, html, href] of [
-    ["MDX", ordinaryHtml, "/docs/api/charges/create"],
-    ["Markdown", referenceHtml, "/docs/api/charges/list"],
+    ["MDX", ordinaryHtml, "/docs/api/charges/create/"],
+    ["Markdown", referenceHtml, "/docs/api/charges/list/"],
   ]) {
     assert(
       html.includes(`href="${href}"`),
@@ -1788,7 +1800,7 @@ async function execute() {
   }
   ok("registry UI, exact optional peers, and provenance are installed");
 
-  phase("applying thin API overlay and SmallCo fixture");
+  phase("applying API fixture and thin route overlay");
   await applyOverlay();
   phase("statically checking generated consumer");
   await assertStaticCheck();

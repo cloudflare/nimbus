@@ -14,7 +14,7 @@ const socialImage = `/og${page.href.replace(/\/$/, "")}.png`;
 ---
 
 <BaseLayout
-  title={`${page.title} · API`}
+  title={page.kind === "api" ? page.title : `${page.title} · API`}
   description={page.description}
   markdownUrl={page.markdownHref}
   socialImage={socialImage}
