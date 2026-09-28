@@ -6,7 +6,7 @@ import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { fileURLToPath } from "node:url";
 
-import { inc, lt, major, valid } from "semver";
+import { inc, lt, lte, major, valid } from "semver";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST = path.join(
@@ -79,7 +79,11 @@ export function validateBreakingDeclaration({
   if (previousEntries === null) return;
   const previous = new Set(previousEntries.map((entry) => entry.id));
   const added = currentEntries.filter((entry) => !previous.has(entry.id));
-  if (breaking && added.length === 0)
+  // A missed entry for a shipped release keeps its original introducedIn, so
+  // sites upgrading across that release are told. It announces nothing new.
+  const isBackfill = (entry) =>
+    Boolean(currentVersion) && lte(entry.introducedIn, currentVersion);
+  if (breaking && !added.some((entry) => !isBackfill(entry)))
     throw new Error(
       "A PR labeled breaking-change must add at least one upgrade manifest entry.",
     );
@@ -92,6 +96,17 @@ export function validateBreakingDeclaration({
         `${entry.id} references missing changeset .changeset/${entry.changeset}.md.`,
       );
     const bump = changesetBump(body, "@cloudflare/nimbus-docs");
+    if (isBackfill(entry)) {
+      if (entry.mode !== "review-required" || entry.migrationId)
+        throw new Error(
+          `${entry.id} backfills shipped release ${entry.introducedIn}, so it must be review-required without a migrationId.`,
+        );
+      if (!bump)
+        throw new Error(
+          `${entry.id}'s changeset must release @cloudflare/nimbus-docs so users learn about the backfilled entry.`,
+        );
+      continue;
+    }
     const requiredBump = currentVersion && major(currentVersion) > 0 ? "major" : "minor";
     if (bump !== requiredBump) {
       throw new Error(

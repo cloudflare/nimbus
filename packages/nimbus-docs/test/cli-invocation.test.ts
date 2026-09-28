@@ -1,9 +1,9 @@
-// User-facing CLI hints must print a runnable, scoped invocation, never
-// the bare `nimbus-docs` bin (not on PATH for a dlx/npx first-run, and unscoped
+// User-facing CLI hints must print a runnable invocation: the local bin for an
+// installed pnpm/yarn project, otherwise the scoped package (unscoped
 // `nimbus-docs` on npm is a different, legacy package).
 
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -28,6 +28,13 @@ const DLX: Record<Manager, string> = {
   pnpm: "pnpm dlx",
   yarn: "yarn dlx",
   bun: "bunx",
+};
+
+const INSTALLED: Record<Manager, string> = {
+  npm: `npx ${CLI_PACKAGE}`,
+  pnpm: "pnpm nimbus-docs",
+  yarn: "yarn nimbus-docs",
+  bun: `bunx ${CLI_PACKAGE}`,
 };
 
 const ADD: Record<Manager, string> = {
@@ -60,6 +67,19 @@ for (const mgr of MANAGERS) {
       assert.equal(cmd, `${DLX[mgr]} ${CLI_PACKAGE} list`);
       assert.ok(cmd.includes(CLI_PACKAGE), "must be scoped");
       assert.ok(!BARE_BIN.test(cmd), `must not print the bare unscoped bin: ${cmd}`);
+    });
+  });
+
+  test(`invocation() → ${INSTALLED[mgr]} for an installed ${mgr} project`, () => {
+    withLock(mgr, (cwd) => {
+      const pkgDir = join(cwd, "node_modules", CLI_PACKAGE);
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(join(pkgDir, "package.json"), "{}");
+      assert.equal(invocation("migrate --dry-run", cwd), `${INSTALLED[mgr]} migrate --dry-run`);
+      const nested = join(cwd, "docs");
+      mkdirSync(nested);
+      writeFileSync(join(nested, LOCKFILE[mgr]), "");
+      assert.equal(invocation("check", nested), `${INSTALLED[mgr]} check`);
     });
   });
 

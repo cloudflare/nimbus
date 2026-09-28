@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 
-import { compare } from "semver";
+import { compare, valid } from "semver";
 
 import {
   discoverMigrations,
@@ -112,7 +112,12 @@ export async function migrateCommand(input: MigrateOptions): Promise<void> {
     : [];
   const reviews = entries;
   const requiredReviews = reviews.filter((entry) => entry.mode !== "optional");
-  const optionalOnly = reviews.length > 0 && requiredReviews.length === 0;
+  // Fail only when work remains that the build also rejects: a recorded
+  // baseline that is merely behind builds fine.
+  const baselineMissing = baseline.source !== "preview" &&
+    !(typeof recordedVersion === "string" && valid(recordedVersion));
+  const requiredWork = (plans: number) =>
+    plans > 0 || requiredReviews.length > 0 || baselineMissing;
   let discovery: ReturnType<typeof discoverMigrations>;
   try {
     discovery = discoverMigrations({
@@ -141,7 +146,7 @@ export async function migrateCommand(input: MigrateOptions): Promise<void> {
   let consent = options.yes;
 
   if (!readOnly && !consent && process.stdin.isTTY && process.stdout.isTTY) {
-    printHumanPlan(discovery.plans, reviews, baseline, completionOptions);
+    printHumanPlan(discovery.plans, reviews, baseline, completionOptions, baselineNeedsRecording, { prompting: true });
     if (safe.length > 0) {
       consent = await confirm(`Apply ${safe.length} safe migration${safe.length === 1 ? "" : "s"}?`);
     } else if (blocked.length === 0 && canRecordBaseline) {
@@ -150,8 +155,8 @@ export async function migrateCommand(input: MigrateOptions): Promise<void> {
   }
 
   if (readOnly && !options.json && !options.diff) {
-    printHumanPlan(discovery.plans, reviews, baseline, completionOptions);
-    process.exitCode = discovery.plans.length > 0 || requiredReviews.length > 0 || (baselineNeedsRecording && !optionalOnly) ? 1 : 0;
+    printHumanPlan(discovery.plans, reviews, baseline, completionOptions, baselineNeedsRecording);
+    process.exitCode = requiredWork(discovery.plans.length) ? 1 : 0;
     return;
   }
 
@@ -167,10 +172,19 @@ export async function migrateCommand(input: MigrateOptions): Promise<void> {
     for (const plan of blocked) printBlockedPlan(plan);
     printUpgradeReviews(reviews, baseline);
     printCompletionCommand(reviews, baseline, completionOptions);
-    process.exitCode = discovery.plans.length > 0 || requiredReviews.length > 0 || (baselineNeedsRecording && !optionalOnly) || (!baseline.fromVersion && baseline.source !== "preview") ? 1 : 0;
+    process.exitCode = requiredWork(discovery.plans.length) ? 1 : 0;
     return;
   }
-  const report = makeReport(baseline, results, reviews, [], false, baselineNeedsRecording);
+  const report = makeReport(
+    baseline,
+    results,
+    reviews,
+    [],
+    false,
+    baselineNeedsRecording,
+    !baselineNeedsRecording && Boolean(baseline.fromVersion),
+    baselineMissing,
+  );
   if (!readOnly && consent && canRecordBaseline) {
     const latest = discoverMigrations({ projectRoot, srcDirOverride: options.srcDir });
     if (latest.plans.length > 0) {
@@ -324,12 +338,12 @@ function makeReport(
   reviewsCompleted = false,
   baselinePending = false,
   baselineRecorded = !baselinePending && Boolean(baseline.fromVersion),
+  baselineBlocking = baselinePending,
 ): MigrateReport {
   const requiredReviews = reviews.filter((entry) => entry.mode !== "optional");
-  const optionalOnly = reviews.length > 0 && requiredReviews.length === 0;
   let status: MigrateReport["status"] = "passed";
   if (errors.length > 0 || migrations.some((migration) => migration.state === "failed")) status = "failed";
-  else if ((!baseline.fromVersion && baseline.source !== "preview") || (baselinePending && !optionalOnly) || (!reviewsCompleted && requiredReviews.length > 0) || migrations.some((migration) => migration.state === "blocked")) status = "blocked";
+  else if ((!baseline.fromVersion && baseline.source !== "preview") || baselineBlocking || (!reviewsCompleted && requiredReviews.length > 0) || migrations.some((migration) => migration.state === "blocked")) status = "blocked";
   else if (migrations.some((migration) => migration.state === "available")) status = "changes_available";
   return {
     schemaVersion: 1,
@@ -380,9 +394,23 @@ function printHumanPlan(
   reviews: UpgradeEntry[],
   baseline: UpgradeBaseline,
   completionOptions: CompletionOptions,
+  baselineNeedsRecording: boolean,
+  { prompting = false } = {},
 ): void {
   if (!baseline.fromVersion && baseline.source !== "preview") {
     console.error("Upgrade baseline unknown. Pass --from <version> to include every crossed breaking change.");
+  }
+  if (baseline.fromVersion && plans.length === 0 && reviews.length === 0) {
+    if (!baselineNeedsRecording) {
+      console.log(`Nimbus ${baseline.targetVersion} is up to date: no migrations or upgrade reviews.`);
+      return;
+    }
+    console.log(`No migrations or upgrade reviews between Nimbus ${baseline.fromVersion} and ${baseline.targetVersion}.`);
+    if (!prompting) {
+      console.log(`To record ${baseline.targetVersion} as reviewed, rerun with consent:`);
+      console.log(`  ${completionCommand(reviews, baseline, completionOptions)}`);
+    }
+    return;
   }
   for (const plan of plans) {
     console.log(`${plan.id}: ${plan.blockers.length > 0 ? "blocked" : `${plan.changes.length} planned file${plan.changes.length === 1 ? "" : "s"}`}`);
@@ -390,7 +418,7 @@ function printHumanPlan(
     else for (const blocker of plan.blockers) console.error(`  ${blocker.message}`);
   }
   printUpgradeReviews(reviews, baseline);
-  printCompletionCommand(reviews, baseline, completionOptions);
+  if (!prompting) printCompletionCommand(reviews, baseline, completionOptions);
 }
 
 function printPlanDiff(plan: MigrationPlan): void {

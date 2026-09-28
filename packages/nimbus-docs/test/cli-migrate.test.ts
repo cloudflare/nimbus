@@ -261,6 +261,8 @@ test("synthetic optional entries are informational across migrate, check, and ou
   assert.equal(outdated.status, 0, outdated.stderr);
   const outdatedResult = JSON.parse(outdated.stdout);
   assert.equal(outdatedResult.status, "current");
+  assert.equal(outdatedResult.summary.packageApis, 0);
+  assert.equal(outdatedResult.summary.optionalPackageApis, 2);
   assert.deepEqual(outdatedResult.packageApis.map((entry: { mode: string }) => entry.mode), ["optional", "optional"]);
   const outdatedHuman = runWithManifest(root, ["outdated", "--template-dir", template], entries);
   assert.equal(outdatedHuman.status, 0, outdatedHuman.stderr);
@@ -662,3 +664,37 @@ test("blocked output is vendor-neutral and never probes a local agent", () => {
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
+
+test("a baseline behind with no entries in range passes and says so", () => {
+  const root = makeCleanUpgradeProject();
+
+  const json = runWithManifest(root, ["migrate", "--dry-run", "--json"], []);
+  assert.equal(json.status, 0, json.stderr);
+  const report = JSON.parse(json.stdout);
+  assert.equal(report.status, "passed");
+  assert.equal(report.baseline.recorded, false);
+
+  const human = runWithManifest(root, ["migrate", "--dry-run"], []);
+  assert.equal(human.status, 0, human.stderr);
+  assert.match(human.stdout, /No migrations or upgrade reviews between Nimbus 0\.14\.1 and /);
+  assert.match(human.stdout, /nimbus-docs migrate --yes/);
+
+  const diff = runWithManifest(root, ["migrate", "--diff"], []);
+  assert.equal(diff.status, 0, diff.stderr);
+
+  const required = runWithManifest(root, ["migrate", "--dry-run"], [
+    syntheticEntry("required-one", "review-required"),
+  ]);
+  assert.equal(required.status, 1, required.stderr);
+});
+
+test("an up-to-date project says so on a dry run", () => {
+  const root = makeCleanUpgradeProject();
+  fs.writeFileSync(
+    path.join(root, "nimbus.json"),
+    `${JSON.stringify({ lastReviewedNimbusVersion: CURRENT_VERSION }, null, 2)}\n`,
+  );
+  const human = run(root, ["migrate", "--dry-run"]);
+  assert.equal(human.status, 0, human.stderr);
+  assert.match(human.stdout, new RegExp(`Nimbus ${CURRENT_VERSION.replaceAll(".", "\\.")} is up to date`));
+});

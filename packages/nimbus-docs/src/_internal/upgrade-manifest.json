@@ -183,6 +183,23 @@
       ]
     },
     {
+      "id": "custom-loaders-with-nimbus-markdown",
+      "introducedIn": "0.13.0",
+      "mode": "review-required",
+      "changeset": "correct-upgrade-paths",
+      "summary": "Wrap custom content collection loaders with withNimbusMarkdown().",
+      "affected": "Projects whose src/content.config.ts registers a collection with its own loader, such as glob(), instead of docsCollection(), partialsCollection(), componentsCollection(), or apiCollection(). Builds fail with \"indexed collection is not prepared\" until the loader is wrapped.",
+      "instructions": [
+        "In src/content.config.ts, find each collection whose loader is not created by a Nimbus collection factory.",
+        "Wrap that loader with withNimbusMarkdown(), imported from @cloudflare/nimbus-docs/content: loader: withNimbusMarkdown(glob({ base: \"./src/content/blog\", pattern: \"**/*.{md,mdx}\" })).",
+        "Leave collections created by docsCollection(), partialsCollection(), componentsCollection(), and apiCollection() unchanged; they are prepared already."
+      ],
+      "verify": [
+        "Run the production build and confirm it reports no collection that is not prepared.",
+        "Request the .md version of a page from each wrapped collection and confirm it returns the page's Markdown."
+      ]
+    },
+    {
       "id": "explicit-markdown-processor",
       "introducedIn": "0.14.0",
       "mode": "review-required",

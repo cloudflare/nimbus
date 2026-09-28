@@ -21,8 +21,7 @@ export type PackageManager = "npm" | "pnpm" | "yarn" | "bun";
 /**
  * The published package name. The bin is `nimbus-docs`, but the *package*
  * is scoped — and the unscoped `nimbus-docs` on npm is a different, legacy
- * package, so any command we print for a user to run must use the scoped
- * name via `dlx`/`npx`.
+ * package, so a printed download command must use the scoped name.
  */
 export const CLI_PACKAGE = "@cloudflare/nimbus-docs";
 
@@ -64,23 +63,31 @@ function lockfileManager(dir: string): PackageManager | null {
 }
 
 /**
- * A runnable invocation of this CLI to print in user-facing hints, e.g.
- * `pnpm dlx @cloudflare/nimbus-docs list`. Uses the caller's package
- * manager (detected from `cwd`) and always the scoped package via
- * `dlx`/`npx`, so the hint runs whether or not the CLI is installed
- * locally — and never resolves the legacy *unscoped* `nimbus-docs`
- * package by accident.
+ * A runnable invocation of this CLI to print in user-facing hints, in the
+ * caller's package manager (detected from `cwd`). `pnpm dlx` and `yarn dlx`
+ * always download, so a project with the package installed gets its local bin
+ * there. `npx` and `bunx` already prefer a local install, and keep the scoped
+ * name so they never fetch the legacy *unscoped* `nimbus-docs` package.
  *
- *   invocation("list")            → "pnpm dlx @cloudflare/nimbus-docs list"
- *   invocation("add 404-page")    → "npx @cloudflare/nimbus-docs add 404-page"
+ *   invocation("list")  → "pnpm nimbus-docs list"                (installed)
+ *   invocation("list")  → "pnpm dlx @cloudflare/nimbus-docs list" (not installed)
+ *   invocation("list")  → "npx @cloudflare/nimbus-docs list"
  *
- * Yarn resolves to `yarn dlx`, which is Yarn Berry (v2+); Yarn Classic (v1)
- * has no `dlx`. That's the deliberate target — it matches the docs'
- * `<PackageManagers>` widget, and bare `nimbus-docs` was equally unrunnable
- * on v1 — so this is a lateral move there and a fix for Berry (the default).
+ * The download form for Yarn is `yarn dlx`, which is Yarn Berry (v2+); Yarn
+ * Classic (v1) has no `dlx`. That matches the docs' `<PackageManagers>` widget.
  */
 export function invocation(sub: string, cwd = process.cwd()): string {
-  return getCommand(detectPackageManager(cwd), "dlx", CLI_PACKAGE, { args: sub })!;
+  const pm = detectPackageManager(cwd);
+  return (pm === "pnpm" || pm === "yarn") && isInstalledLocally(cwd)
+    ? getCommand(pm, "exec", "nimbus-docs", { args: sub })!
+    : getCommand(pm, "dlx", CLI_PACKAGE, { args: sub })!;
+}
+
+function isInstalledLocally(cwd: string): boolean {
+  for (let dir = cwd; ; dir = dirname(dir)) {
+    if (existsSync(join(dir, "node_modules", CLI_PACKAGE, "package.json"))) return true;
+    if (dirname(dir) === dir) return false;
+  }
 }
 
 /**
@@ -104,7 +111,7 @@ export function updateCommand(cwd = process.cwd()): string {
  *   bun  add     <deps...>
  */
 // Quote a token for copy-paste into a POSIX shell. Adapter specs like
-// `@astrojs/cloudflare@>=14.1.0 <14.2.0` carry a space and `<`/`>` redirections;
+// `@astrojs/cloudflare@>=14.3.0 <14.4.0` carry a space and `<`/`>` redirections;
 // a clean package spec is returned unchanged.
 export function quoteForDisplay(token: string): string {
   if (/^[A-Za-z0-9@._/:^~+-]+$/.test(token)) return token;

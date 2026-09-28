@@ -2,6 +2,7 @@ import fs from "node:fs";
 
 import { discoverMigrations } from "../_internal/migrations.js";
 import { resolveUpgradeBaseline, selectUpgradeEntries } from "../_internal/upgrades.js";
+import { invocation } from "../cli/pm.js";
 import type { ScopeReport } from "./finding.js";
 
 export function checkMigrations(cwd: string, srcDirOverride?: string): ScopeReport {
@@ -21,7 +22,7 @@ export function checkMigrations(cwd: string, srcDirOverride?: string): ScopeRepo
     bin: process.execPath,
     args: migrateArgs,
     cwd: ".",
-    display: [process.execPath, ...migrateArgs].map(shell).join(" "),
+    display: invocation(migrateArgs.slice(1).map(shell).join(" "), cwd),
   };
   return {
     scope: "migrations",

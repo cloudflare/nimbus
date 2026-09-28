@@ -1,10 +1,14 @@
 // The pure classification cores behind `outdated` / `diff`.
 
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 
 import {
   classifyStarter,
+  gatherOutdated,
   labelWithVersions,
   registryDrift,
   selectStarterApplyTarget,
@@ -160,4 +164,48 @@ test("registryDrift flags behind, marks unverified, skips current + hand-authore
   assert.equal(by.off, "unverified");
   assert.equal(by.dialog, undefined); // current → not reported
   assert.equal(by.mine, undefined); // hand-authored → skipped
+});
+
+test("outdated warns when the compared starter and installed package don't match", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-outdated-compat-"));
+  try {
+    const project = path.join(root, "site");
+    const template = path.join(root, "template");
+    fs.mkdirSync(path.join(project, "src"), { recursive: true });
+    fs.mkdirSync(path.join(project, "node_modules", "@cloudflare", "nimbus-docs"), { recursive: true });
+    fs.mkdirSync(path.join(template, "src"), { recursive: true });
+    fs.writeFileSync(path.join(project, "package.json"), "{}\n");
+    fs.writeFileSync(
+      path.join(project, "nimbus.json"),
+      JSON.stringify({ templatesTag: "templates-v0.7.7", variant: "template", install: { root: "src" }, components: [] }),
+    );
+    const install = (version: string) =>
+      fs.writeFileSync(
+        path.join(project, "node_modules", "@cloudflare", "nimbus-docs", "package.json"),
+        JSON.stringify({ name: "@cloudflare/nimbus-docs", version }),
+      );
+    fs.writeFileSync(
+      path.join(template, "package.json"),
+      JSON.stringify({ dependencies: { "@cloudflare/nimbus-docs": "^0.15.0" } }),
+    );
+    const warnings = async () =>
+      (await gatherOutdated(project, { templateDir: template, json: true })).warnings;
+
+    install("0.15.3");
+    assert.deepEqual(await warnings(), []);
+    install("0.15.1-pr.170.sha0123abc");
+    assert.deepEqual(await warnings(), []);
+
+    install("0.14.2");
+    const newer = await warnings();
+    assert.equal(newer[0]?.code, "starter-needs-newer-package");
+    assert.match(newer[0]?.message ?? "", /targets @cloudflare\/nimbus-docs \^0\.15\.0, but 0\.14\.2 is installed/);
+
+    install("0.16.0");
+    const older = await warnings();
+    assert.equal(older[0]?.code, "starter-older-than-package");
+    assert.match(older[0]?.message ?? "", /Starter changes that ship with 0\.16\.0 may not appear here/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });

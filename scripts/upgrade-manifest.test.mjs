@@ -264,3 +264,53 @@ test("base manifest loading fails closed for an unresolved ref", () => {
     /Could not resolve base ref/,
   );
 });
+
+test("a missed entry for a shipped release can be backfilled narrowly", () => {
+  const patch = new Map([
+    ["missed-notice", '---\n"@cloudflare/nimbus-docs": patch\n---\n'],
+  ]);
+  const backfill = entry("missed", {
+    introducedIn: "0.13.0",
+    changeset: "missed-notice",
+  });
+  const declare = (overrides) =>
+    validateBreakingDeclaration({
+      breaking: false,
+      previousEntries: [entry("existing")],
+      currentEntries: [entry("existing"), backfill],
+      changesets: patch,
+      currentVersion: "0.15.0",
+      ...overrides,
+    });
+  assert.doesNotThrow(() => declare({}));
+  assert.throws(
+    () => declare({ currentEntries: [entry("existing"), { ...backfill, mode: "optional" }] }),
+    /must be review-required/,
+  );
+  assert.throws(
+    () =>
+      declare({
+        currentEntries: [
+          entry("existing"),
+          { ...backfill, mode: "automatic", migrationId: "codemod" },
+        ],
+      }),
+    /must be review-required/,
+  );
+  assert.throws(
+    () => declare({ changesets: new Map([["missed-notice", '---\n"another-package": patch\n---\n']]) }),
+    /must release @cloudflare\/nimbus-docs/,
+  );
+  assert.throws(
+    () => declare({ currentEntries: [entry("existing"), { ...backfill, changeset: undefined }] }),
+    /must reference its pending changeset/,
+  );
+  assert.throws(() => declare({ breaking: true }), /add at least one/);
+  assert.throws(
+    () =>
+      declare({
+        currentEntries: [entry("existing"), { ...backfill, introducedIn: "0.15.1" }],
+      }),
+    /breaking-compatible bump/,
+  );
+});
