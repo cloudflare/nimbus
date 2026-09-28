@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
+import { runningNimbusVersion } from "../../src/_internal/upgrades.js";
 import { checkMigrations } from "../../src/check/migrations.js";
 
 test("check suggests migrate the way the project runs the CLI, not a raw Node path", (t) => {
@@ -14,7 +15,7 @@ test("check suggests migrate the way the project runs the CLI, not a raw Node pa
   fs.mkdirSync(path.join(dir, "node_modules", "@cloudflare", "nimbus-docs"), { recursive: true });
   fs.writeFileSync(
     path.join(dir, "node_modules", "@cloudflare", "nimbus-docs", "package.json"),
-    JSON.stringify({ name: "@cloudflare/nimbus-docs", version: "0.15.0" }),
+    JSON.stringify({ name: "@cloudflare/nimbus-docs", version: runningNimbusVersion() }),
   );
 
   const report = checkMigrations(dir);
