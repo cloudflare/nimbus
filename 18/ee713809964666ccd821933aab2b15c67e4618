@@ -1,0 +1,129 @@
+.changeset/correct-upgrade-paths.md
+  s_91c8d2ab1d77d8::t_b456561a48d2e1 5,7,9-10,12,14-16,20-23,26,28-29
+.changeset/reliable-project-scaffolding.md
+  s_91c8d2ab1d77d8::t_0b03fe2b9260a7 8-9
+.github/workflows/ci.yml
+  s_91c8d2ab1d77d8::t_179c08de841766 38-41,43,45-54,61,72-73
+.github/workflows/preview-release.yml
+  s_91c8d2ab1d77d8::t_99c42293641dd0 36,57
+CONTRIBUTING.md
+  s_91c8d2ab1d77d8::t_591eb82f35aef8 44,92-94
+apps/www/AGENTS.md
+  s_91c8d2ab1d77d8::t_ab030629eb70c5 47,101
+apps/www/src/content/docs/cli.mdx
+  s_91c8d2ab1d77d8::t_d15eaab95230f3 121-122,132,146,161,181
+packages/create-nimbus-docs/scripts/copy-template.mjs
+  s_91c8d2ab1d77d8::t_334cf826f4e1d4 147-148
+packages/create-nimbus-docs/src/prompts.ts
+  s_91c8d2ab1d77d8::t_a62319d74d93d2 74-92,96-97,107-123,128-129,132-133,148-149,157,160-161,166,170-171,179,183-195
+packages/create-nimbus-docs/src/scaffold.ts
+  s_91c8d2ab1d77d8::t_48e2540c565631 123-125,127,563-567
+packages/create-nimbus-docs/test/cli.test.ts
+  s_91c8d2ab1d77d8::t_c3c9e654d61b5f 1-53
+packages/nimbus-docs/src/_internal/api-collection-registry.ts
+  s_91c8d2ab1d77d8::t_7a1bd825674af1 19-20,28,30-31,43,49,53,55,64,68,72-74,249
+packages/nimbus-docs/src/_internal/api/citations.ts
+  s_91c8d2ab1d77d8::t_2ff386166af3b5 25,259-267
+packages/nimbus-docs/src/_internal/code-regions.ts
+  s_a579ac6602b05b::t_47f32641ca5479 1-55
+packages/nimbus-docs/src/_internal/runtime-config.ts
+  s_91c8d2ab1d77d8::t_5c40688b0d5a80 17,30-31,37
+packages/nimbus-docs/src/_internal/transform.ts
+  s_91c8d2ab1d77d8::t_d36df3b1c82aba 16-17,60-65,67,84,141,143-145,147-149
+packages/nimbus-docs/src/_internal/upgrade-manifest.json
+  s_91c8d2ab1d77d8::t_42db4be251dd9c 188,192
+packages/nimbus-docs/src/_internal/upgrades.ts
+  s_91c8d2ab1d77d8::t_098cd66877ef99 18,54,62-66,69,73,77-78,81-83,122,178
+packages/nimbus-docs/src/_internal/url.ts
+  s_91c8d2ab1d77d8::t_2dcb0b6d14eec7 122-126,128-129,132-134,136-144,148-150,154-155,176
+packages/nimbus-docs/src/check/migrations.ts
+  s_91c8d2ab1d77d8::t_e6e20011e702d2 3,17
+packages/nimbus-docs/src/check/structure.ts
+  s_91c8d2ab1d77d8::t_140adb1939c00e 91-95,148-155,167-170
+packages/nimbus-docs/src/cli/check.ts
+  s_91c8d2ab1d77d8::t_6015b3f4fd5db1 58,79,94-98,119-121,128,177-180,239
+packages/nimbus-docs/src/cli/component.ts
+  s_91c8d2ab1d77d8::t_936b5e75120e67 272-303
+packages/nimbus-docs/src/cli/index.ts
+  s_91c8d2ab1d77d8::t_1ffd4ba30c73c6 36,486-487
+packages/nimbus-docs/src/cli/lint.ts
+  s_91c8d2ab1d77d8::t_27104ec5d85cad 56
+packages/nimbus-docs/src/cli/migrate.ts
+  s_91c8d2ab1d77d8::t_5082b083bc32ff 22,65,68,90,95,102,131,151,160,180-183,190-191,197-198,202,334-339,358-362,372-378,401-405,411,413,703
+packages/nimbus-docs/src/cli/pm.ts
+  s_91c8d2ab1d77d8::t_99da897ca92b69 14,68,81,86-105,107-115
+packages/nimbus-docs/src/cli/upgrade.ts
+  s_91c8d2ab1d77d8::t_028afaf9c76fb6 25,136,148,169,248,288,292,317,409,416,426,438,730-731,741,743-744
+packages/nimbus-docs/src/content.ts
+  s_91c8d2ab1d77d8::t_9202211249aff7 37,372
+packages/nimbus-docs/src/integration.ts
+  s_91c8d2ab1d77d8::t_44ef356240253a 142,161,495,500,1162-1170,1493,1507,1514,1520,1530,1536
+packages/nimbus-docs/src/lib/pkgm.ts
+  s_91c8d2ab1d77d8::t_31be1123cd63ec 15-21
+packages/nimbus-docs/src/runtime.ts
+  s_91c8d2ab1d77d8::t_77ce7bec3dce77 167
+packages/nimbus-docs/src/types/virtual-modules.d.ts
+  s_91c8d2ab1d77d8::t_4a16763ab9eebf 19-21,23-24
+packages/nimbus-docs/test/api-citations.test.ts
+  s_91c8d2ab1d77d8::t_970e3808bff039 20,101-102,108,215-221
+packages/nimbus-docs/test/api-collection-registry.test.ts
+  s_91c8d2ab1d77d8::t_2bc723c9ba3dfe 131,136
+packages/nimbus-docs/test/api-loader.test.ts
+  s_91c8d2ab1d77d8::t_17c53273bc5a03 337
+packages/nimbus-docs/test/check/api-collections.test.ts
+  s_91c8d2ab1d77d8::t_d5ed9302d3e8b4 215-218
+packages/nimbus-docs/test/check/format.test.ts
+  s_91c8d2ab1d77d8::t_c66439712cc7b2 136,138,140,142,148-149
+packages/nimbus-docs/test/check/json-stdout-isolation.test.ts
+  s_91c8d2ab1d77d8::t_f105be53555d59 62-82
+packages/nimbus-docs/test/check/migrations-command.test.ts
+  s_91c8d2ab1d77d8::t_2fa06d31011fb2 14-17
+packages/nimbus-docs/test/cli-invocation.test.ts
+  s_91c8d2ab1d77d8::t_01c1068c5b6f2a 1-3,73,75,81-86
+packages/nimbus-docs/test/cli-migrate.test.ts
+  s_91c8d2ab1d77d8::t_60494072aea7df 58,67-68,75-80,268-269,701-740
+packages/nimbus-docs/test/cli-upgrade.test.ts
+  s_91c8d2ab1d77d8::t_d4431cdbab6b63 169,202,205
+packages/nimbus-docs/test/component-register-hint.test.ts
+  s_91c8d2ab1d77d8::t_39879cab84ab71 1-24
+packages/nimbus-docs/test/integration-dist-invariant.test.ts
+  s_91c8d2ab1d77d8::t_18aeb266bbf531 144
+packages/nimbus-docs/test/integration-srcdir.test.ts
+  s_91c8d2ab1d77d8::t_40ff9c22bb5189 65
+packages/nimbus-docs/test/migrations.test.ts
+  s_91c8d2ab1d77d8::t_495f9f82b5c77e 26-27,373,392,409,424
+packages/nimbus-docs/test/upgrades.test.ts
+  s_91c8d2ab1d77d8::t_97439a77fa45c3 179
+packages/nimbus-docs/test/url.test.ts
+  s_91c8d2ab1d77d8::t_39321d65fe8335 11,148-151,153,161,164-165,167,169-172
+packages/nimbus-starter-source/AGENT.md
+  s_91c8d2ab1d77d8::t_d375d1d8a60083 64-66,69-72,77,84,86-88,94
+scripts/upgrade-manifest.mjs
+  s_91c8d2ab1d77d8::t_eec123b474a862 49-50,74-77,84,86,89,102-108,134,173-180,250,256,265,271-273
+scripts/upgrade-manifest.test.mjs
+  s_91c8d2ab1d77d8::t_68faf0296fc337 275,284,287-295,324
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "18ee713809964666ccd821933aab2b15c67e4618",
+  "prompts": {},
+  "sessions": {
+    "s_91c8d2ab1d77d8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1e198162ffeegYrC3FPV5O2c5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_a579ac6602b05b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f18120d84ffeEMm49DuLitw5gw",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
