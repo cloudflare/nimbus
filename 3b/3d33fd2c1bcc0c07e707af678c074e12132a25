@@ -1,0 +1,41 @@
+.changeset/cloudflare-adapter-scaffolds.md
+  s_91c8d2ab1d77d8::t_edab105a1bdbcf 1-5
+.changeset/correct-upgrade-paths.md
+  s_91c8d2ab1d77d8::t_dee3fb02a92763 20
+.github/workflows/preview-release.yml
+  s_91c8d2ab1d77d8::t_a8cb4fb357ea89 47-65
+CONTRIBUTING.md
+  s_91c8d2ab1d77d8::t_1113f8c15ae2d7 93-95
+packages/nimbus-docs/src/_internal/upgrades.ts
+  s_91c8d2ab1d77d8::t_291e272f852947 6,152,192,196-197
+packages/nimbus-docs/src/check/format.ts
+  s_91c8d2ab1d77d8::t_88afa1f302cd9b 27-28,92-96,276
+packages/nimbus-docs/src/cli/check.ts
+  s_91c8d2ab1d77d8::t_539d1b746c0f4b 98-102
+packages/nimbus-docs/src/cli/migrate.ts
+  s_91c8d2ab1d77d8::t_d9922c146a0b0c 703-704
+packages/nimbus-docs/src/runtime.ts
+  s_91c8d2ab1d77d8::t_b172056c32fc85 1368
+packages/nimbus-docs/test/check/format.test.ts
+  s_91c8d2ab1d77d8::t_ae90dff4c82c45 151,153-154
+packages/nimbus-docs/test/check/json-stdout-isolation.test.ts
+  s_91c8d2ab1d77d8::t_16ff806a60aa16 83-107
+packages/nimbus-docs/test/cli-migrate.test.ts
+  s_91c8d2ab1d77d8::t_3ce0d1e8b4c656 226-243
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "3b3d33fd2c1bcc0c07e707af678c074e12132a25",
+  "prompts": {},
+  "sessions": {
+    "s_91c8d2ab1d77d8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1e198162ffeegYrC3FPV5O2c5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
