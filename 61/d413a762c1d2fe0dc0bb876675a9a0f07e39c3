@@ -1,0 +1,19 @@
+scripts/templates-check.mjs
+  s_91c8d2ab1d77d8::t_eece68fd4a5bb6 250-251
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "61d413a762c1d2fe0dc0bb876675a9a0f07e39c3",
+  "prompts": {},
+  "sessions": {
+    "s_91c8d2ab1d77d8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1e198162ffeegYrC3FPV5O2c5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
