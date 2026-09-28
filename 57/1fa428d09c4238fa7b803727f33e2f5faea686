@@ -1,0 +1,65 @@
+packages/nimbus-docs/src/_internal/api-collection-registry.ts
+  s_91c8d2ab1d77d8::t_3e2e80adc20761 14-16,28-29,50,57,61,65,69-73,246
+packages/nimbus-docs/src/_internal/api/citations.ts
+  s_91c8d2ab1d77d8::t_09b105bda22b0c 25,141-144,146-147
+packages/nimbus-docs/src/_internal/runtime-config.ts
+  s_91c8d2ab1d77d8::t_009193a57083bf 17,30-40,43,59,67,80,97
+packages/nimbus-docs/src/_internal/url.ts
+  s_91c8d2ab1d77d8::t_97a666c2515a74 4-6,13,17,122-125,127-140,142-143,164-168
+packages/nimbus-docs/src/_internal/version-alternates.ts
+  s_91c8d2ab1d77d8::t_b5b90cdaa480a4 243-244
+packages/nimbus-docs/src/content.ts
+  s_91c8d2ab1d77d8::t_b1596d38bb4f6f 37,371-373
+packages/nimbus-docs/src/integration.ts
+  s_91c8d2ab1d77d8::t_4adf66622c033e 78,142,494,496-500,1161-1170,1172
+packages/nimbus-docs/src/lib/pkgm.ts
+  s_91c8d2ab1d77d8::t_e10806ae35f4b0 9-10
+packages/nimbus-docs/src/runtime.ts
+  s_91c8d2ab1d77d8::t_f1070c1d46efa4 167
+packages/nimbus-docs/src/schemas.ts
+  s_91c8d2ab1d77d8::t_088a53c4ebca79 183-184
+packages/nimbus-docs/src/types/virtual-modules.d.ts
+  s_91c8d2ab1d77d8::t_5d36b032a0592e 4,19-23
+packages/nimbus-docs/test/agent-endpoint-assets.test.ts
+  s_91c8d2ab1d77d8::t_a747da1cc89832 318
+packages/nimbus-docs/test/api-authored-citations.test.ts
+  s_91c8d2ab1d77d8::t_a69db3c65ed434 30,74,89,97
+packages/nimbus-docs/test/api-citation-base.test.ts
+  s_91c8d2ab1d77d8::t_6c9bc031d184ba 219-222,224-227,244-247,250-253,270-273
+packages/nimbus-docs/test/api-citations.test.ts
+  s_91c8d2ab1d77d8::t_02924470fc4cf9 20,89,94,100-110,139,148,156,220,228,237,247,257
+packages/nimbus-docs/test/api-collection-registry.test.ts
+  s_91c8d2ab1d77d8::t_866aa70a265e9b 123-141
+packages/nimbus-docs/test/api-loader.test.ts
+  s_91c8d2ab1d77d8::t_1f0309623d52da 333-338,341-343
+packages/nimbus-docs/test/rendering-policy.test.ts
+  s_91c8d2ab1d77d8::t_c841354b779caa 555-576
+packages/nimbus-docs/test/schema-frontmatter.test.ts
+  s_91c8d2ab1d77d8::t_03004bccff12dc 13-19
+packages/nimbus-docs/test/transform-citations.test.ts
+  s_91c8d2ab1d77d8::t_4ce9e33638c28b 22
+packages/nimbus-docs/test/url.test.ts
+  s_91c8d2ab1d77d8::t_4e3f01c0cf04e3 11,147-165
+packages/nimbus-docs/tsdown.config.ts
+  s_91c8d2ab1d77d8::t_2200b80a0782d9 45
+scripts/fixtures/content-integrity/composed.mdx
+  s_91c8d2ab1d77d8::t_ab6569db0549c5 15-21,24-25
+scripts/templates-check.mjs
+  s_91c8d2ab1d77d8::t_7e4784cd95c3e1 420-422
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "571fa428d09c4238fa7b803727f33e2f5faea686",
+  "prompts": {},
+  "sessions": {
+    "s_91c8d2ab1d77d8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1e198162ffeegYrC3FPV5O2c5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
