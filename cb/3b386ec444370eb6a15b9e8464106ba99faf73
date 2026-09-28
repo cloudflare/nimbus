@@ -1,0 +1,35 @@
+.changeset/correct-upgrade-paths.md
+  s_91c8d2ab1d77d8::t_e032729cdc13c2 1-38
+packages/nimbus-docs/src/check/migrations.ts
+  s_91c8d2ab1d77d8::t_2453b1b85808a6 5,25
+packages/nimbus-docs/src/cli/migrate.ts
+  s_91c8d2ab1d77d8::t_90e0be9d6db819 5,115-120,149,158-159,175,178-187,341,346,397-398,403-414,421
+packages/nimbus-docs/src/cli/pm.ts
+  s_91c8d2ab1d77d8::t_a1899e90bc24af 24,66-70,72-74,76-77,80-90,114
+packages/nimbus-docs/src/cli/upgrade.ts
+  s_91c8d2ab1d77d8::t_d71675b755a4de 12,153,170-175,183,234,253,258,275,369-371,373,414-416,422,427,457,508,525,562-564,745-748,750-751,754-767,770,773-774,780-784,797,801-802
+packages/nimbus-docs/test/check/migrations-command.test.ts
+  s_91c8d2ab1d77d8::t_d3c31ec52bbb36 1-25
+packages/nimbus-docs/test/cli-invocation.test.ts
+  s_91c8d2ab1d77d8::t_6f71a347f11010 1-2,6,33-39,73-85
+packages/nimbus-docs/test/cli-migrate.test.ts
+  s_91c8d2ab1d77d8::t_9200c47cc54c24 264-265,667-700
+scripts/upgrade-manifest.test.mjs
+  s_91c8d2ab1d77d8::t_42f269e9df182a 267-316
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "cb3b386ec444370eb6a15b9e8464106ba99faf73",
+  "prompts": {},
+  "sessions": {
+    "s_91c8d2ab1d77d8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1e198162ffeegYrC3FPV5O2c5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
