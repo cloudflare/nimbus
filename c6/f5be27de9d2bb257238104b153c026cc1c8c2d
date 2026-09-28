@@ -1,0 +1,23 @@
+apps/www/registry/features/api-reference.md
+  s_91c8d2ab1d77d8::t_cf2d4539c777c8 221
+scripts/fixtures/api-reference/src/pages/api/[...slug].astro
+  s_91c8d2ab1d77d8::t_4f1309c15c0cf3 17
+scripts/fixtures/workers-feasibility/src/pages/api/[...slug].astro
+  s_91c8d2ab1d77d8::t_ec6977bded5259 20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c6f5be27de9d2bb257238104b153c026cc1c8c2d",
+  "prompts": {},
+  "sessions": {
+    "s_91c8d2ab1d77d8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1e198162ffeegYrC3FPV5O2c5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
