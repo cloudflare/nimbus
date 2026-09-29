@@ -1,0 +1,29 @@
+apps/www/src/components/ui/copy-prompt/CopyPrompt.astro
+  s_d03f78e3660b45::t_c3cd185890f13f 1-44
+apps/www/src/components/ui/copy-prompt/copy-prompt.client.ts
+  s_d03f78e3660b45::t_25b753d09b0133 1-41
+apps/www/src/components/ui/copy-prompt/index.ts
+  s_d03f78e3660b45::t_011ae6ef61b3d3 1
+apps/www/src/content/components/copy-prompt.mdx
+  s_d03f78e3660b45::t_d03e64eafae63e 1-19
+apps/www/src/pages/components.astro
+  s_d03f78e3660b45::t_f0b0f5095650de 23,206-218
+packages/nimbus-docs/src/cli/_registry.generated.ts
+  s_d03f78e3660b45::t_9e3a898f23d974 104-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "adb8efe86094b0a8b7f00df1805edc3e2a8b04d5",
+  "prompts": {},
+  "sessions": {
+    "s_d03f78e3660b45": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f17d2af16ffeigWbHa8UAa5Mz3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
