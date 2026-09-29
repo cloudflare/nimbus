@@ -1,0 +1,23 @@
+apps/www/registry/features/api-reference.md
+  s_d03f78e3660b45::t_2868549c7e8591 118-121
+apps/www/src/content/docs/installation.mdx
+  s_d03f78e3660b45::t_61fdd966904c08 26,32,45-47,68-69,71,73-74,77-78
+apps/www/src/content/docs/writing/pages-and-routing.mdx
+  s_d03f78e3660b45::t_4858358e6db3c8 16-18,20,138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "3b80ca729feea965fd1f413a2391328f5d12cda1",
+  "prompts": {},
+  "sessions": {
+    "s_d03f78e3660b45": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f17d2af16ffeigWbHa8UAa5Mz3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
