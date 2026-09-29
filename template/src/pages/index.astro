@@ -2,11 +2,24 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Header from "../components/Header.astro";
 import { config } from "virtual:nimbus/config";
-import { withBase } from "@cloudflare/nimbus-docs/runtime";
+import { getIndexedEntries, withBase } from "@cloudflare/nimbus-docs/runtime";
 
 // Prerender explicitly so the homepage stays a static route under
 // `output: "server"` — an adapter alone must add zero on-demand routes.
 export const prerender = true;
+
+// Link through each page's entry: its `url` follows the site's
+// `trailingSlash`, and a card whose page is gone drops out instead of 404ing.
+const cards = [
+  { id: "welcome", label: "Welcome", blurb: "Start here" },
+  { id: "getting-started", label: "Getting Started", blurb: "Install + configure" },
+  { id: "components", label: "Components", blurb: "See them in action" },
+];
+const entries = await getIndexedEntries();
+const links = cards.flatMap((card) => {
+  const entry = entries.find((e) => e.collection === "docs" && e.entry.id === card.id);
+  return entry ? [{ ...card, href: withBase(entry.url, import.meta.env.BASE_URL) }] : [];
+});
 ---
 
 <BaseLayout title={config.title} description={config.description}>
@@ -23,29 +36,19 @@ export const prerender = true;
         {config.description}
       </p>
 
-      <div class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <a
-          href={withBase("/welcome", import.meta.env.BASE_URL)}
-          class="block rounded-lg border border-border p-4 transition-colors hover:border-border-strong no-underline"
-        >
-          <div class="font-medium text-foreground">Welcome</div>
-          <div class="mt-0.5 text-sm text-muted-foreground">Start here</div>
-        </a>
-        <a
-          href={withBase("/getting-started", import.meta.env.BASE_URL)}
-          class="block rounded-lg border border-border p-4 transition-colors hover:border-border-strong no-underline"
-        >
-          <div class="font-medium text-foreground">Getting Started</div>
-          <div class="mt-0.5 text-sm text-muted-foreground">Install + configure</div>
-        </a>
-        <a
-          href={withBase("/components", import.meta.env.BASE_URL)}
-          class="block rounded-lg border border-border p-4 transition-colors hover:border-border-strong no-underline"
-        >
-          <div class="font-medium text-foreground">Components</div>
-          <div class="mt-0.5 text-sm text-muted-foreground">See them in action</div>
-        </a>
-      </div>
+      {links.length > 0 && (
+        <div class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {links.map((link) => (
+            <a
+              href={link.href}
+              class="block rounded-lg border border-border p-4 transition-colors hover:border-border-strong no-underline"
+            >
+              <div class="font-medium text-foreground">{link.label}</div>
+              <div class="mt-0.5 text-sm text-muted-foreground">{link.blurb}</div>
+            </a>
+          ))}
+        </div>
+      )}
     </main>
   </div>
 </BaseLayout>
