@@ -1,0 +1,27 @@
+.changeset/check-and-migrate-follow-ups.md
+  s_b563d41a6291e7::t_ee0b6111592fc6 8,10,12,14
+.changeset/yarn-and-starter-follow-ups.md
+  s_b563d41a6291e7::t_bda651a36da346 5-9,11-16
+apps/www/registry/features/api-reference.md
+  s_b563d41a6291e7::t_8525e490f9579c 247-249,252-257
+packages/nimbus-docs/src/cli/index.ts
+  s_b563d41a6291e7::t_f81d25bc50b6f1 170-171
+packages/nimbus-starter-source/AGENT.md
+  s_b563d41a6291e7::t_bb05767fee2ed4 93-94,108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "4fcc9eaa3711c2a390c3227fadec85afe653a8ff",
+  "prompts": {},
+  "sessions": {
+    "s_b563d41a6291e7": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1711e354ffe0jMEl0JIQ6bVh5",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
