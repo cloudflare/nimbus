@@ -1,0 +1,19 @@
+packages/nimbus-docs/src/client/nav-sidebar.ts
+  s_b563d41a6291e7::t_d2a3054981fb75 120-123,290-291,298,320-321,326-330,398
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "fde4f0089a76c97e8f6cb952bc83a2d7c03dfa42",
+  "prompts": {},
+  "sessions": {
+    "s_b563d41a6291e7": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1711e354ffe0jMEl0JIQ6bVh5",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
