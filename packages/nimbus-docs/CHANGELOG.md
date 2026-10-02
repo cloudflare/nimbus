@@ -1,5 +1,52 @@
 # @cloudflare/nimbus-docs
 
+## 0.16.0
+
+### Minor Changes
+
+- [#181](https://github.com/cloudflare/nimbus/pull/181) [`71ff242`](https://github.com/cloudflare/nimbus/commit/71ff2424f441c3d8fc57d09d69949365de81ed38) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Add `sidebar` to `api` entries, so large API references stop putting the whole navigation tree in every page. `"full"` (the default) keeps today's behavior. `"on-demand"` includes top-level items plus the current page's branch. A collapsed group opens in place and loads its rows from its own page, where the sidebar lists them open; a group without a page, such as an `x-tagGroups` category, loads them from the API overview. Without JavaScript, a collapsed group's label still links to its page. The mode is read from the `api` entry in the Nimbus config, including for sites that pass their entry to `apiCollection({ … })`.
+
+  ```ts
+  api: [{ collection: "api", spec: "./src/api/openapi.yaml", sidebar: "on-demand" }],
+  ```
+
+  `ApiNavItem` gains optional `deferred` and `childrenHref` fields. `@cloudflare/nimbus-docs/client` adds `initNavSidebar()`, and `@cloudflare/nimbus-docs/runtime` adds `navStateScript`, an inline script, and `navBuildId`, which a sidebar renders as `data-nb-nav-build`. Together they keep a sidebar's open groups, loaded rows, and scroll position from page to page for the session, restored before the page paints and without replaying animations. Cached rows are tied to the build that rendered the page, so rows cached before a deployment are never shown after it, including on client-side navigation. `apiCollection({ … })` warns when it sets a `sidebar` the config doesn't match.
+
+  A tag's `x-displayName` now sets its label in the sidebar, page title, and breadcrumbs, while its `name` still decides its coordinate and route. This lets a spec group hundreds of flat tags under readable parents.
+
+  Group pages now list their subsections (`ApiSectionPage.sections`), in HTML and Markdown, so every page stays reachable without the sidebar. The API overview no longer links an `x-tagGroups` category to itself: it lists the category's member sections instead. Both changes apply in every sidebar mode.
+
+  Starter components: `ApiSidebarItem` renders a deferred group as a closed group with an empty panel, and `ApiLayout` mounts `initNavSidebar` and the restore script for both the desktop rail and the mobile drawer. The API sidebar now keeps the groups a reader opened and its scroll position from page to page in every mode, and no longer fades or replays group animations during navigation. The mobile drawer moved ahead of the desktop rail in `ApiLayout`, so one inline script restores both before the page paints. `ApiBody` lists a group page's subsections.
+
+  Existing sites keep working unchanged with the default `sidebar: "full"`. `"on-demand"` needs the new API components: with older ones, the build fails and names the outdated files. Update them with `nimbus-docs add api-layout`, choosing Overwrite for `api-layout` and `api-sidebar`. `nimbus-docs add` now warns when the registry serves components from a different release than the project's `@cloudflare/nimbus-docs`.
+
+### Patch Changes
+
+- [#185](https://github.com/cloudflare/nimbus/pull/185) [`11e6d85`](https://github.com/cloudflare/nimbus/commit/11e6d8588dc197f701799c1859e7d3dc86d91b54) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Static API pages color their code samples again. `_nimbus/shiki.css` now defines every token class the pages use; it used to miss the classes only API samples used, so on a site with only API pages, every sample rendered without color.
+
+- [#187](https://github.com/cloudflare/nimbus/pull/187) [`278a3ff`](https://github.com/cloudflare/nimbus/commit/278a3ffb96ced884c299fd02c92a605e136f4df5) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - `nimbus/internal-link` can now gate CI:
+
+  - `.nimbus/routes.json` lists every file the build produced, so links to `/llms.txt`, feeds, `.md` alternates, and `public/` files no longer show as broken.
+  - When the rule is on and `.nimbus/routes.json` is missing, isn't valid JSON, or was written by another version of Nimbus, `nimbus-docs lint` reports one error on that file and exits 1, instead of skipping the rule. When `astro build` starts, it deletes the previous build's file, or marks it incomplete if it can't be deleted, so lint never accepts it after a failed build. If the file can be neither deleted nor changed, the build fails until its permissions are fixed. Run `astro build` before `nimbus-docs lint`. `nimbus-docs check` is unchanged: a missing file is still a note there, not an error.
+  - `nimbus-docs lint` exits 1 when `.nimbus/lint.json` is missing, instead of reporting a clean run with every rule off. Run `astro build` or `astro dev` first; they write the `rules` from your Astro config there. `--rule <code>` still runs that one rule without it.
+  - A bare relative link such as `[CLI](cli)` now counts as a relative link, like `./cli`, instead of being looked up as `/cli`.
+  - **Some lint runs that passed before now fail.** Links that include Astro's `base` (for example `/docs/guide` under `base: "/docs"`) used to pass, but Nimbus adds the base again when the page renders, so they lead to `/docs/docs/guide`, a 404. Lint now reports them and suggests the link without the base. To fix them, remove the base from the link. Write `ignore` patterns without the base too.
+
+- [#183](https://github.com/cloudflare/nimbus/pull/183) [`e5fe9f3`](https://github.com/cloudflare/nimbus/commit/e5fe9f3e680cbf3128d2c9c2a1b38d4ced496dda) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Generated Markdown (`.md` pages and `llms-full.txt`) is built from the parsed MDX, so it keeps the structure the HTML page shows: code blocks and nested lists stay in their list items, components stay inside the list item, card, or blockquote that holds them, and nested components keep their own content.
+  - Components without a Markdown renderer no longer leave raw tags.
+  - Text MDX reads differently from Markdown, such as an indented line or an over-indented fence, is written so it reads the same.
+  - `import` and `export` lines no longer appear in generated Markdown.
+
+- [#186](https://github.com/cloudflare/nimbus/pull/186) [`aff3e9f`](https://github.com/cloudflare/nimbus/commit/aff3e9f05f90de4b1ff0b0015f61754173aed405) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - A `markdown.componentMap` renderer's output goes into generated Markdown as written again (apart from surrounding whitespace), unless it uses another component, which still converts. In a table cell or a sentence, output with a line break or `|` is converted so the cell or sentence stays whole.
+  - A page whose MDX can't be parsed for generated Markdown keeps its text there, with a warning, instead of failing the build.
+
+- [#182](https://github.com/cloudflare/nimbus/pull/182) [`9d2051c`](https://github.com/cloudflare/nimbus/commit/9d2051c4fb44eb9e5e4eb87db8cd081834fe7635) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `outdated` and `diff` also compare `AGENT.md`, `CLAUDE.md`, and `tsconfig.json` with the upstream starter, so upgraded sites get guidance fixes. Files every site rewrites, such as `package.json`, are never compared.
+  - `diff <file> --apply` records the tag it took the file from in `nimbus.json` (`templatesTagByFile`), so the file no longer shows as a hand-merge after the next upstream change.
+  - Each command rejects flags it doesn't read. Before, `outdated --cwd site` ignored `--cwd` and checked the current directory. Scripts that pass an ignored flag now exit 1.
+  - `check` and `add adapter-cloudflare` use `@astrojs/cloudflare@~14.3.0`. pnpm saved the old `>=14.3.0 <14.4.0` as `^14.3.x`, which allows 14.4.
+  - `add` and `init` print plain lines without a terminal, instead of spinner escapes.
+  - A duplicate page or unknown MDX component fails the build without a stack trace.
+
 ## 0.15.2
 
 ### Patch Changes
