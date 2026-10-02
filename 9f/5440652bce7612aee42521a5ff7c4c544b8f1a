@@ -1,0 +1,53 @@
+packages/nimbus-docs/src/_internal/api-loader.ts
+  s_9cf4bdc386df5d::t_14c3891d91199f 242
+packages/nimbus-docs/src/_internal/api/api-alternates.ts
+  s_9cf4bdc386df5d::t_a9cdd78acbd494 65
+packages/nimbus-docs/src/_internal/api/api-view-types.ts
+  s_9cf4bdc386df5d::t_77727f63a452ca 35-36
+packages/nimbus-docs/src/_internal/api/authored-citations.ts
+  s_9cf4bdc386df5d::t_05bb45c8ab133f 15-16,54
+packages/nimbus-docs/src/_internal/api/citation-index.ts
+  s_9cf4bdc386df5d::t_94304a772ea8ca 16-17,30-63,81,95,102-112,162
+packages/nimbus-docs/src/_internal/api/citations.ts
+  s_9cf4bdc386df5d::t_160671670cce28 159-164,188,232-244
+packages/nimbus-docs/src/_internal/api/parse-context.ts
+  s_9cf4bdc386df5d::t_1330a8db5a73de 18-20
+packages/nimbus-docs/src/_internal/api/parse.ts
+  s_9cf4bdc386df5d::t_6c82a0ac84b037 58-59,185,367,386,400-417
+packages/nimbus-docs/src/_internal/api/resolve-spec.ts
+  s_9cf4bdc386df5d::t_cf434325f46563 26,38,48,73
+packages/nimbus-docs/src/_internal/api/resolve-versions.ts
+  s_9cf4bdc386df5d::t_e4065fd7e1be75 57-58,110,132
+packages/nimbus-docs/src/_internal/api/schemas.ts
+  s_9cf4bdc386df5d::t_d08962151f827e 89-96
+packages/nimbus-docs/src/_internal/api/view-model.ts
+  s_9cf4bdc386df5d::t_78c04e433f425f 339-344,450
+packages/nimbus-docs/src/_internal/validate.ts
+  s_9cf4bdc386df5d::t_ed8a8fe8a1e058 310-312
+packages/nimbus-docs/src/content.ts
+  s_9cf4bdc386df5d::t_aa103360136bd5 264-265,326,349,397,435
+packages/nimbus-docs/src/integration.ts
+  s_9cf4bdc386df5d::t_b83fe3af68334f 481,632,980,991,1266,1739,1750
+packages/nimbus-docs/src/types.ts
+  s_9cf4bdc386df5d::t_3c69ca0ef3cbf5 266-276
+packages/nimbus-docs/test/api-schema-pages-build.test.ts
+  s_9cf4bdc386df5d::t_5813ca3c45bd73 1-256
+packages/nimbus-docs/test/api-schema-pages.test.ts
+  s_9cf4bdc386df5d::t_cbc9f4764ec2f6 1-258
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "9f5440652bce7612aee42521a5ff7c4c544b8f1a",
+  "prompts": {},
+  "sessions": {
+    "s_9cf4bdc386df5d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f04d3b95fffelDWEaT4uI89vUj",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
