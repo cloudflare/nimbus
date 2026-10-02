@@ -13,6 +13,7 @@ let model: ApiModel;
 
 before(async () => {
   model = await buildApiModel({
+    schemaPages: true,
     collection: "pu",
     label: "pu",
     spec: `
@@ -68,6 +69,7 @@ describe("a shared path-item union parameter recovers named, linked variants", (
   let sharedModel: ApiModel;
   before(async () => {
     sharedModel = await buildApiModel({
+      schemaPages: true,
       collection: "spu",
       label: "spu",
       spec: `
@@ -115,6 +117,7 @@ describe("a $ref'd union parameter recovers named, linked variants", () => {
   let refModel: ApiModel;
   before(async () => {
     refModel = await buildApiModel({
+      schemaPages: true,
       collection: "rpu",
       label: "rpu",
       spec: `
@@ -172,6 +175,7 @@ describe("a top-level oneOf request/response body surfaces branch links in gener
   let bodyModel: ApiModel;
   before(async () => {
     bodyModel = await buildApiModel({
+      schemaPages: true,
       collection: "bpu",
       label: "bpu",
       spec: `

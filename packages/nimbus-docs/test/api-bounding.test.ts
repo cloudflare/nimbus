@@ -34,7 +34,7 @@ function specWith(schemas: Record<string, unknown>): Record<string, unknown> {
 }
 
 async function schemaPage(spec: Record<string, unknown>, name: string): Promise<ApiSchemaPage> {
-  const model = await buildApiModel({ collection: "bounding", spec });
+  const model = await buildApiModel({ collection: "bounding", spec, schemaPages: true });
   const page = getApiPageProps(model, name);
   assert.equal(page.kind, "schema");
   return page as ApiSchemaPage;

@@ -46,7 +46,7 @@ The recipe tells the agent to inspect your project, ask for the specification pa
 
 #### Why the specification is not in `src/content`
 
-`src/content/docs/` contains authored MDX entries. An OpenAPI document is an input to a loader: Nimbus projects it into many operation, schema, tag, and webhook entries in the registered `api` collection.
+`src/content/docs/` contains authored MDX entries. An OpenAPI document is an input to a loader: Nimbus projects it into many operation, tag, and webhook entries in the registered `api` collection, plus schema entries when [schema pages](#schema-pages) are on.
 
 Keeping the source under `src/api/` makes that distinction visible. The path is only a convention; `src/content/api/openapi.yaml` also works if the configured `spec` points there.
 
@@ -192,8 +192,8 @@ Operations are not the only addressable items. Nimbus assigns coordinates to pag
 | Parameter | `retrieveEvent.path.event_id` |
 | Response | `retrieveEvent.response.200` |
 | Response field in an additional media type | `retrieveEvent.response.200.text-csv.id` |
-| Schema | `Event` |
-| Schema field | `Event.created_at` |
+| Schema (with [schema pages](#schema-pages) on) | `Event` |
+| Schema field (with schema pages on) | `Event.created_at` |
 | Webhook | `delivery.succeeded` |
 
 Use `/nimbus-api/coordinates.json` to inspect the exact coordinates and resolved URLs published by a built site.
@@ -281,6 +281,32 @@ For each component already in your project, it asks whether to overwrite it, eve
 
 Components come from the registry on nimbus-docs.com, which is updated shortly after each release. If `add` warns that the registry is older than your project, the new components aren't published yet: keep `sidebar: "full"` and try again later.
 
+### Schema pages
+
+By default, types show only inline, on the operations that use them: request and response fields, and the properties previewed under each union variant, come from `components/schemas`, but a schema gets no page of its own. In a large API, schema pages would outnumber operation pages.
+
+To publish a page for every schema at `/api/schemas/<Name>`, set `schemaPages: true`:
+
+```ts title="astro.config.ts"
+api: [
+  {
+    collection: "api",
+    spec: "./src/api/openapi.yaml",
+    schemaPages: true,
+  },
+],
+```
+
+Each schema then also gets:
+
+- a Markdown version and an OG image;
+- sitemap, search, and `llms.txt` entries;
+- coordinates, for the schema and its fields, in citations and `coordinates.json`.
+
+Type names such as union variants, discriminator mappings, and `map<Name>` value types link to their schema pages; without them, they render as text. A union variant previews its properties one level deep, so turn schema pages on if readers need a variant's nested fields.
+
+With schema pages off, an `api.ref:` citation in your content to a schema or a schema field fails the build and names the setting. Cite an operation that uses the type instead. Schema names claim their `schemas/<Name>` routes either way, so turning schema pages on can't collide with an operation. The setting applies to every version of a family.
+
 ### Build or request rendering
 
 API HTML is prerendered by default. To render only the API collection on request, add this policy to the Nimbus config:
@@ -340,7 +366,7 @@ For a collection named `api`, the reference integrates with these routes when th
 | Route | Purpose |
 | --- | --- |
 | `/api` | Default-version API overview. |
-| `/api/<page-slug>` | Operation, schema, tag, or webhook page. |
+| `/api/<page-slug>` | Operation, tag, or webhook page, and schema pages with [`schemaPages: true`](#schema-pages). |
 | `/api/<page-slug>/index.md` | Clean Markdown version. |
 | `/api/llms.txt` | API-only `llms.txt` index. |
 | `/llms.txt` and `/llms-full.txt` | Site-wide page index and full Markdown documentation. |

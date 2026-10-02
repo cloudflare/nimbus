@@ -78,7 +78,7 @@ const SMALLCO_IDENTITY: IdentityRow[] = [
 
 let smallco: ApiModel;
 before(async () => {
-  smallco = await buildApiModel({ collection: "api", spec: fixtureText("smallco.yaml") });
+  smallco = await buildApiModel({ collection: "api", spec: fixtureText("smallco.yaml"), schemaPages: true });
 });
 
 describe("api identity stability", () => {
@@ -91,7 +91,7 @@ describe("api identity stability", () => {
     // cache hit that never reparses — evict first to force a genuine second parse,
     // else this compares the frozen handle to itself and can't fail.
     clearApiModelCache("api");
-    const rebuilt = await buildApiModel({ collection: "api", spec: fixtureText("smallco.yaml") });
+    const rebuilt = await buildApiModel({ collection: "api", spec: fixtureText("smallco.yaml"), schemaPages: true });
     assert.deepEqual(identity(rebuilt), identity(smallco));
   });
 
@@ -101,10 +101,10 @@ describe("api identity stability", () => {
     // coordinate/URL state were shared across collections, the neighbour's parse
     // would perturb the first's fresh reparse. It must not — adding/removing a
     // neighbour never moves a permalink (collection-as-namespace).
-    const before = identity(await buildApiModel({ collection: "solo", spec: fixtureText("smallco.yaml") }));
-    await buildApiModel({ collection: "neighbour", spec: fixtureText("deviant.yaml") });
+    const before = identity(await buildApiModel({ collection: "solo", spec: fixtureText("smallco.yaml"), schemaPages: true }));
+    await buildApiModel({ collection: "neighbour", spec: fixtureText("deviant.yaml"), schemaPages: true });
     clearApiModelCache("solo");
-    const after = identity(await buildApiModel({ collection: "solo", spec: fixtureText("smallco.yaml") }));
+    const after = identity(await buildApiModel({ collection: "solo", spec: fixtureText("smallco.yaml"), schemaPages: true }));
     assert.deepEqual(after, before);
   });
 
@@ -115,6 +115,7 @@ describe("api identity stability", () => {
   test("a nested version mount shifts hrefs by the prefix and moves no coordinate", async () => {
     clearApiModelCache("api");
     const versioned = await buildApiModel({
+      schemaPages: true,
       collection: "api",
       spec: fixtureText("smallco.yaml"),
       mountPath: "/api/v2",

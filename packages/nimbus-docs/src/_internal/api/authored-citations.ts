@@ -12,6 +12,8 @@ import { hasCitation, resolveCitations, type CitationIndex } from "./citations.j
 export interface AuthoredCitationOptions {
   contentDirs: ReadonlyArray<string>;
   getCitationIndex: () => CitationIndex;
+  /** Citation keys of schemas with no page (`schemaPages: false`) → schema name. */
+  getUnpublishedCitations?: () => ReadonlyMap<string, string>;
 }
 
 function canonical(directory: string): string {
@@ -49,6 +51,7 @@ export function createAuthoredCitationResolver(options: AuthoredCitationOptions)
     const { code, diagnostics } = resolveCitations(source, {
       mode: "author",
       citationIndex: options.getCitationIndex(),
+      unpublished: options.getUnpublishedCitations?.(),
     });
     const relative = path.relative(process.cwd(), filePath);
     const errors = diagnostics.filter((d) => d.level === "error");

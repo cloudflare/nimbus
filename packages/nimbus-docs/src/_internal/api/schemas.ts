@@ -86,6 +86,13 @@ export function parseSchemas(ctx: ParseContext): void {
       }
     }
     ctx.node(coord, "schema", apiCoordinate(ctx.collection), facts, `#/components/schemas/${name}`);
-    ctx.page(coord, `schemas/${name}`);
+    const slug = `schemas/${name}`;
+    if (ctx.schemaPages) {
+      ctx.page(coord, slug);
+    } else {
+      // No page, but the slug stays claimed: turning pages back on must never
+      // introduce a collision (an operationId `schemas/User` vs schema `User`).
+      ctx.registry.registerSlug(slug, coord);
+    }
   }
 }

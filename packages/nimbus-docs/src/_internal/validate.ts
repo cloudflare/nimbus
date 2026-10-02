@@ -307,6 +307,9 @@ const apiSpecShape = {
   requireOperationId: z
     .boolean({ error: '"api[].requireOperationId" must be a boolean' })
     .optional(),
+  schemaPages: z
+    .boolean({ error: '"api[].schemaPages" must be a boolean' })
+    .optional(),
   routes: routePolicySchema.optional(),
   sidebar: z
     .enum(["full", "on-demand"], {

@@ -76,6 +76,7 @@ let smallco: ApiModel;
 
 before(async () => {
   smallco = await buildApiModel({
+    schemaPages: true,
     collection: "smallco",
     spec: readFileSync(fixture("smallco.yaml"), "utf8"),
     label: "smallco.yaml",
@@ -189,6 +190,7 @@ describe("api markdown emitter", () => {
 
   test("discriminated union renders the value→variant mapping", async () => {
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "disc",
       spec: {
         openapi: "3.0.0",
@@ -234,6 +236,7 @@ describe("api markdown emitter", () => {
 
   test("a backtick in a variant's schema name cannot corrupt the link", async () => {
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "inj",
       spec: {
         openapi: "3.0.0",
@@ -257,6 +260,7 @@ describe("api markdown emitter", () => {
 
   test("malformed non-string schema `type` is coerced, never crashes the emitter", async () => {
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "weird",
       spec: {
         openapi: "3.0.0",

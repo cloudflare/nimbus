@@ -156,6 +156,12 @@ export interface ResolveCitationsResult {
 export interface ResolveCitationsOptions {
   mode: ResolveMode;
   citationIndex: CitationIndex;
+  /**
+   * Citation keys of schemas (and their fields) that exist but have no page
+   * because their collection sets `schemaPages: false` → the schema's name.
+   * Author mode fails such a citation with a reason that names the option.
+   */
+  unpublished?: ReadonlyMap<string, string>;
 }
 
 /**
@@ -179,7 +185,7 @@ export function hasCitation(source: string): boolean {
  * `error` diagnostic fails the build.
  */
 export function resolveCitations(source: string, options: ResolveCitationsOptions): ResolveCitationsResult {
-  const { mode, citationIndex } = options;
+  const { mode, citationIndex, unpublished } = options;
   const diagnostics: CitationDiagnostic[] = [];
   const known = new Set(citationIndex.keys());
   // An unknown coordinate in a known collection fails an author build; a
@@ -223,6 +229,19 @@ export function resolveCitations(source: string, options: ResolveCitationsOption
     if (url !== undefined) return url;
 
     const key = citationKey(parsed.collection, parsed.version, parsed.coordinate);
+    const schema = mode === "author" ? unpublished?.get(key) : undefined;
+    if (schema !== undefined) {
+      const target =
+        parsed.coordinate === schema ? `"${schema}" is a schema` : `"${parsed.coordinate}" is a field of schema "${schema}"`;
+      diagnostics.push({
+        level: "error",
+        message:
+          `Citation "${token}" has no page to link to: ${target}, and schema pages are off for "${parsed.collection}" ` +
+          `(\`schemaPages: false\`). Cite an operation that uses it, or set \`schemaPages: true\`.`,
+        token,
+      });
+      return "#";
+    }
     const hint = suggest(key, known, 4);
     const detail = hint ? ` Did you mean "${CITATION_SENTINEL}${hint}"?` : "";
     const authoritative = knownCollections.has(parsed.collection);

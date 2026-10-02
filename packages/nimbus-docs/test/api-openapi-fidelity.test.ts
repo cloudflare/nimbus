@@ -34,7 +34,7 @@ const schema = (coordinate: string) => getApiPageProps(model, coordinate) as Api
 const md = (coordinate: string) => renderApiPageMarkdown(getApiPageProps(model, coordinate));
 
 before(async () => {
-  model = await buildApiModel({ collection: "fidelity", label: "fidelity.yaml", spec: FIXTURE });
+  model = await buildApiModel({ collection: "fidelity", label: "fidelity.yaml", spec: FIXTURE, schemaPages: true });
 });
 
 function inlineSpec(paths: string, components = ""): string {
@@ -65,6 +65,7 @@ describe("request body: required and description", () => {
 
   test("an explicit `required: false` is carried, not dropped", async () => {
     const m = await buildApiModel({
+      schemaPages: true,
       collection: "optional-body",
       spec: inlineSpec(`  /notes:
     post:
@@ -99,6 +100,7 @@ describe("request body: required and description", () => {
 
   test("a described union body and a field-less body keep their facts in Markdown", async () => {
     const m = await buildApiModel({
+      schemaPages: true,
       collection: "meta-bodies",
       spec: inlineSpec(`  /pets:
     post:
@@ -172,7 +174,7 @@ describe("responses: every media type renders", () => {
   });
 
   test("the build no longer warns about multiple response media types", async () => {
-    const { diagnostics } = await parseOpenApi({ collection: "fidelity", spec: FIXTURE, label: "fidelity.yaml" });
+    const { diagnostics } = await parseOpenApi({ collection: "fidelity", spec: FIXTURE, label: "fidelity.yaml", schemaPages: true });
     assert.deepEqual(
       diagnostics.filter((d) => /media type/i.test(d.message)),
       [],
@@ -260,7 +262,7 @@ ${content(order)}`);
   });
 
   test("both render, with distinct citable coordinates, on the request and the response", async () => {
-    const m = await buildApiModel({ collection: "tokens", spec: spec(TYPES) });
+    const m = await buildApiModel({ collection: "tokens", spec: spec(TYPES), schemaPages: true });
     const page = getApiPageProps(m, "putThing") as ApiOperationPage;
     const media = page.responses[0]!.additionalMedia!;
     const bodies = page.additionalBodies!;
@@ -279,7 +281,7 @@ ${content(order)}`);
 
   test("the tokens do not depend on declaration order", async () => {
     const coords = async (order: string[], collection: string) => {
-      const page = getApiPageProps(await buildApiModel({ collection, spec: spec(order) }), "putThing") as ApiOperationPage;
+      const page = getApiPageProps(await buildApiModel({ collection, spec: spec(order), schemaPages: true }), "putThing") as ApiOperationPage;
       return [
         ...page.responses[0]!.additionalMedia!.map((b) => b.fields[0]!.coordinate),
         ...page.additionalBodies!.map((b) => b.fields[0]!.coordinate),
@@ -321,7 +323,7 @@ describe("media tokens never reuse a primary field's name", () => {
   });
 
   test("the build succeeds and both keep distinct, citable coordinates", async () => {
-    const m = await buildApiModel({ collection: "claimed", spec });
+    const m = await buildApiModel({ collection: "claimed", spec, schemaPages: true });
     const page = getApiPageProps(m, "exportThings") as ApiOperationPage;
     const cited = new Set(getApiFieldCitations(m).map((c) => c.coordinate));
 
@@ -385,6 +387,7 @@ describe("anonymous union branches get readable labels", () => {
     // The shapes behind every `unknown` branch in a large public API schema,
     // plus typed branches whose labels must not change.
     const m = await buildApiModel({
+      schemaPages: true,
       collection: "shapes",
       spec: inlineSpec(`  /lists:
     get:

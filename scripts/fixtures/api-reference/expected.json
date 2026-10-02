@@ -2,27 +2,6 @@
   "site": "https://docs.smallco.test",
   "pages": [
     { "coordinate": "api", "route": "/api" },
-    { "coordinate": "AliasUnion", "route": "/api/schemas/AliasUnion" },
-    { "coordinate": "AllOfCurrency", "route": "/api/schemas/AllOfCurrency" },
-    { "coordinate": "BankAccount", "route": "/api/schemas/BankAccount" },
-    { "coordinate": "Card", "route": "/api/schemas/Card" },
-    { "coordinate": "Charge", "route": "/api/schemas/Charge" },
-    { "coordinate": "ColorList", "route": "/api/schemas/ColorList" },
-    { "coordinate": "Currency", "route": "/api/schemas/Currency" },
-    { "coordinate": "Dispute", "route": "/api/schemas/Dispute" },
-    {
-      "coordinate": "DisputeDuplicate",
-      "route": "/api/schemas/DisputeDuplicate"
-    },
-    { "coordinate": "DisputeFraud", "route": "/api/schemas/DisputeFraud" },
-    {
-      "coordinate": "DisputeNotReceived",
-      "route": "/api/schemas/DisputeNotReceived"
-    },
-    { "coordinate": "EitherAccount", "route": "/api/schemas/EitherAccount" },
-    { "coordinate": "Error", "route": "/api/schemas/Error" },
-    { "coordinate": "Mixed", "route": "/api/schemas/Mixed" },
-    { "coordinate": "TaggedCharge", "route": "/api/schemas/TaggedCharge" },
     { "coordinate": "create", "route": "/api/charges/create" },
     { "coordinate": "list", "route": "/api/charges/list" },
     { "coordinate": "openDispute", "route": "/api/disputes/openDispute" },
@@ -46,11 +25,6 @@
       "coordinate": "list.query.limit",
       "route": "/api/charges/list",
       "anchor": "list.query.limit"
-    },
-    {
-      "coordinate": "Charge.amount",
-      "route": "/api/schemas/Charge",
-      "anchor": "Charge.amount"
     }
   ],
   "browser": {

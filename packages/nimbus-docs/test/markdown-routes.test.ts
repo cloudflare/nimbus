@@ -35,6 +35,7 @@ afterEach(() => sites.cleanup());
 
 const API = {
   collection: "api",
+  schemaPages: true,
   versions: [
     { version: "v2", default: true, spec: SMALLCO_SPEC },
     { version: "v1", spec: SMALLCO_SPEC, hidden: true },

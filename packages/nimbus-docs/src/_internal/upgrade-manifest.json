@@ -283,6 +283,25 @@
         "Confirm the build logs no warning about Markdown or llms.txt pages that were not prerendered, unless the site serves them on request.",
         "Request /llms.txt, /llms-full.txt, one section's llms.txt, and an unknown section's llms.txt, which returns 404."
       ]
+    },
+    {
+      "id": "api-schema-pages-off-by-default",
+      "introducedIn": "0.16.0",
+      "mode": "review-required",
+      "changeset": "api-schema-pages",
+      "summary": "API references no longer publish a page per components/schemas entry unless the api entry sets schemaPages: true.",
+      "affected": "Projects with an api entry in the Nimbus config whose spec defines components/schemas, and that want to keep /<collection>/schemas/<Name> pages, links to them, or api.ref: citations to schemas and schema fields.",
+      "instructions": [
+        "Without action, each schema loses its page, Markdown version, OG image, and sitemap, search, and llms.txt entries, and its coordinates leave coordinates.json. Union variants, discriminator mappings, and map<Name> types render as text. Operation pages keep every field and union preview.",
+        "To keep today's output, add schemaPages: true to each api entry in the Nimbus config (astro.config.* or nimbus.config.ts). For a version family, set it once on the entry; it applies to every version.",
+        "If you leave schema pages off, replace any api.ref: citation in your content that targets a schema or a schema field with a citation to an operation that uses the type. The build fails on each such citation and names the setting.",
+        "If you leave schema pages off and the old /<collection>/schemas/ URLs were public, add redirects for them, for example to the API overview, so inbound links don't 404."
+      ],
+      "verify": [
+        "Build and confirm no api.ref: citation error mentions schemaPages.",
+        "With schemaPages: true, compare dist before and after the upgrade: the API output should be unchanged.",
+        "With schema pages off, confirm dist has no /<collection>/schemas/ pages and no page links to one."
+      ]
     }
   ]
 }

@@ -238,7 +238,7 @@ export const { GET, getStaticPaths } = markdownRoute();
     },
     {
       versions: { current: "v2", others: ["v1", "v1.2"] },
-      api: [{ collection: "api", spec: SMALLCO_SPEC }],
+      api: [{ collection: "api", spec: SMALLCO_SPEC, schemaPages: true }],
     },
   );
 

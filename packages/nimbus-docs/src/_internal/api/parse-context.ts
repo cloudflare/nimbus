@@ -15,6 +15,9 @@ export interface ParseContext extends FieldSink {
   readonly requireOperationId: boolean;
   /** The active route convention, or `undefined` for legacy operationId URLs. */
   readonly routePolicy?: RoutePolicy;
+  /** Publish a page per schema. When false, schemas are still parsed and their
+   *  identities still claim their slugs, but no page is emitted. */
+  readonly schemaPages: boolean;
   page(coord: Coordinate, slug: string, provenance?: RouteProvenance): void;
   attachToNav(tag: string | undefined, coord: Coordinate, label: string): void;
   ensureSection(tag: string, description?: string, page?: boolean): void;

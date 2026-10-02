@@ -71,6 +71,7 @@ let smallco: ApiModel;
 
 before(async () => {
   smallco = await buildApiModel({
+    schemaPages: true,
     collection: "smallco",
     spec: readFileSync(fixture("smallco.yaml"), "utf8"),
     label: "smallco.yaml",
@@ -97,6 +98,7 @@ describe("seam: serializable + version-stamped across page kinds", () => {
     setLinkPolicy({ trailingSlash: "never", format: "directory" });
     // Its own model: the nav is cached per model, and the policy is fixed per build.
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "never",
       spec: readFileSync(fixture("smallco.yaml"), "utf8"),
       label: "smallco.yaml",
@@ -324,6 +326,7 @@ describe("nesting: children, childCount, required-first", () => {
 describe("unions: enrichment edge cases", () => {
   test("a top-level `oneOf` RESPONSE projects onto response.bodyUnion (symmetric with the request)", async () => {
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "u",
       spec: `
 openapi: 3.1.0
@@ -367,6 +370,7 @@ components:
 
   test("an `anyOf` body recovers named, linked branches from the raw doc", async () => {
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "u",
       spec: `
 openapi: 3.1.0
@@ -415,6 +419,7 @@ components:
 
   test("a self-referential union terminates: a variant's OWN nested union links out (allowInline=false), not inlined", async () => {
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "u",
       spec: `
 openapi: 3.1.0
@@ -470,6 +475,7 @@ components:
 describe("unions: raw-ref recovery for bodies, responses, and nested fields", () => {
   test("a nested FIELD anyOf recovers a linked branch (the id-or-object pattern)", async () => {
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "rr",
       spec: `
 openapi: 3.1.0
@@ -506,6 +512,7 @@ components:
 
   test("a body that is a $ref to a union component links its branches (the DNS shape)", async () => {
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "rr",
       spec: `
 openapi: 3.1.0
@@ -546,6 +553,7 @@ components:
     // cycle-guarded by resolved-node identity, so `Node.next -> Node` terminates
     // while `Node.child`'s anyOf still resolves to named, linkable branches.
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "rec",
       spec: `
 openapi: 3.1.0
@@ -588,6 +596,7 @@ components:
     // page: the `allOf` folds are cycle-guarded, so the spec still renders and
     // the composed field's own properties survive.
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "cyc",
       spec: `
 openapi: 3.1.0
@@ -631,6 +640,7 @@ describe("allOf folding: leaf field facts survive a single-member allOf wrapper"
   let page: ApiOperationPage;
   before(async () => {
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "af",
       spec: `
 openapi: 3.1.0
@@ -719,6 +729,7 @@ describe("additionalProperties: a typed map reads as map<T>, not empty object", 
   let page: ApiOperationPage;
   before(async () => {
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "ap",
       spec: `
 openapi: 3.1.0
@@ -792,6 +803,7 @@ describe("schema pages: pure-map components and composed unions no longer render
   let model: Awaited<ReturnType<typeof buildApiModel>>;
   before(async () => {
     model = await buildApiModel({
+      schemaPages: true,
       collection: "sp",
       spec: `
 openapi: 3.1.0
@@ -850,6 +862,7 @@ describe("field typeShape: compound `type` labels split into { kind, inner }", (
   let page: ApiOperationPage;
   before(async () => {
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "ts",
       spec: `
 openapi: 3.1.0
@@ -910,6 +923,7 @@ describe("response statusClass: RFC 9110 class of the status", () => {
   let page: ApiOperationPage;
   before(async () => {
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "sc",
       spec: `
 openapi: 3.1.0
@@ -1002,6 +1016,7 @@ describe("nav: active + ancestor-expanded + verb chips", () => {
 
   test("a dotted operation identifier is treated as a document route", async () => {
     const dotted = await buildApiModel({
+      schemaPages: true,
       collection: "dotted",
       spec: {
         openapi: "3.1.0",
@@ -1024,6 +1039,7 @@ describe("nav: active + ancestor-expanded + verb chips", () => {
 
   test("nested API mounts retain one trailing slash", async () => {
     const mounted = await buildApiModel({
+      schemaPages: true,
       collection: "mounted",
       spec: readFileSync(fixture("smallco.yaml"), "utf8"),
       mountPath: "/core/v1",
@@ -1072,7 +1088,7 @@ describe("x-displayName labels a tag without changing its identity", () => {
 
   let model: ApiModel;
   before(async () => {
-    model = await buildApiModel({ collection: "labels", spec, label: "labels" });
+    model = await buildApiModel({ collection: "labels", spec, label: "labels", schemaPages: true });
   });
 
   test("nav, page title, breadcrumbs, and Markdown use the display name", () => {
@@ -1122,7 +1138,7 @@ describe("nav hierarchy: x-tagGroups categories + tag.parent subresources", () =
 
   let grouped: ApiModel;
   before(async () => {
-    grouped = await buildApiModel({ collection: "grouped", spec: groupedSpec, label: "grouped" });
+    grouped = await buildApiModel({ collection: "grouped", spec: groupedSpec, label: "grouped", schemaPages: true });
   });
 
   test("x-tagGroups becomes a top-level category over its member resources", () => {
@@ -1262,6 +1278,7 @@ describe("descriptions surface from the spec", () => {
 describe("value coercion at the boundary", () => {
   test("non-finite constraints dropped; Date default → ISO", async () => {
     const edge = await buildApiModel({
+      schemaPages: true,
       collection: "edge",
       spec: {
         openapi: "3.1.0",

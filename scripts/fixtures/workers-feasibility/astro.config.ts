@@ -18,6 +18,8 @@ const nimbusConfig = defineNimbusConfig({
       collection: "api",
       spec: "src/content/api/openapi.json",
       label: "Feasibility API",
+      // Schema pages are opt-in; this fixture renders every API page kind.
+      schemaPages: true,
     },
   ],
 });

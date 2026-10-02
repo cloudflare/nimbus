@@ -32,6 +32,8 @@ export interface SpecSource {
   mountPath?: string;
   /** Fail the build on an operation missing a usable `operationId`. Default false. */
   requireOperationId?: boolean;
+  /** Publish a page per `components/schemas` entry. Default false. */
+  schemaPages?: boolean;
   /** Route convention for this model's pages. Absent = legacy operationId URLs. */
   routes?: RoutePolicy;
 }

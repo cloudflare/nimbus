@@ -440,7 +440,7 @@ describe("CoordinateRegistry: case-only identifiers warn, never fail (rule 3)", 
         },
       },
     });
-    const model = await buildApiModel({ collection: "case-collisions", spec });
+    const model = await buildApiModel({ collection: "case-collisions", spec, schemaPages: true });
     const coords = new Set(getApiPageSlugs(model).map((s) => s.coordinate));
     assert.ok(coords.has("createResponse"));
     assert.ok(coords.has("CreateResponse"));
@@ -516,6 +516,7 @@ describe("grammar realized on the smallco fixture (end-to-end)", () => {
 
   before(async () => {
     model = await buildApiModel({
+      schemaPages: true,
       collection: "smallco",
       spec: fixture("smallco.yaml"),
     });
@@ -642,7 +643,7 @@ describe("field citations: a body that is BOTH an object and a union (dead-fragm
   };
 
   test("the hidden object properties are NOT indexed; the union's named variants stay citeable on their own pages", async () => {
-    const { index } = await buildCitationIndex([{ collection: "t", spec }], ".");
+    const { index } = await buildCitationIndex([{ collection: "t", spec, schemaPages: true }], ".");
 
     assert.equal(index.get("t:pay.base"), undefined, "request body property is not a dead fragment");
     assert.equal(index.get("t:pay.response.200.rbase"), undefined, "response body property is not a dead fragment");
@@ -685,7 +686,7 @@ describe("field citations: a body that is BOTH an object and a union (dead-fragm
         },
       },
     };
-    const { index } = await buildCitationIndex([{ collection: "t", spec: nested }], ".");
+    const { index } = await buildCitationIndex([{ collection: "t", spec: nested, schemaPages: true }], ".");
     assert.ok(index.get("t:pay.source"), "the union field itself is citeable (its row has an id)");
     assert.equal(index.get("t:pay.source.hidden"), undefined, "the hidden sibling child is not a dead fragment");
     assert.equal(index.get("t:A.a"), "/t/schemas/A#A.a", "variant fields stay canonical on their schema pages");
@@ -708,7 +709,7 @@ describe("a spaced tag routes via a slug while its coordinate stays opaque", () 
   };
 
   test("the section coordinate keeps the raw label; its route slug is slugified", async () => {
-    const model = await buildApiModel({ collection: "kx", spec, label: "kx.json" });
+    const model = await buildApiModel({ collection: "kx", spec, label: "kx.json", schemaPages: true });
     const pages = getApiPageSlugs(model);
     const section = pages.find((p) => p.coordinate === "tags.User Management");
     assert.ok(section, "the section coordinate is the opaque `tags.<label>`");
@@ -719,7 +720,7 @@ describe("a spaced tag routes via a slug while its coordinate stays opaque", () 
   });
 
   test("the section lands in the citation index at a safe, citeable URL", async () => {
-    const { index } = await buildCitationIndex([{ collection: "kx", spec }], ".");
+    const { index } = await buildCitationIndex([{ collection: "kx", spec, schemaPages: true }], ".");
     // The opaque coordinate (with a space) is the citation key; the URL is safe.
     assert.equal(index.get("kx:tags.User Management"), "/kx/tags/User-Management");
     assert.equal(index.get("kx:listKeys"), "/kx/User-Management/listKeys");

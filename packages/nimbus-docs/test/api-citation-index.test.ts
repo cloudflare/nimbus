@@ -17,7 +17,7 @@ function fixturePath(rel: string): string {
 const root = fileURLToPath(new URL(".", import.meta.url));
 
 describe("buildCitationIndex: unversioned collection", () => {
-  const api: ApiSpec[] = [{ collection: "smallco", spec: fixturePath("smallco.yaml") }];
+  const api: ApiSpec[] = [{ collection: "smallco", spec: fixturePath("smallco.yaml"), schemaPages: true }];
 
   test("keys pages under collection:coordinate with site-absolute /collection URLs", async () => {
     const { index } = await buildCitationIndex(api, root);
@@ -76,7 +76,7 @@ describe("buildCitationIndex: versioned family (v2 default + v1)", () => {
 });
 
 describe("buildCitationIndex: field coordinates resolve to <page>#<anchor>", () => {
-  const api: ApiSpec[] = [{ collection: "smallco", spec: fixturePath("smallco.yaml") }];
+  const api: ApiSpec[] = [{ collection: "smallco", spec: fixturePath("smallco.yaml"), schemaPages: true }];
 
   test("a body field, a parameter, and a schema field each cite their owning page plus a lossless anchor", async () => {
     const { index } = await buildCitationIndex(api, root);
@@ -106,7 +106,7 @@ describe("buildCitationIndex: field coordinates resolve to <page>#<anchor>", () 
 });
 
 describe("buildCitationIndex: response coordinates resolve to rendered anchors", () => {
-  const api: ApiSpec[] = [{ collection: "smallco", spec: fixturePath("smallco.yaml") }];
+  const api: ApiSpec[] = [{ collection: "smallco", spec: fixturePath("smallco.yaml"), schemaPages: true }];
 
   test("bare responses are addressable in the index and manifest", async () => {
     const { index, manifest } = await buildCitationIndex(api, root);
@@ -122,7 +122,7 @@ describe("buildCitationIndex: response coordinates resolve to rendered anchors",
 
   test("deviant response statuses use the exact rendered anchor", async () => {
     const { index } = await buildCitationIndex(
-      [{ collection: "dev", spec: fixturePath("deviant.yaml") }],
+      [{ collection: "dev", spec: fixturePath("deviant.yaml"), schemaPages: true }],
       root,
     );
     assert.equal(
@@ -145,7 +145,7 @@ describe("buildCitationIndex: response coordinates resolve to rendered anchors",
       },
     };
     const { index } = await buildCitationIndex(
-      [{ collection: "odd", spec }],
+      [{ collection: "odd", spec, schemaPages: true }],
       root,
     );
     const url = index.get("odd:oddStatus.response.2:00");

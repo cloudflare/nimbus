@@ -12,7 +12,7 @@
 import { createHash } from "node:crypto";
 
 import { parseOpenApi } from "../_internal/api/parse.js";
-import type { DocsModel } from "../_internal/api/model.js";
+import { unwrapModel as unwrap, wrapModel as wrap } from "../_internal/api/model-handle.js";
 import {
   projectNav,
   projectPageProps,
@@ -65,7 +65,6 @@ export { ApiBuildError } from "../_internal/api/coordinates.js";
 export type { Diagnostic } from "../_internal/api/coordinates.js";
 export { renderApiPageMarkdown } from "../_internal/api/markdown.js";
 
-const modelStore = new WeakMap<object, DocsModel>();
 const handleCache = new Map<string, Promise<ApiModel>>();
 // Per-version configured-model cache, so repeated render-time `getApiModel`
 // calls across Markdown and HTML routes neither re-read nor re-hash the spec.
@@ -89,22 +88,6 @@ function stableStringify(value: unknown): string {
   return `{${entries.join(",")}}`;
 }
 
-function wrap(model: DocsModel): ApiModel {
-  const handle = Object.freeze({}) as ApiModel;
-  modelStore.set(handle as unknown as object, model);
-  return handle;
-}
-
-function unwrap(model: ApiModel): DocsModel {
-  const docs = modelStore.get(model as unknown as object);
-  if (!docs) {
-    throw new Error(
-      "Invalid ApiModel handle — pass the value returned by buildApiModel().",
-    );
-  }
-  return docs;
-}
-
 /**
  * Parse a spec into the opaque `ApiModel` handle. Memoised per (collection,
  * spec) so a build parses each spec once; two distinct inline specs on the same
@@ -115,12 +98,12 @@ export async function buildApiModel(source: SpecSource): Promise<ApiModel> {
     typeof source.spec === "string" ? source.spec : JSON.stringify(source.spec);
   // Content-addressed: the key follows the *bytes*, not a path, so an edited
   // spec is a cache miss (dev hot-reload gets a fresh parse for free). The mount
-  // path, `requireOperationId`, and the route policy are keyed too, since each
-  // changes the output — two versions with identical spec bytes but different
-  // policies must never alias.
+  // path, `requireOperationId`, `schemaPages`, and the route policy are keyed
+  // too, since each changes the output — two versions with identical spec bytes
+  // but different policies must never alias.
   const key = `${source.collection}::${source.mountPath ?? ""}::${
     source.requireOperationId ? "strictOpId" : ""
-  }::${stableStringify(source.routes)}::${specDigest(raw)}`;
+  }::${source.schemaPages ? "schemaPages" : ""}::${stableStringify(source.routes)}::${specDigest(raw)}`;
   const cached = handleCache.get(key);
   if (cached) return cached;
   const promise = parseOpenApi(source).then((r) => wrap(r.model));
@@ -205,6 +188,7 @@ export async function getApiModel(
       label: resolved.label,
       mountPath: resolved.mountPath,
       requireOperationId: resolved.requireOperationId,
+      schemaPages: resolved.schemaPages,
       routes: resolved.routes,
     },
     root,
