@@ -1,0 +1,49 @@
+.changeset/link-route-truth.md
+  s_9cf4bdc386df5d::t_5373fa998499b0 1-10
+apps/www/src/content/docs/cli.mdx
+  s_9cf4bdc386df5d::t_4dd55c55d348ae 198-199,217-218
+apps/www/src/content/docs/configuration.mdx
+  s_9cf4bdc386df5d::t_739dd213e9206f 159
+apps/www/src/content/docs/writing/linting.mdx
+  s_9cf4bdc386df5d::t_0e9309b2bbdd6a 50-72
+packages/nimbus-docs/src/check/authoring.ts
+  s_9cf4bdc386df5d::t_0e5bc2952774b4 19,21,60,71
+packages/nimbus-docs/src/cli/lint.ts
+  s_9cf4bdc386df5d::t_5843bb5c66ed02 24,102-104,113,161
+packages/nimbus-docs/src/integration.ts
+  s_9cf4bdc386df5d::t_be04fb2188b879 65-66,70-71,446-447,505-508,783-785,1560-1562,2015-2029,2060-2061,2066-2070,2072-2075,2082-2090,2092-2109,2117-2146
+packages/nimbus-docs/src/lint/README.md
+  s_9cf4bdc386df5d::t_cf9d6528bb5fbf 182-202,210-212,218-227,231-248
+packages/nimbus-docs/src/lint/engine.ts
+  s_9cf4bdc386df5d::t_88942f5853cdab 16-17,25,184-231
+packages/nimbus-docs/src/lint/index.ts
+  s_9cf4bdc386df5d::t_aae9c9dabc45d9 20,22,30
+packages/nimbus-docs/src/lint/rules/internal-link.ts
+  s_9cf4bdc386df5d::t_06e99d9d09f6c3 2-12,28-35,41-43,46-48,50,58,66,69-79,81,83,85-87,89-99,127-128,137-140,147-148,160-178,181-182,188,322-326,328,332-333,335-338
+packages/nimbus-docs/test/check/authoring-coverage.test.ts
+  s_9cf4bdc386df5d::t_565c03da0bc126 9,37
+packages/nimbus-docs/test/integration-dist-invariant.test.ts
+  s_9cf4bdc386df5d::t_3c2c7e8797572c 16,32,80-89,118-121,160-161,186,203-208,227,459-633
+packages/nimbus-docs/test/lint/internal-link.test.ts
+  s_9cf4bdc386df5d::t_1952e294445405 22,66,223-244,253,333-336,345,349-396,437,445,456-457,589-590,593-620
+packages/nimbus-docs/test/lint/route-truth-cli.test.ts
+  s_9cf4bdc386df5d::t_f5488ec4b231d0 1-161
+packages/nimbus-docs/test/rendering-policy.test.ts
+  s_9cf4bdc386df5d::t_0ebebc78d026ea 1218
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "278a3ffb96ced884c299fd02c92a605e136f4df5",
+  "prompts": {},
+  "sessions": {
+    "s_9cf4bdc386df5d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f04d3b95fffelDWEaT4uI89vUj",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
