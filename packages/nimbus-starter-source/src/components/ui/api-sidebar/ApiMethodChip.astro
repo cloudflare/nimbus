@@ -40,7 +40,7 @@ const variant = methodVariant(method);
 const abbr: Record<string, string> = { delete: "DEL", options: "OPT", connect: "CONN" };
 const label = verb ? (abbr[verb] ?? verb.toUpperCase()) : undefined;
 
-const S = `width:1.4em;height:1.4em;flex:none`;
+const S = `width:1.08em;height:1.08em;flex:none`;
 const A = `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="${S}" aria-hidden="true"`;
 const glyphs: Record<string, string> = {
   get: `<svg ${A}><path d="M17 7 7 17"/><path d="M17 17H7V7"/></svg>`,
@@ -64,7 +64,7 @@ const glyphs: Record<string, string> = {
       </span>
     ) : (
       <span class:list={["nb-api-chip", `nb-api-chip--${variant}`, "is-label", `is-${size}`]}>
-        <span class="nb-api-chip__label">{label}</span>
+        {label}
       </span>
     ))
 }
@@ -80,27 +80,21 @@ const glyphs: Record<string, string> = {
     justify-content: center;
     gap: 0.4em;
     height: 2em;
-    border: 1px solid color-mix(in oklab, var(--m) 24%, transparent);
-    border-radius: 0.4em;
-    background-color: color-mix(in oklab, var(--m) 14%, transparent);
+    border: 1px solid var(--m-line);
+    border-radius: 0.46em;
+    background-color: var(--m-tint);
     color: var(--m);
     font-family: var(--nb-font-mono, ui-monospace, monospace);
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1;
-    letter-spacing: 0.02em;
     -webkit-font-smoothing: antialiased;
   }
   .nb-api-chip.is-md {
     font-size: 0.8125rem;
   }
-  .nb-api-chip__label {
-    display: inline-block;
-    padding-top: 0.1em;
-    padding-left: 0.02em;
-  }
   .nb-api-chip svg {
-    width: 1.4em;
-    height: 1.4em;
+    width: 1.08em;
+    height: 1.08em;
     flex: none;
   }
   .nb-api-chip.is-glyph {
@@ -112,17 +106,27 @@ const glyphs: Record<string, string> = {
 
   .nb-api-chip--get {
     --m: var(--nb-m-get);
+    --m-tint: var(--nb-m-get-tint);
+    --m-line: var(--nb-m-get-line);
   }
   .nb-api-chip--post {
     --m: var(--nb-m-post);
+    --m-tint: var(--nb-m-post-tint);
+    --m-line: var(--nb-m-post-line);
   }
   .nb-api-chip--put {
     --m: var(--nb-m-put);
+    --m-tint: var(--nb-m-put-tint);
+    --m-line: var(--nb-m-put-line);
   }
   .nb-api-chip--delete {
     --m: var(--nb-m-delete);
+    --m-tint: var(--nb-m-delete-tint);
+    --m-line: var(--nb-m-delete-line);
   }
   .nb-api-chip--other {
     --m: var(--nb-m-other);
+    --m-tint: var(--nb-m-other-tint);
+    --m-line: var(--nb-m-other-line);
   }
 </style>

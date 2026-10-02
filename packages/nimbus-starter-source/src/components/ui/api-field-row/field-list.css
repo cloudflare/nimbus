@@ -17,7 +17,7 @@
 /* Repeated field icons share paint here instead of repeating five SVG
    presentation attributes on every field and union preview in the HTML. */
 @layer base {
-  :where(.fl-anchor svg, .fl-expand-icon) {
+  :where(.fl-anchor svg) {
     fill: none;
     stroke: currentColor;
     stroke-width: 2;
@@ -45,9 +45,8 @@
 .fl-badge {
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 0.6875rem;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: var(--color-muted-foreground);
 }
 
@@ -92,7 +91,7 @@
   border: 1px solid var(--color-border);
   color: var(--color-muted-foreground);
   opacity: 0;
-  transition: opacity 0.1s ease, color 0.1s ease;
+  transition: opacity 0.1s ease;
 }
 .fl-anchor svg {
   width: 12px;
@@ -131,7 +130,7 @@
 }
 .fl-name {
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--color-foreground);
 }
 .fl-name--deprecated {
@@ -168,23 +167,22 @@
   text-underline-offset: 2px;
 }
 .fl-variant-link {
-  font-weight: 600;
+  font-weight: 500;
 }
 .fl-nullable {
   font-size: 0.8125rem;
   color: var(--color-muted-foreground);
 }
+.fl-sig-tail {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
 .fl-required {
   font-size: 0.875rem;
   font-weight: 500;
-  color: oklch(0.58 0.22 22);
-}
-[data-mode="dark"] .fl-required {
-  color: oklch(0.7 0.2 22);
-}
-.fl-preview {
-  font-size: 0.8125rem;
-  color: var(--color-muted-foreground);
+  color: var(--color-danger);
 }
 
 /* ---- Description ---- */
@@ -226,31 +224,67 @@
 .fl-expandable {
   margin-top: 6px;
 }
+/* Closed, it renders nothing, so it takes no space. */
+.fl-expandable:not([open]) {
+  margin-top: 0;
+}
+/* The <details> summary stays for semantics but is hidden: the { n properties }
+   button on the signature line toggles the row (api-field-row.client). */
 .fl-expand-trigger {
-  cursor: pointer;
-  list-style: none;
+  display: none;
+}
+
+/* Fold toggle, after code folding. Closed: "{ 4 properties }" on a faint fill,
+   like an editor's folded block. Open: the title keeps only "{", and "}"
+   closes the block under the children. */
+.fl-count {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
+  gap: 0.25em;
+  appearance: none;
+  border: 0;
+  border-radius: 0.25rem;
+  background: color-mix(in oklab, var(--color-foreground) 6%, transparent);
+  padding: 0 0.25rem;
+  font: inherit;
+  font-size: 0.8125rem;
   color: var(--color-muted-foreground);
-  padding: 2px 0;
-  transition: color 0.1s ease;
+  cursor: pointer;
 }
-.fl-expand-trigger::-webkit-details-marker { display: none; }
-.fl-expand-trigger:hover { color: var(--color-foreground); }
-.fl-expand-icon {
-  width: var(--fl-icon);
-  height: var(--fl-icon);
+.fl-count:hover {
+  background: color-mix(in oklab, var(--color-foreground) 10%, transparent);
+  color: var(--color-foreground);
 }
-@media (prefers-reduced-motion: no-preference) {
-  .fl-expand-icon {
-    transition: transform 0.15s ease;
-  }
+.fl-count:focus-visible {
+  outline: 2px solid var(--color-info);
+  outline-offset: 1px;
 }
-details[open] > .fl-expand-trigger .fl-expand-icon {
-  transform: rotate(90deg);
+.fl-count[aria-expanded="true"] {
+  background: none;
+}
+/* Open, the count stays the button's accessible name, just not on screen. */
+.fl-count[aria-expanded="true"] .fl-count-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.fl-count[aria-expanded="true"] .fl-count-brace:last-child {
+  display: none;
+}
+.fl-fold-close {
+  display: none;
+}
+.fl-expandable[open] > .fl-fold-close {
+  display: block;
+  margin-top: 4px;
+  /* Centres the glyph on the guide line; "}" ink centre sits 0.208em in. */
+  margin-left: calc(var(--fl-guide) + 0.5px - 0.208em);
+  font-size: 0.8125rem;
+  line-height: 1.5rem;
+  color: var(--color-muted-foreground);
 }
 
 .fl-children {
@@ -269,7 +303,11 @@ details[open] > .fl-expand-trigger .fl-expand-icon {
 }
 .fl-item--child .fl-name { font-size: 0.8125rem; }
 .fl-item--child .fl-type,
-.fl-item--child .fl-type-link { font-size: 0.75rem; }
+.fl-item--child .fl-type-link,
+.fl-item--child .fl-count,
+.fl-item--child .fl-expandable[open] > .fl-fold-close {
+  font-size: 0.75rem;
+}
 .fl-item--child .fl-desc {
   font-size: 0.8125rem;
   line-height: 1.4;
@@ -288,7 +326,6 @@ details[open] > .fl-expand-trigger .fl-expand-icon {
   font-weight: 500;
   color: var(--color-muted-foreground);
   cursor: pointer;
-  transition: color 0.1s ease, background-color 0.1s ease;
 }
 .fl-toggle:hover {
   color: var(--color-foreground);
