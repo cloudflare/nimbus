@@ -1,0 +1,31 @@
+.changeset/link-route-truth.md
+  s_9cf4bdc386df5d::t_5db109cf455d0f 9
+apps/www/src/content/docs/cli.mdx
+  s_9cf4bdc386df5d::t_24ddb868838296 215
+apps/www/src/content/docs/writing/linting.mdx
+  s_9cf4bdc386df5d::t_cc870da199e4af 69,75
+packages/nimbus-docs/src/cli/lint.ts
+  s_9cf4bdc386df5d::t_fb8737be45e9ee 11-15,103-114,217-218,223-224,239,271
+packages/nimbus-docs/src/integration.ts
+  s_9cf4bdc386df5d::t_e7bf828375fe1d 2060-2061
+packages/nimbus-docs/src/lint/README.md
+  s_9cf4bdc386df5d::t_205f47b7e08f62 59-63,234
+packages/nimbus-docs/test/lint/lint-cli.test.ts
+  s_9cf4bdc386df5d::t_3e39cf68a68e90 2-8,44-47,75,81-89,172-190
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "20b9022573dc706e821ae1af2485bd2bade092e0",
+  "prompts": {},
+  "sessions": {
+    "s_9cf4bdc386df5d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f04d3b95fffelDWEaT4uI89vUj",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
