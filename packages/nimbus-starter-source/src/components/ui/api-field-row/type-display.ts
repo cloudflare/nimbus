@@ -47,17 +47,15 @@ function literalTokens(values: readonly unknown[]): TypeToken[] {
   return out;
 }
 
-function variantTokens(union: ApiUnionView): TypeToken[] {
-  const variants =
-    union.mapping && union.mapping.length > 0
-      ? union.mapping.map((m) => m.variant)
-      : union.variants;
-  const out: TypeToken[] = [];
-  variants.forEach((v, i) => {
-    if (i > 0) out.push({ text: "or", cls: MUTED_CLS });
-    out.push({ text: v.label, cls: v.href ? LINK_CLS : MUTED_CLS, href: v.href, mono: Boolean(v.href) });
-  });
-  return out;
+function unionVariants(union: ApiUnionView) {
+  return union.mapping && union.mapping.length > 0
+    ? union.mapping.map((m) => m.variant)
+    : union.variants;
+}
+
+/** Variant names joined for the name tooltip on a union field. */
+export function unionTitle(union: ApiUnionView): string {
+  return unionVariants(union).map((v) => v.label).join(" or ");
 }
 
 /** The coloured type preview for a field, as a token stream. Separators carry
@@ -76,7 +74,9 @@ export function typeTokens(field: ApiFieldView): TypeToken[] {
 
   const prefix: TypeToken[] = shape?.kind === "array" ? [{ text: "array of", cls: MUTED_CLS }] : [];
 
-  if (field.union) return [...prefix, ...variantTokens(field.union)];
+  // Unions show no type text: the { n variants } toggle gives the count and the
+  // open list names each variant.
+  if (field.union) return prefix;
 
   if (shape?.kind === "array") {
     if (field.enum && field.enum.length > 0) return [...prefix, ...literalTokens(field.enum)];
@@ -97,19 +97,13 @@ export function typeTokens(field: ApiFieldView): TypeToken[] {
   return [{ text: field.type, cls: MUTED_CLS }];
 }
 
-/** Whether a collapsed field should show the `{ … }` "has fields" marker — true
- *  for an object with inline children, false for a union or a leaf. */
-export function hasChildPreview(field: ApiFieldView): boolean {
-  return !field.union && field.children.length > 0;
-}
-
 export interface ConstraintPair {
   name: string;
   value: string;
 }
 
-/** Constraints as `name: value` pairs, shown comma-separated with the value in
- *  mono, e.g. `format: int64`, `maxLength: 255`. */
+/** Constraints as `name: value` pairs with the value in mono, e.g.
+ *  `format: int64`, `maxLength: 255`. */
 export function constraintPairs(c: ApiConstraint | undefined): ConstraintPair[] {
   if (!c) return [];
   const out: ConstraintPair[] = [];
@@ -125,4 +119,10 @@ export function constraintPairs(c: ApiConstraint | undefined): ConstraintPair[] 
 /** A field opens an expander when it nests object children or union variants. */
 export function isExpandable(field: ApiFieldView): boolean {
   return Boolean(field.union) || field.children.length > 0 || field.truncated;
+}
+
+/** The "4 properties" toggle text for an expandable field or union variant. */
+export function countLabel(n: number, noun: "property" | "variant"): string {
+  const plural = noun === "property" ? "properties" : "variants";
+  return `${n} ${n === 1 ? noun : plural}`;
 }

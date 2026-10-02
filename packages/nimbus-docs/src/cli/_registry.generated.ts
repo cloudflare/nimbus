@@ -219,7 +219,7 @@ export const BUNDLED_INDEX: BundledIndex = {
       "name": "api-field-row",
       "type": "registry:ui",
       "title": "ApiFieldRow",
-      "description": "One `ApiFieldView` rendered recursively, plus a titled `ApiFieldList` group. Type links, required/nullable/deprecated flags, constraints/enum/default/example, nested children with omitted-count. Anchored by the field's coordinate id. Reads the view-model only."
+      "description": "One `ApiFieldView` rendered recursively, plus a titled `ApiFieldList` group. Type links, required/nullable/deprecated flags, constraints/enum/default, nested children with omitted-count. Anchored by the field's coordinate id. Reads the view-model only."
     },
     "api-sidebar": {
       "name": "api-sidebar",

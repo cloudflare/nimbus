@@ -26,6 +26,8 @@
    copy button's column + gap; the title reads at full foreground weight. */
 [data-nb-api-coderail] .nb-cr-head {
   gap: 0.5rem;
+  /* Left inset matches the 0.5rem block padding and the copy button's inset. */
+  padding-left: 0.5rem;
   padding-right: 2.75rem;
   color: var(--color-foreground);
 }
@@ -59,17 +61,18 @@
   border: 1px solid var(--nb-cr-border);
   border-radius: 6px;
   padding: 0 1.5rem 0 0.5rem;
+  /* Centred by line-height so its baseline matches the title's. */
+  line-height: calc(1.75rem - 2px);
   background-color: var(--nb-background);
   background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23888'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='m6%209%206%206%206-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.375rem center;
   background-size: 12px;
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
   font-weight: 500;
-  line-height: 1.4;
   color: var(--color-foreground);
   cursor: pointer;
-  transition: border-color 0.15s, background-color 0.15s;
 }
 [data-nb-api-coderail] .nb-cr-langselect:hover {
   border-color: color-mix(in oklab, var(--nb-foreground) 28%, transparent);
@@ -103,9 +106,6 @@
    the informational response reads as sunken beside the raised, interactive
    request card. The status toggle swaps the visible response panel (see
    code-rail.client). Responses carry no copy button. */
-[data-nb-api-coderail] .nb-cr-respsection {
-  margin-top: 0.5rem;
-}
 /* Recessed code body — flush on the LayerCard's muted layer (no bg-card / ring),
    so it's continuous with the label row above. The <Code> figure's background
    is already reset to transparent below, so the muted layer shows through. No
@@ -119,37 +119,44 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.25rem 0.5rem 0.5rem 0.75rem;
+  /* Same 0.5rem padding as the request header. */
+  padding: 0.5rem;
 }
 [data-nb-api-coderail] .nb-cr-resptext {
   color: var(--color-muted-foreground);
   font-weight: 500;
 }
-/* Status toggle — a segmented control; the selected status shows its class
-   tint (2xx success, 3xx info, 4xx/5xx danger) on a faint fill. */
+/* Status toggle — a compact segmented control: a 26px recessed track with 6px
+   corners; the selected status sits on a raised 4px pill in its class colour
+   (2xx success, 3xx info, 4xx/5xx danger). */
 [data-nb-api-coderail] .nb-cr-respswitch {
   display: inline-flex;
-  gap: 0.125rem;
+  align-items: stretch;
+  height: 1.625rem;
+  padding: 0 0.125rem;
+  border-radius: 6px;
+  background: var(--nb-muted);
+  box-shadow: 0 0 0 1px var(--nb-border);
 }
 [data-nb-api-coderail] .nb-cr-respbtn {
   appearance: none;
   border: 0;
   background: transparent;
-  padding: 0.125rem 0.4375rem;
-  border-radius: 6px;
-  font-family: var(--nb-font-mono);
+  margin: 0.125rem 0;
+  padding: 0 0.5rem;
+  border-radius: 4px;
+  font-family: inherit;
   font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1.4;
+  font-weight: 500;
   color: var(--color-muted-foreground);
   cursor: pointer;
-  transition: color 0.15s, background-color 0.15s;
 }
 [data-nb-api-coderail] .nb-cr-respbtn:hover {
   color: var(--color-foreground);
 }
 [data-nb-api-coderail] .nb-cr-respbtn[aria-selected="true"] {
-  background: color-mix(in oklab, var(--nb-foreground) 8%, transparent);
+  background: var(--nb-card);
+  box-shadow: var(--nb-shadow-sm), 0 0 0 1px var(--nb-border-strong);
   color: var(--color-foreground);
 }
 [data-nb-api-coderail] .nb-cr-respbtn.nb-cr-2xx[aria-selected="true"] {

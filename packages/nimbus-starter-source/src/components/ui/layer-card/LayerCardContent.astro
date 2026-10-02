@@ -9,7 +9,11 @@ const { class: className, ...attrs } = Astro.props;
 ---
 
 <div
-  class={cn("relative flex flex-col gap-2 overflow-hidden rounded-lg bg-card p-4 pr-3 text-sm leading-6 text-foreground ring ring-border", className)}
+  class={cn(
+    "relative flex flex-col gap-2 overflow-hidden rounded-lg bg-card p-4 pr-3 text-sm leading-6 text-foreground ring ring-border",
+    "group-data-[orientation=horizontal]/layer:min-w-0 group-data-[orientation=horizontal]/layer:flex-1",
+    className,
+  )}
   {...attrs}
 >
   <slot />

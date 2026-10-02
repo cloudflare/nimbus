@@ -298,7 +298,7 @@ export const MANIFESTS = {
     type: "registry:ui",
     title: "ApiFieldRow",
     description:
-      "One `ApiFieldView` rendered recursively, plus a titled `ApiFieldList` group. Type links, required/nullable/deprecated flags, constraints/enum/default/example, nested children with omitted-count. Anchored by the field's coordinate id. Reads the view-model only.",
+      "One `ApiFieldView` rendered recursively, plus a titled `ApiFieldList` group. Type links, required/nullable/deprecated flags, constraints/enum/default, nested children with omitted-count. Anchored by the field's coordinate id. Reads the view-model only.",
     registryDependencies: [],
   },
 

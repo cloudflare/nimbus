@@ -177,7 +177,7 @@ const deprecationHtml = page.deprecated
         <section id={body.anchor} class="scroll-mt-24">
           <div class="mb-2 flex items-center gap-2">
             <h2 class="text-sm font-normal text-muted-foreground" aria-label={`Request body (${body.mediaType})`}>Request body</h2>
-            <span class="font-mono text-[0.6875rem] uppercase tracking-wide text-muted-foreground">{mediaBadge(body.mediaType)}</span>
+            <span class="font-mono text-[0.6875rem] uppercase text-muted-foreground">{mediaBadge(body.mediaType)}</span>
           </div>
           {body.union ? (
             <ApiFieldList collapsible>
@@ -204,7 +204,7 @@ const deprecationHtml = page.deprecated
                     the JSON badge on the body list marks it, so no "Body" label is
                     needed. Description sits inline as a sibling, not inside the h3. */}
                 <div class="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <h3 class={cn("font-mono text-sm font-semibold", statusToneClass(r.status))}>{r.status}</h3>
+                  <h3 class={cn("font-mono text-sm font-medium", statusToneClass(r.status))}>{r.status}</h3>
                   {r.descriptionHtml && (
                     <div class="nb-md text-sm text-muted-foreground" set:html={r.descriptionHtml} />
                   )}
@@ -290,7 +290,7 @@ const deprecationHtml = page.deprecated
       </ul>
       {page.sections && (
         <section>
-          <h2 class="mb-2 text-sm font-semibold text-foreground">Sections</h2>
+          <h2 class="mb-2 text-sm font-medium text-foreground">Sections</h2>
           <ul class="flex list-none flex-col gap-1 p-0">
             {page.sections.map((s) => (
               <li>
@@ -308,7 +308,7 @@ const deprecationHtml = page.deprecated
       {page.version && <p class="text-sm text-muted-foreground">Version: <code class="font-mono">{page.version}</code></p>}
       {page.servers.length > 0 && (
         <section>
-          <h2 class="mb-2 text-sm font-semibold text-foreground">Servers</h2>
+          <h2 class="mb-2 text-sm font-medium text-foreground">Servers</h2>
           <ul class="flex list-none flex-col gap-1 p-0 font-mono text-xs text-muted-foreground">
             {page.servers.map((s) => <li>{s}</li>)}
           </ul>
