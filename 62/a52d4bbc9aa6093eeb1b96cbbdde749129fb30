@@ -1,0 +1,19 @@
+packages/nimbus-starter-source/src/components/ui/api-code-rail/code-rail.css
+  s_9cf4bdc386df5d::t_e22c5ff671d342 29-30,64-65,71-72,122-123,129-131,134-139,145-148,150,158-159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "62a52d4bbc9aa6093eeb1b96cbbdde749129fb30",
+  "prompts": {},
+  "sessions": {
+    "s_9cf4bdc386df5d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f04d3b95fffelDWEaT4uI89vUj",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
