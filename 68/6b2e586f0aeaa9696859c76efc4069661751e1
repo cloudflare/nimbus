@@ -1,0 +1,25 @@
+.changeset/api-schema-pages.md
+  s_9cf4bdc386df5d::t_0617cfdf912837 6-7
+packages/nimbus-docs/src/_internal/api/parse.ts
+  s_9cf4bdc386df5d::t_6e94856a757c51 401-403,412
+packages/nimbus-docs/src/_internal/api/view-model.ts
+  s_9cf4bdc386df5d::t_37071af9d3db30 674-682
+packages/nimbus-docs/test/api-schema-pages.test.ts
+  s_9cf4bdc386df5d::t_d0875ed6237ba9 122,128-145,217-249
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "686b2e586f0aeaa9696859c76efc4069661751e1",
+  "prompts": {},
+  "sessions": {
+    "s_9cf4bdc386df5d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f04d3b95fffelDWEaT4uI89vUj",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
