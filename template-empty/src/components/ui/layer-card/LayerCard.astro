@@ -6,17 +6,28 @@
  *     <LayerCardHeader>Title or tabs</LayerCardHeader>
  *     <LayerCardContent>Main content</LayerCardContent>
  *   </LayerCard>
+ *
+ * `orientation="horizontal"` puts the header on the left and lets the
+ * content fill the rest of the row.
  */
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 
-interface Props extends HTMLAttributes<"div"> {}
+interface Props extends HTMLAttributes<"div"> {
+  /** @default "vertical" */
+  orientation?: "vertical" | "horizontal";
+}
 
-const { class: className, ...attrs } = Astro.props;
+const { orientation = "vertical", class: className, ...attrs } = Astro.props;
 ---
 
 <div
-  class={cn("flex w-full flex-col overflow-hidden rounded-lg bg-muted text-sm ring ring-border", className)}
+  data-orientation={orientation}
+  class={cn(
+    "group/layer flex w-full overflow-hidden rounded-lg bg-muted text-sm ring ring-border",
+    orientation === "horizontal" ? "flex-row items-stretch" : "flex-col",
+    className,
+  )}
   {...attrs}
 >
   <slot />

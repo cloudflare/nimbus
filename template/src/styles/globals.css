@@ -29,7 +29,7 @@
 	--nb-card: oklch(1 0 0);
 	--nb-card-foreground: var(--nb-foreground);
 
-	--nb-muted: oklch(0.967 0 0);
+	--nb-muted: oklch(0.98 0 0);
 	--nb-muted-foreground: oklch(0.556 0 0);
 
 	--nb-accent: oklch(0.967 0 0);
@@ -47,31 +47,41 @@
 	--nb-ring: oklch(0.145 0 0 / 0.35);
 
 	/* Status colors — paired (saturated for text/border + muted for bg) */
-	--nb-info: oklch(0.45 0.18 255);
-	--nb-info-foreground: oklch(0.45 0.18 255);
-	--nb-info-muted: oklch(0.965 0.015 255);
+	--nb-info: oklch(0.424 0.199 265.638);
+	--nb-info-foreground: oklch(0.424 0.199 265.638);
+	--nb-info-muted: oklch(0.932 0.032 255.6 / 0.45);
 
-	--nb-success: oklch(0.42 0.14 152);
-	--nb-success-foreground: oklch(0.42 0.14 152);
-	--nb-success-muted: oklch(0.965 0.015 152);
+	--nb-success: oklch(0.432 0.095 166.913);
+	--nb-success-foreground: oklch(0.432 0.095 166.913);
+	--nb-success-muted: oklch(0.962 0.043 156.7 / 0.57);
 
-	--nb-warning: oklch(0.48 0.15 65);
-	--nb-warning-foreground: oklch(0.48 0.15 65);
-	--nb-warning-muted: oklch(0.97 0.02 70);
+	--nb-warning: oklch(0.597 0.144 57.5);
+	--nb-warning-foreground: oklch(0.597 0.144 57.5);
+	--nb-warning-muted: oklch(0.931 0.107 94.6 / 0.2);
 
- 	--nb-danger: oklch(0.47 0.18 25);
- 	--nb-danger-foreground: oklch(0.47 0.18 25);
- 	--nb-danger-muted: oklch(0.965 0.015 25);
+ 	--nb-danger: oklch(0.505 0.213 27.518);
+ 	--nb-danger-foreground: oklch(0.505 0.213 27.518);
+ 	--nb-danger-muted: oklch(0.936 0.032 17.7 / 0.42);
  
- 	/* API method palette — shared source of truth for the method chip across the
- 	   sidebar, endpoint card, and code rail (api-sidebar / api-layout /
- 	   api-code-rail); harmless elsewhere. Calibrated OKLCH duotone: each value is
- 	   legible as chip text over its own 14%-tinted background in both themes. */
- 	--nb-m-get: oklch(0.48 0.12 156);
- 	--nb-m-post: oklch(0.48 0.15 262);
- 	--nb-m-put: oklch(0.5 0.13 60);
- 	--nb-m-delete: oklch(0.5 0.18 24);
- 	--nb-m-other: oklch(0.5 0 0);
+	/* API method palette — shared source of truth for the method chip across the
+	   sidebar, endpoint card, and code rail (api-sidebar / api-layout /
+	   api-code-rail). Each method maps onto a status token for text and tint.
+	   The line is 25% of the status's solid colour, which has no token. */
+	--nb-m-get: var(--nb-success);
+	--nb-m-get-tint: var(--nb-success-muted);
+	--nb-m-get-line: oklch(0.596 0.145 163.225 / 0.25);
+	--nb-m-post: var(--nb-info);
+	--nb-m-post-tint: var(--nb-info-muted);
+	--nb-m-post-line: oklch(0.685 0.169 237.323 / 0.25);
+	--nb-m-put: var(--nb-warning);
+	--nb-m-put-tint: var(--nb-warning-muted);
+	--nb-m-put-line: oklch(0.739 0.177 58.2 / 0.25);
+	--nb-m-delete: var(--nb-danger);
+	--nb-m-delete-tint: var(--nb-danger-muted);
+	--nb-m-delete-line: oklch(0.637 0.237 25.331 / 0.25);
+	--nb-m-other: var(--nb-muted-foreground);
+	--nb-m-other-tint: var(--nb-accent);
+	--nb-m-other-line: var(--nb-border);
  
  	/* Layout */
 	--nb-sidebar-width: 18.75rem;
@@ -122,7 +132,7 @@
 	--nb-card-foreground: var(--nb-foreground);
 
 	--nb-muted: #060606;
-	--nb-muted-foreground: oklch(0.65 0 0);
+	--nb-muted-foreground: oklch(0.708 0 0);
 
 	--nb-accent: oklch(0.269 0 0);
 	--nb-accent-foreground: var(--nb-foreground);
@@ -136,28 +146,26 @@
 	--nb-selected: oklch(0.371 0 0);
 	--nb-ring: oklch(0.9 0 0 / 0.35);
 
-	--nb-info: oklch(0.75 0.12 255);
-	--nb-info-foreground: oklch(0.75 0.12 255);
-	--nb-info-muted: oklch(0.17 0.03 260);
+	--nb-info: oklch(0.707 0.165 254.624);
+	--nb-info-foreground: oklch(0.707 0.165 254.624);
+	--nb-info-muted: oklch(0.38 0.145 265.5 / 0.22);
 
-	--nb-success: oklch(0.72 0.12 150);
-	--nb-success-foreground: oklch(0.72 0.12 150);
-	--nb-success-muted: oklch(0.17 0.025 153);
+	--nb-success: oklch(0.905 0.093 164.15);
+	--nb-success-foreground: oklch(0.905 0.093 164.15);
+	--nb-success-muted: oklch(0.393 0.096 152.3 / 0.2);
 
-	--nb-warning: oklch(0.78 0.11 80);
-	--nb-warning-foreground: oklch(0.78 0.11 80);
-	--nb-warning-muted: oklch(0.19 0.03 70);
+	--nb-warning: oklch(0.75 0.183 55.934);
+	--nb-warning-foreground: oklch(0.75 0.183 55.934);
+	--nb-warning-muted: oklch(0.353 0.079 65 / 0.37);
 
- 	--nb-danger: oklch(0.72 0.14 25);
- 	--nb-danger-foreground: oklch(0.72 0.14 25);
- 	--nb-danger-muted: oklch(0.17 0.03 25);
+ 	--nb-danger: oklch(0.704 0.191 22.216);
+ 	--nb-danger-foreground: oklch(0.704 0.191 22.216);
+ 	--nb-danger-muted: oklch(0.429 0.176 28.7 / 0.17);
  
- 	/* API method palette — dark overrides. */
- 	--nb-m-get: oklch(0.82 0.14 162);
- 	--nb-m-post: oklch(0.8 0.13 266);
- 	--nb-m-put: oklch(0.85 0.13 78);
- 	--nb-m-delete: oklch(0.78 0.16 24);
- 	--nb-m-other: oklch(0.72 0 0);
+	/* API method palette — dark lines; text and tint follow the status tokens. */
+	--nb-m-get-line: oklch(0.765 0.177 163.223 / 0.25);
+	--nb-m-put-line: oklch(0.645 0.168 50 / 0.25);
+	--nb-m-delete-line: oklch(0.577 0.245 27.325 / 0.25);
  
  	--nb-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.2);
 	--nb-shadow: 0 1px 3px oklch(0 0 0 / 0.3), 0 1px 2px oklch(0 0 0 / 0.2);

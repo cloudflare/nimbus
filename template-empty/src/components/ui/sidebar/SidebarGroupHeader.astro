@@ -41,19 +41,19 @@ const resolvedIndexHref = indexHref
   : undefined;
 
 const rowClass = cn(
-  "group/expander flex min-h-[2rem] items-center rounded-lg px-3 py-1 text-[0.8125rem] no-underline transition-colors duration-150 focus-visible:outline-offset-[-2px]",
+  "group/expander flex min-h-[2rem] items-center rounded-lg px-3 py-1 text-[0.8125rem] font-medium no-underline focus-visible:outline-offset-[-2px]",
   "hover:bg-accent hover:text-foreground",
-  hasActive ? "font-semibold text-foreground" : "font-medium text-muted-foreground",
+  hasActive ? "text-foreground" : "text-muted-foreground",
 );
 const caretClass =
-  "ml-auto -mr-px shrink-0 w-5 h-5 text-muted-foreground opacity-50 transition-[rotate,color] duration-[250ms] ease-[cubic-bezier(0.87,0,0.13,1)] group-hover/expander:text-foreground";
+  "ml-auto -mr-px shrink-0 size-4 opacity-40 transition-[rotate,opacity] duration-[250ms] ease-[cubic-bezier(0.87,0,0.13,1)] group-hover/expander:opacity-100";
 const labelClass = cn("break-words", deprecated && "line-through");
 ---
 
 {
   indexHref ? (
     <div
-      class={cn(rowClass, "p-0", indexIsCurrent ? "bg-accent text-foreground font-semibold" : "")}
+      class={cn(rowClass, "p-0", indexIsCurrent ? "bg-accent text-foreground" : "")}
       data-nb-state={isOpen ? "open" : "closed"}
       data-nb-sidebar-group-label
     >

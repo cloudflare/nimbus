@@ -5,7 +5,7 @@ import type { HTMLAttributes } from "astro/types";
 interface Props extends HTMLAttributes<"span"> {
   /** Badge text. When omitted, slotted children render instead. */
   text?: string;
-  variant?: "default" | "info" | "note" | "success" | "tip" | "warning" | "caution" | "danger";
+  variant?: "default" | "info" | "note" | "success" | "tip" | "warning" | "caution" | "danger" | "outline";
   size?: "small" | "medium" | "large";
 }
 
@@ -21,6 +21,7 @@ const variantClass: Record<string, string> = {
   warning: "bg-warning-muted text-warning",
   caution: "bg-warning-muted text-warning",
   danger:  "bg-danger-muted text-danger",
+  outline: "border border-border bg-card text-foreground",
 };
 
 const sizeClass: Record<string, string> = {
