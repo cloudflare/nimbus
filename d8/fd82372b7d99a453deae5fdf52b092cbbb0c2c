@@ -1,0 +1,27 @@
+apps/www/src/content/docs/api-reference.mdx
+  s_6676316b6d3d45::t_5cc5da3253434f 342-343
+packages/nimbus-docs/src/_internal/api/openapi-types.ts
+  s_6676316b6d3d45::t_cb5a36130bd188 135-143
+packages/nimbus-docs/src/_internal/api/operations.ts
+  s_6676316b6d3d45::t_cfc894a81d669c 419-423
+packages/nimbus-docs/src/_internal/api/samples.ts
+  s_6676316b6d3d45::t_4bbcab2942207b 18,23,49,237,306,309,323-324,331,342-346,535-536,541,555-658,707-708,710-723,728-795
+packages/nimbus-docs/test/api-samples.test.ts
+  s_6676316b6d3d45::t_039c1443d49a34 1264-1672
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d8fd82372b7d99a453deae5fdf52b092cbbb0c2c",
+  "prompts": {},
+  "sessions": {
+    "s_6676316b6d3d45": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ef52b7cb5ffenzEEYHW4Q9HoVi",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
