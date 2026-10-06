@@ -1,0 +1,59 @@
+.changeset/quiet-browser-search.md
+  s_23301c4d7884d8::t_0435e74cb0f016 1-6
+.github/workflows/webmcp.yml
+  s_23301c4d7884d8::t_4eb3a5deb9927d 1-47
+apps/www/src/components/WebMCP.astro
+  s_23301c4d7884d8::t_5d7edf689f887a 1-21
+apps/www/src/layouts/BaseLayout.astro
+  s_23301c4d7884d8::t_85358da1157bb9 16,62
+package.json
+  s_23301c4d7884d8::t_74a53962946f37 17
+packages/nimbus-docs/src/_internal/agent-search-contract.ts
+  s_23301c4d7884d8::t_0e433c81d210c5 1-94
+packages/nimbus-docs/src/_internal/agent-search.ts
+  s_23301c4d7884d8::t_e9ac29edfaba4f 1-146
+packages/nimbus-docs/src/_internal/upgrade-manifest.json
+  s_23301c4d7884d8::t_622f72da529f79 373-389
+packages/nimbus-docs/src/client/index.ts
+  s_23301c4d7884d8::t_64088c34fce9ea 15-16
+packages/nimbus-docs/src/client/webmcp.ts
+  s_23301c4d7884d8::t_de7ee8f1714962 1-174
+packages/nimbus-docs/src/integration.ts
+  s_23301c4d7884d8::t_8607700b6bf213 559-567,2194-2201
+packages/nimbus-docs/src/types.ts
+  s_23301c4d7884d8::t_bdbb8bdc04deda 13-14
+packages/nimbus-docs/test/agent-discovery-build.test.ts
+  s_23301c4d7884d8::t_dcf026e65ebcdf 2,8,131-182
+packages/nimbus-docs/test/agent-discovery.test.ts
+  s_23301c4d7884d8::t_5a266c171631d0 209-235
+packages/nimbus-docs/test/agent-search.test.ts
+  s_23301c4d7884d8::t_c0675d885e23cb 1-256
+packages/nimbus-docs/test/webmcp.test.ts
+  s_23301c4d7884d8::t_02fd3a9d17e4aa 1-313
+packages/nimbus-starter-source/src/components/WebMCP.astro
+  s_23301c4d7884d8::t_a9f7ad1664c8b4 1-21
+packages/nimbus-starter-source/src/layouts/BaseLayout.astro
+  s_23301c4d7884d8::t_7e32cd0189a2bc 16,68
+scripts/fixtures/webmcp/README.md
+  s_23301c4d7884d8::t_db94ba74d9dc2d 1-39
+scripts/fixtures/webmcp/visibility.mjs
+  s_23301c4d7884d8::t_0ed0e07c466f8c 1-56
+scripts/webmcp-check.mjs
+  s_23301c4d7884d8::t_e405ad33812b81 1-499
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "f95f1ac0bcef27bc15f2e58dc3697d0fde6a6517",
+  "prompts": {},
+  "sessions": {
+    "s_23301c4d7884d8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_eff5ed97cffeSpj1AMXK1mnVzm",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
