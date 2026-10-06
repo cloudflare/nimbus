@@ -138,7 +138,7 @@ export async function parseOpenApi(source: SpecSource): Promise<ParseResult> {
       throw new ApiBuildError([
         {
           level: "error",
-          message: "Swagger 2.0 isn't supported. Convert the document to OpenAPI 3.x first.",
+          message: "Swagger 2.0 isn't supported. Convert it to OpenAPI 3.x first.",
           source: source.path ?? label,
         },
       ]);

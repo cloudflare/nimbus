@@ -535,7 +535,7 @@ describe("api resilience — Swagger 2.0 is fatal, with a pointer to conversion"
     "        '200': { description: ok, schema: { type: object, properties: { name: { type: string } } } }",
     "",
   ].join("\n");
-  const message = "Swagger 2.0 isn't supported. Convert the document to OpenAPI 3.x first.";
+  const message = "Swagger 2.0 isn't supported. Convert it to OpenAPI 3.x first.";
 
   test("a Swagger 2.0 file fails the build and names its path", async () => {
     const root = mkdtempSync(path.join(tmpdir(), "nimbus-swagger-"));
@@ -549,6 +549,8 @@ describe("api resilience — Swagger 2.0 is fatal, with a pointer to conversion"
           assert.ok(err instanceof ApiBuildError);
           assert.deepEqual(err.diagnostics, [{ level: "error", message, source: "./src/api/swagger.yaml" }]);
           assert.match(err.message, /Swagger 2\.0 isn't supported[^\n]*\(at \.\/src\/api\/swagger\.yaml\)/);
+          // Astro appends a browser-API hint to any build error that mentions these words.
+          assert.doesNotMatch(err.message, /document|window/);
           return true;
         },
       );
