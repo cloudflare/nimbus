@@ -1,0 +1,33 @@
+apps/www/src/content/docs/api-reference.mdx
+  s_6676316b6d3d45::t_45daf573f7697f 19,35-55
+packages/nimbus-docs/src/_internal/api/parse.ts
+  s_6676316b6d3d45::t_3c345229d19624 55-56,83-84,135-145
+packages/nimbus-docs/src/_internal/api/resolve-spec.ts
+  s_6676316b6d3d45::t_dbfcbe2814aade 74
+packages/nimbus-docs/src/api/index.ts
+  s_6676316b6d3d45::t_22c2d1a05136ce 91-95,108-119,138-139
+packages/nimbus-docs/test/api-resilience.test.ts
+  s_6676316b6d3d45::t_7ac540f5ec84b2 16-18,22,522-612
+packages/nimbus-docs/test/api-swagger-conversion.test.ts
+  s_6676316b6d3d45::t_89f4c6fdefe997 1-66
+packages/nimbus-docs/test/fixtures/api/swagger/petstore.openapi.yaml
+  s_6676316b6d3d45::t_a519b47ac4fdc4 1-132
+packages/nimbus-docs/test/fixtures/api/swagger/petstore.swagger.yaml
+  s_6676316b6d3d45::t_4cefc65ae52810 1-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c6680b4d975ad257500faab45135e2f86461378f",
+  "prompts": {},
+  "sessions": {
+    "s_6676316b6d3d45": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ef52b7cb5ffenzEEYHW4Q9HoVi",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
