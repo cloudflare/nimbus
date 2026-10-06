@@ -616,6 +616,160 @@ describe("resolveExampleValue precedence + bounds", () => {
   });
 });
 
+describe("allOf examples keep untyped members' fields", () => {
+  const sample = async (schema: OpenApiSchema, role: "request" | "response" = "request") => {
+    const tools = await loadSampleTools();
+    assert.ok(tools);
+    return resolveExampleValue({ mediaType: "application/json", schema }, role, tools);
+  };
+  const named = { properties: { name: { type: "string", example: "new name" } } };
+  const typedId = { type: "object", properties: { id: { type: "string", example: "abc" } } };
+
+  test("a referenced untyped member in array items: the page example and samples include its fields", async () => {
+    const page = await operationPage(
+      {
+        openapi: "3.1.0",
+        info: { title: "Example API", version: "1.0.0" },
+        paths: {
+          "/items": {
+            post: {
+              operationId: "createItems",
+              requestBody: {
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "array",
+                      items: {
+                        allOf: [
+                          { $ref: "#/components/schemas/ItemFields" },
+                          { type: "object", required: ["id"], properties: { id: { $ref: "#/components/schemas/Id" } } },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+              responses: { "200": { description: "OK" } },
+            },
+          },
+        },
+        components: {
+          schemas: {
+            Id: { type: "string", example: "abc" },
+            ItemFields: {
+              properties: {
+                id: { allOf: [{ $ref: "#/components/schemas/Id" }], readOnly: true },
+                name: { type: "string", example: "new name" },
+              },
+            },
+          },
+        },
+      },
+      "createItems",
+    );
+    const expected = [{ id: "abc", name: "new name" }];
+    assert.deepEqual(page.example?.value, expected);
+    const curl = page.samples.find((s) => s.lang === "curl")?.source ?? "";
+    assert.ok(curl.includes(JSON.stringify(expected, null, 2)), curl);
+    const python = page.samples.find((s) => s.lang === "python")?.source ?? "";
+    assert.ok(python.includes(`"name": "new name"`), python);
+  });
+
+  test("an inline untyped member keeps its fields, wherever it sits", async () => {
+    assert.deepEqual(await sample({ allOf: [named, typedId] }), { name: "new name", id: "abc" });
+    assert.deepEqual(await sample({ allOf: [typedId, named] }), { id: "abc", name: "new name" });
+    assert.deepEqual(await sample({ allOf: [named] }), { name: "new name" });
+  });
+
+  test("nested allOf members and arrays of them keep every field", async () => {
+    const base = { allOf: [named] };
+    const schema = { type: "object", properties: { list: { type: "array", items: { allOf: [base, { properties: { n: { type: "integer" } } }] } } } };
+    assert.deepEqual(await sample(schema as OpenApiSchema), { list: [{ name: "new name", n: 0 }] });
+  });
+
+  test("read-only and write-only fields follow the example's role", async () => {
+    const schema = {
+      allOf: [
+        { properties: { secret: { type: "string", writeOnly: true, example: "s" }, server: { type: "string", readOnly: true, example: "r" } } },
+        typedId,
+      ],
+    };
+    assert.deepEqual(await sample(schema), { secret: "s", id: "abc" });
+    assert.deepEqual(await sample(schema, "response"), { server: "r", id: "abc" });
+  });
+
+  test("a recursive untyped member is bounded like any other schema", async () => {
+    const node: OpenApiSchema = { allOf: [{ properties: { name: { type: "string" } } }, typedId] };
+    (node.allOf![0]!.properties as Record<string, OpenApiSchema>).children = { type: "array", items: node };
+    const value = (await sample(node)) as { name: string; id: string; children: unknown[] };
+    assert.equal(value.name, "string");
+    assert.equal(value.id, "abc");
+    assert.ok(Array.isArray(value.children));
+  });
+
+  test("a member that can sample to a non-object is left to the sampler", async () => {
+    const tools = await loadSampleTools();
+    assert.ok(tools);
+    // `properties` constrains only objects, so these values satisfy the
+    // untyped member, and the sampler's own result stands.
+    const cases: [string, OpenApiSchema, unknown][] = [
+      ["enum", { enum: ["x"] }, "x"],
+      ["const", { const: 7 }, 7],
+      ["example", { example: "ex" }, "ex"],
+      ["default", { default: true }, true],
+      ["examples", { examples: [["a"]] }, ["a"]],
+      ["null", { enum: [null] }, null],
+      ["declared type", { type: "string" }, "string"],
+      ["keyword type", { maxLength: 3 }, null],
+      ["oneOf", { oneOf: [{ enum: ["y"] }] }, "y"],
+      ["nested allOf", { allOf: [{ const: "z" }] }, "z"],
+    ];
+    for (const [name, member, expected] of cases) {
+      const schema = { allOf: [named, member] } as OpenApiSchema;
+      const direct = tools.sampler.sample(structuredClone(schema), { skipReadOnly: true, quiet: true, maxSampleDepth: 8 });
+      assert.deepEqual(direct, expected, `${name}: pins the sampler`);
+      assert.deepEqual(await sample(schema), expected, name);
+    }
+  });
+
+  test("an exact value or a scalar the sampler reaches first is left to the sampler", async () => {
+    const tools = await loadSampleTools();
+    assert.ok(tools);
+    // Merging `name` would break an exact object value, and composition comes
+    // before the declared type, so a branch or a type list can give a scalar.
+    const cases: [string, OpenApiSchema, unknown][] = [
+      ["object const", { allOf: [named, { const: { id: "abc" } }] }, { id: "abc" }],
+      ["object enum", { allOf: [named, { enum: [{ id: "abc" }] }] }, { id: "abc" }],
+      ["type list with oneOf", { allOf: [named, { type: ["object", "string"], oneOf: [{ const: "x" }] }] }, "x"],
+      ["object type with anyOf", { allOf: [named, { type: "object", anyOf: [{ const: "x" }] }] }, "x"],
+      ["object type with if/then", { allOf: [named, { type: "object", if: { const: "x" }, then: { const: "x" } }] }, "x"],
+      ["schema-level oneOf", { allOf: [named], oneOf: [{ const: "x" }] }, "x"],
+    ];
+    for (const [name, schema, expected] of cases) {
+      const direct = tools.sampler.sample(structuredClone(schema), { skipReadOnly: true, quiet: true, maxSampleDepth: 8 });
+      assert.deepEqual(direct, expected, `${name}: pins the sampler`);
+      assert.deepEqual(await sample(schema), expected, name);
+    }
+  });
+
+  test("a schema graph deeper than the call stack still samples", async () => {
+    let node: OpenApiSchema = { allOf: [named] };
+    for (let i = 0; i < 20_000; i++) node = { type: "object", properties: { next: node } };
+    assert.deepEqual(await sample({ ...node, example: { authored: true } }), { authored: true });
+    const value = (await sample(node)) as { next: unknown };
+    assert.ok(value && typeof value.next === "object", JSON.stringify(value));
+  });
+
+  test("the spec's schema is not changed, and an authored example still wins", async () => {
+    const schema = { allOf: [named, typedId] } as OpenApiSchema;
+    await sample(schema);
+    assert.equal(schema.type, undefined);
+    const tools = await loadSampleTools();
+    const authored = resolveExampleValue({ mediaType: "application/json", schema, example: { as: "authored" } }, "request", tools);
+    assert.deepEqual(authored, { as: "authored" });
+  });
+});
+
 describe("error catalog stays deferred", () => {
   const declineSpec = {
     ...baseSpec,

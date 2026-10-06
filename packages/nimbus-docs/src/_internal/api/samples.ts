@@ -341,7 +341,7 @@ function buildMarkedHar(
 
 function sampleForRole(tools: SampleTools, schema: OpenApiSchema, role: ExampleRole): unknown {
   try {
-    return tools.sampler.sample(schema, {
+    return tools.sampler.sample(forSampler(schema), {
       skipReadOnly: role === "request",
       skipWriteOnly: role === "response",
       quiet: true,
@@ -350,6 +350,166 @@ function sampleForRole(tools: SampleTools, schema: OpenApiSchema, role: ExampleR
   } catch {
     return undefined;
   }
+}
+
+// The keywords openapi-sampler reads subschemas from.
+const SUBSCHEMA_KEYS = [
+  "properties",
+  "additionalProperties",
+  "items",
+  "prefixItems",
+  "contains",
+  "allOf",
+  "oneOf",
+  "anyOf",
+  "if",
+  "then",
+] as const;
+
+// openapi-sampler's `inferType` keywords.
+const KEYWORD_TYPES: Record<string, string> = {
+  multipleOf: "number",
+  maximum: "number",
+  exclusiveMaximum: "number",
+  minimum: "number",
+  exclusiveMinimum: "number",
+  maxLength: "string",
+  minLength: "string",
+  pattern: "string",
+  items: "array",
+  maxItems: "array",
+  minItems: "array",
+  uniqueItems: "array",
+  additionalItems: "array",
+  maxProperties: "object",
+  minProperties: "object",
+  required: "object",
+  additionalProperties: "object",
+  properties: "object",
+  patternProperties: "object",
+  dependencies: "object",
+};
+
+const preparedForSampler = new WeakMap<OpenApiSchema, OpenApiSchema>();
+
+// openapi-sampler merges each `allOf` member as `{ type: <type so far>, ...member }`.
+// Before any member has given a type, that is `type: null`, which stops an
+// untyped member inferring `object` from `properties`, so its fields are lost.
+// Such an `allOf` is sampled with `type: "object"` when nothing in it could
+// sample as another type or pins an exact value: the sampler's path when the
+// first member is typed. Anything less certain is left to the sampler. The
+// spec's schemas are never changed; cycles are kept.
+function forSampler(schema: OpenApiSchema): OpenApiSchema {
+  let prepared = preparedForSampler.get(schema);
+  if (!prepared) {
+    const used = authoredValue(schema) === undefined && reaches(schema, needsObjectType);
+    prepared = used ? copyWithObjectTypes(schema) : schema;
+    preparedForSampler.set(schema, prepared);
+  }
+  return prepared;
+}
+
+function needsObjectType(schema: OpenApiSchema): boolean {
+  if (!schema.allOf?.length || schema.type !== undefined || keywordType(schema) !== undefined) return false;
+  if (authoredValue(schema) !== undefined || schema.oneOf || schema.anyOf || schema.if) return false;
+  const members = schema.allOf.filter(isSchema);
+  if (members.some((member) => mayBeNonObject(member, new Set()))) return false;
+  return members.some(
+    (member) => member.type === undefined && keywordType(member) === "object" && authoredValue(member) === undefined,
+  );
+}
+
+// Whether `schema` could sample as something other than an object, or pins
+// a value merged fields would break. `const` and `enum` allow only their
+// values; an authored value decides the sample; composition comes before the
+// declared type in openapi-sampler, and a type list may allow scalars.
+function mayBeNonObject(schema: OpenApiSchema, seen: Set<OpenApiSchema>): boolean {
+  if (seen.has(schema)) return false;
+  seen.add(schema);
+  if (schema.const !== undefined || schema.enum !== undefined) return true;
+  const value = authoredValue(schema);
+  if (value !== undefined) return jsonType(value) !== "object";
+  const branch = schema.oneOf?.length ? schema.oneOf[0] : schema.anyOf?.length ? schema.anyOf[0] : undefined;
+  const parts = [...(schema.allOf ?? []), branch, schema.if, schema.then].filter(isSchema);
+  if (parts.some((part) => mayBeNonObject(part, seen))) return true;
+  const types = schema.type === undefined ? [] : [schema.type].flat();
+  if (types.length > 0) return types.some((type) => type !== "object");
+  const keyword = keywordType(schema);
+  return keyword !== undefined && keyword !== "object";
+}
+
+// The value openapi-sampler takes from the schema itself, before any type.
+function authoredValue(schema: OpenApiSchema): unknown {
+  if (schema.example !== undefined) return schema.example;
+  if (schema.const !== undefined) return schema.const;
+  if (Array.isArray(schema.examples) && schema.examples.length > 0) return schema.examples[0];
+  if (Array.isArray(schema.enum) && schema.enum.length > 0) return schema.enum[0];
+  return schema.default;
+}
+
+function jsonType(value: unknown): string {
+  return value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+}
+
+function keywordType(schema: OpenApiSchema): string | undefined {
+  for (const [keyword, type] of Object.entries(KEYWORD_TYPES)) {
+    if ((schema as Record<string, unknown>)[keyword] !== undefined) return type;
+  }
+  return undefined;
+}
+
+function isSchema(value: unknown): value is OpenApiSchema {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function subschemas(schema: OpenApiSchema): OpenApiSchema[] {
+  const out: OpenApiSchema[] = [];
+  for (const key of SUBSCHEMA_KEYS) {
+    const value = schema[key as keyof OpenApiSchema];
+    const members = key === "properties" && isSchema(value) ? Object.values(value) : Array.isArray(value) ? value : [value];
+    for (const member of members) if (isSchema(member)) out.push(member);
+  }
+  return out;
+}
+
+function reaches(root: OpenApiSchema, test: (schema: OpenApiSchema) => boolean): boolean {
+  const seen = new Set<OpenApiSchema>();
+  const stack = [root];
+  while (stack.length > 0) {
+    const schema = stack.pop()!;
+    if (seen.has(schema)) continue;
+    seen.add(schema);
+    if (test(schema)) return true;
+    stack.push(...subschemas(schema));
+  }
+  return false;
+}
+
+// Copies every schema `root` reaches, without recursion, so a deep graph
+// can't exhaust the stack before the sampler's own depth limit applies.
+function copyWithObjectTypes(root: OpenApiSchema): OpenApiSchema {
+  const copies = new Map<OpenApiSchema, Record<string, unknown>>();
+  const stack = [root];
+  while (stack.length > 0) {
+    const schema = stack.pop()!;
+    if (copies.has(schema)) continue;
+    copies.set(schema, needsObjectType(schema) ? { ...schema, type: "object" } : { ...schema });
+    stack.push(...subschemas(schema));
+  }
+  const swap = (member: unknown) => (isSchema(member) ? (copies.get(member) ?? member) : member);
+  for (const [schema, out] of copies) {
+    for (const key of SUBSCHEMA_KEYS) {
+      const value = schema[key as keyof OpenApiSchema];
+      if (key === "properties" && isSchema(value)) {
+        out[key] = Object.fromEntries(Object.entries(value).map(([name, member]) => [name, swap(member)]));
+      } else if (Array.isArray(value)) {
+        out[key] = value.map(swap);
+      } else if (isSchema(value)) {
+        out[key] = swap(value);
+      }
+    }
+  }
+  return copies.get(root) as OpenApiSchema;
 }
 
 function convert(
