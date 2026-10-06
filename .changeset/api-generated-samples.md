@@ -1,5 +1,6 @@
 ---
 "@cloudflare/nimbus-docs": minor
+"@cloudflare/create-nimbus-docs": patch
 ---
 
 Add `samples.generate` to choose which languages Nimbus generates code samples in, and fix generated samples and examples that sent different values from the page.
@@ -11,4 +12,4 @@ Add `samples.generate` to choose which languages Nimbus generates code samples i
 - **`allOf` examples:** request and response examples now keep the fields of an `allOf` member that declares `properties` without `type: object`. Previously those fields were missing when the member came before any typed member, and an `allOf` made only of such members produced a `null` example.
 - **Swagger 2.0:** a Swagger 2.0 document now fails the build with `Swagger 2.0 isn't supported. Convert the document to OpenAPI 3.x first.` and the document's path, instead of building pages with no server URL, `unknown` parameter types, and missing response schemas. The API reference docs show how to convert one before each build.
 
-If the installed httpsnippet writes a body differently from the layout Nimbus corrects, that language's sample is left out rather than shown with an unescaped body. Authored `x-codeSamples` are unchanged.
+If the installed httpsnippet writes a body differently from the layout Nimbus corrects, that language's sample is left out rather than shown with an unescaped body. Authored `x-codeSamples` are unchanged. New sites scaffolded by `create-nimbus-docs` use this release.
