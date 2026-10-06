@@ -3,7 +3,7 @@ import type { OpenApiDocument } from "./openapi-types.js";
 import type { SampleTools } from "./samples.js";
 import type { Coordinate, RouteProvenance } from "./model.js";
 import type { RoutePolicy } from "./route-policy.js";
-import type { ApiSampleLang } from "../../types.js";
+import type { ApiSamples } from "../../types.js";
 
 // The shared write-surface the parse passes (operations/schemas/webhooks) drive,
 // implemented by Walker. Read-context plus the node/page/nav verbs — never the
@@ -14,8 +14,8 @@ export interface ParseContext extends FieldSink {
   readonly firstServer?: string;
   readonly sampleTools: SampleTools | null;
   readonly requireOperationId: boolean;
-  /** Generated sample languages kept next to authored `x-codeSamples`. */
-  readonly keepGenerated: readonly ApiSampleLang[];
+  /** Which languages are generated, and which are kept next to authored `x-codeSamples`. */
+  readonly samples: ApiSamples;
   /** The active route convention, or `undefined` for legacy operationId URLs. */
   readonly routePolicy?: RoutePolicy;
   /** Publish a page per schema. When false, schemas are still parsed and their

@@ -334,10 +334,15 @@ export type ApiSampleLang = "curl" | "typescript" | "python";
 /** Code sample policy for one API collection. See {@link ApiSpec.samples}. */
 export interface ApiSamples {
   /**
+   * Languages Nimbus generates samples in, on every operation. Default: all
+   * three. `[]` generates none, so operations show only authored samples.
+   */
+  generate?: ApiSampleLang[];
+  /**
    * Generated languages kept when an operation has authored `x-codeSamples`.
    * They follow the authored samples; an authored sample in the same language
-   * replaces the generated one. Default `[]`: authored samples replace all
-   * generated ones.
+   * replaces the generated one. Each must also be in `generate`. Default `[]`:
+   * authored samples replace all generated ones.
    */
   keepGenerated?: ApiSampleLang[];
 }

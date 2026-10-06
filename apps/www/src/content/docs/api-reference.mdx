@@ -365,19 +365,19 @@ An operation's `x-codeSamples` replace the generated samples, and Nimbus never c
 
 Giving each sample in one language its own picker option needs the `api-code-rail` component from 0.16.0 or later. To update it, run `nimbus-docs add api-code-rail` and choose **Overwrite** for `ApiCodeRail.astro` and `code-rail.client.ts`, and **Skip** for the other components.
 
-To keep generated languages next to authored samples, set `samples.keepGenerated` on the `api` entry:
+Two settings on the `api` entry control generated samples. `samples.generate` picks the languages Nimbus generates, on every operation; it defaults to all three, and `[]` generates none. `samples.keepGenerated` keeps generated languages next to authored samples. For example, to generate only cURL, and show it next to any authored SDK samples:
 
 ```ts title="astro.config.ts"
 api: [
   {
     collection: "api",
     spec: "./src/api/openapi.yaml",
-    samples: { keepGenerated: ["curl"] },
+    samples: { generate: ["curl"], keepGenerated: ["curl"] },
   },
 ],
 ```
 
-Kept samples follow the authored ones. An authored sample in the same language replaces the generated one: `curl`, `python` or `py`, and `typescript` or `ts`, in any case. An authored `shell` or `bash` sample does not replace cURL. Valid values are `"curl"`, `"typescript"`, and `"python"`. The setting applies to every version of a family.
+Kept samples follow the authored ones. An authored sample in the same language replaces the generated one: `curl`, `python` or `py`, and `typescript` or `ts`, in any case. An authored `shell` or `bash` sample does not replace cURL. Every `keepGenerated` language must also be in `generate`. Valid values for both are `"curl"`, `"typescript"`, and `"python"`. The settings apply to every version of a family.
 
 The code rail remembers the reader's language, not the exact sample: choosing a second Python sample opens the first Python sample on the next operation. A `?lang=` link opens the sample with that id, such as `python-2`, or the first sample in that language, such as `python`.
 

@@ -34,7 +34,7 @@ import type {
   RouteProvenance,
 } from "./model.js";
 import type { RoutePolicy } from "./route-policy.js";
-import type { ApiSampleLang, ApiSamples } from "../../types.js";
+import type { ApiSamples } from "../../types.js";
 import { collectSecuritySchemes } from "./facts.js";
 import { loadSampleTools } from "./samples.js";
 import type { SampleTools } from "./samples.js";
@@ -201,7 +201,7 @@ export async function parseOpenApi(source: SpecSource): Promise<ParseResult> {
       source.requireOperationId ?? false,
       source.routes,
       source.schemaPages ?? false,
-      source.samples?.keepGenerated,
+      source.samples,
     );
     const model = walker.walk();
     if (source.mountPath !== undefined) model.mountPath = source.mountPath;
@@ -384,7 +384,7 @@ class Walker implements ParseContext {
     readonly requireOperationId: boolean = false,
     readonly routePolicy?: RoutePolicy,
     readonly schemaPages: boolean = false,
-    readonly keepGenerated: readonly ApiSampleLang[] = [],
+    readonly samples: ApiSamples = {},
   ) {
     this.registry = new CoordinateRegistry(collection);
     // Schema tables are captured once here — the walk never reassigns them on `doc`.

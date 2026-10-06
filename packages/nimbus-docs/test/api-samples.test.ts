@@ -22,6 +22,7 @@ import type { OpenApiSchema } from "../src/_internal/api/openapi-types.js";
 import { getApiPageSlugs } from "../src/api/index.js";
 import { prepareApiPageCode } from "../src/_internal/api-loader.js";
 import { resolveApiFamily } from "../src/_internal/api/resolve-versions.js";
+import { resolveSpecSource } from "../src/_internal/api/resolve-spec.js";
 import { validateNimbusConfig } from "../src/_internal/validate.js";
 
 const baseSpec = {
@@ -1667,6 +1668,60 @@ describe("form request bodies", () => {
     );
     const typescript = page.samples.find((s) => s.lang === "typescript")?.source ?? "";
     assert.ok(typescript.includes("encodedParams.append('expand[0]', 'invoice');"), typescript);
+  });
+});
+
+describe("samples.generate", () => {
+  const spec = {
+    ...baseSpec,
+    paths: {
+      "/accounts": {
+        get: {
+          operationId: "listAccounts",
+          "x-codeSamples": [{ lang: "typescript", label: "SDK", source: "client.accounts.list()" }],
+          responses: { "200": { description: "ok" } },
+        },
+      },
+      "/health": { get: { operationId: "health", responses: { "200": { description: "ok" } } } },
+    },
+  };
+  type Lang = "curl" | "typescript" | "python";
+  async function langs(coordinate: string, samples: { generate?: Lang[]; keepGenerated?: Lang[] }) {
+    const model = await buildApiModel({ collection: "generate", spec, samples });
+    return (getApiPageProps(model, coordinate) as ApiOperationPage).samples.map((s) => `${s.lang}${s.label === "SDK" ? " (authored)" : ""}`);
+  }
+
+  test("limits the generated languages on operations without authored samples", async () => {
+    assert.deepEqual(await langs("health", { generate: ["curl"] }), ["curl"]);
+    assert.deepEqual(await langs("health", { generate: ["python", "curl"] }), ["curl", "python"]);
+    assert.deepEqual(await langs("health", {}), ["curl", "typescript", "python"]);
+  });
+
+  test("keepGenerated picks from the generated languages next to authored samples", async () => {
+    assert.deepEqual(await langs("listAccounts", { generate: ["curl"], keepGenerated: ["curl"] }), ["typescript (authored)", "curl"]);
+    assert.deepEqual(await langs("listAccounts", { generate: ["curl"] }), ["typescript (authored)"]);
+  });
+
+  test("an empty list generates none, so only authored samples show", async () => {
+    assert.deepEqual(await langs("health", { generate: [] }), []);
+    assert.deepEqual(await langs("listAccounts", { generate: [] }), ["typescript (authored)"]);
+  });
+
+  test("a spec entry carries the policy to the build", async () => {
+    const source = await resolveSpecSource({ collection: "api", spec, samples: { generate: ["curl"] } }, process.cwd());
+    assert.deepEqual(source.samples, { generate: ["curl"] });
+  });
+
+  test("config validation rejects unknown ids and kept languages that aren't generated", () => {
+    const config = (samples: unknown) => ({ site: "https://example.com", title: "T", api: [{ collection: "api", spec: "./openapi.yaml", samples }] });
+    assert.throws(() => validateNimbusConfig(config({ generate: ["curl", "go"] })), /generate[\s\S]*"curl", "typescript", "python"[\s\S]*"go"/);
+    assert.throws(
+      () => validateNimbusConfig(config({ generate: ["curl"], keepGenerated: ["curl", "python"] })),
+      /keepGenerated" lists "python", which "api\[\]\.samples\.generate" doesn't include/,
+    );
+    assert.doesNotThrow(() => validateNimbusConfig(config({ generate: ["curl"], keepGenerated: ["curl"] })));
+    assert.doesNotThrow(() => validateNimbusConfig(config({ generate: [] })));
+    assert.doesNotThrow(() => validateNimbusConfig(config({ keepGenerated: ["python"] })));
   });
 });
 

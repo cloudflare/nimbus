@@ -264,6 +264,13 @@ const routePolicySchema = z
 
 const sampleLangList = GENERATED_SAMPLE_LANGS.map((l) => `"${l}"`).join(", ");
 const samplesShape = {
+  generate: z
+    .array(
+      z.enum(GENERATED_SAMPLE_LANGS, {
+        error: `"api[].samples.generate" entries must be one of ${sampleLangList}`,
+      }),
+    )
+    .optional(),
   keepGenerated: z
     .array(
       z.enum(GENERATED_SAMPLE_LANGS, {
@@ -280,8 +287,18 @@ const samplesSchema = z
     reportUnknownKeys(samples, ctx, samplesKeys, {
       removedKeys: {},
       contextLabel: "api samples field",
-      unknownHint: () => 'The only valid key is "keepGenerated".',
+      unknownHint: () => 'Valid keys are "generate" and "keepGenerated".',
     });
+    const { generate, keepGenerated } = samples;
+    for (const lang of generate ? (keepGenerated ?? []) : []) {
+      if (!generate!.includes(lang)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["keepGenerated"],
+          message: `"api[].samples.keepGenerated" lists "${lang}", which "api[].samples.generate" doesn't include`,
+        });
+      }
+    }
   });
 
 const apiVersionSpecShape = {

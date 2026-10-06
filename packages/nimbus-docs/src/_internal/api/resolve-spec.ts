@@ -38,7 +38,7 @@ export async function resolveSpecSource(
   const strict = entry.requireOperationId ? { requireOperationId: true as const } : {};
   const routes = entry.routes ? { routes: entry.routes } : {};
   const schemaPages = entry.schemaPages ? { schemaPages: true as const } : {};
-  const samples = entry.samples?.keepGenerated?.length ? { samples: entry.samples } : {};
+  const samples = entry.samples?.keepGenerated?.length || entry.samples?.generate ? { samples: entry.samples } : {};
 
   if (typeof entry.spec !== "string") {
     return {

@@ -8,8 +8,9 @@
  * @readme/httpsnippet renders the request per language. Both parsers are optional
  * peer deps, lazy-loaded so a prose-only build pulls neither — synthesis is
  * best-effort and its absence never aborts a build. Authored examples resolve
- * even without the parsers. A spec's own `x-codeSamples` win, followed only by
- * the generated languages `samples.keepGenerated` keeps.
+ * even without the parsers. `samples.generate` picks the generated languages.
+ * A spec's own `x-codeSamples` win, followed only by the generated languages
+ * `samples.keepGenerated` keeps.
  */
 
 import type { ApiSampleLang } from "../../types.js";
@@ -238,13 +239,16 @@ export interface OperationSampleInput {
   securitySchemes?: Record<string, OpenApiSecurityScheme>;
   auth: AuthRequirement[][];
   xCodeSamples?: unknown;
+  /** Languages generated on every operation; all of them when unset. */
+  generate?: readonly ApiSampleLang[];
   /** Generated languages kept next to authored `x-codeSamples`. */
   keepGenerated?: readonly ApiSampleLang[];
 }
 
 /**
- * Per-language request snippets for one operation. A spec's own `x-codeSamples`
- * win; `keepGenerated` languages they don't already cover follow them.
+ * Per-language request snippets for one operation, in the `generate`
+ * languages. A spec's own `x-codeSamples` win; `keepGenerated` languages they
+ * don't already cover follow them.
  * Best-effort: one pathological operation degrades to an empty list, never
  * aborts the build. The call site sits inside the fatal parse try/catch, so
  * this is the last line holding the contract.
@@ -253,15 +257,16 @@ export function buildOperationSamples(
   tools: SampleTools,
   input: OperationSampleInput,
 ): CodeSample[] {
+  const generated = LANGS.filter((l) => input.generate?.includes(l.lang) ?? true);
   const authored = fromSpecCodeSamples(input.xCodeSamples);
-  if (authored.length === 0) return withIds(generateSamples(tools, input, LANGS));
+  if (authored.length === 0) return withIds(generateSamples(tools, input, generated));
   const keep = input.keepGenerated ?? [];
   if (keep.length === 0) return withIds(authored);
   const used = new Set(authored.map((s) => {
     const lang = s.lang.toLowerCase();
     return LANG_ALIASES[lang] ?? lang;
   }));
-  const langs = LANGS.filter((l) => keep.includes(l.lang) && !used.has(l.lang));
+  const langs = generated.filter((l) => keep.includes(l.lang) && !used.has(l.lang));
   return withIds([...authored, ...generateSamples(tools, input, langs)]);
 }
 
