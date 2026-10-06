@@ -567,55 +567,64 @@ function convertWithBody(
   const rewrite = bodyRewrite(har, lang.target, bodyMarker);
   if (!rewrite) return convert(tools, har, lang, placeholders);
   const marked = convert(tools, rewrite.har, lang, placeholders);
-  return marked?.includes(rewrite.line) ? marked.replace(rewrite.line, () => rewrite.text) : undefined;
+  const at = marked?.indexOf(rewrite.line) ?? -1;
+  if (!marked || at < 0) return undefined;
+  const indent = /^[ \t]*/.exec(marked.slice(marked.lastIndexOf("\n", at) + 1))![0];
+  return marked.slice(0, at) + rewrite.text(indent) + marked.slice(at + rewrite.line.length);
 }
 
 // httpsnippet writes some bodies without escaping: Python's JSON and form
-// payloads (newlines and backslashes in strings and keys), and TypeScript's
-// form fields, which also use `set` and so keep only a repeated field's last
-// value. Such a body enters as one marker, and Nimbus writes the code in its
-// place. Other bodies, and a null JSON body the target omits, keep its
-// output. When the marker's line isn't where it's expected, as after an
-// httpsnippet change, the sample is left out rather than shown unescaped.
+// payloads (newlines and backslashes in strings and keys), and every
+// TypeScript body (backslashes), whose form fields also use `set` and so keep
+// only a repeated field's last value. TypeScript also drops a JSON body of
+// `false`, `0`, or `""`. Such a body enters as one marker, and Nimbus writes
+// the code in its place, indented like the marker's line. Python's text
+// bodies, which it escapes, and a null JSON body, which both omit, keep its
+// output. When the marker isn't where it's expected, as after an httpsnippet
+// change, the sample is left out rather than shown unescaped.
 function bodyRewrite(
   har: HarRequestInput,
   target: string,
   marker: string,
-): { har: HarRequestInput; line: string; text: string } | undefined {
+): { har: HarRequestInput; line: string; text: (indent: string) => string } | undefined {
   const postData = har.postData;
   if (!postData) return undefined;
-  if (postData.params) {
+  const params = postData.params;
+  if (params) {
     const markedHar = { ...har, postData: { ...postData, params: [{ name: marker, value: "" }] } };
     if (target === "python") {
       return {
         har: markedHar,
         line: `payload = { ${JSON.stringify(marker)}: "" }`,
-        text: `payload = ${pythonLiteral(formPayload(postData.params))}`,
+        text: () => `payload = ${pythonLiteral(formPayload(params))}`,
       };
     }
     if (target === "node") {
-      const quote = (text: string) => `'${escapeForTarget("node", text)}'`;
       return {
         har: markedHar,
         line: `encodedParams.set('${marker}', '');`,
-        text: postData.params.map((field) => `encodedParams.append(${quote(field.name)}, ${quote(field.value)});`).join("\n"),
+        text: () => params.map((field) => `encodedParams.append(${jsString(field.name)}, ${jsString(field.value)});`).join("\n"),
       };
     }
     return undefined;
   }
-  if (target !== "python" || !SNIPPET_JSON_TYPES.has(postData.mimeType)) return undefined;
-  const body = parseJson(postData.text);
-  if (body === undefined || body === null) return undefined;
-  return {
-    har: { ...har, postData: { ...postData, text: JSON.stringify(marker) } },
-    line: `payload = ${JSON.stringify(marker)}`,
-    text: `payload = ${pythonLiteral(body)}`,
-  };
+  if (SNIPPET_JSON_TYPES.has(postData.mimeType)) {
+    const body = parseJson(postData.text);
+    if (body === undefined || body === null) return undefined;
+    const markedHar = { ...har, postData: { ...postData, text: JSON.stringify(marker) } };
+    if (target === "python") return { har: markedHar, line: `payload = ${JSON.stringify(marker)}`, text: () => `payload = ${pythonLiteral(body)}` };
+    if (target === "node") return { har: markedHar, line: `JSON.stringify('${marker}')`, text: (indent) => `JSON.stringify(${jsLiteral(body, indent)})` };
+    return undefined;
+  }
+  if (target !== "node" || !postData.text || SNIPPET_MULTIPART_TYPES.has(postData.mimeType)) return undefined;
+  const text = postData.text;
+  return { har: { ...har, postData: { ...postData, text: marker } }, line: `'${marker}'`, text: () => jsString(text) };
 }
 
-// The media types httpsnippet writes as a Python literal; it sends any other
-// body as an escaped string.
+// The media types httpsnippet writes as a literal; Python sends any other body
+// as an escaped string. It sends no text for its multipart types.
 const SNIPPET_JSON_TYPES = new Set(["application/json", "application/x-json", "text/json", "text/x-json"]);
+const SNIPPET_MULTIPART_TYPES = new Set(["multipart/form-data", "multipart/mixed", "multipart/related", "multipart/alternative"]);
 
 // Form fields as httpsnippet groups them: a repeated name holds a list. No
 // prototype, so names like `constructor` and `__proto__` are ordinary keys.
@@ -661,12 +670,39 @@ function pythonLiteral(value: unknown, depth = 1): string {
   return isArray ? `[${items.join(", ")}]` : `{ ${items.join(", ")} }`;
 }
 
+const JS_INDENT = "  ";
+const JS_INLINE_LIMIT = 80;
+
+function jsString(text: string): string {
+  return `'${escapeForTarget("node", text)}'`;
+}
+
+// A JSON value as a JavaScript literal in httpsnippet's layout: single-quoted
+// strings, bare keys where valid, and a container on one line when it fits in
+// 80 characters. `__proto__` is computed, so it stays an ordinary key.
+function jsLiteral(value: unknown, indent: string): string {
+  if (value === null || typeof value !== "object") return typeof value === "string" ? jsString(value) : String(value);
+  const inner = indent + JS_INDENT;
+  const key = (name: string) =>
+    name === "__proto__" ? `['__proto__']` : /^[A-Za-z_$][\w$]*$/.test(name) ? name : jsString(name);
+  const items = Array.isArray(value)
+    ? value.map((item) => jsLiteral(item, inner))
+    : Object.entries(value).map(([name, item]) => `${key(name)}: ${jsLiteral(item, inner)}`);
+  const [open, close] = Array.isArray(value) ? ["[", "]"] : ["{", "}"];
+  const inline = `${open}${items.join(", ")}${close}`;
+  if (items.length === 0 || (inline.length <= JS_INLINE_LIMIT && !inline.includes("\n"))) return inline;
+  return `${open}\n${inner}${items.join(`,\n${inner}`)}\n${indent}${close}`;
+}
+
 // The string-literal escaping each target's snippets use: single-quoted shell
 // arguments, single-quoted JavaScript strings, double-quoted Python strings.
 function escapeForTarget(target: string, text: string): string {
   if (target === "shell") return text.replaceAll("'", `'\\''`);
   const escaped = JSON.stringify(text).slice(1, -1);
-  return target === "node" ? escaped.replaceAll("'", "\\'") : escaped;
+  if (target !== "node") return escaped;
+  return escaped.replace(/\\(.)|'/g, (match, escapedChar?: string) =>
+    escapedChar === undefined ? "\\'" : escapedChar === '"' ? '"' : match,
+  );
 }
 
 function buildHar(

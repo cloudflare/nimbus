@@ -1313,6 +1313,17 @@ describe("generated request bodies", () => {
 
   const pythonFor = (value: unknown, mediaType?: string) => sampleFor("python", value, mediaType);
 
+  // Runs a TypeScript sample with a captured `fetch` and returns the body it sends.
+  function sentByFetch(source: string): unknown {
+    let body: unknown;
+    const fetch = (_url: string, options: { body?: unknown }) => {
+      body = options.body;
+      return { then: () => ({ then: () => ({ catch: () => undefined }) }) };
+    };
+    new Function("fetch", source)(fetch);
+    return body;
+  }
+
   test("a body string with a newline is an escaped Python string", async (t) => {
     if (!hasPython) t.diagnostic("python3 not found: skipping the Python value check");
     const page = await operationPage(
@@ -1355,6 +1366,40 @@ describe("generated request bodies", () => {
     const python = await pythonFor(value);
     assert.doesNotMatch(python, /"a$/m, "no raw newline inside a string");
     if (hasPython) assert.deepEqual(sentByPython(python), value);
+  });
+
+  test("TypeScript sends every JSON value as authored", async () => {
+    const value = {
+      path: "C:\\temp\\new \\b",
+      text: "a\nb\rc\td",
+      quotes: `say "hi" and 'bye'`,
+      shell: "$HOME `id`",
+      flags: { on: true, off: false, none: null },
+      nested: [{ pem: "-----BEGIN-----\nAA==\n", list: [[{ deep: "x\\y" }]] }, { one: 1 }],
+      'key "with"\nbreaks\\': "ok",
+      unicode: "héllo ✓ \u2028 \u0001",
+      empty: { object: {}, array: [], string: "" },
+    };
+    const source = await sampleFor("typescript", value);
+    assert.deepEqual(JSON.parse(sentByFetch(source) as string), value, source);
+    const proto = JSON.parse('{"__proto__":{"x":1},"a":2}');
+    const protoSource = await sampleFor("typescript", proto);
+    assert.deepEqual(JSON.parse(sentByFetch(protoSource) as string), proto, protoSource);
+  });
+
+  test("TypeScript sends a text body as written", async () => {
+    const text = "line one\nline 'two' \\ \"three\"";
+    assert.equal(sentByFetch(await sampleFor("typescript", text, "text/plain")), text);
+    const vendor = { path: "C:\\temp" };
+    assert.deepEqual(JSON.parse(sentByFetch(await sampleFor("typescript", vendor, "application/vnd.api+json")) as string), vendor);
+  });
+
+  test("TypeScript sends falsy JSON bodies; a null body stays omitted", async () => {
+    for (const value of [false, 0, ""]) {
+      const source = await sampleFor("typescript", value);
+      assert.equal(sentByFetch(source), JSON.stringify(value), source);
+    }
+    assert.equal(sentByFetch(await sampleFor("typescript", null)), undefined);
   });
 
   test("falsy bodies are sent; a null body stays omitted", async () => {
@@ -1612,7 +1657,9 @@ describe("form request bodies", () => {
       convert(...args: Parameters<InstanceType<typeof tools.snippet.HTTPSnippet>["convert"]>) {
         const out = super.convert(...args);
         const first = Array.isArray(out) ? out[0] : out;
-        return typeof first === "string" ? first.replace("payload = ", "payload  = ").replace("encodedParams.set(", "encodedParams.set (") : out;
+        return typeof first === "string"
+          ? first.replace("payload = ", "payload  = ").replace("encodedParams.set(", "encodedParams.set (").replace("JSON.stringify(", "JSON.stringify (")
+          : out;
       }
     }
     const changed = { ...tools, snippet: { ...tools.snippet, HTTPSnippet: Reformatted } } as typeof tools;
@@ -1620,7 +1667,7 @@ describe("form request bodies", () => {
       const out = buildOperationSamples(changed, { method: "post", path: "/x", auth: [], params: [], body: { mediaType, value } });
       const langs = out.map((s) => s.lang);
       assert.ok(!langs.includes("python"), `${mediaType}: ${langs}`);
-      assert.equal(langs.includes("typescript"), mediaType !== FORM, `${mediaType}: ${langs}`);
+      assert.ok(!langs.includes("typescript"), `${mediaType}: ${langs}`);
       assert.ok(langs.includes("curl"), `${mediaType}: ${langs}`);
     }
   });
