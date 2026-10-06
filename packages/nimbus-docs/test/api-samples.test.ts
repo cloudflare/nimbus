@@ -1261,6 +1261,415 @@ describe("parameter and credential placeholders", () => {
   });
 });
 
+describe("generated request bodies", () => {
+  const hasPython = spawnSync("python3", ["-c", "pass"]).status === 0;
+  const hasBash = spawnSync("bash", ["-c", "true"]).status === 0;
+  const readPayload = [
+    "import ast, json, sys",
+    "tree = ast.parse(sys.stdin.read())",
+    "found = [n.value for n in tree.body if isinstance(n, ast.Assign) and getattr(n.targets[0], 'id', '') == 'payload']",
+    "print(json.dumps(ast.literal_eval(found[0])))",
+  ].join("\n");
+
+  // The value Python would send, or undefined without python3.
+  function sentByPython(source: string): unknown {
+    if (!hasPython) return undefined;
+    const run = spawnSync("python3", ["-c", readPayload], { input: source, encoding: "utf8" });
+    assert.equal(run.status, 0, `Python is valid: ${run.stderr}\n${source}`);
+    return JSON.parse(run.stdout);
+  }
+
+  // A stand-in `curl` that prints the body it was given.
+  const stubCurl = [
+    "curl() {",
+    "  while [ $# -gt 0 ]; do",
+    `    if [ "$1" = --data ]; then if [ "$2" = @- ]; then cat; else printf '%s' "$2"; fi; fi`,
+    "    shift",
+    "  done",
+    "}",
+  ].join("\n");
+
+  // The body text cURL would send, or undefined without bash.
+  function sentByCurl(source: string): string | undefined {
+    if (!hasBash) return undefined;
+    const run = spawnSync("bash", ["-c", `${stubCurl}\n${source}`], { encoding: "utf8" });
+    assert.equal(run.status, 0, `cURL is valid shell: ${run.stderr}\n${source}`);
+    return run.stdout;
+  }
+
+  async function sampleFor(id: string, value: unknown, mediaType = "application/json"): Promise<string> {
+    const tools = await loadSampleTools();
+    assert.ok(tools);
+    const out = buildOperationSamples(tools, {
+      method: "post",
+      path: "/items",
+      auth: [],
+      params: [],
+      body: { mediaType, value },
+    });
+    return out.find((s) => s.lang === id)?.source ?? "";
+  }
+
+  const pythonFor = (value: unknown, mediaType?: string) => sampleFor("python", value, mediaType);
+
+  test("a body string with a newline is an escaped Python string", async (t) => {
+    if (!hasPython) t.diagnostic("python3 not found: skipping the Python value check");
+    const page = await operationPage(
+      {
+        ...baseSpec,
+        paths: {
+          "/keys": {
+            post: {
+              operationId: "createKey",
+              requestBody: {
+                content: { "application/json": { example: { key: "line one\nline two" } } },
+              },
+              responses: { "200": { description: "ok" } },
+            },
+          },
+        },
+      },
+      "createKey",
+    );
+    const python = page.samples.find((s) => s.lang === "python")?.source ?? "";
+    assert.ok(python.includes(`payload = { "key": "line one\\nline two" }`), python);
+    assert.ok(python.includes("json=payload"));
+    if (hasPython) assert.deepEqual(sentByPython(python), page.example?.value);
+  });
+
+  test("Python sends every JSON value as authored", async (t) => {
+    if (!hasPython) t.diagnostic("python3 not found: skipping the Python value check");
+    const value = {
+      text: "a\nb\rc\td",
+      quotes: `say "hi" and 'bye'`,
+      backslashes: "C:\\temp\\new \\b \\u0041",
+      words: ["true", "false", "null", "None", "True"],
+      flags: { on: true, off: false, none: null },
+      numbers: [0, -1.5, 1e21],
+      nested: [{ pem: "-----BEGIN-----\nAA==\n-----END-----\n", list: [[{ deep: "x\ny" }]] }, { one: 1 }],
+      'key "with"\nbreaks\\': "ok",
+      unicode: "héllo ✓ \u2028 \u0001",
+      empty: { object: {}, array: [], string: "" },
+    };
+    const python = await pythonFor(value);
+    assert.doesNotMatch(python, /"a$/m, "no raw newline inside a string");
+    if (hasPython) assert.deepEqual(sentByPython(python), value);
+  });
+
+  test("falsy bodies are sent; a null body stays omitted", async () => {
+    for (const [value, literal] of [[false, "False"], [0, "0"], ["", `""`]] as const) {
+      const python = await pythonFor(value);
+      assert.ok(python.includes(`payload = ${literal}\n`), python);
+      assert.ok(python.includes("json=payload"), python);
+    }
+    assert.doesNotMatch(await pythonFor(null), /payload/);
+  });
+
+  test("a body httpsnippet sends as text keeps its output and stays valid", async (t) => {
+    if (!hasPython) t.diagnostic("python3 not found: skipping the Python value check");
+    const text = "line one\nline \"two\" \\";
+    const plain = await pythonFor(text, "text/plain");
+    assert.ok(plain.includes("data=payload"), plain);
+    if (hasPython) assert.equal(sentByPython(plain), text);
+
+    const vendor = { note: "a\nb" };
+    const json = await pythonFor(vendor, "application/vnd.api+json");
+    assert.ok(json.includes("data=payload"), json);
+    if (hasPython) assert.equal(sentByPython(json), JSON.stringify(vendor, null, 2));
+  });
+
+  test("cURL sends a body with quotes, backslashes, `$`, and backticks as written", async (t) => {
+    if (!hasBash) t.diagnostic("bash not found: skipping the cURL value check");
+    const value = { quote: "it's", path: "C:\\temp\\new", env: "$HOME ${PATH}", command: "`id` $(id)", text: "a\nb" };
+    const curl = await sampleFor("curl", value);
+    assert.ok(curl.includes("--data @- <<'EOF'\n"), curl);
+    if (hasBash) assert.deepEqual(JSON.parse(sentByCurl(curl)!), value);
+  });
+
+  test("a body that contains the internal marker text is sent as written", async (t) => {
+    if (!hasPython) t.diagnostic("python3 not found: skipping the Python value check");
+    const value = { a: "nbph0qbody", b: "nbph1qbody" };
+    const python = await pythonFor(value);
+    assert.ok(python.includes(`"a": "nbph0qbody"`) && python.includes(`"b": "nbph1qbody"`), python);
+    if (hasPython) assert.deepEqual(sentByPython(python), value);
+  });
+});
+
+describe("form request bodies", () => {
+  type Field = [string, string];
+  const FORM = "application/x-www-form-urlencoded";
+  const hasPython = spawnSync("python3", ["-c", "pass"]).status === 0;
+  const hasBash = spawnSync("bash", ["-c", "true"]).status === 0;
+
+  // Each runs a sample against a stand-in client and returns the form fields
+  // it sends, decoded, or undefined when the runtime is missing.
+  const sent = {
+    curl(source: string): Field[] | undefined {
+      if (!hasBash) return undefined;
+      const stub = `curl() { while [ $# -gt 0 ]; do [ "$1" = --data-urlencode ] && printf '%s\\0' "$2"; shift; done; }`;
+      const run = spawnSync("bash", ["-c", `${stub}\n${source}`], { encoding: "utf8" });
+      assert.equal(run.status, 0, `cURL is valid shell: ${run.stderr}\n${source}`);
+      // cURL sends the name as written and URL-encodes what follows the first `=`.
+      return run.stdout.split("\0").filter(Boolean).map((arg) => {
+        const at = arg.indexOf("=");
+        return [decodeURIComponent(arg.slice(0, at)), arg.slice(at + 1)];
+      });
+    },
+    typescript(source: string): Field[] {
+      let body: URLSearchParams | undefined;
+      const fetch = (_url: string, options: { body: URLSearchParams }) => {
+        body = options.body;
+        return { then: () => ({ then: () => ({ catch: () => undefined }) }) };
+      };
+      new Function("fetch", source)(fetch);
+      assert.ok(body instanceof URLSearchParams, source);
+      return [...body];
+    },
+    python(source: string): Field[] | undefined {
+      if (!hasPython) return undefined;
+      const harness = [
+        "import json, sys, types, urllib.parse",
+        "sent = {}",
+        "requests = types.ModuleType('requests')",
+        "def post(url, data=None, headers=None, **rest):",
+        "    sent['data'] = data",
+        "    return types.SimpleNamespace(text='')",
+        "requests.post = post",
+        "sys.modules['requests'] = requests",
+        "exec(sys.stdin.read())",
+        "print(json.dumps(urllib.parse.parse_qsl(urllib.parse.urlencode(sent['data'], doseq=True), keep_blank_values=True)))",
+      ].join("\n");
+      const run = spawnSync("python3", ["-c", harness], { input: source, encoding: "utf8" });
+      assert.equal(run.status, 0, `Python is valid: ${run.stderr}\n${source}`);
+      return JSON.parse(run.stdout);
+    },
+  };
+
+  async function samplesFor(value: unknown, encoding?: Record<string, Record<string, unknown>>, mediaType = FORM) {
+    const tools = await loadSampleTools();
+    assert.ok(tools);
+    const out = buildOperationSamples(tools, {
+      method: "post",
+      path: "/customers",
+      auth: [],
+      params: [],
+      body: { mediaType, value, ...(encoding ? { encoding } : {}) },
+    });
+    assert.equal(out.length, 3);
+    return Object.fromEntries(out.map((s) => [s.lang, s.source])) as Record<"curl" | "typescript" | "python", string>;
+  }
+
+  // Every language sends `expected`, in order.
+  async function assertSends(t: { diagnostic: (message: string) => void }, value: unknown, expected: Field[], encoding?: Record<string, Record<string, unknown>>, mediaType?: string) {
+    if (!hasBash) t.diagnostic("bash not found: skipping the cURL check");
+    if (!hasPython) t.diagnostic("python3 not found: skipping the Python check");
+    const samples = await samplesFor(value, encoding, mediaType);
+    for (const lang of ["curl", "typescript", "python"] as const) {
+      const fields = sent[lang](samples[lang]);
+      if (fields) assert.deepEqual(fields, expected, `${lang}:\n${samples[lang]}`);
+    }
+  }
+
+  test("without an encoding, objects nest, scalar arrays repeat, and arrays of objects are indexed", async (t) => {
+    await assertSends(
+      t,
+      {
+        name: "Jenny O'Neil",
+        metadata: { plan: "pro", limits: { seats: 5 } },
+        tags: ["a", "b"],
+        items: [{ price: "p_1", quantity: 2 }],
+        note: "line one\nline \"two\" \\ $HOME `id`",
+        active: true,
+        cleared: null,
+      },
+      [
+        ["name", "Jenny O'Neil"],
+        ["metadata[plan]", "pro"],
+        ["metadata[limits][seats]", "5"],
+        ["tags", "a"],
+        ["tags", "b"],
+        ["items[0][price]", "p_1"],
+        ["items[0][quantity]", "2"],
+        ["note", "line one\nline \"two\" \\ $HOME `id`"],
+        ["active", "true"],
+        ["cleared", ""],
+      ],
+    );
+  });
+
+  test("deepObject indexes every array", async (t) => {
+    await assertSends(
+      t,
+      { expand: ["customer", "invoice"], metadata: { plan: "pro" }, lines: [{ tags: ["x"] }] },
+      [
+        ["expand[0]", "customer"],
+        ["expand[1]", "invoice"],
+        ["metadata[plan]", "pro"],
+        ["lines[0][tags][0]", "x"],
+      ],
+      {
+        expand: { style: "deepObject", explode: true },
+        metadata: { style: "deepObject", explode: true },
+        lines: { style: "deepObject", explode: true },
+      },
+    );
+  });
+
+  test("form, spaceDelimited, pipeDelimited, and contentType follow OpenAPI", async (t) => {
+    await assertSends(
+      t,
+      {
+        exploded: ["a", "b"],
+        joined: ["a", "b"],
+        spaced: ["a", "b"],
+        piped: ["a", "b"],
+        flattened: { x: "1", y: "2" },
+        pairs: { x: "1", y: "2" },
+        json: { x: [1] },
+      },
+      [
+        ["exploded", "a"],
+        ["exploded", "b"],
+        ["joined", "a,b"],
+        ["spaced", "a b"],
+        ["piped", "a|b"],
+        ["x", "1"],
+        ["y", "2"],
+        ["pairs", "x,1,y,2"],
+        ["json", '{"x":[1]}'],
+      ],
+      {
+        exploded: { style: "form" },
+        joined: { style: "form", explode: false },
+        spaced: { style: "spaceDelimited" },
+        piped: { style: "pipeDelimited" },
+        flattened: { style: "form", explode: true },
+        pairs: { style: "form", explode: false },
+        json: { contentType: "application/json" },
+      },
+    );
+  });
+
+  test("an encoding entry without style, explode, or allowReserved sends the content type; with any, query style", async (t) => {
+    await assertSends(
+      t,
+      {
+        plain: { x: 1 },
+        list: ["a", { b: 1 }],
+        joined: ["a", "b"],
+        overridden: { x: 1 },
+        reserved: { x: "1" },
+        spaced: { x: 1, y: 2 },
+        piped: { x: 1, y: 2 },
+        constructor: "inherited name",
+      },
+      [
+        ["plain", '{"x":1}'],
+        ["list", "a"],
+        ["list", '{"b":1}'],
+        ["joined", "a,b"],
+        ["overridden", "x,1"],
+        ["x", "1"],
+        ["spaced", "x 1 y 2"],
+        ["piped", "x|1|y|2"],
+        ["constructor", "inherited name"],
+      ],
+      {
+        plain: {},
+        list: { contentType: "text/plain" },
+        joined: { explode: false },
+        overridden: { contentType: "application/json", explode: false },
+        reserved: { allowReserved: true },
+        spaced: { style: "spaceDelimited" },
+        piped: { style: "pipeDelimited" },
+      },
+    );
+  });
+
+  test("field names an object inherits are ordinary names", async (t) => {
+    await assertSends(t, JSON.parse('{"constructor":"a","__proto__":"b","toString":"c","hasOwnProperty":{"x":"d"}}'), [
+      ["constructor", "a"],
+      ["__proto__", "b"],
+      ["toString", "c"],
+      ["hasOwnProperty[x]", "d"],
+    ]);
+  });
+
+  test("a form with no fields, or an example that isn't an object, sends no body", async () => {
+    for (const value of [{}, { empty: {}, none: [] }, [1, 2], 7]) {
+      const samples = await samplesFor(value);
+      assert.ok(!samples.curl.includes("--data") && !samples.curl.includes("Content-Type"), samples.curl);
+      assert.ok(!samples.typescript.includes("body"), samples.typescript);
+      assert.ok(!samples.python.includes("payload"), samples.python);
+    }
+  });
+
+  test("a body httpsnippet writes differently is left out rather than shown unescaped", async () => {
+    const tools = await loadSampleTools();
+    assert.ok(tools);
+    class Reformatted extends tools.snippet.HTTPSnippet {
+      convert(...args: Parameters<InstanceType<typeof tools.snippet.HTTPSnippet>["convert"]>) {
+        const out = super.convert(...args);
+        const first = Array.isArray(out) ? out[0] : out;
+        return typeof first === "string" ? first.replace("payload = ", "payload  = ").replace("encodedParams.set(", "encodedParams.set (") : out;
+      }
+    }
+    const changed = { ...tools, snippet: { ...tools.snippet, HTTPSnippet: Reformatted } } as typeof tools;
+    for (const [mediaType, value] of [[FORM, { note: "a\nb" }], ["application/json", { note: "a\nb" }]] as const) {
+      const out = buildOperationSamples(changed, { method: "post", path: "/x", auth: [], params: [], body: { mediaType, value } });
+      const langs = out.map((s) => s.lang);
+      assert.ok(!langs.includes("python"), `${mediaType}: ${langs}`);
+      assert.equal(langs.includes("typescript"), mediaType !== FORM, `${mediaType}: ${langs}`);
+      assert.ok(langs.includes("curl"), `${mediaType}: ${langs}`);
+    }
+  });
+
+  test("a string example is read as an encoded form", async (t) => {
+    await assertSends(t, "name=Jenny+Rosen&tags=a&tags=b&note=a%26b", [
+      ["name", "Jenny Rosen"],
+      ["tags", "a"],
+      ["tags", "b"],
+      ["note", "a&b"],
+    ]);
+  });
+
+  test("a form media type with parameters sends the same encoded body", async () => {
+    const samples = await samplesFor({ name: "Jenny Rosen", metadata: { plan: "pro" } }, undefined, `${FORM}; charset=utf-8`);
+    const encoded = "name=Jenny+Rosen&metadata%5Bplan%5D=pro";
+    assert.ok(samples.curl.includes(`--data '${encoded}'`), samples.curl);
+    assert.ok(samples.typescript.includes(`body: '${encoded}'`), samples.typescript);
+    assert.ok(samples.python.includes(`payload = "${encoded}"`), samples.python);
+  });
+
+  test("an operation's media type encoding reaches its samples", async () => {
+    const page = await operationPage(
+      {
+        ...baseSpec,
+        paths: {
+          "/customers": {
+            post: {
+              operationId: "createCustomer",
+              requestBody: {
+                content: {
+                  [FORM]: {
+                    schema: { type: "object", properties: { expand: { type: "array", items: { type: "string" } } } },
+                    example: { expand: ["invoice"] },
+                    encoding: { expand: { style: "deepObject", explode: true } },
+                  },
+                },
+              },
+              responses: { "200": { description: "ok" } },
+            },
+          },
+        },
+      },
+      "createCustomer",
+    );
+    const typescript = page.samples.find((s) => s.lang === "typescript")?.source ?? "";
+    assert.ok(typescript.includes("encodedParams.append('expand[0]', 'invoice');"), typescript);
+  });
+});
+
 describe("samples.keepGenerated", () => {
   const authoredSpec = (codeSamples: unknown[]) => ({
     ...baseSpec,

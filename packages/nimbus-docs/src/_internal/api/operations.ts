@@ -416,7 +416,11 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
       server: ctx.firstServer,
       params: allParams,
       body: facts.example
-        ? { mediaType: facts.example.mediaType, value: facts.example.value }
+        ? {
+          mediaType: facts.example.mediaType,
+          value: facts.example.value,
+          ...(requestEntry?.media.encoding ? { encoding: requestEntry.media.encoding } : {}),
+        }
         : undefined,
       securitySchemes: ctx.doc.components?.securitySchemes,
       auth,

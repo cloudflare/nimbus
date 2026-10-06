@@ -132,6 +132,15 @@ export interface OpenApiMediaType {
       externalValue?: string;
     }
   >;
+  /** How each property of a form body is serialized. */
+  encoding?: Record<string, OpenApiEncoding | undefined>;
+}
+
+export interface OpenApiEncoding {
+  contentType?: string;
+  style?: string;
+  explode?: boolean;
+  allowReserved?: boolean;
 }
 
 export interface OpenApiSchema {
