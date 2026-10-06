@@ -1,0 +1,87 @@
+.changeset/bright-agent-skills.md
+  s_23301c4d7884d8::t_ac26957f13b6a7 1-5
+.changeset/quiet-browser-search.md
+  s_23301c4d7884d8::t_ace03f6e13f01c 1-6
+.github/workflows/webmcp.yml
+  s_23301c4d7884d8::t_fe884d2a15d862 1-47
+apps/www/src/components/WebMCP.astro
+  s_23301c4d7884d8::t_9c0ee9353dc3bd 1-21
+apps/www/src/layouts/BaseLayout.astro
+  s_23301c4d7884d8::t_3b34a31a7cf2f5 16,62
+package.json
+  s_23301c4d7884d8::t_e857adb79f46ae 17
+packages/nimbus-docs/src/_internal/agent-capabilities.ts
+  s_23301c4d7884d8::t_9bba7f817560e7 1-5,9-10,15,18-29
+packages/nimbus-docs/src/_internal/agent-search-contract.ts
+  s_23301c4d7884d8::t_5e258b682e8ac2 1-94
+packages/nimbus-docs/src/_internal/agent-search.ts
+  s_23301c4d7884d8::t_6613d261cd5c1b 1-146
+packages/nimbus-docs/src/_internal/agent-skills.ts
+  s_23301c4d7884d8::t_3773568f510062 1-272
+packages/nimbus-docs/src/_internal/virtual-agent-capabilities.ts
+  s_af6707ec1cedce::t_1e00fe116b59d7 13-14,21,38-39,54,56-57,62-64,66-68,70-88,94-102,104-107
+packages/nimbus-docs/src/client/index.ts
+  s_23301c4d7884d8::t_d7aa1f722654ab 15-16
+packages/nimbus-docs/src/client/webmcp.ts
+  s_23301c4d7884d8::t_b96850002f28dd 1-174
+packages/nimbus-docs/src/types.ts
+  s_23301c4d7884d8::t_4d6831f3e7b9dc 18-19,24-25
+packages/nimbus-docs/test/agent-discovery-build.test.ts
+  s_23301c4d7884d8::t_1e99d877d73778 2,8,131-182
+packages/nimbus-docs/test/agent-discovery.test.ts
+  s_23301c4d7884d8::t_a357276af9a713 213-239
+packages/nimbus-docs/test/agent-search.test.ts
+  s_23301c4d7884d8::t_1046397496566d 1-256
+packages/nimbus-docs/test/agent-skills.test.ts
+  s_23301c4d7884d8::t_98d32d1f1b58a9 1-163
+packages/nimbus-docs/test/fixtures/agent-skills/README.md
+  s_23301c4d7884d8::t_41c850f83d3bee 1-9
+packages/nimbus-docs/test/fixtures/agent-skills/index.schema.json
+  s_23301c4d7884d8::t_3f60dcd8d67f7a 1-33
+packages/nimbus-docs/test/fixtures/agent-skills/two-skills.json
+  s_23301c4d7884d8::t_aa8d4c822fd1b8 1-19
+packages/nimbus-docs/test/upgrades.test.ts
+  s_23301c4d7884d8::t_6d6908307ae4a8 32
+packages/nimbus-docs/test/webmcp.test.ts
+  s_23301c4d7884d8::t_f68fae4471da5f 1-313
+packages/nimbus-starter-source/src/components/WebMCP.astro
+  s_23301c4d7884d8::t_1a4f99d184f863 1-21
+packages/nimbus-starter-source/src/layouts/BaseLayout.astro
+  s_23301c4d7884d8::t_6a49d9e7f11d20 16,68
+scripts/fixtures/webmcp/README.md
+  s_23301c4d7884d8::t_1afa1af7d6b442 1-39
+scripts/fixtures/webmcp/visibility.mjs
+  s_23301c4d7884d8::t_34d91d4d2baafd 1-56
+scripts/fixtures/workers-feasibility/skills/deploy-worker/SKILL.md
+  s_23301c4d7884d8::t_d1d4d4a2a732a9 1-8
+scripts/fixtures/workers-feasibility/skills/deploy-worker/scripts/deploy.sh
+  s_23301c4d7884d8::t_7602d7cbed2f2b 1-4
+scripts/fixtures/workers-feasibility/skills/docs-style/SKILL.md
+  s_23301c4d7884d8::t_8be36062b1ab7a 1-6
+scripts/webmcp-check.mjs
+  s_23301c4d7884d8::t_b8d9b6b7b302dd 1-499
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "747a29e7dd7c3ae64bcb8661cd0d691df60914a4",
+  "prompts": {},
+  "sessions": {
+    "s_23301c4d7884d8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_eff5ed97cffeSpj1AMXK1mnVzm",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_af6707ec1cedce": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_eef21084dffeHyxml4M7INe6m1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
