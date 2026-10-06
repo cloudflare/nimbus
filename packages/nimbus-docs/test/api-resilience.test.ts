@@ -13,10 +13,13 @@
 
 import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { parseOpenApi } from "../src/_internal/api/parse.js";
+import { resolveSpecSource } from "../src/_internal/api/resolve-spec.js";
 import {
   ApiBuildError,
   buildApiModel,
@@ -514,5 +517,96 @@ describe("api resilience — broken is fatal", () => {
         return true;
       },
     );
+  });
+});
+
+describe("api resilience — Swagger 2.0 is fatal, with a pointer to conversion", () => {
+  const swagger = [
+    'swagger: "2.0"',
+    "info: { title: Pets, version: 1.0.0 }",
+    "host: api.example.com",
+    "basePath: /v1",
+    "paths:",
+    "  /pets/{petId}:",
+    "    get:",
+    "      operationId: getPet",
+    "      parameters: [{ name: petId, in: path, required: true, type: string }]",
+    "      responses:",
+    "        '200': { description: ok, schema: { type: object, properties: { name: { type: string } } } }",
+    "",
+  ].join("\n");
+  const message = "Swagger 2.0 isn't supported. Convert the document to OpenAPI 3.x first.";
+
+  test("a Swagger 2.0 file fails the build and names its path", async () => {
+    const root = mkdtempSync(path.join(tmpdir(), "nimbus-swagger-"));
+    try {
+      mkdirSync(path.join(root, "src/api"), { recursive: true });
+      writeFileSync(path.join(root, "src/api/swagger.yaml"), swagger);
+      const source = await resolveSpecSource({ collection: "pets", spec: "./src/api/swagger.yaml" }, root);
+      await assert.rejects(
+        () => buildApiModel(source),
+        (err: unknown) => {
+          assert.ok(err instanceof ApiBuildError);
+          assert.deepEqual(err.diagnostics, [{ level: "error", message, source: "./src/api/swagger.yaml" }]);
+          assert.match(err.message, /Swagger 2\.0 isn't supported[^\n]*\(at \.\/src\/api\/swagger\.yaml\)/);
+          return true;
+        },
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("byte-identical Swagger files built together each name their own path", async () => {
+    const root = mkdtempSync(path.join(tmpdir(), "nimbus-swagger-"));
+    try {
+      const specs = ["./a/swagger.yaml", "./b/swagger.yaml"];
+      for (const spec of specs) {
+        mkdirSync(path.join(root, path.dirname(spec)), { recursive: true });
+        writeFileSync(path.join(root, spec), swagger);
+      }
+      const sources = await Promise.all(specs.map((spec) => resolveSpecSource({ collection: "pets", spec }, root)));
+      const results = await Promise.allSettled(sources.map((source) => buildApiModel(source)));
+      assert.deepEqual(
+        results.map((result) => (result.status === "rejected" ? (result.reason as ApiBuildError).diagnostics[0]?.source : "built")),
+        specs,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a label or path containing the cache key's separator still names its own source", async () => {
+    const spec = { swagger: "2.0", info: { title: "P", version: "1" }, paths: {} };
+    const sources = [
+      { label: "one::two", path: "three" },
+      { label: "one", path: "two::three" },
+    ];
+    const results = await Promise.allSettled(sources.map((source) => buildApiModel({ collection: "pets", spec, ...source })));
+    assert.deepEqual(
+      results.map((result) => (result.status === "rejected" ? (result.reason as ApiBuildError).diagnostics[0]?.source : "built")),
+      ["three", "two::three"],
+    );
+  });
+
+  test("an inline Swagger 2.0 document names its label", async () => {
+    await assert.rejects(
+      () => buildApiModel({ collection: "pets", spec: { swagger: "2.0", info: { title: "P", version: "1" }, paths: {} } }),
+      (err: unknown) => err instanceof ApiBuildError && err.diagnostics[0]?.source === "pets" && err.diagnostics[0].message === message,
+    );
+  });
+
+  test("OpenAPI 3.0 and 3.1 documents are unaffected", async () => {
+    for (const openapi of ["3.0.3", "3.1.0"]) {
+      const model = await buildApiModel({
+        collection: `v${openapi.replaceAll(".", "")}`,
+        spec: {
+          openapi,
+          info: { title: "Pets", version: "1" },
+          paths: { "/pets": { get: { operationId: "listPets", responses: { "200": { description: "ok" } } } } },
+        },
+      });
+      assert.equal(getApiPageProps(model, "listPets").kind, "operation", openapi);
+    }
   });
 });

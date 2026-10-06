@@ -88,6 +88,11 @@ function stableStringify(value: unknown): string {
   return `{${entries.join(",")}}`;
 }
 
+/** A model cache key's prefix: quoted, so no collection name prefixes another's. */
+function collectionKey(collection: string): string {
+  return `${JSON.stringify(collection)}::`;
+}
+
 /**
  * Parse a spec into the opaque `ApiModel` handle. Memoised per (collection,
  * spec) so a build parses each spec once; two distinct inline specs on the same
@@ -100,10 +105,18 @@ export async function buildApiModel(source: SpecSource): Promise<ApiModel> {
   // spec is a cache miss (dev hot-reload gets a fresh parse for free). The mount
   // path, `requireOperationId`, `schemaPages`, the route policy, and the sample
   // policy are keyed too, since each changes the output — two versions with
-  // identical spec bytes but different policies must never alias.
-  const key = `${source.collection}::${source.mountPath ?? ""}::${
-    source.requireOperationId ? "strictOpId" : ""
-  }::${source.schemaPages ? "schemaPages" : ""}::${stableStringify(source.routes)}::${stableStringify(source.samples)}::${specDigest(raw)}`;
+  // identical spec bytes but different policies must never alias. The label and
+  // path are keyed so a diagnostic always names its own source.
+  const options = stableStringify({
+    label: source.label,
+    path: source.path,
+    mountPath: source.mountPath,
+    requireOperationId: Boolean(source.requireOperationId),
+    schemaPages: Boolean(source.schemaPages),
+    routes: source.routes,
+    samples: source.samples,
+  });
+  const key = `${collectionKey(source.collection)}${options}::${specDigest(raw)}`;
   const cached = handleCache.get(key);
   if (cached) return cached;
   const promise = parseOpenApi(source).then((r) => wrap(r.model));
@@ -122,8 +135,8 @@ export async function buildApiModel(source: SpecSource): Promise<ApiModel> {
  */
 export function clearApiModelCache(collection: string): void {
   // Every version of a family shares the namespace (`collection`), so the
-  // `${collection}::` handle prefix already spans them all.
-  const prefix = `${collection}::`;
+  // collection's key prefix already spans them all.
+  const prefix = collectionKey(collection);
   for (const key of [...handleCache.keys()]) {
     if (key.startsWith(prefix)) handleCache.delete(key);
   }

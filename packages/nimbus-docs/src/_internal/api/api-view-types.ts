@@ -29,6 +29,8 @@ export interface SpecSource {
   collection: string;
   spec: string | Record<string, JsonValue>;
   label?: string;
+  /** The project-relative file the spec was read from, for diagnostics. */
+  path?: string;
   /** Base URL for this model's pages. Defaults to `/<collection>` when absent. */
   mountPath?: string;
   /** Fail the build on an operation missing a usable `operationId`. Default false. */

@@ -52,6 +52,8 @@ export interface SpecSource {
   spec: string | Record<string, unknown>;
   /** Human label for diagnostics (e.g. the file path). */
   label?: string;
+  /** The project-relative file the spec was read from, for diagnostics. */
+  path?: string;
   /** Base URL for this model's pages. Defaults to `/<collection>` when absent. */
   mountPath?: string;
   /** Fail the build on an operation missing a usable `operationId`. Default false. */
@@ -78,6 +80,8 @@ interface ScalarParserModule {
   validate: (input: string | Record<string, unknown>) => Promise<{
     valid?: boolean;
     errors?: ScalarValidationError[];
+    /** The detected specification version: `"2.0"`, `"3.0"`, or `"3.1"`. */
+    version?: string;
   }>;
   dereference: (input: string | Record<string, unknown>) => Promise<{
     schema?: OpenApiDocument;
@@ -128,6 +132,17 @@ export async function parseOpenApi(source: SpecSource): Promise<ParseResult> {
     // walkability gate below does that — so validation issues become warnings,
     // never a build-abort.
     const validation = await parser.validate(source.spec);
+    // The walker reads OpenAPI 3.x only; a Swagger 2.0 document would render
+    // without servers, parameter types, or response schemas.
+    if (validation.version === "2.0") {
+      throw new ApiBuildError([
+        {
+          level: "error",
+          message: "Swagger 2.0 isn't supported. Convert the document to OpenAPI 3.x first.",
+          source: source.path ?? label,
+        },
+      ]);
+    }
     for (const e of validation.errors ?? []) {
       preDiagnostics.push({
         level: "warning",

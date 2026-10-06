@@ -71,6 +71,7 @@ export async function resolveSpecSource(
     collection: entry.collection,
     spec: contents,
     ...(entry.label ? { label: entry.label } : {}),
+    path: entry.spec,
     ...mountPath,
     ...strict,
     ...routes,

@@ -16,7 +16,7 @@ The OpenAPI document remains the source of truth. You do not create one MDX file
 
 ### Install with the recipe
 
-Start with an OpenAPI 3.x document stored in your repository. Convert Swagger 2.0 documents to OpenAPI 3.x first. `src/api/openapi.yaml` is the usual location, but Nimbus accepts any project-relative local path or an inline document object. Remote specification URLs are not supported.
+Start with an OpenAPI 3.x document stored in your repository. If you have a Swagger 2.0 document, [convert it first](#convert-a-swagger-20-document). `src/api/openapi.yaml` is the usual location, but Nimbus accepts any project-relative local path or an inline document object. Remote specification URLs are not supported.
 
 Run the API reference recipe from the project root inside your coding agent:
 
@@ -31,6 +31,27 @@ The recipe tells the agent to inspect your project, ask for the specification pa
 3. Registers a loader-backed Astro content collection with one line.
 4. Adds the HTML catch-all route. The starter's shared Markdown route serves each page's Markdown version.
 5. Connects the collection to search, alternate Markdown versions, and `llms.txt` indexes.
+
+### Convert a Swagger 2.0 document
+
+Nimbus reads OpenAPI 3.x only. A Swagger 2.0 document fails the build with `Swagger 2.0 isn't supported. Convert the document to OpenAPI 3.x first.`, followed by the document's path.
+
+Keep the Swagger document as your source, and generate a separate OpenAPI 3.x document from it with [swagger2openapi](https://github.com/Mermade/oas-kit/tree/main/packages/swagger2openapi):
+
+<PackageManagers pkg="swagger2openapi@7.0.8" dev />
+
+Run the conversion before Astro in your `dev` and `build` scripts, so the generated document always matches its source:
+
+```json title="package.json"
+{
+  "scripts": {
+    "dev": "swagger2openapi src/api/swagger.yaml --yaml --outfile src/api/openapi.yaml && astro dev",
+    "build": "swagger2openapi src/api/swagger.yaml --yaml --outfile src/api/openapi.yaml && astro build"
+  }
+}
+```
+
+Point the `api` entry's `spec` at the generated document, `./src/api/openapi.yaml`. The converter turns `host`, `basePath`, and `schemes` into `servers`, moves body and form parameters into request bodies, and converts security definitions. The development server watches the generated document, not the Swagger source, so restart `dev` after editing the source.
 
 ### How the pieces fit
 
