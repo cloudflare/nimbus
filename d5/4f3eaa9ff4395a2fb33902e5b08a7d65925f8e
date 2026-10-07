@@ -1,0 +1,29 @@
+apps/www/src/content/docs/ai/docs-for-agents.mdx
+  s_49624ba2116412::t_47c1806c040baa 3,11-14,37,45-61,70-96,105-119,126-147
+packages/nimbus-docs/src/_internal/agent-search.ts
+  s_49624ba2116412::t_0dbc47806f7555 58,130-131,138
+packages/nimbus-docs/test/agent-search.test.ts
+  s_49624ba2116412::t_88e85c028837cf 136,159,214,241,251,253,258
+packages/nimbus-docs/test/markdown-negotiation.test.ts
+  s_49624ba2116412::t_dddf5a1c97b324 2-3,7,10,51,102,118-137,151-255
+packages/nimbus-docs/test/webmcp.test.ts
+  s_49624ba2116412::t_10065f9009eba5 176,186,219-292
+scripts/templates-check.mjs
+  s_49624ba2116412::t_47eb25f527d1d6 25,97-98,172-213,420-438,456-460,533
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d54f3eaa9ff4395a2fb33902e5b08a7d65925f8e",
+  "prompts": {},
+  "sessions": {
+    "s_49624ba2116412": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee9aa7372ffeXuSDVRrQXrooHy",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
