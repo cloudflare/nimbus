@@ -1,0 +1,21 @@
+packages/nimbus-docs/src/_internal/agent-discovery.ts
+  s_379d6cc8be6cd6::t_97c3705318cfa0 9
+packages/nimbus-docs/src/integration.ts
+  s_379d6cc8be6cd6::t_5312a22ac4f60b 558
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "e2e643429a382d2a94040a18661f76fa6f0523bc",
+  "prompts": {},
+  "sessions": {
+    "s_379d6cc8be6cd6": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee97430c2ffe7heVvAppfTwAlC",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
