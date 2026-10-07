@@ -40,6 +40,10 @@ interface HarField {
   value: string;
 }
 
+interface FormField extends HarField {
+  allowReserved?: boolean;
+}
+
 interface HarRequestInput {
   method: string;
   url: string;
@@ -590,6 +594,15 @@ function bodyRewrite(
   const postData = har.postData;
   if (!postData) return undefined;
   const params = postData.params;
+  if (!params && isFormMediaType(postData.mimeType)) {
+    // Keep pre-encoded forms out of httpsnippet's form encoder; the original
+    // Content-Type header stays on the request.
+    const markedHar = { ...har, postData: { mimeType: "text/plain", text: marker } };
+    if (target === "python") return { har: markedHar, line: `payload = ${JSON.stringify(marker)}`, text: () => `payload = ${JSON.stringify(postData.text)}` };
+    if (target === "node") return { har: markedHar, line: `'${marker}'`, text: () => jsString(postData.text) };
+    if (target === "shell") return { har: markedHar, line: `--data ${marker}`, text: () => `--data '${escapeForTarget("shell", postData.text)}'` };
+    return undefined;
+  }
   if (params) {
     const markedHar = { ...har, postData: { ...postData, params: [{ name: marker, value: "" }] } };
     if (target === "python") {
@@ -751,8 +764,10 @@ function buildHar(
     if (fields) {
       // httpsnippet builds a form from `params` only for the bare media type;
       // with parameters such as `charset`, every target sends the text.
-      const text = new URLSearchParams(fields.map((field) => [field.name, field.value])).toString();
-      har.postData = mediaType === "application/x-www-form-urlencoded" ? { mimeType: mediaType, text, params: fields } : { mimeType: mediaType, text };
+      const text = serializeForm(fields);
+      har.postData = mediaType === "application/x-www-form-urlencoded" && !fields.some((field) => field.allowReserved)
+        ? { mimeType: mediaType, text, params: fields }
+        : { mimeType: mediaType, text };
     } else {
       // A raw string body for a non-JSON media type is sent verbatim (matches the
       // rendered example); everything else is JSON-serialized.
@@ -770,6 +785,18 @@ function isFormMediaType(mediaType: string): boolean {
   return mediaType.split(";")[0]!.trim().toLowerCase() === "application/x-www-form-urlencoded";
 }
 
+function serializeForm(fields: FormField[]): string {
+  const encode = (text: string) => new URLSearchParams([["", text]]).toString().slice(1);
+  return fields.map(({ name, value, allowReserved }) => {
+    const encoded = allowReserved
+      ? value.replace(/%[0-9A-Fa-f]{2}|[^A-Za-z0-9\-._~:/?@!$'()*,;]/gu, (token) =>
+        token.startsWith("%") && token.length === 3 ? token : encode(token).replaceAll("+", "%20"),
+      )
+      : encode(value);
+    return `${encode(name)}=${encoded}`;
+  }).join("&");
+}
+
 // A form body's fields: a string is read as an encoded form, an object
 // gives one or more fields per property, and anything else sends no body.
 // A property with an `encoding` entry follows OpenAPI: `style`, `explode`, or
@@ -781,19 +808,20 @@ function isFormMediaType(mediaType: string): boolean {
 function formFields(
   value: unknown,
   encoding: Record<string, OpenApiEncoding | undefined> | undefined,
-): HarField[] {
+): FormField[] {
   if (typeof value === "string") return [...new URLSearchParams(value)].map(([name, text]) => ({ name, value: text }));
   if (!isPlainObject(value)) return [];
-  const fields: HarField[] = [];
-  const add = (name: string, item: unknown) => fields.push({ name, value: formText(item) });
+  const fields: FormField[] = [];
   for (const [key, item] of Object.entries(value)) {
     if (item === undefined) continue;
     const rule = encoding && Object.hasOwn(encoding, key) ? encoding[key] : undefined;
+    const add = (name: string, entry: unknown) => fields.push({ name, value: formText(entry), ...(rule?.allowReserved ? { allowReserved: true } : {}) });
     if (!rule) {
       addNested(key, item, false, add);
     } else if (rule.style === undefined && rule.explode === undefined && rule.allowReserved === undefined) {
-      if (Array.isArray(item)) item.forEach((entry) => add(key, entry));
-      else add(key, item);
+      const addContent = (entry: unknown) => fields.push({ name: key, value: formText(entry, rule.contentType) });
+      if (Array.isArray(item)) item.forEach(addContent);
+      else addContent(item);
     } else {
       const style = rule.style ?? "form";
       const separator = style === "spaceDelimited" ? " " : style === "pipeDelimited" ? "|" : ",";
@@ -802,7 +830,7 @@ function formFields(
         addNested(key, item, true, add);
       } else if (Array.isArray(item)) {
         if (explode) item.forEach((entry) => add(key, entry));
-        else add(key, item.map(formText).join(separator));
+        else add(key, item.map((entry) => formText(entry)).join(separator));
       } else if (isPlainObject(item)) {
         if (explode) Object.entries(item).forEach(([name, entry]) => add(name, entry));
         else add(key, Object.entries(item).flatMap(([name, entry]) => [name, formText(entry)]).join(separator));
@@ -827,7 +855,9 @@ function addNested(name: string, item: unknown, indexArrays: boolean, add: (name
   }
 }
 
-function formText(item: unknown): string {
+function formText(item: unknown, contentType?: string): string {
+  const mediaType = contentType?.split(";")[0]!.trim().toLowerCase();
+  if (mediaType?.endsWith("/json") || mediaType?.endsWith("+json")) return JSON.stringify(item) ?? "";
   if (item === null || item === undefined) return "";
   if (typeof item === "string") return item;
   if (typeof item === "number" || typeof item === "boolean") return String(item);

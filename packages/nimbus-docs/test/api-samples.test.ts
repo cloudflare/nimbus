@@ -1447,31 +1447,37 @@ describe("form request bodies", () => {
   const hasPython = spawnSync("python3", ["-c", "pass"]).status === 0;
   const hasBash = spawnSync("bash", ["-c", "true"]).status === 0;
 
-  // Each runs a sample against a stand-in client and returns the form fields
-  // it sends, decoded, or undefined when the runtime is missing.
-  const sent = {
-    curl(source: string): Field[] | undefined {
+  const wire = {
+    curl(source: string): string | undefined {
       if (!hasBash) return undefined;
-      const stub = `curl() { while [ $# -gt 0 ]; do [ "$1" = --data-urlencode ] && printf '%s\\0' "$2"; shift; done; }`;
+      const stub = `curl() { while [ $# -gt 0 ]; do case "$1" in --data-urlencode|--data) printf '%s\\0%s\\0' "$1" "$2"; shift;; esac; shift; done; }`;
       const run = spawnSync("bash", ["-c", `${stub}\n${source}`], { encoding: "utf8" });
       assert.equal(run.status, 0, `cURL is valid shell: ${run.stderr}\n${source}`);
-      // cURL sends the name as written and URL-encodes what follows the first `=`.
-      return run.stdout.split("\0").filter(Boolean).map((arg) => {
+      const args = run.stdout.split("\0");
+      const fields: string[] = [];
+      for (let i = 0; i < args.length - 1; i += 2) {
+        const arg = args[i + 1]!;
+        if (args[i] === "--data") {
+          fields.push(arg);
+          continue;
+        }
         const at = arg.indexOf("=");
-        return [decodeURIComponent(arg.slice(0, at)), arg.slice(at + 1)];
-      });
+        const value = encodeURIComponent(arg.slice(at + 1)).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+        fields.push(`${arg.slice(0, at)}=${value}`);
+      }
+      return fields.join("&");
     },
-    typescript(source: string): Field[] {
-      let body: URLSearchParams | undefined;
-      const fetch = (_url: string, options: { body: URLSearchParams }) => {
+    typescript(source: string): string {
+      let body: URLSearchParams | string | undefined;
+      const fetch = (_url: string, options: { body: URLSearchParams | string }) => {
         body = options.body;
         return { then: () => ({ then: () => ({ catch: () => undefined }) }) };
       };
       new Function("fetch", source)(fetch);
-      assert.ok(body instanceof URLSearchParams, source);
-      return [...body];
+      assert.ok(body instanceof URLSearchParams || typeof body === "string", source);
+      return String(body);
     },
-    python(source: string): Field[] | undefined {
+    python(source: string): string | undefined {
       if (!hasPython) return undefined;
       const harness = [
         "import json, sys, types, urllib.parse",
@@ -1483,7 +1489,8 @@ describe("form request bodies", () => {
         "requests.post = post",
         "sys.modules['requests'] = requests",
         "exec(sys.stdin.read())",
-        "print(json.dumps(urllib.parse.parse_qsl(urllib.parse.urlencode(sent['data'], doseq=True), keep_blank_values=True)))",
+        "data = sent['data']",
+        "print(json.dumps(data if isinstance(data, str) else urllib.parse.urlencode(data, doseq=True)))",
       ].join("\n");
       const run = spawnSync("python3", ["-c", harness], { input: source, encoding: "utf8" });
       assert.equal(run.status, 0, `Python is valid: ${run.stderr}\n${source}`);
@@ -1511,10 +1518,47 @@ describe("form request bodies", () => {
     if (!hasPython) t.diagnostic("python3 not found: skipping the Python check");
     const samples = await samplesFor(value, encoding, mediaType);
     for (const lang of ["curl", "typescript", "python"] as const) {
-      const fields = sent[lang](samples[lang]);
-      if (fields) assert.deepEqual(fields, expected, `${lang}:\n${samples[lang]}`);
+      const body = wire[lang](samples[lang]);
+      if (body !== undefined) assert.deepEqual([...new URLSearchParams(body)], expected, `${lang}:\n${samples[lang]}`);
     }
   }
+
+  async function assertWire(t: { diagnostic: (message: string) => void }, value: unknown, encoding: Record<string, Record<string, unknown>>, expected: string, mediaType?: string) {
+    if (!hasBash) t.diagnostic("bash not found: skipping the cURL check");
+    if (!hasPython) t.diagnostic("python3 not found: skipping the Python check");
+    const samples = await samplesFor(value, encoding, mediaType);
+    for (const lang of ["curl", "typescript", "python"] as const) {
+      const body = wire[lang](samples[lang]);
+      if (body !== undefined) assert.equal(body, expected, `${lang}:\n${samples[lang]}`);
+    }
+  }
+
+  test("explicit JSON content types serialize scalar values before form encoding", async (t) => {
+    await assertWire(
+      t,
+      { id: "abc", empty: "", cleared: null, flag: false, count: 0, list: ["a", "b"], vendor: "v" },
+      {
+        id: { contentType: "application/json" },
+        empty: { contentType: "application/json" },
+        cleared: { contentType: "application/json" },
+        flag: { contentType: "application/json" },
+        count: { contentType: "application/json" },
+        list: { contentType: "application/json" },
+        vendor: { contentType: "application/vnd.example+json; charset=utf-8" },
+      },
+      "id=%22abc%22&empty=%22%22&cleared=null&flag=false&count=0&list=%22a%22&list=%22b%22&vendor=%22v%22",
+    );
+  });
+
+  test("reserved expansion preserves percent triples and safe reserved characters only", async (t) => {
+    const value = { q: "a%2Fb/c:d", punctuation: ":/?@!$'()*,;=[]#&+%", text: "héllo ✓", invalid: "%2g%a" };
+    const encoding = Object.fromEntries(Object.keys(value).map((name) => [name, { allowReserved: true }]));
+    const expected = "q=a%2Fb/c:d&punctuation=:/?@!$'()*,;%3D%5B%5D%23%26%2B%25&text=h%C3%A9llo%20%E2%9C%93&invalid=%252g%25a";
+    await assertWire(t, value, encoding, expected);
+    await assertWire(t, value, encoding, expected, `${FORM}; charset=utf-8`);
+    await assertWire(t, { q: value.q }, { q: { allowReserved: false } }, "q=a%252Fb%2Fc%3Ad");
+    await assertWire(t, { q: value.q }, {}, "q=a%252Fb%2Fc%3Ad");
+  });
 
   test("without an encoding, objects nest, scalar arrays repeat, and arrays of objects are indexed", async (t) => {
     await assertSends(
@@ -1715,6 +1759,49 @@ describe("form request bodies", () => {
     );
     const typescript = page.samples.find((s) => s.lang === "typescript")?.source ?? "";
     assert.ok(typescript.includes("encodedParams.append('expand[0]', 'invoice');"), typescript);
+  });
+
+  test("an operation preserves mixed field encodings and the declared content type", async (t) => {
+    if (!hasBash) t.diagnostic("bash not found: skipping the cURL check");
+    if (!hasPython) t.diagnostic("python3 not found: skipping the Python check");
+    for (const mediaType of [FORM, `${FORM}; charset=utf-8`]) {
+      const page = await operationPage(
+        {
+          ...baseSpec,
+          paths: {
+            "/customers": {
+              post: {
+                operationId: "createMixedCustomer",
+                requestBody: {
+                  content: {
+                    [mediaType]: {
+                      schema: { type: "object" },
+                      example: { id: "abc", q: "a%2fb/c:d", tags: ["a/b", "%2F"], pairs: ["a/b", "c:d"], metadata: { "a&b": "x:y" }, ordinary: "%2F?&", plain: "abc" },
+                      encoding: {
+                        id: { contentType: "application/json" },
+                        q: { allowReserved: true },
+                        tags: { style: "form", allowReserved: true },
+                        pairs: { style: "form", explode: false, allowReserved: true },
+                        metadata: { style: "deepObject", explode: true, allowReserved: true },
+                        plain: { contentType: "application/json", allowReserved: false },
+                      },
+                    },
+                  },
+                },
+                responses: { "200": { description: "ok" } },
+              },
+            },
+          },
+        },
+        "createMixedCustomer",
+      );
+      assert.equal(page.samples.length, 3);
+      for (const sample of page.samples) {
+        assert.ok(sample.source.includes(mediaType), sample.source);
+        const body = wire[sample.lang as keyof typeof wire](sample.source);
+        if (body !== undefined) assert.equal(body, "id=%22abc%22&q=a%2fb/c:d&tags=a/b&tags=%2F&pairs=a/b,c:d&metadata%5Ba%26b%5D=x:y&ordinary=%252F%3F%26&plain=abc", sample.lang);
+      }
+    }
   });
 });
 

@@ -355,6 +355,8 @@ Credentials always render as placeholders: `Bearer <token>`, `Basic <credentials
 
 An `application/x-www-form-urlencoded` body is sent as form fields. A property with an entry in the media type's `encoding` follows it: `style`, `explode`, or `allowReserved` select query-style serialization, and an entry without them sends the value as its `contentType`, so an object is sent as JSON. A `deepObject` property indexes every array (`expand[0]=customer`). A property without an `encoding` entry uses the bracket convention common to form APIs, not OpenAPI's JSON default: nested objects in brackets (`metadata[plan]=pro`), the name repeated for each item of a scalar array (`tags=a&tags=b`), and arrays of objects indexed (`items[0][price]=p_1`). A string example is read as an encoded form. Empty objects and arrays send no fields, and any other example sends no body.
 
+An explicit JSON `contentType`, including a `+json` media type, JSON-serializes each field value before form encoding: a string such as `abc` is sent as `%22abc%22`. With `allowReserved: true`, valid percent-encoded triples and safe reserved characters pass through unchanged; form delimiters (`=`, `&`, `+`) and unsafe characters (`[`, `]`, `#`) stay encoded. Forms using reserved expansion are sent as pre-encoded text so the HTTP client does not encode them again.
+
 ```sh
 curl --request GET \
   --url 'https://api.example.com/accounts/<account_id>' \
