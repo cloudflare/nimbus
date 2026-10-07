@@ -1,0 +1,19 @@
+.changeset/api-generated-samples.md
+  s_6676316b6d3d45::t_d4bedf6c9c0bb6 1-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "9dae419323c4a2ba3e0894266840ca6f2fcbfcca",
+  "prompts": {},
+  "sessions": {
+    "s_6676316b6d3d45": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ef52b7cb5ffenzEEYHW4Q9HoVi",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
