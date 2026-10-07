@@ -1,0 +1,71 @@
+.changeset/soft-markdown-negotiation.md
+  s_23301c4d7884d8::t_4e4db5f0573c3e 1-10
+apps/www/src/components/ui/search/search.client.ts
+  s_23301c4d7884d8::t_e9b400dd0684d0 106
+apps/www/src/content/docs/configuration.mdx
+  s_23301c4d7884d8::t_facee1e6bd9b19 60,66,115,155-158
+packages/nimbus-docs/src/_internal/agent-discovery-middleware.ts
+  s_23301c4d7884d8::t_cc3b226e636738 1,4-63,66,70,75-77,79-92,94-100
+packages/nimbus-docs/src/_internal/agent-discovery.ts
+  s_23301c4d7884d8::t_6a81d08b9f2659 14-15,211-229,231-249,256
+packages/nimbus-docs/src/_internal/agent-endpoint-assets.ts
+  s_23301c4d7884d8::t_e9007101ed0b46 960
+packages/nimbus-docs/src/_internal/agent-search-contract.ts
+  s_23301c4d7884d8::t_f9d585cce530e1 90-93
+packages/nimbus-docs/src/_internal/agent-search.ts
+  s_23301c4d7884d8::t_38a6582b19dc47 58,130-131,138
+packages/nimbus-docs/src/_internal/markdown-negotiation.ts
+  s_23301c4d7884d8::t_54de285e464dbc 1-25
+packages/nimbus-docs/src/client/webmcp.ts
+  s_23301c4d7884d8::t_188fe193ae86c1 61-66,70,102,130,139-143
+packages/nimbus-docs/src/integration.ts
+  s_23301c4d7884d8::t_7b41a7e6a197d0 608-609,1629-1639,1725-1735,1828-1830,1834-1835,1851
+packages/nimbus-docs/test/agent-discovery-build.test.ts
+  s_23301c4d7884d8::t_af484279eeedf1 41
+packages/nimbus-docs/test/agent-discovery.test.ts
+  s_23301c4d7884d8::t_092d9fc9c3f5c1 154-192
+packages/nimbus-docs/test/agent-search.test.ts
+  s_23301c4d7884d8::t_b36dd698567d3c 136,159,214,241,251,253,258
+packages/nimbus-docs/test/agent-skills-build.test.ts
+  s_23301c4d7884d8::t_f372cc87b67915 102
+packages/nimbus-docs/test/fixtures/agent-site.ts
+  s_23301c4d7884d8::t_fb5fa359e7b465 38
+packages/nimbus-docs/test/markdown-negotiation.test.ts
+  s_23301c4d7884d8::t_ad62aeb5d0a0dd 1-284
+packages/nimbus-docs/test/rendering-policy.test.ts
+  s_23301c4d7884d8::t_35514777f8c4f1 1052-1053,1056,1059-1074
+packages/nimbus-docs/test/upgrades.test.ts
+  s_23301c4d7884d8::t_98960dad299192 32
+packages/nimbus-docs/test/webmcp.test.ts
+  s_23301c4d7884d8::t_e0eb30e1eee087 176,186,219-292
+packages/nimbus-docs/tsdown.config.ts
+  s_23301c4d7884d8::t_724015bca0c3aa 40-45
+packages/nimbus-starter-source/AGENT.md
+  s_23301c4d7884d8::t_f2f1997e9465cb 84-87
+packages/nimbus-starter-source/src/components/ui/search/search.client.ts
+  s_23301c4d7884d8::t_f4c4d8d30e71a7 106
+scripts/fixtures/webmcp/README.md
+  s_23301c4d7884d8::t_3ca714bd165084 32-60
+scripts/templates-check.mjs
+  s_23301c4d7884d8::t_69ba0209add90a 25,97-98,100,127,152,160,174-220,240,246,259,267-272,433-451,469-473,546,553-569
+scripts/webmcp-check.mjs
+  s_23301c4d7884d8::t_e74be4fee9df1f 440,471-519,543
+scripts/workers-feasibility-check.mjs
+  s_23301c4d7884d8::t_0706b3c118c86c 78-138,141-149,398,402-434,439-451,548,1005,1065-1071,1116-1120,1129-1137,1145-1148,1187,1391
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c814668a82d745fe8c89cb8a93dab264eef4eedb",
+  "prompts": {},
+  "sessions": {
+    "s_23301c4d7884d8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_eff5ed97cffeSpj1AMXK1mnVzm",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
