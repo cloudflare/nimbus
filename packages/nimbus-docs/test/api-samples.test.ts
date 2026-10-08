@@ -1298,11 +1298,11 @@ describe("generated request bodies", () => {
     return run.stdout;
   }
 
-  async function sampleFor(id: string, value: unknown, mediaType = "application/json"): Promise<string> {
+  async function sampleFor(id: string, value: unknown, mediaType = "application/json", method = "post"): Promise<string> {
     const tools = await loadSampleTools();
     assert.ok(tools);
     const out = buildOperationSamples(tools, {
-      method: "post",
+      method,
       path: "/items",
       auth: [],
       params: [],
@@ -1394,21 +1394,47 @@ describe("generated request bodies", () => {
     assert.deepEqual(JSON.parse(sentByFetch(await sampleFor("typescript", vendor, "application/vnd.api+json")) as string), vendor);
   });
 
-  test("TypeScript sends falsy JSON bodies; a null body stays omitted", async () => {
-    for (const value of [false, 0, ""]) {
+  test("TypeScript sends falsy JSON bodies, including null", async () => {
+    for (const value of [false, 0, "", null]) {
       const source = await sampleFor("typescript", value);
       assert.equal(sentByFetch(source), JSON.stringify(value), source);
     }
-    assert.equal(sentByFetch(await sampleFor("typescript", null)), undefined);
+    assert.equal(sentByFetch(await sampleFor("typescript", undefined)), undefined);
   });
 
-  test("falsy bodies are sent; a null body stays omitted", async () => {
+  test("Python sends falsy JSON bodies and serializes null as text", async () => {
     for (const [value, literal] of [[false, "False"], [0, "0"], ["", `""`]] as const) {
       const python = await pythonFor(value);
       assert.ok(python.includes(`payload = ${literal}\n`), python);
       assert.ok(python.includes("json=payload"), python);
     }
-    assert.doesNotMatch(await pythonFor(null), /payload/);
+    const python = await pythonFor(null);
+    assert.match(python, /payload = "null"\n/);
+    assert.match(python, /data=payload/);
+    assert.doesNotMatch(python, /json=payload/);
+    assert.doesNotMatch(await pythonFor(undefined), /payload/);
+  });
+
+  test("native JSON null on GET and HEAD retains the existing client behavior", async () => {
+    for (const method of ["get", "head"]) {
+      for (const mediaType of ["application/json", "application/x-json", "text/json", "text/x-json"]) {
+        const source = await sampleFor("typescript", null, mediaType, method);
+        assert.ok(source, "TypeScript sample remains present");
+        let calls = 0;
+        const fetch = (url: string, options: RequestInit) => {
+          calls++;
+          const request = new Request(url, options);
+          assert.equal(request.method, method.toUpperCase());
+          assert.equal(request.body, null);
+          return { then: () => ({ then: () => ({ catch: () => undefined }) }) };
+        };
+        new Function("fetch", source)(fetch);
+        assert.equal(calls, 1);
+        const python = await sampleFor("python", null, mediaType, method);
+        assert.ok(python, "Python sample remains present");
+        assert.doesNotMatch(python, /payload/);
+      }
+    }
   });
 
   test("a body httpsnippet sends as text keeps its output and stays valid", async (t) => {
@@ -1707,7 +1733,7 @@ describe("form request bodies", () => {
       }
     }
     const changed = { ...tools, snippet: { ...tools.snippet, HTTPSnippet: Reformatted } } as typeof tools;
-    for (const [mediaType, value] of [[FORM, { note: "a\nb" }], ["application/json", { note: "a\nb" }]] as const) {
+    for (const [mediaType, value] of [[FORM, { note: "a\nb" }], ["application/json", { note: "a\nb" }], ["application/json", null]] as const) {
       const out = buildOperationSamples(changed, { method: "post", path: "/x", auth: [], params: [], body: { mediaType, value } });
       const langs = out.map((s) => s.lang);
       assert.ok(!langs.includes("python"), `${mediaType}: ${langs}`);

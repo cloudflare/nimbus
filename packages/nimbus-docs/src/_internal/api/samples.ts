@@ -583,9 +583,8 @@ function convertWithBody(
 // only a repeated field's last value. TypeScript also drops a JSON body of
 // `false`, `0`, or `""`. Such a body enters as one marker, and Nimbus writes
 // the code in its place, indented like the marker's line. Python's text
-// bodies, which it escapes, and a null JSON body, which both omit, keep its
-// output. When the marker isn't where it's expected, as after an httpsnippet
-// change, the sample is left out rather than shown unescaped.
+// bodies, which it escapes, keep its output. When the marker isn't where it's
+// expected, as after an httpsnippet change, the sample is left out rather than shown unescaped.
 function bodyRewrite(
   har: HarRequestInput,
   target: string,
@@ -623,7 +622,12 @@ function bodyRewrite(
   }
   if (SNIPPET_JSON_TYPES.has(postData.mimeType)) {
     const body = parseJson(postData.text);
-    if (body === undefined || body === null) return undefined;
+    if (body === undefined) return undefined;
+    if (body === null && (har.method === "GET" || har.method === "HEAD")) return undefined;
+    if (body === null && target === "python") {
+      const markedHar = { ...har, postData: { mimeType: "text/plain", text: marker } };
+      return { har: markedHar, line: `payload = ${JSON.stringify(marker)}`, text: () => `payload = ${JSON.stringify(postData.text)}` };
+    }
     const markedHar = { ...har, postData: { ...postData, text: JSON.stringify(marker) } };
     if (target === "python") return { har: markedHar, line: `payload = ${JSON.stringify(marker)}`, text: () => `payload = ${pythonLiteral(body)}` };
     if (target === "node") return { har: markedHar, line: `JSON.stringify('${marker}')`, text: (indent) => `JSON.stringify(${jsLiteral(body, indent)})` };
