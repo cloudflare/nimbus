@@ -25,6 +25,7 @@ const section = route("src/pages/[section]/llms.txt.ts", "/[section]/llms.txt", 
 
 test("llms asset URLs follow the starter routes", () => {
   assert.equal(llmsAssetUrl({ scope: "site", surface: "index" }), "/llms.txt");
+  assert.equal(llmsAssetUrl({ scope: "site", surface: "full" }), "/llms-full.txt");
   assert.equal(
     llmsAssetUrl({ scope: "section", surface: "index", section: "v1" }),
     "/v1/llms.txt",

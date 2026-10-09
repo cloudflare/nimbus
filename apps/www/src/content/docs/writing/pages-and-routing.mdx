@@ -85,7 +85,7 @@ draft: true
 
 `src/content/docs/` is the primary collection, mounted at the site root. Additional collections (a `blog`, an `api`, a versioned `docs-v2`) mount under their own URL namespace. Register them in `src/content.config.ts` with the factories from `nimbus-docs/content`.
 
-Nimbus's `docsCollection()`, `partialsCollection()`, and `componentsCollection()` factories prepare content for links, alternate Markdown/MDX versions, and partial headings automatically. If you register a loader that stores Markdown bodies directly, wrap it with `withNimbusMarkdown()`:
+Nimbus's `docsCollection()`, `partialsCollection()`, and `componentsCollection()` factories prepare content for links, alternate Markdown/MDX versions, `llms-full.txt`, and partial headings automatically. If you register a loader that stores Markdown bodies directly, wrap it with `withNimbusMarkdown()`:
 
 ```ts title="src/content.config.ts"
 import { defineCollection } from "astro:content";

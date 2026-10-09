@@ -44,11 +44,3 @@ test("agent endpoints retain the publication compatibility entrypoint", () => {
     agentEndpoints.getMarkdownPayload,
   );
 });
-
-test("a route still requesting the removed llms-full surface fails with its upgrade entry", async () => {
-  await assert.rejects(
-    agentEndpoints.getLlmsPayload({ scope: "site", surface: "full" } as never),
-    /llms-full\.txt was removed.*llms-full-removed/,
-  );
-  assert.throws(() => agentEndpoints.llmsFullRoute(), /llms-full-removed/);
-});

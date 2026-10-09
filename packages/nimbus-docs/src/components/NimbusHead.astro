@@ -110,7 +110,7 @@ const versionRecord = apiVersion
 const versionCanonicalPath = versionRecord?.canonical?.url ?? null;
 
 // Query-mode versions: a non-default version renders at the version-free
-// URL plus `?api-version=`, so it is `noindex` the way hidden versions are,
+// URL plus `?version=`, so it is `noindex` the way hidden versions are,
 // and its canonical is the matched default counterpart's version-free URL
 // (from the alternates table, shape-fallback matches included). With no
 // counterpart there is no canonical at all — the page's own pathname would

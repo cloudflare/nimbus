@@ -13,6 +13,7 @@ import {
   writeFile,
   realpath,
 } from "node:fs/promises";
+import { rmSync } from "node:fs";
 import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -110,6 +111,9 @@ async function fixture(
   t: TestContext,
   worker: boolean,
   extra: Record<string, unknown> = {},
+  // A dev server's content sync can outlive server.stop(); removing the
+  // folder at exit keeps it from reading deleted files after the test.
+  removeAtExit = false,
 ) {
   // Astro recognises src/live.config.ts by path; macOS's temp folder sits
   // behind a symlink (/var → /private/var), so use the real path.
@@ -117,11 +121,14 @@ async function fixture(
     await mkdtemp(path.join(os.tmpdir(), "nimbus-assets-adapter-")),
   );
   t.diagnostic(`fixture: ${root}`);
-  t.after(() =>
-    process.env.NIMBUS_TEST_KEEP
-      ? undefined
-      : rm(root, { recursive: true, force: true, maxRetries: 5 }),
-  );
+  if (!process.env.NIMBUS_TEST_KEEP && removeAtExit)
+    process.once("exit", () => rmSync(root, { recursive: true, force: true }));
+  else
+    t.after(() =>
+      process.env.NIMBUS_TEST_KEEP
+        ? undefined
+        : rm(root, { recursive: true, force: true, maxRetries: 5 }),
+    );
   await dependencies(root);
   const write = async (name: string, contents: string) => {
     await mkdir(path.dirname(path.join(root, name)), { recursive: true });
@@ -302,36 +309,36 @@ async function assertRequests(
   assert.match(latestHtml, /Current Guide/);
   assert.match(latestHtml, /rel="canonical"/);
   assert.ok(!latestHtml.includes("nimbus-ref:"));
-  const old = await request("/api/list-pets/?api-version=v1");
+  const old = await request("/api/list-pets/?version=v1");
   assert.equal(old.status, 200);
   const oldHtml = await old.text();
   assert.match(oldHtml, /data-version="v1"/);
   assert.match(oldHtml, /data-markdown="none"/);
   assert.match(oldHtml, /name="robots" content="noindex"/);
   assert.ok(!oldHtml.includes("nimbus-ref:"));
-  assert.equal(
-    (await request("/api/list-pets/?api-version=missing")).status,
-    404,
-  );
+  assert.equal((await request("/api/list-pets/?version=missing")).status, 404);
   assert.equal((await request("/api/legacy-report/")).status, 404);
-  assert.equal(
-    (await request("/api/legacy-report/?api-version=v1")).status,
-    200,
-  );
+  assert.equal((await request("/api/legacy-report/?version=v1")).status, 200);
   const switchUrl = switchHref(latestHtml);
   assert.ok(switchUrl);
   const switched = await request(switchUrl);
   assert.equal(switched.status, 302);
   assert.equal(
     switched.headers.get("location"),
-    `${base}/api/list-pets/?api-version=v1`,
+    `${base}/api/list-pets/?version=v1`,
   );
-  const renamed = await request("/api/make-pet/?api-version=v1");
+  const legacy = await request("/api/list-pets/?api-version=v1");
+  assert.equal(legacy.status, 308);
+  assert.equal(
+    legacy.headers.get("location"),
+    `${base}/api/list-pets/?version=v1`,
+  );
+  const renamed = await request("/api/make-pet/?version=v1");
   assert.equal(renamed.status, 200);
   const renameSwitch = await request(switchHref(await renamed.text())!);
   assert.equal(renameSwitch.headers.get("location"), `${base}/api/create-pet/`);
   assert.equal(
-    (await request("/api/list-pets/index.md?api-version=v1")).status,
+    (await request("/api/list-pets/index.md?version=v1")).status,
     404,
   );
   const markdown = await request("/api/list-pets/index.md");
@@ -455,7 +462,7 @@ test(
     assert.equal(switched.status, 302);
     assert.equal(
       switched.headers.get("location"),
-      "/api/list-pets/?api-version=v1",
+      "/api/list-pets/?version=v1",
     );
   },
 );
@@ -477,7 +484,7 @@ test(
     });
     let server: Awaited<ReturnType<typeof dev>> | undefined;
     t.after(() => server?.stop());
-    const { root, options } = await fixture(t, true);
+    const { root, options } = await fixture(t, true, {}, true);
     server = await dev({
       ...options,
       server: { host: "127.0.0.1", port: 0 },
@@ -497,7 +504,7 @@ test(
     while (Date.now() < deadline) {
       html = await (
         await fetch(
-          `http://127.0.0.1:${server!.address.port}/api/make-pet/?api-version=v1`,
+          `http://127.0.0.1:${server!.address.port}/api/make-pet/?version=v1`,
         )
       ).text();
       if (html.includes("Updated historical create")) break;
@@ -508,8 +515,6 @@ test(
       /Updated historical create/,
       "dev must refresh the version index after a spec edit",
     );
-    // Stop before the fixture is removed; the dev server's watchers would
-    // otherwise touch deleted files after the test ends.
     await server.stop();
     server = undefined;
   },

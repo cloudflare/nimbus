@@ -313,6 +313,10 @@ const LLMS_ROUTES = {
 export const prerender = true;
 export const { GET } = llmsRoute();
 `,
+  "src/pages/llms-full.txt.ts": `import { llmsFullRoute } from ${moduleUrl("../src/agent-endpoints.ts")};
+export const prerender = true;
+export const { GET } = llmsFullRoute();
+`,
   "src/pages/[section]/llms.txt.ts": `import { llmsSectionRoute } from ${moduleUrl("../src/agent-endpoints.ts")};
 export const prerender = true;
 export const { GET, getStaticPaths } = llmsSectionRoute();

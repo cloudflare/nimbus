@@ -211,4 +211,4 @@ nimbus(config, {
 
 Each transform requires a non-empty `revision`. Increment it whenever its output changes so Nimbus invalidates the generated Markdown cache.
 
-Request-rendered HTML consumes prepared entries and headings. Generating alternate Markdown/MDX versions, `llms.txt` indexes, reusable-snippet expansion, and syntax highlighting remains build-time work. Their endpoints can prerender or serve those payloads on request. Run a production build after changing these options; development mode does not validate the final Worker bundle.
+Request-rendered HTML consumes prepared entries and headings. Generating alternate Markdown/MDX versions, `llms.txt` indexes, `llms-full.txt`, reusable-snippet expansion, and syntax highlighting remains build-time work. Their endpoints can prerender or serve those payloads on request. Run a production build after changing these options; development mode does not validate the final Worker bundle.

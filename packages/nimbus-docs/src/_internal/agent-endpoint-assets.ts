@@ -20,6 +20,7 @@ import {
   collectionMountPrefix,
   PRIMARY_COLLECTION,
 } from "./collection-mount.js";
+import { buildLlmsFullMarkdown, type LlmsFullBlock } from "./llms-full.js";
 import { isDiscoverable } from "./discoverability.js";
 import { mergePartialHeadings } from "./partial-headings.js";
 import {
@@ -64,6 +65,8 @@ export interface MarkdownEndpointAsset extends MarkdownEndpointReference {
   contentEnd: number;
 }
 
+const LLMS_FULL_WARN_BYTES = 25 * 1024 * 1024;
+
 export type LlmsEndpointAsset = LlmsEndpointReference & {
   digest: string;
   mediaType: string;
@@ -103,6 +106,10 @@ export interface BakeAgentEndpointAssetsOptions {
   decidePublic?: (entry: PreparedMarkdownEntry) => AgentEndpointVisibilityDecision;
   apiEntries?: readonly LlmsEndpointApiEntry[];
   loadApiEntries?: () => Promise<readonly LlmsEndpointApiEntry[]>;
+  /** Reports build output that some hosts can't serve. */
+  warn?: (message: string) => void;
+  /** Whether a route serves `/llms-full.txt`. Default true. */
+  fullDocument?: boolean;
   renderApiEntryMarkdown?: (
     entry: LlmsEndpointApiEntry,
     base: string,
@@ -626,6 +633,7 @@ interface PreparedLlmsPage {
   description?: string;
   url: string;
   markdownUrl: string;
+  markdown: string;
 }
 
 interface PreparedLlmsGroup {
@@ -637,6 +645,7 @@ interface PreparedLlmsGroup {
 
 function preparedLlmsPage(
   entry: Pick<PreparedMarkdownEntry, "collection" | "id" | "data">,
+  markdown: string,
   options: BakeAgentEndpointAssetsOptions,
 ): PreparedLlmsPage {
   const route = entryRouteUrl(
@@ -657,6 +666,7 @@ function preparedLlmsPage(
         : undefined,
     url: toDocumentHref(route),
     markdownUrl: route === "/" ? "/index.md" : `${route}/index.md`,
+    markdown,
   };
 }
 
@@ -726,6 +736,12 @@ function siteIndexAsset(
     "",
     options.description ?? "Documentation index for AI agents.",
     "",
+    ...(options.fullDocument === false
+      ? []
+      : [
+          `Full documentation (discoverable current pages, one document): ${absoluteUrl(options.site, options.base, "/llms-full.txt")}`,
+          "",
+        ]),
     "## Pages",
     "",
     ...rows.map((row) => row.line),
@@ -754,7 +770,7 @@ function assertLlmsRouteSafety(
   pages: readonly PreparedLlmsPage[],
   groups: readonly PreparedLlmsGroup[],
 ): void {
-  const routes = new Set(["/llms.txt"]);
+  const routes = new Set(["/llms.txt", "/llms-full.txt"]);
   for (const group of groups) {
     let decoded = group.slug;
     while (true) {
@@ -1318,7 +1334,7 @@ export async function bakeAgentEndpointAssets(
         base,
       },
     );
-    const page = preparedLlmsPage(entry, options);
+    const page = preparedLlmsPage(entry, markdown, options);
     llmsRoutePages.push(page);
     if (isDiscoverable(entry)) preparedLlmsPages.push(page);
     if (entry.headings) {
@@ -1399,7 +1415,7 @@ export async function bakeAgentEndpointAssets(
   for (const entry of apiEntries) {
     const decision = decisions.get(`${entry.collection}\0${entry.id}`)!;
     if (decision.status === "exclude") continue;
-    const routePage = preparedLlmsPage(entry, options);
+    const routePage = preparedLlmsPage(entry, "", options);
     llmsRoutePages.push(routePage);
     const coordinate = entry.data.coordinate;
     if (typeof coordinate !== "string") {
@@ -1420,7 +1436,7 @@ export async function bakeAgentEndpointAssets(
       );
     }
     if (isDiscoverable(entry)) {
-      preparedLlmsPages.push(preparedLlmsPage(entry, options));
+      preparedLlmsPages.push(preparedLlmsPage(entry, markdown, options));
     }
     const url = preparedMarkdownUrls(entry, options).markdown;
     const { body, contentStart, contentEnd } = apiMarkdownAsset(
@@ -1474,6 +1490,12 @@ export async function bakeAgentEndpointAssets(
 
   const { leaves, groups } = groupPreparedLlmsPages(preparedLlmsPages, options);
   assertLlmsRouteSafety(llmsRoutePages, groups);
+  const versionSlugs = new Set(options.versions?.others ?? []);
+  const llmsFullPages = preparedLlmsPages.filter(
+    (page) =>
+      page.collection === PRIMARY_COLLECTION ||
+      !versionSlugs.has(collectionLabel(page.collection, options.versions)),
+  );
   const llmsBodies: Array<{
     reference: LlmsEndpointReference;
     body: string;
@@ -1482,6 +1504,29 @@ export async function bakeAgentEndpointAssets(
       reference: { scope: "site", surface: "index" },
       body: siteIndexAsset(leaves, groups, options),
     },
+    // Without a route, the file would only be shipped, never served.
+    ...(options.fullDocument === false
+      ? []
+      : [
+          {
+            reference: { scope: "site" as const, surface: "full" as const },
+            body: buildLlmsFullMarkdown(
+              llmsFullPages.map((page): LlmsFullBlock => ({
+                title: page.title,
+                description: page.description,
+                url: page.url,
+                markdownUrl: page.markdownUrl,
+                markdown: page.markdown,
+              })),
+              {
+                title: options.title,
+                description: options.description,
+                site: options.site,
+                base,
+              },
+            ),
+          },
+        ]),
     ...groups.map((group) => ({
       reference: {
         scope: "section" as const,
@@ -1491,6 +1536,18 @@ export async function bakeAgentEndpointAssets(
       body: sectionIndexAsset(group, options),
     })),
   ];
+  const full = llmsBodies.find(
+    ({ reference }) =>
+      reference.scope === "site" && reference.surface === "full",
+  );
+  // Cloudflare serves static files up to 25 MiB; larger ones fail the deploy.
+  if (full && full.body.length * 3 > LLMS_FULL_WARN_BYTES) {
+    const bytes = Buffer.byteLength(full.body);
+    if (bytes > LLMS_FULL_WARN_BYTES)
+      options.warn?.(
+        `llms-full.txt is ${(bytes / 1024 / 1024).toFixed(1)} MiB, over Cloudflare's 25 MiB file limit, so the deploy will fail. To drop it, delete the route that serves it (usually src/pages/llms-full.txt.ts); llms.txt and each page's Markdown stay.`,
+      );
+  }
   const llmsRecords: Array<LlmsEndpointAsset & { body: string }> =
     llmsBodies.map(({ reference, body }) => {
       const fingerprint = digest(

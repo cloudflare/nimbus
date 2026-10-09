@@ -942,6 +942,7 @@ async function assertArtifactsAndSmoke(dist) {
     "api/index.md",
     "api/llms.txt",
     "llms.txt",
+    "llms-full.txt",
     "nimbus-api/coordinates.json",
   ]) {
     assert(
@@ -1006,6 +1007,7 @@ async function assertArtifactsAndSmoke(dist) {
     "root llms.txt must link /api/llms.txt exactly once",
   );
   const apiIndex = await readFile(join(dist, "api", "llms.txt"), "utf8");
+  const llmsFull = await readFile(join(dist, "llms-full.txt"), "utf8");
   const expectedMarkdownUrls = expectedRoutes
     .map((route) => absoluteUrl(`${route}/index.md`))
     .sort();
@@ -1015,11 +1017,20 @@ async function assertArtifactsAndSmoke(dist) {
       occurrences(apiIndex, markdownUrl) === 1,
       `api/llms.txt must contain ${markdownUrl} exactly once`,
     );
+    assert(
+      occurrences(llmsFull, markdownUrl) === 1,
+      `llms-full.txt must contain ${markdownUrl} exactly once`,
+    );
   }
   assert(
     JSON.stringify(extractApiMarkdownUrls(apiIndex)) ===
       JSON.stringify(expectedMarkdownUrls),
     "api/llms.txt API Markdown URL set differs from expected.json",
+  );
+  assert(
+    JSON.stringify(extractApiMarkdownUrls(llmsFull)) ===
+      JSON.stringify(expectedMarkdownUrls),
+    "llms-full.txt API Markdown URL set differs from expected.json",
   );
 
   const manifest = JSON.parse(
@@ -1421,11 +1432,18 @@ async function assertBasePathMetadata() {
   const basedArtifacts = {
     "root agent index": [
       await readFile(join(site, "dist-base", "llms.txt"), "utf8"),
-      [absoluteUrl("/docs/api/llms.txt")],
+      [absoluteUrl("/docs/llms-full.txt"), absoluteUrl("/docs/api/llms.txt")],
     ],
     "API agent index": [
       await readFile(join(site, "dist-base", "api", "llms.txt"), "utf8"),
       [absoluteUrl("/docs/api/charges/create/index.md")],
+    ],
+    "full documentation": [
+      await readFile(join(site, "dist-base", "llms-full.txt"), "utf8"),
+      [
+        absoluteUrl("/docs/llms.txt"),
+        absoluteUrl("/docs/api/charges/create/index.md"),
+      ],
     ],
     "ordinary Markdown": [
       await readFile(join(site, "dist-base", "guide", "index.md"), "utf8"),

@@ -214,11 +214,11 @@ describe("prepared API citations: historical authored lookup without published h
     assert.equal(reads.has("v2"), false);
     assert.equal(
       index.get("svc@v2:operation-v2.field"),
-      "/svc/slug-v2?api-version=v2#field",
+      "/svc/slug-v2?version=v2#field",
     );
     assert.equal(
       index.get("svc@v2:operation-v2.response.200"),
-      "/svc/slug-v2?api-version=v2#response-200",
+      "/svc/slug-v2?version=v2#response-200",
     );
     assert.equal(
       unpublished.get("svc@v2:UnpublishedSchema"),
@@ -232,11 +232,11 @@ describe("prepared API citations: historical authored lookup without published h
     assert.equal(index.has("svc@v2:operation-v2"), true);
     assert.equal(
       index.get("svc@v1:operation-v1"),
-      "/svc/slug-v1?api-version=v1",
+      "/svc/slug-v1?version=v1",
     );
     assert.equal(
       index.get("svc@v2:operation-v2"),
-      "/svc/slug-v2?api-version=v2",
+      "/svc/slug-v2?version=v2",
     );
     assert.equal(reads.get("v2"), 2, "cache retains one historical version");
     assert.equal(index.get("svc@missing:operation-v2"), undefined);

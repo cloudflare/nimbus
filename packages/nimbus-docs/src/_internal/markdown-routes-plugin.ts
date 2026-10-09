@@ -37,6 +37,7 @@ const FACTORIES = {
   markdownSourceRoute: "source",
   markdownRoute: "markdown",
   llmsRoute: "llms",
+  llmsFullRoute: "llms",
   llmsSectionRoute: "llms",
 } as const satisfies Record<string, MarkdownRouteSurface>;
 

@@ -56,7 +56,7 @@ if (apiCollection) {
     entries = await Promise.all(visible.map(async (v) => {
       const isActive = v.version === activeVersion;
       // The active entry stays on this page, keeping that version's
-      // `?api-version=` (other query params are dropped); others switch to the
+      // `?version=` (other query params are dropped); others switch to the
       // same operation in their version, or its landing.
       const href = isActive
         ? currentPath + new URL(v.url, "http://x").search

@@ -4,7 +4,7 @@
  * API entries carry no MDX body, so `renderEntryAsMarkdown` (which reads
  * `entry.body`) yields nothing for them. This serializes the frozen view-model
  * instead: every fact in `ApiPageProps` becomes Markdown, deterministically and
- * with no spine access. Output is safe to embed in a larger document — page content starts at `##`,
+ * with no spine access. Output is safe to embed in `llms-full.txt` — page content starts at `##`,
  * and every spec-controlled string is neutralized so a hostile description or
  * field name can neither forge a heading nor break an inline-code span.
  */

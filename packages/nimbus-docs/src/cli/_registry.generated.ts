@@ -261,7 +261,7 @@ export const BUNDLED_INDEX: BundledIndex = {
       "name": "ai-native",
       "type": "registry:feature",
       "title": "Markdown and llms.txt endpoints",
-      "description": "Add alternate Markdown/MDX versions, llms.txt indexes, robots.txt, and an AgentDirective to a Nimbus docs site."
+      "description": "Add alternate Markdown/MDX versions, llms.txt indexes, llms-full.txt, robots.txt, and an AgentDirective to a Nimbus docs site."
     },
     "api-reference": {
       "name": "api-reference",

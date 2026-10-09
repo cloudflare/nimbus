@@ -60,6 +60,7 @@ import {
   renderEntryAsMarkdown,
   type RenderEntryAsMarkdownOptions,
 } from "./_internal/transform.js";
+import { buildLlmsFullMarkdown } from "./_internal/llms-full.js";
 import { isDiscoverable } from "./_internal/discoverability.js";
 import {
   assembleBreadcrumbs,
@@ -309,7 +310,7 @@ export interface IndexedTopLevel {
 
 /**
  * Cross-collection entry list backing the agent-facing routes
- * (`llms.txt`, per-page `.md` alternates) and internal
+ * (`llms.txt`, per-page `.md` alternates, `llms-full.txt`) and internal
  * link validation. Implements the indexing baseline of the two-layer
  * architecture documented at `/features/llms-txt`:
  *
@@ -519,7 +520,8 @@ export async function getIndexedTopLevel(): Promise<IndexedTopLevel> {
  * Prose entries render their MDX body via `renderEntryAsMarkdown`. OpenAPI
  * reference entries carry no body, so their frozen view-model is projected and
  * emitted through the `./api` seam — dynamic-imported so the engine and its
- * parser stay out of the main bundle for prose-only sites.
+ * parser stay out of the main bundle for prose-only sites. Both `llms-full.txt`
+ * and the served `.md` route go through here, so the two never drift.
  */
 export async function renderIndexedEntryMarkdown(
   item: IndexedEntry,
@@ -569,6 +571,64 @@ export async function renderIndexedEntryMarkdown(
     coordinate,
   );
   return renderApiPageMarkdown(page, {
+    base: options?.base,
+  });
+}
+
+/**
+ * Render the full published documentation as one Markdown document for the
+ * `llms-full.txt` route. One fetch returns every discoverable current page as
+ * clean Markdown, with no crawling.
+ *
+ * Scope matches the root `llms.txt`: the primary `docs` collection plus
+ * every secondary collection, **excluding** non-current version collections
+ * (`docs-<v>`) — old versions keep their own per-version indexes and never
+ * multiply this document — and **excluding** `noindex: true` pages (see
+ * {@link isDiscoverable}), which stay addressable but off discovery indexes.
+ *
+ * Contract (see `buildLlmsFullMarkdown` for the collation rules):
+ *   - Entries are sorted by `url`; output is deterministic across rebuilds.
+ *   - Each entry is a `#`-level block (bodies render at `##` and below).
+ *   - The document header cross-references `/llms.txt`.
+ *
+ * The starter route reads the prebuilt full-document endpoint payload. A site
+ * that wants a different policy (per-version, filtered, chunked) should generate
+ * its own output at build time rather than compose runtime entry renderers, which do
+ * not carry build-only partial or API rendering context. Pass Astro's
+ * `import.meta.env.BASE_URL` as `base` when the site supports sub-path deploys.
+ */
+export async function renderLlmsFullMarkdown(options?: {
+  base?: string;
+}): Promise<string> {
+  const config = await loadNimbusConfig();
+  const versions = await getVersions();
+  const entries = await getIndexedEntries();
+
+  // Exclude non-current version collections — same predicate the root
+  // `llms.txt` applies via its `kind === "version"` skip (hidden versions
+  // are a subset of `others`, so this covers them too).
+  const versionSlugs = new Set(versions?.others ?? []);
+  const included = entries.filter(
+    (item) =>
+      isDiscoverable(item.entry) &&
+      (item.collection === PRIMARY_COLLECTION ||
+        !versionSlugs.has(resolveCollectionSlug(item.collection, versions))),
+  );
+
+  const blocks = await Promise.all(
+    included.map(async (item) => ({
+      title: item.title,
+      description: item.description,
+      url: item.url,
+      markdownUrl: item.markdownUrl,
+      markdown: await renderIndexedEntryMarkdown(item, { base: options?.base }),
+    })),
+  );
+
+  return buildLlmsFullMarkdown(blocks, {
+    title: config.title,
+    description: config.description,
+    site: config.site,
     base: options?.base,
   });
 }
@@ -1713,7 +1773,7 @@ export async function getApiVersions(
     hidden: t.hidden,
     // Trailing-slashed; a bare `/family/v2` would 307-redirect under
     // directory builds. In query mode this is the version-free landing with
-    // the version's query (`/<family>/?api-version=<id>` for non-defaults).
+    // the version's query (`/<family>/?version=<id>` for non-defaults).
     url: pageUrl(t, ""),
   }));
 }

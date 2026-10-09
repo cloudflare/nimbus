@@ -122,7 +122,7 @@ A more specific route must generate every page its pattern matches. If it skips 
 
 ## Override an `llms.txt` index
 
-The starter's `llms.txt` routes call `llmsRoute()` and `llmsSectionRoute()`. Wrap the returned `GET` the same way. This example adds a support link to `/llms.txt`:
+The starter's `llms.txt` routes call `llmsRoute()`, `llmsFullRoute()`, and `llmsSectionRoute()`. Wrap the returned `GET` the same way. This example adds a support link to `/llms.txt`:
 
 ```ts title="src/pages/llms.txt.ts"
 import type { APIRoute } from "astro";
@@ -169,7 +169,7 @@ Keep the route at `src/pages/og/[...slug].ts`, the map's keys, the default `getS
 
 ## What an override changes
 
-An override changes only what that route serves. Hosted MCP keeps the Markdown Nimbus generates.
+An override changes only what that route serves. `llms-full.txt` and hosted MCP keep the Markdown Nimbus generates.
 
 The shared routes and routes that use `markdownRoute()` or `markdownSourceRoute()` must keep `export const prerender = true`. The build fails if one is rendered on request.
 

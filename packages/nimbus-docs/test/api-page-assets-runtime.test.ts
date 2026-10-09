@@ -44,7 +44,7 @@ test("one immutable record resolves independently across versions and preserves 
     coordinate: id,
     href: token,
     breadcrumbs: [{ href: token + "#name%20value" }],
-    description: "[authored](/api/other?api-version=v0)",
+    description: "[authored](/api/other?version=v0)",
     samples: [{ source: "GET /api/pets" }],
   };
   const historical = resolveApiAssetLinks(
@@ -57,10 +57,10 @@ test("one immutable record resolves independently across versions and preserves 
     targets[0]!,
     index(),
   ) as typeof historical;
-  assert.equal(historical.href, "/api/pets/list/?api-version=v1");
+  assert.equal(historical.href, "/api/pets/list/?version=v1");
   assert.equal(
     historical.breadcrumbs[0]!.href,
-    "/api/pets/list/?api-version=v1#name%20value",
+    "/api/pets/list/?version=v1#name%20value",
   );
   assert.equal(historical.markdownHref, undefined);
   assert.equal(latest.href, "/api/pets/list/");

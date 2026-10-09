@@ -66,7 +66,7 @@ export interface PreparedMarkdownArtifact extends PreparedMarkdownReference {
 
 /** @deprecated Use `LlmsEndpointReference` from `@cloudflare/nimbus-docs/agent-endpoints`. */
 export type PreparedLlmsReference =
-  | { scope: "site"; surface: "index" }
+  | { scope: "site"; surface: "index" | "full" }
   | { scope: "section"; surface: "index"; section: string };
 
 /** @deprecated Use `LlmsEndpointPayload` from `@cloudflare/nimbus-docs/agent-endpoints`. */
@@ -282,12 +282,18 @@ export interface ApiSpec {
    * How a version is addressed in URLs. `"path"` (the default) mounts each
    * non-default version at `/<collection>/<version>`. `"query"` gives every
    * operation one URL: `/<collection>/<slug>` with the version in
-   * `?api-version=<id>` — absent means the default, unknown or repeated is
+   * `?version=<id>` — absent means the default, unknown or repeated is
    * a 404, and a hidden version's pages are reachable only by query. `"query"`
    * requires `versions` and the family's effective rendering mode to be
    * `"request"`: a static site serves the same file whatever the query says.
    */
   versionMode?: "path" | "query";
+  /**
+   * The query parameter that carries the version in `versionMode: "query"`.
+   * Default `"version"`. Links using the 0.17 name, `?api-version=`, still
+   * work and redirect to it.
+   */
+  versionParam?: string;
   /**
    * Require every operation to declare a stable `operationId`. When `false` (the
    * default), an operation missing one warns and falls back to a path-derived
@@ -873,8 +879,8 @@ export interface BannerProps {
  * Every field is something the Nimbus framework knows how to handle:
  *   - `head` entries get concatenated with `config.head` in the layout.
  *   - `noindex` emits `<meta name="robots" content="noindex">` and removes the
- *     page from every machine-readable output (`llms.txt`, on-site search,
- *     sitemap) while keeping it addressable and navigable.
+ *     page from every machine-readable output (`llms.txt`, `llms-full.txt`,
+ *     on-site search, sitemap) while keeping it addressable and navigable.
  *   - `title` / `description` populate `<title>` / `<meta name="description">`.
  */
 export interface BasePageProps {
@@ -885,8 +891,8 @@ export interface BasePageProps {
   /**
    * Hide the page from machines while keeping it human-reachable. Emits
    * `<meta name="robots" content="noindex">` and drops the page from every
-   * discovery output (`llms.txt`, on-site search, sitemap); the page, its
-   * `.md` alternate, and nav links still resolve.
+   * discovery output (`llms.txt`, `llms-full.txt`, on-site search,
+   * sitemap); the page, its `.md` alternate, and nav links still resolve.
    */
   noindex?: boolean;
   /** Absolute URL or unbased logical path for this page's Markdown version. */

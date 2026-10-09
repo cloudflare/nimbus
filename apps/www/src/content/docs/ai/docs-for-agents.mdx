@@ -16,6 +16,7 @@ Every framework package includes this guide at `node_modules/@cloudflare/nimbus-
 
 - **Alternate Markdown/MDX versions for every discoverable page** — `/<slug>/index.md` contains clean Markdown with components converted to text, while `/<slug>/index.mdx` retains imports, JSX, and directives. Nimbus resolves links and reusable snippets during the build. The `.md` version links to its `.mdx` source. API reference pages have only the `.md` version. Hidden versions do not emit either file.
 - **A site `llms.txt` index** — names top-level pages and section indexes of the current docs. Each section index links its discoverable pages to their alternate Markdown versions. Older docs versions aren't listed; each has its own index at `/<version>/llms.txt`.
+- **`llms-full.txt`** — combines discoverable pages into one Markdown document, excluding non-current prose versions. AI tools and indexing systems can fetch the current site in one request. Nimbus generates it during the build so rebuilds are byte-identical.
 - **Per-section indexes at `/<section>/llms.txt`** — each top-level group and collection (e.g. a `blog` or a docs version) gets its own index.
 - **Version labels** — on versioned sites, every alternate Markdown version's frontmatter carries a `version:` key (resolved from your `versions` manifest) so agents can pin a version. Unversioned sites emit nothing.
 - **JSON-LD in every page head** — structured data so search and agent tools recognize what they're looking at.
@@ -152,7 +153,7 @@ Nimbus destroys only its isolated agent-search instance after observable executi
 
 ## How pages are indexed
 
-Indexing is multi-collection by default and schema-tolerant — every page collection (one made with Nimbus's helpers: `docsCollection()`, `componentsCollection()`, or a `withNimbusMarkdown()`-wrapped loader, plus API collections) is walked, reading `title` and `description` when present. Plain data collections are not indexed. There is no per-page opt-in; all discoverable pages are listed. Hidden versions are excluded.
+Indexing is multi-collection by default and schema-tolerant — every page collection (one made with Nimbus's helpers: `docsCollection()`, `componentsCollection()`, or a `withNimbusMarkdown()`-wrapped loader, plus API collections) is walked, reading `title` and `description` when present. Plain data collections are not indexed. There is no per-page opt-in; all discoverable pages are listed. Hidden versions are excluded, and `/llms-full.txt` omits non-current prose versions.
 
 Alternate Markdown/MDX versions and `llms.txt` indexes use public agent-endpoint assets. Request-time authorization cannot make private material safe here. Keep private material outside public content collections. Nimbus omits excluded entries and fails the build when it cannot determine whether content is public.
 
@@ -160,7 +161,7 @@ To keep a page **out** of the `llms.txt` indexes, set `draft: true` (excluded en
 
 ### Custom content loaders
 
-Nimbus's collection factories prepare Markdown automatically. If a custom loader retains Markdown bodies for alternate Markdown versions, wrap it with `withNimbusMarkdown()` from `@cloudflare/nimbus-docs/content`. See [Other collections](/writing/pages-and-routing#other-collections) for a complete example.
+Nimbus's collection factories prepare Markdown automatically. If a custom loader retains Markdown bodies for alternate Markdown versions or `llms-full.txt`, wrap it with `withNimbusMarkdown()` from `@cloudflare/nimbus-docs/content`. See [Other collections](/writing/pages-and-routing#other-collections) for a complete example.
 
 ## Route setup
 

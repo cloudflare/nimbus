@@ -3,8 +3,8 @@
   "name": "ai-native",
   "type": "registry:feature",
   "title": "Markdown and llms.txt endpoints",
-  "description": "Add alternate Markdown/MDX versions, llms.txt indexes, robots.txt, and an AgentDirective to a Nimbus docs site.",
-  "markers": ["src/pages/llms.txt.ts", "src/pages/[...slug]/index.md.ts"]
+  "description": "Add alternate Markdown/MDX versions, llms.txt indexes, llms-full.txt, robots.txt, and an AgentDirective to a Nimbus docs site.",
+  "markers": ["src/pages/llms.txt.ts", "src/pages/llms-full.txt.ts", "src/pages/[...slug]/index.md.ts"]
 }
 ---
 
@@ -21,6 +21,7 @@ Add the same user-owned files the canonical starter ships:
 - `src/pages/[...slug]/index.md.ts`
 - `src/pages/[...slug]/index.mdx.ts`
 - `src/pages/llms.txt.ts`
+- `src/pages/llms-full.txt.ts`
 - `src/pages/[section]/llms.txt.ts`
 - `src/pages/robots.txt.ts`
 - `src/components/AgentDirective.astro`
@@ -60,6 +61,13 @@ export const prerender = true;
 export const { GET } = llmsRoute();
 ```
 
+```ts title="src/pages/llms-full.txt.ts"
+import { llmsFullRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+
+export const prerender = true;
+export const { GET } = llmsFullRoute();
+```
+
 ```ts title="src/pages/[section]/llms.txt.ts"
 import { llmsSectionRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
 
@@ -76,6 +84,7 @@ Use the target project's existing sitemap URL pattern for `robots.txt`. Keep `Ag
 Run the user's package manager build command (`pnpm build`, `npm run build`, etc.). Confirm:
 
 - `dist/llms.txt` exists.
+- `dist/llms-full.txt` exists and contains discoverable current documentation.
 - `dist/robots.txt` exists and includes a `Sitemap:` line.
 - `dist/<slug>/index.md` exists for every indexed page, in every collection.
 - `dist/<slug>/index.mdx` exists for every authored page. API pages have no `.mdx`.

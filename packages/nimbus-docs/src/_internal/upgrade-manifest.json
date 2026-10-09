@@ -556,7 +556,7 @@
         "With bundle: false, the collection must render on request (rendering.collections, or rendering.default: \"request\") on the Cloudflare or Node adapter; the build says what to change otherwise.",
         "With bundle: false, add src/live.config.ts registering the apiPages live collection: import { defineLiveCollection } from \"astro:content\"; import { apiPagesLoader } from \"@cloudflare/nimbus-docs/live\"; export const collections = { apiPages: defineLiveCollection({ loader: apiPagesLoader() }) };. The build prints this snippet if it's missing.",
         "With bundle: false, a copied VersionSwitcher or ApiLayout that calls getApiVersionAlternates fails the build. Commit first, then reinstall with nimbus-docs add version-switcher --overwrite and nimbus-docs add api-layout --overwrite, and reapply your edits from git diff. In a customized copy, use await getVersionSwitchUrl({ collection, sourceVersion, id, targetVersion }) for picker links and getApiVersionHead(collection, version, coordinate, Astro.request) for the canonical; pass the page's exact source version and apply withBase once.",
-        "With bundle: false, search, llms.txt, the sitemap and Markdown versions cover that API's default version only. Older versions stay readable as HTML with noindex, and their Markdown returns 404.",
+        "With bundle: false, search, llms.txt, llms-full.txt, the sitemap and Markdown versions cover that API's default version only. Older versions stay readable as HTML with noindex, and their Markdown returns 404.",
         "In CI, restore .nimbus/cache/page-assets/ before the build and save it after a successful one, so unchanged versions are not prepared again."
       ],
       "verify": [
@@ -565,21 +565,20 @@
       ]
     },
     {
-      "id": "llms-full-removed",
+      "id": "api-version-param",
       "introducedIn": "0.18.0",
       "mode": "review-required",
-      "changeset": "remove-llms-full",
-      "summary": "llms-full.txt is removed; agents use llms.txt and per-page Markdown.",
-      "affected": "Sites with src/pages/llms-full.txt.ts, or anything that links to or fetches /llms-full.txt.",
+      "changeset": "api-version-param",
+      "summary": "Query-versioned API pages select the version with ?version= instead of ?api-version=.",
+      "affected": "Only API families that set versionMode: \"query\". Path-versioned and unversioned APIs are unchanged.",
       "instructions": [
-        "Upgrading from before 0.18: earlier entries in this upgrade (llms-full-prepared-artifact, prepared-publication-api-renames, page-urls-and-llms-routes, agent-files-follow-rendering) describe llms-full.txt routes or helpers. Skip those steps; this entry replaces them.",
-        "Delete src/pages/llms-full.txt.ts. Whether it calls llmsFullRoute() or getLlmsPayload({ scope: \"site\", surface: \"full\" }), a prerendered route now fails the build with an error naming this entry, and a request-rendered one returns 500 until the file is gone.",
-        "Remove links to /llms-full.txt from custom pages, components and robots.txt. The generated llms.txt no longer points to it.",
-        "If a custom route calls getLlmsPayload({ scope: \"site\", surface: \"full\" }) or renderLlmsFullMarkdown(), delete it; both are removed. Point agents at /llms.txt, which lists every page's Markdown version."
+        "Generated links now carry ?version=<id>. API pages requested with ?api-version= redirect permanently to ?version=, keeping other query parameters; Markdown URLs don't redirect.",
+        "To keep the old name, set versionParam: \"api-version\" on the family's api entry. Any lowercase name works.",
+        "If a cache or CDN rule in front of the site keys on api-version, key it on the new name."
       ],
       "verify": [
-        "Build the site and confirm it no longer emits llms-full.txt and llms.txt has no link to it.",
-        "Request /llms.txt and one page's index.md."
+        "Request a non-default version with ?version=<id> and confirm it renders that version.",
+        "Request the same page with ?api-version=<id> and confirm a permanent redirect to ?version=<id>."
       ]
     }
   ]

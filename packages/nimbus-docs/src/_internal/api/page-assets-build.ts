@@ -560,6 +560,7 @@ export async function stageApiAssetFamily(
           target.family,
           target.mountPath,
           target.versionMode,
+          target.versionParam,
           target.isDefault,
           target.version,
         ],

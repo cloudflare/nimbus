@@ -26,6 +26,7 @@ src/
 │   ├── 404.astro
 │   ├── index.astro              # home page (the empty starter uses content/docs/index.mdx)
 │   ├── llms.txt.ts
+│   ├── llms-full.txt.ts
 │   ├── nimbus-api/coordinates.json.ts  # API citation manifest
 │   ├── og.png.ts                # site-level OG card
 │   ├── og/

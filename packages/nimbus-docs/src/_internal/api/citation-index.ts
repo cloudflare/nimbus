@@ -73,13 +73,14 @@ function pageUrl(
     family: string;
     mountPath: string;
     versionMode: "path" | "query";
+    versionParam: string;
     isDefault: boolean;
     version: string | null;
   },
   slug: string,
 ): string {
   // Query mode: one version-free path per operation; a non-default version's
-  // citations carry its `?api-version=` (`resolveCitation` shapes only the
+  // citations carry its version query (`resolveCitation` shapes only the
   // pathname, so the query survives `toDocumentHref`).
   const base =
     target.versionMode === "query" ? `/${target.family}` : target.mountPath;

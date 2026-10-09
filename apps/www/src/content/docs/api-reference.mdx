@@ -276,11 +276,13 @@ api: [
 ],
 ```
 
-Every version serves from the family's own path: `/api/pets/` renders the default version, `/api/pets/?api-version=v1` renders `v1`, and an unknown id, or `api-version` given more than once, returns the 404 page. An empty `api-version` selects the default. An operation keeps its path across versions only while its slug does: with the default operation ID routes, an operation renamed between versions has a different path in each, and the version picker links them. Version-prefixed paths such as `/api/v1/pets/` do not exist in this mode. Inside a non-default version, every generated same-version link — page body, navigation, breadcrumbs, citations, the picker's active item — carries that version's `api-version` query, so readers stay in the version they chose.
+Every version serves from the family's own path: `/api/pets/` renders the default version, `/api/pets/?version=v1` renders `v1`, and an unknown id, or `version` given more than once, returns the 404 page. An empty `version` selects the default. An operation keeps its path across versions only while its slug does: with the default operation ID routes, an operation renamed between versions has a different path in each, and the version picker links them. Version-prefixed paths such as `/api/v1/pets/` do not exist in this mode. Inside a non-default version, every generated same-version link — page body, navigation, breadcrumbs, citations, the picker's active item — carries that version's `version` query, so readers stay in the version they chose.
 
-Discovery stays version-free: the sitemap, alternate Markdown, and `llms.txt` describe the default version at the plain URLs. Non-default pages are `noindex`, with their default counterpart as canonical; a page with no default counterpart has no canonical. Per-page Markdown exists for the default version only: a `.md` URL serves the default version whatever its `api-version` says, and a non-default page requested with `Accept: text/markdown` answers with its HTML. A hidden version's pages are reached only by its query, but `hidden` is not access control: `/nimbus-api/coordinates.json` lists them, and its spec is published at `/api/<version>/openapi.json` unless the version sets `publishSpec: false`.
+To use another parameter name, set `versionParam: "api-version"` (any lowercase name) on the family. API pages requested with the 0.17 name, `?api-version=`, redirect permanently to the configured name. Avoid `lang`: the starter's code samples use it for the selected language.
 
-If a cache sits in front of the site, its cache key must keep the `api-version` parameter and vary on `Accept`, or readers get another version's page or the wrong format.
+Discovery stays version-free: the sitemap, alternate Markdown, `llms.txt`, and `llms-full.txt` describe the default version at the plain URLs. Non-default pages are `noindex`, with their default counterpart as canonical; a page with no default counterpart has no canonical. Per-page Markdown exists for the default version only: a `.md` URL serves the default version whatever its `version` says (with `bundle: false`, a non-default `version` returns 404 instead), and a non-default page requested with `Accept: text/markdown` answers with its HTML. A hidden version's pages are reached only by its query, but `hidden` is not access control: `/nimbus-api/coordinates.json` lists them, and its spec is published at `/api/<version>/openapi.json` unless the version sets `publishSpec: false`.
+
+If a cache sits in front of the site, its cache key must keep the version parameter and vary on `Accept`, or readers get another version's page or the wrong format.
 
 Sites that don't set `versionMode` keep path versions unchanged, with one exception that applies in both modes: a version id uses lowercase letters, digits, dots, and dashes, and starts and ends with a letter or digit (`2026-11-30.air`). An existing id such as `-v1` or `v1-` must be renamed.
 
@@ -498,7 +500,7 @@ export const collections = {
 
 When Astro's route cache is enabled, each page is cached with the tags `nimbus-api:<collection>` and `nimbus-api:<collection>@<version>`.
 
-`bundle: false` needs the collection rendered on request and the Cloudflare or Node adapter; the build explains what to change otherwise. It also changes discovery for that API: search, `llms.txt`, the sitemap and Markdown versions cover the default version only. Older versions stay readable as HTML, with `noindex`, and their Markdown returns 404.
+`bundle: false` needs the collection rendered on request and the Cloudflare or Node adapter; the build explains what to change otherwise. It also changes discovery for that API: search, `llms.txt`, `llms-full.txt`, the sitemap and Markdown versions cover the default version only. Older versions stay readable as HTML, with `noindex`, and their Markdown returns 404.
 
 Version pickers use one runtime helper in every rendering mode:
 
@@ -558,7 +560,7 @@ For a collection named `api`, the reference integrates with these routes when th
 | `/api/<page-slug>` | Operation, tag, or webhook page, and schema pages with [`schemaPages: true`](#schema-pages). |
 | `/api/<page-slug>/index.md` | Clean Markdown version. |
 | `/api/llms.txt` | API-only `llms.txt` index. |
-| `/llms.txt` | Site-wide page index. |
+| `/llms.txt` and `/llms-full.txt` | Site-wide page index and full Markdown documentation. |
 | `/nimbus-api/coordinates.json` | Public coordinate-to-URL manifest. |
 
 The API entries also join the existing Pagefind search, sitemap, and OG-image routes when those features are enabled in the project.

@@ -31,7 +31,7 @@ async function pageEntry(context: APIContext) {
   const entry = (await getIndexedEntries()).find((item) => toRouteKey(item.url) === route);
   if (!entry) return undefined;
   // Query-addressed versions: the index holds only the default version, so a
-  // pathname match under `?api-version=<non-default>` would negotiate the
+  // pathname match under `?version=<non-default>` would negotiate the
   // DEFAULT version's Markdown beneath another version's HTML. Those pages
   // have no per-page Markdown affordance; don't negotiate. Path-mode
   // collections return no routing and keep ignoring the parameter.

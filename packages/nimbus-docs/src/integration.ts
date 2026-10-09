@@ -236,6 +236,19 @@ const initialDevWatchers = new Map<string, { close(): Promise<void> }>();
 
 type AgentEndpointAssetsModule = typeof import("./_internal/agent-endpoint-assets.js");
 
+/** Whether an endpoint serves the site's llms-full.txt, by path or by call. */
+function servesLlmsFull(
+  route: { pattern: string; entrypoint: string },
+  readSource: (entrypoint: string) => string | undefined,
+): boolean {
+  if (route.pattern === "/llms-full.txt") return true;
+  const source = readSource(route.entrypoint);
+  return (
+    source !== undefined &&
+    /\bllmsFullRoute\b|surface:\s*["']full["']/u.test(source)
+  );
+}
+
 function loadAgentEndpointAssets(): Promise<AgentEndpointAssetsModule> {
   const extension = import.meta.url.endsWith(".ts") ? "ts" : "js";
   const specifier = ["./_internal/", "agent-endpoint-assets.", extension].join(
@@ -488,6 +501,8 @@ export function nimbus(
   let serverDirectory = new URL("file:///tmp/nimbus-server/");
   let resolvedRoutesForBuild: ResolvedRouteLike[] = [];
   let endpointRoutesForBuild: EndpointRouteRecord[] = [];
+  // Whether a route serves llms-full.txt; unknown until routes resolve.
+  let servesFullDocument: boolean | undefined;
   // Resolved `redirects` (user ∪ version-alternate) for the platform emitter.
   let redirectsForBuild: Record<string, RedirectConfigLike> = {};
   let renderingRoutes = new Map<string, RenderingMode>();
@@ -863,8 +878,8 @@ export function nimbus(
    * when the route isn't one (wrong shape, no factory call, or an unknown
    * mount). Shapes: the root routes (`[...slug]/index.md.ts`,
    * `[...slug]/index.mdx.ts`, `[section]/llms.txt.ts`) take the root
-   * collection's mode; the site-wide `llms.txt.ts`
-   * takes the default; `<mount>/…` takes the mount's mode.
+   * collection's mode; the site-wide `llms.txt.ts` and `llms-full.txt.ts`
+   * take the default; `<mount>/…` takes the mount's mode.
    */
   const agentRouteMode = (component: string): RenderingMode | undefined => {
     const policy = agentRenderingForBuild;
@@ -1036,6 +1051,12 @@ export function nimbus(
               citationIndex,
               componentMap: options.markdown?.componentMap,
               partialResolver,
+              fullDocument: servesFullDocument ?? true,
+              // The size limit it reports is Cloudflare's.
+              warn: (message) => {
+                if (adapterNameForBuild === "@astrojs/cloudflare")
+                  logger.warn(message);
+              },
               loadApiEntries: async () => {
                 const apiEntries: Array<{
                   collection: string;
@@ -1357,6 +1378,7 @@ export function nimbus(
         // failed between `routes:resolved` and `build:done`.
         resolvedRoutesForBuild = [];
         endpointRoutesForBuild = [];
+        servesFullDocument = undefined;
 
         // Scan every code-fence language used in `src/content/**/*.{mdx,md}`
         // so Shiki eager-loads grammars at startup. This makes cold-build
@@ -1610,7 +1632,7 @@ export function nimbus(
               rendering: mode,
             });
           }
-          for (const base of ["llms.txt"] as const) {
+          for (const base of ["llms.txt", "llms-full.txt"] as const) {
             const file = routeFilePath("", base);
             if (!file) continue;
             let detected: string | undefined;
@@ -2816,6 +2838,20 @@ export function nimbus(
             regex: route.patternRegex,
             prerendered: route.isPrerendered,
           }));
+        const serves = endpointRoutesForBuild.some((route) =>
+          servesLlmsFull(
+            route,
+            astroRootForBuild
+              ? readRouteSource(astroRootForBuild)
+              : () => undefined,
+          ),
+        );
+        // Dev re-resolves routes when a page file is added or removed.
+        if (servesFullDocument !== undefined && serves !== servesFullDocument)
+          void loadAgentEndpointAssets().then((assets) =>
+            assets.invalidateAgentEndpointAssets(projectRootForBuild),
+          );
+        servesFullDocument = serves;
         resolvedRoutesForBuild = routes.map((r) => ({
           pattern: r.pattern,
           type: r.type,

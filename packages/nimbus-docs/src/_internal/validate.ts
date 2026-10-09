@@ -307,7 +307,7 @@ const apiVersionSpecShape = {
     .min(1, '"api[].versions[].version" must be a non-empty string')
     .regex(
       /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/,
-      '"api[].versions[].version" must use lowercase letters, digits, dots, and dashes, and start and end with a letter or digit (it becomes a URL segment, a directory name, and an api-version query value)',
+      '"api[].versions[].version" must use lowercase letters, digits, dots, and dashes, and start and end with a letter or digit (it becomes a URL segment, a directory name, and a version query value)',
     ),
   spec: specSourceSchema,
   default: z.boolean().optional(),
@@ -350,6 +350,13 @@ const apiSpecShape = {
   versionMode: z
     .enum(["path", "query"], {
       error: '"api[].versionMode" must be "path" or "query"',
+    })
+    .optional(),
+  versionParam: z
+    .string({ error: '"api[].versionParam" must be a string' })
+    .regex(/^[a-z][a-z0-9_-]*$/, {
+      error:
+        '"api[].versionParam" must start with a lowercase letter and use only lowercase letters, digits, "-", and "_" (it becomes a query parameter name)',
     })
     .optional(),
   requireOperationId: z
@@ -397,6 +404,13 @@ const apiSpecSchema = z
         code: "custom",
         path: ["routes"],
         message: `api collection "${entry.collection}" sets "routes" at the family level, but a version family carries no shared route policy — move "routes" onto each version entry.`,
+      });
+    }
+    if (entry.versionParam !== undefined && entry.versionMode !== "query") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["versionParam"],
+        message: `api collection "${entry.collection}" sets versionParam, which names the query parameter of versionMode: "query". Set versionMode: "query", or remove versionParam`,
       });
     }
     if (!hasVersions) {

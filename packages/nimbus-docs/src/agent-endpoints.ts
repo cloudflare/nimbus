@@ -26,7 +26,7 @@ export interface MarkdownEndpointPayload extends MarkdownEndpointReference {
 }
 
 export type LlmsEndpointReference =
-  | { scope: "site"; surface: "index" }
+  | { scope: "site"; surface: "index" | "full" }
   | { scope: "section"; surface: "index"; section: string };
 
 export type LlmsEndpointPayload = LlmsEndpointReference & {
@@ -84,27 +84,19 @@ async function selectedApiOutputIsDefault(
   request?: Request,
 ): Promise<boolean> {
   if (!request) return true;
-  const params = new URL(request.url).searchParams;
-  if (!params.has("api-version")) return true;
+  const url = new URL(request.url);
+  if (!url.search) return true;
+  const params = url.searchParams;
   const { hasApiPageAssets } =
     await import("./_internal/api/page-assets-runtime.js");
   if (!(await hasApiPageAssets(collection))) return true;
   const { loadNimbusConfig } = await import("./_internal/runtime-config.js");
-  const api = (await loadNimbusConfig()).api?.find(
-    (entry) => entry.collection === collection,
-  );
-  const versions = api?.versions;
-  // An unversioned API has only its default output.
-  if (!versions?.length) return true;
-  const { selectApiVersion } =
+  const { apiQueryRouting, selectApiVersion } =
     await import("./_internal/api/resolve-versions.js");
-  const defaultVersion = (versions.find((entry) => entry.default) ??
-    versions[0])!.version;
+  // Path-versioned and unversioned APIs have no query version to select.
+  const routing = apiQueryRouting((await loadNimbusConfig()).api, collection);
   return (
-    selectApiVersion(params, {
-      defaultVersion,
-      versions: new Set(versions.map((entry) => entry.version)),
-    }) === defaultVersion
+    !routing || selectApiVersion(params, routing) === routing.defaultVersion
   );
 }
 
@@ -357,26 +349,10 @@ export function markdownSourceRoute(): MarkdownRoute {
   return createMarkdownRoute("source");
 }
 
-const LLMS_FULL_REMOVED =
-  "nimbus-docs: llms-full.txt was removed in 0.18.0. Delete the route that serves it (usually src/pages/llms-full.txt.ts); see upgrade entry llms-full-removed.";
-
-/** @deprecated Removed in 0.18.0; throws with upgrade guidance. */
-export function llmsFullRoute(): never {
-  throw new Error(LLMS_FULL_REMOVED);
-}
-
 export async function getLlmsPayload(
   reference: LlmsEndpointReference,
   context: AgentEndpointContext = {},
 ): Promise<LlmsEndpointPayload | null> {
-  // A route written before llms-full.txt was removed still asks for it. Fail
-  // the build rather than publish a "Not found" body as the file.
-  if (
-    reference.scope === "site" &&
-    (reference as { surface: string }).surface !== "index"
-  ) {
-    throw new Error(LLMS_FULL_REMOVED);
-  }
   if (
     reference.scope === "section" &&
     !(await selectedApiOutputIsDefault(
@@ -451,7 +427,7 @@ export async function getLlmsStaticPaths(context?: {
     }));
 }
 
-/** The `{ GET }` behind `src/pages/llms.txt.ts`. */
+/** The `{ GET }` behind `src/pages/llms.txt.ts` or `llms-full.txt.ts`. */
 export interface LlmsRoute {
   GET: APIRoute;
 }
@@ -460,6 +436,18 @@ export interface LlmsRoute {
 export interface LlmsSectionRoute {
   getStaticPaths: GetStaticPaths;
   GET: APIRoute;
+}
+
+function createLlmsRoute(surface: "index" | "full"): LlmsRoute {
+  return {
+    GET: (context) =>
+      endpointResponse(context, () =>
+        getLlmsPayload(
+          { scope: "site", surface },
+          { request: context.request },
+        ),
+      ),
+  };
 }
 
 /**
@@ -477,15 +465,12 @@ export interface LlmsSectionRoute {
  * details when its asset can't be read. Wrap `GET` to customize the response.
  */
 export function llmsRoute(): LlmsRoute {
-  return {
-    GET: (context) =>
-      endpointResponse(context, () =>
-        getLlmsPayload(
-          { scope: "site", surface: "index" },
-          { request: context.request },
-        ),
-      ),
-  };
+  return createLlmsRoute("index");
+}
+
+/** The site's `/llms-full.txt`. Same rules as {@link llmsRoute}. */
+export function llmsFullRoute(): LlmsRoute {
+  return createLlmsRoute("full");
 }
 
 /**

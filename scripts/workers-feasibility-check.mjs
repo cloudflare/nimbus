@@ -551,6 +551,7 @@ async function assertStaticSurfaces(origin) {
     ["/runtime/index.mdx", '<Aside type="note"'],
     ["/api/Health/ping/index.md", "Ping"],
     ["/llms.txt", "Workers request prose"],
+    ["/llms-full.txt", "Request prose body."],
     ["/api/llms.txt", "Ping"],
     ["/robots.txt", "Sitemap:"],
   ]) {
@@ -1101,7 +1102,7 @@ const { page, nav, collection, version, coordinate } = result;
     .map((file) => readFileSync(file, "utf8"))
     .join("\n");
   assert(sitemap.includes("/qapi/"), "sitemap omitted the query-mode family");
-  assert(!sitemap.includes("api-version"), "sitemap advertised a non-default query version");
+  assert(!/[?&]version=/.test(sitemap), "sitemap advertised a non-default query version");
 
   await withWorkerd(site, async (origin) => {
     const page = async (route) => {
@@ -1110,20 +1111,20 @@ const { page, nav, collection, version, coordinate } = result;
       return { html, links: pickerLinks(html) };
     };
     const landing = (await page("/qapi/")).links;
-    const v1Landing = landing.find((link) => link.href.includes("api-version=v1"));
+    const v1Landing = landing.find((link) => link.href.includes("version=v1"));
     assert(v1Landing, `default landing has no v1 picker entry: ${JSON.stringify(landing)}`);
 
     // Find v1's renamed operation through its landing's sidebar.
     const v1Html = (await page(v1Landing.href)).html;
     const fetchHref = v1Html.match(/href="([^"]*fetchPet[^"]*)"/)?.[1]?.replaceAll("&amp;", "&");
-    assert(fetchHref?.includes("?api-version=v1"), `v1 sidebar link to fetchPet lost its version: ${fetchHref}`);
+    assert(fetchHref?.includes("?version=v1"), `v1 sidebar link to fetchPet lost its version: ${fetchHref}`);
 
     const v1Op = await page(fetchHref);
     const active = v1Op.links.find((link) => link.active);
     assert(active?.href === fetchHref, `v1 picker active entry ${active?.href} should stay on ${fetchHref}`);
     const toDefault = v1Op.links.find((link) => !link.active);
     assert(
-      toDefault && /getPet/.test(toDefault.href) && !toDefault.href.includes("api-version"),
+      toDefault && /getPet/.test(toDefault.href) && !/[?&]version=/.test(toDefault.href),
       `v1 fetchPet should pair with the default getPet: ${toDefault?.href}`,
     );
     assert(/<meta name="robots" content="noindex/.test(v1Op.html), "non-default version page must be noindex");
@@ -1147,11 +1148,11 @@ const { page, nav, collection, version, coordinate } = result;
     // One shared path renders each version's own content.
     const listHref = v1Html.match(/href="([^"]*listPets[^"]*)"/)?.[1]?.replaceAll("&amp;", "&");
     const listPath = new URL(listHref, origin).pathname;
-    for (const [query, marker] of [["", "v-two"], ["?api-version=v2", "v-two"], ["?api-version=", "v-two"], ["?api-version=v1", "v-one"]]) {
+    for (const [query, marker] of [["", "v-two"], ["?version=v2", "v-two"], ["?version=", "v-two"], ["?version=v1", "v-one"]]) {
       const { html } = await page(`${listPath}${query}`);
       assert(html.includes(`List pets in ${marker}`), `${listPath}${query} should render ${marker}`);
     }
-    for (const query of ["?api-version=nope", "?api-version=v1&api-version=v1", "?api-version=v1&api-version=v2"]) {
+    for (const query of ["?version=nope", "?version=v1&version=v1", "?version=v1&version=v2"]) {
       const { response } = await request(origin, `${listPath}${query}`);
       assert(response.status === 404, `${listPath}${query} returned ${response.status}, expected 404`);
     }
@@ -1163,7 +1164,7 @@ const { page, nav, collection, version, coordinate } = result;
       defaultMarkdown.headers.get("Content-Type")?.includes("text/markdown") &&
       (await defaultMarkdown.text()).includes("List pets in v-two"),
       `default ${listPath} should negotiate the default version's Markdown`);
-    const v1Markdown = await markdown(`${listPath}?api-version=v1`);
+    const v1Markdown = await markdown(`${listPath}?version=v1`);
     assert(v1Markdown.headers.get("Content-Type")?.includes("text/html") &&
       (await v1Markdown.text()).includes("List pets in v-one"),
       "a non-default version must answer Markdown requests with its own HTML");

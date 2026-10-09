@@ -146,13 +146,12 @@ test("bakes API discovery from thin entries through the projection callback", as
   await bakeAgentEndpointAssets(options);
 
   assert.deepEqual(calls, ["api:charges/create:/docs"]);
-  const page = await readMarkdownEndpointPayload(projectRoot, {
-    collection: "api",
-    id: "charges/create",
-    surface: "markdown",
+  const full = await readLlmsEndpointPayload(projectRoot, {
+    scope: "site",
+    surface: "full",
   });
-  assert.match(page.body, /# Create charge/);
-  assert.match(page.body, /Creates a charge\./);
+  assert.match(full.body, /# Create charge/);
+  assert.match(full.body, /Creates a charge\./);
 });
 
 test("bakes compact headings with a revisioned partial resolver", async () => {
@@ -291,7 +290,7 @@ test("bakes expanded source and transformed Markdown endpoint assets determinist
   const second = await bakeAgentEndpointAssets(options);
   assert.deepEqual(second, first);
   assert.equal(first.markdownAssets.length, 2);
-  assert.equal(first.llmsAssets.length, 1);
+  assert.equal(first.llmsAssets.length, 2);
 
   const source = await readMarkdownEndpointPayload(projectRoot, {
     collection: "docs",
@@ -409,7 +408,7 @@ test("bakes site and section llms.txt endpoint assets from public discoverable p
         ? `${asset.scope}:${asset.surface}`
         : `${asset.scope}:${asset.section}`,
     ),
-    ["section:api", "section:blog", "section:guide", "site:index"],
+    ["section:api", "section:blog", "section:guide", "site:full", "site:index"],
   );
 
   const index = await readLlmsEndpointPayload(projectRoot, {
@@ -428,7 +427,7 @@ test("bakes site and section llms.txt endpoint assets from public discoverable p
     index.body,
     /\[api\]\(https:\/\/example\.test\/docs\/api\/llms\.txt\)/,
   );
-  assert.doesNotMatch(index.body, /v1|Hidden|Secret API/);
+  assert.doesNotMatch(index.body, /v1|Hidden/);
 
   const guide = await readLlmsEndpointPayload(projectRoot, {
     scope: "section",
@@ -439,18 +438,16 @@ test("bakes site and section llms.txt endpoint assets from public discoverable p
   assert.match(guide.body, /Guide B.*Second guide/);
   assert.doesNotMatch(guide.body, /Hidden/);
 
-  const markdown = (collection: string, id: string) =>
-    readMarkdownEndpointPayload(projectRoot, {
-      collection,
-      id,
-      surface: "markdown",
-    }).then((payload) => payload.body);
-  assert.match(await markdown("docs", "guide/a"), /Guide A/);
-  assert.match(await markdown("docs", "guide/b"), /\*\*Guide B\*\*/);
-  const api = await markdown("api", "index");
-  assert.match(api, /API reference/);
-  assert.match(api, /\[Users\]\(\/docs\/api\/tags\/users\)/);
-  assert.match(await markdown("blog", "post"), /Post/);
+  const full = await readLlmsEndpointPayload(projectRoot, {
+    scope: "site",
+    surface: "full",
+  });
+  assert.match(full.body, /# Guide A/);
+  assert.match(full.body, /\*\*Guide B\*\*/);
+  assert.match(full.body, /# API[\s\S]*API reference/);
+  assert.match(full.body, /\[Users\]\(\/docs\/api\/tags\/users\)/);
+  assert.match(full.body, /# Post/);
+  assert.doesNotMatch(full.body, /# Old|# Hidden|Secret API/);
 
   assert.ok(
     manifest.markdownAssets.some(
@@ -460,6 +457,27 @@ test("bakes site and section llms.txt endpoint assets from public discoverable p
   assert.ok(
     manifest.markdownAssets.every((asset) => asset.collection !== "docs-v1"),
   );
+});
+
+test("without an llms-full.txt route, the document is neither built nor linked", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", [
+    { id: "guide", body: "Guide body", data: { title: "Guide" } },
+  ]);
+  configure(projectRoot, {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+    fullDocument: false,
+  });
+  const manifest = await ensureAgentEndpointAssets(projectRoot);
+  assert.ok(manifest.llmsAssets.every((asset) => asset.surface !== "full"));
+  const index = await readLlmsEndpointPayload(projectRoot, {
+    scope: "site",
+    surface: "index",
+  });
+  assert.doesNotMatch(index.body, /llms-full/);
 });
 
 test("Markdown and llms.txt endpoints expose metadata and stage bodies as assets", async () => {
@@ -665,13 +683,12 @@ test("waits for API index transactions before caching llms.txt output", async ()
 
   await ensureAgentEndpointAssets(projectRoot);
   await update;
-  const api = await readLlmsEndpointPayload(projectRoot, {
-    scope: "section",
-    surface: "index",
-    section: "api",
+  const full = await readLlmsEndpointPayload(projectRoot, {
+    scope: "site",
+    surface: "full",
   });
-  assert.match(api.body, /New API/);
-  assert.doesNotMatch(api.body, /Old API/);
+  assert.match(full.body, /New API/);
+  assert.doesNotMatch(full.body, /Old API/);
 });
 
 test("rebakes when invalidated during API input loading", async () => {

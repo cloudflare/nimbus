@@ -54,7 +54,7 @@ nimbus(config, {
 });
 ```
 
-The resolver controls partial IDs in alternate Markdown versions and prepared headings. Change `revision` whenever its output rules change so Nimbus rebuilds the affected Markdown.
+The resolver controls partial IDs in alternate Markdown versions, `llms-full.txt`, and prepared headings. Change `revision` whenever its output rules change so Nimbus rebuilds the affected Markdown.
 
 `Render.astro` is user-owned and resolves the canonical HTML partial separately. If you customize partial IDs, move the resolver function into a shared project file and call it from both `astro.config.ts` and `Render.astro` before `getVisibleEntry("partials", id)`. This keeps HTML, headings, and generated Markdown aligned.
 
