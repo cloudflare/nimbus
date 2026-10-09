@@ -54,6 +54,8 @@ export const prerender = true;
 export const { GET } = llmsFullRoute();
 ```
 
+This file is optional. Without it, Nimbus doesn't build `llms-full.txt` and `llms.txt` doesn't link to it. On a very large site, consider leaving it out: on the Cloudflare adapter the build warns when the file passes Cloudflare's 25 MiB per-file limit.
+
 ## 4. Add section indexes
 
 Create the route for paths such as `/writing/llms.txt`:

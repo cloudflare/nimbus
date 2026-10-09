@@ -633,7 +633,7 @@ describe("versionUrl.param", () => {
     // A path URL has no parameter to name.
     assert.throws(
       () => check({ versionUrl: { in: "path", param: "v" } }),
-      /Unrecognized key: "param"/,
+      /"api\[\]\.versionUrl\.param" names a query parameter, so it needs versionUrl: \{ in: "query" \}/,
     );
     assert.throws(
       () => check({ versionUrl: { in: "header" } }),

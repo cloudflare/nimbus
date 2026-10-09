@@ -351,7 +351,17 @@ const apiSpecShape = {
     .discriminatedUnion(
       "in",
       [
-        z.object({ in: z.literal("path") }).strict(),
+        z
+          .object({
+            in: z.literal("path"),
+            param: z
+              .never({
+                error:
+                  '"api[].versionUrl.param" names a query parameter, so it needs versionUrl: { in: "query" }',
+              })
+              .optional(),
+          })
+          .strict(),
         z
           .object({
             in: z.literal("query"),

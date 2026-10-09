@@ -909,7 +909,7 @@ export function nimbus(
     const parts = relative.split("/");
     const file = parts.at(-1) ?? "";
     const isMarkdownFile = /^index\.mdx?\.[cm]?[jt]s$/u.test(file);
-    const isLlmsFile = /^llms\.txt\.[cm]?[jt]s$/u.test(file);
+    const isLlmsFile = /^llms(?:-full)?\.txt\.[cm]?[jt]s$/u.test(file);
     if (!isMarkdownFile && !isLlmsFile) return undefined;
     // The parameter name is the author's choice; only the shape matters.
     const isSpread = (segment: string) => /^\[\.\.\..+\]$/u.test(segment);
