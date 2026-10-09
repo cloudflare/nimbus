@@ -17,10 +17,9 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { ApiFieldList, ApiUnionExplorer } from "@/components/ui/api-field-row";
 import { PageActions } from "@/components/ui/page-actions";
 import ApiEndpointCard from "./ApiEndpointCard.astro";
-import ApiDeferredSchema from "./ApiDeferredSchema.astro";
 import { authFields } from "./auth";
 import { cn } from "@/lib/cn";
-import { deferApiSchema, withBase, type ApiSchemaRef } from "@cloudflare/nimbus-docs/runtime";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
 import type { ApiPageProps, ApiResponseView } from "@cloudflare/nimbus-docs/api";
 
 interface Props {
@@ -66,11 +65,6 @@ const responseBodies = (r: ApiResponseView) => [
   { mediaType: r.mediaType ?? "application/json", fields: r.fields, truncated: r.truncated, union: r.bodyUnion, anchor: undefined, example: undefined },
   ...(r.additionalMedia ?? []),
 ];
-
-// On a request-rendered page, a large body's nested fields load afterwards
-// through a server island. Null renders the body in full.
-const defer = (schema: ApiSchemaRef) => deferApiSchema(Astro, page, schema);
-const deferredBody = defer({});
 
 const authFieldList = page.kind === "operation" ? authFields(page.auth) : [];
 // Named examples when the spec has them. Otherwise the request body shows
@@ -134,9 +128,7 @@ const deprecationHtml = page.deprecated
         <ApiFieldList as="h2" title={group.label} fields={group.fields} anchor={group.anchor} truncated={group.truncated} />
       ))}
 
-      {deferredBody ? (
-        <ApiDeferredSchema deferred={deferredBody} markdownUrl={markdownUrl} as="h2" title="Request body" badge={mediaBadge(page.bodyMediaType ?? "application/json")} required={page.bodyRequired} />
-      ) : page.bodyUnion ? (
+      {page.bodyUnion ? (
         <ApiFieldList as="h2" title="Request body" badge={mediaBadge(page.bodyMediaType ?? "application/json")} required={page.bodyRequired} descriptionHtml={page.bodyDescriptionHtml} collapsible>
           <ApiUnionExplorer union={page.bodyUnion} />
         </ApiFieldList>
@@ -191,17 +183,13 @@ const deprecationHtml = page.deprecated
         </section>
       )}
 
-      {page.additionalBodies?.map((body) => {
-        const deferred = defer({ mediaType: body.mediaType });
-        return (
+      {page.additionalBodies?.map((body) => (
         <section id={body.anchor} class="scroll-mt-24">
           <div class="mb-2 flex items-center gap-2">
             <h2 class="text-sm font-normal text-muted-foreground" aria-label={`Request body (${body.mediaType})`}>Request body</h2>
             <span class="font-mono text-[0.6875rem] uppercase text-muted-foreground">{mediaBadge(body.mediaType)}</span>
           </div>
-          {deferred ? (
-            <ApiDeferredSchema deferred={deferred} markdownUrl={markdownUrl} />
-          ) : body.union ? (
+          {body.union ? (
             <ApiFieldList collapsible>
               <ApiUnionExplorer union={body.union} />
             </ApiFieldList>
@@ -214,16 +202,13 @@ const deprecationHtml = page.deprecated
             </div>
           )}
         </section>
-        );
-      })}
+      ))}
 
       {page.responses.length > 0 && (
         <section class="scroll-mt-24">
           <h2 class="mb-3 text-sm font-normal text-muted-foreground">Returns</h2>
           <div class="flex flex-col gap-6">
-            {page.responses.map((r) => {
-              const deferred = defer({ status: r.status });
-              return (
+            {page.responses.map((r) => (
               <div id={r.anchor} class="scroll-mt-24">
                 {/* The status is the response's heading (h3, under the Returns h2);
                     the JSON badge on the body list marks it, so no "Body" label is
@@ -239,13 +224,9 @@ const deprecationHtml = page.deprecated
                     <ApiFieldList as="h4" title="Headers" fields={r.headers ?? []} />
                   )}
                   {r.additionalMedia ? (
-                    responseBodies(r).map((b, i) => {
-                      const deferredMedia = i === 0 ? deferred : defer({ status: r.status, mediaType: b.mediaType });
-                      return (
+                    responseBodies(r).map((b) => (
                       <div id={b.anchor} class="scroll-mt-24">
-                        {deferredMedia ? (
-                          <ApiDeferredSchema deferred={deferredMedia} markdownUrl={markdownUrl} badge={mediaBadge(b.mediaType)} />
-                        ) : b.union ? (
+                        {b.union ? (
                           <ApiFieldList badge={mediaBadge(b.mediaType)} collapsible>
                             <ApiUnionExplorer union={b.union} />
                           </ApiFieldList>
@@ -260,10 +241,7 @@ const deprecationHtml = page.deprecated
                           </div>
                         )}
                       </div>
-                      );
-                    })
-                  ) : deferred ? (
-                    <ApiDeferredSchema deferred={deferred} markdownUrl={markdownUrl} badge="JSON" />
+                    ))
                   ) : r.bodyUnion ? (
                     <ApiFieldList badge="JSON" collapsible>
                       <ApiUnionExplorer union={r.bodyUnion} />
@@ -273,8 +251,7 @@ const deprecationHtml = page.deprecated
                   )}
                 </div>
               </div>
-              );
-            })}
+            ))}
           </div>
         </section>
       )}

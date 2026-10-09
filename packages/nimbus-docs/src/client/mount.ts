@@ -26,7 +26,7 @@
 
 type Init = (root: HTMLElement) => () => void;
 
-export const REMOUNT_EVENT = "nimbus:remount";
+const REMOUNT_EVENT = "nimbus:remount";
 
 /** Mount components inside markup a script just inserted. Already-mounted
  *  elements are skipped, so calling this is always safe. */

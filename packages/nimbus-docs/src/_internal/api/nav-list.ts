@@ -68,15 +68,21 @@ export function clearApiNavLists(root: URL | string): void {
 }
 
 /** Write a list into the page-asset staging folder, where the build deploys
- * it from and the dev server serves it. */
+ * it from and the dev server serves it, and into the build cache, where the
+ * next build finds it to ship as the previous release's file. */
 export async function stageApiNavList(
   root: string,
   list: { filename: string; body: string },
 ): Promise<void> {
-  const file = path.join(root, ".astro/nimbus/pages", list.filename);
-  try {
-    await access(file);
-  } catch {
-    await writeAtomic(file, list.body);
+  for (const directory of [
+    ".astro/nimbus/pages",
+    ".nimbus/cache/page-assets/assets",
+  ]) {
+    const file = path.join(root, directory, list.filename);
+    try {
+      await access(file);
+    } catch {
+      await writeAtomic(file, list.body);
+    }
   }
 }

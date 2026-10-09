@@ -14,7 +14,7 @@ export interface NavListRow {
 
 const lists = new Map<string, Promise<NavListRow[]>>();
 
-/** Start or reuse the one fetch of a list. A failed fetch stays failed. */
+/** Start or reuse the one fetch of a list. A failed fetch is retried next time. */
 export function loadNavList(url: string): Promise<NavListRow[]> {
   let list = lists.get(url);
   if (!list) {
@@ -22,6 +22,7 @@ export function loadNavList(url: string): Promise<NavListRow[]> {
       if (!response.ok) throw new Error(`${url} returned ${response.status}`);
       return response.json() as Promise<NavListRow[]>;
     });
+    list.catch(() => lists.delete(url));
     lists.set(url, list);
   }
   return list;

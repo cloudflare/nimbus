@@ -17,12 +17,6 @@ import {
   loadVersionAlternates,
 } from "./_internal/runtime-config.js";
 import { notAPageCollectionMessage } from "./_internal/page-collection-error.js";
-import { REMOUNT_EVENT } from "./client/mount.js";
-import {
-  apiSchemaView,
-  deferSchema,
-  shallowSchema,
-} from "./_internal/api/schema-deferral.js";
 import { loadCollectionOrWarn } from "./_internal/load-collection.js";
 import { runtimeWarn } from "./_internal/runtime-warn.js";
 import {
@@ -1592,123 +1586,6 @@ export function getApiRoute(
   });
 }
 
-/** One API page and its navigation, through the reader its API was built
- * for: the live collection for `bundle: false`, prepared entries otherwise.
- * Applies the page's route-cache tags. */
-async function renderApiRoutePage(
-  astro: AstroGlobal,
-  collection: string,
-  version: string | null,
-  coordinate: string,
-  resolvedEntry?: import("astro:content").CollectionEntry<string>,
-): Promise<{
-  page: import("./api/index.js").ApiPageProps;
-  nav: import("./api/index.js").ApiNav;
-}> {
-    const { hasApiPageAssets } =
-      await import("./_internal/api/page-assets-runtime.js");
-    if (await hasApiPageAssets(collection)) {
-      // bundle: false reads each page through the site's Astro live
-      // collection (src/live.config.ts). The request keeps the
-      // same-origin fallback for client files served elsewhere.
-      const [
-        { getLiveEntry },
-        { API_PAGES_COLLECTION, liveConfigSnippet },
-      ] = await Promise.all([import("astro:content"), import("./live.js")]);
-      const result = await getLiveEntry(API_PAGES_COLLECTION, {
-        collection,
-        version,
-        id: coordinate,
-        request: astro.request,
-      });
-      if (result.error) {
-        if (/is not a live collection/.test(result.error.message))
-          throw new Error(
-            `nimbus-docs: api "${collection}" sets bundle: false, but src/live.config.ts doesn't register the apiPages live collection:\n\n${liveConfigSnippet}`,
-          );
-        throw result.error;
-      }
-      if (!result.entry)
-        throw new Error(`Missing API page ${coordinate} in ${collection}.`);
-      // Astro's route cache applies the entry's tags when it's enabled.
-      const cache = (
-        astro as {
-          cache?: { enabled?: boolean; set(entry: unknown): void };
-        }
-      ).cache;
-      if (cache?.enabled) cache.set(result.entry);
-      return result.entry.data as unknown as Awaited<
-        ReturnType<
-          typeof import("./_internal/api/page-assets-runtime.js").getApiAssetPage
-        >
-      >;
-    }
-    const projection = pageResolutionContext(astro).projection;
-    const entry =
-      resolvedEntry ??
-      (await getVisibleEntries([collection], projection)).find(
-        (candidate) => {
-          const data = candidate.data as {
-            coordinate?: string;
-            version?: string;
-          };
-          return (
-            data.coordinate === coordinate &&
-            (data.version ?? null) === version
-          );
-        },
-      );
-    if (!entry) {
-      throw new Error(`Missing prepared API entry for "${coordinate}".`);
-    }
-    const { activatePreparedApiNav, isPreparedApiNav, isPreparedApiPage } =
-      await import("./_internal/api/prepared.js");
-    const prepared = (entry.data as { prepared?: unknown }).prepared;
-    if (!isPreparedApiPage(prepared)) {
-      if (THIN_API_ENTRIES) {
-        return projectConfiguredApiPage(collection, version, coordinate);
-      }
-      throw new Error(
-        `nimbus-docs: API entry "${entry.id}" is missing prepared page data. Rebuild the content collection.`,
-      );
-    }
-    const navEntry =
-      entry.id === prepared.navEntryId
-        ? entry
-        : await getVisibleEntry(
-            collection,
-            prepared.navEntryId,
-            projection,
-          );
-    const preparedNav = (
-      navEntry?.data as { prepared?: { nav?: unknown } } | undefined
-    )?.prepared?.nav;
-    if (!isPreparedApiNav(preparedNav)) {
-      throw new Error(
-        `nimbus-docs: API collection "${collection}" is missing prepared navigation for "${coordinate}".`,
-      );
-    }
-    const [{ applyApiSidebarMode }, { resolveApiVersion, targetUrlFields }, config] =
-      await Promise.all([
-        import("./_internal/api/nav-bounds.js"),
-        import("./_internal/api/resolve-versions.js"),
-        loadNimbusConfig(),
-      ]);
-    const target = resolveApiVersion(config.api, collection, version);
-    const nav = activatePreparedApiNav(preparedNav, coordinate);
-    return {
-      page: prepared.page,
-      nav: target
-        ? applyApiSidebarMode(nav, {
-            mode: target.sidebar,
-            mountPath: target.mountPath,
-            ...targetUrlFields(target),
-            overview: prepared.page.kind === "api",
-          })
-        : nav,
-    };
-}
-
 async function resolveApiRoute(
   astro: AstroGlobal,
 ): Promise<ApiRouteProps | Response> {
@@ -1728,103 +1605,131 @@ async function resolveApiRoute(
           ? getApiAssetEntry(collection, id, astro.request)
           : getVisibleEntry(collection, id, ctx);
       },
-      render: (collection, version, coordinate, resolvedEntry) =>
-        renderApiRoutePage(astro, collection, version, coordinate, resolvedEntry),
+      async render(collection, version, coordinate, resolvedEntry) {
+        const { hasApiPageAssets } =
+          await import("./_internal/api/page-assets-runtime.js");
+        if (await hasApiPageAssets(collection)) {
+          // bundle: false reads each page through the site's Astro live
+          // collection (src/live.config.ts). The request keeps the
+          // same-origin fallback for client files served elsewhere.
+          const [
+            { getLiveEntry },
+            { API_PAGES_COLLECTION, liveConfigSnippet },
+          ] = await Promise.all([import("astro:content"), import("./live.js")]);
+          const result = await getLiveEntry(API_PAGES_COLLECTION, {
+            collection,
+            version,
+            id: coordinate,
+            request: astro.request,
+          });
+          if (result.error) {
+            if (/is not a live collection/.test(result.error.message))
+              throw new Error(
+                `nimbus-docs: api "${collection}" sets bundle: false, but src/live.config.ts doesn't register the apiPages live collection:\n\n${liveConfigSnippet}`,
+              );
+            throw result.error;
+          }
+          if (!result.entry)
+            throw new Error(`Missing API page ${coordinate} in ${collection}.`);
+          // Astro's route cache applies the entry's tags when it's enabled.
+          const cache = (
+            astro as {
+              cache?: { enabled?: boolean; set(entry: unknown): void };
+            }
+          ).cache;
+          if (cache?.enabled) cache.set(result.entry);
+          return result.entry.data as unknown as Awaited<
+            ReturnType<
+              typeof import("./_internal/api/page-assets-runtime.js").getApiAssetPage
+            >
+          >;
+        }
+        const projection = pageResolutionContext(astro).projection;
+        const entry =
+          resolvedEntry ??
+          (await getVisibleEntries([collection], projection)).find(
+            (candidate) => {
+              const data = candidate.data as {
+                coordinate?: string;
+                version?: string;
+              };
+              return (
+                data.coordinate === coordinate &&
+                (data.version ?? null) === version
+              );
+            },
+          );
+        if (!entry) {
+          throw new Error(`Missing prepared API entry for "${coordinate}".`);
+        }
+        const { activatePreparedApiNav, isPreparedApiNav, isPreparedApiPage } =
+          await import("./_internal/api/prepared.js");
+        const prepared = (entry.data as { prepared?: unknown }).prepared;
+        if (!isPreparedApiPage(prepared)) {
+          if (THIN_API_ENTRIES) {
+            return projectConfiguredApiPage(collection, version, coordinate);
+          }
+          throw new Error(
+            `nimbus-docs: API entry "${entry.id}" is missing prepared page data. Rebuild the content collection.`,
+          );
+        }
+        const navEntry =
+          entry.id === prepared.navEntryId
+            ? entry
+            : await getVisibleEntry(
+                collection,
+                prepared.navEntryId,
+                projection,
+              );
+        const preparedNav = (
+          navEntry?.data as { prepared?: { nav?: unknown } } | undefined
+        )?.prepared?.nav;
+        if (!isPreparedApiNav(preparedNav)) {
+          throw new Error(
+            `nimbus-docs: API collection "${collection}" is missing prepared navigation for "${coordinate}".`,
+          );
+        }
+        const [
+          { applyApiSidebarMode },
+          { resolveApiVersion, targetUrlFields },
+          config,
+        ] = await Promise.all([
+          import("./_internal/api/nav-bounds.js"),
+          import("./_internal/api/resolve-versions.js"),
+          loadNimbusConfig(),
+        ]);
+        const target = resolveApiVersion(config.api, collection, version);
+        const nav = activatePreparedApiNav(preparedNav, coordinate);
+        return {
+          page: prepared.page,
+          nav: target
+            ? applyApiSidebarMode(nav, {
+                mode: target.sidebar,
+                mountPath: target.mountPath,
+                ...targetUrlFields(target),
+                overview: prepared.page.kind === "api",
+              })
+            : nav,
+        };
+      },
     },
   );
   if (result.status !== "found") {
     return proseResolutionResponse(astro, result);
   }
-  const route = {
-    collection: result.page.collection,
-    version: result.page.version,
-    coordinate: result.page.coordinate,
-  };
-  apiRoutes.set(astro.request, route);
+  // An on-demand sidebar's filter reads this version's page list.
   const { navLists } = await import("virtual:nimbus/config");
-  const list = navLists?.[route.collection]?.[route.version ?? ""];
+  const list = navLists?.[result.page.collection]?.[result.page.version ?? ""];
   return {
     page: result.page.page,
     nav: list
       ? { ...result.page.nav, listHref: `/_nimbus/pages/${list}` }
       : result.page.nav,
-    ...route,
+    collection: result.page.collection,
+    version: result.page.version,
+    coordinate: result.page.coordinate,
   };
 }
-
-// Which API page each request renders, so its components can name the page
-// to a server island without threading the version through every prop.
-const apiRoutes = new WeakMap<
-  Request,
-  { collection: string; version: string | null; coordinate: string }
->();
-
-export type {
-  ApiSchemaRef,
-  ApiSchemaView,
-} from "./_internal/api/schema-deferral.js";
-
-/** Server-island props for one deferred body: identifiers only. */
-export interface ApiSchemaIslandProps {
-  collection: string;
-  version: string | null;
-  coordinate: string;
-  schema: import("./_internal/api/schema-deferral.js").ApiSchemaRef;
-}
-
-/**
- * Whether a request-rendered API page loads a large request or response body
- * through a server island. Returns the island's props and the body's
- * top-level rows to show until it arrives, or `null` to render the body in
- * full: on build-rendered pages, and for bodies below the threshold.
- *
- *   const deferred = deferApiSchema(Astro, page, { status: "200" });
- */
-export function deferApiSchema(
-  astro: AstroGlobal,
-  page: import("./api/index.js").ApiPageProps,
-  schema: import("./_internal/api/schema-deferral.js").ApiSchemaRef,
-): {
-  island: ApiSchemaIslandProps;
-  fallback: import("./_internal/api/schema-deferral.js").ApiSchemaView;
-} | null {
-  if (astro.isPrerendered !== false) return null;
-  const route = apiRoutes.get(astro.request);
-  if (
-    !route ||
-    route.collection !== page.collection ||
-    route.coordinate !== page.coordinate
-  )
-    return null;
-  const view = apiSchemaView(page, schema);
-  if (!view || !deferSchema(view)) return null;
-  return { island: { ...route, schema }, fallback: shallowSchema(view) };
-}
-
-/** The full body a server island renders, read from its page through the
- * same reader and with the same cache tags as the page. */
-export async function getApiDeferredSchema(
-  astro: AstroGlobal,
-): Promise<import("./_internal/api/schema-deferral.js").ApiSchemaView> {
-  const { collection, version, coordinate, schema } =
-    astro.props as ApiSchemaIslandProps;
-  const { page } = await renderApiRoutePage(
-    astro,
-    collection,
-    version,
-    coordinate,
-  );
-  const view = apiSchemaView(page, schema);
-  if (!view)
-    throw new Error(
-      `nimbus-docs: ${collection} page ${coordinate} has no body ${JSON.stringify(schema)}.`,
-    );
-  return view;
-}
-
-/** Render inline in markup a script inserts, such as a server island, so its
- * components mount: `<script is:inline set:html={remountScript} />`. */
-export const remountScript = `document.dispatchEvent(new Event(${JSON.stringify(REMOUNT_EVENT)}))`;
 
 /**
  * An inline script that keeps a sidebar steady across page loads: it reopens

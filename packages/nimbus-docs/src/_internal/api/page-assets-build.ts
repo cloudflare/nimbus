@@ -910,7 +910,22 @@ export async function pruneApiPageAssetCache(
   const rootPath = root instanceof URL ? fileURLToPath(root) : root;
   const rootKey = preparedMarkdownRootKey(root);
   const families = activeInputs.get(rootKey);
-  if (!families) return;
+  if (!families) {
+    // Only bundled APIs: their filter lists are this build's only page assets.
+    const lists = new Set(apiNavListFiles(root));
+    if (!lists.size) return;
+    await recordDeployment(rootPath, lists, "nav");
+    const staging = path.join(rootPath, ".astro/nimbus/pages");
+    for (const filename of await readdir(staging).catch(() => [])) {
+      if (
+        filename.startsWith("nav-") &&
+        PAGE_ASSET_FILE.test(filename) &&
+        !lists.has(filename)
+      )
+        await rm(path.join(staging, filename));
+    }
+    return;
+  }
   const inputs = new Set(
     [...families.values()].flatMap((values) => [...values]),
   );
@@ -989,7 +1004,28 @@ export async function pruneApiPageAssetCache(
       await rm(path.join(staging, filename));
   }
   resetPageAssetStaging(rootKey);
-  // The next build ships these files again as its "previous release".
+  await recordDeployment(rootPath, files);
+}
+
+/** Note what this build deployed, which the next build ships again as its
+ *  "previous release"; drop cached assets (of one kind, if given) it didn't. */
+async function recordDeployment(
+  rootPath: string,
+  files: Set<string>,
+  kind?: "nav",
+): Promise<void> {
+  const cache = path.join(rootPath, ".nimbus/cache/page-assets");
+  if (kind) {
+    const assets = path.join(cache, "assets");
+    for (const filename of await readdir(assets).catch(() => [])) {
+      if (
+        filename.startsWith(`${kind}-`) &&
+        PAGE_ASSET_FILE.test(filename) &&
+        !files.has(filename)
+      )
+        await rm(path.join(assets, filename));
+    }
+  }
   await writeAtomic(
     path.join(cache, "deployed.json"),
     JSON.stringify({ revision: 1, files: [...files].sort() }),

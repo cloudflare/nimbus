@@ -3132,7 +3132,11 @@ export function nimbus(
           ],
           logger,
         });
-        if (pageAssetCollections.length) {
+        const { apiNavListFiles } = await import("./_internal/api/nav-list.js");
+        if (
+          pageAssetCollections.length ||
+          apiNavListFiles(projectRootForBuild).length
+        ) {
           const { pruneApiPageAssetCache } =
             await import("./_internal/api/page-assets-build.js");
           await pruneApiPageAssetCache(projectRootForBuild);

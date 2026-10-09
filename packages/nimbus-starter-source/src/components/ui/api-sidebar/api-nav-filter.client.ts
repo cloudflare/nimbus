@@ -26,16 +26,21 @@ mount("[data-nb-nav-list]", (filter) => {
   if (!input || !tree || !results || !status || !template || !url)
     return () => {};
 
+  // The status region stays in the page so screen readers announce changes.
   const say = (message: string) => {
     status.textContent = message;
-    status.hidden = !message;
   };
 
   const row = ({ title, method, url }: NavListRow): Node => {
     const item = template.content.cloneNode(true) as DocumentFragment;
-    item.querySelector("a")!.href = base + url;
-    item.querySelector(".break-words")!.textContent = title;
-    const chip = item.querySelector<HTMLElement>(".nb-api-chip")!;
+    const link = item.querySelector("a");
+    if (link) link.href = base + url;
+    // The template's SidebarLink and ApiMethodChip are the site's own; a
+    // customised one without these classes still gets its title.
+    const label = item.querySelector(".break-words") ?? link;
+    if (label) label.textContent = title;
+    const chip = item.querySelector<HTMLElement>(".nb-api-chip");
+    if (!chip) return item;
     const variant = methodVariant(method);
     if (variant) {
       chip.className = chip.className.replace(
@@ -56,7 +61,7 @@ mount("[data-nb-nav-list]", (filter) => {
         ? "No matching pages"
         : rows.length > MAX_RESULTS
           ? `Showing ${MAX_RESULTS} of ${rows.length}. Keep typing to narrow.`
-          : "",
+          : `${rows.length} ${rows.length === 1 ? "page" : "pages"}`,
     );
   };
 

@@ -23,7 +23,6 @@ import { createServer } from "node:net";
 import path from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import { gzipSync } from "node:zlib";
 import nimbus from "../src/index.ts";
 import { runningNimbusVersion } from "../src/_internal/upgrades.ts";
 const args = process.argv.slice(2),
@@ -378,11 +377,6 @@ try {
       "utf8",
     ),
   );
-  const navigation = JSON.stringify(latestIndex.metadata.nav);
-  report.navigation = {
-    bytes: Buffer.byteLength(navigation),
-    gzipBytes: gzipSync(navigation).length,
-  };
   const pageDirectory = path.join(root, "dist/client/_nimbus/pages");
   const candidates = [];
   const packs = new Map<string, any>();
@@ -481,7 +475,6 @@ try {
     });
   await send("Profiler.enable");
   await send("Profiler.setSamplingInterval", { interval: 100 });
-  const pages = new Map<string, string>();
   async function requestRun(name: string, urls: string[]) {
     await send("Profiler.start");
     const started = performance.now();
@@ -491,23 +484,14 @@ try {
         const text = await response.text();
         if (response.status !== 200)
           throw new Error(`${url}: ${response.status} ${text.slice(0, 500)}`);
-        const island = url.includes("/_server-islands/");
-        if (!island && !text.includes("</html>"))
+        if (!text.includes("</html>"))
           throw new Error(`${url}: incomplete HTML (${text.length} bytes)`);
         if (text.includes("nimbus-ref:"))
           throw new Error("Unresolved page token in full renderer output");
-        pages.set(url, text);
         return {
           url,
           status: response.status,
           htmlBytes: Buffer.byteLength(text),
-          gzipBytes: gzipSync(text).length,
-          ...(island
-            ? {
-                cacheTag: response.headers.get("cache-tag"),
-                cacheControl: response.headers.get("cache-control"),
-              }
-            : {}),
         };
       }),
     );
@@ -527,91 +511,20 @@ try {
       responses,
     });
   }
-  if (!candidates[0]) throw new Error("No operation pages");
+  const largest = candidates[0];
+  if (!largest) throw new Error("No operation pages");
+  const largestUrl = `/api/${largest.slug}/`;
   const typical = candidates[candidates.length >> 1]!;
   // Isolate start-up has its own limit; keep it out of the page's CPU.
   await requestRun("isolate-start", ["/"]);
   // The first API page reads its version's index; later pages reuse it.
   await requestRun("first-api-page", [`/api/${typical.slug}/`]);
-  // Record bytes only approximate HTML bytes, so render the largest records
-  // and rank by the HTML each one actually sends.
-  const top = Number(arg("--top") ?? 5);
-  const ranked: Array<{ url: string; htmlBytes: number; coldMs: number }> = [];
-  for (const candidate of candidates.slice(0, top * 5)) {
-    const url = `/api/${candidate.slug}/`;
-    await requestRun(`page:${candidate.slug}`, [url]);
-    const run = report.requests.at(-1);
-    ranked.push({
-      url,
-      htmlBytes: run.responses[0].htmlBytes,
-      coldMs: run.profileActiveMs,
-    });
-  }
-  ranked.sort((a, b) => b.htmlBytes - a.htmlBytes);
-  report.largestPages = [];
-  const median = async (name: string, url: string) => {
-    const runs = [];
-    for (let i = 0; i < 7; i++) {
-      await requestRun(name, [url]);
-      runs.push(report.requests.at(-1));
-    }
-    runs.sort((a, b) => a.profileActiveMs - b.profileActiveMs);
-    return runs[3];
-  };
-  // --also measures named pages too, such as another run's largest.
-  const also = (arg("--also") ?? "").split(",").filter(Boolean);
-  for (const url of also)
-    if (!ranked.some((page) => page.url === url)) {
-      await requestRun(`page:${url}`, [url]);
-      const run = report.requests.at(-1);
-      ranked.push({
-        url,
-        htmlBytes: run.responses[0].htmlBytes,
-        coldMs: run.profileActiveMs,
-      });
-    }
-  const measured = [
-    ...ranked.slice(0, top),
-    ...ranked.filter(
-      (page, i) => i >= top && also.includes(page.url),
-    ),
-  ];
-  for (const page of measured) {
-    const warm = await median(`warm:${page.url}`, page.url);
-    // Each server island is one more GET, issued by the page once it loads.
-    const islands = [
-      ...pages
-        .get(page.url)!
-        .matchAll(/<link rel="preload" as="fetch" href="([^"]+)"/g),
-    ].map((match) => match[1]!.replaceAll("&amp;", "&"));
-    const islandRuns = [];
-    for (const island of islands) {
-      await requestRun(`island:${page.url}`, [island]);
-      const cold = report.requests.at(-1);
-      const again = await median(`island-warm:${page.url}`, island);
-      islandRuns.push({
-        bytes: cold.responses[0].htmlBytes,
-        coldMs: cold.profileActiveMs,
-        warmMs: again.profileActiveMs,
-        cacheTag: cold.responses[0].cacheTag,
-        cacheControl: cold.responses[0].cacheControl,
-      });
-    }
-    report.largestPages.push({
-      ...page,
-      gzipBytes: warm.responses[0].gzipBytes,
-      warmMs: warm.profileActiveMs,
-      islands: islandRuns,
-    });
-  }
-  await writeFile(
-    path.join(root, "largest.html"),
-    pages.get(ranked[0]!.url)!,
-  );
+  await requestRun("largest-page", [largestUrl]);
+  await requestRun("largest-page-again", [largestUrl]);
   const mixed = Array.from(
     { length: Math.min(16, versionCount) },
     (_, i) =>
-      `/api/${candidates[i % candidates.length].slug}/?version=${versions[i]!.version}`,
+      `/api/${candidates[i % candidates.length].slug}/?api-version=${versions[i]!.version}`,
   );
   await requestRun("mixed-concurrent", mixed);
   await writeFile(reportPath, JSON.stringify(report, null, 2));
@@ -621,8 +534,6 @@ try {
         report: reportPath,
         build: report.phases.build,
         outputs: report.outputs,
-        navigation: report.navigation,
-        largestPages: report.largestPages,
         requests: report.requests.map(
           ({ name, wallMs, profileActiveMs }: any) => ({
             name,
