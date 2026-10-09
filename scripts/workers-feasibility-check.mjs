@@ -880,6 +880,7 @@ async function verifyPackageManagerConsumer(site, manager) {
     const api = await request(origin, "/api/Health/ping/");
     assert(api.response.status === 200, `${manager.name} API was not 200`);
     assertPreparedApi(api.html, "operation");
+    assert(!api.html.includes('aria-label="Versions"'), "an unversioned API must render no version picker");
     await assertStaticSurfaces(origin);
   });
 }
@@ -1009,11 +1010,13 @@ function assertWorkerPurityScanner() {
   );
 }
 
-/** The picker's links on a page: href plus whether it is the active entry. */
-function pickerLinks(html, marker = "data-feasibility-picker") {
+/** The picker's links on a page: href plus whether it is the active entry.
+ *  By default, the copy ApiLayout mounts in its mobile drawer. */
+function pickerLinks(html, marker = "data-mobile-sidebar", end = "</section>") {
   const start = html.search(new RegExp(`${marker}[\\s>]`));
   assert(start !== -1, "query-mode page is missing the version picker");
-  const region = html.slice(start, html.indexOf("</nav>", start));
+  const region = html.slice(start, html.indexOf(end, start));
+  assert(region.includes('aria-label="Versions"'), "query-mode page is missing the version picker");
   return [...region.matchAll(/<a\b[^>]*>/g)].map(([tag]) => ({
     href: tag.match(/href="([^"]*)"/)?.[1]?.replaceAll("&amp;", "&") ?? "",
     active: /aria-current="page"/.test(tag),
@@ -1044,9 +1047,6 @@ async function verifyQueryVersions(site, baseConfig) {
   mkdirSync(join(site, "src/content/qapi"), { recursive: true });
   writeFileSync(join(site, "src/content/qapi/v2.json"), spec([["listPets", "/pets", "List pets in v-two"], ["getPet", "/pets/{id}"]]));
   writeFileSync(join(site, "src/content/qapi/v1.json"), spec([["listPets", "/pets", "List pets in v-one"], ["fetchPet", "/pets/{petId}"], ["legacyOnly", "/legacy"]]));
-  for (const component of ["popover", "version-switcher"]) {
-    cpSync(join(STARTER, "components", "ui", component), join(site, "src", "components", "ui", component), { recursive: true });
-  }
   mkdirSync(join(site, "src/pages/qapi"), { recursive: true });
   writeFileSync(join(site, "src/pages/qapi/[...slug].astro"), `---
 import { getApiRoute, getApiStaticPaths } from "@cloudflare/nimbus-docs/runtime";
@@ -1063,9 +1063,6 @@ const { page, nav, collection, version, coordinate } = result;
 ---
 
 <BaseLayout title={page.title} collection={collection} apiVersion={version ?? undefined} coordinate={coordinate} markdownUrl={page.markdownHref}>
-  <nav data-feasibility-picker>
-    <VersionSwitcher variant="sidebar" apiCollection={collection} apiVersion={version} coordinate={coordinate} />
-  </nav>
   <nav data-feasibility-picker-no-coordinate>
     <VersionSwitcher variant="sidebar" apiCollection={collection} apiVersion={version} />
   </nav>
@@ -1108,6 +1105,11 @@ const { page, nav, collection, version, coordinate } = result;
     const page = async (route) => {
       const { response, html } = await request(origin, route);
       assert(response.status === 200, `${route} returned ${response.status}`);
+      // ApiLayout's two copies (rail and drawer) plus the fixture's own.
+      assert(html.split('aria-label="Versions"').length - 1 === 3, `${route} should render the picker in the rail and the drawer`);
+      // Not inside the tree: its scroll restore finds the current page by aria-current.
+      const tree = html.slice(html.search(/data-nb-api-tree[\s>]/), html.indexOf("</aside>"));
+      assert(!tree.includes('aria-label="Versions"'), `${route} renders the picker inside the sidebar tree`);
       return { html, links: pickerLinks(html) };
     };
     const landing = (await page("/qapi/")).links;
@@ -1137,7 +1139,7 @@ const { page, nav, collection, version, coordinate } = result;
     const tracked = await page(`${fetchHref}&utm_source=x`);
     assert(tracked.links.find((link) => link.active)?.href === fetchHref,
       "picker active entry should keep the version and drop unrelated params");
-    const noCoordinate = pickerLinks(v1Op.html, "data-feasibility-picker-no-coordinate");
+    const noCoordinate = pickerLinks(v1Op.html, "data-feasibility-picker-no-coordinate", "</nav>");
     assert(noCoordinate.find((link) => link.active)?.href === fetchHref,
       `picker without a coordinate should stay on ${fetchHref}: ${JSON.stringify(noCoordinate)}`);
 
@@ -1260,6 +1262,8 @@ for (const component of [
   "api-field-row",
   "api-layout",
   "api-sidebar",
+  "popover",
+  "version-switcher",
 ]) {
   cpSync(
     join(STARTER, "components", "ui", component),
