@@ -1021,7 +1021,7 @@ function pickerLinks(html, marker = "data-feasibility-picker") {
 }
 
 /**
- * A query-mode family (`versionMode: "query"`) served by workerd, with the
+ * A query-mode family (`versionUrl: { in: "query" }`) served by workerd, with the
  * starter's real VersionSwitcher mounted: each version renders at the one
  * version-free URL, the picker keeps the reader's version, a renamed
  * operation pairs by method and path, and duplicate or unknown versions 404.
@@ -1085,7 +1085,7 @@ const { page, nav, collection, version, coordinate } = result;
     {
       collection: "qapi",
       label: "Query API",
-      versionMode: "query",
+      versionUrl: { in: "query" },
       versions: [
         { version: "v2", spec: "src/content/qapi/v2.json", default: true },
         { version: "v1", spec: "src/content/qapi/v1.json" },

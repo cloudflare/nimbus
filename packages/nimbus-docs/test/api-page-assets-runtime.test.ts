@@ -31,7 +31,7 @@ const index = () =>
   });
 const targets = resolveApiFamily({
   collection: "api",
-  versionMode: "query",
+  versionUrl: { in: "query" },
   versions: [
     { version: "v2", default: true, spec: {} },
     { version: "v1", spec: {} },

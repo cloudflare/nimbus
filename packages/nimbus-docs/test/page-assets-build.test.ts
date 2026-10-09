@@ -56,7 +56,7 @@ const spec = (description = "unchanged") => ({
 });
 const family = (first: unknown, second = first): ApiSpec => ({
   collection: "api",
-  versionMode: "query",
+  versionUrl: { in: "query" },
   samples: { generate: [] },
   versions: [
     { version: "v2", default: true, spec: second as Record<string, unknown> },

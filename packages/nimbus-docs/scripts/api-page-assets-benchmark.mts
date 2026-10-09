@@ -374,7 +374,7 @@ async function phase(root: string, kind: string, o: Options) {
     harnessMs += performance.now() - harnessStart;
     const target = resolveApiFamily({
       collection: "api",
-      versionMode: "query",
+      versionUrl: { in: "query" },
       samples: { generate: ["curl"] },
       versions: [{ version: "v" + version, spec: `./specs/v${version}.json` }],
     })[0]!;

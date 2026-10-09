@@ -134,7 +134,7 @@ export function resolveApiFamily(entry: ApiSpec): ResolvedApiVersion[] {
         routes: asRoutePolicy(entry.routes),
         sidebar: entry.sidebar ?? "full",
         versionMode: "path",
-        versionParam: entry.versionParam ?? DEFAULT_VERSION_PARAM,
+        versionParam: DEFAULT_VERSION_PARAM,
       },
     ];
   }
@@ -159,8 +159,8 @@ export function resolveApiFamily(entry: ApiSpec): ResolvedApiVersion[] {
       samples: entry.samples,
       routes: asRoutePolicy(v.routes),
       sidebar: entry.sidebar ?? "full",
-      versionMode: entry.versionMode ?? "path",
-      versionParam: entry.versionParam ?? DEFAULT_VERSION_PARAM,
+      versionMode: entry.versionUrl?.in ?? "path",
+      versionParam: versionQueryParam(entry),
     };
   });
 }
@@ -169,6 +169,12 @@ export function resolveApiFamily(entry: ApiSpec): ResolvedApiVersion[] {
 export const DEFAULT_VERSION_PARAM = "version";
 /** 0.17's parameter name; requests using it still select a version. */
 export const LEGACY_VERSION_PARAM = "api-version";
+
+/** The query parameter a family's version uses (meaningful in query mode). */
+export function versionQueryParam(entry: Pick<ApiSpec, "versionUrl">): string {
+  const url = entry.versionUrl;
+  return (url?.in === "query" && url.param) || DEFAULT_VERSION_PARAM;
+}
 
 /**
  * The one URL builder every producer goes through. In path mode a page's URL
@@ -236,12 +242,13 @@ export function apiQueryRouting(
   collection: string,
 ): ApiQueryRouting | null {
   const entry = (api ?? []).find((candidate) => candidate.collection === collection);
-  if (!entry || entry.versionMode !== "query" || !entry.versions) return null;
+  if (!entry || entry.versionUrl?.in !== "query" || !entry.versions)
+    return null;
   const fallback = entry.versions.find((v) => v.default) ?? entry.versions[0];
   return {
     defaultVersion: fallback!.version,
     versions: new Set(entry.versions.map((v) => v.version)),
-    param: entry.versionParam ?? DEFAULT_VERSION_PARAM,
+    param: versionQueryParam(entry),
   };
 }
 

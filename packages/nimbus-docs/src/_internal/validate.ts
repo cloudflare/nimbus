@@ -347,18 +347,32 @@ const apiSpecShape = {
   spec: specSourceSchema.optional(),
   label: z.string().optional(),
   versions: z.array(apiVersionSpecSchema).optional(),
-  versionMode: z
-    .enum(["path", "query"], {
-      error: '"api[].versionMode" must be "path" or "query"',
-    })
+  versionUrl: z
+    .discriminatedUnion(
+      "in",
+      [
+        z.object({ in: z.literal("path") }).strict(),
+        z
+          .object({
+            in: z.literal("query"),
+            param: z
+              .string({ error: '"api[].versionUrl.param" must be a string' })
+              .regex(/^[a-z][a-z0-9_-]*$/, {
+                error:
+                  '"api[].versionUrl.param" must start with a lowercase letter and use only lowercase letters, digits, "-", and "_" (it becomes a query parameter name)',
+              })
+              .optional(),
+          })
+          .strict(),
+      ],
+      {
+        error:
+          '"api[].versionUrl" must be { in: "path" } or { in: "query", param?: string }',
+      },
+    )
     .optional(),
-  versionParam: z
-    .string({ error: '"api[].versionParam" must be a string' })
-    .regex(/^[a-z][a-z0-9_-]*$/, {
-      error:
-        '"api[].versionParam" must start with a lowercase letter and use only lowercase letters, digits, "-", and "_" (it becomes a query parameter name)',
-    })
-    .optional(),
+  // 0.17's spelling; kept in the schema only to name its replacement.
+  versionMode: z.unknown().optional(),
   requireOperationId: z
     .boolean({ error: '"api[].requireOperationId" must be a boolean' })
     .optional(),
@@ -406,19 +420,19 @@ const apiSpecSchema = z
         message: `api collection "${entry.collection}" sets "routes" at the family level, but a version family carries no shared route policy — move "routes" onto each version entry.`,
       });
     }
-    if (entry.versionParam !== undefined && entry.versionMode !== "query") {
+    if (entry.versionMode !== undefined) {
       ctx.addIssue({
         code: "custom",
-        path: ["versionParam"],
-        message: `api collection "${entry.collection}" sets versionParam, which names the query parameter of versionMode: "query". Set versionMode: "query", or remove versionParam`,
+        path: ["versionMode"],
+        message: `api collection "${entry.collection}" sets versionMode, which is now versionUrl. Replace versionMode: "query" with versionUrl: { in: "query" }, and versionMode: "path" with versionUrl: { in: "path" } or nothing`,
       });
     }
     if (!hasVersions) {
-      if (entry.versionMode === "query") {
+      if (entry.versionUrl?.in === "query") {
         ctx.addIssue({
           code: "custom",
-          path: ["versionMode"],
-          message: `api collection "${entry.collection}" sets versionMode: "query" without "versions" — the query carries a version id, so a single-spec collection has nothing to select`,
+          path: ["versionUrl"],
+          message: `api collection "${entry.collection}" sets versionUrl: { in: "query" } without "versions" — the query carries a version id, so a single-spec collection has nothing to select`,
         });
       }
       return;
@@ -593,11 +607,11 @@ const nimbusConfigSchema = withStrictKeys(
   // precedence `compileRenderingPolicy` does — the collection override,
   // else the default.
   const shaped = data as {
-    api?: { collection?: string; versionMode?: string }[];
+    api?: { collection?: string; versionUrl?: { in?: string } }[];
     rendering?: { default?: string; collections?: Record<string, string> };
   };
   (shaped.api ?? []).forEach((entry, i) => {
-    if (entry.versionMode !== "query" || !entry.collection) return;
+    if (entry.versionUrl?.in !== "query" || !entry.collection) return;
     const effective =
       shaped.rendering?.collections?.[entry.collection] ??
       shaped.rendering?.default ??
@@ -605,8 +619,8 @@ const nimbusConfigSchema = withStrictKeys(
     if (effective !== "request") {
       ctx.addIssue({
         code: "custom",
-        path: ["api", i, "versionMode"],
-        message: `api collection "${entry.collection}" sets versionMode: "query", but its effective rendering mode is "${effective}" — query versions need request rendering: a static site serves the same file whatever the query says`,
+        path: ["api", i, "versionUrl"],
+        message: `api collection "${entry.collection}" sets versionUrl: { in: "query" }, but its effective rendering mode is "${effective}" — query versions need request rendering: a static site serves the same file whatever the query says`,
       });
     }
   });

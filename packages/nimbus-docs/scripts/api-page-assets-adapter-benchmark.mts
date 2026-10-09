@@ -309,7 +309,7 @@ try {
           api: [
             {
               collection: "api",
-              versionMode: "query",
+              versionUrl: { in: "query" },
               bundle: false,
               sidebar,
               schemaPages: false,

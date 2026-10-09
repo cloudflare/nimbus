@@ -199,7 +199,7 @@ describe("prepared API citations: historical authored lookup without published h
       [
         {
           collection: "svc",
-          versionMode: "query",
+          versionUrl: { in: "query" },
           versions: versions.map((version, i) => ({
             version,
             spec: "/does/not/exist.json",

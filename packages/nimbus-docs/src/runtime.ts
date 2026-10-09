@@ -351,7 +351,7 @@ export async function getIndexedEntries(
   const config = await loadNimbusConfig();
   const queryModeDefaults = new Map<string, string>();
   for (const entry of config.api ?? []) {
-    if (entry.versionMode !== "query" || !entry.versions) continue;
+    if (entry.versionUrl?.in !== "query" || !entry.versions) continue;
     const fallback = entry.versions.find((v) => v.default) ?? entry.versions[0];
     queryModeDefaults.set(entry.collection, fallback!.version);
   }

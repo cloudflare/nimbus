@@ -1,4 +1,4 @@
-// Query-addressed API versions (`versionMode: "query"`). Pins the config
+// Query-addressed API versions (`versionUrl: { in: "query" }`). Pins the config
 // rules (query needs `versions` and effective request rendering; dotted
 // version ids are valid in both modes), the one URL builder every producer
 // goes through, `(version, slug) → entry` route resolution where store ids
@@ -66,11 +66,11 @@ function withApi(api: unknown, rendering?: unknown): unknown {
   };
 }
 
-describe("versionMode config rules", () => {
+describe("versionUrl config rules", () => {
   const family = (extra: Record<string, unknown> = {}) => [
     {
       collection: "api",
-      versionMode: "query",
+      versionUrl: { in: "query" },
       versions: [
         { version: "v2", spec: "./v2.yaml", default: true },
         { version: "v1", spec: "./v1.yaml" },
@@ -95,11 +95,17 @@ describe("versionMode config rules", () => {
       () =>
         validateNimbusConfig(
           withApi(
-            [{ collection: "api", versionMode: "query", spec: "./openapi.yaml" }],
+            [
+              {
+                collection: "api",
+                versionUrl: { in: "query" },
+                spec: "./openapi.yaml",
+              },
+            ],
             { default: "request" },
           ),
         ),
-      /versionMode: "query" without "versions"/,
+      /versionUrl: \{ in: "query" \} without "versions"/,
     );
   });
 
@@ -130,9 +136,12 @@ describe("versionMode config rules", () => {
     );
     assert.doesNotThrow(() =>
       validateNimbusConfig(
-        withApi([{ collection: "api", versionMode: "query", versions }], {
-          default: "request",
-        }),
+        withApi(
+          [{ collection: "api", versionUrl: { in: "query" }, versions }],
+          {
+            default: "request",
+          },
+        ),
       ),
     );
     assert.throws(() =>
@@ -162,7 +171,7 @@ describe("versionMode config rules", () => {
 describe("pageUrl — the one URL builder", () => {
   const family: ApiSpec = {
     collection: "qv",
-    versionMode: "query",
+    versionUrl: { in: "query" },
     versions: [
       { version: "v2", spec: "v2.yaml", default: true },
       { version: "2026-11-30.air", spec: "v1.yaml" },
@@ -204,10 +213,10 @@ describe("pageUrl — the one URL builder", () => {
     assert.equal(pageUrl(single, ""), "/solo/");
   });
 
-  test("versionParam renames the query every link carries", () => {
+  test("versionUrl.param renames the query every link carries", () => {
     const renamed = resolveApiFamily({
       ...family,
-      versionParam: "api-version",
+      versionUrl: { in: "query", param: "api-version" },
     });
     const old = renamed.find((t) => !t.isDefault)!;
     assert.equal(
@@ -221,7 +230,7 @@ describe("alternates and citations carry the query form", () => {
   const api: ApiSpec[] = [
     {
       collection: "qv",
-      versionMode: "query",
+      versionUrl: { in: "query" },
       versions: [
         {
           version: "v2",
@@ -342,7 +351,7 @@ describe("hidden versions and the sitemap", () => {
       api: [
         {
           collection: "qv",
-          versionMode: "query",
+          versionUrl: { in: "query" },
           versions: [
             { version: "v2", spec: "a.yaml", default: true },
             { version: "v0", spec: "b.yaml", hidden: true },
@@ -556,7 +565,7 @@ describe("query-mode route resolution — (version, slug) → entry", () => {
   });
 });
 
-describe("versionParam", () => {
+describe("versionUrl.param", () => {
   const routing = {
     defaultVersion: "v2",
     versions: new Set(["v2", "v1"]),
@@ -589,8 +598,7 @@ describe("versionParam", () => {
         [
           {
             collection: "qv",
-            versionMode: "query",
-            versionParam: "v",
+            versionUrl: { in: "query", param: "v" },
             versions,
           },
         ],
@@ -611,29 +619,32 @@ describe("versionParam", () => {
     },
   ];
 
-  test("validates as a lowercase name, only with query mode", () => {
+  const check = (extra: Record<string, unknown>) =>
+    validateNimbusConfig(withApi(family(extra), { default: "request" }));
+
+  test("validates as a lowercase name, only on query URLs", () => {
     assert.doesNotThrow(() =>
-      validateNimbusConfig(
-        withApi(family({ versionMode: "query", versionParam: "api_version" }), {
-          default: "request",
-        }),
-      ),
+      check({ versionUrl: { in: "query", param: "api_version" } }),
     );
     assert.throws(
-      () =>
-        validateNimbusConfig(
-          withApi(family({ versionMode: "query", versionParam: "Version" }), {
-            default: "request",
-          }),
-        ),
-      /"api\[\]\.versionParam" must start with a lowercase letter/,
+      () => check({ versionUrl: { in: "query", param: "Version" } }),
+      /"api\[\]\.versionUrl\.param" must start with a lowercase letter/,
+    );
+    // A path URL has no parameter to name.
+    assert.throws(
+      () => check({ versionUrl: { in: "path", param: "v" } }),
+      /Unrecognized key: "param"/,
     );
     assert.throws(
-      () =>
-        validateNimbusConfig(
-          withApi(family({ versionParam: "v" }), { default: "request" }),
-        ),
-      /sets versionParam, which names the query parameter of versionMode: "query"/,
+      () => check({ versionUrl: { in: "header" } }),
+      /"api\[\]\.versionUrl" must be \{ in: "path" \} or \{ in: "query", param\?: string \}/,
+    );
+  });
+
+  test("0.17's versionMode names its replacement", () => {
+    assert.throws(
+      () => check({ versionMode: "query" }),
+      /sets versionMode, which is now versionUrl\. Replace versionMode: "query" with versionUrl: \{ in: "query" \}/,
     );
   });
 });

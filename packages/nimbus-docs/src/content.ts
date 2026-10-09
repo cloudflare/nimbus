@@ -31,7 +31,12 @@ import {
   definePartialsSchema,
   partialsSchema,
 } from "./schemas.js";
-import type { ApiRoutePolicy, ApiSamples, ApiVersionSpec } from "./types.js";
+import type {
+  ApiRoutePolicy,
+  ApiSamples,
+  ApiVersionSpec,
+  ApiVersionUrl,
+} from "./types.js";
 import {
   noteApiCollectionLoad,
   registeredOutput,
@@ -386,18 +391,44 @@ export function apiCollection(options?: ApiCollectionOptions): {
           (candidate) => candidate.collection === collection,
         );
       const sidebar = entry?.sidebar;
-      const versionMode = entry ? entry.versionMode : (options as { versionMode?: "path" | "query" } | undefined)?.versionMode;
-      for (const [key, used, shown] of [
-        ["sidebar", sidebar, sidebar ?? "full"],
-        ["versionMode", versionMode, versionMode ?? "path"],
+      const versionUrl = entry
+        ? entry.versionUrl
+        : (options as { versionUrl?: ApiVersionUrl } | undefined)?.versionUrl;
+      // Compare what the setting means, so key order or a spelled-out
+      // default doesn't count as a difference.
+      const describeUrl = (url: ApiVersionUrl | undefined) =>
+        url?.in === "query"
+          ? `{ in: "query", param: "${url.param ?? "version"}" }`
+          : `{ in: "path" }`;
+      const passedOptions = (options ?? {}) as Record<string, unknown>;
+      for (const [key, used, passed] of [
+        [
+          "sidebar",
+          `"${sidebar ?? "full"}"`,
+          passedOptions.sidebar === undefined
+            ? undefined
+            : `"${String(passedOptions.sidebar)}"`,
+        ],
+        [
+          "versionUrl",
+          describeUrl(versionUrl),
+          passedOptions.versionUrl === undefined
+            ? undefined
+            : describeUrl(passedOptions.versionUrl as ApiVersionUrl),
+        ],
       ] as const) {
-        const passed = (options as Record<string, unknown> | undefined)?.[key];
         if (explicit && passed !== undefined && passed !== used) {
           logger.warn(
             `apiCollection({ collection: "${collection}" }) sets \`${key}\`, which is read only from the ` +
-              `\`api\` entry in the Nimbus config (astro.config.*). Using "${shown}"; set \`${key}\` on that entry instead.`,
+              `\`api\` entry in the Nimbus config (astro.config.*). Using ${used}; set \`${key}\` on that entry instead.`,
           );
         }
+      }
+      if (explicit && passedOptions.versionMode !== undefined) {
+        logger.warn(
+          `apiCollection({ collection: "${collection}" }) sets \`versionMode\`, which is now \`versionUrl\` and is read only from the ` +
+            `\`api\` entry in the Nimbus config (astro.config.*). Set versionUrl: { in: "query" } on that entry instead.`,
+        );
       }
       noteApiCollectionLoad(astroConfig.root, context.collection, collection);
 
@@ -429,8 +460,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
         spec,
         label,
         versions,
-        versionMode,
-        versionParam: entry?.versionParam,
+        versionUrl,
         requireOperationId,
         schemaPages,
         samples,
@@ -459,8 +489,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
               spec,
               label,
               versions,
-              versionMode,
-              versionParam: entry?.versionParam,
+              versionUrl,
               requireOperationId,
               schemaPages,
               samples,

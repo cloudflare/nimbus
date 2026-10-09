@@ -1070,7 +1070,7 @@ export function nimbus(
                 // entry's store id is not a route.
                 const queryModeDefaults = new Map<string, string>();
                 for (const entry of config.api ?? []) {
-                  if (entry.versionMode !== "query" || !entry.versions) continue;
+                  if (entry.versionUrl?.in !== "query" || !entry.versions) continue;
                   const fallback =
                     entry.versions.find((v) => v.default) ?? entry.versions[0];
                   queryModeDefaults.set(entry.collection, fallback!.version);

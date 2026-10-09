@@ -269,7 +269,7 @@ const result=await getApiRoute(Astro);if(result instanceof Response)return resul
           api: [
             {
               collection: "api",
-              versionMode: "query",
+              versionUrl: { in: "query" },
               bundle: false,
               versions: [
                 { version: "v2", spec: "./specs/v2.json", default: true },

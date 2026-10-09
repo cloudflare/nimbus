@@ -565,15 +565,17 @@
       ]
     },
     {
-      "id": "api-version-param",
+      "id": "api-version-url",
       "introducedIn": "0.18.0",
       "mode": "review-required",
-      "changeset": "api-version-param",
-      "summary": "Query-versioned API pages select the version with ?version= instead of ?api-version=.",
-      "affected": "Only API families that set versionMode: \"query\". Path-versioned and unversioned APIs are unchanged.",
+      "changeset": "api-version-url",
+      "summary": "versionMode is now versionUrl, and query-versioned API pages select the version with ?version= instead of ?api-version=.",
+      "affected": "Only API families that set versionMode. Unversioned APIs and families without versionMode are unchanged.",
       "instructions": [
+        "Upgrading from before 0.17: the earlier entries api-query-version-mode and version-switcher-keeps-query say versionMode: \"query\" and ?api-version=. Apply them with versionUrl: { in: \"query\" } and ?version= instead.",
+        "Replace versionMode: \"query\" with versionUrl: { in: \"query\" }. Replace versionMode: \"path\" with versionUrl: { in: \"path\" }, or remove it; path is the default. The build names any versionMode it finds.",
         "Generated links now carry ?version=<id>. API pages requested with ?api-version= redirect permanently to ?version=, keeping other query parameters; Markdown URLs don't redirect.",
-        "To keep the old name, set versionParam: \"api-version\" on the family's api entry. Any lowercase name works.",
+        "To keep the old name, use versionUrl: { in: \"query\", param: \"api-version\" }. Any lowercase name works.",
         "If a cache or CDN rule in front of the site keys on api-version, key it on the new name."
       ],
       "verify": [

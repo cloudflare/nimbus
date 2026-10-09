@@ -279,21 +279,17 @@ export interface ApiSpec {
    */
   versions?: ApiVersionSpec[];
   /**
-   * How a version is addressed in URLs. `"path"` (the default) mounts each
-   * non-default version at `/<collection>/<version>`. `"query"` gives every
-   * operation one URL: `/<collection>/<slug>` with the version in
-   * `?version=<id>` — absent means the default, unknown or repeated is
-   * a 404, and a hidden version's pages are reachable only by query. `"query"`
-   * requires `versions` and the family's effective rendering mode to be
-   * `"request"`: a static site serves the same file whatever the query says.
+   * Where a version sits in URLs. `{ in: "path" }` (the default) mounts each
+   * non-default version at `/<collection>/<version>`. `{ in: "query" }` gives
+   * every operation one URL: `/<collection>/<slug>` with the version in
+   * `?version=<id>` (`param` renames it) — absent means the default, unknown
+   * or repeated is a 404, and a hidden version's pages are reachable only by
+   * query. Query URLs require `versions` and the family's effective rendering
+   * mode to be `"request"`: a static site serves the same file whatever the
+   * query says. Links using 0.17's `?api-version=` redirect to the configured
+   * parameter.
    */
-  versionMode?: "path" | "query";
-  /**
-   * The query parameter that carries the version in `versionMode: "query"`.
-   * Default `"version"`. Links using the 0.17 name, `?api-version=`, still
-   * work and redirect to it.
-   */
-  versionParam?: string;
+  versionUrl?: ApiVersionUrl;
   /**
    * Require every operation to declare a stable `operationId`. When `false` (the
    * default), an operation missing one warns and falls back to a path-derived
@@ -379,6 +375,15 @@ export type ApiSidebarMode = "full" | "on-demand";
 
 /** Maturity/deprecation status for one API version. */
 export type ApiVersionStatus = "ga" | "beta" | "deprecated";
+
+/** Where an API family's version sits in its URLs. */
+export type ApiVersionUrl =
+  | { in: "path" }
+  | {
+      in: "query";
+      /** The query parameter. Default `"version"`. */
+      param?: string;
+    };
 
 /**
  * One version within an {@link ApiSpec} family. Each version parses its own
