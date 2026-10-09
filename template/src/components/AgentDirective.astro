@@ -1,7 +1,9 @@
 ---
 interface Props {
-  /** Absolute or site-relative URL for this page's markdown version. */
-  markdownUrl: string;
+  /** Absolute or site-relative URL for this page's markdown version, or
+   *  `null` when the page has no per-page Markdown (a non-default
+   *  query-mode API version) — the directive then points at the index only. */
+  markdownUrl?: string | null;
   /** Absolute or site-relative URL for the top-level llms.txt index. */
   llmsUrl: string;
 }
@@ -10,7 +12,16 @@ const { markdownUrl, llmsUrl } = Astro.props;
 ---
 
 <aside class="sr-only" data-ai-agent-directive>
-  This page is available in Markdown format. Markdown is recommended for AI
-  consumption. See <a href={markdownUrl}>{markdownUrl}</a> for this page, or
-  <a href={llmsUrl}>{llmsUrl}</a> for the full documentation index.
+  {markdownUrl ? (
+    <Fragment>
+      This page is available in Markdown format. Markdown is recommended for AI
+      consumption. See <a href={markdownUrl}>{markdownUrl}</a> for this page, or
+      <a href={llmsUrl}>{llmsUrl}</a> for the full documentation index.
+    </Fragment>
+  ) : (
+    <Fragment>
+      See <a href={llmsUrl}>{llmsUrl}</a> for the full documentation index.
+      Markdown is recommended for AI consumption.
+    </Fragment>
+  )}
 </aside>

@@ -13,6 +13,7 @@ import {
 import AgentDirective from "@/components/AgentDirective.astro";
 import { SearchDialog } from "@/components/ui/search";
 import NimbusHead from "@cloudflare/nimbus-docs/components/NimbusHead.astro";
+import WebMCP from "@/components/WebMCP.astro";
 import type { BasePageProps } from "@cloudflare/nimbus-docs/types";
 
 type Props = BasePageProps;
@@ -64,6 +65,7 @@ const resolvedMarkdownUrl =
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <WebMCP />
 
     <script is:inline>
       (() => {
@@ -127,8 +129,8 @@ const resolvedMarkdownUrl =
     >
       Skip to content
     </a>
-    {resolvedMarkdownUrl && !isHiddenVersion && (
-      <AgentDirective markdownUrl={resolvedMarkdownUrl} llmsUrl={llmsUrl} />
+    {!isHiddenVersion && (
+      <AgentDirective markdownUrl={resolvedMarkdownUrl ?? null} llmsUrl={llmsUrl} />
     )}
     <slot />
     {config.search !== false && <SearchDialog />}

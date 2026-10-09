@@ -1,7 +1,9 @@
 ---
 /**
- * SidebarLink — a leaf row. The optional `leading` slot renders before the
- * label for consumers that need a leading decoration.
+ * SidebarLink — a leaf row: `<a class="nb-sidebar-link">Label</a>`, with an
+ * inner span only when a badge or the `leading` slot needs one. The row's
+ * styling is the `nb-sidebar-link` class in `src/styles/globals.css`
+ * ("Sidebar rows").
  */
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
@@ -18,27 +20,29 @@ interface Props extends HTMLAttributes<"a"> {
 
 const { label, href, isCurrent, badge, class: className, ...attrs } = Astro.props;
 const resolvedHref = withBase(href, import.meta.env.BASE_URL);
+const hasLeading = Astro.slots.has("leading");
+const plain = !hasLeading && !badge;
 ---
 
 <a
   href={resolvedHref}
   aria-current={isCurrent ? "page" : undefined}
   data-nb-sidebar-link
-  class={cn(
-    "flex min-h-[2rem] items-center gap-2 rounded-lg px-3 py-1 text-[0.8125rem] font-medium no-underline focus-visible:outline-offset-[-2px]",
-    isCurrent
-      ? "bg-accent text-foreground"
-      : "text-muted-foreground hover:bg-accent hover:text-foreground",
-    className,
-  )}
+  class={cn("nb-sidebar-link", className)}
   {...attrs}
 >
-  <slot name="leading" />
-  <span class="break-words">{label}</span>
-  {badge &&
-    (typeof badge === "string" ? (
-      <Badge text={badge} />
-    ) : (
-      <Badge text={badge.text} variant={badge.variant} />
-    ))}
+  {plain ? (
+    label
+  ) : (
+    <Fragment>
+      <slot name="leading" />
+      <span class="break-words">{label}</span>
+      {badge &&
+        (typeof badge === "string" ? (
+          <Badge text={badge} />
+        ) : (
+          <Badge text={badge.text} variant={badge.variant} />
+        ))}
+    </Fragment>
+  )}
 </a>

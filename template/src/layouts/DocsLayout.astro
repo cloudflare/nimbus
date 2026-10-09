@@ -31,7 +31,8 @@ const isCustom = mode === "custom";
 // `sidebar: false` / `tableOfContents: false` in frontmatter come through
 // from the route as literal `false` (not coerced to `[]`). They drive
 // per-column suppression — chrome, mobile dialog, header menu button.
-const showSidebar = sidebar !== false;
+// Custom pages render no sidebar, so they get no drawer or menu button.
+const showSidebar = sidebar !== false && !isCustom;
 
 // Versioning: per-page status drives Pagefind faceting, deprecation
 // banner, and the data-pagefind-ignore exclusion for hidden versions.
@@ -87,21 +88,26 @@ const hasPagination = Astro.slots.has("pagination");
       <div class="flex-1 mx-auto w-full">
         <div class="flex">
           {showSidebar && (
-            <aside id="desktop-sidebar" data-nb-desktop-sidebar class="hidden md:flex w-60 lg:w-(--nb-sidebar-width) shrink-0 border-r border-border bg-background sticky top-14 h-[calc(100vh-3.5rem)] flex-col overflow-y-auto overscroll-contain relative">
-              {hasSidebar ? (
-                <slot name="sidebar" />
-              ) : (
-                <nav class="px-4 pb-12 pt-5 flex-1">
-                  <SidebarFilter />
-                  <Sidebar items={sidebar} persist />
-                </nav>
-              )}
+            <aside id="desktop-sidebar" data-nb-desktop-sidebar class="hidden md:flex w-60 lg:w-(--nb-sidebar-width) shrink-0 border-r border-border bg-background sticky top-14 h-[calc(100vh-3.5rem)] flex-col relative">
+              {/* One tree per page: this node moves into the mobile drawer
+                  while it is open and comes back on close. It owns the
+                  scroll, so open-group and scroll state follow it. */}
+              <div data-nb-sidebar-tree class="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+                {hasSidebar ? (
+                  <slot name="sidebar" />
+                ) : (
+                  <nav class="px-4 pb-12 pt-5">
+                    <SidebarFilter />
+                    <Sidebar items={sidebar} persist />
+                  </nav>
+                )}
+              </div>
               <div class="pointer-events-none sticky bottom-0 h-8 bg-gradient-to-t from-base to-transparent" />
             </aside>
           )}
 
-          {/* Sidebar state restore — pre-sets data attributes before the
-              disclosure module loads so collapsed/scrolled state survives nav.
+          {/* Sidebar state restore — sets open groups and scroll before
+              the sidebar module loads so state survives navigation.
               The `aria-hidden` attribute keeps Astro from bundling this as a
               deferred module: it MUST stay inline to run before the disclosure
               mounts, else the first click sees stale state.
@@ -117,38 +123,24 @@ const hasPagination = Astro.slots.has("pagination");
             }
 
             function setGroupOpen(group, open) {
-              group.setAttribute("data-nb-default-open", open ? "true" : "false");
-              const trigger = group.querySelector("[data-nb-collapsible-trigger]");
-              const panel = group.querySelector("[data-nb-collapsible-content]");
-              const state = open ? "open" : "closed";
-              if (trigger) {
-                trigger.setAttribute("data-nb-state", state);
-                trigger.setAttribute("aria-expanded", String(open));
-              }
-              if (panel) {
-                panel.setAttribute("data-nb-state", state);
-                panel.toggleAttribute("inert", !open);
-              }
+              group.open = open;
             }
 
             function restore() {
               try {
-                if (!matchMedia("(min-width: 48rem)").matches) return;
-                const sidebar = document.getElementById("desktop-sidebar");
+                const sidebar = document.querySelector("[data-nb-sidebar-tree]");
                 if (!sidebar) return;
                 const content = sidebar.querySelector("[data-nb-sidebar]");
                 if (!content) return;
 
-                const raw = sessionStorage.getItem("sidebar-state");
-                let state;
-                if (raw) {
-                  state = JSON.parse(raw);
-                  if (state && content.dataset.nbSidebarHash === state.hash) {
-                    const groups = content.querySelectorAll("[data-nb-sidebar-group]");
-                    for (let i = 0; i < groups.length; i++) {
-                      if (typeof state.open[i] === "boolean") {
-                        setGroupOpen(groups[i], state.open[i]);
-                      }
+                // State saved for a different sidebar is ignored entirely.
+                const raw = JSON.parse(sessionStorage.getItem("sidebar-state") || "null");
+                const state = raw && content.dataset.nbSidebarHash === raw.hash ? raw : null;
+                if (state) {
+                  const groups = content.querySelectorAll("[data-nb-sidebar-group]");
+                  for (let i = 0; i < groups.length; i++) {
+                    if (typeof state.open[i] === "boolean") {
+                      setGroupOpen(groups[i], state.open[i]);
                     }
                   }
                 }
@@ -162,7 +154,10 @@ const hasPagination = Astro.slots.has("pagination");
                   }
                 }
 
-                if (raw && state && typeof state.scroll === "number") {
+                // Scroll only applies while the tree is visible (the rail
+                // on desktop); the drawer restores it again when it opens.
+                if (sidebar.clientHeight === 0) return;
+                if (state && typeof state.scroll === "number") {
                   sidebar.scrollTop = state.scroll;
                   if (active) {
                     const sr = sidebar.getBoundingClientRect();
@@ -270,21 +265,15 @@ const hasPagination = Astro.slots.has("pagination");
       class="group fixed inset-0 m-0 h-full w-full max-h-full max-w-full border-0 bg-transparent p-0 [&::backdrop]:bg-transparent"
       aria-label="Site navigation"
     >
-      <div data-mobile-sidebar-panel class="h-full w-(--nb-sidebar-width) max-w-[85vw] -translate-x-full overflow-y-auto overscroll-contain border-r border-border bg-card transition-transform duration-250 ease-out group-data-[state=open]:translate-x-0 motion-reduce:transition-none">
+      <div data-mobile-sidebar-panel class="flex h-full w-(--nb-sidebar-width) max-w-[85vw] -translate-x-full flex-col border-r border-border bg-card transition-transform duration-250 ease-out group-data-[state=open]:translate-x-0 motion-reduce:transition-none">
         <div class="sticky top-0 z-[1] flex items-center justify-between border-b border-border bg-card px-4 py-3">
           <span class="font-semibold text-sm text-foreground">Navigation</span>
           <button data-close-sidebar class="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label="Close sidebar">
             <Icon name="ph:x" class="w-5 h-5" />
           </button>
         </div>
-        <nav class="px-4 pb-8 pt-5">
-          {hasSidebar ? <slot name="sidebar" /> : (
-            <Fragment>
-              <SidebarFilter />
-              <Sidebar items={sidebar} />
-            </Fragment>
-          )}
-        </nav>
+        {/* The rail's tree is moved here while the drawer is open. */}
+        <div data-nb-sidebar-drawer-slot class="flex min-h-0 flex-1 flex-col [&>[data-nb-sidebar-tree]]:min-h-0 [&>[data-nb-sidebar-tree]]:flex-1 [&>[data-nb-sidebar-tree]]:overflow-y-auto [&>[data-nb-sidebar-tree]]:overscroll-contain"></div>
       </div>
     </dialog>
   )}
@@ -321,6 +310,20 @@ const hasPagination = Astro.slots.has("pagination");
         }
       };
 
+      // One tree per page: the drawer borrows the rail's tree node while it
+      // is open and returns it on close, so markup renders once and open
+      // groups, the filter, and scroll state stay with the reader. The
+      // sidebar script restores the scroll whenever the tree is revealed.
+      const tree = document.querySelector<HTMLElement>("[data-nb-sidebar-tree]");
+      const rail = tree?.parentElement ?? null;
+      const drawerSlot = dialog.querySelector<HTMLElement>("[data-nb-sidebar-drawer-slot]");
+      const moveTreeToDrawer = () => {
+        if (tree && drawerSlot && tree.parentElement !== drawerSlot) drawerSlot.append(tree);
+      };
+      const moveTreeToRail = () => {
+        if (tree && rail && tree.parentElement !== rail) rail.prepend(tree);
+      };
+
       const openSidebar = () => {
         clearTimer();
         if (dialog.open) {
@@ -329,6 +332,7 @@ const hasPagination = Astro.slots.has("pagination");
           return;
         }
 
+        moveTreeToDrawer();
         dialog.showModal();
         dialog.dataset.state = "closed";
         lockScroll();
@@ -370,6 +374,7 @@ const hasPagination = Astro.slots.has("pagination");
       dialog.addEventListener("close", () => {
         clearTimer();
         dialog.dataset.state = "closed";
+        moveTreeToRail();
         unlockScroll();
         trigger.setAttribute("aria-expanded", "false");
         trigger.focus();
@@ -393,6 +398,7 @@ const hasPagination = Astro.slots.has("pagination");
       return () => {
         controller.abort();
         clearTimer();
+        moveTreeToRail();
         trigger.setAttribute("aria-expanded", "false");
         // A swap while open never fires `close`; balance the scroll lock.
         if (dialog.open) unlockScroll();

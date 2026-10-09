@@ -520,6 +520,84 @@ pre.astro-code .highlighted-word {
 	box-shadow: 0 0 0 1px color-mix(in oklch, var(--nb-info) 30%, transparent);
 }
 
+/* ---- Sidebar rows ---- */
+
+/* One class per row type, shared by the docs and API sidebars. In the
+   components layer so Tailwind utilities on a row (a `px-1`) still win. */
+@layer components {
+	.nb-sidebar-link,
+	.nb-sidebar-row {
+		display: flex;
+		min-height: 2rem;
+		align-items: center;
+		gap: 0.5rem;
+		border-radius: 0.5rem;
+		padding: 0.25rem 0.75rem;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--nb-muted-foreground);
+		overflow-wrap: break-word;
+	}
+	.nb-sidebar-link {
+		text-decoration: none;
+	}
+	.nb-sidebar-row {
+		cursor: pointer;
+		user-select: none;
+		list-style: none;
+	}
+	.nb-sidebar-row::-webkit-details-marker {
+		display: none;
+	}
+	.nb-sidebar-link:hover,
+	.nb-sidebar-link[aria-current="page"],
+	.nb-sidebar-row:hover {
+		background-color: var(--nb-accent);
+		color: var(--nb-foreground);
+	}
+	.nb-sidebar-link:focus-visible,
+	.nb-sidebar-row:focus-visible {
+		outline-offset: -2px;
+	}
+	/* The group holds the current page. */
+	.nb-sidebar-row[data-nb-active] {
+		color: var(--nb-foreground);
+	}
+	/* The caret, drawn once as a mask instead of an inline SVG per group. */
+	.nb-sidebar-row::after {
+		content: "";
+		flex-shrink: 0;
+		width: 1rem;
+		height: 1rem;
+		margin-inline: auto -1px;
+		background-color: currentColor;
+		opacity: 0.4;
+		mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M96 48l80 80-80 80' fill='none' stroke='black' stroke-width='24' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+			no-repeat center / contain;
+	}
+	.nb-sidebar-row:hover::after {
+		opacity: 1;
+	}
+	details[open] > .nb-sidebar-row::after {
+		rotate: 90deg;
+	}
+	.nb-sidebar-list {
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+		margin: 0.125rem 0 0;
+		margin-inline-start: 0.75rem;
+		border-inline-start: 1px solid var(--nb-border);
+		padding: 0;
+		padding-inline-start: 0.5rem;
+		list-style: none;
+	}
+	/* Safari still lays out closed <details> content in large trees. */
+	details[data-nb-sidebar-group]:not([open]) > .nb-sidebar-list {
+		display: none;
+	}
+}
+
 /* ---- Mobile sidebar toggle ---- */
 
 /* Hide hamburger on pages without a sidebar dialog. */

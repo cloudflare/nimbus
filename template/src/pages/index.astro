@@ -4,10 +4,6 @@ import Header from "../components/Header.astro";
 import { config } from "virtual:nimbus/config";
 import { getIndexedEntries, withBase } from "@cloudflare/nimbus-docs/runtime";
 
-// Prerender explicitly so the homepage stays a static route under
-// `output: "server"` — an adapter alone must add zero on-demand routes.
-export const prerender = true;
-
 // Link through each page's entry: its `url` follows the site's
 // `trailingSlash`, and a card whose page is gone drops out instead of 404ing.
 const cards = [
