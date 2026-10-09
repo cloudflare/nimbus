@@ -2,10 +2,9 @@
 /** Picker for switching between docs versions or API-family versions. */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import {
-  getApiVersionAlternates,
+  getVersionSwitchUrl,
   getApiVersions,
   getCurrentVersion,
-  getVersionAlternates,
   getVersionLandingUrl,
   getVersions,
   stripBase,
@@ -54,34 +53,18 @@ if (apiCollection) {
   if (visible.length >= 2) {
     const defaultVersion = apiVersions.find((v) => v.isDefault)?.version ?? null;
     const activeVersion = apiVersion ?? defaultVersion;
-    const record =
-      coordinate && activeVersion
-        ? await getApiVersionAlternates(apiCollection, activeVersion, coordinate)
-        : null;
-
-    const altByVersion = new Map<string, string>();
-    if (record) {
-      altByVersion.set(record.self.version, record.self.url);
-      for (const alt of record.alternates) altByVersion.set(alt.version, alt.url);
-    }
-
-    entries = visible.map((v) => {
+    entries = await Promise.all(visible.map(async (v) => {
       const isActive = v.version === activeVersion;
-      // The sibling if the op exists in that version, else the version
-      // landing. The active entry stays on this page: its own record, or
-      // without one the current path plus the version's `?api-version=`
-      // (taken from its landing URL; other query params are dropped).
-      const href =
-        altByVersion.get(v.version) ??
-        (isActive ? currentPath + new URL(v.url, "http://x").search : v.url);
-      return {
-        version: v.version,
-        label: v.label,
-        href,
-        isCurrent: v.isDefault,
-        isActive,
-      };
-    });
+      // The active entry stays on this page, keeping that version's
+      // `?api-version=` (other query params are dropped); others switch to the
+      // same operation in their version, or its landing.
+      const href = isActive
+        ? currentPath + new URL(v.url, "http://x").search
+        : coordinate && activeVersion
+          ? await getVersionSwitchUrl({ collection: apiCollection, sourceVersion: activeVersion, id: coordinate, targetVersion: v.version })
+          : v.url;
+      return { version: v.version, label: v.label, href, isCurrent: v.isDefault, isActive };
+    }));
     activeLabel =
       entries.find((e) => e.isActive)?.label ??
       visible.find((v) => v.isDefault)?.label ??
@@ -97,17 +80,6 @@ const versions = await getVersions();
 if (versions && versions.all.length >= 2) {
   const currentPageVersion =
     collection ? await getCurrentVersion(collection) : null;
-  const record =
-    collection && entryId
-      ? await getVersionAlternates(collection, entryId)
-      : null;
-
-  const alternateByVersion = new Map<string, string>();
-  if (record) {
-    alternateByVersion.set(record.self.version, record.self.url);
-    for (const alt of record.alternates) alternateByVersion.set(alt.version, alt.url);
-  }
-
   const visible = versions.all.filter((v) => !versions.hidden.includes(v));
 
   // Fallback landing URL per version, used when the current page has no same-logical-page sibling.
@@ -117,7 +89,7 @@ if (versions && versions.all.length >= 2) {
     ),
   );
 
-  entries = visible
+  entries = await Promise.all(visible
     // Drop entries with no resolvable destination — that version has
     // no indexed pages, so there's nowhere to send the reader. Two
     // exceptions are always kept:
@@ -130,17 +102,17 @@ if (versions && versions.all.length >= 2) {
       v === versions.current ||
       landingByVersion.get(v) != null,
     )
-    .map((v) => {
+    .map(async (v) => {
       const isCurrent = v === versions.current;
       const isActive = v === currentPageVersion;
 
       let href: string;
-      const altHref = alternateByVersion.get(v);
       if (isActive) {
         // No-op nav: stay on this page.
         href = currentPath;
-      } else if (altHref) {
-        href = altHref;
+      } else if (collection && entryId && currentPageVersion) {
+        // The same page in that version, else that version's landing.
+        href = await getVersionSwitchUrl({ collection, sourceVersion: currentPageVersion, id: entryId, targetVersion: v });
       } else if (isCurrent) {
         // Current version always lands at the site root. `/` is the
         // canonical "go to current" target — readers expect the home
@@ -154,7 +126,7 @@ if (versions && versions.all.length >= 2) {
       }
 
       return { version: v, label: v, href, isCurrent, isActive };
-    });
+    }));
 
   const activeEntry = entries.find((e) => e.isActive);
   activeLabel = activeEntry

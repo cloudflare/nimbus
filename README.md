@@ -69,7 +69,7 @@ Components and utilities copy in as editable files. Features hand off a recipe y
 ## What you get
 
 - **Owned source** — layouts, components, content collections, styles, and theme tokens, all editable.
-- **Documentation for agents** — a clean Markdown version of every discoverable page, a prepared MDX source version of every discoverable authored page, `/llms.txt`, `/llms-full.txt`, JSON-LD, sitemap, `robots.txt`, and per-page OG images. Coding agents can read your docs as well as a browser does, by default.
+- **Documentation for agents** — a clean Markdown version of every discoverable page, a prepared MDX source version of every discoverable authored page, `/llms.txt`, JSON-LD, sitemap, `robots.txt`, and per-page OG images. Coding agents can read your docs as well as a browser does, by default.
 - **A reader experience** — full-text search, light/dark theming, accessible navigation, breadcrumbs, pagination, and a mobile sidebar.
 - **Authoring guardrails** — prose-and-structure linting, an MDX component validator, and config validation that fails with human-readable errors.
 - **Versioned docs, when you need them** — parallel versions with alternates, canonical links, and automatic redirects.

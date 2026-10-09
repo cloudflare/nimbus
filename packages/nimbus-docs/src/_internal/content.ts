@@ -73,6 +73,10 @@ export async function getVisibleEntry(
   id: string,
   ctx?: ProjectionContext,
 ): Promise<CollectionEntry<CollectionKey> | null> {
+  const { hasApiPageAssets, getApiAssetEntry } =
+    await import("./api/page-assets-runtime.js");
+  if (await hasApiPageAssets(collection))
+    return getApiAssetEntry(collection, id);
   const entries = await loadVisibleEntries(collection as CollectionKey, ctx);
   return entries.find((entry) => entry.id === id) ?? null;
 }
@@ -96,6 +100,10 @@ async function loadVisibleEntries<C extends CollectionKey>(
   name: C,
   ctx?: ProjectionContext,
 ): Promise<CollectionEntry<C>[]> {
+  const { hasApiPageAssets, getApiAssetEntries } =
+    await import("./api/page-assets-runtime.js");
+  if (await hasApiPageAssets(name))
+    return (await getApiAssetEntries(name)) as CollectionEntry<C>[];
   const cacheKey = `${name}::${audienceCacheKey(resolveAudience(ctx))}`;
   const cached = visibleEntriesByName.get(cacheKey) as CollectionEntry<C>[] | undefined;
   if (cached) return cached;

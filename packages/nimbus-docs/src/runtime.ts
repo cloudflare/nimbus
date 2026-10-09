@@ -45,7 +45,12 @@ import {
 } from "./_internal/sidebar.js";
 import { entryRouteKey } from "./_internal/astro-slug.js";
 import { ogImagePageKey, pageUrls } from "./_internal/page-urls.js";
-import { stripBase, withBase, withoutHtmlExtension } from "./_internal/url.js";
+import {
+  stripBase,
+  toDocumentHref,
+  withBase,
+  withoutHtmlExtension,
+} from "./_internal/url.js";
 import {
   PRIMARY_COLLECTION,
   collectionLabel as resolveCollectionSlug,
@@ -55,7 +60,6 @@ import {
   renderEntryAsMarkdown,
   type RenderEntryAsMarkdownOptions,
 } from "./_internal/transform.js";
-import { buildLlmsFullMarkdown } from "./_internal/llms-full.js";
 import { isDiscoverable } from "./_internal/discoverability.js";
 import {
   assembleBreadcrumbs,
@@ -305,7 +309,7 @@ export interface IndexedTopLevel {
 
 /**
  * Cross-collection entry list backing the agent-facing routes
- * (`llms.txt`, per-page `.md` alternates, `llms-full.txt`) and internal
+ * (`llms.txt`, per-page `.md` alternates) and internal
  * link validation. Implements the indexing baseline of the two-layer
  * architecture documented at `/features/llms-txt`:
  *
@@ -354,7 +358,11 @@ export async function getIndexedEntries(
   const indexed: IndexedEntry[] = [];
   for (const name of names) {
     // Surfaces a failed registered collection instead of silently dropping it.
-    const { entries, warning } = await loadCollectionOrWarn<
+    const { hasApiPageAssets, getApiAssetEntries } =
+      await import("./_internal/api/page-assets-runtime.js");
+    const { entries, warning } = (await hasApiPageAssets(name))
+      ? { entries: await getApiAssetEntries(name), warning: undefined }
+      : await loadCollectionOrWarn<
       import("astro:content").CollectionEntry<string>
     >(name, (n) => getCollection(n as any));
     if (warning) runtimeWarn(warning);
@@ -511,8 +519,7 @@ export async function getIndexedTopLevel(): Promise<IndexedTopLevel> {
  * Prose entries render their MDX body via `renderEntryAsMarkdown`. OpenAPI
  * reference entries carry no body, so their frozen view-model is projected and
  * emitted through the `./api` seam — dynamic-imported so the engine and its
- * parser stay out of the main bundle for prose-only sites. Both `llms-full.txt`
- * and the served `.md` route go through here, so the two never drift.
+ * parser stay out of the main bundle for prose-only sites.
  */
 export async function renderIndexedEntryMarkdown(
   item: IndexedEntry,
@@ -538,6 +545,16 @@ export async function renderIndexedEntryMarkdown(
   if (isPreparedApiPage(apiData.prepared)) {
     return renderApiPageMarkdown(apiData.prepared.page, { base: options?.base });
   }
+  const { hasApiPageAssets, getApiAssetPage } =
+    await import("./_internal/api/page-assets-runtime.js");
+  if (await hasApiPageAssets(item.collection)) {
+    const { page } = await getApiAssetPage(
+      item.collection,
+      item.version ?? null,
+      coordinate,
+    );
+    return renderApiPageMarkdown(page, { base: options?.base });
+  }
   if (!THIN_API_ENTRIES) {
     throw new Error(
       `nimbus-docs: API entry "${item.entry.id}" in collection "${item.collection}" ` +
@@ -552,64 +569,6 @@ export async function renderIndexedEntryMarkdown(
     coordinate,
   );
   return renderApiPageMarkdown(page, {
-    base: options?.base,
-  });
-}
-
-/**
- * Render the full published documentation as one Markdown document for the
- * `llms-full.txt` route. One fetch returns every discoverable current page as
- * clean Markdown, with no crawling.
- *
- * Scope matches the root `llms.txt`: the primary `docs` collection plus
- * every secondary collection, **excluding** non-current version collections
- * (`docs-<v>`) — old versions keep their own per-version indexes and never
- * multiply this document — and **excluding** `noindex: true` pages (see
- * {@link isDiscoverable}), which stay addressable but off discovery indexes.
- *
- * Contract (see `buildLlmsFullMarkdown` for the collation rules):
- *   - Entries are sorted by `url`; output is deterministic across rebuilds.
- *   - Each entry is a `#`-level block (bodies render at `##` and below).
- *   - The document header cross-references `/llms.txt`.
- *
- * The starter route reads the prebuilt full-document endpoint payload. A site
- * that wants a different policy (per-version, filtered, chunked) should generate
- * its own output at build time rather than compose runtime entry renderers, which do
- * not carry build-only partial or API rendering context. Pass Astro's
- * `import.meta.env.BASE_URL` as `base` when the site supports sub-path deploys.
- */
-export async function renderLlmsFullMarkdown(options?: {
-  base?: string;
-}): Promise<string> {
-  const config = await loadNimbusConfig();
-  const versions = await getVersions();
-  const entries = await getIndexedEntries();
-
-  // Exclude non-current version collections — same predicate the root
-  // `llms.txt` applies via its `kind === "version"` skip (hidden versions
-  // are a subset of `others`, so this covers them too).
-  const versionSlugs = new Set(versions?.others ?? []);
-  const included = entries.filter(
-    (item) =>
-      isDiscoverable(item.entry) &&
-      (item.collection === PRIMARY_COLLECTION ||
-        !versionSlugs.has(resolveCollectionSlug(item.collection, versions))),
-  );
-
-  const blocks = await Promise.all(
-    included.map(async (item) => ({
-      title: item.title,
-      description: item.description,
-      url: item.url,
-      markdownUrl: item.markdownUrl,
-      markdown: await renderIndexedEntryMarkdown(item, { base: options?.base }),
-    })),
-  );
-
-  return buildLlmsFullMarkdown(blocks, {
-    title: config.title,
-    description: config.description,
-    site: config.site,
     base: options?.base,
   });
 }
@@ -1556,7 +1515,15 @@ export function getApiRoute(
         "Ensure your route uses `getStaticPaths = getApiStaticPaths(<collection>)`.",
     );
   }
-  return resolveApiRoute(astro);
+  return resolveApiRoute(astro).catch((error: unknown) => {
+    if (error instanceof Error && error.name === "PageAssetReadOverloadError") {
+      return new Response("Temporarily busy", {
+        status: 503,
+        headers: { "Retry-After": "1" },
+      });
+    }
+    throw error;
+  });
 }
 
 async function resolveApiRoute(
@@ -1571,12 +1538,23 @@ async function resolveApiRoute(
         const { apiQueryRouting } = await import("./_internal/api/resolve-versions.js");
         return apiQueryRouting((await loadNimbusConfig()).api, collection);
       },
-      getVisibleEntry: getVisibleEntry as (
-        collection: string,
-        id: string,
-        ctx?: ProjectionContext,
-      ) => Promise<import("astro:content").CollectionEntry<string> | null>,
+      async getVisibleEntry(collection, id, ctx) {
+        const { hasApiPageAssets, getApiAssetEntry } =
+          await import("./_internal/api/page-assets-runtime.js");
+        return (await hasApiPageAssets(collection))
+          ? getApiAssetEntry(collection, id, astro.request)
+          : getVisibleEntry(collection, id, ctx);
+      },
       async render(collection, version, coordinate, resolvedEntry) {
+        const { hasApiPageAssets, getApiAssetPage } =
+          await import("./_internal/api/page-assets-runtime.js");
+        if (await hasApiPageAssets(collection))
+          return getApiAssetPage(
+            collection,
+            version,
+            coordinate,
+            astro.request,
+          );
         const projection = pageResolutionContext(astro).projection;
         const entry =
           resolvedEntry ??
@@ -1781,7 +1759,8 @@ export async function getCurrentVersion(
 }
 
 /**
- * Look up the cross-version alternates for a given Astro entry.
+ * Look up the cross-version alternates for a given Astro entry. For picker
+ * links, prefer {@link getVersionSwitchUrl}.
  *
  * Returns `null` when the entry is not part of a versioning manifest
  * (unversioned site, non-`docs` collection like `blog`/`api`, or the
@@ -1822,13 +1801,22 @@ export async function getVersionAlternates(
  * API-family variant of {@link getVersionAlternates}. API alternates are keyed
  * by `family@version:coordinate`, which the `(collection, entryId)` accessor
  * cannot address. Pass the `version` and `coordinate` from
- * {@link getApiStaticPaths}. Returns `null` for an unversioned family.
+ * {@link getApiStaticPaths}. Returns `null` for an unversioned family. An API
+ * with `bundle: false` doesn't keep this table and throws; use
+ * {@link getVersionSwitchUrl} and {@link getApiVersionHead} there.
  */
 export async function getApiVersionAlternates(
   collection: string,
   version: string | null,
   coordinate: string,
 ): Promise<VersionAlternateRecord | null> {
+  const { hasApiPageAssets } =
+    await import("./_internal/api/page-assets-runtime.js");
+  if (await hasApiPageAssets(collection)) {
+    throw new Error(
+      `NIMBUS_API_EAGER_ALTERNATES: getApiVersionAlternates doesn't work for "${collection}", which sets bundle: false. Use getVersionSwitchUrl for picker links and getApiVersionHead for heads; see upgrade entry api-request-path.`,
+    );
+  }
   if (version == null) return null;
   const config = await loadNimbusConfig();
   const { resolveApiVersion } =
@@ -1837,6 +1825,134 @@ export async function getApiVersionAlternates(
   if (!target) return null;
   const table = await loadVersionAlternates();
   return table[`${target.versionKey}:${coordinate}`] ?? null;
+}
+
+export interface VersionSwitchOptions {
+  collection: string;
+  sourceVersion: string;
+  id: string;
+  targetVersion: string;
+}
+
+/** One picker API for both rendering modes. URLs exclude Astro's base; apply withBase at the component boundary. */
+export async function getVersionSwitchUrl(
+  options: VersionSwitchOptions,
+): Promise<string> {
+  const { collection, sourceVersion, id, targetVersion } = options;
+  const { hasApiPageAssets } =
+    await import("./_internal/api/page-assets-runtime.js");
+  if (await hasApiPageAssets(collection)) {
+    // Loading the config installs the link policy toDocumentHref reads.
+    await loadNimbusConfig();
+    const params = new URLSearchParams({
+      collection,
+      sourceVersion,
+      id,
+      targetVersion,
+    });
+    // An injected endpoint follows the site's trailingSlash policy.
+    return `${toDocumentHref("/_nimbus/version-switch")}?${params}`;
+  }
+  const config = await loadNimbusConfig();
+  if (config.api?.some((entry) => entry.collection === collection)) {
+    const { apiPageSlug, resolveApiVersion, pageUrl } =
+      await import("./_internal/api/resolve-versions.js");
+    const target = resolveApiVersion(config.api, collection, targetVersion);
+    if (!target)
+      throw new Error(
+        `Unknown target version ${targetVersion} for ${collection}.`,
+      );
+    if (!resolveApiVersion(config.api, collection, sourceVersion))
+      throw new Error(
+        `Unknown source version ${sourceVersion} for ${collection}.`,
+      );
+    const record = await getApiVersionAlternates(collection, sourceVersion, id);
+    if (!record) {
+      // No alternates record: a single-version family, or a page added since
+      // the dev server built the table. Stay on the page when it exists in
+      // the target version; otherwise land on that version, as pickers did.
+      if (sourceVersion === targetVersion) {
+        const entry = (await getVisibleEntries([collection])).find(
+          (candidate) => {
+            const data = candidate.data as {
+              coordinate?: string;
+              version?: string;
+            };
+            return data.coordinate === id && data.version === sourceVersion;
+          },
+        );
+        // A non-default store id carries its version, which pageUrl adds back.
+        if (entry) return pageUrl(target, apiPageSlug(target, entry.id));
+      }
+      return pageUrl(target, "");
+    }
+    const sibling =
+      record?.self.version === targetVersion
+        ? record.self
+        : record?.alternates.find((entry) => entry.version === targetVersion);
+    return sibling?.url ?? pageUrl(target, "");
+  }
+  const versions = await getVersions();
+  if (!versions?.all.includes(targetVersion))
+    throw new Error(`Unknown target version ${targetVersion}.`);
+  const record = await getVersionAlternates(collection, id);
+  const sibling =
+    record?.self.version === targetVersion
+      ? record.self
+      : record?.alternates.find((entry) => entry.version === targetVersion);
+  return (
+    sibling?.url ??
+    (targetVersion === versions.current
+      ? "/"
+      : ((await getVersionLandingUrl(targetVersion)) ?? `/${targetVersion}/`))
+  );
+}
+
+/** Internal endpoint dispatch; never enumerate the retained versions' page indexes. */
+export async function resolveVersionSwitch(
+  options: VersionSwitchOptions,
+  request?: Request,
+): Promise<string | null> {
+  const { hasApiPageAssets, resolveApiAssetSwitch } =
+    await import("./_internal/api/page-assets-runtime.js");
+  if (!(await hasApiPageAssets(options.collection))) return null;
+  return resolveApiAssetSwitch(
+    options.collection,
+    options.sourceVersion,
+    options.id,
+    options.targetVersion,
+    request,
+  );
+}
+
+/** Head metadata; for an API with `bundle: false` it reads only the selected version's index. */
+export async function getApiVersionHead(
+  collection: string,
+  version: string,
+  coordinate: string,
+  request?: Request,
+): Promise<{
+  canonical: { url: string } | null;
+  alternates: VersionAlternateRecord["alternates"];
+  bundled: boolean;
+}> {
+  const { hasApiPageAssets, getApiAssetCanonical } =
+    await import("./_internal/api/page-assets-runtime.js");
+  if (await hasApiPageAssets(collection)) {
+    const url = await getApiAssetCanonical(
+      collection,
+      version,
+      coordinate,
+      request,
+    );
+    return { canonical: url ? { url } : null, alternates: [], bundled: false };
+  }
+  const record = await getApiVersionAlternates(collection, version, coordinate);
+  return {
+    canonical: record?.canonical ?? null,
+    alternates: record?.alternates ?? [],
+    bundled: true,
+  };
 }
 
 /**

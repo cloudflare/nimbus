@@ -1,6 +1,6 @@
 // Prose `api.ref:` citations must carry Astro's `base` in every output: the
 // HTML from `.mdx` (Vite source plugin) and `.md` (Markdown processor), both
-// prerendered and request-rendered, the Markdown alternate, and `llms-full.txt`.
+// prerendered and request-rendered, and the Markdown alternate.
 // The citation index itself stays base-relative; each output applies the base
 // exactly once.
 
@@ -82,7 +82,6 @@ interface Built {
   html: string;
   markdown: string;
   mdMarkdown: string;
-  llmsFull: string;
   requestHtml?: string;
 }
 
@@ -146,15 +145,6 @@ export async function GET({ params, props, request }) {
   return new Response(payload.body, { headers: { "content-type": payload.mediaType } });
 }`,
   );
-  await write(
-    "src/pages/llms-full.txt.ts",
-    `import { getLlmsPayload } from ${moduleUrl("../src/agent-endpoints.ts")};
-export const prerender = true;
-export async function GET({ request }) {
-  const payload = await getLlmsPayload({ scope: "site", surface: "full" }, { request });
-  return new Response(payload.body, { headers: { "content-type": payload.mediaType } });
-}`,
-  );
   let adapter: AstroIntegration | undefined;
   if (options.request) {
     await write("src/pages/live.astro", `---\nexport const prerender = false;\n${renderGuide}`);
@@ -192,8 +182,10 @@ export async function GET({ request }) {
     root,
     html: await readFile(path.join(root, "dist/index.html"), "utf8"),
     markdown: await readFile(path.join(root, "dist/guide/index.md"), "utf8"),
-    mdMarkdown: await readFile(path.join(root, "dist/reference/index.md"), "utf8"),
-    llmsFull: await readFile(path.join(root, "dist/llms-full.txt"), "utf8"),
+    mdMarkdown: await readFile(
+      path.join(root, "dist/reference/index.md"),
+      "utf8",
+    ),
   };
   if (options.request) {
     const { app } = (await import(
@@ -233,20 +225,20 @@ function expected(prefix: string): Record<string, string> {
   );
 }
 
-test("prose citations carry a non-root base in HTML, Markdown, and llms-full.txt", async () => {
+test("prose citations carry a non-root base in HTML and Markdown", async () => {
   const built = await buildFixture("/docs", { request: true });
 
   assert.deepEqual(hrefs(built.html), expected("/docs"));
   assert.deepEqual(hrefs(built.requestHtml!), expected("/docs"));
   assert.match(built.html, /<code>\[kept\]\(api\.ref:api:create\)<\/code>/);
 
-  for (const markdown of [built.markdown, built.llmsFull]) {
+  for (const markdown of [built.markdown]) {
     assert.match(markdown, /\[bare link\]\(\/docs\/api\/charges\/create\/\)/);
     assert.match(markdown, /\[angle link\]\(\/docs\/api\/charges\/list\/\)/);
     assert.match(markdown, /href="\/docs\/api\/disputes\/openDispute\/"/);
     assert.match(markdown, /\[versioned link\]\(\/docs\/api\/v1\/search\/search\/\)/);
   }
-  for (const markdown of [built.mdMarkdown, built.llmsFull]) {
+  for (const markdown of [built.mdMarkdown]) {
     assert.match(markdown, /\[md bare link\]\(\/docs\/api\/charges\/create\/\)/);
     assert.match(markdown, /\[md angle link\]\(\/docs\/api\/charges\/list\/\)/);
     assert.match(markdown, /href="\/docs\/api\/disputes\/openDispute\/">md html link/);
@@ -257,7 +249,6 @@ test("prose citations carry a non-root base in HTML, Markdown, and llms-full.txt
     built.requestHtml!,
     built.markdown,
     built.mdMarkdown,
-    built.llmsFull,
   ]) {
     assert.doesNotMatch(output, /\/docs\/docs\//);
   }
@@ -269,6 +260,6 @@ test("prose citations resolve without a prefix on a root base", async () => {
   assert.deepEqual(hrefs(built.html), expected(""));
   assert.match(built.markdown, /\[bare link\]\(\/api\/charges\/create\/\)/);
   assert.match(built.markdown, /\[versioned link\]\(\/api\/v1\/search\/search\/\)/);
-  assert.match(built.llmsFull, /\[angle link\]\(\/api\/charges\/list\/\)/);
+  assert.match(built.markdown, /\[angle link\]\(\/api\/charges\/list\/\)/);
   assert.match(built.mdMarkdown, /\[md bare link\]\(\/api\/charges\/create\/\)/);
 });

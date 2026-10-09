@@ -32,10 +32,6 @@ function routes(prerender: boolean): Record<string, string> {
 export const prerender = ${prerender};
 export const { GET } = llmsRoute();
 `,
-    "src/pages/llms-full.txt.ts": `import { llmsFullRoute } from ${endpoints};
-export const prerender = ${prerender};
-export const { GET } = llmsFullRoute();
-`,
     "src/lib/llms.ts": `import { llmsSectionRoute } from ${endpoints};
 export const section = llmsSectionRoute();
 `,
@@ -50,11 +46,7 @@ async function bakedLlms(root: string): Promise<Map<string, string>> {
   const bodies = new Map<string, string>();
   for (const asset of (await agentManifest(root)).llmsAssets) {
     const url =
-      asset.scope === "section"
-        ? `${asset.section}/llms.txt`
-        : asset.surface === "full"
-          ? "llms-full.txt"
-          : "llms.txt";
+      asset.scope === "section" ? `${asset.section}/llms.txt` : "llms.txt";
     bodies.set(
       url,
       await readFile(path.join(root, ".astro/nimbus/agent-endpoint-assets", asset.path), "utf8"),
@@ -66,7 +58,10 @@ async function bakedLlms(root: string): Promise<Map<string, string>> {
 test("prerendered factories write every baked llms.txt payload and warn about nothing", async () => {
   const site = await sites.buildSite({ ...CONTENT, ...routes(true) }, { logLevel: "warn" });
   const baked = await bakedLlms(site.root);
-  assert.deepEqual([...baked.keys()].sort(), ["changelog/llms.txt", "llms-full.txt", "llms.txt"]);
+  assert.deepEqual([...baked.keys()].sort(), [
+    "changelog/llms.txt",
+    "llms.txt",
+  ]);
   for (const [url, body] of baked) {
     assert.equal(await readFile(path.join(site.root, "dist", url), "utf8"), body, url);
   }

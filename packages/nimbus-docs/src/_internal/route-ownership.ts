@@ -63,12 +63,6 @@ export const STARTER_ROUTE_INVENTORY: readonly StarterRouteDeclaration[] = [
     publishesAgentEndpointAssets: true,
   },
   {
-    pattern: "/llms-full.txt",
-    entrypoint: "pages/llms-full.txt.ts",
-    role: "user-owned",
-    publishesAgentEndpointAssets: true,
-  },
-  {
     pattern: "/llms.txt",
     entrypoint: "pages/llms.txt.ts",
     role: "user-owned",

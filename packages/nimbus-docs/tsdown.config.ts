@@ -32,6 +32,7 @@ export default defineConfig({
     "_internal/agent-discovery-middleware": "src/_internal/agent-discovery-middleware.ts",
     "_internal/request-route-inventory":
       "src/_internal/request-route-inventory.ts",
+    "_internal/version-switch-route": "src/_internal/version-switch-route.ts",
     "_internal/git-last-updated": "src/_internal/git-last-updated.ts",
     "_internal/agent-endpoint-assets":
       "src/_internal/agent-endpoint-assets.ts",

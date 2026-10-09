@@ -49,6 +49,10 @@ import {
   runPreparedMarkdownTransaction,
 } from "./_internal/prepared-markdown-registry.js";
 import { transparentProxy } from "./_internal/transparent-proxy.js";
+import {
+  rendersApiOnRequest,
+  usesPageAssets,
+} from "./_internal/page-assets-config.js";
 
 // Re-export the public schema factories from `nimbus-docs/content` so users
 // have a single import for content-config concerns (collections + schemas).
@@ -120,6 +124,9 @@ export interface PartialsCollectionOptions<
 }
 
 const DEFAULT_PATTERN = "**/*.{md,mdx}";
+/** A quarter of the 64 MiB Workers script limit (uncompressed; there is no
+ * compressed limit): developers.cloudflare.com/workers/platform/limits. */
+const BUNDLE_HINT_BYTES = 16 * 1024 * 1024;
 const NIMBUS_MARKDOWN_GENERATION = 1;
 // One cache across roles: wrapping an already-wrapped loader must return it
 // unchanged (whatever role it was wrapped with), or the nested wrappers would
@@ -440,6 +447,30 @@ export function apiCollection(options?: ApiCollectionOptions): {
         .map((t) => t.version!);
 
       const index = async () => {
+        let bundledBytes = 0;
+        if (usesPageAssets(astroConfig.root, collection)) {
+          const { prepareApiAssetFamily } =
+            await import("./_internal/api/page-assets-build.js");
+          await prepareApiAssetFamily(
+            rootDir,
+            {
+              collection,
+              spec,
+              label,
+              versions,
+              versionMode,
+              requireOperationId,
+              schemaPages,
+              samples,
+              routes,
+              sidebar,
+            },
+            (message) => logger.warn(message),
+          );
+          // No per-page payload or page index enters Astro's bundled store.
+          // Build consumers enumerate the default staged index instead.
+          return [];
+        }
         const nextEntries: Array<Parameters<typeof store.set>[0]> = [];
         // Default-version top segment → the route provenances that produced it
         // ("override"/"derived"/"fallback", or "identity" for a page with none),
@@ -525,6 +556,19 @@ export function apiCollection(options?: ApiCollectionOptions): {
               throw new Error(message);
             }
             seenIds.set(id, coordinate);
+            const prepared = persistPreparedPages
+              ? {
+                  version: preparedApiVersion,
+                  page: await prepareApiPageCode(
+                    getApiPageProps(model, coordinate),
+                  ),
+                  navEntryId,
+                  ...(id === navEntryId ? { nav: preparedNav } : {}),
+                }
+              : undefined;
+            // Measure until the hint threshold; past it the answer is known.
+            if (prepared && bundledBytes <= BUNDLE_HINT_BYTES)
+              bundledBytes += JSON.stringify(prepared).length;
             const data = await parseData({
               id,
               data: {
@@ -532,18 +576,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
                 title,
                 ...(description === undefined ? {} : { description }),
                 ...(target.version ? { version: target.version } : {}),
-                ...(persistPreparedPages
-                  ? {
-                      prepared: {
-                        version: preparedApiVersion,
-                        page: await prepareApiPageCode(
-                          getApiPageProps(model, coordinate),
-                        ),
-                        navEntryId,
-                        ...(id === navEntryId ? { nav: preparedNav } : {}),
-                      },
-                    }
-                  : {}),
+                ...(prepared ? { prepared } : {}),
               },
             });
             nextEntries.push({ id, data });
@@ -585,6 +618,17 @@ export function apiCollection(options?: ApiCollectionOptions): {
               `override in each version to keep the URL stable across versions.`,
           );
         }
+        // Prepared pages are bundled into the server. Suggest the escape hatch
+        // well before the Worker's 64 MiB limit.
+        if (
+          bundledBytes > BUNDLE_HINT_BYTES &&
+          rendersApiOnRequest(astroConfig.root, collection)
+        ) {
+          logger.warn(
+            `API "${collection}" adds more than ${BUNDLE_HINT_BYTES / 1048576} MiB of page data to the server bundle. ` +
+              `Set bundle: false on its api entry to serve it from static assets instead (Cloudflare and Node adapters).`,
+          );
+        }
         return nextEntries;
       };
 
@@ -620,7 +664,9 @@ export function apiCollection(options?: ApiCollectionOptions): {
               store.clear();
               for (const entry of nextEntries) store.set(entry);
               logger.info(
-                `Indexed ${store.keys().length} API pages for "${collection}".`,
+                usesPageAssets(astroConfig.root, collection)
+                  ? `Prepared API pages for "${collection}" as static assets (bundle: false).`
+                  : `Indexed ${store.keys().length} API pages for "${collection}".`,
               );
             } catch (error) {
               cancelPreparedMarkdownLoad(preparedRoot, collection, epoch);

@@ -12,7 +12,7 @@ import { ApiCodeRail } from "@/components/ui/api-code-rail";
 import { Banner } from "@/components/ui/banner";
 import ApiBody from "./ApiBody.astro";
 import { cn } from "@/lib/cn";
-import { getApiVersionAlternates, getVersionStatus, navBuildId, navStateScript, withBase } from "@cloudflare/nimbus-docs/runtime";
+import { getApiVersionHead, getVersionStatus, navBuildId, navStateScript, withBase } from "@cloudflare/nimbus-docs/runtime";
 import type { ApiNav, ApiPageProps } from "@cloudflare/nimbus-docs/api";
 
 interface Props {
@@ -36,7 +36,7 @@ const versionStatus =
     : null;
 const currentSiblingUrl =
   collection && version && coordinate
-    ? ((await getApiVersionAlternates(collection, version, coordinate))?.canonical
+    ? ((await getApiVersionHead(collection, version, coordinate, Astro.request))?.canonical
         ?.url ?? null)
     : null;
 const currentSiblingHref = withBase(currentSiblingUrl ?? "/", import.meta.env.BASE_URL);

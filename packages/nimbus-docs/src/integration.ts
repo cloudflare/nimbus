@@ -482,6 +482,9 @@ export function nimbus(
   // prerender-invariant reporter.
   let outputModeForBuild: "static" | "server" = "static";
   let adapterNameForBuild: string | null = null;
+  let pageAssetCollections: string[] = [];
+  let clientDirectory = new URL("file:///tmp/nimbus-client/");
+  let serverDirectory = new URL("file:///tmp/nimbus-server/");
   let resolvedRoutesForBuild: ResolvedRouteLike[] = [];
   let endpointRoutesForBuild: EndpointRouteRecord[] = [];
   // Resolved `redirects` (user ∪ version-alternate) for the platform emitter.
@@ -551,6 +554,28 @@ export function nimbus(
   // authored-source citation resolver and virtual:nimbus/coordinates read it
   // through a getter.
   let citationIndex = new Map<string, string>();
+  const prepareCitationSources = async (
+    root: string,
+    warn: (message: string) => void,
+  ) => {
+    const preparedVersions = new Map<
+      string,
+      import("./_internal/api/citation-index.js").PreparedApiCitationSource
+    >();
+    const { prepareApiAssetFamily } =
+      await import("./_internal/api/page-assets-build.js");
+    for (const entry of config.api ?? []) {
+      if (!pageAssetCollections.includes(entry.collection)) continue;
+      const { versions } = await prepareApiAssetFamily(root, entry, warn);
+      for (const { target, prepared } of versions) {
+        const filename = prepared.citationSummaryPath;
+        preparedVersions.set(target.versionKey, {
+          read: () => JSON.parse(fs.readFileSync(filename, "utf8")),
+        });
+      }
+    }
+    return { preparedVersions };
+  };
   let unpublishedCitations = new Map<string, string>();
   let coordinatesManifest: CoordinatesManifest = {
     version: 2,
@@ -622,6 +647,7 @@ export function nimbus(
     const specWarnings: string[] = [];
     const apis: (AgentApiPublication & { hidden: boolean })[] = [];
     for (const api of resolveAllApiCollections(config.api)) {
+      if (pageAssetCollections.includes(api.family) && !api.isDefault) continue;
       let spec: { url: string; type: string } | undefined;
       if (api.publishSpec) {
         const published = await publishSpec(api);
@@ -836,8 +862,8 @@ export function nimbus(
    * when the route isn't one (wrong shape, no factory call, or an unknown
    * mount). Shapes: the root routes (`[...slug]/index.md.ts`,
    * `[...slug]/index.mdx.ts`, `[section]/llms.txt.ts`) take the root
-   * collection's mode; the site-wide `llms.txt.ts` and `llms-full.txt.ts`
-   * take the default; `<mount>/…` takes the mount's mode.
+   * collection's mode; the site-wide `llms.txt.ts`
+   * takes the default; `<mount>/…` takes the mount's mode.
    */
   const agentRouteMode = (component: string): RenderingMode | undefined => {
     const policy = agentRenderingForBuild;
@@ -867,7 +893,7 @@ export function nimbus(
     const parts = relative.split("/");
     const file = parts.at(-1) ?? "";
     const isMarkdownFile = /^index\.mdx?\.[cm]?[jt]s$/u.test(file);
-    const isLlmsFile = /^llms(?:-full)?\.txt\.[cm]?[jt]s$/u.test(file);
+    const isLlmsFile = /^llms\.txt\.[cm]?[jt]s$/u.test(file);
     if (!isMarkdownFile && !isLlmsFile) return undefined;
     // The parameter name is the author's choice; only the shape matters.
     const isSpread = (segment: string) => /^\[\.\.\..+\]$/u.test(segment);
@@ -939,6 +965,42 @@ export function nimbus(
           config.api,
           astroConfig.output,
         );
+        const {
+          configurePageAssetCollections,
+          configureRequestApiCollections,
+          unbundledApiCollections,
+        } = await import("./_internal/page-assets-config.js");
+        pageAssetCollections = unbundledApiCollections(config);
+        configureRequestApiCollections(astroConfig.root, config);
+        configurePageAssetCollections(
+          astroConfig.root,
+          pageAssetCollections,
+          building,
+        );
+        // The check parses components with TypeScript; load it only when needed.
+        const assertApiPickerSourceUpgrade = pageAssetCollections.length
+          ? (await import("./_internal/api-picker-upgrade.js"))
+              .assertApiPickerSourceUpgrade
+          : undefined;
+        const pageAssetsBuild =
+          await import("./_internal/api/page-assets-build.js");
+        pageAssetsBuild.clearApiPageAssetManifest(astroConfig.root);
+        clientDirectory = astroConfig.build?.client ?? clientDirectory;
+        serverDirectory = astroConfig.build?.server ?? serverDirectory;
+        const { stagedAssetPlugin } =
+          await import("./_internal/staged-asset-plugin.js");
+        if (pageAssetCollections.length) {
+          injectRoute({
+            pattern: "/_nimbus/version-switch",
+            entrypoint: fileURLToPath(
+              new URL(
+                `./_internal/version-switch-route.${import.meta.url.endsWith(".ts") ? "ts" : "js"}`,
+                import.meta.url,
+              ),
+            ),
+            prerender: false,
+          });
+        }
         const agentEndpointAssets = await loadAgentEndpointAssets();
         if (config.api?.length) {
           const apiLoader = await import("./_internal/api-loader.js");
@@ -993,6 +1055,36 @@ export function nimbus(
                 }
                 const snapshot = getPreparedMarkdownSnapshot(projectRoot);
                 for (const collection of apiCollectionsForBuild) {
+                  if (pageAssetCollections.includes(collection)) {
+                    const { resolveApiFamily } =
+                      await import("./_internal/api/resolve-versions.js");
+                    const target = resolveApiFamily(
+                      config.api!.find(
+                        (entry) => entry.collection === collection,
+                      )!,
+                    ).find((target) => target.isDefault)!;
+                    const index =
+                      await pageAssetsBuild.readApiAssetIndexForBuild(
+                        projectRoot,
+                        collection,
+                        target.version,
+                      );
+                    for (const row of index.rows)
+                      apiEntries.push({
+                        collection,
+                        id: row.slug || "index",
+                        data: {
+                          coordinate: row.id,
+                          title: row.title,
+                          description: row.description,
+                          ...(target.version
+                            ? { version: target.version }
+                            : {}),
+                        },
+                        hidden: target.hidden,
+                      });
+                    continue;
+                  }
                   const entries =
                     snapshot?.collections.get(collection)?.entries;
                   const indexError = apiCollectionIndexError(
@@ -1059,6 +1151,32 @@ export function nimbus(
                   );
                 }
                 const modelKey = target.versionKey;
+                if (pageAssetCollections.includes(entry.collection)) {
+                  const index = await pageAssetsBuild.readApiAssetIndexForBuild(
+                    projectRoot,
+                    entry.collection,
+                    target.version,
+                  );
+                  const row = index.byId.get(coordinate);
+                  if (!row)
+                    throw new Error(`Missing API Markdown page ${coordinate}.`);
+                  const [{ resolveApiAssetLinks }, { renderApiPageMarkdown }] =
+                    await Promise.all([
+                      import("./_internal/api/page-assets-links.js"),
+                      import("./api/index.js"),
+                    ]);
+                  return renderApiPageMarkdown(
+                    resolveApiAssetLinks(
+                      await pageAssetsBuild.readApiAssetPageForBuild(
+                        projectRoot,
+                        row,
+                      ),
+                      target,
+                      index,
+                    ) as import("./api/index.js").ApiPageProps,
+                    { base },
+                  );
+                }
                 let model = apiMarkdownModels.get(modelKey);
                 if (!model) {
                   model = apiLoader
@@ -1491,7 +1609,7 @@ export function nimbus(
               rendering: mode,
             });
           }
-          for (const base of ["llms.txt", "llms-full.txt"] as const) {
+          for (const base of ["llms.txt"] as const) {
             const file = routeFilePath("", base);
             if (!file) continue;
             let detected: string | undefined;
@@ -1771,6 +1889,9 @@ export function nimbus(
           const { index, manifest, unpublished } = await buildCitationIndex(
             config.api,
             projectRoot,
+            await prepareCitationSources(projectRoot, (message) =>
+              logger.warn(message),
+            ),
           );
           await ingestApiReferences(
             config.apiReferences,
@@ -1828,7 +1949,9 @@ export function nimbus(
           const { buildApiVersionAlternates } =
             await import("./_internal/api/api-alternates.js");
           const apiAlternates = await buildApiVersionAlternates(
-            config.api,
+            config.api?.filter(
+              (entry) => !pageAssetCollections.includes(entry.collection),
+            ),
             projectRoot,
           );
           versionAlternates = { ...versionAlternates, ...apiAlternates };
@@ -2074,6 +2197,26 @@ export function nimbus(
                 JSON.stringify(projectRoot),
             },
             plugins: [
+              {
+                name: "nimbus-docs:api-picker-upgrade",
+                enforce: "pre",
+                transform(source: string, id: string) {
+                  // Any project component can call the eager helper, not just
+                  // the starter's picker and layout, so check every one.
+                  const file = id.split("?")[0]!;
+                  if (
+                    assertApiPickerSourceUpgrade &&
+                    file.endsWith(".astro") &&
+                    !/[/\\]node_modules[/\\]/.test(file) &&
+                    source.includes("getApiVersionAlternates")
+                  )
+                    assertApiPickerSourceUpgrade(
+                      file,
+                      source,
+                      pageAssetCollections,
+                    );
+                },
+              },
               markdownSourcePlugin({
                 contentDirs: authoredLinkSourceDirs,
                 transform: (source, filePath) =>
@@ -2091,6 +2234,27 @@ export function nimbus(
               agentEndpointAssets.agentEndpointAssetLoaderPlugin(
                 () => adapterNameForBuild,
               ),
+              stagedAssetPlugin({
+                root: astroConfig.root,
+                base: astroConfig.base,
+                adapterName: () => adapterNameForBuild,
+                clientDirectory: () => clientDirectory,
+                serverDirectory: () => serverDirectory,
+                isDev: () => !building,
+              }) as import("./_internal/virtual-config.js").VitePluginLike,
+              {
+                name: "nimbus-docs:page-assets-staging",
+                applyToEnvironment: (environment) =>
+                  environment.name === "client",
+                async writeBundle(outputOptions) {
+                  if (outputOptions.dir && pageAssetCollections.length) {
+                    await pageAssetsBuild.stagePageAssetDeployment(
+                      projectRoot,
+                      outputOptions.dir,
+                    );
+                  }
+                },
+              },
               {
                 // The asset loader imports a Workers runtime module; the
                 // Cloudflare adapter externalizes it, and so must any adapter
@@ -2134,6 +2298,8 @@ export function nimbus(
               virtualLastUpdatedPlugin(lastUpdatedByPath),
               virtualAgentCapabilitiesPlugin(getAgentCapabilities),
               virtualConfigPlugin(config, {
+                getPageAssets: () =>
+                  pageAssetsBuild.getApiPageAssetManifest(projectRoot),
                 getIndexedCollections: getPageCollectionsForBuild,
                 requestRenderingCollections: [...requestRenderingCollections],
                 versionAlternates,
@@ -2285,6 +2451,8 @@ export function nimbus(
         // Read here, not at config:setup: a later integration can still
         // change it with `updateConfig`.
         assetsDirForBuild = astroConfig.build?.assets ?? "_astro";
+        clientDirectory = astroConfig.build?.client ?? clientDirectory;
+        serverDirectory = astroConfig.build?.server ?? serverDirectory;
         outputModeForBuild =
           buildOutput ??
           (astroConfig.output === "server" ? "server" : "static");
@@ -2300,9 +2468,23 @@ export function nimbus(
           );
         }
         if (
+          pageAssetCollections.length &&
+          adapterNameForBuild &&
+          !["@astrojs/node", "@astrojs/cloudflare"].includes(
+            adapterNameForBuild,
+          )
+        ) {
+          throw new Error(
+            `nimbus-docs: api bundle: false works with the Cloudflare and Node adapters; this site uses ${adapterNameForBuild}. ` +
+              `Remove bundle: false from ${pageAssetCollections.map((collection) => `"${collection}"`).join(", ")}, or switch adapter.`,
+          );
+        }
+        if (
           building &&
-          apiCollectionsForBuild.some((collection) =>
-            requestRenderingCollections.has(collection),
+          apiCollectionsForBuild.some(
+            (collection) =>
+              requestRenderingCollections.has(collection) &&
+              !pageAssetCollections.includes(collection),
           ) &&
           adapterNameForBuild?.replace(/^@astrojs\//, "") !== "cloudflare"
         ) {
@@ -2466,6 +2648,9 @@ export function nimbus(
               const { index, manifest, unpublished } = await buildCitationIndex(
                 config.api,
                 projectRootForBuild,
+                await prepareCitationSources(projectRootForBuild, (message) =>
+                  server.config.logger.warn(message),
+                ),
               );
               await ingestApiReferences(
                 config.apiReferences,
@@ -2480,6 +2665,13 @@ export function nimbus(
                 projectRootForBuild,
               );
               server.moduleGraph.invalidateAll();
+              // workerd executes in a separate Vite module runner. Invalidating
+              // only Node's compatibility graph leaves its virtual version
+              // index and memoized inventories on the previous spec snapshot.
+              for (const environment of Object.values(server.environments)) {
+                environment.moduleGraph.invalidateAll();
+                environment.hot.send({ type: "full-reload" });
+              }
             } catch (err) {
               server.config.logger.error(
                 `nimbus-docs: failed to re-bake citation index after a spec change: ${(err as Error).message}`,
@@ -2563,8 +2755,25 @@ export function nimbus(
         const navs = navBuildInputs.hasApi
           ? await (await import("./_internal/api-loader.js")).configuredApiNavs()
           : [];
-        const id = navBuildId(navs, navBuildInputs.srcDir, navBuildInputs.base);
+        const assets = await import("./_internal/api/page-assets-build.js");
+        const id = navBuildId(
+          navs,
+          navBuildInputs.srcDir,
+          navBuildInputs.base,
+          assets.getApiPageAssetManifest(projectRootForBuild),
+        );
         updateConfig({ define: { __NIMBUS_BUILD_ID__: JSON.stringify(id) } });
+      },
+      "astro:build:ssr": async () => {
+        const target = fileURLToPath(clientDirectory);
+        const agents = await loadAgentEndpointAssets();
+        if (agents.isAgentEndpointAssetRequested(projectRootForBuild))
+          await agents.stageAgentEndpointAssets(projectRootForBuild, target);
+        if (pageAssetCollections.length) {
+          const { stagePageAssetDeployment } =
+            await import("./_internal/api/page-assets-build.js");
+          await stagePageAssetDeployment(projectRootForBuild, target);
+        }
       },
       "astro:routes:resolved": ({ routes }) => {
         markdownRoutes.update(
@@ -2857,6 +3066,11 @@ export function nimbus(
           ],
           logger,
         });
+        if (pageAssetCollections.length) {
+          const { pruneApiPageAssetCache } =
+            await import("./_internal/api/page-assets-build.js");
+          await pruneApiPageAssetCache(projectRootForBuild);
+        }
       },
     },
   };

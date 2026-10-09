@@ -28,8 +28,24 @@ test("every automatic manifest entry has a matching codemod", () => {
 
 test("only universally skippable entries are optional", () => {
   assert.deepEqual(
-    UPGRADE_MANIFEST.entries.filter((entry) => entry.mode === "optional").map((entry) => entry.id).sort(),
-    ["agent-discovery-content-signals", "agent-files-follow-rendering", "api-code-sample-ids", "api-collections-from-config", "api-query-version-mode", "browser-documentation-search", "homepage-renders-on-request", "lighter-sidebar-markup", "page-urls-and-llms-routes", "publish-agent-skills", "shared-markdown-routes"],
+    UPGRADE_MANIFEST.entries
+      .filter((entry) => entry.mode === "optional")
+      .map((entry) => entry.id)
+      .sort(),
+    [
+      "agent-discovery-content-signals",
+      "agent-files-follow-rendering",
+      "api-code-sample-ids",
+      "api-collections-from-config",
+      "api-query-version-mode",
+      "api-request-path",
+      "browser-documentation-search",
+      "homepage-renders-on-request",
+      "lighter-sidebar-markup",
+      "page-urls-and-llms-routes",
+      "publish-agent-skills",
+      "shared-markdown-routes",
+    ],
   );
   assert.equal(
     UPGRADE_MANIFEST.entries.find((entry) => entry.id === "compact-coordinate-manifest")?.mode,

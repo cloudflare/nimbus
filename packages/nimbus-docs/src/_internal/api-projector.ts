@@ -55,8 +55,8 @@ export function projectConfiguredApiPage(
 
 /**
  * Project page props for Markdown consumers. Markdown renders code from its
- * source, so skipping highlighting and navigation keeps the `.md` route and
- * `llms-full.txt` from repeating the HTML route's most expensive work.
+ * source, so skipping highlighting and navigation keeps the `.md` route from
+ * repeating the HTML route's most expensive work.
  */
 export function projectConfiguredApiPageProps(
   collection: string,

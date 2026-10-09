@@ -31,8 +31,6 @@ export async function GET() {
     "",
     config.description ?? "Documentation index for AI agents.",
     "",
-    `Full documentation (discoverable current pages, one document): ${absoluteUrl("/llms-full.txt")}`,
-    "",
     "## Pages",
     "",
   ];

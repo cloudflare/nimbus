@@ -72,6 +72,19 @@ const PARAM_LABELS: Record<(typeof PARAM_LOCATIONS)[number], string> = {
  * A view over one model that indexes children by parent once, so projection is
  * a linear walk rather than a filter-per-node scan.
  */
+const pageReferenceModels = new WeakSet<DocsModel>();
+
+/** Build-only mode: preserve page identity while leaving URL context to the reader. */
+export function setApiModelPageReferences(
+  model: DocsModel,
+  enabled: boolean,
+): void {
+  if (enabled) pageReferenceModels.add(model);
+  else pageReferenceModels.delete(model);
+  viewCache.delete(model);
+  navBaseCache.delete(model);
+}
+
 class ModelView {
   private readonly childrenByParent = new Map<Coordinate, Node[]>();
   private readonly apiFacts: ApiFacts | undefined;
@@ -102,6 +115,8 @@ class ModelView {
   /** The page's link, shaped by Astro's `trailingSlash` and `build.format`.
    *  In query mode every same-version link carries the version's query. */
   href(coordinate: Coordinate): string {
+    if (pageReferenceModels.has(this.model))
+      return `nimbus-ref:v1:${Buffer.from(coordinate, "utf8").toString("base64url")}`;
     return `${toDocumentHref(this.routePath(coordinate))}${this.model.urlQuery ?? ""}`;
   }
 
@@ -120,6 +135,7 @@ class ModelView {
   }
 
   markdownHref(coordinate: Coordinate): string | undefined {
+    if (pageReferenceModels.has(this.model)) return undefined;
     // A non-default query-mode page has no per-page Markdown affordance:
     // only default-version entries publish twins, and this page's
     // version-free `.md` URL would be another version's content.

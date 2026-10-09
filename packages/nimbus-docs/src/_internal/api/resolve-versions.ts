@@ -97,6 +97,17 @@ export function apiPageRoute(
   return { storeId: joined, param: joined };
 }
 
+/** The slug an `apiPageRoute` store id was built from. */
+export function apiPageSlug(
+  target: Pick<ResolvedApiVersion, "isDefault" | "version">,
+  storeId: string,
+): string {
+  if (target.isDefault) return storeId === "index" ? "" : storeId;
+  return storeId === target.version
+    ? ""
+    : storeId.slice(`${target.version}/`.length);
+}
+
 /** Resolve one family into its render targets (one per version). */
 export function resolveApiFamily(entry: ApiSpec): ResolvedApiVersion[] {
   const family = entry.collection;

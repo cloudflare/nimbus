@@ -4,7 +4,7 @@ import type {
   LlmsEndpointAsset,
   MarkdownEndpointAsset,
 } from "./_internal/agent-endpoint-assets.js";
-import { withBase } from "./_internal/url.js";
+import { readStagedAsset } from "./_internal/staged-asset-reader.js";
 import {
   findOwnMarkdownRoute,
   higherMarkdownRouteOwner,
@@ -26,7 +26,7 @@ export interface MarkdownEndpointPayload extends MarkdownEndpointReference {
 }
 
 export type LlmsEndpointReference =
-  | { scope: "site"; surface: "index" | "full" }
+  | { scope: "site"; surface: "index" }
   | { scope: "section"; surface: "index"; section: string };
 
 export type LlmsEndpointPayload = LlmsEndpointReference & {
@@ -37,9 +37,6 @@ export type LlmsEndpointPayload = LlmsEndpointReference & {
 
 let agentEndpointAssetsModule: Promise<
   typeof import("virtual:nimbus/agent-endpoint-assets")
-> | null = null;
-let agentEndpointAssetLoaderModule: Promise<
-  typeof import("virtual:nimbus/agent-endpoint-asset-loader")
 > | null = null;
 let markdownByIdentity:
   | Map<string, MarkdownEndpointAsset>
@@ -52,27 +49,9 @@ interface AgentEndpointContext {
   request?: Request;
 }
 
-function agentEndpointAssetResponseError(url: URL, status: number): Error {
-  if (status === 404) {
-    return new Error(
-      `nimbus-docs: agent-endpoint asset not found at ${url.href}; verify client assets were deployed.`,
-    );
-  }
-  return new Error(
-    `nimbus-docs: agent-endpoint asset at ${url.href} returned ${status}.`,
-  );
-}
-
 function loadAgentEndpointAssets() {
   agentEndpointAssetsModule ??= import("virtual:nimbus/agent-endpoint-assets");
   return agentEndpointAssetsModule;
-}
-
-function loadAgentEndpointAssetLoader() {
-  agentEndpointAssetLoaderModule ??= import(
-    "virtual:nimbus/agent-endpoint-asset-loader"
-  );
-  return agentEndpointAssetLoaderModule;
 }
 
 function markdownIdentity(reference: MarkdownEndpointReference): string {
@@ -97,47 +76,36 @@ async function readAssetBody(
   assetPath: string,
   context: AgentEndpointContext,
 ): Promise<string> {
-  const assets = await loadAgentEndpointAssets();
-  const publicPath = withBase(
-    `/_nimbus/agent-endpoint-assets/${assetPath}`,
-    assets.base,
+  return readStagedAsset(`_nimbus/agent-endpoint-assets/${assetPath}`, context);
+}
+
+async function selectedApiOutputIsDefault(
+  collection: string,
+  request?: Request,
+): Promise<boolean> {
+  if (!request) return true;
+  const params = new URL(request.url).searchParams;
+  if (!params.has("api-version")) return true;
+  const { hasApiPageAssets } =
+    await import("./_internal/api/page-assets-runtime.js");
+  if (!(await hasApiPageAssets(collection))) return true;
+  const { loadNimbusConfig } = await import("./_internal/runtime-config.js");
+  const api = (await loadNimbusConfig()).api?.find(
+    (entry) => entry.collection === collection,
   );
-  const request = context.request;
-  if (request) {
-    const assetUrl = new URL(publicPath, request.url);
-    const { fetchAgentEndpointAsset } = await loadAgentEndpointAssetLoader();
-    const response = await fetchAgentEndpointAsset(publicPath, request);
-    if (response) {
-      if (!response.ok) {
-        throw agentEndpointAssetResponseError(assetUrl, response.status);
-      }
-      return response.text();
-    }
-  }
-  try {
-    const [{ readFile }, path] = await Promise.all([
-      import("node:fs/promises"),
-      import("node:path"),
-    ]);
-    return await readFile(
-      path.join(
-        assets.projectRoot,
-        ".astro",
-        "nimbus",
-        "agent-endpoint-assets",
-        assetPath,
-      ),
-      "utf8",
-    );
-  } catch (error) {
-    if (!request) throw error;
-  }
-  const assetUrl = new URL(publicPath, request.url);
-  const response = await fetch(assetUrl);
-  if (!response.ok) {
-    throw agentEndpointAssetResponseError(assetUrl, response.status);
-  }
-  return response.text();
+  const versions = api?.versions;
+  // An unversioned API has only its default output.
+  if (!versions?.length) return true;
+  const { selectApiVersion } =
+    await import("./_internal/api/resolve-versions.js");
+  const defaultVersion = (versions.find((entry) => entry.default) ??
+    versions[0])!.version;
+  return (
+    selectApiVersion(params, {
+      defaultVersion,
+      versions: new Set(versions.map((entry) => entry.version)),
+    }) === defaultVersion
+  );
 }
 
 async function markdownIndexes() {
@@ -216,6 +184,13 @@ export async function getMarkdownPayload(options: {
   reference?: MarkdownEndpointReference;
   context?: AgentEndpointContext;
 }): Promise<MarkdownEndpointPayload | null> {
+  if (
+    !(await selectedApiOutputIsDefault(
+      options.reference?.collection ?? options.collection,
+      options.context?.request,
+    ))
+  )
+    return null;
   const indexes = await markdownIndexes();
   const asset = options.reference
     ? indexes.markdownByIdentity.get(markdownIdentity(options.reference))
@@ -343,6 +318,10 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
           }
         }
         if (!asset || asset.surface !== surface) return null;
+        if (
+          !(await selectedApiOutputIsDefault(asset.collection, context.request))
+        )
+          return null;
         return markdownPayload(asset, { request: context.request });
       }),
   };
@@ -378,10 +357,34 @@ export function markdownSourceRoute(): MarkdownRoute {
   return createMarkdownRoute("source");
 }
 
+const LLMS_FULL_REMOVED =
+  "nimbus-docs: llms-full.txt was removed in 0.18.0. Delete the route that serves it (usually src/pages/llms-full.txt.ts); see upgrade entry llms-full-removed.";
+
+/** @deprecated Removed in 0.18.0; throws with upgrade guidance. */
+export function llmsFullRoute(): never {
+  throw new Error(LLMS_FULL_REMOVED);
+}
+
 export async function getLlmsPayload(
   reference: LlmsEndpointReference,
   context: AgentEndpointContext = {},
 ): Promise<LlmsEndpointPayload | null> {
+  // A route written before llms-full.txt was removed still asks for it. Fail
+  // the build rather than publish a "Not found" body as the file.
+  if (
+    reference.scope === "site" &&
+    (reference as { surface: string }).surface !== "index"
+  ) {
+    throw new Error(LLMS_FULL_REMOVED);
+  }
+  if (
+    reference.scope === "section" &&
+    !(await selectedApiOutputIsDefault(
+      reference.section.split("/")[0]!,
+      context.request,
+    ))
+  )
+    return null;
   const { llmsByIdentity } = await llmsIndex();
   const asset = llmsByIdentity.get(llmsIdentity(reference));
   if (!asset) return null;
@@ -448,7 +451,7 @@ export async function getLlmsStaticPaths(context?: {
     }));
 }
 
-/** The `{ GET }` behind `src/pages/llms.txt.ts` or `llms-full.txt.ts`. */
+/** The `{ GET }` behind `src/pages/llms.txt.ts`. */
 export interface LlmsRoute {
   GET: APIRoute;
 }
@@ -457,15 +460,6 @@ export interface LlmsRoute {
 export interface LlmsSectionRoute {
   getStaticPaths: GetStaticPaths;
   GET: APIRoute;
-}
-
-function createLlmsRoute(surface: "index" | "full"): LlmsRoute {
-  return {
-    GET: (context) =>
-      endpointResponse(context, () =>
-        getLlmsPayload({ scope: "site", surface }, { request: context.request }),
-      ),
-  };
 }
 
 /**
@@ -483,12 +477,15 @@ function createLlmsRoute(surface: "index" | "full"): LlmsRoute {
  * details when its asset can't be read. Wrap `GET` to customize the response.
  */
 export function llmsRoute(): LlmsRoute {
-  return createLlmsRoute("index");
-}
-
-/** The site's `/llms-full.txt`. Same rules as {@link llmsRoute}. */
-export function llmsFullRoute(): LlmsRoute {
-  return createLlmsRoute("full");
+  return {
+    GET: (context) =>
+      endpointResponse(context, () =>
+        getLlmsPayload(
+          { scope: "site", surface: "index" },
+          { request: context.request },
+        ),
+      ),
+  };
 }
 
 /**

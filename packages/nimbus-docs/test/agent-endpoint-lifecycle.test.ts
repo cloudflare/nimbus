@@ -111,16 +111,6 @@ export async function GET({ request }) {
     "utf8",
   );
   await writeFile(
-    path.join(root, "src/pages/llms-full.txt.ts"),
-    `import { getLlmsPayload } from ${JSON.stringify(endpointsModule)};
-export const prerender = true;
-export async function GET({ request }) {
-  const payload = await getLlmsPayload({ scope: "site", surface: "full" }, { request });
-  return new Response(payload.body, { headers: { "content-type": payload.mediaType } });
-}`,
-    "utf8",
-  );
-  await writeFile(
     path.join(root, "src/pages/[section]/llms.txt.ts"),
     `import { getLlmsPayload } from ${JSON.stringify(endpointsModule)};
 import { getPreparedLlmsRouteStaticPaths } from ${JSON.stringify(publicationModule)};
@@ -191,14 +181,6 @@ export async function GET({ props, request }) {
     await readFile(path.join(root, "dist/nested/llms.txt"), "utf8"),
     /Nested/,
   );
-  const llmsFull = await readFile(
-    path.join(root, "dist/llms-full.txt"),
-    "utf8",
-  );
-  assert.match(llmsFull, /# Guide/);
-  assert.match(llmsFull, /## Shared/);
-  assert.match(llmsFull, /\[Root\]\(\/docs\/\)/);
-  assert.doesNotMatch(llmsFull, /<Render/);
   assert.match(
     await readFile(
       path.join(root, ".astro/nimbus/agent-endpoint-assets/manifest.json"),

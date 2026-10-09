@@ -361,6 +361,7 @@ const apiSpecShape = {
   publishSpec: z
     .boolean({ error: '"api[].publishSpec" must be a boolean' })
     .optional(),
+  bundle: z.boolean({ error: '"api[].bundle" must be a boolean' }).optional(),
   samples: samplesSchema.optional(),
   routes: routePolicySchema.optional(),
   sidebar: z
@@ -592,6 +593,24 @@ const nimbusConfigSchema = withStrictKeys(
         code: "custom",
         path: ["api", i, "versionMode"],
         message: `api collection "${entry.collection}" sets versionMode: "query", but its effective rendering mode is "${effective}" — query versions need request rendering: a static site serves the same file whatever the query says`,
+      });
+    }
+  });
+  // `bundle: false` serves page data that only a request-rendered page reads.
+  (
+    (shaped.api as { collection?: string; bundle?: boolean }[] | undefined) ??
+    []
+  ).forEach((entry, i) => {
+    if (entry.bundle !== false || !entry.collection) return;
+    const explicit = shaped.rendering?.collections?.[entry.collection];
+    const effective = explicit ?? shaped.rendering?.default ?? "build";
+    if (effective !== "request") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["api", i, "bundle"],
+        message: explicit
+          ? `api collection "${entry.collection}" sets bundle: false, but rendering.collections.${entry.collection} is "${explicit}". Set it to "request", or remove bundle: false`
+          : `api collection "${entry.collection}" sets bundle: false, which needs it rendered on request. Add rendering: { collections: { ${JSON.stringify(entry.collection)}: "request" } }, or remove bundle: false`,
       });
     }
   });

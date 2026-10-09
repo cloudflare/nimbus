@@ -153,7 +153,7 @@ export function setLinkPolicy(policy: LinkPolicy): void {
   (globalThis as PolicyHost)[LINK_POLICY_KEY] = policy;
 }
 
-function linkPolicy(): LinkPolicy {
+export function linkPolicy(): LinkPolicy {
   return (globalThis as PolicyHost)[LINK_POLICY_KEY] ?? ASTRO_DEFAULT_POLICY;
 }
 

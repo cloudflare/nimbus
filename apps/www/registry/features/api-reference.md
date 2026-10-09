@@ -13,7 +13,7 @@
 You are helping the user mount an **OpenAPI (Swagger) spec** as a first-class
 reference collection on a Nimbus docs site. One spec file in, and the user
 gets: a routed page per operation/schema/tag under `/api`, an alternate Markdown
-version of every page, and automatic `llms.txt` indexes and `llms-full.txt`.
+version of every page, and automatic `llms.txt` indexes.
 
 The render is Nimbus's own — the spec is parsed once per build and projected
 into a stable view-model. There is no third-party reference renderer.
@@ -40,9 +40,8 @@ Before prompting the user or writing anything, inspect the project:
   Read it; you'll add an `api` entry there. Leave it where it is: don't move it
   into another file.
 - `src/pages/[...slug].astro`, `src/pages/[...slug]/index.md.ts`,
-  `src/pages/llms.txt.ts`, `src/pages/llms-full.txt.ts`, and
-  `src/pages/[section]/llms.txt.ts` — the primary docs page, Markdown version,
-  and index routes. The API page route is a sibling of the primary docs page,
+  `src/pages/llms.txt.ts`, and `src/pages/[section]/llms.txt.ts` — the
+  primary docs page, Markdown version, and index routes. The API page route is a sibling of the primary docs page,
   so match its style.
   If any are missing, stop and install `nimbus-docs add ai-native` first.
 - Confirm `src/pages/[...slug]/index.md.ts` calls `markdownRoute()` from
@@ -280,7 +279,6 @@ After writing all files, run the user's build command and confirm:
    the rendered reference (operation method/path, request body, responses).
 4. `dist/api/llms.txt` lists every API page, and the root `dist/llms.txt`
    includes `api` as a top-level section.
-5. `dist/llms-full.txt` embeds the generated API Markdown.
 
 Then tell the user the URLs to visit: `/api`, `/api/<slug>`,
 `/api/<slug>/index.md`, `/api/llms.txt`.

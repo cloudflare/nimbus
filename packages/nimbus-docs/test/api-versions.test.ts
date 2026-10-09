@@ -13,6 +13,7 @@ import {
   resolveApiFamily,
   resolveApiVersion,
   apiPageRoute,
+  apiPageSlug,
 } from "../src/_internal/api/resolve-versions.js";
 import { buildApiVersionAlternates } from "../src/_internal/api/api-alternates.js";
 import {
@@ -55,6 +56,17 @@ describe("apiPageRoute (loader store-id ↔ route param, single source)", () => 
       storeId: "v1/charges/create",
       param: "v1/charges/create",
     });
+  });
+
+  test("apiPageSlug inverts the store id, so pageUrl never doubles a version", () => {
+    for (const target of [def, nonDef]) {
+      for (const slug of ["", "a", "a/b", "v1", "v1/x"]) {
+        assert.equal(
+          apiPageSlug(target, apiPageRoute(target, slug).storeId),
+          slug,
+        );
+      }
+    }
   });
 
   test("store id and route param never diverge (they must address one page)", () => {

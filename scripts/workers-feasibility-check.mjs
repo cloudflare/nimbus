@@ -551,7 +551,6 @@ async function assertStaticSurfaces(origin) {
     ["/runtime/index.mdx", '<Aside type="note"'],
     ["/api/Health/ping/index.md", "Ping"],
     ["/llms.txt", "Workers request prose"],
-    ["/llms-full.txt", "Request prose body."],
     ["/api/llms.txt", "Ping"],
     ["/robots.txt", "Sitemap:"],
   ]) {

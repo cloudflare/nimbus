@@ -104,10 +104,6 @@ export const collections = {
     `import { llmsSectionRoute } from ${moduleUrl("../src/agent-endpoints.ts")};\nexport const prerender = true;\nexport const { GET, getStaticPaths } = llmsSectionRoute();`,
   );
   await write(
-    "src/pages/llms-full.txt.ts",
-    `import { llmsFullRoute } from ${moduleUrl("../src/agent-endpoints.ts")};\nexport const prerender = true;\nexport const { GET } = llmsFullRoute();`,
-  );
-  await write(
     "src/pages/nimbus-api/coordinates.json.ts",
     `import { getCoordinatesManifest } from ${moduleUrl("../src/runtime.ts")};\nexport const prerender = true;\nexport async function GET() { return new Response(JSON.stringify(await getCoordinatesManifest())); }`,
   );
@@ -214,7 +210,7 @@ describe("schemaPages: false, prerendered", () => {
 
   test("llms outputs and coordinates.json leave schemas out", async () => {
     const read = (site: Site, file: string) => readFile(path.join(site.dist, file), "utf8");
-    for (const file of ["api/llms.txt", "llms-full.txt"]) {
+    for (const file of ["api/llms.txt"]) {
       assert.match(await read(on, file), /\/api\/schemas\//, `${file}: control lists schema pages`);
       assert.doesNotMatch(await read(off, file), /\/api\/schemas\//, file);
     }

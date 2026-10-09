@@ -20,7 +20,6 @@ import {
   collectionMountPrefix,
   PRIMARY_COLLECTION,
 } from "./collection-mount.js";
-import { buildLlmsFullMarkdown, type LlmsFullBlock } from "./llms-full.js";
 import { isDiscoverable } from "./discoverability.js";
 import { mergePartialHeadings } from "./partial-headings.js";
 import {
@@ -627,7 +626,6 @@ interface PreparedLlmsPage {
   description?: string;
   url: string;
   markdownUrl: string;
-  markdown: string;
 }
 
 interface PreparedLlmsGroup {
@@ -639,7 +637,6 @@ interface PreparedLlmsGroup {
 
 function preparedLlmsPage(
   entry: Pick<PreparedMarkdownEntry, "collection" | "id" | "data">,
-  markdown: string,
   options: BakeAgentEndpointAssetsOptions,
 ): PreparedLlmsPage {
   const route = entryRouteUrl(
@@ -660,7 +657,6 @@ function preparedLlmsPage(
         : undefined,
     url: toDocumentHref(route),
     markdownUrl: route === "/" ? "/index.md" : `${route}/index.md`,
-    markdown,
   };
 }
 
@@ -730,8 +726,6 @@ function siteIndexAsset(
     "",
     options.description ?? "Documentation index for AI agents.",
     "",
-    `Full documentation (discoverable current pages, one document): ${absoluteUrl(options.site, options.base, "/llms-full.txt")}`,
-    "",
     "## Pages",
     "",
     ...rows.map((row) => row.line),
@@ -760,7 +754,7 @@ function assertLlmsRouteSafety(
   pages: readonly PreparedLlmsPage[],
   groups: readonly PreparedLlmsGroup[],
 ): void {
-  const routes = new Set(["/llms.txt", "/llms-full.txt"]);
+  const routes = new Set(["/llms.txt"]);
   for (const group of groups) {
     let decoded = group.slug;
     while (true) {
@@ -1324,7 +1318,7 @@ export async function bakeAgentEndpointAssets(
         base,
       },
     );
-    const page = preparedLlmsPage(entry, markdown, options);
+    const page = preparedLlmsPage(entry, options);
     llmsRoutePages.push(page);
     if (isDiscoverable(entry)) preparedLlmsPages.push(page);
     if (entry.headings) {
@@ -1405,7 +1399,7 @@ export async function bakeAgentEndpointAssets(
   for (const entry of apiEntries) {
     const decision = decisions.get(`${entry.collection}\0${entry.id}`)!;
     if (decision.status === "exclude") continue;
-    const routePage = preparedLlmsPage(entry, "", options);
+    const routePage = preparedLlmsPage(entry, options);
     llmsRoutePages.push(routePage);
     const coordinate = entry.data.coordinate;
     if (typeof coordinate !== "string") {
@@ -1426,7 +1420,7 @@ export async function bakeAgentEndpointAssets(
       );
     }
     if (isDiscoverable(entry)) {
-      preparedLlmsPages.push(preparedLlmsPage(entry, markdown, options));
+      preparedLlmsPages.push(preparedLlmsPage(entry, options));
     }
     const url = preparedMarkdownUrls(entry, options).markdown;
     const { body, contentStart, contentEnd } = apiMarkdownAsset(
@@ -1480,12 +1474,6 @@ export async function bakeAgentEndpointAssets(
 
   const { leaves, groups } = groupPreparedLlmsPages(preparedLlmsPages, options);
   assertLlmsRouteSafety(llmsRoutePages, groups);
-  const versionSlugs = new Set(options.versions?.others ?? []);
-  const llmsFullPages = preparedLlmsPages.filter(
-    (page) =>
-      page.collection === PRIMARY_COLLECTION ||
-      !versionSlugs.has(collectionLabel(page.collection, options.versions)),
-  );
   const llmsBodies: Array<{
     reference: LlmsEndpointReference;
     body: string;
@@ -1493,24 +1481,6 @@ export async function bakeAgentEndpointAssets(
     {
       reference: { scope: "site", surface: "index" },
       body: siteIndexAsset(leaves, groups, options),
-    },
-    {
-      reference: { scope: "site", surface: "full" },
-      body: buildLlmsFullMarkdown(
-        llmsFullPages.map((page): LlmsFullBlock => ({
-          title: page.title,
-          description: page.description,
-          url: page.url,
-          markdownUrl: page.markdownUrl,
-          markdown: page.markdown,
-        })),
-        {
-          title: options.title,
-          description: options.description,
-          site: options.site,
-          base,
-        },
-      ),
     },
     ...groups.map((group) => ({
       reference: {

@@ -1,12 +1,12 @@
 ---
 title: Markdown and llms.txt endpoints
-description: Add alternate Markdown/MDX versions, llms.txt indexes, and llms-full.txt.
+description: Add alternate Markdown/MDX versions and llms.txt indexes.
 aiGenerated: true
 sidebar:
   order: 2
 ---
 
-Add the five endpoints that serve alternate Markdown/MDX versions, site and section `llms.txt` indexes, and `llms-full.txt`. The Nimbus integration must already be present in `astro.config.ts`.
+Add the four endpoints that serve alternate Markdown/MDX versions and site and section `llms.txt` indexes. The Nimbus integration must already be present in `astro.config.ts`.
 
 ## 1. Add alternate page versions
 
@@ -43,18 +43,7 @@ export const prerender = true;
 export const { GET } = llmsRoute();
 ```
 
-## 3. Add llms-full.txt
-
-Create the file containing all discoverable documentation:
-
-```ts title="src/pages/llms-full.txt.ts"
-import { llmsFullRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
-
-export const prerender = true;
-export const { GET } = llmsFullRoute();
-```
-
-## 4. Add section indexes
+## 3. Add section indexes
 
 Create the route for paths such as `/writing/llms.txt`:
 
@@ -67,7 +56,7 @@ export const { GET, getStaticPaths } = llmsSectionRoute();
 
 Each `GET` returns `404` for an unknown section. Rendered on request, it returns a `500` without details when an index can't be read, and logs the error. To change what a route serves, see [Override a default](/ai/override-markdown#override-an-llmstxt-index).
 
-The `llms.txt` endpoints follow the rendering policy the same way: the site index and `llms-full.txt` render in `rendering.default`, and a section index renders in the mode of the collection it lists. The `agent-endpoints` helpers support either mode and require the Nimbus Astro integration. The build still warns about a Markdown version or `llms.txt` index in a prerendered collection that no route generated, and names the route that serves it.
+The `llms.txt` endpoints follow the rendering policy the same way: the site index renders in `rendering.default`, and a section index renders in the mode of the collection it lists. The `agent-endpoints` helpers support either mode and require the Nimbus Astro integration. The build still warns about a Markdown version or `llms.txt` index in a prerendered collection that no route generated, and names the route that serves it.
 
 ## Verify
 
@@ -84,7 +73,6 @@ In another terminal, replace `get-started` and `writing` with routes that exist 
 curl --fail http://localhost:4321/get-started/index.md
 curl --fail http://localhost:4321/get-started/index.mdx
 curl --fail http://localhost:4321/llms.txt
-curl --fail http://localhost:4321/llms-full.txt
 curl --fail http://localhost:4321/writing/llms.txt
 ```
 
