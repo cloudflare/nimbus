@@ -34,6 +34,49 @@ test("a multi-file spec publishes as one self-contained document with the pinned
   );
 });
 
+test("a $ref key that isn't a reference string is reported by location", async () => {
+  const response = (schema: unknown) => ({
+    responses: {
+      "200": { description: "ok", content: { "application/json": { schema } } },
+    },
+  });
+  const spec = (paths: Record<string, unknown>) => ({
+    openapi: "3.0.0",
+    info: { title: "t", version: "1" },
+    paths,
+  });
+  const named = { type: "object", properties: { $ref: { type: "string" } } };
+  assert.equal(
+    (
+      await publishOpenApiSpec(
+        spec({ "/a/b": { get: response(named) } }),
+        fixtures,
+      )
+    ).error,
+    '"$ref" isn\'t a reference string at #/paths/~1a~1b/get/responses/200/content/application~1json/schema/properties/$ref',
+  );
+  // Each parser error is matched to its own value: a number is located too,
+  // and a broken string reference keeps the parser's own message.
+  const mixed = spec({
+    "/n": { get: response({ $ref: 7 }) },
+    "/s": { get: response({ $ref: "#/components/schemas/[object Object]" }) },
+  });
+  const error = (await publishOpenApiSpec(mixed, fixtures)).error ?? "";
+  assert.match(
+    error,
+    /"\$ref" isn't a reference string at #\/paths\/~1n\/get\/responses\/200\/content\/application~1json\/schema\/\$ref/,
+  );
+  assert.match(
+    error,
+    /Can't resolve reference: #\/components\/schemas\/\[object Object\]/,
+  );
+  // In a multi-file spec the location names the author's file, not the bundle.
+  assert.equal(
+    (await publishOpenApiSpec("object-ref/openapi.yaml", fixtures)).error,
+    '"$ref" isn\'t a reference string at schemas.yaml#/Thing/properties/$ref',
+  );
+});
+
 test("a reference that cannot be bundled is reported by name instead of published", async () => {
   assert.match((await publishOpenApiSpec("unbundlable/openapi.yaml", fixtures)).error ?? "", /missing\.yaml/);
   assert.match((await publishOpenApiSpec("dangling/openapi.yaml", fixtures)).error ?? "", /Nope/);

@@ -31,6 +31,25 @@ function externalRefs(node: unknown, out = new Set<string>()): Set<string> {
   return out;
 }
 
+const INVALID_REFERENCE = "Can't resolve reference: ";
+
+/** `$ref` keys whose value isn't a string: where each is, and how the parser prints it. */
+function nonStringRefs(
+  node: unknown,
+  pointer = "#",
+  out: { at: string; printed: string }[] = [],
+): { at: string; printed: string }[] {
+  if (node && typeof node === "object") {
+    for (const [key, value] of Object.entries(node)) {
+      const at = `${pointer}/${key.replaceAll("~", "~0").replaceAll("/", "~1")}`;
+      if (key === "$ref" && typeof value !== "string")
+        out.push({ at, printed: String(value) });
+      nonStringRefs(value, at, out);
+    }
+  }
+  return out;
+}
+
 export async function publishOpenApiSpec(
   source: string | Record<string, unknown>,
   rootDir: string,
@@ -71,14 +90,41 @@ export async function publishOpenApiSpec(
   const files = rootFile
     ? [rootFile, ...Object.values(embedded["x-ext-urls"] ?? {}).map((file) => path.resolve(path.dirname(rootFile), file))]
     : [];
+  // Kept to name a bundled file's location in errors by the file it came from.
+  const bundledFiles = embedded["x-ext-urls"] ?? {};
   delete embedded["x-ext-urls"];
   const leftover = [...externalRefs(document), ...unresolved];
   if (leftover.length) return { error: `cannot resolve ${[...new Set(leftover)].join(", ")}` };
   const contents = JSON.stringify(document, null, 2) + "\n";
   try {
     // Validate the published JSON: bundling can leave undefined reference targets.
-    const { errors } = await dereference(JSON.parse(contents) as never);
-    if (errors?.length) return { error: errors.map((item) => item.message).join("; ") };
+    const parsed: unknown = JSON.parse(contents);
+    const { errors } = await dereference(parsed as never);
+    if (errors?.length) {
+      // The parser prints a non-string `$ref` value as is ("[object Object]");
+      // name where each one is instead.
+      const refs = nonStringRefs(parsed);
+      const located = (at: string) => {
+        const [, hash, rest = ""] = /^#\/x-ext\/([^/]+)(.*)$/.exec(at) ?? [];
+        return hash && bundledFiles[hash]
+          ? `${bundledFiles[hash]}#${rest}`
+          : at;
+      };
+      const messages = errors.map(({ message }) => {
+        const printed = message.startsWith(INVALID_REFERENCE)
+          ? message.slice(INVALID_REFERENCE.length)
+          : undefined;
+        const places = refs
+          .filter((ref) => ref.printed === printed)
+          .map((ref) => located(ref.at));
+        if (!places.length) return message;
+        const listed =
+          places.slice(0, 3).join(", ") +
+          (places.length > 3 ? ` and ${places.length - 3} more` : "");
+        return `"$ref" isn't a reference string at ${listed}`;
+      });
+      return { error: [...new Set(messages)].join("; ") };
+    }
   } catch (error) {
     return { error: (error as Error).message };
   }
