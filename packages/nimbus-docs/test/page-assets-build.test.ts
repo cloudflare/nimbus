@@ -465,3 +465,29 @@ test("an unchanged version reuses its index; a new link policy rebuilds it", asy
       setLinkPolicy({ trailingSlash: "ignore", format: "directory" });
     }
   }));
+
+test("a deploy also ships the previous release's page files, and only that one", async () =>
+  temporary(async (root) => {
+    const deployed = () =>
+      readdir(path.join(root, "dist/client/_nimbus/pages"));
+    const release = async (description: string) => {
+      const { manifest } = await prepareApiAssetFamily(
+        root,
+        family(spec(description)),
+      );
+      await stagePageAssetDeployment(root, path.join(root, "dist/client"));
+      await pruneApiPageAssetCache(root);
+      return manifest.v2!;
+    };
+    const first = await release("first");
+    const second = await release("second");
+    assert.ok(
+      (await deployed()).includes(first),
+      "the previous release's index ships",
+    );
+    assert.ok((await deployed()).includes(second));
+    const third = await release("third");
+    const files = await deployed();
+    assert.ok(files.includes(second) && files.includes(third));
+    assert.ok(!files.includes(first), "two releases back is dropped");
+  }));

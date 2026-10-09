@@ -11,6 +11,7 @@ import {
   rm,
   symlink,
   writeFile,
+  realpath,
 } from "node:fs/promises";
 import { createServer } from "node:http";
 import os from "node:os";
@@ -110,7 +111,11 @@ async function fixture(
   worker: boolean,
   extra: Record<string, unknown> = {},
 ) {
-  const root = await mkdtemp(path.join(os.tmpdir(), "nimbus-assets-adapter-"));
+  // Astro recognises src/live.config.ts by path; macOS's temp folder sits
+  // behind a symlink (/var → /private/var), so use the real path.
+  const root = await realpath(
+    await mkdtemp(path.join(os.tmpdir(), "nimbus-assets-adapter-")),
+  );
   t.diagnostic(`fixture: ${root}`);
   t.after(() =>
     process.env.NIMBUS_TEST_KEEP
@@ -150,6 +155,12 @@ async function fixture(
     `import {defineCollection} from "astro:content";
 import {apiCollection,docsCollection} from ${JSON.stringify(pathToFileURL(path.join(SRC, "content.ts")).href)};
 export const collections={docs:defineCollection(docsCollection()),"docs-v1":defineCollection(docsCollection({base:"docs-v1"})),api:defineCollection(apiCollection()),core:defineCollection(apiCollection())};`,
+  );
+  await write(
+    "src/live.config.ts",
+    `import { defineLiveCollection } from "astro:content";
+import { apiPagesLoader } from "@cloudflare/nimbus-docs/live";
+export const collections = { apiPages: defineLiveCollection({ loader: apiPagesLoader() }) };`,
   );
   await write(
     "src/content/docs/guide.md",
@@ -497,6 +508,10 @@ test(
       /Updated historical create/,
       "dev must refresh the version index after a spec edit",
     );
+    // Stop before the fixture is removed; the dev server's watchers would
+    // otherwise touch deleted files after the test ends.
+    await server.stop();
+    server = undefined;
   },
 );
 

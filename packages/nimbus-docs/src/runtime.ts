@@ -1546,15 +1546,44 @@ async function resolveApiRoute(
           : getVisibleEntry(collection, id, ctx);
       },
       async render(collection, version, coordinate, resolvedEntry) {
-        const { hasApiPageAssets, getApiAssetPage } =
+        const { hasApiPageAssets } =
           await import("./_internal/api/page-assets-runtime.js");
-        if (await hasApiPageAssets(collection))
-          return getApiAssetPage(
+        if (await hasApiPageAssets(collection)) {
+          // bundle: false reads each page through the site's Astro live
+          // collection (src/live.config.ts). The request keeps the
+          // same-origin fallback for client files served elsewhere.
+          const [
+            { getLiveEntry },
+            { API_PAGES_COLLECTION, liveConfigSnippet },
+          ] = await Promise.all([import("astro:content"), import("./live.js")]);
+          const result = await getLiveEntry(API_PAGES_COLLECTION, {
             collection,
             version,
-            coordinate,
-            astro.request,
-          );
+            id: coordinate,
+            request: astro.request,
+          });
+          if (result.error) {
+            if (/is not a live collection/.test(result.error.message))
+              throw new Error(
+                `nimbus-docs: api "${collection}" sets bundle: false, but src/live.config.ts doesn't register the apiPages live collection:\n\n${liveConfigSnippet}`,
+              );
+            throw result.error;
+          }
+          if (!result.entry)
+            throw new Error(`Missing API page ${coordinate} in ${collection}.`);
+          // Astro's route cache applies the entry's tags when it's enabled.
+          const cache = (
+            astro as {
+              cache?: { enabled?: boolean; set(entry: unknown): void };
+            }
+          ).cache;
+          if (cache?.enabled) cache.set(result.entry);
+          return result.entry.data as unknown as Awaited<
+            ReturnType<
+              typeof import("./_internal/api/page-assets-runtime.js").getApiAssetPage
+            >
+          >;
+        }
         const projection = pageResolutionContext(astro).projection;
         const entry =
           resolvedEntry ??

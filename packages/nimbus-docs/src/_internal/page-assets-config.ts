@@ -1,3 +1,5 @@
+import path from "node:path";
+import { liveConfigSnippet } from "../live.js";
 import { preparedMarkdownRootKey } from "./prepared-markdown-registry.js";
 
 // The API collections whose entry sets `bundle: false`, per project root.
@@ -100,4 +102,47 @@ export function unbundledApiCollections(config: {
     }
   }
   return collections;
+}
+
+// Astro's own lookup order; it uses the first file found.
+const LIVE_CONFIG_FILES = [
+  "live.config.mjs",
+  "live.config.js",
+  "live.config.mts",
+  "live.config.ts",
+];
+
+/**
+ * Astro reads live collections only from the site's own live config, so an
+ * API with `bundle: false` needs `apiPagesLoader` registered there. A wrong
+ * collection key is reported on the first request, with the same snippet.
+ */
+export function assertApiPagesLiveCollection(
+  srcDir: string,
+  collections: readonly string[],
+  readFile: (path: string) => string | undefined,
+  realPath: (path: string) => string = (value) => value,
+  displayDir = "src",
+): void {
+  if (!collections.length) return;
+  const apis = collections.map((collection) => `"${collection}"`).join(", ");
+  // path.resolve drops the trailing separator fileURLToPath leaves, on any OS.
+  const dir = path.resolve(srcDir);
+  // Astro matches its live config by path; a symlinked srcDir defeats that.
+  if (path.resolve(realPath(dir)) !== dir) {
+    throw new Error(
+      `nimbus-docs: api ${apis} sets bundle: false, which needs an Astro live collection, and Astro can't find ` +
+        `its live config through a symlinked source folder (${dir} → ${realPath(dir)}). Build from the real path.`,
+    );
+  }
+  const found = LIVE_CONFIG_FILES.map((name) => ({
+    name,
+    text: readFile(path.join(dir, name)),
+  })).find((file) => file.text !== undefined);
+  if (found?.text?.includes("apiPagesLoader")) return;
+  const file = `${displayDir}/${found?.name ?? "live.config.ts"}`;
+  throw new Error(
+    `nimbus-docs: api ${apis} sets bundle: false, which reads pages through an Astro live collection. ` +
+      `${found ? `Register it in ${file}` : `Create ${file}`}:\n\n${liveConfigSnippet}`,
+  );
 }

@@ -483,7 +483,20 @@ rendering: {
 },
 ```
 
-Nimbus then writes each page's data as static assets beside the site, shares unchanged pages between versions, and reads one version's index plus the requested page on each request. The build suggests `bundle: false` when an API's bundled page data passes 16 MiB.
+Nimbus then writes each page's data as static assets beside the site, shares unchanged pages between versions, and reads one version's index plus the requested page on each request. Each build also ships the previous successful build's page files, so a server still running that release during a rollout (for example a Node server in a blue-green swap) keeps working; on Cloudflare each Worker version already keeps its own files. The build suggests `bundle: false` when an API's bundled page data passes 16 MiB.
+
+Pages are read through an Astro live collection, which Astro only accepts from your own `src/live.config.ts`. Add it once; the build shows this snippet if it's missing:
+
+```ts title="src/live.config.ts"
+import { defineLiveCollection } from "astro:content";
+import { apiPagesLoader } from "@cloudflare/nimbus-docs/live";
+
+export const collections = {
+  apiPages: defineLiveCollection({ loader: apiPagesLoader() }),
+};
+```
+
+When Astro's route cache is enabled, each page is cached with the tags `nimbus-api:<collection>` and `nimbus-api:<collection>@<version>`.
 
 `bundle: false` needs the collection rendered on request and the Cloudflare or Node adapter; the build explains what to change otherwise. It also changes discovery for that API: search, `llms.txt`, the sitemap and Markdown versions cover the default version only. Older versions stay readable as HTML, with `noindex`, and their Markdown returns 404.
 
@@ -502,7 +515,7 @@ Import it from `@cloudflare/nimbus-docs/runtime` and apply `withBase` once when 
 
 For custom API heads, use `getApiVersionHead(collection, version, coordinate, request)` for the canonical link and the alternate versions; the starter's `ApiLayout` uses it too. `getApiVersionAlternates` still works, except for an API with `bundle: false`, where it throws `NIMBUS_API_EAGER_ALTERNATES` and the build points at any component that calls it. See upgrade entry `api-request-path`.
 
-With `bundle: false`, Nimbus reuses the versions you didn't change. In CI, restore `.nimbus/cache/page-assets/` before the build and save it after a successful one; restore the whole directory. Key the cache by project, with a fallback key so adding a version keeps the earlier entries. Nimbus checks the cache's contents itself and rebuilds anything missing or damaged, so keep your specs in the repository, not only in the cache. Upgrading Nimbus can rebuild every version once.
+With `bundle: false`, Nimbus reuses the versions you didn't change. In CI, restore `.nimbus/cache/page-assets/` before the build and save it after a successful deploy, not after preview builds, so "previous" means the live release; restore the whole directory. Key the cache by project, with a fallback key so adding a version keeps the earlier entries. Nimbus checks the cache's contents itself and rebuilds anything missing or damaged, so keep your specs in the repository, not only in the cache. Upgrading Nimbus can rebuild every version once.
 
 #### Prepared code examples
 

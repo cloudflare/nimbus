@@ -14,6 +14,7 @@ export default defineConfig({
     build: "src/build.ts",
     config: "src/config.ts",
     content: "src/content.ts",
+    live: "src/live.ts",
     schemas: "src/schemas.ts",
     types: "src/types.ts",
     server: "src/server.ts",

@@ -187,6 +187,9 @@ await write(
   "src/content.config.ts",
   `import {defineCollection} from "astro:content";import {apiCollection,docsCollection} from ${JSON.stringify(pathToFileURL(path.join(sourceDir, "content.ts")).href)};export const collections={docs:defineCollection(docsCollection()),api:defineCollection(apiCollection())};`,
 );
+await write("src/live.config.ts", `import { defineLiveCollection } from "astro:content";
+import { apiPagesLoader } from "@cloudflare/nimbus-docs/live";
+export const collections = { apiPages: defineLiveCollection({ loader: apiPagesLoader() }) };`);
 await write(
   "src/content/docs/guide.md",
   "---\ntitle: Guide\n---\nSmall prose collection beside the API.\n",

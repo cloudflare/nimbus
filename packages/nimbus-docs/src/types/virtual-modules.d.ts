@@ -111,6 +111,14 @@ declare module "astro:content" {
     id: string,
   ): Promise<CollectionEntry<C> | undefined>;
 
+  export function getLiveEntry(
+    collection: string,
+    filter: Record<string, unknown>,
+  ): Promise<{
+    entry?: { id: string; data: Record<string, unknown> };
+    error?: Error;
+  }>;
+
   export function render(entry: CollectionEntry<string>): Promise<{
     Content: import("astro/runtime/server/index.js").AstroComponentFactory;
     headings: { depth: number; text: string; slug: string }[];

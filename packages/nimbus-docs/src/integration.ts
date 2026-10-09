@@ -27,6 +27,7 @@
  */
 
 import fs from "node:fs";
+import { assertApiPagesLiveCollection } from "./_internal/page-assets-config.js";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -2477,6 +2478,22 @@ export function nimbus(
           throw new Error(
             `nimbus-docs: api bundle: false works with the Cloudflare and Node adapters; this site uses ${adapterNameForBuild}. ` +
               `Remove bundle: false from ${pageAssetCollections.map((collection) => `"${collection}"`).join(", ")}, or switch adapter.`,
+          );
+        }
+        if (pageAssetCollections.length) {
+          const srcDir = fileURLToPath(astroConfig.srcDir);
+          assertApiPagesLiveCollection(
+            srcDir,
+            pageAssetCollections,
+            (file) => {
+              try {
+                return fs.readFileSync(file, "utf8");
+              } catch {
+                return undefined;
+              }
+            },
+            (file) => fs.realpathSync(file),
+            path.relative(fileURLToPath(astroConfig.root), srcDir) || ".",
           );
         }
         if (

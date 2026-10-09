@@ -1,6 +1,7 @@
 /** OpenAPI's consumer of the generic staged-page layer. Build-only, never SSR. */
 import {
   readFile,
+  writeFile,
   readdir,
   realpath,
   rm,
@@ -492,7 +493,9 @@ export async function prepareApiAssetVersion(
     rows.forEach((row, i) => {
       row.location = writer.location(hashes[i]!);
     });
-    const citationBytes = JSON.stringify(collectApiCitationSummary(model, target.schemaPages ?? false));
+    const citationBytes = JSON.stringify(
+      collectApiCitationSummary(model, target.schemaPages ?? false),
+    );
     const citationSummaryHash = pageAssetDigest(citationBytes);
     const citationSummaryPath = path.join(
       writer.cacheDirectory,
@@ -813,6 +816,26 @@ export async function apiPageAssetDeploymentFiles(
 }
 
 /** Copy only reachable assets; copy-on-write is advisory, never a hard link. */
+const PAGE_ASSET_FILE = /^(?:index|record|pack)-[a-f0-9]{64}\.json$/;
+
+/** The files the last successful build deployed, as recorded in the cache. */
+async function previousDeploymentFiles(rootPath: string): Promise<string[]> {
+  try {
+    const value = JSON.parse(
+      await readFile(
+        path.join(rootPath, ".nimbus/cache/page-assets/deployed.json"),
+        "utf8",
+      ),
+    );
+    if (value?.revision !== 1 || !Array.isArray(value.files)) return [];
+    return value.files.filter(
+      (file: unknown) => typeof file === "string" && PAGE_ASSET_FILE.test(file),
+    );
+  } catch {
+    return [];
+  }
+}
+
 export async function stagePageAssetDeployment(
   root: URL | string,
   outputRoot: URL | string,
@@ -829,6 +852,24 @@ export async function stagePageAssetDeployment(
       path.join(directory, filename),
       constants.COPYFILE_FICLONE,
     );
+  // Also ship the previous successful build's files, so a server still
+  // running that release mid-rollout can read them. They come from the build
+  // cache, which may be restored from CI, so each is hash-checked first.
+  for (const filename of await previousDeploymentFiles(rootPath)) {
+    if (files.has(filename)) continue;
+    let bytes: Buffer;
+    try {
+      bytes = await readFile(
+        path.join(rootPath, ".nimbus/cache/page-assets/assets", filename),
+      );
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      continue;
+    }
+    if (!filename.includes(pageAssetDigest(bytes))) continue;
+    await writeFile(path.join(directory, filename), bytes);
+    files.add(filename);
+  }
   for (const filename of await readdir(directory)) {
     if (
       /^(?:index|record|pack)-[a-f0-9]{64}\.json$/.test(filename) &&
@@ -927,4 +968,9 @@ export async function pruneApiPageAssetCache(
       await rm(path.join(staging, filename));
   }
   resetPageAssetStaging(rootKey);
+  // The next build ships these files again as its "previous release".
+  await writeAtomic(
+    path.join(cache, "deployed.json"),
+    JSON.stringify({ revision: 1, files: [...files].sort() }),
+  );
 }
