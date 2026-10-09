@@ -8,6 +8,8 @@
  */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { ApiSidebar } from "@/components/ui/api-sidebar";
+import ApiMethodChip from "@/components/ui/api-sidebar/ApiMethodChip.astro";
+import { SidebarFilter, SidebarLink } from "@/components/ui/sidebar";
 import { ApiCodeRail } from "@/components/ui/api-code-rail";
 import { Banner } from "@/components/ui/banner";
 import ApiBody from "./ApiBody.astro";
@@ -105,7 +107,24 @@ if (versionStatus?.isHidden) {
       data-nb-nav-scroller="nav"
       class="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-color:gray_transparent] [scrollbar-width:thin]"
     >
-      <div class="pt-8 pb-12 pl-6 pr-4">
+      {/* A full tree filters in place, as the docs sidebar does. An on-demand
+          tree holds only part of the API, so its filter searches the
+          version's page list instead (`api-nav-filter.client`). */}
+      <div class="pt-8 pb-12 pl-6 pr-4" data-nb-sidebar={nav.listHref ? undefined : ""}>
+        <SidebarFilter data-nb-nav-list={nav.listHref && withBase(nav.listHref, import.meta.env.BASE_URL)} />
+        {nav.listHref && (
+          <>
+            <p data-nb-nav-status role="status" hidden class="px-3 pb-2 text-xs text-muted-foreground"></p>
+            <ul data-nb-nav-results hidden class="flex list-none flex-col gap-0.5 p-0"></ul>
+            <template data-nb-nav-result>
+              <li>
+                <SidebarLink label="" href="/" class="px-1">
+                  <ApiMethodChip slot="leading" method="GET" display="label" />
+                </SidebarLink>
+              </li>
+            </template>
+          </>
+        )}
         <ApiSidebar items={nav.items} />
       </div>
     </div>
@@ -159,6 +178,8 @@ if (versionStatus?.isHidden) {
 
 <script>
   import { mount, lockScroll, unlockScroll, generateId, initNavSidebar } from "@cloudflare/nimbus-docs/client";
+  import "@/components/ui/sidebar/sidebar.client";
+  import "@/components/ui/api-sidebar/api-nav-filter.client";
 
   mount("[data-nb-nav-state]", initNavSidebar);
 

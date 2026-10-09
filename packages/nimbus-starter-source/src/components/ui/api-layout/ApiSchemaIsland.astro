@@ -1,0 +1,35 @@
+---
+/**
+ * ApiSchemaIsland — one request or response body as a field list. With
+ * `server:defer` it is a server island that reads the full body itself (see
+ * `ApiDeferredSchema`); given a `view`, it renders that view directly.
+ */
+import { ApiFieldList, ApiUnionExplorer } from "@/components/ui/api-field-row";
+import {
+  getApiDeferredSchema,
+  remountScript,
+  type ApiSchemaView,
+} from "@cloudflare/nimbus-docs/runtime";
+
+interface Props {
+  view?: ApiSchemaView;
+  as?: "h2" | "h3" | "h4";
+  title?: string;
+  badge?: string;
+  required?: boolean;
+}
+
+const { view: given, as, title, badge, required } = Astro.props;
+const view = given ?? (await getApiDeferredSchema(Astro));
+const list = { as, title, badge, required, descriptionHtml: view.descriptionHtml };
+---
+
+{view.union ? (
+  <ApiFieldList {...list} collapsible>
+    <ApiUnionExplorer union={view.union} />
+  </ApiFieldList>
+) : (
+  <ApiFieldList {...list} fields={view.fields} truncated={view.truncated} />
+)}
+{/* Wires the inserted list: expand/collapse all and deep links. */}
+{!given && <script is:inline set:html={remountScript} />}

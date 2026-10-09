@@ -26,10 +26,44 @@ import { runningNimbusVersion } from "../src/_internal/upgrades.ts";
 const adapterRoot = process.env.NIMBUS_TEST_ADAPTER_ROOT;
 const SRC = path.resolve(import.meta.dirname, "../src");
 const packageModules = path.resolve(import.meta.dirname, "../node_modules");
+const STARTER = path.resolve(import.meta.dirname, "../../nimbus-starter-source");
 const marker = "ASSET_RECORD_ONLY_53_68_description";
+// Sits two levels inside a body large enough to load through a server island.
+const NESTED = "DEFERRED_NESTED_FIELD";
+const largeBody = {
+  type: "object",
+  properties: {
+    details: {
+      type: "object",
+      properties: {
+        ...Object.fromEntries(
+          Array.from({ length: 55 }, (_, i) => [`trait_${i}`, { type: "string" }]),
+        ),
+        owner: {
+          type: "object",
+          properties: { deep_name: { type: "string", description: NESTED } },
+        },
+      },
+    },
+  },
+};
+const largeOperation = (operationId: string) => ({
+  operationId,
+  summary: "Get pet",
+  parameters: [
+    { name: "id", in: "path", required: true, schema: { type: "string" } },
+  ],
+  responses: {
+    "200": {
+      description: "ok",
+      content: { "application/json": { schema: largeBody } },
+    },
+  },
+});
 const PAGE = `---
 import { getApiRoute, getApiStaticPaths, getVersionSwitchUrl, getSidebar, withBase } from "@cloudflare/nimbus-docs/runtime";
 import NimbusHead from "@cloudflare/nimbus-docs/components/NimbusHead.astro";
+import ApiBody from "@/components/ui/api-layout/ApiBody.astro";
 export const prerender = true;
 export const getStaticPaths = getApiStaticPaths("api");
 const result = await getApiRoute(Astro);
@@ -39,7 +73,7 @@ const switchUrl = await getVersionSwitchUrl({collection,sourceVersion:version!,i
 const sidebar = await getSidebar("");
 ---
 <html><head><NimbusHead title={page.title} collection={collection} apiVersion={version ?? undefined} coordinate={coordinate} markdownUrl={page.markdownHref} /></head>
-<body><h1>{page.title}</h1><main data-version={version} data-markdown={page.markdownHref ?? "none"} data-sidebar={JSON.stringify(sidebar)} data-nav={JSON.stringify(nav)}><a class="self" href={withBase(page.href,import.meta.env.BASE_URL)}>{page.title}</a><a class="switch" href={withBase(switchUrl,import.meta.env.BASE_URL)}>switch</a><p>{page.description}</p></main></body></html>`;
+<body><h1>{page.title}</h1><main data-version={version} data-markdown={page.markdownHref ?? "none"} data-sidebar={JSON.stringify(sidebar)} data-nav={JSON.stringify(nav)}><a class="self" href={withBase(page.href,import.meta.env.BASE_URL)}>{page.title}</a><a class="switch" href={withBase(switchUrl,import.meta.env.BASE_URL)}>switch</a><a class="nav-list" href={nav.listHref && withBase(nav.listHref,import.meta.env.BASE_URL)}>list</a><p>{page.description}</p><ApiBody page={page} /></main></body></html>`;
 
 function spec(old: boolean) {
   return JSON.stringify({
@@ -59,6 +93,7 @@ function spec(old: boolean) {
           responses: { "200": { description: "ok" } },
         },
       },
+      "/pets/{id}": { get: largeOperation("get-pet") },
       ...(old
         ? {
             "/legacy": {
@@ -95,6 +130,20 @@ async function dependencies(root: string) {
       }
     }
   }
+  // The starter's components need their own dependencies (clsx, icon sets).
+  for (const name of await readdir(path.join(STARTER, "node_modules"))) {
+    if (name.startsWith(".") || name.startsWith("@")) continue;
+    await symlink(
+      path.join(STARTER, "node_modules", name),
+      path.join(destination, name),
+      "dir",
+    ).catch(() => {});
+  }
+  await symlink(
+    path.join(STARTER, "node_modules/@iconify-json"),
+    path.join(destination, "@iconify-json"),
+    "dir",
+  ).catch(() => {});
   for (const name of ["node", "cloudflare"]) {
     await rm(path.join(destination, "@astrojs", name), {
       force: true,
@@ -134,7 +183,30 @@ async function fixture(
     await mkdir(path.dirname(path.join(root, name)), { recursive: true });
     await writeFile(path.join(root, name), contents);
   };
-  await write("package.json", JSON.stringify({ type: "module" }));
+  await write(
+    "package.json",
+    JSON.stringify({
+      type: "module",
+      dependencies: { "@iconify-json/ph": "*" },
+    }),
+  );
+  await cp(
+    path.join(STARTER, "src/components"),
+    path.join(root, "src/components"),
+    { recursive: true },
+  );
+  await cp(path.join(STARTER, "src/lib"), path.join(root, "src/lib"), {
+    recursive: true,
+  });
+  // A site's own field row must render inside islands too.
+  const row = path.join(root, "src/components/ui/api-field-row/ApiFieldRow.astro");
+  await writeFile(
+    row,
+    (await readFile(row, "utf8")).replace(
+      '<div class="fl-row">',
+      '<div class="fl-row" data-site-row>',
+    ),
+  );
   await write(
     "nimbus.json",
     JSON.stringify({ lastReviewedNimbusVersion: runningNimbusVersion() }),
@@ -154,6 +226,7 @@ async function fixture(
             responses: { "200": { description: "ok" } },
           },
         },
+        "/ping/{id}": { get: largeOperation("inspect-ping") },
       },
     }),
   );
@@ -201,10 +274,11 @@ if(page instanceof Response)return page;
     "src/pages/core/[...slug].astro",
     `---
 import {getApiRoute,getApiStaticPaths} from "@cloudflare/nimbus-docs/runtime";
+import ApiBody from "@/components/ui/api-layout/ApiBody.astro";
 export const prerender=true;export const getStaticPaths=getApiStaticPaths("core");
 const result=await getApiRoute(Astro);if(result instanceof Response)return result;
 ---
-<html><body>{result.page.title}</body></html>`,
+<html><body>{result.page.title}<ApiBody page={result.page} /></body></html>`,
   );
   await write(
     "wrangler.jsonc",
@@ -255,6 +329,7 @@ const result=await getApiRoute(Astro);if(result instanceof Response)return resul
             replacement: path.join(SRC, "index.ts"),
           },
           { find: /^@cloudflare\/nimbus-docs\//, replacement: `${SRC}/` },
+          { find: /^@\//, replacement: `${root}/src/` },
         ],
       },
     },
@@ -265,18 +340,29 @@ const result=await getApiRoute(Astro);if(result instanceof Response)return resul
           title: "Mixed assets",
           search: false,
           versions: { current: "v2", others: ["v1"] },
-          rendering: { default: "build", collections: { api: "request" } },
+          // Bundled APIs render on request only on Workers.
+          rendering: {
+            default: "build",
+            collections: worker
+              ? { api: "request", core: "request" }
+              : { api: "request" },
+          },
           api: [
             {
               collection: "api",
               versionUrl: { in: "query" },
               bundle: false,
+              sidebar: "on-demand",
               versions: [
                 { version: "v2", spec: "./specs/v2.json", default: true },
                 { version: "v1", spec: "./specs/v1.json" },
               ],
             },
-            { collection: "core", spec: "./specs/core.json" },
+            {
+              collection: "core",
+              spec: "./specs/core.json",
+              sidebar: "on-demand",
+            },
           ],
         },
         { admonitions: false, sitemap: true, validateMdx: false },
@@ -349,6 +435,90 @@ async function assertRequests(
   assert.ok(!(await llms.text()).includes("legacy-report"));
 }
 
+const islandUrl = (html: string) =>
+  /<link rel="preload" as="fetch" href="([^"]*\/_server-islands\/[^"]+)"/
+    .exec(html)?.[1]
+    ?.replaceAll("&amp;", "&");
+
+/** A large body's nested fields load through a server island that renders
+ * the site's own field row; small bodies and every other output are whole. */
+async function assertDeferredSchemas(
+  request: (path: string) => Promise<Response>,
+  pages: string[],
+) {
+  for (const pathname of pages) {
+    const html = await (await request(pathname)).text();
+    assert.ok(!html.includes(NESTED), `${pathname} defers its nested fields`);
+    assert.match(html, /id="[^"]*\.details"/, "top-level fields stay");
+    assert.match(
+      html,
+      /<noscript>[\s\S]*Nested fields need JavaScript/,
+      "readers without JavaScript are told where the fields are",
+    );
+    const island = islandUrl(html);
+    assert.ok(island, `${pathname} loads a server island`);
+    const response = await request(island);
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-type") ?? "", /^text\/html/);
+    const body = await response.text();
+    assert.match(body, /id="[^"]*\.details\.owner\.deep_name"/);
+    assert.ok(body.includes(NESTED));
+    assert.match(body, /data-site-row/, "site field-row overrides render");
+    assert.match(body, /nimbus:remount/, "the inserted list is wired");
+  }
+  const small = await (await request("/api/list-pets/")).text();
+  assert.ok(!small.includes("server-island"), "small bodies render in full");
+  const markdown = await (await request("/api/get-pet/index.md")).text();
+  assert.ok(markdown.includes(NESTED), "Markdown keeps every field");
+}
+
+/** Astro encrypts island props with a fresh IV on every render. */
+async function islandProps(url: string, key: string): Promise<unknown> {
+  const parsed = new URL(url, "http://island.test");
+  const id = parsed.pathname.split("/").filter(Boolean).at(-1)!;
+  const encrypted = parsed.searchParams.get("p")!;
+  const plain = await crypto.subtle.decrypt(
+    {
+      name: "AES-GCM",
+      iv: Buffer.from(encrypted.slice(0, 24), "hex"),
+      additionalData: new TextEncoder().encode(`props:${id}`),
+    },
+    await crypto.subtle.importKey(
+      "raw",
+      Buffer.from(key, "base64"),
+      "AES-GCM",
+      false,
+      ["decrypt"],
+    ),
+    Buffer.from(encrypted.slice(24), "base64"),
+  );
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+/** On-demand sidebars name one list per version; rows link into it. */
+async function assertNavLists(request: (path: string) => Promise<Response>) {
+  const listOf = async (pathname: string) => {
+    const html = await (await request(pathname)).text();
+    const href = /class="nav-list" href="([^"]+)"/.exec(html)?.[1];
+    assert.ok(href, `${pathname} names its version's list`);
+    const response = await request(href);
+    assert.equal(response.status, 200);
+    return { href, rows: await response.json() };
+  };
+  const latest = await listOf("/api/list-pets/");
+  assert.deepEqual(
+    latest.rows.find((row: { title: string }) => row.title === "Get pet"),
+    { title: "Get pet", method: "GET", path: "/pets/{id}", url: "/api/get-pet/" },
+  );
+  const old = await listOf("/api/list-pets/?version=v1");
+  assert.notEqual(old.href, latest.href);
+  assert.ok(
+    old.rows.some(
+      (row: { url: string }) => row.url === "/api/legacy-report/?version=v1",
+    ),
+  );
+}
+
 test(
   "actual Node adapter: relocated mixed site renders asset APIs, resolves switches and keeps historical discovery out",
   { skip: !adapterRoot, timeout: 120_000 },
@@ -375,6 +545,12 @@ test(
       ),
       /Static Ping/,
     );
+    const staticPage = await readFile(
+      path.join(root, "dist/client/core/inspect-ping/index.html"),
+      "utf8",
+    );
+    assert.ok(staticPage.includes(NESTED), "static pages keep every field");
+    assert.ok(!staticPage.includes("server-island"));
     const relocated = await mkdtemp(
       path.join(os.tmpdir(), "nimbus-assets-relocated-"),
     );
@@ -411,14 +587,17 @@ test(
     );
     const address = server.address();
     assert.ok(address && typeof address !== "string");
-    await assertRequests(
-      (pathname) =>
-        fetch(
-          `http://127.0.0.1:${address.port}${pathname.startsWith("/docs/") ? pathname : `/docs${pathname}`}`,
-          { redirect: "manual" },
-        ),
-      "/docs",
-    );
+    const request = (pathname: string) =>
+      fetch(
+        `http://127.0.0.1:${address.port}${pathname.startsWith("/docs/") ? pathname : `/docs${pathname}`}`,
+        { redirect: "manual" },
+      );
+    await assertRequests(request, "/docs");
+    await assertDeferredSchemas(request, [
+      "/api/get-pet/",
+      "/api/get-pet/?version=v1",
+    ]);
+    await assertNavLists(request);
   },
 );
 
@@ -429,6 +608,25 @@ test(
     const { root, options } = await fixture(t, false, {
       base: "/",
       trailingSlash: "always",
+    });
+    // A CDN-style provider: Astro sets the cache headers and leaves them on.
+    await writeFile(
+      path.join(root, "cache-provider.mjs"),
+      'export default () => ({ name: "headers", async invalidate() {} });\n',
+    );
+    Object.assign(options, {
+      cache: {
+        provider: { entrypoint: path.join(root, "cache-provider.mjs") },
+      },
+    });
+    const key = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString(
+      "base64",
+    );
+    const oldKey = process.env.ASTRO_KEY;
+    process.env.ASTRO_KEY = key;
+    t.after(() => {
+      if (oldKey === undefined) delete process.env.ASTRO_KEY;
+      else process.env.ASTRO_KEY = oldKey;
     });
     await build(options as never);
     const oldAuto = process.env.ASTRO_NODE_AUTOSTART;
@@ -464,6 +662,33 @@ test(
       switched.headers.get("location"),
       "/api/list-pets/?version=v1",
     );
+    const page = await request("/api/get-pet/");
+    const islands = [
+      islandUrl(await page.text())!,
+      islandUrl(await (await request("/api/get-pet/")).text())!,
+    ];
+    assert.match(islands[0]!, /\/_server-islands\/[^/?]+\/\?/);
+    const props = await Promise.all(islands.map((url) => islandProps(url, key)));
+    assert.deepEqual(props[0], props[1], "renders send identical island props");
+    assert.deepEqual(props[0], {
+      collection: "api",
+      version: "v2",
+      coordinate: "get-pet",
+      schema: { status: "200" },
+      badge: "JSON",
+    });
+    const island = await request(islands[0]!);
+    assert.equal(island.status, 200);
+    assert.equal(island.headers.get("cache-tag"), page.headers.get("cache-tag"));
+    assert.match(island.headers.get("cache-tag") ?? "", /nimbus-api:api@v2/);
+    const lists = async () =>
+      (await readdir(path.join(root, "dist/client/_nimbus/pages")))
+        .filter((name) => name.startsWith("nav-"))
+        .sort();
+    const built = await lists();
+    assert.equal(built.length, 3, "one list per on-demand version");
+    await build(options as never);
+    assert.deepEqual(await lists(), built, "unchanged versions keep their list");
   },
 );
 
@@ -489,11 +714,12 @@ test(
       ...options,
       server: { host: "127.0.0.1", port: 0 },
     } as never);
-    await assertRequests((pathname) =>
+    const request = (pathname: string) =>
       fetch(`http://127.0.0.1:${server!.address.port}${pathname}`, {
         redirect: "manual",
-      }),
-    );
+      });
+    await assertRequests(request);
+    await assertDeferredSchemas(request, ["/api/get-pet/", "/core/inspect-ping/"]);
     const edited = spec(true).replace(
       "Old create",
       "Updated historical create",
@@ -515,6 +741,19 @@ test(
       /Updated historical create/,
       "dev must refresh the version index after a spec edit",
     );
+    await writeFile(
+      path.join(root, "specs/v2.json"),
+      spec(false).replace(NESTED, "EDITED_NESTED_FIELD"),
+    );
+    let island = "";
+    const islandDeadline = Date.now() + 15_000;
+    while (Date.now() < islandDeadline) {
+      const url = islandUrl(await (await request("/api/get-pet/")).text());
+      island = url ? await (await request(url)).text() : "";
+      if (island.includes("EDITED_NESTED_FIELD")) break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    assert.match(island, /EDITED_NESTED_FIELD/, "islands follow spec edits");
     await server.stop();
     server = undefined;
   },
@@ -566,8 +805,14 @@ test(
         },
       },
     );
-    await assertRequests((pathname) =>
-      worker!.fetch(pathname, { redirect: "manual" }),
-    );
+    const request = (pathname: string) =>
+      worker!.fetch(pathname, { redirect: "manual" });
+    await assertRequests(request);
+    await assertDeferredSchemas(request, [
+      "/api/get-pet/",
+      "/api/get-pet/?version=v1",
+      "/core/inspect-ping/",
+    ]);
+    await assertNavLists(request);
   },
 );

@@ -17,3 +17,11 @@ export function methodVariant(method: string | undefined): MethodVariant | "" {
       return method ? "other" : "";
   }
 }
+
+const abbreviations: Record<string, string> = { delete: "DEL", options: "OPT", connect: "CONN" };
+
+// The verb a label chip shows: long verbs abbreviated to fit its fixed width.
+export function methodLabel(method: string | undefined): string | undefined {
+  const verb = method?.toLowerCase();
+  return verb ? (abbreviations[verb] ?? verb.toUpperCase()) : undefined;
+}

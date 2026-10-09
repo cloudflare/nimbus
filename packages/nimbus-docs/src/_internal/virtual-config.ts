@@ -44,6 +44,7 @@ export interface VitePluginLike {
 
 export interface VirtualConfigExtras {
   getPageAssets?: () => Record<string, Record<string, string>>;
+  getNavLists?: () => Record<string, Record<string, string>>;
   /**
    * The ordered page-collection list, read from the prepared-markdown
    * registry record. Awaited when the virtual module loads, which is after
@@ -109,6 +110,7 @@ export function virtualConfigPlugin(
         return (
           `export const config = ${JSON.stringify(runtimeConfig)};\n` +
           `export const pageAssets = ${JSON.stringify(extras.getPageAssets?.() ?? {})};\n` +
+          `export const navLists = ${JSON.stringify(extras.getNavLists?.() ?? {})};\n` +
           `export const indexedCollections = ${JSON.stringify(indexedCollections)};\n` +
           `export const requestRenderingCollections = ${JSON.stringify(extras.requestRenderingCollections)};\n` +
           `export const versionAlternates = ${JSON.stringify(extras.versionAlternates)};\n` +

@@ -36,7 +36,17 @@ import {
 } from "../../api/index.js";
 import { resolveSpecSource } from "./resolve-spec.js";
 import { unwrapModel } from "./model-handle.js";
-import { operationShapes, setApiModelPageReferences } from "./view-model.js";
+import {
+  operationPaths,
+  operationShapes,
+  setApiModelPageReferences,
+} from "./view-model.js";
+import {
+  apiNavList,
+  apiNavListFiles,
+  clearApiNavLists,
+  recordApiNavList,
+} from "./nav-list.js";
 import { prepareApiNav, type PreparedApiNav } from "./prepared.js";
 import { prepareApiPageCode } from "../api-loader.js";
 import { collectApiCitationSummary } from "./citation-index.js";
@@ -107,6 +117,7 @@ export interface PreparedApiAssetVersion {
   /** Hash of `rows`, locations included: with inputHash it fixes the index. */
   rowsHash: string;
   nav: PreparedApiNav;
+  operationPaths: Record<string, string>;
   summary: ApiAssetSummary;
   reused: boolean;
   citationSummaryPath: string;
@@ -149,6 +160,7 @@ export function getApiPageAssetManifest(
 export function clearApiPageAssetManifest(root: URL | string): void {
   const key = preparedMarkdownRootKey(root);
   manifests.delete(key);
+  clearApiNavLists(root);
   deploymentFiles.delete(key);
   activeInputs.delete(key);
   buildReaders.delete(key);
@@ -399,6 +411,7 @@ export async function prepareApiAssetVersion(
         !Array.isArray(value.rows) ||
         typeof value.rowsHash !== "string" ||
         !value.nav ||
+        !value.operationPaths ||
         !value.summary
       )
         throw new Error("Invalid version cache");
@@ -516,6 +529,7 @@ export async function prepareApiAssetVersion(
       citationSummaryPath,
       citationSummaryHash,
       nav: prepareApiNav(getApiNav(model)),
+      operationPaths: operationPaths(spine),
       reused: false,
       summary: {
         rows: rows.map(({ location: _location, ...row }) => ({
@@ -571,23 +585,32 @@ export async function stageApiAssetFamily(
     );
     const indexPointer = path.join(writer.cacheDirectory, "indexes", indexKey);
     let filename = await readFile(indexPointer, "utf8").catch(() => "");
-    if (!filename || !(await writer.stage({ filename }))) {
-      const index = {
+    let nav: PreparedApiNav | undefined;
+    const resolvedNav = () =>
+      (nav ??= resolveApiAssetLinks(metadata.nav, target, {
         byId: new Map(prepared.rows.map((row) => [row.id, row])),
-      };
-      const nav = resolveApiAssetLinks(
-        metadata.nav,
-        target,
-        index,
-      ) as PreparedApiNav;
+      }) as PreparedApiNav);
+    if (!filename || !(await writer.stage({ filename }))) {
       filename = await writer.writeIndex(prepared.rows, {
         ...metadata,
-        nav,
+        nav: resolvedNav(),
       });
       await writeAtomic(indexPointer, filename);
     }
     next[target.version ?? ""] = filename;
     files.add(filename);
+    if (target.sidebar === "on-demand") {
+      // Same inputs as the index, so the index's key names it too.
+      const listPointer = `${indexPointer}.nav`;
+      let list = await readFile(listPointer, "utf8").catch(() => "");
+      if (!list || !(await writer.stage({ filename: list }))) {
+        const written = apiNavList(resolvedNav().nav, prepared.operationPaths);
+        await writer.writeAsset(written.filename, written.body);
+        list = written.filename;
+        await writeAtomic(listPointer, list);
+      }
+      recordApiNavList(root, target.family, target.version, list);
+    }
     for (const row of prepared.rows) files.add(row.location.filename);
   }
   const key = preparedMarkdownRootKey(root);
@@ -812,12 +835,15 @@ export async function apiPageAssetDeploymentFiles(
 ): Promise<string[]> {
   const families = deploymentFiles.get(preparedMarkdownRootKey(root)) ?? {};
   return [
-    ...new Set(Object.values(families).flatMap((files) => [...files])),
+    ...new Set([
+      ...Object.values(families).flatMap((files) => [...files]),
+      ...apiNavListFiles(root),
+    ]),
   ].sort();
 }
 
 /** Copy only reachable assets; copy-on-write is advisory, never a hard link. */
-const PAGE_ASSET_FILE = /^(?:index|record|pack)-[a-f0-9]{64}\.json$/;
+const PAGE_ASSET_FILE = /^(?:index|record|pack|nav)-[a-f0-9]{64}\.json$/;
 
 /** The files the last successful build deployed, as recorded in the cache. */
 async function previousDeploymentFiles(rootPath: string): Promise<string[]> {
@@ -872,10 +898,7 @@ export async function stagePageAssetDeployment(
     files.add(filename);
   }
   for (const filename of await readdir(directory)) {
-    if (
-      /^(?:index|record|pack)-[a-f0-9]{64}\.json$/.test(filename) &&
-      !files.has(filename)
-    )
+    if (PAGE_ASSET_FILE.test(filename) && !files.has(filename))
       await rm(path.join(directory, filename));
   }
 }
@@ -926,7 +949,7 @@ export async function pruneApiPageAssetCache(
     }
     for (const filename of entries) {
       if (
-        /^(?:(?:index|record|pack)-)?[a-f0-9]{64}(?:\.citations)?\.json$/.test(
+        /^(?:(?:index|record|pack|nav)-)?[a-f0-9]{64}(?:\.citations)?\.json$/.test(
           filename,
         ) &&
         !keep(filename)
@@ -937,7 +960,7 @@ export async function pruneApiPageAssetCache(
   // Index pointers survive only while the index they name is deployed.
   try {
     for (const pointer of await readdir(path.join(cache, "indexes"))) {
-      if (!/^[a-f0-9]{64}$/.test(pointer)) continue;
+      if (!/^[a-f0-9]{64}(?:\.nav)?$/.test(pointer)) continue;
       const target = path.join(cache, "indexes", pointer);
       if (!files.has(await readFile(target, "utf8"))) await rm(target);
     }
@@ -962,10 +985,7 @@ export async function pruneApiPageAssetCache(
   }
   const staging = path.join(rootPath, ".astro/nimbus/pages");
   for (const filename of await readdir(staging)) {
-    if (
-      /^(?:index|record|pack)-[a-f0-9]{64}\.json$/.test(filename) &&
-      !files.has(filename)
-    )
+    if (PAGE_ASSET_FILE.test(filename) && !files.has(filename))
       await rm(path.join(staging, filename));
   }
   resetPageAssetStaging(rootKey);
