@@ -582,6 +582,24 @@
         "Request a non-default version with ?version=<id> and confirm it renders that version.",
         "Request the same page with ?api-version=<id> and confirm a permanent redirect to ?version=<id>."
       ]
+    },
+    {
+      "id": "api-sidebar-filter",
+      "introducedIn": "0.18.0",
+      "mode": "optional",
+      "changeset": "api-sidebar-filter",
+      "summary": "Optionally add the sidebar filter to API pages. With sidebar: \"on-demand\" it also finds pages the sidebar hasn't loaded.",
+      "affected": "Sites with the api-layout registry components installed before 0.18.0.",
+      "instructions": [
+        "No action is needed: API pages keep working without a filter.",
+        "If ApiLayout.astro, ApiSidebarItem.astro, ApiMethodChip.astro and the api-sidebar folder are unmodified registry copies, update them with nimbus-docs add api-layout --overwrite, or nimbus-docs diff <file> --apply for each.",
+        "If ApiLayout.astro is customized, copy the filter block from the current registry version: SidebarFilter above ApiSidebar, given data-nb-nav-list={nav.listHref && withBase(nav.listHref, import.meta.env.BASE_URL)}; when nav.listHref is set, the status line, results list and result template beside it; data-nb-sidebar on the wrapper only when nav.listHref is unset; and the sidebar.client and api-nav-filter.client imports in its script.",
+        "Copy api-sidebar/api-nav-filter.client.ts and the methodLabel export in api-sidebar/method.ts if they are missing. To let a full sidebar's filter match HTTP methods, add data-nb-filter-text={item.method} to the link in ApiSidebarItem.astro."
+      ],
+      "verify": [
+        "On an API page, type part of an operation's title and confirm the sidebar narrows to it.",
+        "With sidebar: \"on-demand\", type the title of an operation in a collapsed group and confirm it is listed and links to the current version."
+      ]
     }
   ]
 }

@@ -1689,12 +1689,15 @@ async function resolveApiRoute(
             `nimbus-docs: API collection "${collection}" is missing prepared navigation for "${coordinate}".`,
           );
         }
-        const [{ applyApiSidebarMode }, { resolveApiVersion, targetUrlFields }, config] =
-          await Promise.all([
-            import("./_internal/api/nav-bounds.js"),
-            import("./_internal/api/resolve-versions.js"),
-            loadNimbusConfig(),
-          ]);
+        const [
+          { applyApiSidebarMode },
+          { resolveApiVersion, targetUrlFields },
+          config,
+        ] = await Promise.all([
+          import("./_internal/api/nav-bounds.js"),
+          import("./_internal/api/resolve-versions.js"),
+          loadNimbusConfig(),
+        ]);
         const target = resolveApiVersion(config.api, collection, version);
         const nav = activatePreparedApiNav(preparedNav, coordinate);
         return {
@@ -1714,9 +1717,14 @@ async function resolveApiRoute(
   if (result.status !== "found") {
     return proseResolutionResponse(astro, result);
   }
+  // An on-demand sidebar's filter reads this version's page list.
+  const { navLists } = await import("virtual:nimbus/config");
+  const list = navLists?.[result.page.collection]?.[result.page.version ?? ""];
   return {
     page: result.page.page,
-    nav: result.page.nav,
+    nav: list
+      ? { ...result.page.nav, listHref: `/_nimbus/pages/${list}` }
+      : result.page.nav,
     collection: result.page.collection,
     version: result.page.version,
     coordinate: result.page.coordinate,

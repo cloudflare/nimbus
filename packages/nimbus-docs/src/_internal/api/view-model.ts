@@ -915,6 +915,18 @@ export function operationShapes(model: DocsModel): Map<string, string> {
   return shapes;
 }
 
+/** Each operation's path, as the spec writes it. */
+export function operationPaths(model: DocsModel): Record<string, string> {
+  const paths: Record<string, string> = {};
+  for (const coordinate of model.pages.pages) {
+    const node = model.nodes.get(coordinate);
+    if (node?.kind !== "operation") continue;
+    const path = protocolString((node.facts as OperationFacts).protocol, "path");
+    if (path) paths[coordinate] = path;
+  }
+  return paths;
+}
+
 export function pageSlugs(
   model: DocsModel,
 ): Array<{ coordinate: string; slug: string }> {

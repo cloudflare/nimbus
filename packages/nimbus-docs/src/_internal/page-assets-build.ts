@@ -135,7 +135,7 @@ export class PageAssetWriter {
     const location = value as PageAssetLocation;
     return (
       typeof location.filename === "string" &&
-      /^(?:record|pack|index)-[a-f0-9]{64}\.json$/.test(location.filename) &&
+      /^(?:record|pack|index|nav)-[a-f0-9]{64}\.json$/.test(location.filename) &&
       (location.key === undefined || /^[a-f0-9]{64}$/.test(location.key))
     );
   }
@@ -322,6 +322,13 @@ export class PageAssetWriter {
       });
     catalogWrites.set(filename, save);
     await save;
+  }
+
+  /** Write a file whose name already holds its hash, such as a nav list. */
+  async writeAsset(filename: string, bytes: string): Promise<void> {
+    if (!this.validLocation({ filename }))
+      throw new Error(`nimbus-docs: invalid page asset name ${filename}.`);
+    await this.write(filename, bytes);
   }
 
   async writeIndex(rows: PageAssetRow[], metadata?: unknown): Promise<string> {

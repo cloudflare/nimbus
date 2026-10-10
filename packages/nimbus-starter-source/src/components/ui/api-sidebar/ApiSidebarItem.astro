@@ -61,6 +61,7 @@ const onActiveTrail = Boolean(item.expanded || item.active);
       label={item.label}
       href={item.href ?? "#"}
       isCurrent={item.active}
+      data-nb-filter-text={item.method}
       class={item.deprecated ? "px-1 line-through" : "px-1"}
     >
       <ApiMethodChip slot="leading" method={item.method} display="label" />

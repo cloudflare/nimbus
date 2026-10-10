@@ -353,6 +353,10 @@ export interface ApiNav {
   apiSchemaVersion: number;
   collection: string;
   items: ApiNavItem[];
+  /** Under `sidebar: "on-demand"`: a JSON list of every page in this version
+   *  (`title`, `method`, `path`, `url`), for filtering pages the sidebar
+   *  hasn't loaded. Root-relative, without the site base, like `href`. */
+  listHref?: string;
 }
 
 export interface ApiPageIndexEntry {

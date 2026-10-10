@@ -28,6 +28,13 @@ import {
   targetUrlFields,
 } from "./api/resolve-versions.js";
 import type { ApiSidebarMode, ApiSpec } from "../types.js";
+import { unwrapModel } from "./api/model-handle.js";
+import { operationPaths } from "./api/view-model.js";
+import {
+  apiNavList,
+  recordApiNavList,
+  stageApiNavList,
+} from "./api/nav-list.js";
 
 export {
   clearApiModelCache,
@@ -45,6 +52,21 @@ export {
   targetUrlFields,
 } from "./api/resolve-versions.js";
 export { prepareApiNav, preparedApiVersion } from "./api/prepared.js";
+
+/** Stage the sidebar filter's list for one bundled API version. */
+export async function stageApiModelNavList(
+  root: string,
+  collection: string,
+  version: string | null,
+  model: ApiModel,
+): Promise<void> {
+  const list = apiNavList(
+    getApiNav(model),
+    operationPaths(unwrapModel(model)),
+  );
+  await stageApiNavList(root, list);
+  recordApiNavList(root, collection, version, list.filename);
+}
 
 /** Where a projected page's navigation is bounded. Omitted = the full tree. */
 interface ApiNavBounds {

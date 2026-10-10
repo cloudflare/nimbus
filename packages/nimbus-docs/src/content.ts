@@ -446,6 +446,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
         registerConfiguredApiModel,
         resolveApiFamily,
         resolveSpecSource,
+        stageApiModelNavList,
         targetUrlFields,
       } = await loadApiLoader();
 
@@ -543,6 +544,13 @@ export function apiCollection(options?: ApiCollectionOptions): {
                 ...targetUrlFields(target),
               },
             );
+            if (target.sidebar === "on-demand")
+              await stageApiModelNavList(
+                rootDir,
+                collection,
+                target.version ?? null,
+                model,
+              );
           } catch (err) {
             // `ApiBuildError` already formats a pointed diagnostic list; surface
             // it (plus which spec failed) and fail the build cleanly.

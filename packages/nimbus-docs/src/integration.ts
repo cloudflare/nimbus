@@ -1000,6 +1000,8 @@ export function nimbus(
           : undefined;
         const pageAssetsBuild =
           await import("./_internal/api/page-assets-build.js");
+        const { getApiNavListManifest } =
+          await import("./_internal/api/nav-list.js");
         pageAssetsBuild.clearApiPageAssetManifest(astroConfig.root);
         clientDirectory = astroConfig.build?.client ?? clientDirectory;
         serverDirectory = astroConfig.build?.server ?? serverDirectory;
@@ -2270,7 +2272,13 @@ export function nimbus(
                 applyToEnvironment: (environment) =>
                   environment.name === "client",
                 async writeBundle(outputOptions) {
-                  if (outputOptions.dir && pageAssetCollections.length) {
+                  if (
+                    outputOptions.dir &&
+                    (pageAssetCollections.length ||
+                      (
+                        await import("./_internal/api/nav-list.js")
+                      ).apiNavListFiles(projectRoot).length)
+                  ) {
                     await pageAssetsBuild.stagePageAssetDeployment(
                       projectRoot,
                       outputOptions.dir,
@@ -2323,6 +2331,7 @@ export function nimbus(
               virtualConfigPlugin(config, {
                 getPageAssets: () =>
                   pageAssetsBuild.getApiPageAssetManifest(projectRoot),
+                getNavLists: () => getApiNavListManifest(projectRoot),
                 getIndexedCollections: getPageCollectionsForBuild,
                 requestRenderingCollections: [...requestRenderingCollections],
                 versionAlternates,
@@ -2808,7 +2817,11 @@ export function nimbus(
         const agents = await loadAgentEndpointAssets();
         if (agents.isAgentEndpointAssetRequested(projectRootForBuild))
           await agents.stageAgentEndpointAssets(projectRootForBuild, target);
-        if (pageAssetCollections.length) {
+        const { apiNavListFiles } = await import("./_internal/api/nav-list.js");
+        if (
+          pageAssetCollections.length ||
+          apiNavListFiles(projectRootForBuild).length
+        ) {
           const { stagePageAssetDeployment } =
             await import("./_internal/api/page-assets-build.js");
           await stagePageAssetDeployment(projectRootForBuild, target);
@@ -3119,7 +3132,11 @@ export function nimbus(
           ],
           logger,
         });
-        if (pageAssetCollections.length) {
+        const { apiNavListFiles } = await import("./_internal/api/nav-list.js");
+        if (
+          pageAssetCollections.length ||
+          apiNavListFiles(projectRootForBuild).length
+        ) {
           const { pruneApiPageAssetCache } =
             await import("./_internal/api/page-assets-build.js");
           await pruneApiPageAssetCache(projectRootForBuild);

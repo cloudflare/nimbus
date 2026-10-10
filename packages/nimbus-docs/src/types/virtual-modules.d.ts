@@ -31,6 +31,8 @@ declare module "virtual:nimbus/config" {
   export const versionAlternates: import("../_internal/version-alternates.js").VersionAlternatesTable;
   export const apiCollections: readonly string[];
   export const pageAssets: import("../_internal/api/page-assets-runtime.js").ApiPageAssetManifest;
+  /** collection → version ("" when unversioned) → sidebar filter list filename. */
+  export const navLists: Record<string, Record<string, string>>;
   export const headDefaults: {
     favicon: { file: string; type: string };
     socialImage: string;

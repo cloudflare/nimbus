@@ -39,7 +39,7 @@ const switchUrl = await getVersionSwitchUrl({collection,sourceVersion:version!,i
 const sidebar = await getSidebar("");
 ---
 <html><head><NimbusHead title={page.title} collection={collection} apiVersion={version ?? undefined} coordinate={coordinate} markdownUrl={page.markdownHref} /></head>
-<body><h1>{page.title}</h1><main data-version={version} data-markdown={page.markdownHref ?? "none"} data-sidebar={JSON.stringify(sidebar)} data-nav={JSON.stringify(nav)}><a class="self" href={withBase(page.href,import.meta.env.BASE_URL)}>{page.title}</a><a class="switch" href={withBase(switchUrl,import.meta.env.BASE_URL)}>switch</a><p>{page.description}</p></main></body></html>`;
+<body><h1>{page.title}</h1><main data-version={version} data-markdown={page.markdownHref ?? "none"} data-sidebar={JSON.stringify(sidebar)} data-nav={JSON.stringify(nav)}><a class="self" href={withBase(page.href,import.meta.env.BASE_URL)}>{page.title}</a><a class="switch" href={withBase(switchUrl,import.meta.env.BASE_URL)}>switch</a><a class="nav-list" href={nav.listHref && withBase(nav.listHref,import.meta.env.BASE_URL)}>list</a><p>{page.description}</p></main></body></html>`;
 
 function spec(old: boolean) {
   return JSON.stringify({
@@ -56,6 +56,13 @@ function spec(old: boolean) {
         post: {
           operationId: old ? "make-pet" : "create-pet",
           summary: old ? "Old create" : "New create",
+          responses: { "200": { description: "ok" } },
+        },
+      },
+      "/pets/{id}": {
+        get: {
+          operationId: "get-pet",
+          summary: "Get pet",
           responses: { "200": { description: "ok" } },
         },
       },
@@ -271,12 +278,17 @@ const result=await getApiRoute(Astro);if(result instanceof Response)return resul
               collection: "api",
               versionUrl: { in: "query" },
               bundle: false,
+              sidebar: "on-demand",
               versions: [
                 { version: "v2", spec: "./specs/v2.json", default: true },
                 { version: "v1", spec: "./specs/v1.json" },
               ],
             },
-            { collection: "core", spec: "./specs/core.json" },
+            {
+              collection: "core",
+              spec: "./specs/core.json",
+              sidebar: "on-demand",
+            },
           ],
         },
         { admonitions: false, sitemap: true, validateMdx: false },
@@ -349,6 +361,30 @@ async function assertRequests(
   assert.ok(!(await llms.text()).includes("legacy-report"));
 }
 
+/** On-demand sidebars name one list per version; rows link into it. */
+async function assertNavLists(request: (path: string) => Promise<Response>) {
+  const listOf = async (pathname: string) => {
+    const html = await (await request(pathname)).text();
+    const href = /class="nav-list" href="([^"]+)"/.exec(html)?.[1];
+    assert.ok(href, `${pathname} names its version's list`);
+    const response = await request(href);
+    assert.equal(response.status, 200);
+    return { href, rows: await response.json() };
+  };
+  const latest = await listOf("/api/list-pets/");
+  assert.deepEqual(
+    latest.rows.find((row: { title: string }) => row.title === "Get pet"),
+    { title: "Get pet", method: "GET", path: "/pets/{id}", url: "/api/get-pet/" },
+  );
+  const old = await listOf("/api/list-pets/?version=v1");
+  assert.notEqual(old.href, latest.href);
+  assert.ok(
+    old.rows.some(
+      (row: { url: string }) => row.url === "/api/legacy-report/?version=v1",
+    ),
+  );
+}
+
 test(
   "actual Node adapter: relocated mixed site renders asset APIs, resolves switches and keeps historical discovery out",
   { skip: !adapterRoot, timeout: 120_000 },
@@ -411,14 +447,13 @@ test(
     );
     const address = server.address();
     assert.ok(address && typeof address !== "string");
-    await assertRequests(
-      (pathname) =>
-        fetch(
-          `http://127.0.0.1:${address.port}${pathname.startsWith("/docs/") ? pathname : `/docs${pathname}`}`,
-          { redirect: "manual" },
-        ),
-      "/docs",
-    );
+    const request = (pathname: string) =>
+      fetch(
+        `http://127.0.0.1:${address.port}${pathname.startsWith("/docs/") ? pathname : `/docs${pathname}`}`,
+        { redirect: "manual" },
+      );
+    await assertRequests(request, "/docs");
+    await assertNavLists(request);
   },
 );
 
@@ -464,6 +499,89 @@ test(
       switched.headers.get("location"),
       "/api/list-pets/?version=v1",
     );
+    const lists = async () =>
+      (await readdir(path.join(root, "dist/client/_nimbus/pages")))
+        .filter((name) => name.startsWith("nav-"))
+        .sort();
+    const built = await lists();
+    assert.equal(built.length, 3, "one list per on-demand version");
+    await build(options as never);
+    assert.deepEqual(await lists(), built, "unchanged versions keep their list");
+    // A changed bundled API ships its new list beside the previous release's.
+    const core = path.join(root, "specs/core.json");
+    await writeFile(
+      core,
+      (await readFile(core, "utf8")).replace("Static Ping", "Renamed Ping"),
+    );
+    await build(options as never);
+    const after = await lists();
+    assert.equal(
+      after.length,
+      built.length + 1,
+      "one new list for the changed API",
+    );
+    for (const list of built)
+      assert.ok(after.includes(list), `${list} still ships`);
+  },
+);
+
+test(
+  "actual Node adapter: a site with only bundled APIs ships the previous release's lists",
+  { skip: !adapterRoot, timeout: 120_000 },
+  async (t) => {
+    const { root, options } = await fixture(t, false, {
+      base: "/",
+      integrations: [
+        nimbus(
+          {
+            site: "https://example.test",
+            title: "Bundled only",
+            search: false,
+            api: [
+              {
+                collection: "api",
+                versionUrl: { in: "path" },
+                sidebar: "on-demand",
+                versions: [
+                  { version: "v2", spec: "./specs/v2.json", default: true },
+                  { version: "v1", spec: "./specs/v1.json" },
+                ],
+              },
+              {
+                collection: "core",
+                spec: "./specs/core.json",
+                sidebar: "on-demand",
+              },
+            ],
+          },
+          { admonitions: false, sitemap: false, validateMdx: false },
+        ),
+      ],
+    });
+    const lists = async () =>
+      (await readdir(path.join(root, "dist/client/_nimbus/pages")))
+        .filter((name) => name.startsWith("nav-"))
+        .sort();
+    await build(options as never);
+    const first = await lists();
+    assert.equal(first.length, 3, "one list per on-demand version");
+    const core = path.join(root, "specs/core.json");
+    await writeFile(
+      core,
+      (await readFile(core, "utf8")).replace("Static Ping", "Renamed Ping"),
+    );
+    await build(options as never);
+    const second = await lists();
+    assert.equal(second.length, 4, "the changed API adds one list");
+    for (const list of first)
+      assert.ok(second.includes(list), `${list} still ships`);
+    // An unchanged third build drops the list two releases old.
+    await build(options as never);
+    const third = await lists();
+    const added = second.find((list) => !first.includes(list));
+    assert.equal(third.length, 3);
+    assert.ok(third.includes(added!));
+    assert.ok(third.every((list) => second.includes(list)));
   },
 );
 
@@ -489,11 +607,11 @@ test(
       ...options,
       server: { host: "127.0.0.1", port: 0 },
     } as never);
-    await assertRequests((pathname) =>
+    const request = (pathname: string) =>
       fetch(`http://127.0.0.1:${server!.address.port}${pathname}`, {
         redirect: "manual",
-      }),
-    );
+      });
+    await assertRequests(request);
     const edited = spec(true).replace(
       "Old create",
       "Updated historical create",
@@ -514,6 +632,24 @@ test(
       html,
       /Updated historical create/,
       "dev must refresh the version index after a spec edit",
+    );
+    // The filter's list follows the edit too.
+    let titles: string[] = [];
+    const listDeadline = Date.now() + 15_000;
+    while (Date.now() < listDeadline) {
+      const page = await (await request("/api/list-pets/?version=v1")).text();
+      const href = /class="nav-list" href="([^"]+)"/.exec(page)?.[1];
+      titles = href
+        ? ((await (await request(href)).json()) as { title: string }[]).map(
+            (row) => row.title,
+          )
+        : [];
+      if (titles.includes("Updated historical create")) break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    assert.ok(
+      titles.includes("Updated historical create"),
+      "the filter list follows spec edits",
     );
     await server.stop();
     server = undefined;
@@ -566,8 +702,9 @@ test(
         },
       },
     );
-    await assertRequests((pathname) =>
-      worker!.fetch(pathname, { redirect: "manual" }),
-    );
+    const request = (pathname: string) =>
+      worker!.fetch(pathname, { redirect: "manual" });
+    await assertRequests(request);
+    await assertNavLists(request);
   },
 );
