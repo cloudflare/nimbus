@@ -1,5 +1,19 @@
 # @cloudflare/create-nimbus-docs
 
+## 0.7.12
+
+### Patch Changes
+
+- [#211](https://github.com/cloudflare/nimbus/pull/211) [`4a841cb`](https://github.com/cloudflare/nimbus/commit/4a841cb503d246e83b9dd921df5f6b85d492350a) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Add `bundle: false` to an `api` entry to serve a very large or many-version API from static assets instead of the server bundle. Unchanged pages are shared across versions, and unchanged versions aren't prepared again on rebuild. Needs `src/live.config.ts` registering `apiPagesLoader` from `@cloudflare/nimbus-docs/live`; the build shows the snippet. The build suggests the option when an API's bundled page data passes 16 MiB.
+  - Add `getVersionSwitchUrl` and `getApiVersionHead` for version pickers and heads in every rendering mode; the starter's picker and API layout use them.
+
+- [#212](https://github.com/cloudflare/nimbus/pull/212) [`94ebe52`](https://github.com/cloudflare/nimbus/commit/94ebe52791ddacaba0980f4cd932026dd9c0e98d) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - API pages show the sidebar filter. With `sidebar: "on-demand"` it also finds pages the sidebar hasn't loaded.
+
+- [#214](https://github.com/cloudflare/nimbus/pull/214) [`825ffcf`](https://github.com/cloudflare/nimbus/commit/825ffcf7a4f6de2102e0af44f16bb788c5644ca4) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - API reference pages show the version picker for versioned APIs, in the sidebar and the mobile navigation.
+
+- Updated dependencies [[`942c57b`](https://github.com/cloudflare/nimbus/commit/942c57b47ab204d52a5b50e9339878095c365ef4), [`4a841cb`](https://github.com/cloudflare/nimbus/commit/4a841cb503d246e83b9dd921df5f6b85d492350a), [`cd7f0da`](https://github.com/cloudflare/nimbus/commit/cd7f0da35c85827c56115093f83db354c239aa45), [`94ebe52`](https://github.com/cloudflare/nimbus/commit/94ebe52791ddacaba0980f4cd932026dd9c0e98d), [`e15eea7`](https://github.com/cloudflare/nimbus/commit/e15eea75458f7cc21ecbf38ec28aaa8ada716077), [`825ffcf`](https://github.com/cloudflare/nimbus/commit/825ffcf7a4f6de2102e0af44f16bb788c5644ca4), [`02f53a1`](https://github.com/cloudflare/nimbus/commit/02f53a1228fb0ff84ae12e1d238b0454c30376f6), [`ff1cd57`](https://github.com/cloudflare/nimbus/commit/ff1cd57a3a7b570edfe435ee2ae8d439c4c93812), [`7350707`](https://github.com/cloudflare/nimbus/commit/7350707bd6019167892f291dd1726ab30e1f855c)]:
+  - @cloudflare/nimbus-docs@0.18.0
+
 ## 0.7.11
 
 ### Patch Changes
