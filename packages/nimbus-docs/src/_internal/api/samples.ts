@@ -890,7 +890,7 @@ function curlPart(part: MultipartPart): string {
   if (part.kind === "text") return `--form-string ${quote(`${part.name}=${part.value}`)}`;
   if (part.kind === "file") {
     const file = /^[^\s;,"]+$/.test(part.file) ? part.file : curlQuoted(part.file);
-    return `--form ${quote(`${part.name}=@${file}${part.contentType ? `;type=${part.contentType}` : ""}`)}`;
+    return `--form ${quote(`${part.name}=@${file};type=${part.contentType ?? "application/octet-stream"}`)}`;
   }
   const text = part.kind === "json" ? JSON.stringify(part.value) : part.value;
   return `--form ${quote(`${part.name}=${curlQuoted(text)};type=${part.contentType}`)}`;
@@ -901,7 +901,7 @@ function pythonPart(part: MultipartPart): string {
   if (part.kind === "text") return `(${name}, (None, ${JSON.stringify(part.value)}))`;
   if (part.kind === "file") {
     const file = JSON.stringify(part.file);
-    return `(${name}, (${file}, open(${file}, "rb")${part.contentType ? `, ${JSON.stringify(part.contentType)}` : ""}))`;
+    return `(${name}, (${file}, open(${file}, "rb"), ${JSON.stringify(part.contentType ?? "application/octet-stream")}))`;
   }
   const value = part.kind === "json" ? `json.dumps(${pythonLiteral(part.value, 2)})` : JSON.stringify(part.value);
   return `(${name}, (None, ${value}, ${JSON.stringify(part.contentType)}))`;

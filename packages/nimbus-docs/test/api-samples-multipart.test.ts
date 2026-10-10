@@ -131,6 +131,7 @@ describe("multipart samples on the wire", () => {
     dir = mkdtempSync(join(tmpdir(), "nimbus-multipart-"));
     writeFileSync(join(dir, "<file>"), "%PDF file bytes");
     writeFileSync(join(dir, "<files>"), "export default {}");
+    writeFileSync(join(dir, "sample.txt"), "%PDF file bytes");
   });
   after(async () => {
     await capture?.close();
@@ -151,8 +152,7 @@ describe("multipart samples on the wire", () => {
         "expand[0]", "file", "link_options[create]", "link_options[expires_in]", "link_options[metadata][note]", "purpose",
       ]);
       assert.equal(Object.values(parts).flat().length, 6);
-      // An untyped file part's type is each client's guess.
-      assert.deepEqual(parts.file!.map(({ type: _, ...part }) => part), [{ name: "file", filename: "<file>", text: "%PDF file bytes" }]);
+      assert.deepEqual(parts.file, [{ name: "file", filename: "<file>", type: "application/octet-stream", text: "%PDF file bytes" }]);
       // FormData sends a text value's line breaks as CRLF, as browser forms do.
       const newline = lang === "typescript" ? "\r\n" : "\n";
       assert.equal(parts["link_options[metadata][note]"]![0]!.text, `it's "quoted"${newline}and $HOME`);
@@ -266,6 +266,14 @@ describe("multipart samples on the wire", () => {
       assert.deepEqual(parts["metadata[source]"], [{ name: "metadata[source]", text: "scanner" }]);
     });
   }
+
+  test("curl uses the binary default even when the replacement path has a known MIME type", { skip: sampleClientUnavailable.curl }, async () => {
+    const { createFile: page } = await uploads(capture.origin);
+    const sample = page.samples.find((s) => s.lang === "curl")!;
+    const request = await capture.run({ ...sample, source: sample.source.replaceAll("<file>", "sample.txt") }, { cwd: dir });
+    const parts = byName(receivedParts(request.body, request.headers["content-type"]!));
+    assert.deepEqual(parts.file, [{ name: "file", filename: "sample.txt", type: "application/octet-stream", text: "%PDF file bytes" }]);
+  });
 });
 
 describe("multipart samples", () => {
@@ -274,7 +282,7 @@ describe("multipart samples", () => {
     const markdown = renderApiPageMarkdown(page);
     assert.match(markdown, /"file": "<file>"/);
     const curl = page.samples.find((s) => s.lang === "curl")!.source;
-    assert.match(curl, /--form 'file=@<file>'/);
+    assert.match(curl, /--form 'file=@<file>;type=application\/octet-stream'/);
     assert.match(curl, /--form-string 'purpose=identity_document'/);
     assert.doesNotMatch(curl, /Content-Type/i);
   });
@@ -308,7 +316,7 @@ describe("multipart samples", () => {
       method: "post", path: "/x", auth: [], params: [], generate: ["curl"],
       body: { mediaType: "multipart/form-data", value: { files: ["a", "b", "c"] }, schema: scriptSchema as never },
     });
-    assert.equal(curl!.source.match(/--form 'files=@<files>'/g)?.length, 3);
+    assert.equal(curl!.source.match(/--form 'files=@<files>;type=application\/octet-stream'/g)?.length, 3);
   });
 
   test("contentMediaType alone does not turn a generated string example into a file", async () => {
