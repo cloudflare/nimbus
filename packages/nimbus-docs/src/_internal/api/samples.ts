@@ -418,7 +418,15 @@ function convert(
       source = source.replace(/(--url )([^'\s]+)/, (m, flag: string, url: string) =>
         [...placeholders.keys()].some((marker) => url.includes(marker)) ? `${flag}'${url}'` : m,
       );
-      source = source.replace("@- <<EOF\n", "@- <<'EOF'\n");
+      const visible = unquotedShell(source);
+      const heredoc = /(?:^|\n)[ \t]*--data[ \t]+(@- <<EOF\n)/.exec(visible);
+      if (heredoc) {
+        const at = heredoc.index + heredoc[0].lastIndexOf(heredoc[1]!);
+        source = `${source.slice(0, at)}@- <<'EOF'\n${source.slice(at + heredoc[1]!.length)}`;
+      } else if (UNQUOTED_HEREDOC.test(visible)) {
+        // An unfamiliar unquoted delimiter would expand the body in the shell.
+        return undefined;
+      }
     }
     // Every marker sits inside a string literal the target has already quoted,
     // so the restored `<name>` is escaped for that target's quoting. One pass,
@@ -430,6 +438,29 @@ function convert(
   } catch {
     return undefined;
   }
+}
+
+// Match the cURL option, not a `@- <<TAG` sequence inside a quoted form value.
+const UNQUOTED_HEREDOC = /(?:^|\n)[ \t]*--data[ \t]+@-[ \t]*<<-?[ \t]*[^\s'"\\;|&<>]+[ \t]*\n/;
+
+function unquotedShell(source: string): string {
+  let quote: "'" | '"' | undefined;
+  let visible = "";
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i]!;
+    if (char === "\\" && quote !== "'" && i + 1 < source.length) {
+      visible += ` ${source[++i] === "\n" ? "\n" : " "}`;
+    } else if (char === quote) {
+      quote = undefined;
+      visible += " ";
+    } else if (!quote && (char === "'" || char === '"')) {
+      quote = char;
+      visible += " ";
+    } else {
+      visible += quote && char !== "\n" ? " " : char;
+    }
+  }
+  return visible;
 }
 
 function convertWithBody(
@@ -668,20 +699,21 @@ function buildHar(
   if (bodyExample !== undefined && fields?.length !== 0) {
     headers.unshift({ name: "Content-Type", value: mediaType });
     if (fields) {
-      // httpsnippet builds a form from `params` only for the bare media type;
-      // with parameters such as `charset`, every target sends the text.
-      const text = serializeForm(fields);
+      // httpsnippet builds a form from `params` only for the bare media type,
+      // so it gets that; the header keeps parameters such as `charset`.
+      // An authored form string is already encoded: decoding and re-encoding
+      // it changes bytes such as `%20` and malformed percent sequences.
+      const text = typeof bodyExample === "string" ? bodyExample : serializeForm(fields);
       // An empty name (cURL drops it) or a value that is already encoded must
       // go as text, which every target sends unchanged.
-      har.postData = mediaType === "application/x-www-form-urlencoded" &&
-        !fields.some((field) => field.allowReserved || field.encoded || field.name === "")
-        ? { mimeType: mediaType, text, params: fields }
+      har.postData = typeof bodyExample !== "string" && !fields.some((field) => field.allowReserved || field.encoded || field.name === "")
+        ? { mimeType: "application/x-www-form-urlencoded", text, params: fields }
         : { mimeType: mediaType, text };
     } else {
       // A raw string body for a non-JSON media type is sent verbatim (matches the
       // rendered example); everything else is JSON-serialized.
       const text =
-        typeof bodyExample === "string" && !mediaType.includes("json")
+        typeof bodyExample === "string" && !isJsonMediaType(mediaType)
           ? bodyExample
           : JSON.stringify(bodyExample, null, 2);
       har.postData = { mimeType: mediaType, text };

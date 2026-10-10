@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 
 import { buildCitationIndex, ingestRemoteManifest, type CoordinatesManifest } from "../src/_internal/api/citation-index.ts";
+import { resolveCitations } from "../src/_internal/api/citations.ts";
 import type { ApiSpec } from "../src/types.ts";
 
 function fixturePath(rel: string): string {
@@ -178,6 +179,8 @@ describe("prepared API citations: historical authored lookup without published h
               targets: [
                 { coordinate: "svc", slug: "" },
                 { coordinate: `operation-${version}`, slug: `slug-${version}` },
+                ...(version === "v2" ? [{ coordinate: `operation-${version}.profile`, slug: `slug-${version}`, anchor: "request-profile" }] : []),
+                ...(version === "v2" ? [{ coordinate: `operation-${version}.response.201`, slug: `slug-${version}`, anchor: "response-201" }] : []),
                 {
                   coordinate: `operation-${version}.field`,
                   slug: `slug-${version}`,
@@ -188,6 +191,8 @@ describe("prepared API citations: historical authored lookup without published h
                   slug: `slug-${version}`,
                   anchor: "response-200",
                 },
+                ...(version === "v2" ? [{ coordinate: `operation-${version}.response.201.hidden`, slug: `slug-${version}`, anchor: "response-201-hidden" }] : []),
+                ...(version === "v2" ? [{ coordinate: `operation-${version}.response.201.profile.hidden`, slug: `slug-${version}`, anchor: "response-201-profile-hidden" }] : []),
               ],
               unpublished: { UnpublishedSchema: "UnpublishedSchema" },
             };
@@ -230,6 +235,11 @@ describe("prepared API citations: historical authored lookup without published h
       "one summary read serves all fields and diagnostics in this version",
     );
     assert.equal(index.has("svc@v2:operation-v2"), true);
+    const { diagnostics } = resolveCitations("[x](api.ref:svc@v2:operation-v2.hidden)", { mode: "author", citationIndex: index });
+    assert.match(diagnostics[0]?.message ?? "", /cite it under the response: "api\.ref:svc@v2:operation-v2\.response\.201\.hidden"/);
+    const nested = resolveCitations("[x](api.ref:svc@v2:operation-v2.profile.hidden)", { mode: "author", citationIndex: index });
+    assert.match(nested.diagnostics[0]?.message ?? "", /cite it under the response: "api\.ref:svc@v2:operation-v2\.response\.201\.profile\.hidden"/);
+    assert.equal(reads.get("v2"), 1, "the hint reuses the cached historical version");
     assert.equal(
       index.get("svc@v1:operation-v1"),
       "/svc/slug-v1?version=v1",

@@ -148,6 +148,8 @@ export interface OpenApiSchema {
   title?: string;
   description?: string;
   deprecated?: boolean;
+  readOnly?: boolean;
+  writeOnly?: boolean;
   format?: string;
   properties?: Record<string, OpenApiSchema>;
   required?: string[];
