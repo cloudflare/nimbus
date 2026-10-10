@@ -152,6 +152,24 @@ the types, so `entry.data.date` is a `Date` and `entry.data.tags` is
 `string[]` in the routes below. Add more project fields (e.g.
 `version: z.string().optional()`) the same way.
 
+### 4a. Add the collection to the rendering policy (if one is set)
+
+If the Nimbus config sets `rendering` (Cloudflare scaffolds do, with
+`rendering: { default: "request" }`), add `changelog` to
+`rendering.collections`. `rendering.default` doesn't cover a page collection
+with its own catch-all route, so the build fails until it's listed:
+
+```ts
+rendering: {
+  default: "request",
+  collections: { changelog: "request" },
+},
+```
+
+Use `"request"` to render it like the rest of a request-rendered site, or
+`"build"` to prerender it. The policy wins over the routes'
+`export const prerender = true`. Without a `rendering` option, skip this step.
+
 ## 5. Implementation
 
 Substitute the user's title/tagline/page-size where noted. The components
@@ -1121,7 +1139,9 @@ navigation.
 ## 7. Verify
 
 1. Run the user's build command. Confirm it completes.
-2. Confirm dist output:
+2. Confirm dist output (if step 4a set `changelog: "request"`, the entry pages
+   and their Markdown render on request instead: check those URLs in dev or
+   preview rather than in `dist`):
    - `dist/changelog/index.html`, `dist/changelog/<slug>/index.html`
    - `dist/changelog/<slug>/index.md`, with `date` and `tags` in its
      frontmatter, and `dist/changelog/<slug>/index.mdx`

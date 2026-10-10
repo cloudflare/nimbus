@@ -466,7 +466,7 @@ Then run the Cloudflare adapter installer. It keeps an existing rendering policy
 
 Astro then logs "getStaticPaths() ignored in dynamic page" for the request-rendered API route. The warning is expected; see [Mix build and request rendering](/configuration#mix-build-and-request-rendering).
 
-The recipe's API catch-all uses Nimbus runtime helpers to resolve either mode. Request rendering changes the canonical HTML pages only. Alternate Markdown versions, coordinate data, search records, sitemaps, and `llms.txt` indexes remain build products, and requests consume prepared content entries rather than parsing the OpenAPI document.
+The recipe's API catch-all uses Nimbus runtime helpers to resolve either mode. Alternate Markdown versions and `llms.txt` indexes follow the rendering policy too, serving content prepared at build time. Coordinate data, search records, and sitemaps stay build output, and requests read prepared content entries rather than parsing the OpenAPI document.
 
 #### Large APIs and many versions
 
