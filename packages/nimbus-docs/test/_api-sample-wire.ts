@@ -38,17 +38,17 @@ export async function startSampleCapture() {
 
   return {
     origin: `http://127.0.0.1:${address.port}`,
-    async run(sample: { lang: string; source: string }): Promise<CapturedSampleRequest> {
+    async run(sample: { lang: string; source: string }, options: { cwd?: string } = {}): Promise<CapturedSampleRequest> {
       const before = requests.length;
       const command = sample.lang === "curl"
         ? ["bash", ["-c", sample.source]] as const
         : sample.lang === "python"
           ? ["python3", ["-c", sample.source]] as const
           : [process.execPath, ["--input-type=module", "--eval", sample.source]] as const;
-      await exec(command[0], [...command[1]], { timeout: 10_000, maxBuffer: 1024 * 1024 });
+      await exec(command[0], [...command[1]], { cwd: options.cwd, timeout: 10_000, maxBuffer: 1024 * 1024 });
       assert.equal(requests.length, before + 1, `exactly one HTTP request from ${sample.lang}`);
       const request = requests[before]!;
-      assert.equal(request.method, "POST");
+      assert.ok(request.method === "POST" || request.method === "PUT", `${request.method} request`);
       return request;
     },
     async close() {

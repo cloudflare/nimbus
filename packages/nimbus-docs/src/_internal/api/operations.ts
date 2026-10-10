@@ -413,12 +413,14 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
     facts.samples = buildOperationSamples(ctx.sampleTools, {
       method: site.sampleTarget.method,
       path: site.sampleTarget.path,
+      openapiVersion: ctx.doc.openapi,
       server: ctx.firstServer,
       params: allParams,
       body: facts.example
         ? {
           mediaType: facts.example.mediaType,
           value: facts.example.value,
+          ...(requestEntry?.media.schema ? { schema: requestEntry.media.schema } : {}),
           ...(requestEntry?.media.encoding ? { encoding: requestEntry.media.encoding } : {}),
         }
         : undefined,
