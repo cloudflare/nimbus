@@ -51,7 +51,8 @@ test("the converted document renders servers, parameters, bodies, responses, and
   assert.deepEqual(list.auth, [[{ scheme: "apiKey", scopes: [], type: "apiKey", in: "header", headerName: "X-API-Key" }]]);
 
   const create = page("createPet");
-  assert.deepEqual(fields(create.body), ["name: string (required)", "id: integer (required)", "tag: string"]);
+  // `id` is readOnly: listed under the response, left out of the request like the example.
+  assert.deepEqual(fields(create.body), ["name: string (required)", "tag: string"]);
   assert.deepEqual(create.example?.value, { name: "Rex", tag: "string" });
   assert.deepEqual(create.auth, [[{ scheme: "oauth", scopes: ["pets:write"], type: "oauth2" }]]);
 

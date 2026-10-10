@@ -418,6 +418,9 @@ function convert(
         [...placeholders.keys()].some((marker) => url.includes(marker)) ? `${flag}'${url}'` : m,
       );
       source = source.replace("@- <<EOF\n", "@- <<'EOF'\n");
+      // A heredoc whose delimiter is still unquoted would run the body
+      // through the shell, so the sample is left out.
+      if (UNQUOTED_HEREDOC.test(source)) return undefined;
     }
     // Every marker sits inside a string literal the target has already quoted,
     // so the restored `<name>` is escaped for that target's quoting. One pass,
@@ -430,6 +433,10 @@ function convert(
     return undefined;
   }
 }
+
+// httpsnippet's `--data @- <<EOF` with the delimiter unquoted; `<<'EOF'`
+// doesn't match, and neither does `<<` inside a `--data-raw` text body.
+const UNQUOTED_HEREDOC = /@-[ \t]*<<-?[ \t]*[A-Za-z_]\w*[ \t]*\n/;
 
 function convertWithBody(
   tools: SampleTools,
@@ -667,20 +674,19 @@ function buildHar(
   if (bodyExample !== undefined && fields?.length !== 0) {
     headers.unshift({ name: "Content-Type", value: mediaType });
     if (fields) {
-      // httpsnippet builds a form from `params` only for the bare media type;
-      // with parameters such as `charset`, every target sends the text.
+      // httpsnippet builds a form from `params` only for the bare media type,
+      // so it gets that; the header keeps parameters such as `charset`.
       const text = serializeForm(fields);
       // An empty name (cURL drops it) or a value that is already encoded must
       // go as text, which every target sends unchanged.
-      har.postData = mediaType === "application/x-www-form-urlencoded" &&
-        !fields.some((field) => field.allowReserved || field.encoded || field.name === "")
-        ? { mimeType: mediaType, text, params: fields }
+      har.postData = !fields.some((field) => field.allowReserved || field.encoded || field.name === "")
+        ? { mimeType: "application/x-www-form-urlencoded", text, params: fields }
         : { mimeType: mediaType, text };
     } else {
       // A raw string body for a non-JSON media type is sent verbatim (matches the
       // rendered example); everything else is JSON-serialized.
       const text =
-        typeof bodyExample === "string" && !mediaType.includes("json")
+        typeof bodyExample === "string" && !isJsonMediaType(mediaType)
           ? bodyExample
           : JSON.stringify(bodyExample, null, 2);
       har.postData = { mimeType: mediaType, text };

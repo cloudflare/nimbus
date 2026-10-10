@@ -49,9 +49,14 @@ export function walkFields(
     rawSchema: OpenApiSchema | undefined,
   ) => void,
   rawSchema?: OpenApiSchema,
+  role?: FieldRole,
 ): void {
-  walkFieldsInner(resolver, schema, rawSchema, "", depth, seen, visit, true);
+  walkFieldsInner(resolver, schema, rawSchema, "", depth, seen, visit, true, role);
 }
+
+/** Which side of the exchange a field list describes. A request leaves out
+ *  `readOnly` properties and a response `writeOnly` ones, as their examples do. */
+export type FieldRole = "request" | "response";
 
 function walkFieldsInner(
   resolver: SchemaResolver,
@@ -69,6 +74,7 @@ function walkFieldsInner(
     rawSchema: OpenApiSchema | undefined,
   ) => void,
   topLevel: boolean,
+  role: FieldRole | undefined,
 ): void {
   if (depth <= 0 || seen.has(schema)) return;
   seen.add(schema);
@@ -86,17 +92,23 @@ function walkFieldsInner(
   const rawProps = resolver.rawObjectShape(resolver.rawEffective(rawSchema));
 
   for (const [name, propSchema] of Object.entries(properties)) {
+    if (role && hiddenFor(role, propSchema)) continue;
     const fieldPath = prefix ? `${prefix}.${name}` : name;
     const rawProp = rawProps[name];
     visit(fieldPath, propSchema, required.has(name), topLevel ? name : undefined, prefix || undefined, rawProp);
     const child = propSchema.type === "array" && propSchema.items ? propSchema.items : propSchema;
     const childShape = collectObjectShape(child);
     if (Object.keys(childShape.properties).length > 0) {
-      walkFieldsInner(resolver, propSchema, rawProp, fieldPath, depth - 1, seen, visit, false);
+      walkFieldsInner(resolver, propSchema, rawProp, fieldPath, depth - 1, seen, visit, false, role);
     }
   }
 
   seen.delete(schema);
+}
+
+function hiddenFor(role: FieldRole, schema: OpenApiSchema): boolean {
+  const folded = foldAllOf(schema);
+  return role === "request" ? folded.readOnly === true : folded.writeOnly === true;
 }
 
 export function addField(

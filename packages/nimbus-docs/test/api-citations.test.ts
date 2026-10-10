@@ -189,6 +189,16 @@ describe("resolveCitations: rewriting link targets", () => {
     assert.equal(diagnostics[0]?.level, "warning");
   });
 
+  test("a request field that is only listed under the response points there", () => {
+    const withResponse: CitationIndex = new Map([
+      ...index,
+      ["zones:createZone.response.201.id", "/api/zones/create-zone/#response-201-id"],
+    ]);
+    const { diagnostics } = resolveCitations("[x](api.ref:zones:createZone.id)", { mode: "author", citationIndex: withResponse });
+    assert.equal(diagnostics[0]?.level, "error");
+    assert.match(diagnostics[0]?.message ?? "", /leave out readOnly fields; if it is readOnly, cite it under the response: "api\.ref:zones:createZone\.response\.201\.id"/);
+  });
+
   test("a near-miss gets a Levenshtein hint", () => {
     const { diagnostics } = resolveCitations(
       "[x](api.ref:zones:createZon)",

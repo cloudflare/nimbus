@@ -81,6 +81,11 @@ describe("generated request bodies on the wire", () => {
       wire,
     })),
     { name: "empty form field name", mediaType: "application/x-www-form-urlencoded", media: { example: { "": "hello", ok: "x" } }, value: { "": "hello", ok: "x" }, wire: "=hello&ok=x" },
+    { name: "form with a charset is sent field by field", mediaType: "application/x-www-form-urlencoded; charset=utf-8", media: { example: { tags: ["a", "b"], q: "it's" } }, value: { tags: ["a", "b"], q: "it's" }, wire: "tags=a&tags=b&q=it%27s" },
+    { name: "string example under ndjson is sent verbatim", mediaType: "application/x-ndjson", media: { example: "@/path/vectors.ndjson" }, value: "@/path/vectors.ndjson", wire: "@/path/vectors.ndjson" },
+    { name: "string example under JSON with a charset stays JSON", mediaType: "application/json; charset=utf-8", media: { example: "plain" }, value: "plain" },
+    { name: "object under a +json type stays JSON", mediaType: "application/vnd.api+json", media: { example: { data: { id: "1" } } }, value: { data: { id: "1" } } },
+    { name: "a heredoc body reaches the server unexpanded", media: { example: { quote: "it's", env: "$HOME", cmd: "`id`", path: "C:\\temp" } }, value: { quote: "it's", env: "$HOME", cmd: "`id`", path: "C:\\temp" } },
     { name: "JSON-encoded null form field", mediaType: "application/x-www-form-urlencoded", media: { example: { nil: null }, encoding: { nil: { contentType: "application/json" } } }, value: { nil: null }, wire: "nil=null" },
   ];
 
