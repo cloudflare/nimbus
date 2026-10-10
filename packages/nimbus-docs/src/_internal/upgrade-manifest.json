@@ -592,13 +592,31 @@
       "affected": "Sites with the api-layout registry components installed before 0.18.0.",
       "instructions": [
         "No action is needed: API pages keep working without a filter.",
-        "If ApiLayout.astro, ApiSidebarItem.astro, ApiMethodChip.astro and the api-sidebar folder are unmodified registry copies, update them with nimbus-docs add api-layout --overwrite, or nimbus-docs diff <file> --apply for each.",
+        "If ApiLayout.astro, ApiSidebarItem.astro, ApiMethodChip.astro and the api-sidebar folder are unmodified registry copies, update them with nimbus-docs add api-layout --overwrite.",
         "If ApiLayout.astro is customized, copy the filter block from the current registry version: SidebarFilter above ApiSidebar, given data-nb-nav-list={nav.listHref && withBase(nav.listHref, import.meta.env.BASE_URL)}; when nav.listHref is set, the status line, results list and result template beside it; data-nb-sidebar on the wrapper only when nav.listHref is unset; and the sidebar.client and api-nav-filter.client imports in its script.",
         "Copy api-sidebar/api-nav-filter.client.ts and the methodLabel export in api-sidebar/method.ts if they are missing. To let a full sidebar's filter match HTTP methods, add data-nb-filter-text={item.method} to the link in ApiSidebarItem.astro."
       ],
       "verify": [
         "On an API page, type part of an operation's title and confirm the sidebar narrows to it.",
         "With sidebar: \"on-demand\", type the title of an operation in a collapsed group and confirm it is listed and links to the current version."
+      ]
+    },
+    {
+      "id": "api-version-picker",
+      "introducedIn": "0.18.0",
+      "mode": "optional",
+      "changeset": "api-version-picker",
+      "summary": "Optionally show the version picker on versioned API pages, in the sidebar and the mobile navigation.",
+      "affected": "Sites with versioned APIs and the api-layout registry components installed before 0.18.0.",
+      "instructions": [
+        "No action is needed: API pages keep working without a picker.",
+        "If the version-switcher and popover components are missing, install them first with nimbus-docs add version-switcher.",
+        "If ApiLayout.astro is an unmodified registry copy, update it with nimbus-docs add api-layout --overwrite.",
+        "If ApiLayout.astro is customized, copy the picker from the current registry version: import { VersionSwitcher } from \"@/components/ui/version-switcher\"; render <VersionSwitcher apiCollection={collection} apiVersion={version} coordinate={coordinate} variant=\"sidebar\" class=\"mx-4 mt-6 mb-0 shrink-0 pl-2\" /> in the rail just above the data-nb-api-tree element, and the same with class=\"mx-4 mt-4 mb-0\" in the drawer just above data-nb-api-drawer-slot, never inside the tree; render neither when collection is unset. In its script, capture const railNext = tree?.nextElementSibling ?? null on load and return the tree with rail.insertBefore(tree, railNext) instead of rail.prepend(tree)."
+      ],
+      "verify": [
+        "On a page of a versioned API, confirm the picker shows above the sidebar and lists every version.",
+        "At mobile width, open the navigation, confirm the picker sits above the tree, close it, and confirm the desktop sidebar still shows the picker above the tree."
       ]
     }
   ]
