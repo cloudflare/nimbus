@@ -182,14 +182,12 @@ const labelId = `nb-version-picker-${Math.random().toString(36).slice(2, 9)}`;
       <Icon name="ph:caret-down" class="w-3 h-3 opacity-60" />
     </PopoverTrigger>
     <PopoverContent placement="bottom-end" class="min-w-[12rem] p-1">
-      <ul class="flex flex-col list-none m-0 p-0" role="listbox" aria-label="Versions">
+      <ul class="flex flex-col list-none m-0 p-0" aria-label="Versions">
         {entries.map((entry) => (
           <li>
             <a
               href={entry.href}
-              role="option"
               aria-current={entry.isActive ? "page" : undefined}
-              aria-selected={entry.isActive}
               class:list={[
                 "flex items-center justify-between gap-3 px-3 py-2 rounded-md text-sm no-underline transition-colors",
                 entry.isActive
@@ -225,14 +223,12 @@ const labelId = `nb-version-picker-${Math.random().toString(36).slice(2, 9)}`;
       <Icon name="ph:git-branch" class="w-3 h-3" />
       Version
     </h3>
-    <ul class="flex flex-col list-none m-0 p-0" role="listbox" aria-label="Versions">
+    <ul class="flex flex-col list-none m-0 p-0" aria-label="Versions">
       {entries.map((entry) => (
         <li>
           <a
             href={entry.href}
-            role="option"
             aria-current={entry.isActive ? "page" : undefined}
-            aria-selected={entry.isActive}
             class:list={[
               "flex items-center justify-between gap-3 px-3 py-2 rounded-md text-sm no-underline transition-colors",
               entry.isActive
