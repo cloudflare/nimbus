@@ -472,11 +472,10 @@ The code rail remembers the reader's language, not the exact sample: choosing a 
 
 OpenAPI lets a spec carry its own facts in `x-*` fields, such as which plans can use an operation or whether it can't be undone. Nimbus ignores them unless you list the ones you want. Listed fields are copied, unchanged, onto the pages that declare them, for your own components to show. Nimbus doesn't render them itself.
 
-```ts
-// astro.config.ts
+```ts title="astro.config.ts"
 api: [{
   collection: "api",
-  spec: "./openapi.yaml",
+  spec: "./src/api/openapi.yaml",
   extensions: ["x-acme-plans", "x-acme-confirm", "x-acme-sensitive"],
 }],
 ```
@@ -488,13 +487,12 @@ Values appear on:
 - operation pages, including webhooks, as `page.extensions`, from the operation object;
 - every field, as `field.extensions`: parameters, request bodies, response fields, additional media types, and fields on schema pages. A parameter's own value wins over its schema's, and a property's own value wins over the schema it references.
 
-Tag pages, schema-page headers, response objects and the sidebar don't carry them, and neither does the Markdown version of a page or `llms.txt`. A field or operation that declares none of the listed names has no `extensions` at all.
+Tag pages, schema-page headers, response objects and the sidebar don't carry them, and neither does the Markdown version of a page or `llms.txt`. A field or operation that declares none of the listed names has no `extensions` at all. The [published spec](#published-spec) is the spec itself, so it keeps every `x-*` field, listed or not; set `publishSpec: false` to keep it unpublished.
 
-Read them in your copies of the API components:
+Read them in your copies of the API components. In `ApiBody.astro`, which already imports `Banner`, add the two lines to the frontmatter and the markup where the notice should appear, such as below the page actions:
 
-```astro
+```astro title="src/components/ui/api-layout/ApiBody.astro"
 ---
-// src/components/ui/api-layout/ApiBody.astro
 const extensions = page.kind === "operation" ? page.extensions : undefined;
 const plans = extensions?.["x-acme-plans"];
 ---
@@ -504,9 +502,10 @@ const plans = extensions?.["x-acme-plans"];
 {Array.isArray(plans) && <p>Available on {plans.join(", ")}.</p>}
 ```
 
-```astro
+In `ApiFieldRow.astro`, import `Badge` and add the badge beside the field's other markers:
+
+```astro title="src/components/ui/api-field-row/ApiFieldRow.astro"
 ---
-// src/components/ui/api-field-row/ApiFieldRow.astro
 import { Badge } from "@/components/ui/badge";
 ---
 {field.extensions?.["x-acme-sensitive"] === true && <Badge>Sensitive</Badge>}
@@ -514,8 +513,7 @@ import { Badge } from "@/components/ui/badge";
 
 Values are JSON. To type them, declare your extensions once, in a file of its own:
 
-```ts
-// src/nimbus-api.d.ts
+```ts title="src/nimbus-api.d.ts"
 export {}; // makes this file a module, so the block below adds to Nimbus's types
 
 declare module "@cloudflare/nimbus-docs/types" {
