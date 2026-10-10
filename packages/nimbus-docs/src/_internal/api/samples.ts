@@ -704,7 +704,7 @@ function isFileSchema(schema: OpenApiSchema | undefined): boolean {
   return schema.format === "binary" || (schema.contentMediaType !== undefined && schema.contentEncoding === undefined);
 }
 
-// A file array shows two items, so a sample shows how to send several.
+// A generated file array shows two items, so a sample shows how to send several.
 const FILE_ARRAY_ITEMS = 2;
 
 // The schema the sampler writes: `allOf` merged, and for a union its first
@@ -781,7 +781,8 @@ function multipartParts(
     const contentType = partContentType(rule?.contentType);
     if (isFileSchema(property) || isFileSchema(sampledSchema(itemsOf(property)))) {
       const fileType = contentType ?? partContentType(property?.contentMediaType ?? sampledSchema(itemsOf(property))?.contentMediaType);
-      const count = isFileSchema(property) ? 1 : FILE_ARRAY_ITEMS;
+      // As many parts as the example lists; a generated example lists two.
+      const count = isFileSchema(property) ? 1 : Array.isArray(item) && item.length > 0 ? item.length : FILE_ARRAY_ITEMS;
       for (let i = 0; i < count; i++) {
         parts.push({ name: key, kind: "file", file: `<${key}>`, ...(fileType ? { contentType: fileType } : {}) });
       }

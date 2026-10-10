@@ -216,6 +216,15 @@ describe("multipart samples", () => {
     assert.deepEqual(out, []);
   });
 
+  test("an authored file array sends one part per item", async () => {
+    const tools = (await loadSampleTools())!;
+    const [curl] = buildOperationSamples(tools, {
+      method: "post", path: "/x", auth: [], params: [], generate: ["curl"],
+      body: { mediaType: "multipart/form-data", value: { files: ["a", "b", "c"] }, schema: scriptSchema as never },
+    });
+    assert.equal(curl!.source.match(/--form 'files=@<files>'/g)?.length, 3);
+  });
+
   test("a reserved value that isn't valid encoded text is sent as written", async () => {
     const tools = (await loadSampleTools())!;
     const out = buildOperationSamples(tools, {

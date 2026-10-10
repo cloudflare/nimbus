@@ -421,8 +421,8 @@ An explicit JSON `contentType`, including a `+json` media type, JSON-serializes 
 
 A `multipart/form-data` body is sent as one part per field:
 
-- **Files.** A string with `format: binary`, or in OpenAPI 3.1 a `contentMediaType`, is sent as a file named after the field in angle brackets, such as `<file>`. A generated request example shows the same placeholder. An array of files is sent as two parts with the same name.
-- **Fields with an `encoding` entry.** `style`, `explode`, or `allowReserved` serialize the field as a form field does, so `deepObject` gives names such as `link_options[create]`. A `contentType` sends the part with that type, or with the first type when several are listed.
+- **Files.** A string with `format: binary`, or in OpenAPI 3.1 a `contentMediaType`, is sent as a file named after the field in angle brackets, such as `<file>`, whatever the example holds. A generated request example shows the same placeholder; an authored one keeps its values. An array of files is sent as one part per item in the example, with the same name; a generated example has two.
+- **Fields with an `encoding` entry.** `style`, `explode`, or `allowReserved` serialize the field as a form field does, so `deepObject` gives names such as `link_options[create]`. A `contentType` sends the part with that type, or with the first type when several are listed. In TypeScript, such a part is sent with the file name `blob`, the only way `FormData` gives a part its own type.
 - **Other fields.** An object, or an array of objects, is one JSON part. An array of scalars repeats the field. Anything else is a text part, sent exactly as written, even when it starts with `@`.
 
 A field that holds a file but has neither `format: binary` nor `contentMediaType` is sent as text. Other multipart types, such as `multipart/mixed`, get no generated sample; the page still shows the request example.
