@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@cloudflare/nimbus-docs':
         specifier: file:vendor/nimbus-docs.tgz
-        version: file:vendor/nimbus-docs.tgz(@astrojs/markdown-remark@7.3.0)(@readme/httpsnippet@11.4.0)(@scalar/openapi-parser@0.28.12)(@types/node@24.13.3)(astro@7.3.1(@astrojs/markdown-remark@7.3.0)(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@24.13.3)(jiti@2.7.0)(yaml@2.9.0))(esbuild@0.28.2)(jiti@2.7.0)(openapi-sampler@1.7.4)
+        version: file:vendor/nimbus-docs.tgz(@astrojs/markdown-remark@7.3.0)(@readme/httpsnippet@11.4.1)(@scalar/openapi-parser@0.28.12)(@types/node@24.13.3)(astro@7.3.1(@astrojs/markdown-remark@7.3.0)(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@24.13.3)(jiti@2.7.0)(yaml@2.9.0))(esbuild@0.28.2)(jiti@2.7.0)(openapi-sampler@1.7.6)
       '@fontsource-variable/inter':
         specifier: ^5.2.8
         version: 5.3.0
@@ -21,8 +21,8 @@ importers:
         specifier: ^1.2.0
         version: 1.2.2
       '@readme/httpsnippet':
-        specifier: 11.4.0
-        version: 11.4.0
+        specifier: 11.4.1
+        version: 11.4.1
       '@scalar/openapi-parser':
         specifier: 0.28.12
         version: 0.28.12
@@ -39,8 +39,8 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1
       openapi-sampler:
-        specifier: 1.7.4
-        version: 1.7.4
+        specifier: 1.7.6
+        version: 1.7.6
       tailwind-merge:
         specifier: ^3.5.0
         version: 3.6.0
@@ -1158,8 +1158,8 @@ packages:
   '@poppinss/exception@1.2.3':
     resolution: {integrity: sha512-dCED+QRChTVatE9ibtoaxc+WkdzOSjYTKi/+uacHWIsfodVfpsueo3+DKpgU5Px8qXjgmXkSvhXvSCz3fnP9lw==}
 
-  '@readme/httpsnippet@11.4.0':
-    resolution: {integrity: sha512-iFAqEDhImGtBwND0UVYaJSjESb9RwPGSn+y2Ktty8Tfl1wMQbvjvcmU55nd7VbSqVOp8pEEqWspTpPKYTRu+xA==}
+  '@readme/httpsnippet@11.4.1':
+    resolution: {integrity: sha512-vu/vKvxgbxlBgh+ORxruryGLQb5EUdQuySYpLQhqgSou0sQz5eZLUAQ2rSLCpQBlP5O+0xHuypxSLtaOeBjfyw==}
     engines: {node: '>=22'}
 
   '@rolldown/binding-android-arm-eabi@1.2.5':
@@ -2481,8 +2481,8 @@ packages:
   oniguruma-to-es@4.3.6:
     resolution: {integrity: sha512-csuQ9x3Yr0cEIs/Zgx/OEt9iBw9vqIunAPQkx19R/fiMq2oGVTgcMqO/V3Ybqefr1TBvosI6jU539ksaBULJyA==}
 
-  openapi-sampler@1.7.4:
-    resolution: {integrity: sha512-CKS/rd5ucPCuEDbJnjGDXZTsuGWcmv53aCmQx7soZlPEONUGN4af0/dY5+THRFZraSEjeA78nlfzdFswC/N5SA==}
+  openapi-sampler@1.7.6:
+    resolution: {integrity: sha512-MvWOm3vdgX7CZ6CNfu2wOFMGhC/pq03BxYTL/DKCkyPWfR6XIwUJnOV32mQGgCcUm1tY/y1jj7F2yqx1DieIWw==}
 
   p-limit@7.3.1:
     resolution: {integrity: sha512-0trZaiG7Y7kN/Egy9a8j47t9osC0Tch4PaIWd9yGF6bvmlk7muExRvGNYb8sXBwEKMoNKsbNN9P8EefuQekE4Q==}
@@ -3546,7 +3546,7 @@ snapshots:
 
   '@cloudflare/kv-asset-handler@0.5.0': {}
 
-  '@cloudflare/nimbus-docs@file:vendor/nimbus-docs.tgz(@astrojs/markdown-remark@7.3.0)(@readme/httpsnippet@11.4.0)(@scalar/openapi-parser@0.28.12)(@types/node@24.13.3)(astro@7.3.1(@astrojs/markdown-remark@7.3.0)(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@24.13.3)(jiti@2.7.0)(yaml@2.9.0))(esbuild@0.28.2)(jiti@2.7.0)(openapi-sampler@1.7.4)':
+  '@cloudflare/nimbus-docs@file:vendor/nimbus-docs.tgz(@astrojs/markdown-remark@7.3.0)(@readme/httpsnippet@11.4.1)(@scalar/openapi-parser@0.28.12)(@types/node@24.13.3)(astro@7.3.1(@astrojs/markdown-remark@7.3.0)(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@24.13.3)(jiti@2.7.0)(yaml@2.9.0))(esbuild@0.28.2)(jiti@2.7.0)(openapi-sampler@1.7.6)':
     dependencies:
       '@astrojs/markdown-satteri': 0.4.1
       '@astrojs/mdx': 8.0.1(@astrojs/markdown-remark@7.3.0)(@astrojs/markdown-satteri@0.4.1)(astro@7.3.1(@astrojs/markdown-remark@7.3.0)(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@24.13.3)(jiti@2.7.0)(yaml@2.9.0))
@@ -3592,9 +3592,9 @@ snapshots:
       vite: 8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
       yaml: 2.9.0
     optionalDependencies:
-      '@readme/httpsnippet': 11.4.0
+      '@readme/httpsnippet': 11.4.1
       '@scalar/openapi-parser': 0.28.12
-      openapi-sampler: 1.7.4
+      openapi-sampler: 1.7.6
     transitivePeerDependencies:
       - '@astrojs/markdown-remark'
       - '@types/node'
@@ -4178,7 +4178,7 @@ snapshots:
 
   '@poppinss/exception@1.2.3': {}
 
-  '@readme/httpsnippet@11.4.0':
+  '@readme/httpsnippet@11.4.1':
     dependencies:
       qs: 6.15.3
       stringify-object: 3.3.0
@@ -5877,7 +5877,7 @@ snapshots:
       regex: 6.1.0
       regex-recursion: 6.0.2
 
-  openapi-sampler@1.7.4:
+  openapi-sampler@1.7.6:
     dependencies:
       '@types/json-schema': 7.0.15
       fast-xml-parser: 5.11.0

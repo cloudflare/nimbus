@@ -1288,9 +1288,9 @@ const packagePath = join(site, "package.json");
 const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
 packageJson.dependencies["@cloudflare/nimbus-docs"] =
   `file:${join(packRoot, tarballName)}`;
-packageJson.dependencies["@readme/httpsnippet"] = "11.4.0";
+packageJson.dependencies["@readme/httpsnippet"] = "11.4.1";
 packageJson.dependencies["@scalar/openapi-parser"] = "0.28.12";
-packageJson.dependencies["openapi-sampler"] = "1.7.4";
+packageJson.dependencies["openapi-sampler"] = "1.7.6";
 writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
 mkdirSync(join(site, "src", "pages", "api"), { recursive: true });
 
