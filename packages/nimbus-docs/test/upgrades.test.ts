@@ -39,6 +39,7 @@ test("only universally skippable entries are optional", () => {
       "api-collections-from-config",
       "api-query-version-mode",
       "api-request-path",
+      "api-sidebar-filter",
       "browser-documentation-search",
       "homepage-renders-on-request",
       "lighter-sidebar-markup",

@@ -526,6 +526,66 @@ test(
 );
 
 test(
+  "actual Node adapter: a site with only bundled APIs ships the previous release's lists",
+  { skip: !adapterRoot, timeout: 120_000 },
+  async (t) => {
+    const { root, options } = await fixture(t, false, {
+      base: "/",
+      integrations: [
+        nimbus(
+          {
+            site: "https://example.test",
+            title: "Bundled only",
+            search: false,
+            api: [
+              {
+                collection: "api",
+                versionUrl: { in: "path" },
+                sidebar: "on-demand",
+                versions: [
+                  { version: "v2", spec: "./specs/v2.json", default: true },
+                  { version: "v1", spec: "./specs/v1.json" },
+                ],
+              },
+              {
+                collection: "core",
+                spec: "./specs/core.json",
+                sidebar: "on-demand",
+              },
+            ],
+          },
+          { admonitions: false, sitemap: false, validateMdx: false },
+        ),
+      ],
+    });
+    const lists = async () =>
+      (await readdir(path.join(root, "dist/client/_nimbus/pages")))
+        .filter((name) => name.startsWith("nav-"))
+        .sort();
+    await build(options as never);
+    const first = await lists();
+    assert.equal(first.length, 3, "one list per on-demand version");
+    const core = path.join(root, "specs/core.json");
+    await writeFile(
+      core,
+      (await readFile(core, "utf8")).replace("Static Ping", "Renamed Ping"),
+    );
+    await build(options as never);
+    const second = await lists();
+    assert.equal(second.length, 4, "the changed API adds one list");
+    for (const list of first)
+      assert.ok(second.includes(list), `${list} still ships`);
+    // An unchanged third build drops the list two releases old.
+    await build(options as never);
+    const third = await lists();
+    const added = second.find((list) => !first.includes(list));
+    assert.equal(third.length, 3);
+    assert.ok(third.includes(added!));
+    assert.ok(third.every((list) => second.includes(list)));
+  },
+);
+
+test(
   "actual Workers adapter: workerd dev serves staged page and agent assets",
   {
     skip: !adapterRoot || process.env.NIMBUS_TEST_WORKER_ASSETS !== "1",
