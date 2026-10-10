@@ -253,6 +253,7 @@ function clampExample(value: unknown): unknown {
 export interface OperationSampleInput {
   method: string;
   path: string;
+  openapiVersion?: string;
   server?: string;
   params: OpenApiParameter[];
   /** The pre-resolved request example (see `resolveExampleValue`) — feeds the
@@ -665,7 +666,7 @@ function buildHar(
 
   if (bareMediaType(mediaType) === "multipart/form-data") {
     // No Content-Type header: every client writes it with the boundary.
-    const parts = multipartParts(bodyExample, input.body?.schema, input.body?.encoding);
+    const parts = multipartParts(bodyExample, input.body?.schema, input.body?.encoding, input.openapiVersion);
     if (parts.length > 0) har.postData = { mimeType: "multipart/form-data", text: "", parts };
     return har;
   }
@@ -703,11 +704,8 @@ function isFormMediaType(mediaType: string): boolean {
   return bareMediaType(mediaType) === "application/x-www-form-urlencoded";
 }
 
-// A file field: `format: binary`, or an OpenAPI 3.1 string with a
-// `contentMediaType` and no `contentEncoding` (which would make it text).
 function isFileSchema(schema: OpenApiSchema | undefined): boolean {
-  if (!schema) return false;
-  return schema.format === "binary" || (schema.contentMediaType !== undefined && schema.contentEncoding === undefined);
+  return schema?.format === "binary";
 }
 
 // A generated file array shows two items, so a sample shows how to send several.
@@ -765,17 +763,21 @@ function isJsonMediaType(mediaType: string): boolean {
   return SNIPPET_JSON_TYPES.has(bare) || bare.endsWith("+json");
 }
 
-// A multipart body's parts, in the example's order, following OpenAPI 3.0.3
-// §4.7.14.1. A file field is a file part named by its placeholder, one per
-// item for a file array. A property with `style`, `explode`, or
-// `allowReserved` is serialized like a form field (`deepObject` gives
-// bracketed names); one with only a `contentType` is sent as that type.
-// Otherwise an object, or an array holding one, is one JSON part, an array of
-// scalars is one part per item, and a scalar is a text part.
+function isOpenApi30(version: string | undefined): boolean {
+  return version === "3.0" || version?.startsWith("3.0.") === true;
+}
+
+// A multipart body's parts, in the example's order. A file field is a file
+// part named by its placeholder, one per item for a file array. OpenAPI 3.0
+// ignores `style`/`explode`/`allowReserved` on multipart; 3.1 applies them
+// before `contentType`. An explicit `contentType` sets the part type when no
+// style rule applies. Otherwise an object, or an array holding one, is one
+// JSON part, an array of scalars repeats, and a scalar is a text part.
 function multipartParts(
   value: unknown,
   schema: OpenApiSchema | undefined,
   encoding: Record<string, OpenApiEncoding | undefined> | undefined,
+  openapiVersion: string | undefined,
 ): MultipartPart[] {
   if (!isPlainObject(value)) return [];
   const properties = sampledProperties(schema);
@@ -784,18 +786,20 @@ function multipartParts(
     if (item === undefined) continue;
     const rule = encoding && Object.hasOwn(encoding, key) ? encoding[key] : undefined;
     const property = sampledSchema(properties[key]);
+    const styleApplies = !isOpenApi30(openapiVersion) && rule &&
+      (rule.style !== undefined || rule.explode !== undefined || rule.allowReserved !== undefined);
     const contentType = partContentType(rule?.contentType);
-    if (isFileSchema(property) || isFileSchema(sampledSchema(itemsOf(property)))) {
-      const fileType = contentType ?? partContentType(property?.contentMediaType ?? sampledSchema(itemsOf(property))?.contentMediaType);
-      // As many parts as the example lists; a generated example lists two.
-      const count = isFileSchema(property) ? 1 : Array.isArray(item) && item.length > 0 ? item.length : FILE_ARRAY_ITEMS;
-      for (let i = 0; i < count; i++) {
-        parts.push({ name: key, kind: "file", file: `<${key}>`, ...(fileType ? { contentType: fileType } : {}) });
-      }
-    } else if (rule && (rule.style !== undefined || rule.explode !== undefined || rule.allowReserved !== undefined)) {
+    if (styleApplies) {
       for (const field of formFields({ [key]: item }, { [key]: rule })) {
         // Joined values are written percent-encoded for a form; a part sends text.
         parts.push({ name: field.name, kind: "text", value: field.encoded ? decodeForm(field.value) : field.value });
+      }
+    } else if (isFileSchema(property) || isFileSchema(sampledSchema(itemsOf(property)))) {
+      const fileType = contentType ?? partContentType(property?.contentMediaType ?? sampledSchema(itemsOf(property))?.contentMediaType);
+      // As many parts as the example lists; a generated example lists two.
+      const count = isFileSchema(property) ? 1 : Array.isArray(item) ? item.length : FILE_ARRAY_ITEMS;
+      for (let i = 0; i < count; i++) {
+        parts.push({ name: key, kind: "file", file: `<${key}>`, ...(fileType ? { contentType: fileType } : {}) });
       }
     } else if (contentType && isJsonMediaType(contentType)) {
       parts.push({ name: key, kind: "json", value: item, contentType });
@@ -892,7 +896,7 @@ function curlPart(part: MultipartPart): string {
   if (part.kind === "text") return `--form-string ${quote(`${part.name}=${part.value}`)}`;
   if (part.kind === "file") {
     const file = /^[^\s;,"]+$/.test(part.file) ? part.file : curlQuoted(part.file);
-    return `--form ${quote(`${part.name}=@${file}${part.contentType ? `;type=${part.contentType}` : ""}`)}`;
+    return `--form ${quote(`${part.name}=@${file};type=${part.contentType ?? "application/octet-stream"}`)}`;
   }
   const text = part.kind === "json" ? JSON.stringify(part.value) : part.value;
   return `--form ${quote(`${part.name}=${curlQuoted(text)};type=${part.contentType}`)}`;
@@ -903,7 +907,7 @@ function pythonPart(part: MultipartPart): string {
   if (part.kind === "text") return `(${name}, (None, ${JSON.stringify(part.value)}))`;
   if (part.kind === "file") {
     const file = JSON.stringify(part.file);
-    return `(${name}, (${file}, open(${file}, "rb")${part.contentType ? `, ${JSON.stringify(part.contentType)}` : ""}))`;
+    return `(${name}, (${file}, open(${file}, "rb"), ${JSON.stringify(part.contentType ?? "application/octet-stream")}))`;
   }
   const value = part.kind === "json" ? `json.dumps(${pythonLiteral(part.value, 2)})` : JSON.stringify(part.value);
   return `(${name}, (None, ${value}, ${JSON.stringify(part.contentType)}))`;

@@ -48,8 +48,8 @@ const scriptSchema = {
   },
 };
 
-function spec(origin: string, paths: Record<string, unknown>) {
-  return { openapi: "3.1.0", info: { title: "Uploads", version: "1.0.0" }, servers: [{ url: origin }], paths };
+function spec(origin: string, paths: Record<string, unknown>, openapi = "3.1.0") {
+  return { openapi, info: { title: "Uploads", version: "1.0.0" }, servers: [{ url: origin }], paths };
 }
 
 async function uploads(origin: string) {
@@ -131,6 +131,7 @@ describe("multipart samples on the wire", () => {
     dir = mkdtempSync(join(tmpdir(), "nimbus-multipart-"));
     writeFileSync(join(dir, "<file>"), "%PDF file bytes");
     writeFileSync(join(dir, "<files>"), "export default {}");
+    writeFileSync(join(dir, "sample.txt"), "%PDF file bytes");
   });
   after(async () => {
     await capture?.close();
@@ -151,8 +152,7 @@ describe("multipart samples on the wire", () => {
         "expand[0]", "file", "link_options[create]", "link_options[expires_in]", "link_options[metadata][note]", "purpose",
       ]);
       assert.equal(Object.values(parts).flat().length, 6);
-      // An untyped file part's type is each client's guess.
-      assert.deepEqual(parts.file!.map(({ type: _, ...part }) => part), [{ name: "file", filename: "<file>", text: "%PDF file bytes" }]);
+      assert.deepEqual(parts.file, [{ name: "file", filename: "<file>", type: "application/octet-stream", text: "%PDF file bytes" }]);
       // FormData sends a text value's line breaks as CRLF, as browser forms do.
       const newline = lang === "typescript" ? "\r\n" : "\n";
       assert.equal(parts["link_options[metadata][note]"]![0]!.text, `it's "quoted"${newline}and $HOME`);
@@ -179,7 +179,101 @@ describe("multipart samples on the wire", () => {
       assert.deepEqual(parts.note, [{ name: "note", text: "@/etc/hosts" }]);
       assert.deepEqual(parts.tag, [{ name: "tag", text: "<tag>" }]);
     });
+
+    test(`${lang}: OpenAPI 3.0 ignores multipart style and sends no files for an empty array`, { skip: sampleClientUnavailable[lang] }, async () => {
+      for (const version of ["3.0", "3.0.3"]) {
+        const model = await buildApiModel({
+          collection: "v3-upload",
+          spec: spec(capture.origin, {
+            "/upload": { post: {
+              operationId: "uploadV3",
+              requestBody: { content: { "multipart/form-data": {
+                schema: { type: "object", properties: {
+                  files: { type: "array", items: { type: "string", format: "binary" } },
+                  metadata: { type: "object", properties: { source: { type: "string" } } },
+                  note: { type: "string" },
+                } },
+                encoding: { metadata: { style: "deepObject", explode: true, contentType: "application/json" } },
+                example: { files: [], metadata: { source: "scanner" }, note: "hi" },
+              } } },
+              responses: ok,
+            } },
+          }, version),
+        });
+        const page = getApiPageProps(model, "uploadV3") as ApiOperationPage;
+        assert.deepEqual((page.example?.value as Record<string, unknown>).files, [], version);
+        const request = await capture.run(page.samples.find((sample) => sample.lang === lang)!);
+        const parts = byName(receivedParts(request.body, request.headers["content-type"]!));
+        assert.deepEqual(Object.keys(parts).sort(), ["metadata", "note"], version);
+        assert.equal(parts.metadata![0]!.type, "application/json", version);
+        assert.deepEqual(JSON.parse(parts.metadata![0]!.text), { source: "scanner" }, version);
+        assert.deepEqual(parts.note, [{ name: "note", text: "hi" }], version);
+      }
+    });
+
+    test(`${lang}: file contentType loses to style in OpenAPI 3.1 but wins in 3.0`, { skip: sampleClientUnavailable[lang] }, async () => {
+      for (const version of ["3.0.3", "3.1.0"]) {
+        const model = await buildApiModel({
+          collection: "styled-file",
+          spec: spec(capture.origin, {
+            "/upload": { post: {
+              operationId: "uploadStyledFile",
+              requestBody: { content: { "multipart/form-data": {
+                schema: { type: "object", properties: { file: { type: "string", format: "binary" } } },
+                encoding: { file: { style: "form", contentType: "image/png" } },
+              } } },
+              responses: ok,
+            } },
+          }, version),
+        });
+        const page = getApiPageProps(model, "uploadStyledFile") as ApiOperationPage;
+        const request = await capture.run(page.samples.find((sample) => sample.lang === lang)!, version === "3.0.3" ? { cwd: dir } : {});
+        const [file] = receivedParts(request.body, request.headers["content-type"]!);
+        assert.equal(file!.name, "file", version);
+        if (version === "3.0.3") {
+          assert.equal(file!.filename, "<file>", version);
+          assert.equal(file!.text, "%PDF file bytes", version);
+          assert.equal(file!.type, "image/png", version);
+        } else {
+          assert.deepEqual(file, { name: "file", text: "<file>" }, version);
+        }
+      }
+    });
+
+    test(`${lang}: OpenAPI 3.1 keeps style precedence and treats contentMediaType-only strings as text`, { skip: sampleClientUnavailable[lang] }, async () => {
+      const model = await buildApiModel({
+        collection: "v31-upload",
+        spec: spec(capture.origin, {
+          "/upload": { post: {
+            operationId: "uploadV31",
+            requestBody: { content: { "multipart/form-data": {
+              schema: { type: "object", properties: {
+                metadata: { type: "object", properties: { source: { type: "string" } } },
+                data: { type: "string", contentMediaType: "application/octet-stream" },
+              } },
+              encoding: { metadata: { style: "deepObject", explode: true, contentType: "application/json" } },
+              example: { metadata: { source: "scanner" }, data: "plain bytes" },
+            } } },
+            responses: ok,
+          } },
+        }),
+      });
+      const page = getApiPageProps(model, "uploadV31") as ApiOperationPage;
+      const request = await capture.run(page.samples.find((sample) => sample.lang === lang)!);
+      const parts = byName(receivedParts(request.body, request.headers["content-type"]!));
+      assert.deepEqual(Object.keys(parts).sort(), ["data", "metadata[source]"]);
+      assert.deepEqual(parts.data, [{ name: "data", text: "plain bytes" }]);
+      assert.deepEqual(parts["metadata[source]"], [{ name: "metadata[source]", text: "scanner" }]);
+    });
   }
+
+  test("curl uses the binary default even when the replacement path has a known MIME type", { skip: sampleClientUnavailable.curl }, async () => {
+    const { createFile: page } = await uploads(capture.origin);
+    const sample = page.samples.find((s) => s.lang === "curl")!;
+    const request = await capture.run({ ...sample, source: sample.source.replaceAll("<file>", "sample.txt") }, { cwd: dir });
+    const parts = byName(receivedParts(request.body, request.headers["content-type"]!));
+    assert.deepEqual(parts.file, [{ name: "file", filename: "sample.txt", type: "application/octet-stream", text: "%PDF file bytes" }]);
+  });
 });
 
 describe("multipart samples", () => {
@@ -188,7 +282,7 @@ describe("multipart samples", () => {
     const markdown = renderApiPageMarkdown(page);
     assert.match(markdown, /"file": "<file>"/);
     const curl = page.samples.find((s) => s.lang === "curl")!.source;
-    assert.match(curl, /--form 'file=@<file>'/);
+    assert.match(curl, /--form 'file=@<file>;type=application\/octet-stream'/);
     assert.match(curl, /--form-string 'purpose=identity_document'/);
     assert.doesNotMatch(curl, /Content-Type/i);
   });
@@ -222,7 +316,27 @@ describe("multipart samples", () => {
       method: "post", path: "/x", auth: [], params: [], generate: ["curl"],
       body: { mediaType: "multipart/form-data", value: { files: ["a", "b", "c"] }, schema: scriptSchema as never },
     });
-    assert.equal(curl!.source.match(/--form 'files=@<files>'/g)?.length, 3);
+    assert.equal(curl!.source.match(/--form 'files=@<files>;type=application\/octet-stream'/g)?.length, 3);
+  });
+
+  test("contentMediaType alone does not turn a generated string example into a file", async () => {
+    const model = await buildApiModel({
+      collection: "media-string",
+      spec: spec("https://api.example.com", {
+        "/upload": { post: {
+          operationId: "uploadString",
+          requestBody: { content: { "multipart/form-data": { schema: { type: "object", properties: {
+            data: { type: "string", contentMediaType: "application/octet-stream" },
+          } } } } },
+          responses: ok,
+        } },
+      }),
+    });
+    const page = getApiPageProps(model, "uploadString") as ApiOperationPage;
+    assert.notEqual((page.example?.value as Record<string, unknown>).data, "<data>");
+    const curl = page.samples.find((sample) => sample.lang === "curl")!.source;
+    assert.match(curl, /--form-string 'data=/);
+    assert.doesNotMatch(curl, /data=@<data>/);
   });
 
   test("a reserved value that isn't valid encoded text is sent as written", async () => {
