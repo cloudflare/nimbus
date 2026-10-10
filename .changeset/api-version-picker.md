@@ -1,4 +1,5 @@
 ---
+"@cloudflare/nimbus-docs": minor
 "@cloudflare/create-nimbus-docs": patch
 ---
 

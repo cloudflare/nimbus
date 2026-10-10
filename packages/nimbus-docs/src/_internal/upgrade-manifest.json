@@ -600,6 +600,24 @@
         "On an API page, type part of an operation's title and confirm the sidebar narrows to it.",
         "With sidebar: \"on-demand\", type the title of an operation in a collapsed group and confirm it is listed and links to the current version."
       ]
+    },
+    {
+      "id": "api-version-picker",
+      "introducedIn": "0.18.0",
+      "mode": "optional",
+      "changeset": "api-version-picker",
+      "summary": "Optionally show the version picker on versioned API pages, in the sidebar and the mobile navigation.",
+      "affected": "Sites with versioned APIs and the api-layout registry components installed before 0.18.0.",
+      "instructions": [
+        "No action is needed: API pages keep working without a picker.",
+        "If ApiLayout.astro is an unmodified registry copy, update it with nimbus-docs add api-layout --overwrite, or nimbus-docs diff <file> --apply.",
+        "If ApiLayout.astro is customized, copy the picker from the current registry version: import VersionSwitcher, render it with apiCollection, apiVersion, coordinate and variant=\"sidebar\" above the data-nb-api-tree element in the rail and above data-nb-api-drawer-slot in the drawer, never inside the tree; and in its script, return the tree to the rail with rail.insertBefore(tree, railNext), where railNext is the tree's next sibling captured on load.",
+        "Install the version-switcher and popover components with nimbus-docs add version-switcher if they are missing."
+      ],
+      "verify": [
+        "On a page of a versioned API, confirm the picker shows above the sidebar and lists every version.",
+        "At mobile width, open the navigation, confirm the picker sits above the tree, close it, and confirm the desktop sidebar still shows the picker above the tree."
+      ]
     }
   ]
 }
