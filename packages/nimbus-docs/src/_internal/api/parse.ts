@@ -72,6 +72,8 @@ export interface SpecSource {
   routes?: RoutePolicy;
   /** Code sample policy. Absent = authored `x-codeSamples` replace generated ones. */
   samples?: ApiSamples;
+  /** `x-*` extension names whose values are copied onto pages. */
+  extensions?: readonly string[];
 }
 
 export interface ParseResult {
@@ -210,6 +212,7 @@ export async function parseOpenApi(source: SpecSource): Promise<ParseResult> {
       source.routes,
       source.schemaPages ?? false,
       source.samples,
+      source.extensions,
     );
     const model = walker.walk();
     if (source.mountPath !== undefined) model.mountPath = source.mountPath;
@@ -395,6 +398,7 @@ class Walker implements ParseContext {
     readonly routePolicy?: RoutePolicy,
     readonly schemaPages: boolean = false,
     readonly samples: ApiSamples = {},
+    readonly extensions: readonly string[] = [],
   ) {
     this.registry = new CoordinateRegistry(collection);
     // Schema tables are captured once here — the walk never reassigns them on `doc`.

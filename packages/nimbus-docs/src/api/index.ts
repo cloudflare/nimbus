@@ -117,6 +117,7 @@ export async function buildApiModel(source: SpecSource): Promise<ApiModel> {
     schemaPages: Boolean(source.schemaPages),
     routes: source.routes,
     samples: source.samples,
+    extensions: source.extensions,
   });
   const key = `${collectionKey(source.collection)}${options}::${specDigest(raw)}`;
   const cached = handleCache.get(key);
@@ -207,6 +208,7 @@ export async function getApiModel(
       schemaPages: resolved.schemaPages,
       routes: resolved.routes,
       samples: resolved.samples,
+      extensions: resolved.extensions,
     },
     root,
   ).then(buildApiModel);

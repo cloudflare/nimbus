@@ -301,6 +301,15 @@ export interface ApiSpec {
   /** Code sample policy. Applies to every version of a family. */
   samples?: ApiSamples;
   /**
+   * OpenAPI specification extensions (`x-*` fields) to keep, by name, such as
+   * `["x-acme-plans"]`. Each listed field's value is copied unchanged onto the
+   * operation or field that declares it (`page.extensions`,
+   * `field.extensions`), for your own components to render. Nimbus renders
+   * nothing from them. A version can set its own list. Declare value types by
+   * augmenting {@link ApiExtensions}.
+   */
+  extensions?: string[];
+  /**
    * Publish this collection's spec as one self-contained JSON file at
    * `/<collection>/openapi.json` (each version at its own mount path) and
    * list it in the API catalog. Default `true`. A version can override it.
@@ -350,6 +359,37 @@ export interface ApiSpec {
    */
   sidebar?: ApiSidebarMode;
 }
+
+/**
+ * The value types of your API's `x-*` extensions, keyed by name. Empty by
+ * default, so every value is a plain JSON value. Declare your own once, in a
+ * file of its own such as `src/nimbus-api.d.ts`:
+ *
+ * ```ts
+ * export {};
+ *
+ * declare module "@cloudflare/nimbus-docs/types" {
+ *   interface ApiExtensions {
+ *     "x-acme-plans": string[];
+ *   }
+ * }
+ * ```
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- empty until a site augments it
+export interface ApiExtensions {}
+
+/** A JSON value, as an `x-*` extension holds. */
+export type ApiJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ApiJsonValue[]
+  | { [key: string]: ApiJsonValue };
+
+/** The listed `x-*` values an operation or field declares: the types you
+ *  declared in {@link ApiExtensions}, and JSON for any other name. */
+export type ApiExtensionValues = { [K in keyof ApiExtensions]?: ApiExtensions[K] } & Record<string, ApiJsonValue>;
 
 /** A language Nimbus generates code samples for. */
 export type ApiSampleLang = "curl" | "typescript" | "python";
@@ -418,6 +458,8 @@ export interface ApiVersionSpec {
   label?: string;
   /** Override the family's {@link ApiSpec.publishSpec} for this version. */
   publishSpec?: boolean;
+  /** Replace the family's {@link ApiSpec.extensions} list for this version. */
+  extensions?: string[];
   /**
    * Route convention for this version's pages. Each version carries its own
    * policy; a shared route map may be imported into several versions, but every

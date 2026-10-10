@@ -53,6 +53,7 @@ import {
   type ApiVariant,
   type JsonValue,
 } from "./api-view-types.js";
+import type { ApiExtensionValues } from "../../types.js";
 import { renderMarkdown } from "../../markdown/render.js";
 import { toDocumentHref } from "../url.js";
 
@@ -473,8 +474,17 @@ function fieldView(
   if (f.typeRef?.coordinate && view.hasPage(f.typeRef.coordinate)) {
     out.typeRef = { label: f.typeRef.label, href: view.href(f.typeRef.coordinate) };
   }
+  const extensions = extensionsView(f.extensions);
+  if (extensions) out.extensions = extensions;
 
   return out;
+}
+
+function extensionsView(values: Record<string, unknown> | undefined): ApiExtensionValues | undefined {
+  if (!values) return undefined;
+  const out: Record<string, JsonValue> = {};
+  for (const [name, value] of Object.entries(values)) out[name] = jsonOrOmit(value) ?? null;
+  return out as ApiExtensionValues;
 }
 
 function topLevelFields(
@@ -723,6 +733,8 @@ function projectPageWithView(
         samples: f.samples.map((s) => ({ id: s.id, lang: s.lang, label: s.label, source: s.source })),
       };
       if (bodyFields.truncated) page.bodyTruncated = { total: bodyFields.total };
+      const extensions = extensionsView(f.extensions);
+      if (extensions) page.extensions = extensions;
       if (f.example) {
         const value = jsonOrOmit(f.example.value);
         if (value !== undefined) page.example = { mediaType: f.example.mediaType, value };

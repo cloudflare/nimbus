@@ -234,6 +234,7 @@ export async function buildCitationIndex(
           schemaPages: target.schemaPages,
           routes: target.routes,
           samples: target.samples,
+          extensions: target.extensions,
         },
         root,
       );

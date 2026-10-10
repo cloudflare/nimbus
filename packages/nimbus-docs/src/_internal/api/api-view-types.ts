@@ -5,17 +5,11 @@
  */
 
 import type { RoutePolicy } from "./route-policy.js";
-import type { ApiSamples } from "../../types.js";
+import type { ApiExtensionValues, ApiJsonValue, ApiSamples } from "../../types.js";
 
 export const apiSchemaVersion = 1;
 
-export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+export type JsonValue = ApiJsonValue;
 
 export type ApiNodeKind = "api" | "section" | "operation" | "schema";
 
@@ -49,6 +43,8 @@ export interface SpecSource {
   routes?: RoutePolicy;
   /** Code sample policy. Absent = authored `x-codeSamples` replace generated ones. */
   samples?: ApiSamples;
+  /** `x-*` extension names whose values are copied onto pages. */
+  extensions?: readonly string[];
 }
 
 declare const ApiModelBrand: unique symbol;
@@ -99,6 +95,8 @@ export interface ApiFieldView {
   link?: ApiRef;
   /** The field's union shape, when it is a `oneOf`/`anyOf` (or an array of one). */
   union?: ApiUnionView;
+  /** The listed `x-*` fields this field declares (`api[].extensions`). */
+  extensions?: ApiExtensionValues;
 }
 
 export interface ApiBreadcrumb {
@@ -206,6 +204,8 @@ export interface ApiOperationPage extends ApiPageBase {
   requestExamples?: ApiRequestExampleView[];
   /** Per-language request samples; `x-codeSamples` from the spec win. */
   samples: ApiCodeSampleView[];
+  /** The listed `x-*` fields this operation declares (`api[].extensions`). */
+  extensions?: ApiExtensionValues;
 }
 
 export interface ApiExampleView {

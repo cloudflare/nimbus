@@ -166,6 +166,8 @@ export interface OperationFacts {
   server?: string;
   /** e.g. `{ method, path }` — rendered by components, never keyed on. */
   protocol: Record<string, unknown>;
+  /** The configured `x-*` fields the operation declares, values unchanged. */
+  extensions?: Record<string, unknown>;
 }
 
 export type ParameterLocation = "path" | "query" | "header" | "cookie";
@@ -193,6 +195,8 @@ export interface FieldFacts {
    * page. Absent for a scalar-valued map (`map<string>`) or a free-form object.
    */
   typeRef?: VariantRef;
+  /** The configured `x-*` fields the field declares, values unchanged. */
+  extensions?: Record<string, unknown>;
 }
 
 /**

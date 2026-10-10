@@ -31,6 +31,7 @@ export interface ApiSpecEntry {
   schemaPages?: boolean;
   routes?: RoutePolicy;
   samples?: ApiSamples;
+  extensions?: readonly string[];
 }
 
 export async function resolveSpecSource(
@@ -45,6 +46,7 @@ export async function resolveSpecSource(
   const routes = entry.routes ? { routes: entry.routes } : {};
   const schemaPages = entry.schemaPages ? { schemaPages: true as const } : {};
   const samples = entry.samples?.keepGenerated?.length || entry.samples?.generate ? { samples: entry.samples } : {};
+  const extensions = entry.extensions?.length ? { extensions: entry.extensions } : {};
 
   if (typeof entry.spec !== "string") {
     return {
@@ -58,6 +60,7 @@ export async function resolveSpecSource(
       ...routes,
       ...schemaPages,
       ...samples,
+      ...extensions,
     };
   }
 
@@ -87,5 +90,6 @@ export async function resolveSpecSource(
     ...routes,
     ...schemaPages,
     ...samples,
+    ...extensions,
   };
 }

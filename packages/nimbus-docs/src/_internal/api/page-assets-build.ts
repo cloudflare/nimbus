@@ -1,4 +1,5 @@
 /** OpenAPI's consumer of the generic staged-page layer. Build-only, never SSR. */
+import { unusedExtensions, warnUnusedExtensions } from "./extensions.js";
 import {
   readFile,
   writeFile,
@@ -123,6 +124,9 @@ export interface PreparedApiAssetVersion {
   citationSummaryPath: string;
   citationSummaryHash: string;
   codeStyleCSS: string;
+  /** Listed `api[].extensions` names the version never uses, so a reused
+   *  version still warns. */
+  unusedExtensions?: string[];
 }
 export interface ApiPageAssetMetadata {
   nav: PreparedApiNav;
@@ -369,6 +373,7 @@ export async function prepareApiAssetVersion(
       schemaPages: target.schemaPages,
       routes: target.routes,
       samples: target.samples,
+      extensions: target.extensions,
     },
     root,
   );
@@ -387,6 +392,7 @@ export async function prepareApiAssetVersion(
       schemaPages: target.schemaPages,
       routes: target.routes,
       samples: target.samples,
+      extensions: target.extensions,
     }),
   );
   const filename = path.join(
@@ -539,6 +545,8 @@ export async function prepareApiAssetVersion(
         shapes: Object.fromEntries(operationShapes(spine)),
       },
     };
+    const unused = unusedExtensions(model, target.extensions);
+    if (unused.length > 0) value.unusedExtensions = unused;
     if (!bypass) await writeVersionCache(filename, value);
     else if (buildsPageAssets(root)) buildPreparations.set(buildKey, value);
     return value;
@@ -714,16 +722,9 @@ async function prepareApiAssetFamilyNow(
     prepared: PreparedApiAssetVersion;
   }> = [];
   for (const target of resolveApiFamily(entry)) {
-    versions.push({
-      target,
-      prepared: await prepareApiAssetVersion(
-        target,
-        root,
-        writer,
-        environment,
-        warn,
-      ),
-    });
+    const prepared = await prepareApiAssetVersion(target, root, writer, environment, warn);
+    warnUnusedExtensions(target.family, target.version, prepared.unusedExtensions ?? [], warn);
+    versions.push({ target, prepared });
   }
   const matchKey = pageAssetDigest(
     JSON.stringify({

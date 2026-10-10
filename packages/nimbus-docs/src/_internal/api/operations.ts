@@ -43,10 +43,11 @@ import {
   resolveExampleValue,
   resolveNamedExampleValues,
 } from "./samples.js";
-import { addField, walkFields, type FieldRole } from "./field-walk.js";
+import { addField, extensionValues, walkFields, type FieldRole } from "./field-walk.js";
 import {
   asString,
   constraintsOf,
+  foldAllOf,
   isPlainObject,
   itemsOf,
   orderedMediaEntries,
@@ -434,6 +435,8 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
       keepGenerated: ctx.samples.keepGenerated,
     });
   }
+  const extensions = extensionValues(ctx.extensions, op);
+  if (extensions) facts.extensions = extensions;
   return facts;
 }
 
@@ -470,6 +473,9 @@ function addParameter(
       )
     : undefined;
   if (union) facts.union = union;
+  // The parameter object's own value wins over its schema's.
+  const extensions = extensionValues(ctx.extensions, param, param.schema && foldAllOf(param.schema));
+  if (extensions) facts.extensions = extensions;
   ctx.node(coord, "parameter", opCoord, facts);
   return coord;
 }
