@@ -187,7 +187,7 @@
 	"devDependencies": {
 		"@astrojs/markdown-remark": "7.3.0",
 		"@mdx-js/mdx": "^3.1.1",
-		"@readme/httpsnippet": "^11.4.0",
+		"@readme/httpsnippet": "^11.4.1",
 		"@scalar/openapi-parser": "^0.28.12",
 		"@types/picomatch": "^4.0.3",
 		"@types/react": "^19.2.6",
@@ -197,7 +197,7 @@
 		"ajv-formats": "3.0.1",
 		"astro": "7.3.1",
 		"jsdom": "^29.1.1",
-		"openapi-sampler": "^1.7.4",
+		"openapi-sampler": "^1.7.6",
 		"tsdown": "^0.20.3",
 		"tsx": "^4.22.3"
 	}

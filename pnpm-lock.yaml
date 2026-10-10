@@ -294,8 +294,8 @@ importers:
         specifier: ^3.1.1
         version: 3.1.1
       '@readme/httpsnippet':
-        specifier: ^11.4.0
-        version: 11.4.0
+        specifier: ^11.4.1
+        version: 11.4.1
       '@scalar/openapi-parser':
         specifier: ^0.28.12
         version: 0.28.12
@@ -324,8 +324,8 @@ importers:
         specifier: ^29.1.1
         version: 29.1.1
       openapi-sampler:
-        specifier: ^1.7.4
-        version: 1.7.4
+        specifier: ^1.7.6
+        version: 1.7.6
       tsdown:
         specifier: ^0.20.3
         version: 0.20.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(typescript@5.9.3)
@@ -1920,8 +1920,8 @@ packages:
   '@quansync/fs@1.0.0':
     resolution: {integrity: sha512-4TJ3DFtlf1L5LDMaM6CanJ/0lckGNtJcMjQ1NAV6zDmA0tEHKZtxNKin8EgPaVX1YzljbxckyT2tJrpQKAtngQ==}
 
-  '@readme/httpsnippet@11.4.0':
-    resolution: {integrity: sha512-iFAqEDhImGtBwND0UVYaJSjESb9RwPGSn+y2Ktty8Tfl1wMQbvjvcmU55nd7VbSqVOp8pEEqWspTpPKYTRu+xA==}
+  '@readme/httpsnippet@11.4.1':
+    resolution: {integrity: sha512-vu/vKvxgbxlBgh+ORxruryGLQb5EUdQuySYpLQhqgSou0sQz5eZLUAQ2rSLCpQBlP5O+0xHuypxSLtaOeBjfyw==}
     engines: {node: '>=22'}
 
   '@resvg/resvg-js-android-arm-eabi@2.6.2':
@@ -4147,8 +4147,8 @@ packages:
   oniguruma-to-es@4.3.6:
     resolution: {integrity: sha512-csuQ9x3Yr0cEIs/Zgx/OEt9iBw9vqIunAPQkx19R/fiMq2oGVTgcMqO/V3Ybqefr1TBvosI6jU539ksaBULJyA==}
 
-  openapi-sampler@1.7.4:
-    resolution: {integrity: sha512-CKS/rd5ucPCuEDbJnjGDXZTsuGWcmv53aCmQx7soZlPEONUGN4af0/dY5+THRFZraSEjeA78nlfzdFswC/N5SA==}
+  openapi-sampler@1.7.6:
+    resolution: {integrity: sha512-MvWOm3vdgX7CZ6CNfu2wOFMGhC/pq03BxYTL/DKCkyPWfR6XIwUJnOV32mQGgCcUm1tY/y1jj7F2yqx1DieIWw==}
 
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
@@ -6777,7 +6777,7 @@ snapshots:
     dependencies:
       quansync: 1.0.0
 
-  '@readme/httpsnippet@11.4.0':
+  '@readme/httpsnippet@11.4.1':
     dependencies:
       qs: 6.15.3
       stringify-object: 3.3.0
@@ -9373,7 +9373,7 @@ snapshots:
       regex: 6.1.0
       regex-recursion: 6.0.2
 
-  openapi-sampler@1.7.4:
+  openapi-sampler@1.7.6:
     dependencies:
       '@types/json-schema': 7.0.15
       fast-xml-parser: 5.11.0
