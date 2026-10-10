@@ -22,6 +22,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { glob } from "astro/loaders";
+import { unusedExtensions, warnUnusedExtensions } from "./_internal/api/extensions.js";
 import type { Loader } from "astro/loaders";
 import { z } from "astro/zod";
 
@@ -296,6 +297,8 @@ export interface ApiCollectionOptions {
   schemaPages?: boolean;
   /** Code sample policy. See {@link ApiSamples}. */
   samples?: ApiSamples;
+  /** `x-*` extension names to keep. See {@link ApiSpec.extensions}. */
+  extensions?: string[];
   /** Route convention for this collection's pages (unversioned only; for a family
    *  set `routes` on each version). Omit to keep legacy operationId URLs. */
   routes?: ApiRoutePolicy;
@@ -358,6 +361,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
     requireOperationId: options.requireOperationId,
     schemaPages: options.schemaPages,
     samples: options.samples,
+    extensions: options.extensions,
     routes: options.routes,
   };
 
@@ -380,7 +384,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
       const registered = explicit
         ? undefined
         : resolveRegisteredApiCollection(astroConfig.root, context.collection);
-      const { collection, spec, label, versions, requireOperationId, schemaPages, samples, routes } =
+      const { collection, spec, label, versions, requireOperationId, schemaPages, samples, extensions, routes } =
         explicit ?? registered!;
       // The sidebar and version modes always come from the Nimbus config's
       // `api` entry: request rendering and the build's component check read
@@ -465,6 +469,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
         requireOperationId,
         schemaPages,
         samples,
+        extensions,
         routes,
         sidebar,
       });
@@ -494,6 +499,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
               requireOperationId,
               schemaPages,
               samples,
+              extensions,
               routes,
               sidebar,
             },
@@ -530,10 +536,17 @@ export function apiCollection(options?: ApiCollectionOptions): {
                 schemaPages: target.schemaPages,
                 routes: target.routes,
                 samples: target.samples,
+                extensions: target.extensions,
               },
               rootDir,
             );
             model = await buildApiModel(source);
+            warnUnusedExtensions(
+              collection,
+              target.version,
+              unusedExtensions(model, target.extensions),
+              (message) => logger.warn(message),
+            );
             registerConfiguredApiModel(
               collection,
               target.version ?? null,

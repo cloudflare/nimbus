@@ -301,6 +301,26 @@ const samplesSchema = z
     }
   });
 
+// An `x-*` specification extension name, as OpenAPI defines them; `x-nimbus-*`
+// is Nimbus's own.
+const extensionsSchema = (path: string) =>
+  z
+    .array(z.string({ error: `"${path}" entries must be strings` }))
+    .superRefine((names, ctx) => {
+      const seen = new Set<string>();
+      names.forEach((name, i) => {
+        const fault = !/^x-[A-Za-z0-9._-]+$/.test(name)
+          ? "must start with \"x-\" followed by letters, digits, \".\", \"_\", or \"-\""
+          : /^x-nimbus-/i.test(name)
+            ? "is reserved: x-nimbus-* fields are Nimbus's own"
+            : seen.has(name)
+              ? "is listed twice"
+              : undefined;
+        seen.add(name);
+        if (fault) ctx.addIssue({ code: "custom", path: [i], message: `"${path}" entry "${name}" ${fault}` });
+      });
+    });
+
 const apiVersionSpecShape = {
   version: z
     .string({ error: '"api[].versions[].version" must be a non-empty string' })
@@ -317,6 +337,7 @@ const apiVersionSpecShape = {
   publishSpec: z
     .boolean({ error: '"api[].versions[].publishSpec" must be a boolean' })
     .optional(),
+  extensions: extensionsSchema("api[].versions[].extensions").optional(),
   routes: routePolicySchema.optional(),
 };
 const apiVersionSpecKeys = new Set(Object.keys(apiVersionSpecShape));
@@ -394,6 +415,7 @@ const apiSpecShape = {
     .optional(),
   bundle: z.boolean({ error: '"api[].bundle" must be a boolean' }).optional(),
   samples: samplesSchema.optional(),
+  extensions: extensionsSchema("api[].extensions").optional(),
   routes: routePolicySchema.optional(),
   sidebar: z
     .enum(["full", "on-demand"], {

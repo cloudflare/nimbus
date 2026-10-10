@@ -16,6 +16,8 @@ export interface ParseContext extends FieldSink {
   readonly requireOperationId: boolean;
   /** Which languages are generated, and which are kept next to authored `x-codeSamples`. */
   readonly samples: ApiSamples;
+  /** `x-*` extension names whose values are copied onto operations and fields. */
+  readonly extensions: readonly string[];
   /** The active route convention, or `undefined` for legacy operationId URLs. */
   readonly routePolicy?: RoutePolicy;
   /** Publish a page per schema. When false, schemas are still parsed and their

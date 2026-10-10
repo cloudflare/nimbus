@@ -468,6 +468,66 @@ Kept samples follow the authored ones. An authored sample in the same language r
 
 The code rail remembers the reader's language, not the exact sample: choosing a second Python sample opens the first Python sample on the next operation. A `?lang=` link opens the sample with that id, such as `python-2`, or the first sample in that language, such as `python`.
 
+### Vendor extensions
+
+OpenAPI lets a spec carry its own facts in `x-*` fields, such as which plans can use an operation or whether it can't be undone. Nimbus ignores them unless you list the ones you want. Listed fields are copied, unchanged, onto the pages that declare them, for your own components to show. Nimbus doesn't render them itself.
+
+```ts
+// astro.config.ts
+api: [{
+  collection: "api",
+  spec: "./openapi.yaml",
+  extensions: ["x-acme-plans", "x-acme-confirm", "x-acme-sensitive"],
+}],
+```
+
+A version can set its own `extensions`, which replaces the entry's list. Names must start with `x-`; `x-nimbus-*` is reserved. A listed name that no operation or field in a version declares logs one warning for that version.
+
+Values appear on:
+
+- operation pages, including webhooks, as `page.extensions`, from the operation object;
+- every field, as `field.extensions`: parameters, request bodies, response fields, additional media types, and fields on schema pages. A parameter's own value wins over its schema's, and a property's own value wins over the schema it references.
+
+Tag pages, schema-page headers, response objects and the sidebar don't carry them, and neither does the Markdown version of a page or `llms.txt`. A field or operation that declares none of the listed names has no `extensions` at all.
+
+Read them in your copies of the API components:
+
+```astro
+---
+// src/components/ui/api-layout/ApiBody.astro
+const extensions = page.kind === "operation" ? page.extensions : undefined;
+const plans = extensions?.["x-acme-plans"];
+---
+{extensions?.["x-acme-confirm"] && (
+  <Banner variant="caution" content="This action can't be undone." />
+)}
+{Array.isArray(plans) && <p>Available on {plans.join(", ")}.</p>}
+```
+
+```astro
+---
+// src/components/ui/api-field-row/ApiFieldRow.astro
+import { Badge } from "@/components/ui/badge";
+---
+{field.extensions?.["x-acme-sensitive"] === true && <Badge>Sensitive</Badge>}
+```
+
+Values are JSON. To type them, declare your extensions once, in a file of its own:
+
+```ts
+// src/nimbus-api.d.ts
+export {}; // makes this file a module, so the block below adds to Nimbus's types
+
+declare module "@cloudflare/nimbus-docs/types" {
+  interface ApiExtensions {
+    "x-acme-plans": string[];
+    "x-acme-confirm": boolean;
+  }
+}
+```
+
+`page.extensions?.["x-acme-plans"]` is then `string[] | undefined`; names you don't declare stay JSON values.
+
 ### Build or request rendering
 
 API HTML is prerendered by default. To render only the API collection on request, add this policy to the Nimbus config:

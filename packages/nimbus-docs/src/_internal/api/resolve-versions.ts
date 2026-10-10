@@ -62,6 +62,8 @@ export interface ResolvedApiVersion {
   publishSpec: boolean;
   /** Code sample policy. Family-wide. */
   samples?: ApiSamples;
+  /** `x-*` names copied onto pages. Version override, else family. */
+  extensions?: string[];
   /** Route convention for this target, or `undefined` for legacy operationId URLs. */
   routes?: RoutePolicy;
   /** How much navigation each page includes. Family-wide; default `"full"`. */
@@ -131,6 +133,7 @@ export function resolveApiFamily(entry: ApiSpec): ResolvedApiVersion[] {
         schemaPages: entry.schemaPages ?? false,
         publishSpec: entry.publishSpec ?? true,
         samples: entry.samples,
+        ...(entry.extensions ? { extensions: entry.extensions } : {}),
         routes: asRoutePolicy(entry.routes),
         sidebar: entry.sidebar ?? "full",
         versionMode: "path",
@@ -157,6 +160,7 @@ export function resolveApiFamily(entry: ApiSpec): ResolvedApiVersion[] {
       schemaPages: entry.schemaPages ?? false,
       publishSpec: v.publishSpec ?? entry.publishSpec ?? true,
       samples: entry.samples,
+      ...((v.extensions ?? entry.extensions) ? { extensions: v.extensions ?? entry.extensions } : {}),
       routes: asRoutePolicy(v.routes),
       sidebar: entry.sidebar ?? "full",
       versionMode: entry.versionUrl?.in ?? "path",

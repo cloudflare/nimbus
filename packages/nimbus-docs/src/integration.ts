@@ -1214,6 +1214,7 @@ export function nimbus(
                         schemaPages: target.schemaPages,
                         routes: target.routes,
                         samples: target.samples,
+                        extensions: target.extensions,
                       },
                       projectRoot,
                     )

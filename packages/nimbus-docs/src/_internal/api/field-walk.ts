@@ -13,6 +13,8 @@ import {
 export interface FieldSink {
   readonly resolver: SchemaResolver;
   readonly registry: CoordinateRegistry;
+  /** `x-*` extension names whose values are copied onto fields. */
+  readonly extensions: readonly string[];
   node(
     id: Coordinate,
     kind: Node["kind"],
@@ -23,6 +25,23 @@ export interface FieldSink {
 }
 
 // --- shared helpers ---------------------------------------------------------
+
+/**
+ * The listed `x-*` fields a node declares, values unchanged. The first source
+ * that declares a name wins, so pass the most specific node first.
+ * `undefined` when none of the names occur.
+ */
+export function extensionValues(
+  names: readonly string[],
+  ...sources: (object | undefined)[]
+): Record<string, unknown> | undefined {
+  let out: Record<string, unknown> | undefined;
+  for (const name of names) {
+    const source = sources.find((s) => s !== undefined && Object.hasOwn(s, name));
+    if (source) (out ??= {})[name] = (source as Record<string, unknown>)[name];
+  }
+  return out;
+}
 
 /**
  * Walk an object schema's properties, invoking `visit` per field. Depth-bounded
@@ -168,5 +187,8 @@ export function addField(
   };
   if (union) facts.union = union;
   if (mapRef) facts.typeRef = mapRef;
+  // The folded schema puts a property's own value over its `$ref` target's.
+  const extensions = extensionValues(sink.extensions, folded);
+  if (extensions) facts.extensions = extensions;
   sink.node(coord, "field", parent, facts, source ?? null);
 }
