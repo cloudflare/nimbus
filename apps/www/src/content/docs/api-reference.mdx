@@ -217,7 +217,7 @@ Operations are not the only addressable items. Nimbus assigns coordinates to pag
 | Schema field (with schema pages on) | `Event.created_at` |
 | Webhook | `delivery.succeeded` |
 
-Request field lists leave out `readOnly` properties, and response field lists leave out `writeOnly` ones, as the examples do, so those fields have no coordinate there. A webhook's payload is sent by the API, so it follows the response rule. Cite a `readOnly` field where it appears, in the response; a citation to it under the request fails the build and names the response field to use.
+Request field lists leave out properties marked `readOnly` in every applicable schema alternative, and response field lists leave out those marked `writeOnly` likewise, so those fields have no coordinate there. Synthesized examples use the selected alternative; authored examples retain their values. A webhook's payload is sent by the API, so it follows the response rule. Cite a `readOnly` field where it appears, in the response; a citation to it under the request fails the build and, when a matching response field exists, names it.
 
 Use `/nimbus-api/coordinates.json` to inspect the exact coordinates and resolved URLs published by a built site.
 

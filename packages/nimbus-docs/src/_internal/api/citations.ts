@@ -77,7 +77,10 @@ export interface ParsedCitation {
  * `citationKey`; the family-default target is also stored under the unversioned
  * key so an unversioned citation resolves to it.
  */
-export type CitationIndex = ReadonlyMap<string, string>;
+export interface CitationIndex extends ReadonlyMap<string, string> {
+  /** Optional on-demand keys for one historical version, never the full history. */
+  keysForVersion?(scope: string): Iterable<string>;
+}
 
 /** The lookup key for a parsed citation. Version-bearing when a version is given. */
 export function citationKey(collection: string, version: string | undefined, coordinate: string): string {
@@ -87,18 +90,25 @@ export function citationKey(collection: string, version: string | undefined, coo
 /** The response field with the same path as an unknown request body field
  *  (`op.id` → `op.response.201.id`), which is where a readOnly field is
  *  listed. Only searched when a citation already fails. */
-function responseFieldFor(key: string, known: ReadonlySet<string>): string | undefined {
+function responseFieldFor(key: string, index: CitationIndex, known: ReadonlySet<string>): string | undefined {
   const colon = key.indexOf(":");
   const scope = key.slice(0, colon + 1);
   const coordinate = key.slice(colon + 1);
-  for (let dot = coordinate.indexOf("."); dot > 0; dot = coordinate.indexOf(".", dot + 1)) {
+  const candidates = scope.includes("@")
+    ? [...known, ...(index.keysForVersion?.(scope.slice(0, -1)) ?? [])]
+    : known;
+  for (let dot = coordinate.lastIndexOf("."); dot > 0; dot = coordinate.lastIndexOf(".", dot - 1)) {
+    const page = index.get(`${scope}${coordinate.slice(0, dot)}`);
+    if (!page || page.includes("#")) continue;
     const prefix = `${scope}${coordinate.slice(0, dot)}.response.`;
     const suffix = coordinate.slice(dot);
-    for (const candidate of known) {
+    for (const candidate of candidates) {
       if (!candidate.startsWith(prefix) || !candidate.endsWith(suffix)) continue;
-      const status = candidate.slice(prefix.length, candidate.length - suffix.length);
-      if (status && !status.includes(".")) return candidate;
+      const responsePath = candidate.slice(prefix.length, candidate.length - suffix.length);
+      const status = responsePath.split(".")[0];
+      if (status && index.has(`${prefix}${status}`)) return candidate;
     }
+    return undefined;
   }
   return undefined;
 }
@@ -261,7 +271,7 @@ export function resolveCitations(source: string, options: ResolveCitationsOption
       });
       return "#";
     }
-    const response = mode === "author" ? responseFieldFor(key, known) : undefined;
+    const response = mode === "author" ? responseFieldFor(key, citationIndex, known) : undefined;
     const hint = response ?? suggest(key, known, 4);
     const detail = response
       ? ` Request field lists leave out readOnly fields; if it is readOnly, cite it under the response: "${CITATION_SENTINEL}${response}".`

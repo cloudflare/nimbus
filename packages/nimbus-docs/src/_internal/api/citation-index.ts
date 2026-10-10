@@ -138,6 +138,7 @@ export interface BuildCitationIndexOptions {
 class AuthoredCitationMap extends Map<string, string> {
   constructor(
     private readonly historical: (key: string) => string | undefined,
+    private readonly historicalKeys: (scope: string) => Iterable<string>,
   ) {
     super();
   }
@@ -146,6 +147,9 @@ class AuthoredCitationMap extends Map<string, string> {
   }
   override has(key: string): boolean {
     return super.has(key) || this.historical(key) !== undefined;
+  }
+  keysForVersion(scope: string): Iterable<string> {
+    return this.historicalKeys(scope);
   }
 }
 
@@ -196,10 +200,13 @@ export async function buildCitationIndex(
     return cached[kind].get(key);
   };
   const index = options.preparedVersions
-    ? new AuthoredCitationMap((key) => lookup(key, "index"))
+    ? new AuthoredCitationMap((key) => lookup(key, "index"), (scope) => {
+        lookup(`${scope}:`, "index");
+        return cached?.key === scope ? cached.index.keys() : [];
+      })
     : new Map<string, string>();
   const unpublished = options.preparedVersions
-    ? new AuthoredCitationMap((key) => lookup(key, "unpublished"))
+    ? new AuthoredCitationMap((key) => lookup(key, "unpublished"), () => [])
     : new Map<string, string>();
   // Null-prototype maps: coordinates and collection names come from arbitrary
   // (possibly third-party) specs, so keys like `__proto__` or `constructor`

@@ -418,10 +418,15 @@ function convert(
       source = source.replace(/(--url )([^'\s]+)/, (m, flag: string, url: string) =>
         [...placeholders.keys()].some((marker) => url.includes(marker)) ? `${flag}'${url}'` : m,
       );
-      source = source.replace("@- <<EOF\n", "@- <<'EOF'\n");
-      // A heredoc whose delimiter is still unquoted would run the body
-      // through the shell, so the sample is left out.
-      if (UNQUOTED_HEREDOC.test(source)) return undefined;
+      const visible = unquotedShell(source);
+      const heredoc = /(?:^|\n)[ \t]*--data[ \t]+(@- <<EOF\n)/.exec(visible);
+      if (heredoc) {
+        const at = heredoc.index + heredoc[0].lastIndexOf(heredoc[1]!);
+        source = `${source.slice(0, at)}@- <<'EOF'\n${source.slice(at + heredoc[1]!.length)}`;
+      } else if (UNQUOTED_HEREDOC.test(visible)) {
+        // An unfamiliar unquoted delimiter would expand the body in the shell.
+        return undefined;
+      }
     }
     // Every marker sits inside a string literal the target has already quoted,
     // so the restored `<name>` is escaped for that target's quoting. One pass,
@@ -435,9 +440,28 @@ function convert(
   }
 }
 
-// httpsnippet's `--data @- <<EOF` with the delimiter unquoted; `<<'EOF'`
-// doesn't match, and neither does `<<` inside a `--data-raw` text body.
-const UNQUOTED_HEREDOC = /@-[ \t]*<<-?[ \t]*[A-Za-z_]\w*[ \t]*\n/;
+// Match the cURL option, not a `@- <<TAG` sequence inside a quoted form value.
+const UNQUOTED_HEREDOC = /(?:^|\n)[ \t]*--data[ \t]+@-[ \t]*<<-?[ \t]*[^\s'"\\;|&<>]+[ \t]*\n/;
+
+function unquotedShell(source: string): string {
+  let quote: "'" | '"' | undefined;
+  let visible = "";
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i]!;
+    if (char === "\\" && quote !== "'" && i + 1 < source.length) {
+      visible += ` ${source[++i] === "\n" ? "\n" : " "}`;
+    } else if (char === quote) {
+      quote = undefined;
+      visible += " ";
+    } else if (!quote && (char === "'" || char === '"')) {
+      quote = char;
+      visible += " ";
+    } else {
+      visible += quote && char !== "\n" ? " " : char;
+    }
+  }
+  return visible;
+}
 
 function convertWithBody(
   tools: SampleTools,
@@ -677,10 +701,12 @@ function buildHar(
     if (fields) {
       // httpsnippet builds a form from `params` only for the bare media type,
       // so it gets that; the header keeps parameters such as `charset`.
-      const text = serializeForm(fields);
+      // An authored form string is already encoded: decoding and re-encoding
+      // it changes bytes such as `%20` and malformed percent sequences.
+      const text = typeof bodyExample === "string" ? bodyExample : serializeForm(fields);
       // An empty name (cURL drops it) or a value that is already encoded must
       // go as text, which every target sends unchanged.
-      har.postData = !fields.some((field) => field.allowReserved || field.encoded || field.name === "")
+      har.postData = typeof bodyExample !== "string" && !fields.some((field) => field.allowReserved || field.encoded || field.name === "")
         ? { mimeType: "application/x-www-form-urlencoded", text, params: fields }
         : { mimeType: mediaType, text };
     } else {

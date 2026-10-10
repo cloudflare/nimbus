@@ -107,8 +107,21 @@ function walkFieldsInner(
 }
 
 function hiddenFor(role: FieldRole, schema: OpenApiSchema): boolean {
-  const folded = foldAllOf(schema);
-  return role === "request" ? folded.readOnly === true : folded.writeOnly === true;
+  const seen = new Set<OpenApiSchema>();
+  const hidden = (candidate: OpenApiSchema): boolean => {
+    if (seen.has(candidate)) return false;
+    seen.add(candidate);
+    const folded = foldAllOf(candidate);
+    if (role === "request" ? folded.readOnly === true : folded.writeOnly === true) {
+      seen.delete(candidate);
+      return true;
+    }
+    const branches = folded.oneOf ?? folded.anyOf;
+    const result = Boolean(branches?.length) && branches!.every(hidden);
+    seen.delete(candidate);
+    return result;
+  };
+  return hidden(schema);
 }
 
 export function addField(

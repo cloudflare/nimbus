@@ -1957,6 +1957,27 @@ describe("read-only and write-only fields", () => {
     assert.deepEqual(names(page.responses[0]!.fields), ["id", "name", "profile", "profile.created", "profile.bio"]);
     assert.ok(!Object.hasOwn(page.example!.value as object, "id"), "the request example already leaves it out");
   });
+
+  test("a union-wrapped field is hidden only when all variants mark it", async () => {
+    const schema = {
+      type: "object",
+      properties: {
+        id: { oneOf: [{ type: "string", readOnly: true }, { type: "integer", readOnly: true }] },
+        password: { anyOf: [{ type: "string", writeOnly: true }, { type: "integer", writeOnly: true }] },
+        optional: { oneOf: [{ type: "string", readOnly: true }, { type: "integer" }] },
+      },
+    };
+    const page = await operationPage({
+      ...baseSpec,
+      paths: { "/users": { post: {
+        operationId: "createUser",
+        requestBody: { content: { "application/json": { schema } } },
+        responses: { "201": { description: "Created", content: { "application/json": { schema } } } },
+      } } },
+    }, "createUser");
+    assert.deepEqual(page.body.map((field) => field.name), ["password", "optional"]);
+    assert.deepEqual(page.responses[0]!.fields.map((field) => field.name), ["id", "optional"]);
+  });
 });
 
 describe("read-only and write-only fields: refs, media types, webhooks, citations", () => {
@@ -2023,5 +2044,18 @@ describe("cURL heredoc", () => {
     };
     assert.match(buildOperationSamples(tools, input).find((s) => s.lang === "curl")!.source, /<<'EOF'/);
     assert.deepEqual(buildOperationSamples(changed, input).map((s) => s.lang), ["typescript", "python"]);
+    const unusual: SampleTools = {
+      ...tools,
+      snippet: { HTTPSnippet: class extends Real {
+        convert(target: string, client?: string) {
+          const out = super.convert(target, client);
+          const first = Array.isArray(out) ? out[0] : out;
+          return typeof first === "string"
+            ? [first.replace("@- <<EOF\n", "@- <<EOF-2\n").replace(/\nEOF(?=\n|$)/, "\nEOF-2")]
+            : out;
+        }
+      } },
+    };
+    assert.deepEqual(buildOperationSamples(unusual, input).map((s) => s.lang), ["typescript", "python"]);
   });
 });

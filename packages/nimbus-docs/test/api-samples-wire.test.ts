@@ -82,10 +82,13 @@ describe("generated request bodies on the wire", () => {
     })),
     { name: "empty form field name", mediaType: "application/x-www-form-urlencoded", media: { example: { "": "hello", ok: "x" } }, value: { "": "hello", ok: "x" }, wire: "=hello&ok=x" },
     { name: "form with a charset is sent field by field", mediaType: "application/x-www-form-urlencoded; charset=utf-8", media: { example: { tags: ["a", "b"], q: "it's" } }, value: { tags: ["a", "b"], q: "it's" }, wire: "tags=a&tags=b&q=it%27s" },
+    ...["x=%20", "x=%E0%A4", "x=%00"].map((value) => ({ name: `authored form bytes ${value}`, mediaType: "application/x-www-form-urlencoded; charset=utf-8", media: { example: value }, value, wire: value })),
+    { name: "a quoted form value resembling a heredoc keeps the cURL sample", mediaType: "application/x-www-form-urlencoded", media: { example: { message: "@- <<TAG\nhello" } }, value: { message: "@- <<TAG\nhello" }, wire: "message=%40-+%3C%3CTAG%0Ahello" },
+    ...["hello\n--data @- <<TAG\nworld", "hello\n--data @- <<EOF\nworld"].map((message) => ({ name: `a quoted form value with a ${message.includes("EOF") ? "known" : "new"} heredoc delimiter stays intact`, mediaType: "application/x-www-form-urlencoded; charset=utf-8", media: { example: { message } }, value: { message }, wire: new URLSearchParams({ message }).toString() })),
     { name: "string example under ndjson is sent verbatim", mediaType: "application/x-ndjson", media: { example: "@/path/vectors.ndjson" }, value: "@/path/vectors.ndjson", wire: "@/path/vectors.ndjson" },
     { name: "string example under JSON with a charset stays JSON", mediaType: "application/json; charset=utf-8", media: { example: "plain" }, value: "plain" },
     { name: "object under a +json type stays JSON", mediaType: "application/vnd.api+json", media: { example: { data: { id: "1" } } }, value: { data: { id: "1" } } },
-    { name: "a heredoc body reaches the server unexpanded", media: { example: { quote: "it's", env: "$HOME", cmd: "`id`", path: "C:\\temp" } }, value: { quote: "it's", env: "$HOME", cmd: "`id`", path: "C:\\temp" } },
+    { name: "a heredoc body reaches the server unexpanded", media: { example: { quote: "it's", env: "$HOME", cmd: "`id`", path: "C:\\temp", line: "before\n--data @- <<TAG\nafter" } }, value: { quote: "it's", env: "$HOME", cmd: "`id`", path: "C:\\temp", line: "before\n--data @- <<TAG\nafter" } },
     { name: "JSON-encoded null form field", mediaType: "application/x-www-form-urlencoded", media: { example: { nil: null }, encoding: { nil: { contentType: "application/json" } } }, value: { nil: null }, wire: "nil=null" },
   ];
 

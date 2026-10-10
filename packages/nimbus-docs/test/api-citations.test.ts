@@ -192,11 +192,45 @@ describe("resolveCitations: rewriting link targets", () => {
   test("a request field that is only listed under the response points there", () => {
     const withResponse: CitationIndex = new Map([
       ...index,
+      ["zones:createZone.response.201", "/api/zones/create-zone/#response-201"],
       ["zones:createZone.response.201.id", "/api/zones/create-zone/#response-201-id"],
     ]);
     const { diagnostics } = resolveCitations("[x](api.ref:zones:createZone.id)", { mode: "author", citationIndex: withResponse });
     assert.equal(diagnostics[0]?.level, "error");
     assert.match(diagnostics[0]?.message ?? "", /leave out readOnly fields; if it is readOnly, cite it under the response: "api\.ref:zones:createZone\.response\.201\.id"/);
+  });
+
+  test("a dotted operation ID never suggests a response from another operation", () => {
+    const withResponse: CitationIndex = new Map([
+      ...index,
+      ["zones:users", "/api/zones/users"],
+      ["zones:users.create", "/api/zones/users/create"],
+      ["zones:users.response.201", "/api/zones/users/#response-201"],
+      ["zones:users.response.201.create.id", "/api/zones/users/#response-201-create-id"],
+      ["zones:users.create.response.201", "/api/zones/users/create/#response-201"],
+      ["zones:users.create.response.201.id", "/api/zones/users/create/#response-201-id"],
+    ]);
+    const { diagnostics } = resolveCitations("[x](api.ref:zones:users.create.id)", { mode: "author", citationIndex: withResponse });
+    assert.match(diagnostics[0]?.message ?? "", /"api\.ref:zones:users\.create\.response\.201\.id"/);
+    assert.doesNotMatch(diagnostics[0]?.message ?? "", /"api\.ref:zones:users\.response\.201\.create\.id"/);
+  });
+
+  test("a nested field and an additional response media field suggest their response coordinates", () => {
+    const withResponse: CitationIndex = new Map([
+      ...index,
+      ["zones:createZone.profile", "/zones/create/#request-profile"],
+      ["zones:createZone.response.201", "/zones/create/#response-201"],
+      ["zones:createZone.response.201.profile.id", "/zones/create/#response-201-profile-id"],
+      ["zones:createZone.response.201.text-csv", "/zones/create/#response-201-text-csv"],
+      ["zones:createZone.response.201.text-csv.code", "/zones/create/#response-201-text-csv-code"],
+    ]);
+    for (const [field, target] of [
+      ["profile.id", "createZone.response.201.profile.id"],
+      ["code", "createZone.response.201.text-csv.code"],
+    ]) {
+      const { diagnostics } = resolveCitations(`[x](api.ref:zones:createZone.${field})`, { mode: "author", citationIndex: withResponse });
+      assert.ok(diagnostics[0]?.message.includes(`"api.ref:zones:${target}"`), diagnostics[0]?.message);
+    }
   });
 
   test("a near-miss gets a Levenshtein hint", () => {
