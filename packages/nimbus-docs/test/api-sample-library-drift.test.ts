@@ -1,7 +1,6 @@
 // Drift tests: each one reproduces a defect in a sampling library that Nimbus
 // works around (or, for the sampler, lives with). When a library release fixes
-// one, its test fails: remove the workaround it names in the same change as
-// the version bump, then delete the test.
+// one, its test fails so the corresponding Nimbus behavior can be reassessed.
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
@@ -25,7 +24,9 @@ function har(mimeType: string, body: { text?: string; params?: { name: string; v
 
 function snippet(input: ReturnType<typeof har>, target: string, client: string): string {
   const out = new tools.snippet.HTTPSnippet(input).convert(target, client);
-  return String(Array.isArray(out) ? out[0] : out);
+  const source = Array.isArray(out) ? out[0] : out;
+  assert.ok(typeof source === "string" && source.length > 0, `httpsnippet produced no ${target}/${client} sample`);
+  return source;
 }
 
 describe("openapi-sampler", () => {
