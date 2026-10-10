@@ -53,6 +53,10 @@
 			"types": "./dist/config.d.ts",
 			"import": "./dist/config.js"
 		},
+		"./live": {
+			"types": "./dist/live.d.ts",
+			"import": "./dist/live.js"
+		},
 		"./content": {
 			"types": "./dist/content.d.ts",
 			"import": "./dist/content.js"

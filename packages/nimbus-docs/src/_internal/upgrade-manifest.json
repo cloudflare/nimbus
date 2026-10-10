@@ -543,6 +543,45 @@
       "verify": [
         "On a query-versioned API page with ?api-version= set, open the switcher and confirm the active item's link keeps the query."
       ]
+    },
+    {
+      "id": "api-request-path",
+      "introducedIn": "0.18.0",
+      "mode": "optional",
+      "changeset": "api-request-path",
+      "summary": "New api bundle: false option for large or many-version APIs, and one version-switch URL helper for pickers.",
+      "affected": "Sites that want bundle: false on an API entry. Other sites need no change; their pickers and heads keep working.",
+      "instructions": [
+        "No change is needed unless you set bundle: false on an api entry, for a very large spec or one that keeps many versions.",
+        "With bundle: false, the collection must render on request (rendering.collections, or rendering.default: \"request\") on the Cloudflare or Node adapter; the build says what to change otherwise.",
+        "With bundle: false, add src/live.config.ts registering the apiPages live collection: import { defineLiveCollection } from \"astro:content\"; import { apiPagesLoader } from \"@cloudflare/nimbus-docs/live\"; export const collections = { apiPages: defineLiveCollection({ loader: apiPagesLoader() }) };. The build prints this snippet if it's missing.",
+        "With bundle: false, a copied VersionSwitcher or ApiLayout that calls getApiVersionAlternates fails the build. Commit first, then reinstall with nimbus-docs add version-switcher --overwrite and nimbus-docs add api-layout --overwrite, and reapply your edits from git diff. In a customized copy, use await getVersionSwitchUrl({ collection, sourceVersion, id, targetVersion }) for picker links and getApiVersionHead(collection, version, coordinate, Astro.request) for the canonical; pass the page's exact source version and apply withBase once.",
+        "With bundle: false, search, llms.txt, llms-full.txt, the sitemap and Markdown versions cover that API's default version only. Older versions stay readable as HTML with noindex, and their Markdown returns 404.",
+        "In CI, restore .nimbus/cache/page-assets/ before the build and save it after a successful one, so unchanged versions are not prepared again."
+      ],
+      "verify": [
+        "Build, then on a page of an older version open the version picker and confirm each item opens that operation in the chosen version, or the version's landing page when the operation is missing.",
+        "Confirm older versions' pages carry noindex and their index.md returns 404."
+      ]
+    },
+    {
+      "id": "api-version-url",
+      "introducedIn": "0.18.0",
+      "mode": "review-required",
+      "changeset": "api-version-url",
+      "summary": "versionMode is now versionUrl, and query-versioned API pages select the version with ?version= instead of ?api-version=.",
+      "affected": "Only API families that set versionMode. Unversioned APIs and families without versionMode are unchanged.",
+      "instructions": [
+        "Upgrading from before 0.17: the earlier entries api-query-version-mode and version-switcher-keeps-query say versionMode: \"query\" and ?api-version=. Apply them with versionUrl: { in: \"query\" } and ?version= instead.",
+        "Replace versionMode: \"query\" with versionUrl: { in: \"query\" }. Replace versionMode: \"path\" with versionUrl: { in: \"path\" }, or remove it; path is the default. The build names any versionMode it finds.",
+        "Generated links now carry ?version=<id>. API pages requested with ?api-version= redirect permanently to ?version=, keeping other query parameters; Markdown URLs don't redirect.",
+        "To keep the old name, use versionUrl: { in: \"query\", param: \"api-version\" }. Any lowercase name works.",
+        "If a cache or CDN rule in front of the site keys on api-version, key it on the new name."
+      ],
+      "verify": [
+        "Request a non-default version with ?version=<id> and confirm it renders that version.",
+        "Request the same page with ?api-version=<id> and confirm a permanent redirect to ?version=<id>."
+      ]
     }
   ]
 }

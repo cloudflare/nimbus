@@ -29,7 +29,7 @@
 import { build, trailingSlash } from "astro:config/client";
 import { config, headDefaults } from "virtual:nimbus/config";
 import {
-  getApiVersionAlternates,
+  getApiVersionHead,
   getApiVersions,
   getCollectionLlmsUrl,
   getVersionAlternates,
@@ -102,7 +102,7 @@ const baseUrl = import.meta.env.BASE_URL;
 // API pages link on the coordinate-identity axis; docs pages on the slug axis.
 const versionRecord = apiVersion
   ? collection && coordinate
-    ? await getApiVersionAlternates(collection, apiVersion, coordinate)
+    ? await getApiVersionHead(collection, apiVersion, coordinate, Astro.request)
     : null
   : collection && entryId
     ? await getVersionAlternates(collection, entryId)
@@ -110,16 +110,16 @@ const versionRecord = apiVersion
 const versionCanonicalPath = versionRecord?.canonical?.url ?? null;
 
 // Query-mode versions: a non-default version renders at the version-free
-// URL plus `?api-version=`, so it is `noindex` the way hidden versions are,
+// URL plus `?version=`, so it is `noindex` the way hidden versions are,
 // and its canonical is the matched default counterpart's version-free URL
 // (from the alternates table, shape-fallback matches included). With no
 // counterpart there is no canonical at all — the page's own pathname would
 // be a 404 or another operation.
 const isQueryFamily =
   !!apiVersion &&
-  config.api?.find((entry) => entry.collection === collection)?.versionMode === "query";
+  config.api?.find((entry) => entry.collection === collection)?.versionUrl?.in === "query";
 const isNonDefaultQueryVersion =
-  isQueryFamily &&
+  (isQueryFamily || (versionRecord && "bundled" in versionRecord && !versionRecord.bundled)) &&
   (await getApiVersions(collection!))?.find((v) => v.isDefault)?.version !== apiVersion;
 
 // Hidden-version suppression. Hidden versions are URL-reachable but

@@ -59,10 +59,31 @@ export function getCodeStyleTransformer() {
   return styleToClass;
 }
 
+const RESTORED_STYLES = Symbol.for(
+  "@cloudflare/nimbus-docs/restored-code-styles",
+);
+const restoredHost = globalThis as typeof globalThis & {
+  [RESTORED_STYLES]?: Set<string>;
+};
+const restoredStyles = (restoredHost[RESTORED_STYLES] ??= new Set<string>());
+
+/** Replay CSS emitted alongside persisted highlighted HTML on a clean runner. */
+export function restoreCodeStyleCSS(css: string): void {
+  const rules = css.match(/\.nb-shiki-[^\s{}]+\s*\{[^{}]*\}/g) ?? [];
+  const remainder = css.replace(/\.nb-shiki-[^\s{}]+\s*\{[^{}]*\}/g, "").trim();
+  if (remainder) throw new Error("Invalid cached syntax highlighting CSS.");
+  for (const rule of rules) restoredStyles.add(rule);
+}
+
 export function getCodeStyleCSS(): string {
-  return styleToClass.getCSS();
+  const rules = new Set([
+    ...restoredStyles,
+    ...(styleToClass.getCSS().match(/\.nb-shiki-[^\s{}]+\s*\{[^{}]*\}/g) ?? []),
+  ]);
+  return [...rules].sort().join("\n");
 }
 
 export function clearCodeStyleRegistry(): void {
   styleToClass.clearRegistry();
+  restoredStyles.clear();
 }

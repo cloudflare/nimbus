@@ -46,6 +46,10 @@ test("request-rendered Markdown is reached through the in-process rewrite on a n
       "src/pages/[...slug].astro",
       `---\nimport { getDocsPage } from ${srcModule("index.ts")};\nconst page = await getDocsPage(Astro);\nif (page instanceof Response) return page;\nAstro.response.headers.set("X-Owner", "page");\n---\n<html><body>Page</body></html>`,
     );
+    await site.write(
+      "src/pages/llms-full.txt.ts",
+      `import { llmsFullRoute } from ${srcModule("agent-endpoints.ts")};\nexport const prerender = true;\nexport const { GET } = llmsFullRoute();\n`,
+    );
     const app = await serverBuild(site);
     // Criterion: no public files at the agent URLs.
     assert.ok(!existsSync(path.join(site.root, "dist/guide/index.md")));
@@ -82,6 +86,12 @@ test("request-rendered Markdown is reached through the in-process rewrite on a n
     const llms = await app.render(new Request("https://example.test/docs/llms.txt"));
     assert.equal(llms.status, 200);
     assert.match(await llms.text(), /Hello discovery|Guide/);
+    assert.ok(!existsSync(path.join(site.root, "dist/llms-full.txt")));
+    const full = await app.render(
+      new Request("https://example.test/docs/llms-full.txt"),
+    );
+    assert.equal(full.status, 200);
+    assert.match(await full.text(), /Hello discovery/);
   } finally {
     await rm(site.root, { recursive: true, force: true, maxRetries: 5 });
   }

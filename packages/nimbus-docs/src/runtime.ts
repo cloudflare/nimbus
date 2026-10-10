@@ -45,7 +45,12 @@ import {
 } from "./_internal/sidebar.js";
 import { entryRouteKey } from "./_internal/astro-slug.js";
 import { ogImagePageKey, pageUrls } from "./_internal/page-urls.js";
-import { stripBase, withBase, withoutHtmlExtension } from "./_internal/url.js";
+import {
+  stripBase,
+  toDocumentHref,
+  withBase,
+  withoutHtmlExtension,
+} from "./_internal/url.js";
 import {
   PRIMARY_COLLECTION,
   collectionLabel as resolveCollectionSlug,
@@ -346,7 +351,7 @@ export async function getIndexedEntries(
   const config = await loadNimbusConfig();
   const queryModeDefaults = new Map<string, string>();
   for (const entry of config.api ?? []) {
-    if (entry.versionMode !== "query" || !entry.versions) continue;
+    if (entry.versionUrl?.in !== "query" || !entry.versions) continue;
     const fallback = entry.versions.find((v) => v.default) ?? entry.versions[0];
     queryModeDefaults.set(entry.collection, fallback!.version);
   }
@@ -354,7 +359,11 @@ export async function getIndexedEntries(
   const indexed: IndexedEntry[] = [];
   for (const name of names) {
     // Surfaces a failed registered collection instead of silently dropping it.
-    const { entries, warning } = await loadCollectionOrWarn<
+    const { hasApiPageAssets, getApiAssetEntries } =
+      await import("./_internal/api/page-assets-runtime.js");
+    const { entries, warning } = (await hasApiPageAssets(name))
+      ? { entries: await getApiAssetEntries(name), warning: undefined }
+      : await loadCollectionOrWarn<
       import("astro:content").CollectionEntry<string>
     >(name, (n) => getCollection(n as any));
     if (warning) runtimeWarn(warning);
@@ -537,6 +546,16 @@ export async function renderIndexedEntryMarkdown(
   }
   if (isPreparedApiPage(apiData.prepared)) {
     return renderApiPageMarkdown(apiData.prepared.page, { base: options?.base });
+  }
+  const { hasApiPageAssets, getApiAssetPage } =
+    await import("./_internal/api/page-assets-runtime.js");
+  if (await hasApiPageAssets(item.collection)) {
+    const { page } = await getApiAssetPage(
+      item.collection,
+      item.version ?? null,
+      coordinate,
+    );
+    return renderApiPageMarkdown(page, { base: options?.base });
   }
   if (!THIN_API_ENTRIES) {
     throw new Error(
@@ -1556,7 +1575,15 @@ export function getApiRoute(
         "Ensure your route uses `getStaticPaths = getApiStaticPaths(<collection>)`.",
     );
   }
-  return resolveApiRoute(astro);
+  return resolveApiRoute(astro).catch((error: unknown) => {
+    if (error instanceof Error && error.name === "PageAssetReadOverloadError") {
+      return new Response("Temporarily busy", {
+        status: 503,
+        headers: { "Retry-After": "1" },
+      });
+    }
+    throw error;
+  });
 }
 
 async function resolveApiRoute(
@@ -1571,12 +1598,52 @@ async function resolveApiRoute(
         const { apiQueryRouting } = await import("./_internal/api/resolve-versions.js");
         return apiQueryRouting((await loadNimbusConfig()).api, collection);
       },
-      getVisibleEntry: getVisibleEntry as (
-        collection: string,
-        id: string,
-        ctx?: ProjectionContext,
-      ) => Promise<import("astro:content").CollectionEntry<string> | null>,
+      async getVisibleEntry(collection, id, ctx) {
+        const { hasApiPageAssets, getApiAssetEntry } =
+          await import("./_internal/api/page-assets-runtime.js");
+        return (await hasApiPageAssets(collection))
+          ? getApiAssetEntry(collection, id, astro.request)
+          : getVisibleEntry(collection, id, ctx);
+      },
       async render(collection, version, coordinate, resolvedEntry) {
+        const { hasApiPageAssets } =
+          await import("./_internal/api/page-assets-runtime.js");
+        if (await hasApiPageAssets(collection)) {
+          // bundle: false reads each page through the site's Astro live
+          // collection (src/live.config.ts). The request keeps the
+          // same-origin fallback for client files served elsewhere.
+          const [
+            { getLiveEntry },
+            { API_PAGES_COLLECTION, liveConfigSnippet },
+          ] = await Promise.all([import("astro:content"), import("./live.js")]);
+          const result = await getLiveEntry(API_PAGES_COLLECTION, {
+            collection,
+            version,
+            id: coordinate,
+            request: astro.request,
+          });
+          if (result.error) {
+            if (/is not a live collection/.test(result.error.message))
+              throw new Error(
+                `nimbus-docs: api "${collection}" sets bundle: false, but src/live.config.ts doesn't register the apiPages live collection:\n\n${liveConfigSnippet}`,
+              );
+            throw result.error;
+          }
+          if (!result.entry)
+            throw new Error(`Missing API page ${coordinate} in ${collection}.`);
+          // Astro's route cache applies the entry's tags when it's enabled.
+          const cache = (
+            astro as {
+              cache?: { enabled?: boolean; set(entry: unknown): void };
+            }
+          ).cache;
+          if (cache?.enabled) cache.set(result.entry);
+          return result.entry.data as unknown as Awaited<
+            ReturnType<
+              typeof import("./_internal/api/page-assets-runtime.js").getApiAssetPage
+            >
+          >;
+        }
         const projection = pageResolutionContext(astro).projection;
         const entry =
           resolvedEntry ??
@@ -1706,7 +1773,7 @@ export async function getApiVersions(
     hidden: t.hidden,
     // Trailing-slashed; a bare `/family/v2` would 307-redirect under
     // directory builds. In query mode this is the version-free landing with
-    // the version's query (`/<family>/?api-version=<id>` for non-defaults).
+    // the version's query (`/<family>/?version=<id>` for non-defaults).
     url: pageUrl(t, ""),
   }));
 }
@@ -1781,7 +1848,8 @@ export async function getCurrentVersion(
 }
 
 /**
- * Look up the cross-version alternates for a given Astro entry.
+ * Look up the cross-version alternates for a given Astro entry. For picker
+ * links, prefer {@link getVersionSwitchUrl}.
  *
  * Returns `null` when the entry is not part of a versioning manifest
  * (unversioned site, non-`docs` collection like `blog`/`api`, or the
@@ -1822,13 +1890,22 @@ export async function getVersionAlternates(
  * API-family variant of {@link getVersionAlternates}. API alternates are keyed
  * by `family@version:coordinate`, which the `(collection, entryId)` accessor
  * cannot address. Pass the `version` and `coordinate` from
- * {@link getApiStaticPaths}. Returns `null` for an unversioned family.
+ * {@link getApiStaticPaths}. Returns `null` for an unversioned family. An API
+ * with `bundle: false` doesn't keep this table and throws; use
+ * {@link getVersionSwitchUrl} and {@link getApiVersionHead} there.
  */
 export async function getApiVersionAlternates(
   collection: string,
   version: string | null,
   coordinate: string,
 ): Promise<VersionAlternateRecord | null> {
+  const { hasApiPageAssets } =
+    await import("./_internal/api/page-assets-runtime.js");
+  if (await hasApiPageAssets(collection)) {
+    throw new Error(
+      `NIMBUS_API_EAGER_ALTERNATES: getApiVersionAlternates doesn't work for "${collection}", which sets bundle: false. Use getVersionSwitchUrl for picker links and getApiVersionHead for heads; see upgrade entry api-request-path.`,
+    );
+  }
   if (version == null) return null;
   const config = await loadNimbusConfig();
   const { resolveApiVersion } =
@@ -1837,6 +1914,134 @@ export async function getApiVersionAlternates(
   if (!target) return null;
   const table = await loadVersionAlternates();
   return table[`${target.versionKey}:${coordinate}`] ?? null;
+}
+
+export interface VersionSwitchOptions {
+  collection: string;
+  sourceVersion: string;
+  id: string;
+  targetVersion: string;
+}
+
+/** One picker API for both rendering modes. URLs exclude Astro's base; apply withBase at the component boundary. */
+export async function getVersionSwitchUrl(
+  options: VersionSwitchOptions,
+): Promise<string> {
+  const { collection, sourceVersion, id, targetVersion } = options;
+  const { hasApiPageAssets } =
+    await import("./_internal/api/page-assets-runtime.js");
+  if (await hasApiPageAssets(collection)) {
+    // Loading the config installs the link policy toDocumentHref reads.
+    await loadNimbusConfig();
+    const params = new URLSearchParams({
+      collection,
+      sourceVersion,
+      id,
+      targetVersion,
+    });
+    // An injected endpoint follows the site's trailingSlash policy.
+    return `${toDocumentHref("/_nimbus/version-switch")}?${params}`;
+  }
+  const config = await loadNimbusConfig();
+  if (config.api?.some((entry) => entry.collection === collection)) {
+    const { apiPageSlug, resolveApiVersion, pageUrl } =
+      await import("./_internal/api/resolve-versions.js");
+    const target = resolveApiVersion(config.api, collection, targetVersion);
+    if (!target)
+      throw new Error(
+        `Unknown target version ${targetVersion} for ${collection}.`,
+      );
+    if (!resolveApiVersion(config.api, collection, sourceVersion))
+      throw new Error(
+        `Unknown source version ${sourceVersion} for ${collection}.`,
+      );
+    const record = await getApiVersionAlternates(collection, sourceVersion, id);
+    if (!record) {
+      // No alternates record: a single-version family, or a page added since
+      // the dev server built the table. Stay on the page when it exists in
+      // the target version; otherwise land on that version, as pickers did.
+      if (sourceVersion === targetVersion) {
+        const entry = (await getVisibleEntries([collection])).find(
+          (candidate) => {
+            const data = candidate.data as {
+              coordinate?: string;
+              version?: string;
+            };
+            return data.coordinate === id && data.version === sourceVersion;
+          },
+        );
+        // A non-default store id carries its version, which pageUrl adds back.
+        if (entry) return pageUrl(target, apiPageSlug(target, entry.id));
+      }
+      return pageUrl(target, "");
+    }
+    const sibling =
+      record?.self.version === targetVersion
+        ? record.self
+        : record?.alternates.find((entry) => entry.version === targetVersion);
+    return sibling?.url ?? pageUrl(target, "");
+  }
+  const versions = await getVersions();
+  if (!versions?.all.includes(targetVersion))
+    throw new Error(`Unknown target version ${targetVersion}.`);
+  const record = await getVersionAlternates(collection, id);
+  const sibling =
+    record?.self.version === targetVersion
+      ? record.self
+      : record?.alternates.find((entry) => entry.version === targetVersion);
+  return (
+    sibling?.url ??
+    (targetVersion === versions.current
+      ? "/"
+      : ((await getVersionLandingUrl(targetVersion)) ?? `/${targetVersion}/`))
+  );
+}
+
+/** Internal endpoint dispatch; never enumerate the retained versions' page indexes. */
+export async function resolveVersionSwitch(
+  options: VersionSwitchOptions,
+  request?: Request,
+): Promise<string | null> {
+  const { hasApiPageAssets, resolveApiAssetSwitch } =
+    await import("./_internal/api/page-assets-runtime.js");
+  if (!(await hasApiPageAssets(options.collection))) return null;
+  return resolveApiAssetSwitch(
+    options.collection,
+    options.sourceVersion,
+    options.id,
+    options.targetVersion,
+    request,
+  );
+}
+
+/** Head metadata; for an API with `bundle: false` it reads only the selected version's index. */
+export async function getApiVersionHead(
+  collection: string,
+  version: string,
+  coordinate: string,
+  request?: Request,
+): Promise<{
+  canonical: { url: string } | null;
+  alternates: VersionAlternateRecord["alternates"];
+  bundled: boolean;
+}> {
+  const { hasApiPageAssets, getApiAssetCanonical } =
+    await import("./_internal/api/page-assets-runtime.js");
+  if (await hasApiPageAssets(collection)) {
+    const url = await getApiAssetCanonical(
+      collection,
+      version,
+      coordinate,
+      request,
+    );
+    return { canonical: url ? { url } : null, alternates: [], bundled: false };
+  }
+  const record = await getApiVersionAlternates(collection, version, coordinate);
+  return {
+    canonical: record?.canonical ?? null,
+    alternates: record?.alternates ?? [],
+    bundled: true,
+  };
 }
 
 /**

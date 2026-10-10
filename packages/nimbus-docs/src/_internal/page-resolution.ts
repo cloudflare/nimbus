@@ -8,7 +8,11 @@ import {
   type VersionInfo,
 } from "./collection-mount.js";
 import type { ProjectionContext } from "./projection.js";
-import { selectApiVersion } from "./api/resolve-versions.js";
+import {
+  LEGACY_VERSION_PARAM,
+  selectApiVersion,
+  type ApiQueryRouting,
+} from "./api/resolve-versions.js";
 import { toRouteKey } from "./url.js";
 
 export interface PageIdentity {
@@ -62,17 +66,12 @@ interface ProseResolutionDependencies {
   }>;
 }
 
-export interface ApiQueryVersionRouting {
-  defaultVersion: string;
-  versions: ReadonlySet<string>;
-}
+export type { ApiQueryRouting as ApiQueryVersionRouting } from "./api/resolve-versions.js";
 
 interface ApiResolutionDependencies {
   getApiCollections(): Promise<readonly string[]>;
   /** Query-mode routing info for a family, or `null` for path mode. */
-  getApiQueryRouting?(
-    collection: string,
-  ): Promise<ApiQueryVersionRouting | null>;
+  getApiQueryRouting?(collection: string): Promise<ApiQueryRouting | null>;
   getVisibleEntry(
     collection: string,
     id: string,
@@ -84,6 +83,18 @@ interface ApiResolutionDependencies {
     coordinate: string,
     entry?: CollectionEntry<string>,
   ): Promise<{ page: ApiPageProps; nav: ApiNav }>;
+}
+
+/** The same URL with 0.17's `api-version` renamed to `param`, or `null`. */
+function legacyVersionLocation(url: URL, param: string): string | null {
+  const params = url.searchParams;
+  if (param === LEGACY_VERSION_PARAM || params.has(param)) return null;
+  const value = params.get(LEGACY_VERSION_PARAM);
+  if (value === null) return null;
+  const next = new URLSearchParams();
+  for (const [key, entry] of params)
+    next.append(key === LEGACY_VERSION_PARAM ? param : key, entry);
+  return `${url.pathname}?${next}`;
 }
 
 function normalizedPathname(url: URL): string {
@@ -256,6 +267,9 @@ export async function resolveApiPage(
           : undefined;
       version = selected;
       if (!coordinate) return { status: "not-found" };
+      const legacy = legacyVersionLocation(context.url, queryRouting.param);
+      if (legacy)
+        return { status: "redirect", location: legacy, permanent: true };
     } else {
       entry =
         (await dependencies.getVisibleEntry(

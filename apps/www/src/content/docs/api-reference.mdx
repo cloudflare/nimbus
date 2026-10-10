@@ -266,7 +266,7 @@ api: [
   {
     collection: "api",
     label: "Acme API",
-    versionMode: "query",
+    versionUrl: { in: "query" },
     versions: [
       { version: "v2", spec: "./src/api/openapi-v2.yaml", default: true },
       { version: "v1", spec: "./src/api/openapi-v1.yaml" },
@@ -276,13 +276,15 @@ api: [
 ],
 ```
 
-Every version serves from the family's own path: `/api/pets/` renders the default version, `/api/pets/?api-version=v1` renders `v1`, and an unknown id, or `api-version` given more than once, returns the 404 page. An empty `api-version` selects the default. An operation keeps its path across versions only while its slug does: with the default operation ID routes, an operation renamed between versions has a different path in each, and the version picker links them. Version-prefixed paths such as `/api/v1/pets/` do not exist in this mode. Inside a non-default version, every generated same-version link — page body, navigation, breadcrumbs, citations, the picker's active item — carries that version's `api-version` query, so readers stay in the version they chose.
+Every version serves from the family's own path: `/api/pets/` renders the default version, `/api/pets/?version=v1` renders `v1`, and an unknown id, or `version` given more than once, returns the 404 page. An empty `version` selects the default. An operation keeps its path across versions only while its slug does: with the default operation ID routes, an operation renamed between versions has a different path in each, and the version picker links them. Version-prefixed paths such as `/api/v1/pets/` do not exist in this mode. Inside a non-default version, every generated same-version link — page body, navigation, breadcrumbs, citations, the picker's active item — carries that version's `version` query, so readers stay in the version they chose.
 
-Discovery stays version-free: the sitemap, alternate Markdown, `llms.txt`, and `llms-full.txt` describe the default version at the plain URLs. Non-default pages are `noindex`, with their default counterpart as canonical; a page with no default counterpart has no canonical. Per-page Markdown exists for the default version only: a `.md` URL serves the default version whatever its `api-version` says, and a non-default page requested with `Accept: text/markdown` answers with its HTML. A hidden version's pages are reached only by its query, but `hidden` is not access control: `/nimbus-api/coordinates.json` lists them, and its spec is published at `/api/<version>/openapi.json` unless the version sets `publishSpec: false`.
+To use another parameter name, set it with `versionUrl: { in: "query", param: "api-version" }` (any lowercase name). API pages requested with the 0.17 name, `?api-version=`, redirect permanently to the configured name. Avoid `lang`: the starter's code samples use it for the selected language.
 
-If a cache sits in front of the site, its cache key must keep the `api-version` parameter and vary on `Accept`, or readers get another version's page or the wrong format.
+Discovery stays version-free: the sitemap, alternate Markdown, `llms.txt`, and `llms-full.txt` describe the default version at the plain URLs. Non-default pages are `noindex`, with their default counterpart as canonical; a page with no default counterpart has no canonical. Per-page Markdown exists for the default version only: a `.md` URL serves the default version whatever its `version` says (with `bundle: false`, a non-default `version` returns 404 instead), and a non-default page requested with `Accept: text/markdown` answers with its HTML. A hidden version's pages are reached only by its query, but `hidden` is not access control: `/nimbus-api/coordinates.json` lists them, and its spec is published at `/api/<version>/openapi.json` unless the version sets `publishSpec: false`.
 
-Sites that don't set `versionMode` keep path versions unchanged, with one exception that applies in both modes: a version id uses lowercase letters, digits, dots, and dashes, and starts and ends with a letter or digit (`2026-11-30.air`). An existing id such as `-v1` or `v1-` must be renamed.
+If a cache sits in front of the site, its cache key must keep the version parameter and vary on `Accept`, or readers get another version's page or the wrong format.
+
+Sites that don't set `versionUrl` keep path versions (`{ in: "path" }`, the default) unchanged, with one exception that applies in both modes: a version id uses lowercase letters, digits, dots, and dashes, and starts and ends with a letter or digit (`2026-11-30.air`). An existing id such as `-v1` or `v1-` must be renamed.
 
 ### Sidebar for large APIs
 
@@ -465,6 +467,57 @@ Then run the Cloudflare adapter installer. It keeps an existing rendering policy
 Astro then logs "getStaticPaths() ignored in dynamic page" for the request-rendered API route. The warning is expected; see [Mix build and request rendering](/configuration#mix-build-and-request-rendering).
 
 The recipe's API catch-all uses Nimbus runtime helpers to resolve either mode. Request rendering changes the canonical HTML pages only. Alternate Markdown versions, coordinate data, search records, sitemaps, and `llms.txt` indexes remain build products, and requests consume prepared content entries rather than parsing the OpenAPI document.
+
+#### Large APIs and many versions
+
+A request-rendered API bundles its page data into the server. That suits most APIs. For a very large spec, or one that keeps many versions, set `bundle: false` on its entry so the server bundle stays small however many versions you add:
+
+```ts title="astro.config.ts"
+api: [
+  {
+    collection: "api",
+    versions: [/* … */],
+    bundle: false,
+  },
+],
+rendering: {
+  collections: { api: "request" },
+},
+```
+
+Nimbus then writes each page's data as static assets beside the site, shares unchanged pages between versions, and reads one version's index plus the requested page on each request. Each build also ships the previous successful build's page files, so a server still running that release during a rollout (for example a Node server in a blue-green swap) keeps working; on Cloudflare each Worker version already keeps its own files. The build suggests `bundle: false` when an API's bundled page data passes 16 MiB.
+
+Pages are read through an Astro live collection, which Astro only accepts from your own `src/live.config.ts`. Add it once; the build shows this snippet if it's missing:
+
+```ts title="src/live.config.ts"
+import { defineLiveCollection } from "astro:content";
+import { apiPagesLoader } from "@cloudflare/nimbus-docs/live";
+
+export const collections = {
+  apiPages: defineLiveCollection({ loader: apiPagesLoader() }),
+};
+```
+
+When Astro's route cache is enabled, each page is cached with the tags `nimbus-api:<collection>` and `nimbus-api:<collection>@<version>`.
+
+`bundle: false` needs the collection rendered on request and the Cloudflare or Node adapter; the build explains what to change otherwise. It also changes discovery for that API: search, `llms.txt`, `llms-full.txt`, the sitemap and Markdown versions cover the default version only. Older versions stay readable as HTML, with `noindex`, and their Markdown returns 404.
+
+Version pickers use one runtime helper in every rendering mode:
+
+```ts
+const href = await getVersionSwitchUrl({
+  collection: "api",
+  sourceVersion: "2026-10-09",
+  id: coordinate,
+  targetVersion: "2026-10-02",
+});
+```
+
+Import it from `@cloudflare/nimbus-docs/runtime` and apply `withBase` once when rendering the link. Pass the page's exact source version, including on the latest version's pages. The link goes to the same operation in the target version, or to that version's landing page when the operation doesn't exist there.
+
+For custom API heads, use `getApiVersionHead(collection, version, coordinate, request)` for the canonical link and the alternate versions; the starter's `ApiLayout` uses it too. `getApiVersionAlternates` still works, except for an API with `bundle: false`, where it throws `NIMBUS_API_EAGER_ALTERNATES` and the build points at any component that calls it. See upgrade entry `api-request-path`.
+
+With `bundle: false`, Nimbus reuses the versions you didn't change. In CI, restore `.nimbus/cache/page-assets/` before the build and save it after a successful deploy, not after preview builds, so "previous" means the live release; restore the whole directory. Key the cache by project, with a fallback key so adding a version keeps the earlier entries. Nimbus checks the cache's contents itself and rebuilds anything missing or damaged, so keep your specs in the repository, not only in the cache. Upgrading Nimbus can rebuild every version once.
 
 #### Prepared code examples
 

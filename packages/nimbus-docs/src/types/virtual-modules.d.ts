@@ -30,6 +30,7 @@ declare module "virtual:nimbus/config" {
   export const requestRenderingCollections: readonly string[];
   export const versionAlternates: import("../_internal/version-alternates.js").VersionAlternatesTable;
   export const apiCollections: readonly string[];
+  export const pageAssets: import("../_internal/api/page-assets-runtime.js").ApiPageAssetManifest;
   export const headDefaults: {
     favicon: { file: string; type: string };
     socialImage: string;
@@ -110,6 +111,14 @@ declare module "astro:content" {
     id: string,
   ): Promise<CollectionEntry<C> | undefined>;
 
+  export function getLiveEntry(
+    collection: string,
+    filter: Record<string, unknown>,
+  ): Promise<{
+    entry?: { id: string; data: Record<string, unknown> };
+    error?: Error;
+  }>;
+
   export function render(entry: CollectionEntry<string>): Promise<{
     Content: import("astro/runtime/server/index.js").AstroComponentFactory;
     headings: { depth: number; text: string; slug: string }[];
@@ -135,4 +144,13 @@ interface ImportMeta {
 declare module "virtual:nimbus/agent-capabilities" {
   export const capabilities: import("../types.js").AgentCapabilities;
   export const options: import("../_internal/agent-discovery.js").AgentDiscoveryOptions;
+}
+
+declare module "virtual:nimbus/staged-asset-loader" {
+  export const base: string;
+  export function fetchStagedAsset(
+    path: string,
+    request: Request,
+  ): Promise<Response | null> | Response | null;
+  export function readStagedAssetFile(path: string): Promise<string | null>;
 }

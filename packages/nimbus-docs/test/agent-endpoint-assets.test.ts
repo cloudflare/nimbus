@@ -459,6 +459,27 @@ test("bakes site and section llms.txt endpoint assets from public discoverable p
   );
 });
 
+test("without an llms-full.txt route, the document is neither built nor linked", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", [
+    { id: "guide", body: "Guide body", data: { title: "Guide" } },
+  ]);
+  configure(projectRoot, {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+    fullDocument: false,
+  });
+  const manifest = await ensureAgentEndpointAssets(projectRoot);
+  assert.ok(manifest.llmsAssets.every((asset) => asset.surface !== "full"));
+  const index = await readLlmsEndpointPayload(projectRoot, {
+    scope: "site",
+    surface: "index",
+  });
+  assert.doesNotMatch(index.body, /llms-full/);
+});
+
 test("Markdown and llms.txt endpoints expose metadata and stage bodies as assets", async () => {
   const projectRoot = await root();
   commit(projectRoot, "docs", [

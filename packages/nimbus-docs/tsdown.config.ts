@@ -14,6 +14,7 @@ export default defineConfig({
     build: "src/build.ts",
     config: "src/config.ts",
     content: "src/content.ts",
+    live: "src/live.ts",
     schemas: "src/schemas.ts",
     types: "src/types.ts",
     server: "src/server.ts",
@@ -32,6 +33,7 @@ export default defineConfig({
     "_internal/agent-discovery-middleware": "src/_internal/agent-discovery-middleware.ts",
     "_internal/request-route-inventory":
       "src/_internal/request-route-inventory.ts",
+    "_internal/version-switch-route": "src/_internal/version-switch-route.ts",
     "_internal/git-last-updated": "src/_internal/git-last-updated.ts",
     "_internal/agent-endpoint-assets":
       "src/_internal/agent-endpoint-assets.ts",

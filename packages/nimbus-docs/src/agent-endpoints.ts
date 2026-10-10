@@ -4,7 +4,7 @@ import type {
   LlmsEndpointAsset,
   MarkdownEndpointAsset,
 } from "./_internal/agent-endpoint-assets.js";
-import { withBase } from "./_internal/url.js";
+import { readStagedAsset } from "./_internal/staged-asset-reader.js";
 import {
   findOwnMarkdownRoute,
   higherMarkdownRouteOwner,
@@ -38,9 +38,6 @@ export type LlmsEndpointPayload = LlmsEndpointReference & {
 let agentEndpointAssetsModule: Promise<
   typeof import("virtual:nimbus/agent-endpoint-assets")
 > | null = null;
-let agentEndpointAssetLoaderModule: Promise<
-  typeof import("virtual:nimbus/agent-endpoint-asset-loader")
-> | null = null;
 let markdownByIdentity:
   | Map<string, MarkdownEndpointAsset>
   | undefined;
@@ -52,27 +49,9 @@ interface AgentEndpointContext {
   request?: Request;
 }
 
-function agentEndpointAssetResponseError(url: URL, status: number): Error {
-  if (status === 404) {
-    return new Error(
-      `nimbus-docs: agent-endpoint asset not found at ${url.href}; verify client assets were deployed.`,
-    );
-  }
-  return new Error(
-    `nimbus-docs: agent-endpoint asset at ${url.href} returned ${status}.`,
-  );
-}
-
 function loadAgentEndpointAssets() {
   agentEndpointAssetsModule ??= import("virtual:nimbus/agent-endpoint-assets");
   return agentEndpointAssetsModule;
-}
-
-function loadAgentEndpointAssetLoader() {
-  agentEndpointAssetLoaderModule ??= import(
-    "virtual:nimbus/agent-endpoint-asset-loader"
-  );
-  return agentEndpointAssetLoaderModule;
 }
 
 function markdownIdentity(reference: MarkdownEndpointReference): string {
@@ -97,47 +76,28 @@ async function readAssetBody(
   assetPath: string,
   context: AgentEndpointContext,
 ): Promise<string> {
-  const assets = await loadAgentEndpointAssets();
-  const publicPath = withBase(
-    `/_nimbus/agent-endpoint-assets/${assetPath}`,
-    assets.base,
+  return readStagedAsset(`_nimbus/agent-endpoint-assets/${assetPath}`, context);
+}
+
+async function selectedApiOutputIsDefault(
+  collection: string,
+  request?: Request,
+): Promise<boolean> {
+  if (!request) return true;
+  const url = new URL(request.url);
+  if (!url.search) return true;
+  const params = url.searchParams;
+  const { hasApiPageAssets } =
+    await import("./_internal/api/page-assets-runtime.js");
+  if (!(await hasApiPageAssets(collection))) return true;
+  const { loadNimbusConfig } = await import("./_internal/runtime-config.js");
+  const { apiQueryRouting, selectApiVersion } =
+    await import("./_internal/api/resolve-versions.js");
+  // Path-versioned and unversioned APIs have no query version to select.
+  const routing = apiQueryRouting((await loadNimbusConfig()).api, collection);
+  return (
+    !routing || selectApiVersion(params, routing) === routing.defaultVersion
   );
-  const request = context.request;
-  if (request) {
-    const assetUrl = new URL(publicPath, request.url);
-    const { fetchAgentEndpointAsset } = await loadAgentEndpointAssetLoader();
-    const response = await fetchAgentEndpointAsset(publicPath, request);
-    if (response) {
-      if (!response.ok) {
-        throw agentEndpointAssetResponseError(assetUrl, response.status);
-      }
-      return response.text();
-    }
-  }
-  try {
-    const [{ readFile }, path] = await Promise.all([
-      import("node:fs/promises"),
-      import("node:path"),
-    ]);
-    return await readFile(
-      path.join(
-        assets.projectRoot,
-        ".astro",
-        "nimbus",
-        "agent-endpoint-assets",
-        assetPath,
-      ),
-      "utf8",
-    );
-  } catch (error) {
-    if (!request) throw error;
-  }
-  const assetUrl = new URL(publicPath, request.url);
-  const response = await fetch(assetUrl);
-  if (!response.ok) {
-    throw agentEndpointAssetResponseError(assetUrl, response.status);
-  }
-  return response.text();
 }
 
 async function markdownIndexes() {
@@ -216,6 +176,13 @@ export async function getMarkdownPayload(options: {
   reference?: MarkdownEndpointReference;
   context?: AgentEndpointContext;
 }): Promise<MarkdownEndpointPayload | null> {
+  if (
+    !(await selectedApiOutputIsDefault(
+      options.reference?.collection ?? options.collection,
+      options.context?.request,
+    ))
+  )
+    return null;
   const indexes = await markdownIndexes();
   const asset = options.reference
     ? indexes.markdownByIdentity.get(markdownIdentity(options.reference))
@@ -343,6 +310,10 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
           }
         }
         if (!asset || asset.surface !== surface) return null;
+        if (
+          !(await selectedApiOutputIsDefault(asset.collection, context.request))
+        )
+          return null;
         return markdownPayload(asset, { request: context.request });
       }),
   };
@@ -382,6 +353,14 @@ export async function getLlmsPayload(
   reference: LlmsEndpointReference,
   context: AgentEndpointContext = {},
 ): Promise<LlmsEndpointPayload | null> {
+  if (
+    reference.scope === "section" &&
+    !(await selectedApiOutputIsDefault(
+      reference.section.split("/")[0]!,
+      context.request,
+    ))
+  )
+    return null;
   const { llmsByIdentity } = await llmsIndex();
   const asset = llmsByIdentity.get(llmsIdentity(reference));
   if (!asset) return null;
@@ -463,7 +442,10 @@ function createLlmsRoute(surface: "index" | "full"): LlmsRoute {
   return {
     GET: (context) =>
       endpointResponse(context, () =>
-        getLlmsPayload({ scope: "site", surface }, { request: context.request }),
+        getLlmsPayload(
+          { scope: "site", surface },
+          { request: context.request },
+        ),
       ),
   };
 }

@@ -1,4 +1,5 @@
 import { codeToHtml } from "shiki";
+import { usesPageAssets } from "./page-assets-config.js";
 
 import { defaultCodeTransformers } from "./code-transformers.js";
 import type {
@@ -138,7 +139,16 @@ function exampleSource(example: ApiExampleView): string {
     : JSON.stringify(example.value, null, 2);
 }
 
+let codeHighlightCalls = 0;
+export function getApiCodePreparationMetrics() {
+  return { highlightCalls: codeHighlightCalls };
+}
+export function resetApiCodePreparationMetrics(): void {
+  codeHighlightCalls = 0;
+}
+
 async function highlight(code: string, lang: string): Promise<string> {
+  codeHighlightCalls++;
   return codeToHtml(code, {
     lang,
     themes: { light: "github-light", dark: "github-dark" },
@@ -299,6 +309,7 @@ export async function configuredApiNavs(): Promise<
 > {
   const navs: Array<{ nav: ApiNav } & ApiNavBounds> = [];
   for (const entry of configuredApi) {
+    if (usesPageAssets(configuredRoot, entry.collection)) continue;
     for (const target of resolveApiFamily(entry)) {
       const model = await configuredApiModel(entry.collection, target.version);
       navs.push({ nav: getApiNav(model), sidebar: target.sidebar, mountPath: target.mountPath });

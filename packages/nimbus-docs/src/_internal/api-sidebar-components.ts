@@ -28,11 +28,13 @@ export function navBuildId(
   navs: readonly NavBuildInput[],
   srcDir: string,
   base: string,
+  externalizedIndexes?: unknown,
 ): string {
   const hash = createHash("sha256");
   const add = (value: string | Buffer) => hash.update(value).update("\0");
   add(runningNimbusVersion());
   add(base);
+  if (externalizedIndexes) add(JSON.stringify(externalizedIndexes));
   for (const { nav, sidebar, mountPath } of navs) {
     add(JSON.stringify({ sidebar, mountPath, nav }));
   }

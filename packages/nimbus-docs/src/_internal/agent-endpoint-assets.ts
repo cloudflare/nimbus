@@ -65,6 +65,8 @@ export interface MarkdownEndpointAsset extends MarkdownEndpointReference {
   contentEnd: number;
 }
 
+const LLMS_FULL_WARN_BYTES = 25 * 1024 * 1024;
+
 export type LlmsEndpointAsset = LlmsEndpointReference & {
   digest: string;
   mediaType: string;
@@ -104,6 +106,10 @@ export interface BakeAgentEndpointAssetsOptions {
   decidePublic?: (entry: PreparedMarkdownEntry) => AgentEndpointVisibilityDecision;
   apiEntries?: readonly LlmsEndpointApiEntry[];
   loadApiEntries?: () => Promise<readonly LlmsEndpointApiEntry[]>;
+  /** Reports build output that some hosts can't serve. */
+  warn?: (message: string) => void;
+  /** Whether a route serves `/llms-full.txt`. Default true. */
+  fullDocument?: boolean;
   renderApiEntryMarkdown?: (
     entry: LlmsEndpointApiEntry,
     base: string,
@@ -730,8 +736,12 @@ function siteIndexAsset(
     "",
     options.description ?? "Documentation index for AI agents.",
     "",
-    `Full documentation (discoverable current pages, one document): ${absoluteUrl(options.site, options.base, "/llms-full.txt")}`,
-    "",
+    ...(options.fullDocument === false
+      ? []
+      : [
+          `Full documentation (discoverable current pages, one document): ${absoluteUrl(options.site, options.base, "/llms-full.txt")}`,
+          "",
+        ]),
     "## Pages",
     "",
     ...rows.map((row) => row.line),
@@ -1494,24 +1504,29 @@ export async function bakeAgentEndpointAssets(
       reference: { scope: "site", surface: "index" },
       body: siteIndexAsset(leaves, groups, options),
     },
-    {
-      reference: { scope: "site", surface: "full" },
-      body: buildLlmsFullMarkdown(
-        llmsFullPages.map((page): LlmsFullBlock => ({
-          title: page.title,
-          description: page.description,
-          url: page.url,
-          markdownUrl: page.markdownUrl,
-          markdown: page.markdown,
-        })),
-        {
-          title: options.title,
-          description: options.description,
-          site: options.site,
-          base,
-        },
-      ),
-    },
+    // Without a route, the file would only be shipped, never served.
+    ...(options.fullDocument === false
+      ? []
+      : [
+          {
+            reference: { scope: "site" as const, surface: "full" as const },
+            body: buildLlmsFullMarkdown(
+              llmsFullPages.map((page): LlmsFullBlock => ({
+                title: page.title,
+                description: page.description,
+                url: page.url,
+                markdownUrl: page.markdownUrl,
+                markdown: page.markdown,
+              })),
+              {
+                title: options.title,
+                description: options.description,
+                site: options.site,
+                base,
+              },
+            ),
+          },
+        ]),
     ...groups.map((group) => ({
       reference: {
         scope: "section" as const,
@@ -1521,6 +1536,18 @@ export async function bakeAgentEndpointAssets(
       body: sectionIndexAsset(group, options),
     })),
   ];
+  const full = llmsBodies.find(
+    ({ reference }) =>
+      reference.scope === "site" && reference.surface === "full",
+  );
+  // Cloudflare serves static files up to 25 MiB; larger ones fail the deploy.
+  if (full && full.body.length * 3 > LLMS_FULL_WARN_BYTES) {
+    const bytes = Buffer.byteLength(full.body);
+    if (bytes > LLMS_FULL_WARN_BYTES)
+      options.warn?.(
+        `llms-full.txt is ${(bytes / 1024 / 1024).toFixed(1)} MiB, over Cloudflare's 25 MiB file limit, so the deploy will fail. To drop it, delete the route that serves it (usually src/pages/llms-full.txt.ts); llms.txt and each page's Markdown stay.`,
+      );
+  }
   const llmsRecords: Array<LlmsEndpointAsset & { body: string }> =
     llmsBodies.map(({ reference, body }) => {
       const fingerprint = digest(

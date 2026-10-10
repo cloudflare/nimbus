@@ -212,7 +212,7 @@ export const collections = {
   core: defineCollection(apiCollection()),
   qx: defineCollection(apiCollection({
     collection: "qx",
-    versionMode: "path",
+    versionUrl: { in: "path" },
     versions: [
       { version: "v2", spec: "./specs/qx-v2.json", default: true },
       { version: "v1", spec: "./specs/qx-v1.json" },
@@ -295,7 +295,7 @@ if (page instanceof Response) return page;
           api: [
             {
               collection: "qv",
-              versionMode: "query",
+              versionUrl: { in: "query" },
               versions: [
                 { version: "v2", spec: "./specs/v2.json", default: true },
                 { version: "v1", spec: "./specs/v1.json" },
@@ -305,7 +305,7 @@ if (page instanceof Response) return page;
             { collection: "core", spec: "./specs/core.json" },
             {
               collection: "qx",
-              versionMode: "query",
+              versionUrl: { in: "query" },
               versions: [
                 { version: "v2", spec: "./specs/qx-v2.json", default: true },
                 { version: "v1", spec: "./specs/qx-v1.json" },
@@ -342,23 +342,23 @@ test("the version comes from the query: default, explicit, empty, unknown, hidde
   assert.match(bare.html, /data-version="v2"/);
   assert.match(bare.html, /list-pets \(v2\)/);
 
-  const explicit = await page("/qv/list-pets/?api-version=v2");
+  const explicit = await page("/qv/list-pets/?version=v2");
   assert.equal(explicit.status, 200);
   assert.match(explicit.html, /data-version="v2"/);
 
-  const empty = await page("/qv/list-pets/?api-version=");
+  const empty = await page("/qv/list-pets/?version=");
   assert.equal(empty.status, 200);
   assert.match(empty.html, /data-version="v2"/);
 
-  const old = await page("/qv/list-pets/?api-version=v1");
+  const old = await page("/qv/list-pets/?version=v1");
   assert.equal(old.status, 200);
   assert.match(old.html, /data-version="v1"/);
   assert.match(old.html, /list-pets \(v1\)/);
 
-  const unknown = await page("/qv/list-pets/?api-version=nope");
+  const unknown = await page("/qv/list-pets/?version=nope");
   assert.equal(unknown.status, 404);
 
-  const hidden = await page("/qv/list-pets/?api-version=v0");
+  const hidden = await page("/qv/list-pets/?version=v0");
   assert.equal(hidden.status, 200);
   assert.match(hidden.html, /data-version="v0"/);
 });
@@ -376,7 +376,7 @@ test("store ids are not routes: version-prefixed paths 404, hidden included", as
 
 test("a slug only in an old version 404s bare and renders with its query", async () => {
   assert.equal((await page("/qv/legacy-report/")).status, 404);
-  const versioned = await page("/qv/legacy-report/?api-version=v1");
+  const versioned = await page("/qv/legacy-report/?version=v1");
   assert.equal(versioned.status, 200);
   assert.match(versioned.html, /data-version="v1"/);
 });
@@ -384,20 +384,20 @@ test("a slug only in an old version 404s bare and renders with its query", async
 test("a path-mode family ignores the parameter", async () => {
   const bare = await page("/core/create-charge/");
   assert.equal(bare.status, 200);
-  const withParam = await page("/core/create-charge/?api-version=bogus");
+  const withParam = await page("/core/create-charge/?version=bogus");
   assert.equal(withParam.status, 200);
   assert.match(withParam.html, /data-version="none"/);
 });
 
 test("every generated same-version link in a non-default page carries its query; the default's carry none", async () => {
-  const old = await page("/qv/list-pets/?api-version=v1");
+  const old = await page("/qv/list-pets/?version=v1");
   for (const cls of ["nav", "crumb", "self"]) {
     const hrefs = hrefsOf(old.html, cls);
     assert.ok(hrefs.length > 0, `${cls} links exist`);
     for (const href of hrefs) {
       assert.match(
         href,
-        /\?api-version=v1$/,
+        /\?version=v1$/,
         `${cls} link ${href} carries the version`,
       );
     }
@@ -406,21 +406,24 @@ test("every generated same-version link in a non-default page carries its query;
   const def = await page("/qv/list-pets/");
   for (const cls of ["nav", "crumb", "self"]) {
     for (const href of hrefsOf(def.html, cls)) {
-      assert.ok(!href.includes("api-version"), `${cls} link ${href} is version-free`);
+      assert.ok(
+        !/[?&]version=/.test(href),
+        `${cls} link ${href} is version-free`,
+      );
     }
   }
 });
 
 test("picker entries carry their destination's query and never list the hidden version", async () => {
-  const old = await page("/qv/list-pets/?api-version=v1");
+  const old = await page("/qv/list-pets/?version=v1");
   const picker = hrefsOf(old.html, "picker");
-  assert.deepEqual(picker.sort(), ["/qv/", "/qv/?api-version=v1"]);
+  assert.deepEqual(picker.sort(), ["/qv/", "/qv/?version=v1"]);
   // Alternates resolve the same coordinate across versions.
   const alts = hrefsOf(old.html, "alt");
   assert.deepEqual(alts, ["/qv/list-pets/"]);
 
   const def = await page("/qv/list-pets/");
-  assert.deepEqual(hrefsOf(def.html, "alt"), ["/qv/list-pets/?api-version=v1"]);
+  assert.deepEqual(hrefsOf(def.html, "alt"), ["/qv/list-pets/?version=v1"]);
 });
 
 test("head: the default is indexable with its Markdown alternate and card; non-defaults are noindex with the default counterpart as canonical and no Markdown affordance", async () => {
@@ -434,7 +437,7 @@ test("head: the default is indexable with its Markdown alternate and card; non-d
   assert.match(def.html, /property="og:image"[^>]*\/og\/qv\/list-pets\.png/);
   assert.match(def.html, /data-markdown="\/qv\/list-pets\/index\.md"/);
 
-  const old = await page("/qv/list-pets/?api-version=v1");
+  const old = await page("/qv/list-pets/?version=v1");
   assert.match(old.html, /name="robots" content="noindex"/);
   assert.match(
     old.html,
@@ -447,7 +450,7 @@ test("head: the default is indexable with its Markdown alternate and card; non-d
     "no per-page card for a non-default version",
   );
 
-  const oldOnly = await page("/qv/legacy-report/?api-version=v1");
+  const oldOnly = await page("/qv/legacy-report/?version=v1");
   assert.match(oldOnly.html, /name="robots" content="noindex"/);
   assert.ok(
     !/rel="canonical"/.test(oldOnly.html),
@@ -456,7 +459,7 @@ test("head: the default is indexable with its Markdown alternate and card; non-d
 
   // Slugs differ across versions (shape-fallback pairing): the canonical is
   // the default counterpart's URL, not the page's own query-free path.
-  const renamed = await page("/qv/make-pet/?api-version=v1");
+  const renamed = await page("/qv/make-pet/?version=v1");
   assert.equal(renamed.status, 200);
   assert.match(
     renamed.html,
@@ -490,7 +493,7 @@ test("agent assets cover the default version only, at version-free URLs", async 
     "/qv/list-pets/index.md",
   ]);
   for (const url of qvTwins) {
-    assert.ok(!url.includes("api-version") && !/\/qv\/v[01]\//.test(url), url);
+    assert.ok(!/[?&]version=/.test(url) && !/\/qv\/v[01]\//.test(url), url);
   }
 
   const twinAsset = manifest.markdownAssets.find(
@@ -502,13 +505,13 @@ test("agent assets cover the default version only, at version-free URLs", async 
   const qvLlms = manifest.llmsAssets.find((asset) => asset.section === "qv")!;
   const llmsText = await readFile(path.join(assetsDir, qvLlms.path), "utf8");
   assert.match(llmsText, /\/qv\/list-pets\//);
-  assert.ok(!llmsText.includes("api-version"), "llms.txt is version-free");
+  assert.ok(!/[?&]version=/.test(llmsText), "llms.txt is version-free");
   assert.ok(!llmsText.includes("legacy-report"), "no old-version lines");
   assert.ok(!llmsText.includes("/qv/v1/"), "no version-prefixed URLs");
 
   for (const site of manifest.llmsAssets.filter((asset) => asset.scope === "site")) {
     const text = await readFile(path.join(assetsDir, site.path), "utf8");
-    assert.ok(!text.includes("api-version"));
+    assert.ok(!/[?&]version=/.test(text));
     assert.ok(!text.includes("legacy-report"));
   }
 });
@@ -522,7 +525,7 @@ test("the sitemap lists each visible path once, version-free, with the family pr
   if (sitemapFile!.endsWith("sitemap-index.xml")) {
     xml = await readFile(path.join(root, "dist/sitemap-0.xml"), "utf8");
   }
-  assert.ok(!xml.includes("api-version"), "no version queries in the sitemap");
+  assert.ok(!/[?&]version=/.test(xml), "no version queries in the sitemap");
   const occurrences = xml.split("https://example.test/qv/list-pets/</loc>").length - 1;
   assert.equal(occurrences, 1, "each visible path appears exactly once");
   assert.ok(xml.includes("https://example.test/qv/</loc>"), "the family landing is listed");
@@ -531,19 +534,19 @@ test("the sitemap lists each visible path once, version-free, with the family pr
   assert.ok(!xml.includes("legacy-report"), "no old-only pages");
 });
 
-test("explicit apiCollection options follow the config entry's versionMode; getApiModel builds query-form models", async () => {
-  const old = await page("/qx/ping/?api-version=v1");
+test("explicit apiCollection options follow the config entry's versionUrl; getApiModel builds query-form models", async () => {
+  const old = await page("/qx/ping/?version=v1");
   assert.equal(old.status, 200);
   assert.match(old.html, /data-version="v1"/);
   assert.match(old.html, /data-markdown="none"/);
   for (const href of hrefsOf(old.html, "self")) {
-    assert.match(href, /^\/qx\/.*\?api-version=v1$/);
+    assert.match(href, /^\/qx\/.*\?version=v1$/);
   }
   // getApiModel("qx", "v1") nav links are query-form, never /qx/v1/… .
   const model = old.html.match(/data-model-hrefs="([^"]*)"/)?.[1] ?? "";
   assert.ok(model.length > 0, "the page rendered model nav hrefs");
   for (const href of model.split(" ")) {
-    assert.match(href, /\?api-version=v1$/, href);
+    assert.match(href, /\?version=v1$/, href);
     assert.ok(!href.startsWith("/qx/v1/"), href);
   }
   // Store ids are still not routes on the explicit family.
@@ -560,7 +563,7 @@ test("markdown negotiation never substitutes another version's twin", async () =
   assert.match(def.headers.get("Vary") ?? "", /Accept/, "the default negotiates");
 
   const old = await app.render(
-    new Request("https://example.test/qv/list-pets/?api-version=v1", {
+    new Request("https://example.test/qv/list-pets/?version=v1", {
       headers: { Accept: "text/markdown" },
     }),
   );

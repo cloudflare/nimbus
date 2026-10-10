@@ -1,4 +1,4 @@
-// Query-addressed API versions (`versionMode: "query"`). Pins the config
+// Query-addressed API versions (`versionUrl: { in: "query" }`). Pins the config
 // rules (query needs `versions` and effective request rendering; dotted
 // version ids are valid in both modes), the one URL builder every producer
 // goes through, `(version, slug) → entry` route resolution where store ids
@@ -15,8 +15,10 @@ import type { CollectionEntry } from "astro:content";
 import { validateNimbusConfig } from "../src/_internal/validate.js";
 import {
   apiVersionQuery,
+  apiQueryRouting,
   pageUrl,
   resolveApiFamily,
+  selectApiVersion,
 } from "../src/_internal/api/resolve-versions.js";
 import { buildApiVersionAlternates } from "../src/_internal/api/api-alternates.js";
 import { buildCitationIndex } from "../src/_internal/api/citation-index.js";
@@ -64,11 +66,11 @@ function withApi(api: unknown, rendering?: unknown): unknown {
   };
 }
 
-describe("versionMode config rules", () => {
+describe("versionUrl config rules", () => {
   const family = (extra: Record<string, unknown> = {}) => [
     {
       collection: "api",
-      versionMode: "query",
+      versionUrl: { in: "query" },
       versions: [
         { version: "v2", spec: "./v2.yaml", default: true },
         { version: "v1", spec: "./v1.yaml" },
@@ -93,11 +95,17 @@ describe("versionMode config rules", () => {
       () =>
         validateNimbusConfig(
           withApi(
-            [{ collection: "api", versionMode: "query", spec: "./openapi.yaml" }],
+            [
+              {
+                collection: "api",
+                versionUrl: { in: "query" },
+                spec: "./openapi.yaml",
+              },
+            ],
             { default: "request" },
           ),
         ),
-      /versionMode: "query" without "versions"/,
+      /versionUrl: \{ in: "query" \} without "versions"/,
     );
   });
 
@@ -128,9 +136,12 @@ describe("versionMode config rules", () => {
     );
     assert.doesNotThrow(() =>
       validateNimbusConfig(
-        withApi([{ collection: "api", versionMode: "query", versions }], {
-          default: "request",
-        }),
+        withApi(
+          [{ collection: "api", versionUrl: { in: "query" }, versions }],
+          {
+            default: "request",
+          },
+        ),
       ),
     );
     assert.throws(() =>
@@ -160,7 +171,7 @@ describe("versionMode config rules", () => {
 describe("pageUrl — the one URL builder", () => {
   const family: ApiSpec = {
     collection: "qv",
-    versionMode: "query",
+    versionUrl: { in: "query" },
     versions: [
       { version: "v2", spec: "v2.yaml", default: true },
       { version: "2026-11-30.air", spec: "v1.yaml" },
@@ -174,10 +185,10 @@ describe("pageUrl — the one URL builder", () => {
     assert.equal(pageUrl(def, ""), "/qv/");
     assert.equal(pageUrl(def, "charges/create"), "/qv/charges/create/");
     assert.equal(apiVersionQuery(def), "");
-    assert.equal(pageUrl(old, ""), "/qv/?api-version=2026-11-30.air");
+    assert.equal(pageUrl(old, ""), "/qv/?version=2026-11-30.air");
     assert.equal(
       pageUrl(old, "charges/create"),
-      "/qv/charges/create/?api-version=2026-11-30.air",
+      "/qv/charges/create/?version=2026-11-30.air",
     );
   });
 
@@ -201,13 +212,25 @@ describe("pageUrl — the one URL builder", () => {
     assert.equal(single.versionMode, "path");
     assert.equal(pageUrl(single, ""), "/solo/");
   });
+
+  test("versionUrl.param renames the query every link carries", () => {
+    const renamed = resolveApiFamily({
+      ...family,
+      versionUrl: { in: "query", param: "api-version" },
+    });
+    const old = renamed.find((t) => !t.isDefault)!;
+    assert.equal(
+      pageUrl(old, "charges/create"),
+      "/qv/charges/create/?api-version=2026-11-30.air",
+    );
+  });
 });
 
 describe("alternates and citations carry the query form", () => {
   const api: ApiSpec[] = [
     {
       collection: "qv",
-      versionMode: "query",
+      versionUrl: { in: "query" },
       versions: [
         {
           version: "v2",
@@ -234,20 +257,20 @@ describe("alternates and citations carry the query form", () => {
 
     const v1 = table["qv@v1:list-pets"];
     assert.ok(v1);
-    assert.equal(v1!.self.url, "/qv/list-pets/?api-version=v1");
+    assert.equal(v1!.self.url, "/qv/list-pets/?version=v1");
     assert.equal(v1!.canonical!.url, "/qv/list-pets/");
     const v2 = table["qv@v2:list-pets"];
     assert.equal(v2!.self.url, "/qv/list-pets/");
     assert.equal(v2!.canonical, null, "the default is self-canonical");
     assert.equal(
       v2!.alternates.find((a) => a.version === "v1")!.url,
-      "/qv/list-pets/?api-version=v1",
+      "/qv/list-pets/?version=v1",
       "picker entries carry their destination's query",
     );
 
     const oldOnly = table["qv@v1:legacy-report"];
     assert.ok(oldOnly, "an old-only operation still has a record");
-    assert.equal(oldOnly!.self.url, "/qv/legacy-report/?api-version=v1");
+    assert.equal(oldOnly!.self.url, "/qv/legacy-report/?version=v1");
     assert.equal(
       oldOnly!.canonical,
       null,
@@ -260,11 +283,11 @@ describe("alternates and citations carry the query form", () => {
     const { index } = await buildCitationIndex(api, FIXTURE_ROOT);
     assert.equal(index.get("qv:list-pets"), "/qv/list-pets");
     assert.equal(index.get("qv@v2:list-pets"), "/qv/list-pets");
-    assert.equal(index.get("qv@v1:list-pets"), "/qv/list-pets?api-version=v1");
-    assert.equal(index.get("qv@v1:qv"), "/qv?api-version=v1");
+    assert.equal(index.get("qv@v1:list-pets"), "/qv/list-pets?version=v1");
+    assert.equal(index.get("qv@v1:qv"), "/qv?version=v1");
     assert.equal(
       index.get("qv@v1:list-pets.response.200"),
-      "/qv/list-pets?api-version=v1#response-200",
+      "/qv/list-pets?version=v1#response-200",
       "anchored citations keep the query before the fragment",
     );
   });
@@ -278,7 +301,11 @@ test("a deferred page-less group on an old-version page loads that version's ove
       {
         label: "Pets",
         children: [
-          { label: "List pets", href: "/qv/list-pets?api-version=v1", children: [] },
+          {
+            label: "List pets",
+            href: "/qv/list-pets?version=v1",
+            children: [],
+          },
         ],
       },
     ],
@@ -287,11 +314,11 @@ test("a deferred page-less group on an old-version page loads that version's ove
     mode: "on-demand",
     mountPath: "/qv/v1",
     urlBasePath: "/qv",
-    urlQuery: "?api-version=v1",
+    urlQuery: "?version=v1",
   });
   const group = bound.items[0]!;
   assert.equal(group.deferred, true);
-  assert.equal(group.childrenHref, "/qv/?api-version=v1");
+  assert.equal(group.childrenHref, "/qv/?version=v1");
 });
 
 test("one spec never aliases path-form and query-form models in the cache", async () => {
@@ -309,11 +336,11 @@ test("one spec never aliases path-form and query-form models in the cache", asyn
     spec: inline,
     mountPath: "/alias/v1",
     urlBasePath: "/alias",
-    urlQuery: "?api-version=v1",
+    urlQuery: "?version=v1",
   });
   assert.equal(getApiPageProps(plain, "ping").href, "/alias/v1/ping/");
   assert.equal(getApiPageProps(plain, "ping").markdownHref, "/alias/v1/ping/index.md");
-  assert.equal(getApiPageProps(query, "ping").href, "/alias/ping/?api-version=v1");
+  assert.equal(getApiPageProps(query, "ping").href, "/alias/ping/?version=v1");
   assert.equal(getApiPageProps(query, "ping").markdownHref, undefined);
 });
 
@@ -324,7 +351,7 @@ describe("hidden versions and the sitemap", () => {
       api: [
         {
           collection: "qv",
-          versionMode: "query",
+          versionUrl: { in: "query" },
           versions: [
             { version: "v2", spec: "a.yaml", default: true },
             { version: "v0", spec: "b.yaml", hidden: true },
@@ -410,7 +437,11 @@ describe("query-mode route resolution — (version, slug) → entry", () => {
     },
     async getApiQueryRouting(collection: string) {
       if (collection !== "qv") return null;
-      return { defaultVersion: "v2", versions: new Set(["v2", "v1", "v0"]) };
+      return {
+        defaultVersion: "v2",
+        versions: new Set(["v2", "v1", "v0"]),
+        param: "version",
+      };
     },
     async getVisibleEntry(collection: string, id: string) {
       return entries.get(`${collection}:${id}`) ?? null;
@@ -438,11 +469,11 @@ describe("query-mode route resolution — (version, slug) → entry", () => {
     return resolveApiPage(context(pathname, slug), {}, dependencies);
   }
 
-  test("no query and ?api-version=<default> and ?api-version= (empty) all render the default", async () => {
+  test("no query and ?version=<default> and ?version= (empty) all render the default", async () => {
     for (const path of [
       "/qv/list-pets/",
-      "/qv/list-pets/?api-version=v2",
-      "/qv/list-pets/?api-version=",
+      "/qv/list-pets/?version=v2",
+      "/qv/list-pets/?version=",
     ]) {
       const result = await resolve(path, "list-pets");
       assert.equal(result.status, "found", path);
@@ -450,19 +481,19 @@ describe("query-mode route resolution — (version, slug) → entry", () => {
     }
   });
 
-  test("?api-version=<other> selects that version's entry", async () => {
-    const result = await resolve("/qv/list-pets/?api-version=v1", "list-pets");
+  test("?version=<other> selects that version's entry", async () => {
+    const result = await resolve("/qv/list-pets/?version=v1", "list-pets");
     assert.equal(result.status, "found");
     if (result.status === "found") assert.equal(result.page.version, "v1");
   });
 
   test("an unknown version id is a 404", async () => {
-    const result = await resolve("/qv/list-pets/?api-version=nope", "list-pets");
+    const result = await resolve("/qv/list-pets/?version=nope", "list-pets");
     assert.equal(result.status, "not-found");
   });
 
-  test("api-version given more than once is a 404, whatever the values", async () => {
-    for (const query of ["api-version=v1&api-version=v1", "api-version=v1&api-version=nope"]) {
+  test("version given more than once is a 404, whatever the values", async () => {
+    for (const query of ["version=v1&version=v1", "version=v1&version=nope"]) {
       const result = await resolve(`/qv/list-pets/?${query}`, "list-pets");
       assert.equal(result.status, "not-found", query);
     }
@@ -481,7 +512,7 @@ describe("query-mode route resolution — (version, slug) → entry", () => {
     const bare = await resolve("/qv/legacy-report/", "legacy-report");
     assert.equal(bare.status, "not-found");
     const versioned = await resolve(
-      "/qv/legacy-report/?api-version=v1",
+      "/qv/legacy-report/?version=v1",
       "legacy-report",
     );
     assert.equal(versioned.status, "found");
@@ -490,17 +521,130 @@ describe("query-mode route resolution — (version, slug) → entry", () => {
   });
 
   test("a hidden version is reachable by its query", async () => {
-    const result = await resolve("/qv/list-pets/?api-version=v0", "list-pets");
+    const result = await resolve("/qv/list-pets/?version=v0", "list-pets");
     assert.equal(result.status, "found");
     if (result.status === "found") assert.equal(result.page.version, "v0");
   });
 
   test("a path-mode family ignores the parameter entirely", async () => {
     const result = await resolve(
-      "/core/charges/create/?api-version=bogus",
+      "/core/charges/create/?version=bogus",
       "charges/create",
     );
     assert.equal(result.status, "found");
     if (result.status === "found") assert.equal(result.page.version, "v2");
+  });
+
+  test("0.17's ?api-version= redirects permanently to ?version=, keeping other params", async () => {
+    const result = await resolve(
+      "/qv/list-pets/?utm_source=x&api-version=v1",
+      "list-pets",
+    );
+    assert.deepEqual(result, {
+      status: "redirect",
+      location: "/qv/list-pets/?utm_source=x&version=v1",
+      permanent: true,
+    });
+  });
+
+  test("?api-version= with an unknown id is a 404, not a redirect", async () => {
+    const result = await resolve(
+      "/qv/list-pets/?api-version=nope",
+      "list-pets",
+    );
+    assert.equal(result.status, "not-found");
+  });
+
+  test("?version= wins over a stray ?api-version=", async () => {
+    const result = await resolve(
+      "/qv/list-pets/?version=v1&api-version=v0",
+      "list-pets",
+    );
+    assert.equal(result.status, "found");
+    if (result.status === "found") assert.equal(result.page.version, "v1");
+  });
+});
+
+describe("versionUrl.param", () => {
+  const routing = {
+    defaultVersion: "v2",
+    versions: new Set(["v2", "v1"]),
+    param: "v",
+  };
+
+  test("a custom name selects; the 0.17 name still selects; other names don't", () => {
+    assert.equal(selectApiVersion(new URLSearchParams("v=v1"), routing), "v1");
+    assert.equal(
+      selectApiVersion(new URLSearchParams("api-version=v1"), routing),
+      "v1",
+    );
+    assert.equal(
+      selectApiVersion(new URLSearchParams("version=v1"), routing),
+      "v2",
+    );
+  });
+
+  test("only query mode routes by query: a path-versioned family ignores ?version=", () => {
+    const versions = [
+      { version: "v2", spec: "v2.yaml", default: true },
+      { version: "v1", spec: "v1.yaml" },
+    ];
+    assert.equal(
+      apiQueryRouting([{ collection: "core", versions }], "core"),
+      null,
+    );
+    assert.equal(
+      apiQueryRouting(
+        [
+          {
+            collection: "qv",
+            versionUrl: { in: "query", param: "v" },
+            versions,
+          },
+        ],
+        "qv",
+      )?.param,
+      "v",
+    );
+  });
+
+  const family = (extra: Record<string, unknown>) => [
+    {
+      collection: "api",
+      versions: [
+        { version: "v2", spec: "./v2.yaml", default: true },
+        { version: "v1", spec: "./v1.yaml" },
+      ],
+      ...extra,
+    },
+  ];
+
+  const check = (extra: Record<string, unknown>) =>
+    validateNimbusConfig(withApi(family(extra), { default: "request" }));
+
+  test("validates as a lowercase name, only on query URLs", () => {
+    assert.doesNotThrow(() =>
+      check({ versionUrl: { in: "query", param: "api_version" } }),
+    );
+    assert.throws(
+      () => check({ versionUrl: { in: "query", param: "Version" } }),
+      /"api\[\]\.versionUrl\.param" must start with a lowercase letter/,
+    );
+    // A path URL has no parameter to name.
+    assert.throws(
+      () => check({ versionUrl: { in: "path", param: "v" } }),
+      /"api\[\]\.versionUrl\.param" names a query parameter, so it needs versionUrl: \{ in: "query" \}/,
+    );
+    assert.throws(
+      () => check({ versionUrl: { in: "header" } }),
+      /"api\[\]\.versionUrl" must be \{ in: "path" \} or \{ in: "query", param\?: string \}/,
+    );
+  });
+
+  test("0.17's versionMode names its replacement", () => {
+    assert.throws(
+      () => check({ versionMode: "query" }),
+      /sets versionMode, which is now versionUrl\. Replace versionMode: "query" with versionUrl: \{ in: "query" \}/,
+    );
   });
 });

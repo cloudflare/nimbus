@@ -221,7 +221,7 @@ const result = await getApiRoute(Astro);
 if (result instanceof Response) return result;
 const { page, nav, collection, version, coordinate } = result;
 // The generated per-page card exists for the default version's version-free
-// URL; a non-default query-mode page (its href carries ?api-version=) uses
+// URL; a non-default query-mode page (its href carries the version query) uses
 // the site's shared social image instead. The card path derives from the
 // documentation pathname, never from `page.href` verbatim — the query would
 // land inside the file name.
