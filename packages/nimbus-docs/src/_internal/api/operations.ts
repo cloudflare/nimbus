@@ -419,6 +419,7 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
         ? {
           mediaType: facts.example.mediaType,
           value: facts.example.value,
+          ...(requestEntry?.media.schema ? { schema: requestEntry.media.schema } : {}),
           ...(requestEntry?.media.encoding ? { encoding: requestEntry.media.encoding } : {}),
         }
         : undefined,
