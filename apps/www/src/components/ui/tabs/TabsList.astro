@@ -12,6 +12,7 @@ const { class: className, ...attrs } = Astro.props;
 ---
 
 <div
+  data-nb-tabs-list
   class={cn(
     // Scroll horizontally when the triggers exceed the column instead of
     // leaking past the page. Scrollbar hidden so it doesn't collide with the
@@ -22,7 +23,6 @@ const { class: className, ...attrs } = Astro.props;
     className,
   )}
   role="tablist"
-  data-nb-tabs-list
   {...attrs}
 >
   <span

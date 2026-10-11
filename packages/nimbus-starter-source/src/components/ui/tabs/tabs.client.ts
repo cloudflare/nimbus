@@ -5,13 +5,12 @@ import { mount, initTabs } from "@cloudflare/nimbus-docs/client";
 const TRIGGER_CLASS =
   "shrink-0 cursor-pointer px-4 py-2 text-sm font-medium leading-6 whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground aria-selected:text-primary focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]";
 
-let counter = 0;
+let panelCount = 0;
 
 function initTabContainer(container: HTMLElement): () => void {
-  const id = `nb-tabs-${counter++}`;
   const syncKey = container.dataset.nbSyncKey;
-  const tablist = container.querySelector<HTMLElement>("[role=tablist]");
-  const indicator = container.querySelector<HTMLElement>("[data-nb-tabs-indicator]");
+  const tablist = container.querySelector<HTMLElement>(":scope > [role=tablist]");
+  const indicator = tablist?.querySelector<HTMLElement>("[data-nb-tabs-indicator]") ?? null;
 
   // Scope to this container so a nested <Tabs>'s triggers don't flip the
   // parent into manual mode (or vice-versa), independent of mount order.
@@ -19,15 +18,24 @@ function initTabContainer(container: HTMLElement): () => void {
     container.querySelectorAll("[data-nb-tabs-trigger]"),
   ).filter((t) => (t as HTMLElement).closest("[data-nb-tabs]") === container);
   const synthesize = existingTriggers.length === 0;
+  // Only this container's own panels — exclude a nested <Tabs>'s panels,
+  // whose nearest [data-nb-tabs] ancestor is the inner container.
+  const panels = Array.from(
+    container.querySelectorAll<HTMLElement>("[data-nb-tabs-content]"),
+  ).filter((p) => p.closest("[data-nb-tabs]") === container);
+
+  if (!synthesize) {
+    // Manual triggers name their panel by `value`; initTabs pairs through aria-controls.
+    for (const trigger of existingTriggers as HTMLElement[]) {
+      const panel = panels.find((p) => p.dataset.nbValue === trigger.dataset.nbValue);
+      if (!panel) continue;
+      panel.id ||= `nb-tabs-panel-${panelCount++}`;
+      trigger.setAttribute("aria-controls", panel.id);
+    }
+  }
 
   if (synthesize && tablist) {
-    // Only this container's own panels — exclude a nested <Tabs>'s panels,
-    // whose nearest [data-nb-tabs] ancestor is the inner container.
-    const panels = Array.from(
-      container.querySelectorAll<HTMLElement>("[data-nb-tabs-content]"),
-    ).filter((p) => p.closest("[data-nb-tabs]") === container);
-
-    panels.forEach((panel, i) => {
+    panels.forEach((panel) => {
       const label = panel.dataset.nbTabLabel ?? "Tab";
       const btn = document.createElement("button");
       btn.role = "tab";
@@ -35,13 +43,6 @@ function initTabContainer(container: HTMLElement): () => void {
       btn.className = TRIGGER_CLASS;
       btn.textContent = label;
       btn.setAttribute("data-nb-tabs-trigger", "");
-
-      const panelId = `${id}-panel-${i}`;
-      const tabId = `${id}-tab-${i}`;
-      btn.id = tabId;
-      btn.setAttribute("aria-controls", panelId);
-      panel.id = panelId;
-      panel.setAttribute("aria-labelledby", tabId);
 
       if (indicator) {
         tablist.insertBefore(btn, indicator);

@@ -1,7 +1,8 @@
 ---
 /**
  * Steps — ordered list with numbered circles and connecting lines.
- * Wrap a markdown ordered list. Set `start` to offset the counter.
+ * Wrap a markdown ordered list, or only <Step> children; put any intro
+ * text before <Steps>. Set `start` to offset the counter.
  */
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
@@ -11,6 +12,10 @@ interface Props extends HTMLAttributes<"div"> {
 }
 
 const { start, class: className, ...attrs } = Astro.props;
+
+// <Step> children are list items; give them their list on the server.
+const content = await Astro.slots.render("default");
+const stepMode = /^\s*<li\b(?:[^>"']|"[^"]*"|'[^']*')*\sdata-step\b/.test(content);
 ---
 
 <div
@@ -19,7 +24,7 @@ const { start, class: className, ...attrs } = Astro.props;
   style={start !== undefined ? `--steps-start: ${start};` : undefined}
   {...attrs}
 >
-  <slot />
+  {stepMode ? <ol role="list" set:html={content} /> : <Fragment set:html={content} />}
 </div>
 
 <script>
@@ -29,87 +34,75 @@ const { start, class: className, ...attrs } = Astro.props;
 <style>
   .steps {
     --_start: var(--steps-start, 1);
+    --_marker: 1.75rem;
     margin: 1.5rem 0;
-    counter-reset: step calc(var(--_start) - 1);
   }
 
-  .steps :global(ol) {
+  .steps > :global(ol) {
     counter-reset: step calc(var(--_start) - 1);
     list-style: none;
     margin: 0;
     padding: 0;
   }
 
-  /* Markdown mode (ol > li) AND component mode ([data-step]) share styling.
-     Grid layout so the circle (col 1) lines up with the first row of column 2
-     via `align-items: center` — no font-metric guesswork. */
-  .steps :global(ol > li),
-  .steps :global([data-step]) {
-    display: grid;
-    grid-template-columns: 1.75rem 1fr;
-    column-gap: 0.75rem;
-    row-gap: 0.5rem;
-    align-items: center;
+  /* A padded item with a positioned number, so inline code and links flow
+     on the first line like any paragraph. */
+  .steps > :global(ol > li) {
     counter-increment: step;
     position: relative;
-    min-height: 1.75rem;
-    /* Cancel the prose li margin — step rhythm comes from padding/row-gap. */
+    min-height: var(--_marker);
+    /* Cancel the prose li margin — step rhythm comes from padding. */
     margin: 0;
-    padding-bottom: 1.5rem;
+    padding-block: 0 1.5rem;
+    padding-inline: calc(var(--_marker) + 0.75rem) 0;
   }
 
-  .steps :global(ol > li:last-child),
-  .steps :global([data-step]:last-child) {
+  .steps > :global(ol > li:last-child) {
     padding-bottom: 0;
   }
 
-  /* All non-marker content lives in column 2 — prevents the second+ child
-     from falling into column 1 (which is reserved for the circle). The
-     child selector lives inside :global() so Astro's scope hash doesn't
-     skip elements coming from Step.astro. */
-  .steps :global(ol > li > *),
-  .steps :global([data-step] > *) {
-    grid-column: 2;
-    min-width: 0;
-  }
-
-  /* Number marker — auto-placed in row 1 col 1, centered with col 2's first row. */
-  .steps :global(ol > li)::before,
-  .steps :global([data-step])::before {
+  /* Number marker, centred on the first line of text. */
+  .steps > :global(ol > li)::before {
     content: counter(step);
-    grid-row: 1;
-    grid-column: 1;
-    width: 1.75rem;
-    height: 1.75rem;
+    position: absolute;
+    inset-inline-start: 0;
+    top: 0;
+    top: max(0px, calc((1lh - var(--_marker)) / 2));
+    width: var(--_marker);
+    height: var(--_marker);
     border-radius: 0.5rem;
     background: var(--nb-accent);
     color: var(--nb-foreground);
     border: 1px solid var(--nb-border-strong);
     font-size: 0.6875rem;
     font-weight: 600;
+    line-height: 1;
     display: grid;
     place-items: center;
     z-index: 1;
   }
 
-  /* Connecting line — runs from below the circle to the bottom of the step. */
-  .steps :global(ol > li:not(:last-child))::after,
-  .steps :global([data-step]:not(:last-child))::after {
+  /* Connecting line — runs from below the marker to the bottom of the step. */
+  .steps > :global(ol > li:not(:last-child))::after {
     content: "";
     position: absolute;
-    left: calc(1.75rem / 2 - 0.75px);
-    top: 1.75rem;
+    inset-inline-start: calc(var(--_marker) / 2 - 0.75px);
+    top: var(--_marker);
+    top: calc(max(0px, (1lh - var(--_marker)) / 2) + var(--_marker));
     bottom: 0;
     width: 1.5px;
     background: var(--nb-border);
   }
 
-  .steps :global(ol > li > p:first-child > strong:only-child) {
+  .steps > :global(ol > li > p:first-child > strong:only-child) {
     color: var(--nb-foreground);
   }
 
-  /* Vertical rhythm comes from the grid row-gap, not p margins. */
-  .steps :global(ol > li > p) {
+  .steps > :global(ol > li > p) {
     margin: 0;
+  }
+
+  .steps > :global(ol > li > * + *) {
+    margin-top: 0.5rem;
   }
 </style>

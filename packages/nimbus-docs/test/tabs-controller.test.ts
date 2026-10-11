@@ -128,3 +128,33 @@ test("without boundarySelector, descendants are NOT scoped (legacy behavior)", (
   // Outer instance sweeps in all 4 triggers — inner ones get aria-selected.
   assert.equal(document.getElementById("i0")!.hasAttribute("aria-selected"), true);
 });
+
+test("tabs pair with panels through aria-controls and listen on their own tablist", () => {
+  document.body.innerHTML = `
+<div data-nb-tabs id="manual">
+  <div role="tablist" id="empty"></div>
+  <div role="tablist">
+    <button data-nb-tabs-trigger id="ta" aria-controls="pb">A</button>
+    <button data-nb-tabs-trigger id="tb" aria-controls="pa">B</button>
+  </div>
+  <div data-nb-tabs-content id="pa">panel a</div>
+  <div data-nb-tabs-content id="pb">panel b</div>
+</div>`;
+  const container = document.getElementById("manual")!;
+  const instance = initTabs({ container, ...cfg });
+  try {
+    const panel = (id: string) => document.getElementById(id)!;
+    // Panels are in the opposite order to their tabs.
+    assert.equal(panel("ta").getAttribute("aria-controls"), "pb");
+    assert.equal(panel("pb").getAttribute("aria-labelledby"), "ta");
+    assert.equal(panel("pb").hidden, false);
+    assert.equal(panel("pa").hidden, true);
+    panel("tb").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    assert.equal(instance.currentIndex, 1);
+    assert.equal(panel("tb").getAttribute("aria-selected"), "true");
+    assert.equal(panel("pa").hidden, false);
+    assert.equal(panel("pb").hidden, true);
+  } finally {
+    instance.destroy();
+  }
+});

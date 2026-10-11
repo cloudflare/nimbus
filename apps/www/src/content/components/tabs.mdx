@@ -12,7 +12,7 @@ props:
 ---
 import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";
-import { Tabs, TabItem } from "@/components/ui/tabs";
+import { Tabs, TabItem, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 ## Preview
 
@@ -83,6 +83,30 @@ Two Tabs instances with the same `syncKey` mirror each other — pick a tab once
     <Tabs syncKey="lang-demo">
       <TabItem label="TypeScript"><code>function load(id: string) {`{ ... }`}</code></TabItem>
       <TabItem label="JavaScript"><code>function load(id) {`{ ... }`}</code></TabItem>
+    </Tabs>
+  </div>
+</Example>
+
+### Manual
+
+For triggers you write yourself, use `TabsList`, `TabsTrigger` and `TabsContent`. Each trigger opens the panel with the same `value`, whatever order the panels are in. Text before `TabsList` stays above the tabs.
+
+<Example code={`<Tabs>
+  <TabsList>
+    <TabsTrigger value="npm">npm</TabsTrigger>
+    <TabsTrigger value="pnpm">pnpm</TabsTrigger>
+  </TabsList>
+  <TabsContent value="npm">npm install @cloudflare/nimbus-docs</TabsContent>
+  <TabsContent value="pnpm">pnpm add @cloudflare/nimbus-docs</TabsContent>
+</Tabs>`} contentClass="w-full">
+  <div class="w-full">
+    <Tabs>
+      <TabsList>
+        <TabsTrigger value="npm">npm</TabsTrigger>
+        <TabsTrigger value="pnpm">pnpm</TabsTrigger>
+      </TabsList>
+      <TabsContent value="npm"><code>npm install @cloudflare/nimbus-docs</code></TabsContent>
+      <TabsContent value="pnpm"><code>pnpm add @cloudflare/nimbus-docs</code></TabsContent>
     </Tabs>
   </div>
 </Example>
