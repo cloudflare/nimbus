@@ -708,6 +708,24 @@
         "On an API reference page of a site with versioned docs, confirm the header shows no docs version picker.",
         "On a docs page, confirm the header picker still lists every version and switches to the same page."
       ]
+    },
+    {
+      "id": "tabs-steps-accessibility",
+      "introducedIn": "0.18.0",
+      "mode": "optional",
+      "changeset": "accessibility-fixes",
+      "summary": "Manual tabs switch panels, Steps keep inline code and links on one line, and light-theme muted and warning text meets 4.5:1 contrast.",
+      "affected": "Sites with starter files from before 0.18.0, especially those using TabsList, TabsTrigger and TabsContent.",
+      "instructions": [
+        "Update @cloudflare/nimbus-docs first: the new Tabs files rely on its tab-to-panel pairing.",
+        "Run nimbus-docs outdated, then nimbus-docs diff <file> --apply for each file you haven't edited: src/components/ui/tabs/Tabs.astro, TabsContent.astro and tabs.client.ts; src/components/ui/steps/Steps.astro, Step.astro and steps.client.ts; src/components/ui/search/SearchDialog.astro, SearchTrigger.astro and search.client.ts.",
+        "For a file you've edited, review it with nimbus-docs diff <file> and port the change by hand.",
+        "If src/styles/globals.css is customized, set the light theme's --nb-muted-foreground to oklch(0.53 0 0), and --nb-warning and --nb-warning-foreground to oklch(0.55 0.144 57.5), or to values with at least 4.5:1 contrast on your backgrounds."
+      ],
+      "verify": [
+        "On a page with TabsList, TabsTrigger and TabsContent, clicking a tab and pressing the arrow keys switch panels.",
+        "In a Steps list, an item with inline code or a link stays on one line."
+      ]
     }
   ]
 }

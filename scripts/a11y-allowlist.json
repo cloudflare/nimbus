@@ -1,0 +1,7 @@
+[
+  {
+    "rule": "color-contrast",
+    "selector": ".nb-shiki-",
+    "reason": "Syntax-highlighting colours come from the site's code theme (user config), and focus-dimmed lines are dimmed on purpose."
+  }
+]

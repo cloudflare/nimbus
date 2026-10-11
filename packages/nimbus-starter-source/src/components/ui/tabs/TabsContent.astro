@@ -17,7 +17,7 @@ const { value, class: className, ...attrs } = Astro.props;
   role="tabpanel"
   data-nb-tabs-content
   data-nb-value={value}
-  class={cn(className)}
+  class={cn("mt-3", className)}
   {...attrs}
 >
   <slot />

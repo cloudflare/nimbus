@@ -1,0 +1,51 @@
+name: Accessibility checks
+
+on:
+  pull_request:
+    paths:
+      - "packages/nimbus-docs/**"
+      - "packages/nimbus-starter-source/**"
+      - "scripts/a11y-check.mjs"
+      - "scripts/a11y-allowlist.json"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/a11y.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/nimbus-docs/**"
+      - "packages/nimbus-starter-source/**"
+      - "scripts/a11y-check.mjs"
+      - "scripts/a11y-allowlist.json"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/a11y.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  axe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm --filter @cloudflare/nimbus-docs build
+      - run: pnpm a11y:check
+      - if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: a11y-report
+          path: .generated/a11y/report.json
+          if-no-files-found: ignore

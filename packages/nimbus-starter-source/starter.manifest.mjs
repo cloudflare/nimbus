@@ -89,8 +89,9 @@ export const STARTER_MANIFEST = {
 
   // Add path prefixes here (ending with "/") to strip whole trees from
   // shipped templates while keeping them in the canonical kitchen-sink
-  // dev tree. Nothing is currently dev-only.
-  devOnlyPaths: [],
+  // dev tree. The kitchen-sink pages hold component states the
+  // accessibility check covers; no site needs them.
+  devOnlyPaths: ["src/content/docs/kitchen-sink/"],
 
   // Root files upgrades track alongside src/. Every variant must ship each one.
   trackedRootFiles: ["AGENT.md", "CLAUDE.md", "tsconfig.json"],

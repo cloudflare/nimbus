@@ -1,0 +1,62 @@
+---
+title: Registry components
+description: Interactive components that ship through the registry. Not shipped in templates.
+---
+import { Accordion, AccordionTrigger, AccordionContent, AccordionGroup } from "@/components/ui/accordion";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { CodeGroup } from "@/components/ui/code-group";
+import { FileTree } from "@/components/ui/file-tree";
+import { CopyPrompt } from "@/components/ui/copy-prompt";
+
+## Accordion
+
+<AccordionGroup>
+  <Accordion>
+    <AccordionTrigger>What is Nimbus?</AccordionTrigger>
+    <AccordionContent>A docs framework built on Astro.</AccordionContent>
+  </Accordion>
+  <Accordion>
+    <AccordionTrigger>Can I edit the components?</AccordionTrigger>
+    <AccordionContent>Yes, they live in your repo.</AccordionContent>
+  </Accordion>
+</AccordionGroup>
+
+## Popover
+
+<Popover>
+  <PopoverTrigger>Open popover</PopoverTrigger>
+  <PopoverContent placement="bottom-start">Anchored content next to the trigger.</PopoverContent>
+</Popover>
+
+## Collapsible
+
+<Collapsible>
+  <CollapsibleTrigger>What's inside?</CollapsibleTrigger>
+  <CollapsibleContent>The hidden content.</CollapsibleContent>
+</Collapsible>
+
+## Code group
+
+<CodeGroup titles={["TypeScript", "JavaScript"]}>
+```ts
+export const answer: number = 42;
+```
+
+```js
+export const answer = 42;
+```
+</CodeGroup>
+
+## File tree
+
+<FileTree>
+- src/
+  - components/
+    - **Badge.astro**
+  - content/
+</FileTree>
+
+## Copy prompt
+
+<CopyPrompt text="Read the llms.txt file, then help me write a guide." />

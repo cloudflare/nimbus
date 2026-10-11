@@ -1,0 +1,59 @@
+---
+title: Kitchen sink
+description: Component states the accessibility check covers. Not shipped in templates.
+sidebar:
+  order: 100
+---
+import { TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Step } from "@/components/ui/steps";
+
+## Tabs from TabItem
+
+<Tabs>
+  <TabItem label="One">First panel.</TabItem>
+  <TabItem label="Two">Second panel.</TabItem>
+</Tabs>
+
+## Manual tabs
+
+Panels are in a different order from their triggers.
+
+<Tabs>
+  <TabsList>
+    <TabsTrigger value="npm">npm</TabsTrigger>
+    <TabsTrigger value="pnpm">pnpm</TabsTrigger>
+    <TabsTrigger value="yarn">yarn</TabsTrigger>
+  </TabsList>
+  <TabsContent value="yarn">Run `yarn add @cloudflare/nimbus-docs`.</TabsContent>
+  <TabsContent value="npm">Run `npm install @cloudflare/nimbus-docs`.</TabsContent>
+  <TabsContent value="pnpm">Run `pnpm add @cloudflare/nimbus-docs`.</TabsContent>
+</Tabs>
+
+## Nested tabs
+
+<Tabs>
+  <TabItem label="Outer A">
+    <Tabs>
+      <TabItem label="Inner A">Inner panel A.</TabItem>
+      <TabItem label="Inner B">Inner panel B.</TabItem>
+    </Tabs>
+  </TabItem>
+  <TabItem label="Outer B">Outer panel B.</TabItem>
+</Tabs>
+
+## Steps from a list
+
+<Steps>
+1. Run `npm i` now and [read more](/getting-started/) about it.
+2. A step with a paragraph.
+
+   And a second paragraph.
+3. **Done**
+</Steps>
+
+## Steps from Step
+
+<Steps>
+  <Step title="Install">Run <code>npm install</code>.</Step>
+  <Step title="Configure">Edit <code>astro.config.ts</code>.</Step>
+</Steps>

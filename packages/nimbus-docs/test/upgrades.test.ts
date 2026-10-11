@@ -51,6 +51,7 @@ test("only universally skippable entries are optional", () => {
       "publish-agent-skills",
       "shared-markdown-routes",
       "starter-component-fixes",
+      "tabs-steps-accessibility",
       "version-switcher-collections",
     ],
   );

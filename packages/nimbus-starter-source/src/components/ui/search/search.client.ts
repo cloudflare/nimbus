@@ -50,6 +50,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
 
   function clearResults(): void {
     for (const result of resultsContainer.querySelectorAll("[role='option']")) result.remove();
+    resultsContainer.hidden = true;
     input.setAttribute("aria-expanded", "false");
     input.removeAttribute("aria-activedescendant");
   }
@@ -137,6 +138,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
       emptyState.style.display = "none";
       input.setAttribute("aria-expanded", "true");
       for (const result of results) resultsContainer.appendChild(buildResult(result));
+      resultsContainer.hidden = false;
     } catch {
       if (signal.aborted) return;
       clearResults();

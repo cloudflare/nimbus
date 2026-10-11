@@ -50,6 +50,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
 
   function clearResults(): void {
     for (const result of resultsContainer.querySelectorAll("[role='option']")) result.remove();
+    resultsContainer.hidden = true;
     input.setAttribute("aria-expanded", "false");
     input.removeAttribute("aria-activedescendant");
   }
@@ -103,7 +104,9 @@ export function initSearch(config: SearchConfig): SearchInstance {
       initialized = true;
       return true;
     } catch {
-      emptyState.textContent = "Search could not load. Check your connection and reload the page. If it persists, ask the site owner to rebuild and deploy the search index.";
+      emptyState.textContent = import.meta.env.DEV
+        ? "Search is available after a production build."
+        : "Search could not load. Check your connection and reload the page. If it persists, ask the site owner to rebuild and deploy the search index.";
       return false;
     }
   }
@@ -135,6 +138,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
       emptyState.style.display = "none";
       input.setAttribute("aria-expanded", "true");
       for (const result of results) resultsContainer.appendChild(buildResult(result));
+      resultsContainer.hidden = false;
     } catch {
       if (signal.aborted) return;
       clearResults();
@@ -221,7 +225,7 @@ function primaryDialog(): SearchDialogElement | null {
 // through mount()'s per-element setup/teardown. A module-scoped boolean (not an
 // <html> attribute) is the guard: ClientRouter resets <html> on every swap but
 // keeps document listeners, so an attribute guard would stack a duplicate
-// keydown listener per navigation and break the Cmd+K toggle.
+// keydown handler each navigation (Cmd+K then toggles twice).
 let globalsBound = false;
 
 function bindGlobals() {

@@ -17,6 +17,11 @@ interface Props extends HTMLAttributes<"div"> {
 }
 
 const { syncKey, class: className, ...attrs } = Astro.props;
+
+// Manual mode brings its own TabsList, so don't render a second, empty one.
+const content = await Astro.slots.render("default");
+// Quote-aware: a class such as `[&>button]:px-1` holds a `>`.
+const manual = /^\s*<div\b(?:[^>"']|"[^"]*"|'[^']*')*\sdata-nb-tabs-list\b/.test(content);
 ---
 
 <div
@@ -25,10 +30,16 @@ const { syncKey, class: className, ...attrs } = Astro.props;
   class={cn(className)}
   {...attrs}
 >
-  <TabsList />
-  <div class="mt-3">
-    <slot />
-  </div>
+  {manual ? (
+    <Fragment set:html={content} />
+  ) : (
+    <Fragment>
+      <TabsList />
+      <div class="mt-3">
+        <Fragment set:html={content} />
+      </div>
+    </Fragment>
+  )}
 </div>
 
 <script>

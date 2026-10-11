@@ -15,6 +15,7 @@
     "api-reference:check": "node scripts/api-reference-check.mjs",
     "workers-feasibility:check": "node scripts/workers-feasibility-check.mjs",
     "webmcp:check": "node scripts/webmcp-check.mjs",
+    "a11y:check": "node scripts/a11y-check.mjs",
     "templates:check": "node scripts/templates-check.mjs",
     "templates:sync": "node scripts/sync-templates-repo.mjs",
     "upgrades:check": "node scripts/upgrade-manifest.mjs",
@@ -31,10 +32,11 @@
     "node": ">=22.12.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.62.1",
+    "@axe-core/playwright": "4.13.0",
     "@changesets/changelog-github": "^0.7.0",
     "@changesets/cli": "^2.31.0",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.62.1",
     "cross-spawn": "7.0.6",
     "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",

@@ -2,7 +2,9 @@
  * Shared tab activation primitive.
  *
  * Handles aria-selected, panel visibility, roving tabindex,
- * keyboard navigation, sliding indicator, and cross-instance sync.
+ * keyboard navigation, sliding indicator, and cross-instance sync. Each tab
+ * pairs with the panel its `aria-controls` names, else the panel at its
+ * position, and both get the ids and ARIA links that pairing needs.
  *
  * Used by: Tabs.astro, PackageManagers.astro
  */
@@ -46,6 +48,8 @@ export interface TabsInstance {
   destroy(): void;
 }
 
+let instanceCount = 0;
+
 export function initTabs(config: TabsConfig): TabsInstance {
   const { container, tabSelector, panelSelector, boundarySelector, indicator = null, rovingTabindex = true, sync, onActivate } = config;
 
@@ -56,7 +60,22 @@ export function initTabs(config: TabsConfig): TabsInstance {
   const owned = (el: HTMLElement) => !boundarySelector || el.closest(boundarySelector) === container;
   const tabs = Array.from(container.querySelectorAll<HTMLElement>(tabSelector)).filter(owned);
   const panels = Array.from(container.querySelectorAll<HTMLElement>(panelSelector)).filter(owned);
-  const tablist = container.querySelector("[role=tablist]") ?? container;
+  // The tabs' own tablist: a container can hold more than one.
+  const tablist = tabs[0]?.closest("[role=tablist]") ?? container.querySelector("[role=tablist]") ?? container;
+
+  const prefix = `nb-tabs-${instanceCount++}`;
+  const panelFor = tabs.map((tab, i) => {
+    const named = tab.getAttribute("aria-controls");
+    const panel = (named && panels.find((p) => p.id === named)) || panels[i];
+    if (!panel) return undefined;
+    if (!tab.id) tab.id = `${prefix}-tab-${i}`;
+    if (!panel.id) panel.id = `${prefix}-panel-${i}`;
+    tab.setAttribute("aria-controls", panel.id);
+    // Relabel when unset, or when it names a tab that's gone (a re-mount).
+    const label = panel.getAttribute("aria-labelledby");
+    if (!label || !document.getElementById(label)) panel.setAttribute("aria-labelledby", tab.id);
+    return panel;
+  });
 
   let currentIndex = -1;
   let isInitialActivation = true;
@@ -97,8 +116,8 @@ export function initTabs(config: TabsConfig): TabsInstance {
       }
     });
 
-    panels.forEach((panel, i) => {
-      const visible = i === index;
+    panels.forEach((panel) => {
+      const visible = panel === panelFor[index];
       panel.hidden = !visible;
       // Panels with no focusable children need tabindex="0" so keyboard
       // users can Tab into the content (WAI-ARIA Tabs pattern).
