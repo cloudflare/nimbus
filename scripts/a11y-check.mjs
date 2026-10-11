@@ -107,8 +107,9 @@ function record(route, theme, state, results) {
   }
 }
 
-// Every tablist has tabs, each tab names a panel that names it back, and
-// clicking a visible tab selects it and shows its panel.
+// Every tablist has tabs, each tab names a panel that names it back,
+// clicking a visible tab selects it and shows its panel, and the arrow keys,
+// Home and End move selection and focus.
 async function checkTabs(page, route, theme) {
   const problems = await page.evaluate(async () => {
     const out = [];
@@ -135,6 +136,27 @@ async function checkTabs(page, route, theme) {
         await new Promise((done) => requestAnimationFrame(done));
         if (tab.getAttribute("aria-selected") !== "true" || panel.hidden) {
           out.push(`${where}: clicking tab ${name} doesn't select it and show its panel`);
+        }
+      }
+      // Arrow keys, Home and End move selection between the visible tabs.
+      const visible = tabs.filter((tab) => tab.checkVisibility());
+      if (visible.length > 1) {
+        const press = async (tab, key) => {
+          tab.focus();
+          tab.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+          await new Promise((done) => requestAnimationFrame(done));
+        };
+        const expect = [
+          [visible[0], "ArrowRight", visible[1]],
+          [visible[1], "ArrowLeft", visible[0]],
+          [visible[0], "End", visible.at(-1)],
+          [visible.at(-1), "Home", visible[0]],
+        ];
+        for (const [from, key, to] of expect) {
+          await press(from, key);
+          if (document.activeElement !== to || to.getAttribute("aria-selected") !== "true") {
+            out.push(`${where}: ${key} from tab ${JSON.stringify(from.textContent.trim())} doesn't select and focus ${JSON.stringify(to.textContent.trim())}`);
+          }
         }
       }
       tabs.find((tab) => tab.checkVisibility())?.click();

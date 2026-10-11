@@ -20,8 +20,11 @@ const { syncKey, class: className, ...attrs } = Astro.props;
 
 // Manual mode brings its own TabsList, so don't render a second, empty one.
 const content = await Astro.slots.render("default");
-// Quote-aware: a class such as `[&>button]:px-1` holds a `>`.
-const manual = /^\s*<div\b(?:[^>"']|"[^"]*"|'[^']*')*\sdata-nb-tabs-list\b/.test(content);
+// It's manual when its TabsList comes before any TabItem, so intro text can
+// precede the list and Tabs nested in a panel don't count.
+const list = content.search(/\sdata-nb-tabs-list\b/);
+const item = content.search(/\sdata-nb-tab-label\b/);
+const manual = list !== -1 && (item === -1 || list < item);
 ---
 
 <div
