@@ -1,0 +1,160 @@
+---
+title: Content from other repositories
+description: Read a collection, or an OpenAPI spec, from a folder in another git repository, pinned to a commit or following a branch.
+sidebar:
+  order: 8
+---
+
+A product with several repositories keeps its docs next to its code: the SDK's guides live in the SDK repository, the API's spec with the API. A **content source** is a git repository Nimbus checks out at build time so a collection, or an `api` entry, can read files from it. The source is declared once in the Nimbus config; the pages it provides get the same sidebar, `llms.txt`, Markdown alternates, and citations as local ones.
+
+## Declare a source
+
+Add a `sources` map to the Nimbus config. Each entry names a repository, a ref, and the folder to read:
+
+```ts title="astro.config.ts"
+const nimbusConfig = defineNimbusConfig({
+  site: "https://docs.example.com",
+  title: "Acme",
+  sources: {
+    sdk: {
+      repo: "https://github.com/acme/sdk.git",
+      ref: "4f2c1e9a0b3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f",
+      path: "docs",
+    },
+  },
+});
+```
+
+| Key | Notes |
+| --- | --- |
+| `repo` | Anything `git clone` accepts: an `https` or `ssh` URL, or a local path. |
+| `ref` | A 40-character commit, or a branch or tag name. |
+| `path` | The folder to read, relative to the repository root. `""` reads the whole repository. |
+| `editPattern` | Optional edit-link pattern for the source's pages. See [Edit links](#edit-links). |
+
+The name (`sdk` here) is lowercase letters, digits, and dashes: it becomes the cache folder, `.nimbus/sources/sdk/`.
+
+Then register a collection that reads it, with `source` in place of `base`:
+
+```ts title="src/content.config.ts"
+import { defineCollection } from "astro:content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
+
+export const collections = {
+  docs: defineCollection(docsCollection()),
+  sdk: defineCollection(docsCollection({ source: "sdk" })),
+};
+```
+
+The `sdk` collection mounts at `/sdk`, like any collection that isn't `docs`. It still needs its route file and a sidebar entry, the same two steps as a local collection: run `nimbus-docs add new-collection` and name the collection, or write `src/pages/sdk/[...slug].astro` yourself and add `{ label: "SDK", autogenerate: { collection: "sdk" } }` to `sidebar.items`. Nothing under `src/content/sdk/` is needed; the files come from the checkout.
+
+Several collections and an `api` entry can read one source, and a site can declare several sources.
+
+## What happens at build time
+
+Each source is checked out once per commit into `.nimbus/sources/<name>/<commit>/`: a sparse checkout of `path` only, without file history, with the `.git` folder removed afterwards so the folder holds nothing but the files the site reads. The build log names each source and the commit it used:
+
+```text
+nimbus: source "sdk" (https://github.com/acme/sdk.git @ 4f2c1e9…): fetched commit 4f2c1e9a0b3d.
+```
+
+The checkout is the collection's folder for everything that follows: `nimbus-docs lint` and `nimbus-docs check` read it beside `src/content/`, an `api.ref:` citation in a remote page resolves, and the link checker reports a broken link in it like one in a local page.
+
+`.nimbus/` is ignored by git. On a fresh clone, such as a CI runner, the first build fetches each source; cache `.nimbus/sources` between runs to skip the fetch for a pinned commit.
+
+Remote pages have no git history of their own, so they get no "last updated" date unless their frontmatter sets `lastUpdated`.
+
+## Pin a commit, or follow a branch
+
+A **commit** is fetched once and cached forever. A site that pins its sources builds the same pages every time, offline, with no network call. This is the default to aim for; update the commit when the source's docs change.
+
+A **branch or tag** is resolved on every build with one `git ls-remote`, and refetched when it moves. The pages can change between two builds of the same site, so `nimbus-docs check` reports the source as floating:
+
+```text
+! sources.sdk follows ref "main" of https://github.com/acme/sdk.git, so its content can change between builds.
+  Pin a 40-character commit for reproducible builds (`git ls-remote https://github.com/acme/sdk.git main`).
+```
+
+Branches are for previews. A pull request in the source repository can build the docs site with its own branch by templating the ref, with the pinned commit as the fallback:
+
+```ts title="astro.config.ts"
+sources: {
+  sdk: {
+    repo: "https://github.com/acme/sdk.git",
+    ref: process.env.SDK_DOCS_REF ?? "4f2c1e9a0b3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f",
+    path: "docs",
+  },
+},
+```
+
+`check` reads a templated `ref` through its fallback, so the config stays statically checkable and the floating warning applies only to a literal branch or tag.
+
+When the remote can't be reached, a branch or tag builds from its last fetched commit with a warning. A pinned commit that was never fetched fails the build, naming the source: there is nothing else to build from. A `path` that doesn't exist at the commit fails the build too.
+
+## Private repositories
+
+Let git supply the credential, so `repo` stays a literal URL and `nimbus-docs check` can keep reading the config. Two ways that work in CI and locally:
+
+- **A credential helper.** `git config --global credential.helper` set to the host's helper, or the `gh auth setup-git` equivalent, answers git's prompt for the token. The config keeps `https://github.com/acme/sdk.git`.
+- **An `insteadOf` rewrite** in the runner's git config, which maps the literal URL to one that carries the token:
+
+  ```sh
+  git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+  ```
+
+SSH URLs (`git@github.com:acme/sdk.git`) use the runner's SSH key the same way.
+
+A token spliced into `repo` from an environment variable also works. Nimbus removes the password part of the URL from every log line, error, and file it writes, but `check` then sees a computed `sources` field and skips its source checks, and the token is visible to anything that traces git itself.
+
+<Aside type="caution" title="A source is trusted code">
+MDX from a source runs at build time exactly like MDX in `src/content/`: it can import modules and render components. Declare a source only for a repository whose contributors you'd let commit to the docs site. Pinning a commit fixes what runs; a branch runs whatever is pushed to it.
+</Aside>
+
+## API specs from a source
+
+An `api` entry can read its spec from a source instead of a local file. `path` is the file's path inside the repository, and it has to lie under the source's `path` (widen `path`, or set it to `""`, for a spec outside the docs folder):
+
+```ts title="astro.config.ts"
+sources: {
+  sdk: { repo: "https://github.com/acme/sdk.git", ref: "4f2c1e9…", path: "" },
+},
+api: [
+  { collection: "api", spec: { source: "sdk", path: "openapi/v1.yaml" } },
+],
+```
+
+Everything else about the [API reference](/api-reference) is unchanged; a version family can mix local specs and specs from a source.
+
+## Edit links
+
+The site's `editPattern` describes files in the docs repository, so it never applies to a remote page. Give the source its own pattern to link its pages to their repository:
+
+```ts title="astro.config.ts"
+sources: {
+  sdk: {
+    repo: "https://github.com/acme/sdk.git",
+    ref: process.env.SDK_DOCS_REF ?? "4f2c1e9a0b3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f",
+    path: "docs",
+    editPattern: "https://github.com/acme/sdk/edit/main/{path}",
+  },
+},
+```
+
+`{path}` is the file's path inside the repository (`docs/guides/install.md`), and `{ref}` is the `ref` as written in the config: a branch name stays a branch name. Without an `editPattern` on the source, `getEditUrl` returns `undefined` for its pages and the layout shows no edit link.
+
+## Development server
+
+`astro dev` reads the checkout as it is when the server starts and doesn't watch it, so editing files under `.nimbus/sources/` changes nothing; edit them in the source repository. Editing the Nimbus config restarts the server, which resolves a branch again and fetches it if it moved. After a build fetches a new commit for a source, restart the dev server to read it.
+
+## Timeouts
+
+Resolving a branch or tag has 30 seconds, and fetching a commit 10 minutes. Set `NIMBUS_SOURCES_RESOLVE_TIMEOUT` and `NIMBUS_SOURCES_FETCH_TIMEOUT` (seconds) to change them; a value that isn't a positive number, `0` included, keeps the default.
+
+## Checks
+
+`nimbus-docs check` reports, without a build:
+
+- `nimbus/source-floating-ref` (warning): a literal branch or tag `ref`.
+- `nimbus/source-unreferenced` (warning): a source no `docsCollection({ source })` and no `api` entry reads.
+
+A `ref` that looks like an abbreviated commit, a `path` that leaves the repository, or a spec `path` outside its source's `path` fail config validation, with the same message in `check` and in the build.

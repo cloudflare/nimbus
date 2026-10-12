@@ -201,7 +201,7 @@ Checks that couldn't run are listed as `notes` on their scope rather than as fin
 
 ## `nimbus-docs lint`
 
-Walks `src/content/`, runs each authoring rule you've enabled, prints diagnostics, and exits non-zero when any `error`-severity finding survives. The build is never gated by lint — drafts that fail lint still render under `astro dev`.
+Walks `src/content/` and the checkout of each [content source](/writing/content-sources), runs each authoring rule you've enabled, prints diagnostics, and exits non-zero when any `error`-severity finding survives. The build is never gated by lint — drafts that fail lint still render under `astro dev`.
 
 <PackageManagers pkg="@cloudflare/nimbus-docs" type="exec" args="lint" />
 

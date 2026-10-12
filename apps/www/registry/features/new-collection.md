@@ -42,6 +42,16 @@ edit configs — you do.
 
 Read this entire file before making any changes.
 
+**A collection read from another repository uses this recipe too.** When the
+Nimbus config declares the repository in `sources` (see
+https://nimbus-docs.com/writing/content-sources/), register the collection
+with `docsCollection({ source: "<name>" })` instead of `base`, skip the
+content directory and the starter entry (the files come from the checkout),
+and scaffold the route and the sidebar entry exactly as below. If the user
+wants a remote collection and `sources` doesn't declare the repository yet,
+add the `sources` entry to the Nimbus config first and point them at that
+page for `ref` (pin a commit) and credentials.
+
 ## 1. Discovery (read-only)
 
 Before prompting the user or writing anything, inspect the project to learn its
@@ -174,6 +184,13 @@ indentation. The new line:
 
 ```ts
 "<collection>": defineCollection(docsCollection({ base: "<collection>" })),
+```
+
+For a collection read from a content source, name the source instead of a
+folder (and skip step 4a):
+
+```ts
+"<collection>": defineCollection(docsCollection({ source: "<source>" })),
 ```
 
 **Two notes on this edit:**

@@ -99,6 +99,8 @@ export default defineConfig({
 
 The collection name is also its URL prefix: `api` mounts the reference at `/api`.
 
+A spec that lives in another repository is read through a content source: `spec: { source: "sdk", path: "openapi.yaml" }`, where `path` is the file's path inside that repository. See [Content from other repositories](/writing/content-sources#api-specs-from-a-source).
+
 The recipe then registers a loader-backed collection under the same key, preserving existing collections and custom schema fields:
 
 ```ts title="src/content.config.ts"

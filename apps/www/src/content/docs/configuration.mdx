@@ -49,6 +49,7 @@ export default defineConfig({
 | `search`                         | object \| `false` | Search backend. See [Search](/navigation/search).                             |
 | `versions`                       | object            | Versioning manifest — each version is its own content collection.             |
 | `rendering`                      | object            | Build or request rendering policy for canonical content collection routes.    |
+| `sources`                        | object            | Git repositories to read collections and API specs from. See [Content from other repositories](/writing/content-sources). |
 
 ### Rendering policy
 
@@ -155,6 +156,30 @@ See [Server adapters](/cli#server-adapters) for installer behavior and safety ch
 ##### Other Astro adapters
 
 For prose collections, use the official [Node](https://docs.astro.build/en/guides/integrations-guide/node/), [Netlify](https://docs.astro.build/en/guides/integrations-guide/netlify/), or [Vercel](https://docs.astro.build/en/guides/integrations-guide/vercel/) adapter with `output: "server"` and the same Nimbus rendering policy. Follow the adapter's deployment instructions, serve the generated static assets alongside the server, and verify the production HTTP responses. [Docs for agents](/ai/docs-for-agents#markdown-negotiation) includes a Node example and explains how static Markdown is retrieved on each target.
+
+### Content sources
+
+`sources` declares git repositories whose files a collection (`docsCollection({ source })`) or an `api` entry (`spec: { source, path }`) reads at build time. Each entry is checked out once per commit into `.nimbus/sources/<name>/<commit>/`.
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `repo` | string | Anything `git clone` accepts. Credentials come from git itself (a credential helper, an `insteadOf` rewrite, SSH). |
+| `ref` | string | A 40-character commit (fetched once, cached), or a branch or tag name (resolved on every build; `check` warns that it floats). |
+| `path` | string | Folder to read, relative to the repository root. Default `""`, the whole repository. |
+| `editPattern` | string | Edit-link pattern for the source's pages: `{path}` is the file's repository-relative path, `{ref}` the configured ref. Without it, the pages get no edit link. |
+
+```ts title="astro.config.ts"
+sources: {
+  sdk: {
+    repo: "https://github.com/acme/sdk.git",
+    ref: process.env.SDK_DOCS_REF ?? "4f2c1e9a0b3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f",
+    path: "docs",
+    editPattern: "https://github.com/acme/sdk/edit/{ref}/{path}",
+  },
+},
+```
+
+`NIMBUS_SOURCES_RESOLVE_TIMEOUT` (default 30) and `NIMBUS_SOURCES_FETCH_TIMEOUT` (default 600) set the seconds a build waits to resolve a ref and to fetch a commit; a value that isn't a positive number keeps the default. See [Content from other repositories](/writing/content-sources).
 
 ## Links and trailing slashes
 
