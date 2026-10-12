@@ -173,6 +173,12 @@ export const prerender = true;
 export const { GET, getStaticPaths } = llmsSectionRoute();
 `,
   );
+  // Lint severities the build materialises into \`.nimbus/lint.json\`: the link
+  // rule is an error site-wide and a warning for the remote collection.
+  const lintOptions = {
+    rules: { "nimbus/internal-link": "error" },
+    collections: { sdk: { rules: { "nimbus/internal-link": "warn" } } },
+  } as const;
   // The Nimbus config as text, for \`check\`; the build gets the same config inline.
   const astroConfig = (ref: string, extraSources = "") => `import { defineConfig } from "astro/config";
 import nimbus, { defineConfig as defineNimbusConfig } from "@cloudflare/nimbus-docs";
@@ -193,7 +199,7 @@ const nimbusConfig = defineNimbusConfig({
 
 export default defineConfig({
   output: "static",
-  integrations: [nimbus(nimbusConfig)],
+  integrations: [nimbus(nimbusConfig, ${JSON.stringify(lintOptions)})],
 });
 `;
 
@@ -238,7 +244,7 @@ export default defineConfig({
         vite: { cacheDir: path.join(site, ".vite") },
         logLevel: options.logLevel ?? "info",
         integrations: [
-          nimbus(siteConfig(ref, options.config), { admonitions: false, sitemap: false, validateMdx: false }),
+          nimbus(siteConfig(ref, options.config), { admonitions: false, sitemap: false, validateMdx: false, ...lintOptions }),
           captureVite,
         ],
       });
@@ -285,6 +291,16 @@ export default defineConfig({
     }).filter((finding) => finding.code === "nimbus/internal-link");
     assert.equal(linkFindings.length, 1, JSON.stringify(linkFindings));
     assert.match(linkFindings[0]!.message, /\/sdk\/nowhere/);
+    // `check --authoring` reaches the same file through the CLI wiring, and the
+    // remote collection's own rules apply: `collections.sdk` makes it a warning.
+    const authoring = await runChecks(site, { env: false, structure: false, authoring: true, types: false });
+    const remoteFindings = authoring.scopes
+      .flatMap((scope) => scope.findings)
+      .filter((finding) => finding.file?.includes(".nimbus/sources/sdk/"));
+    assert.equal(remoteFindings.length, 1, JSON.stringify(authoring.scopes.flatMap((scope) => scope.findings)));
+    assert.match(remoteFindings[0]!.file ?? "", /docs\/guides\/links\.mdx$/);
+    assert.equal(remoteFindings[0]!.code, "nimbus/internal-link");
+    assert.equal(remoteFindings[0]!.severity, "warn");
     // The dev server never watches the checkout.
     assert.ok(
       (viteConfig?.server?.watch?.ignored as string[]).includes(`${site.replaceAll("\\", "/")}/.nimbus/sources/**`),
@@ -301,9 +317,12 @@ export default defineConfig({
       assert.deepEqual(await filesContaining(path.join(site, dir), TOKEN), [], `no file under ${dir} holds the token`);
     }
 
-    // 2. The remote gone: a pinned ref is a cache hit and makes no fetch.
+    // 2. The remote gone: a pinned ref is a cache hit and makes no fetch. A
+    // source the config no longer declares loses its folder.
     await rename(remote.bare, `${remote.bare}.away`);
+    await mkdir(path.join(site, ".nimbus/sources/old", remote.commit), { recursive: true });
     const cached = await buildSite(remote.commit);
+    assert.ok(!existsSync(path.join(site, ".nimbus/sources/old")), "an undeclared source's folder is removed");
     assert.match(cached, new RegExp(`nimbus: source "sdk" \\(file://${remote.bare} @ ${remote.commit}\\): using cached commit ${remote.commit.slice(0, 12)}\\.`));
     assert.doesNotMatch(cached, /could not fetch|WARN.*source "sdk"/);
     assert.deepEqual(await gitCalls(), [], "no git network command ran");

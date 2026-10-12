@@ -13,7 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
-import { parseCollectionBases } from "../../src/_internal/parse-content-collections.js";
+import { parseCollectionBases, parseCollectionSources } from "../../src/_internal/parse-content-collections.js";
 
 function withTempConfig<T>(
   source: string,
@@ -281,4 +281,47 @@ export const collections = {
 test("parseCollectionBases returns null on a missing file", async () => {
   const map = await parseCollectionBases("/tmp/nimbus-no-such-file.ts");
   assert.equal(map, null);
+});
+
+test("parseCollectionSources maps a collection to its literal source, through shorthand too", async () => {
+  await withTempConfig(
+    `
+import { defineCollection } from "astro:content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
+
+const cli = defineCollection(docsCollection({ source: 'cli' }));
+
+export const collections = {
+  docs: defineCollection(docsCollection()),
+  sdk: defineCollection(docsCollection({ source: "sdk", pattern: "**/*.md" })),
+  cli,
+};
+`,
+    async (file) => {
+      const map = await parseCollectionSources(file);
+      assert.deepEqual([...map!], [["sdk", "sdk"], ["cli", "cli"]]);
+    },
+  );
+});
+
+test("parseCollectionSources skips a computed source and a collection without one", async () => {
+  await withTempConfig(
+    `
+import { defineCollection } from "astro:content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
+
+const name = process.env.SOURCE ?? "sdk";
+export const collections = {
+  docs: defineCollection(docsCollection({ base: "docs" })),
+  sdk: defineCollection(docsCollection({ source: name })),
+};
+`,
+    async (file) => {
+      assert.deepEqual([...(await parseCollectionSources(file))!], []);
+    },
+  );
+});
+
+test("parseCollectionSources returns null on a missing file", async () => {
+  assert.equal(await parseCollectionSources(path.join(os.tmpdir(), "nimbus-pcs-missing", "content.config.ts")), null);
 });

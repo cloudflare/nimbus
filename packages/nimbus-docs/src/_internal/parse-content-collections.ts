@@ -177,7 +177,16 @@ export async function parseCollectionSources(
   filePath: string,
 ): Promise<Map<string, string> | null> {
   const values = await parseCollectionValues(filePath);
-  if (values === null) return null;
+  return values === null ? null : collectionSourcesFromValues(values);
+}
+
+/** `parseCollectionSources` over the file's text, for callers that read it themselves. */
+export function parseCollectionSourcesFromText(source: string): Map<string, string> | null {
+  const values = parseCollectionValuesFromText(source);
+  return values === null ? null : collectionSourcesFromValues(values);
+}
+
+function collectionSourcesFromValues(values: Map<string, string>): Map<string, string> {
   const out = new Map<string, string>();
   for (const [key, valueText] of values) {
     const sourceMatch = valueText.match(/\bsource\s*:\s*["']([^"']+)["']/);
@@ -201,7 +210,10 @@ async function parseCollectionValues(
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw err;
   }
+  return parseCollectionValuesFromText(source);
+}
 
+function parseCollectionValuesFromText(source: string): Map<string, string> | null {
   const stripped = stripComments(source);
   const prefixMatch = stripped.match(EXPORT_PREFIX_PATTERN);
   if (!prefixMatch || prefixMatch.index === undefined) return null;

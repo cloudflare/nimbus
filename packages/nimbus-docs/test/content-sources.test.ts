@@ -3,6 +3,9 @@
 // build-free read of a templated ref.
 
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 
 import {
@@ -10,8 +13,10 @@ import {
   collectSourceSpecs,
   redactRepo,
   redactText,
+  sourceCollectionsFor,
   type SourceCheckout,
 } from "../src/_internal/content-sources.ts";
+import { partitionCheckoutFiles } from "../src/cli/lint.ts";
 import { __resetLastUpdatedForTests, getLastUpdatedFromGit, getLastUpdatedStats } from "../src/_internal/git-last-updated.ts";
 import { parseContentSourcePath } from "../src/_internal/source-paths.ts";
 import { validateNimbusConfig } from "../src/_internal/validate.ts";
@@ -217,5 +222,30 @@ test("a checkout path splits into source, commit and repository path, and gets n
     assert.deepEqual(getLastUpdatedStats(), { bulkLoaded: false, isShallow: false, bulkCount: 0, missCount: 0, cached: 0 });
   } finally {
     __resetLastUpdatedForTests();
+  }
+});
+
+test("lint --fix leaves checkout files aside, and a checkout file takes its collection's rules", () => {
+  const cwd = path.join(os.tmpdir(), "site");
+  const local = path.join(cwd, "src/content/docs/guide.mdx");
+  const remote = path.join(cwd, ".nimbus/sources/sdk", COMMIT, "docs/guide.mdx");
+  assert.deepEqual(partitionCheckoutFiles([local, remote], cwd), { local: [local], checkout: [remote] });
+
+  const dir = mkdtempSync(path.join(os.tmpdir(), "nimbus-sources-"));
+  try {
+    assert.deepEqual(sourceCollectionsFor(dir), {}, "no content config");
+    mkdirSync(path.join(dir, "src"), { recursive: true });
+    writeFileSync(
+      path.join(dir, "src/content.config.ts"),
+      `export const collections = {
+  docs: defineCollection(docsCollection()),
+  sdk: defineCollection(docsCollection({ source: "sdk" })),
+  "sdk-mirror": defineCollection(docsCollection({ source: "sdk" })),
+};
+`,
+    );
+    assert.deepEqual(sourceCollectionsFor(dir), { sdk: "sdk" }, "the first collection reading a source wins");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });

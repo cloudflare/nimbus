@@ -8,6 +8,7 @@
  * disk-walking entry points (`lintPaths`) sit on top.
  */
 
+import { parseContentSourcePath } from "../_internal/source-paths.js";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -50,6 +51,12 @@ export interface LintOptions {
    * duplicate it in their lint config.
    */
   site?: string;
+  /**
+   * Content source name → the collection that reads it, so a file under
+   * `.nimbus/sources/<name>/` gets that collection's `collections.<key>.rules`
+   * like a file under `src/content/<key>/` does.
+   */
+  sourceCollections?: Readonly<Record<string, string>>;
   /**
    * Cancellation signal — checked between files in `lintPaths`/`fixPaths`.
    * The CLI wires this to SIGINT so Ctrl-C stops the run after the
@@ -249,7 +256,7 @@ export function lintPaths(
       const parsed = parseSource(source, {
         path: rel,
         absPath: abs,
-        collection: inferCollection(rel),
+        collection: fileCollection(rel, opts),
       });
       out.push(...lintFile(parsed, opts));
     } catch (err) {
@@ -321,7 +328,7 @@ export function fixPaths(
         const parsed = parseSource(current, {
           path: rel,
           absPath: abs,
-          collection: inferCollection(rel),
+          collection: fileCollection(rel, opts),
         });
         const diagnostics = lintFile(parsed, opts);
         const result = applyFixes(current, diagnostics);
@@ -383,6 +390,14 @@ export function summarize(diagnostics: Diagnostic[], files: number): LintSummary
     else warnings++;
   }
   return { errors, warnings, total: diagnostics.length, files };
+}
+
+/** The collection a file belongs to: `src/content/<name>/…`, or the collection reading its content source. */
+function fileCollection(relPath: string, opts: LintOptions): string | null {
+  const local = inferCollection(relPath);
+  if (local !== null) return local;
+  const source = parseContentSourcePath(relPath);
+  return (source && opts.sourceCollections?.[source.name]) ?? null;
 }
 
 /** Infer the collection name from a `src/content/<name>/…` path. */

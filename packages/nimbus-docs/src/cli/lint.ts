@@ -20,7 +20,8 @@ import path from "node:path";
 
 import type { Features } from "satteri";
 
-import { listContentSourceContentDirs } from "../_internal/content-sources.js";
+import { listContentSourceContentDirs, sourceCollectionsFor } from "../_internal/content-sources.js";
+import { isContentSourcePath } from "../_internal/source-paths.js";
 import { setMarkdownFeatures } from "../_internal/markdown-features.js";
 import { materializedFeatures } from "../check/authoring.js";
 import { isBuildValidator } from "../lint/diagnostic.js";
@@ -143,6 +144,7 @@ export async function lintCommand(flags: LintCliFlags): Promise<void> {
     rules,
     collections,
     site,
+    sourceCollections: sourceCollectionsFor(cwd),
     // `flags.rule` already passed through validation that rejects build
     // validators; the cast here is the type-level reflection of that runtime
     // narrowing (LintOptions.only is `AuthoringRuleCode` because `--rule`
@@ -172,7 +174,12 @@ export async function lintCommand(flags: LintCliFlags): Promise<void> {
     };
     process.on("SIGINT", onSigint);
     try {
-      const result = fixPaths(files, cwd, { ...opts, signal: ac.signal });
+      // A checkout is a commit's files: never rewritten. Its findings are
+      // reported with their fixes unapplied; the fix belongs in the source
+      // repository.
+      const { local, checkout } = partitionCheckoutFiles(files, cwd);
+      const result = fixPaths(local, cwd, { ...opts, signal: ac.signal });
+      if (!ac.signal.aborted) result.diagnostics.push(...lintPaths(checkout, cwd, opts));
       if (result.fixed > 0) {
         process.stderr.write(
           `Fixed ${result.fixed} issue(s) across ${result.filesChanged} file(s).\n`,
@@ -215,6 +222,19 @@ export async function lintCommand(flags: LintCliFlags): Promise<void> {
   // can distinguish a clean run from a partial one.
   if (interrupted) process.exit(130);
   process.exit(summary.errors > 0 ? 1 : 0);
+}
+
+/** Files under a content-source checkout, apart from the project's own. */
+export function partitionCheckoutFiles(
+  files: readonly string[],
+  cwd: string,
+): { local: string[]; checkout: string[] } {
+  const local: string[] = [];
+  const checkout: string[] = [];
+  for (const file of files) {
+    (isContentSourcePath(path.relative(cwd, file)) ? checkout : local).push(file);
+  }
+  return { local, checkout };
 }
 
 /**

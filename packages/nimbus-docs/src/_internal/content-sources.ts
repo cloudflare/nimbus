@@ -20,6 +20,7 @@ import { promisify } from "node:util";
 
 import type { ApiSpec, ContentSource, NimbusConfig } from "../types.js";
 import { authorError } from "./author-error.js";
+import { parseCollectionSourcesFromText } from "./parse-content-collections.js";
 import { preparedMarkdownRootKey } from "./prepared-markdown-registry.js";
 import { SOURCES_DIR } from "./source-paths.js";
 
@@ -388,7 +389,50 @@ export async function checkoutContentSources(
   for (const [name, source] of Object.entries(sources ?? {})) {
     checkouts.set(name, await ensureSourceCheckout(name, source, options.projectRoot, options.log));
   }
+  pruneUndeclaredSources(options.projectRoot, checkouts);
   return checkouts;
+}
+
+/**
+ * After every source is checked out, the folder of a source the config no
+ * longer declares (removed or renamed) goes, so `lint` and `check` stop
+ * reading its pages. A folder with a `.tmp-*` fetch in progress stays.
+ */
+function pruneUndeclaredSources(projectRoot: string, declared: ReadonlyMap<string, unknown>): void {
+  const root = path.join(projectRoot, ".nimbus", "sources");
+  if (!fs.existsSync(root)) return;
+  for (const name of fs.readdirSync(root)) {
+    if (declared.has(name)) continue;
+    const dir = path.join(root, name);
+    let entries: string[];
+    try {
+      entries = fs.readdirSync(dir);
+    } catch {
+      continue;
+    }
+    if (entries.some((entry) => entry.includes(".tmp-"))) continue;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Content source name → the collection registered to read it in
+ * `src/content.config.ts`, for the per-collection lint rules of checkout
+ * files. Empty when the file is missing or can't be read statically; the
+ * first collection wins when several read one source.
+ */
+export function sourceCollectionsFor(projectRoot: string): Record<string, string> {
+  let text: string;
+  try {
+    text = fs.readFileSync(path.join(projectRoot, "src", "content.config.ts"), "utf8");
+  } catch {
+    return {};
+  }
+  const out: Record<string, string> = {};
+  for (const [collection, source] of parseCollectionSourcesFromText(text) ?? []) {
+    out[source] ??= collection;
+  }
+  return out;
 }
 
 // Checkouts per project root, for the loaders `docsCollection({ source })`
