@@ -1050,8 +1050,9 @@ export function nimbus(
         setLinkPolicy({ trailingSlash: astroConfig.trailingSlash, format: astroConfig.build.format });
         // Content sources come first: the API spec read and the citation
         // index below read files inside the checkouts, and so do the loaders
-        // at content sync. `preview` serves a finished build and needs none.
-        if (command !== "preview") {
+        // at content sync. Every command, `preview` included, since the
+        // citation index runs here for each; a pinned ref is a cache hit.
+        {
           const checkouts = await checkoutContentSources(config.sources, {
             projectRoot,
             log: (level, message) => logger[level](message),
