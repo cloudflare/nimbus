@@ -1,0 +1,23 @@
+packages/nimbus-docs/src/cli/index.ts
+  s_eb83b839438fad::t_b7423b46987a45 13,38,127,152,156,335-341,510-511,520-521,535-537,543
+packages/nimbus-docs/src/cli/upgrade.ts
+  s_eb83b839438fad::t_da6b15c1b0cbe5 520,654
+packages/nimbus-docs/test/cli-overwrite.test.ts
+  s_eb83b839438fad::t_5ee070bbb8ec84 12,195-199,245,247,262,282,333,349,379,385-424
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "099c10e2a455ddda257dc5cedd4dd3bedeca425b",
+  "prompts": {},
+  "sessions": {
+    "s_eb83b839438fad": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ece6c2b92ffeWboX3APqd9i0Ik",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
