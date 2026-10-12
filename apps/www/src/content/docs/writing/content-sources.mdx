@@ -140,7 +140,7 @@ sources: {
 },
 ```
 
-`{path}` is the file's path inside the repository (`docs/guides/install.md`), and `{ref}` is the `ref` as written in the config: a branch name stays a branch name. Without an `editPattern` on the source, `getEditUrl` returns `undefined` for its pages and the layout shows no edit link.
+`{path}` is the file's path inside the repository (`docs/guides/install.md`), and `{ref}` is the `ref` as written in the config: a branch name stays a branch name. `{ref}` suits a ref that is always a branch; with a pinned commit, write the branch name into the pattern as above, since a commit in an edit URL (`edit/4f2c1e9…/docs/guides/install.md`) opens a read-only view on common hosts. Without an `editPattern` on the source, `getEditUrl` returns `undefined` for its pages and the layout shows no edit link.
 
 ## Development server
 

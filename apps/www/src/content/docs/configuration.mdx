@@ -179,6 +179,8 @@ sources: {
 },
 ```
 
+`{ref}` suits a ref that is always a branch; with a pinned commit, write the branch name into the pattern instead (`edit/main/{path}`), since a commit in an edit URL opens a read-only view on common hosts.
+
 `NIMBUS_SOURCES_RESOLVE_TIMEOUT` (default 30) and `NIMBUS_SOURCES_FETCH_TIMEOUT` (default 600) set the seconds a build waits to resolve a ref and to fetch a commit; a value that isn't a positive number keeps the default. See [Content from other repositories](/writing/content-sources).
 
 ## Links and trailing slashes
