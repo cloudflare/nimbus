@@ -29,14 +29,19 @@ function initPageActions(root: HTMLElement): () => void {
   }
 
   async function handleCopyPage() {
+    const markdown = fetch(mdUrl!).then(async (res) => {
+      if (!res.ok) throw new Error(`${res.status}`);
+      return new Blob([await res.text()], { type: "text/plain" });
+    });
+    markdown.catch(() => {});
     try {
-      const res = await fetch(mdUrl!);
-      if (!res.ok) {
-        showState("error");
-        return;
+      // Hand the clipboard a pending item inside the click: Safari refuses a
+      // write that starts after the fetch resolves.
+      if (typeof ClipboardItem === "function") {
+        await navigator.clipboard.write([new ClipboardItem({ "text/plain": markdown })]);
+      } else {
+        await navigator.clipboard.writeText(await (await markdown).text());
       }
-      const text = await res.text();
-      await navigator.clipboard.writeText(text);
       showState("copied");
     } catch {
       showState("error");

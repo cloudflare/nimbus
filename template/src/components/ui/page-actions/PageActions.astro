@@ -25,6 +25,7 @@ const formattedDate = lastUpdated
 {(markdownUrl || lastUpdated) && (
   <div
     data-nb-page-actions
+    data-pagefind-ignore
     data-md-url={resolvedMarkdownUrl}
     class={cn("not-prose -ml-2 flex flex-wrap items-center gap-y-1 text-[0.8125rem]", className)}
     {...attrs}

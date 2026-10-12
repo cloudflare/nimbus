@@ -28,14 +28,9 @@ import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
         </DialogClose>
       </div>
 
-      <div
-        data-search-results
-        role="listbox"
-        id="search-listbox"
-        aria-orientation="vertical"
-        class="min-h-40 overflow-y-auto p-2"
-      >
-        <p data-search-empty class="py-8 text-center text-sm text-muted-foreground">
+      <div class="min-h-40 overflow-y-auto p-2">
+        <div data-search-results role="listbox" id="search-listbox" aria-orientation="vertical"></div>
+        <p data-search-empty role="status" class="py-8 text-center text-sm text-muted-foreground">
           Type to search…
         </p>
       </div>

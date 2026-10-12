@@ -21,10 +21,10 @@ const { items, maxVisible = 4, endsAtCurrentPage = true, class: className, ...at
 const isCurrent = (isLast: boolean): boolean => endsAtCurrentPage && isLast;
 const resolveHref = (href: string): string => withBase(href, import.meta.env.BASE_URL);
 
-const shouldCollapse = items.length > maxVisible;
 // When collapsed: Home + first segment + ... + last 2 (parent + current)
 const headCount = 2; // Home + first segment
 const tailCount = 2; // parent + current page
+const shouldCollapse = items.length > Math.max(maxVisible, headCount + tailCount);
 const headItems = shouldCollapse ? items.slice(0, headCount) : items;
 const collapsedItems = shouldCollapse ? items.slice(headCount, items.length - tailCount) : [];
 const tailItems = shouldCollapse ? items.slice(items.length - tailCount) : [];

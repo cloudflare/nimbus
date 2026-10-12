@@ -22,7 +22,7 @@ src/
 │   ├── [...slug].astro
 │   ├── [...slug]/index.md.ts   # Markdown version of every page, all collections
 │   ├── [...slug]/index.mdx.ts  # authored source of every page, all collections
-│   ├── [section]/llms.txt.ts   # per-section llms.txt
+│   ├── [...section]/llms.txt.ts  # per-section llms.txt, nested sections included
 │   ├── 404.astro
 │   ├── index.astro              # home page (the empty starter uses content/docs/index.mdx)
 │   ├── llms.txt.ts
@@ -80,6 +80,23 @@ Sätteri is Nimbus's default Markdown and MDX processor. Extend it using `markdo
 If the site replaces Sätteri with another processor, set `admonitions: false` and keep that processor's existing callout implementation.
 
 List installable items: `npx @cloudflare/nimbus-docs list`.
+
+## Sidebar
+
+The sidebar mirrors `src/content/docs/`. A folder becomes a group, and its `index.mdx` is the group's landing page; set `sidebar.group.label` there to rename the group. Within a group, `sidebar.order` sorts entries (lowest first, otherwise alphabetical), `sidebar.label` shortens a page's rail title, and `sidebar.hidden: true` builds a page without listing it.
+
+To add an external link or fix the top-level order, set `sidebar.items` in `defineNimbusConfig` in `astro.config.ts`. Items you list replace the generated top level, and a listed item's `label` wins over the folder's `sidebar.group.label`:
+
+```ts
+sidebar: {
+  items: [
+    { label: "Guides", autogenerate: { directory: "guides" } },
+    { label: "GitHub", link: "https://github.com/you/repo" },
+  ],
+},
+```
+
+Everything else: <https://nimbus-docs.com/navigation/sidebar/>.
 
 ## Agent interfaces
 

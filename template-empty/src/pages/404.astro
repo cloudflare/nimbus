@@ -1,7 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Header from "../components/Header.astro";
-import { config } from "virtual:nimbus/config";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
 
 // Prerender the 404 so it stays a static route under `output: "server"`.
@@ -11,7 +10,7 @@ export const prerender = true;
 const homeHref = withBase("/", import.meta.env.BASE_URL);
 ---
 
-<BaseLayout title={`Page not found · ${config.title}`} description="The page you're looking for doesn't exist.">
+<BaseLayout title="Page not found" description="The page you're looking for doesn't exist." noindex>
   <div class="flex flex-col min-h-screen">
     <Header />
     <main id="main-content" tabindex="-1" class="flex-1 mx-auto max-w-2xl w-full px-6 py-24 text-center">

@@ -1,0 +1,103 @@
+---
+/**
+ * ImageZoom — one native <dialog> that shows a content image at full size.
+ * Render it once in the docs layout; the client wraps each content image
+ * that would get meaningfully bigger in a button that opens it.
+ *
+ * Opt an image out with `data-nb-zoom="off"` on it or on a wrapper.
+ */
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
+---
+
+<dialog data-nb-image-zoom aria-label="Enlarged image" class="nb-zoom">
+  <img alt="" class="nb-zoom-img" />
+  <button type="button" data-nb-zoom-close aria-label="Close" class="nb-zoom-close">
+    <Icon name="ph:x" class="h-5 w-5" />
+  </button>
+</dialog>
+
+<script>
+  import "./image-zoom.client";
+</script>
+
+<style is:global>
+  [data-nb-zoom-trigger] {
+    all: unset;
+    max-width: 100%;
+    cursor: zoom-in;
+    border-radius: 0.25rem;
+  }
+  [data-nb-zoom-trigger]:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  /* A Frame with an aspect ratio fills its box with the image; the button
+     takes that place so the image still fills it. */
+  .frame[data-frame-aspect] .frame-media > [data-nb-zoom-trigger] {
+    position: absolute;
+    inset: 0;
+    display: block !important;
+  }
+  .frame[data-frame-aspect] .frame-media > [data-nb-zoom-trigger] > img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 0.5rem;
+  }
+
+  /* Global: the dialog shows a clone of the page's image or <picture>. */
+  .nb-zoom {
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: zoom-out;
+  }
+  .nb-zoom[open] {
+    display: grid;
+    place-items: center;
+  }
+  .nb-zoom::backdrop {
+    background: color-mix(in oklch, var(--nb-background) 85%, transparent);
+    backdrop-filter: blur(4px);
+  }
+  .nb-zoom picture {
+    display: contents;
+  }
+  .nb-zoom-img {
+    max-width: 95vw;
+    max-height: 95dvh;
+    object-fit: contain;
+  }
+  .nb-zoom-close {
+    position: fixed;
+    top: 1rem;
+    inset-inline-end: 1rem;
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--nb-border);
+    background: var(--nb-card);
+    color: var(--nb-foreground);
+    cursor: pointer;
+  }
+  .nb-zoom-close:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .nb-zoom[open] .nb-zoom-img {
+      transition: opacity 150ms ease-out, transform 150ms ease-out;
+      @starting-style {
+        opacity: 0;
+        transform: scale(0.96);
+      }
+    }
+  }
+</style>

@@ -96,7 +96,9 @@ function applyFilter(root: HTMLElement, query: string): void {
   groups.forEach((group) => group.setAttribute("data-nb-sidebar-hidden", ""));
 
   links.forEach((link) => {
-    const text = link.textContent?.toLowerCase() ?? "";
+    // `data-nb-filter-text` adds words the link doesn't show, like a full HTTP verb.
+    const text =
+      `${link.textContent ?? ""} ${link.dataset.nbFilterText ?? ""}`.toLowerCase();
     if (!text.includes(query)) return;
     link.removeAttribute("data-nb-sidebar-hidden");
     revealAncestors(link, root);

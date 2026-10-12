@@ -24,6 +24,7 @@ const {
   noindex,
   markdownUrl,
   socialImage,
+  socialImageSize,
   lastUpdated,
   head: pageHead = [],
   collection,
@@ -71,8 +72,11 @@ const resolvedMarkdownUrl =
       (() => {
         const KEY = "ui-mode";
         const media = window.matchMedia("(prefers-color-scheme: dark)");
+        // A choice storage refused, kept until the page unloads.
+        let unsaved = null;
 
         const readPref = () => {
+          if (unsaved) return unsaved;
           try {
             const v = localStorage.getItem(KEY);
             return v === "dark" || v === "light" ? v : null;
@@ -91,6 +95,7 @@ const resolvedMarkdownUrl =
           root.style.colorScheme = mode;
           document.querySelectorAll("[data-nb-theme-toggle]").forEach((b) => {
             b.setAttribute("data-nb-state", mode);
+            b.setAttribute("aria-pressed", String(mode === "dark"));
           });
         };
 
@@ -103,7 +108,11 @@ const resolvedMarkdownUrl =
           if (e.key === KEY) applyTheme();
         });
 
-        window.__nbApplyTheme = applyTheme;
+        // The toggle passes a mode only when storage refused it.
+        window.__nbApplyTheme = (mode) => {
+          if (mode === "dark" || mode === "light") unsaved = mode;
+          applyTheme();
+        };
       })();
     </script>
 
@@ -113,6 +122,7 @@ const resolvedMarkdownUrl =
       noindex={noindex}
       markdownUrl={markdownUrl}
       socialImage={socialImage}
+      socialImageSize={socialImageSize}
       lastUpdated={lastUpdated}
       head={pageHead}
       collection={collection}

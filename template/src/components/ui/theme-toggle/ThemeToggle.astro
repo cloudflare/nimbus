@@ -14,13 +14,15 @@ const { class: className, ...attrs } = Astro.props;
 ---
 
 <button
+  type="button"
   data-nb-theme-toggle
   class={cn(
     "group flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors",
     className,
   )}
   {...attrs}
-  aria-label="Toggle dark mode"
+  aria-label="Dark mode"
+  aria-pressed="false"
   data-nb-state="light"
 >
   <Icon name="ph:sun" class="w-[1.125rem] h-[1.125rem] hidden group-data-[nb-state=dark]:block" />

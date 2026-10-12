@@ -13,6 +13,7 @@ import { Sidebar, SidebarFilter } from "@/components/ui/sidebar";
 import { TOC, MobileTOC } from "@/components/ui/toc";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Pagination } from "@/components/ui/pagination";
+import { ImageZoom } from "@/components/ui/image-zoom";
 import { PageActions } from "@/components/ui/page-actions";
 import { Badge } from "@/components/ui/badge";
 import type { DocsPageProps } from "@cloudflare/nimbus-docs/types";
@@ -256,6 +257,8 @@ const hasPagination = Astro.slots.has("pagination");
     )}
 
   </div>
+
+  <ImageZoom />
 
   {showSidebar && (
     /* Mobile sidebar — native <dialog> for free focus trap, escape, backdrop. */
