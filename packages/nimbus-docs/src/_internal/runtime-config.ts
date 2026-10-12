@@ -12,7 +12,7 @@
  * calls a helper at request/render time.
  */
 
-import type { NimbusConfig } from "../types.js";
+import type { RuntimeNimbusConfig } from "../types.js";
 import type { VersionAlternatesTable } from "./version-alternates.js";
 import { setLinkPolicy } from "./url.js";
 
@@ -21,7 +21,7 @@ import { setLinkPolicy } from "./url.js";
 // (resolvable from dynamic `await import()` calls below) rather than
 // scoped to this module.
 
-let _cached: NimbusConfig | null = null;
+let _cached: RuntimeNimbusConfig | null = null;
 let _cachedCollections: readonly string[] | null = null;
 let _cachedRequestRenderingCollections: readonly string[] | null = null;
 let _cachedAlternates: VersionAlternatesTable | null = null;
@@ -38,7 +38,7 @@ async function virtualConfig(): Promise<typeof import("virtual:nimbus/config")> 
   return mod;
 }
 
-export async function loadNimbusConfig(): Promise<NimbusConfig> {
+export async function loadNimbusConfig(): Promise<RuntimeNimbusConfig> {
   if (_cached) return _cached;
   const mod = await virtualConfig();
   // Intermediate const so the return path isn't typed `NimbusConfig | null`

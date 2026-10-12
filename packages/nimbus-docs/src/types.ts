@@ -300,6 +300,17 @@ export interface ContentSource {
 }
 
 /**
+ * What the page bundle (`virtual:nimbus/config`) carries of a content source:
+ * the inputs of `getEditUrl`, never `repo` or `path`.
+ */
+export type RuntimeContentSource = Pick<ContentSource, "ref" | "editPattern">;
+
+/** The Nimbus config as the runtime helpers read it: `sources` reduced to {@link RuntimeContentSource}. */
+export type RuntimeNimbusConfig = Omit<NimbusConfig, "sources"> & {
+  sources?: Record<string, RuntimeContentSource>;
+};
+
+/**
  * An `api[].spec` that lives in a declared content source. A type alias, not
  * an interface, so it stays assignable where the inline-object form is.
  */
