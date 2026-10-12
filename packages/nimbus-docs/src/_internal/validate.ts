@@ -243,6 +243,16 @@ const contentSourceShape = {
       if (fault) ctx.addIssue({ code: "custom", message: `"sources.<name>.path" ${fault}` });
     })
     .transform((value) => normalizeSourcePath(value)),
+  // The same rule as the site's `editPattern`: without `{path}` every page of
+  // the source would link to the same place.
+  editPattern: z
+    .string({ error: '"sources.<name>.editPattern" must be a string with the "{path}" placeholder, e.g. "https://github.com/acme/sdk/edit/{ref}/{path}"' })
+    .optional()
+    .refine((value) => value === undefined || value.includes("{path}"), {
+      message:
+        '"sources.<name>.editPattern" must contain the "{path}" placeholder, which is replaced with the file\'s path inside the repository ' +
+        '("{ref}" is replaced with the configured ref). Example: "https://github.com/acme/sdk/edit/{ref}/{path}"',
+    }),
 };
 const contentSourceKeys = new Set(Object.keys(contentSourceShape));
 const contentSourceSchema = z
@@ -252,7 +262,7 @@ const contentSourceSchema = z
     reportUnknownKeys(source, ctx, contentSourceKeys, {
       removedKeys: {},
       contextLabel: "sources field",
-      unknownHint: () => 'Valid keys are "repo", "ref", and "path".',
+      unknownHint: () => 'Valid keys are "repo", "ref", "path", and "editPattern".',
     });
   });
 const sourcesSchema = z

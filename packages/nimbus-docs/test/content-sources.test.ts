@@ -12,7 +12,10 @@ import {
   redactText,
   type SourceCheckout,
 } from "../src/_internal/content-sources.ts";
+import { __resetLastUpdatedForTests, getLastUpdatedFromGit, getLastUpdatedStats } from "../src/_internal/git-last-updated.ts";
+import { parseContentSourcePath } from "../src/_internal/source-paths.ts";
 import { validateNimbusConfig } from "../src/_internal/validate.ts";
+import { virtualConfigPlugin } from "../src/_internal/virtual-config.ts";
 import { probeSources } from "../src/check/sources.ts";
 
 const COMMIT = "4f2c1e9a0b3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f";
@@ -161,4 +164,58 @@ test("check reads a sources literal whose refs are templated, and gives up on an
   assert.equal(probeSources(`{ ...shared }`), null);
   assert.equal(probeSources(`{ sdk: makeSource() }`), null);
   assert.equal(probeSources(`sources`), null);
+});
+
+test("a source editPattern needs {path}, and the page bundle gets only ref and editPattern", async () => {
+  assert.match(
+    invalid({ ...base, sources: { sdk: { repo: "https://github.com/acme/sdk.git", ref: COMMIT, editPattern: "https://github.com/acme/sdk/edit/main/docs" } } }),
+    /"sources\.<name>\.editPattern" must contain the "\{path\}" placeholder/,
+  );
+  const config = validateNimbusConfig({
+    ...base,
+    sources: {
+      sdk: { repo: `https://${TOKEN}@github.com/acme/sdk.git`, ref: "main", path: "docs", editPattern: "https://github.com/acme/sdk/edit/{ref}/{path}" },
+      cli: { repo: `https://${TOKEN}@github.com/acme/cli.git`, ref: COMMIT },
+    },
+  });
+  assert.equal(config.sources?.sdk?.editPattern, "https://github.com/acme/sdk/edit/{ref}/{path}");
+
+  const plugin = virtualConfigPlugin(config, {
+    getIndexedCollections: async () => ["docs"],
+    requestRenderingCollections: [],
+    versionAlternates: {},
+    apiCollections: [],
+    headDefaults: {
+      favicon: { file: "/favicon.ico", type: "image/x-icon" },
+      socialImage: "/opengraph.png",
+      ogCard: { sitePath: "/og.png", pagePrefix: "/og/", size: { width: 1200, height: 630 } },
+      imageSizes: {},
+    },
+  });
+  const bundle = (await plugin.load("\0virtual:nimbus/config")) ?? "";
+  const runtime = JSON.parse(/export const config = (.*);/.exec(bundle)![1]!) as { sources?: Record<string, unknown> };
+  assert.deepEqual(runtime.sources, { sdk: { ref: "main", editPattern: "https://github.com/acme/sdk/edit/{ref}/{path}" } });
+  assert.ok(!bundle.includes(TOKEN) && !bundle.includes("acme/cli"), "repo never reaches the bundle");
+});
+
+test("a checkout path splits into source, commit and repository path, and gets no git date", async () => {
+  assert.deepEqual(parseContentSourcePath(`.nimbus/sources/sdk/${COMMIT}/docs/guides/install.md`), {
+    name: "sdk",
+    commit: COMMIT,
+    path: "docs/guides/install.md",
+  });
+  assert.deepEqual(parseContentSourcePath(`./.nimbus\\sources\\sdk\\${COMMIT}\\README.md`)?.path, "README.md");
+  assert.equal(parseContentSourcePath("src/content/docs/guide.md"), undefined);
+  assert.equal(parseContentSourcePath(`.nimbus/sources/sdk/${COMMIT.slice(0, 12)}/docs/a.md`), undefined);
+
+  __resetLastUpdatedForTests();
+  try {
+    for (let i = 0; i < 60; i++) {
+      assert.equal(await getLastUpdatedFromGit(`.nimbus/sources/sdk/${COMMIT}/docs/page-${i}.md`), undefined);
+    }
+    // Never indexed, never a miss: the 50-miss warning can't fire.
+    assert.deepEqual(getLastUpdatedStats(), { bulkLoaded: false, isShallow: false, bulkCount: 0, missCount: 0, cached: 0 });
+  } finally {
+    __resetLastUpdatedForTests();
+  }
 });

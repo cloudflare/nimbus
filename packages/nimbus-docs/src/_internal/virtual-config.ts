@@ -84,6 +84,16 @@ export interface VirtualConfigExtras {
   contentConfigPath?: string;
 }
 
+function runtimeSources(sources: NimbusConfig["sources"]): NimbusConfig["sources"] {
+  const out: Record<string, { ref: string; editPattern: string }> = {};
+  for (const [name, source] of Object.entries(sources ?? {})) {
+    if (source.editPattern) out[name] = { ref: source.ref, editPattern: source.editPattern };
+  }
+  // The runtime entries are a subset of `ContentSource`; the type stays
+  // `NimbusConfig` so the virtual module's declaration holds.
+  return Object.keys(out).length > 0 ? (out as NimbusConfig["sources"]) : undefined;
+}
+
 export function virtualConfigPlugin(
   config: NimbusConfig,
   extras: VirtualConfigExtras,
@@ -105,9 +115,10 @@ export function virtualConfigPlugin(
           ),
         }
       : {}),
-    // A source's `repo` may carry a credential, and nothing at runtime reads
-    // `sources` yet: the page bundle gets the config without it.
-    sources: undefined,
+    // A source's `repo` may carry a credential. The page bundle gets only
+    // what `getEditUrl` reads: the configured `ref` and `editPattern` of the
+    // sources that have one, never `repo` or `path`.
+    sources: runtimeSources(config.sources),
   };
   return {
     name: "nimbus-docs:virtual-config",

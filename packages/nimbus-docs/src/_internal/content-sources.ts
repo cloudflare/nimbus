@@ -21,11 +21,12 @@ import { promisify } from "node:util";
 import type { ApiSpec, ContentSource, NimbusConfig } from "../types.js";
 import { authorError } from "./author-error.js";
 import { preparedMarkdownRootKey } from "./prepared-markdown-registry.js";
+import { SOURCES_DIR } from "./source-paths.js";
+
+export { SOURCES_DIR } from "./source-paths.js";
 
 const execFileAsync = promisify(execFile);
 
-/** Project-relative folder every checkout lives under. */
-export const SOURCES_DIR = ".nimbus/sources";
 /** Written last into a finished checkout; its presence means the folder is complete. */
 export const SOURCE_MARKER = ".nimbus-source.json";
 const MARKER_VERSION = 1;

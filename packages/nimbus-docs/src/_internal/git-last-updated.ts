@@ -2,6 +2,7 @@ import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
 import { runtimeWarn } from "./runtime-warn.js";
+import { isContentSourcePath } from "./source-paths.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -166,6 +167,9 @@ export async function getLastUpdatedFromGit(
   filePath: string,
 ): Promise<Date | undefined> {
   if (!filePath) return undefined;
+  // A content-source checkout has no history of its own (its `.git` is
+  // deleted), so its pages have no date, and they never count as misses.
+  if (isContentSourcePath(filePath)) return undefined;
   const key = norm(filePath);
   if (cache.has(key)) return cache.get(key);
 

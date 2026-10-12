@@ -17,6 +17,7 @@ import { pathToFileURL } from "node:url";
 import { build } from "astro";
 
 import nimbus from "../src/index.ts";
+import type { NimbusConfig } from "../src/types.ts";
 import { runningNimbusVersion } from "../src/_internal/upgrades.ts";
 import { formatCheckJson } from "../src/check/format.ts";
 import { runChecks } from "../src/check/run.ts";
@@ -139,12 +140,14 @@ const { entry } = await getDocsPageProps(Astro);
   await write(
     "src/pages/sdk/[...slug].astro",
     `---
-import { getCollectionStaticPaths, getCollectionPageProps } from ${moduleUrl("../src/runtime.ts")};
+import { getCollectionStaticPaths, getCollectionPageProps, getEditUrl, getLastUpdated } from ${moduleUrl("../src/runtime.ts")};
 export const prerender = true;
 export const getStaticPaths = getCollectionStaticPaths("sdk");
 const { entry } = await getCollectionPageProps(Astro);
+const editUrl = (await getEditUrl(entry)) ?? "no-edit-url";
+const lastUpdated = (await getLastUpdated(entry))?.toISOString() ?? "no-date";
 ---
-<html><body><h1>{entry.data.title}</h1><p>{entry.filePath}</p></body></html>
+<html><body><h1>{entry.data.title}</h1><p>{entry.filePath}</p><a id="edit" href={editUrl}>{editUrl}</a><time>{lastUpdated}</time></body></html>
 `,
   );
   await write(
@@ -189,7 +192,19 @@ export default defineConfig({
 `;
 
   const traceFile = path.join(root, "git-trace.log");
-  async function buildSite(ref: string): Promise<string> {
+  /** The site config for `ref`; `override` replaces whole top-level keys. */
+  const siteConfig = (ref: string, override: Partial<NimbusConfig> = {}): NimbusConfig => ({
+    site: "https://example.test",
+    title: "Test",
+    search: false,
+    sources: { sdk: { repo, ref, path: "docs" } },
+    api: [{ collection: "api", spec: { source: "sdk", path: "docs/openapi.json" } }],
+    ...override,
+  });
+  async function buildSite(
+    ref: string,
+    options: { config?: Partial<NimbusConfig>; logLevel?: "info" | "silent" } = {},
+  ): Promise<string> {
     const output: string[] = [];
     const restore = [process.stdout, process.stderr].map((stream) => {
       const original = stream.write.bind(stream);
@@ -205,18 +220,9 @@ export default defineConfig({
         cacheDir: path.join(site, ".astro"),
         outDir: "./dist",
         vite: { cacheDir: path.join(site, ".vite") },
-        logLevel: "info",
+        logLevel: options.logLevel ?? "info",
         integrations: [
-          nimbus(
-            {
-              site: "https://example.test",
-              title: "Test",
-              search: false,
-              sources: { sdk: { repo, ref, path: "docs" } },
-              api: [{ collection: "api", spec: { source: "sdk", path: "docs/openapi.json" } }],
-            },
-            { admonitions: false, sitemap: false, validateMdx: false },
-          ),
+          nimbus(siteConfig(ref, options.config), { admonitions: false, sitemap: false, validateMdx: false }),
         ],
       });
     } finally {
@@ -248,6 +254,9 @@ export default defineConfig({
     assert.match(await read("dist/sdk/index.html"), /SDK overview/);
     assert.match(await read("dist/sdk/guides/install/index.html"), /Install/);
     assert.match(await read("dist/sdk/guides/install/index.html"), new RegExp(`\\.nimbus/sources/sdk/${remote.commit}/docs/guides/install\\.md`));
+    // Without `sources.sdk.editPattern` a remote page gets no edit link; the
+    // site's `editPattern` never receives a checkout path. No git date either.
+    assert.match(await read("dist/sdk/guides/install/index.html"), /<a id="edit" href="no-edit-url">no-edit-url<\/a><time>no-date<\/time>/);
     assert.match(await read("dist/guide/index.html"), /Guide/);
     assert.match(await read("dist/sdk/llms.txt"), /\/sdk\/guides\/install/);
     assert.ok(existsSync(path.join(site, "dist/api/index.html")), "the API overview page is built");
@@ -277,9 +286,18 @@ export default defineConfig({
     git(remote.work, "commit", "-q", "-m", "publish guide");
     git(remote.work, "push", "-q", remote.bare, "HEAD:main");
     const next = git(remote.work, "rev-parse", "HEAD");
-    const branch = await buildSite("main");
+    const editPattern = "https://forge.example.test/acme/sdk/edit/{ref}/{path}";
+    const branch = await buildSite("main", {
+      config: { editPattern: "https://forge.example.test/acme/docs/edit/main/{path}", sources: { sdk: { repo, ref: "main", path: "docs", editPattern } } },
+    });
     assert.match(branch, new RegExp(`nimbus: source "sdk" \\(file://${remote.bare} @ main\\): fetched commit ${next.slice(0, 12)}\\. Ref "main" floats; pin a commit for reproducible builds\\.`));
     assert.match(await read("dist/sdk/guides/publish/index.html"), /Publish/);
+    // `{path}` is repository-relative and `{ref}` the configured ref, not the commit.
+    assert.match(
+      await read("dist/sdk/guides/install/index.html"),
+      /href="https:\/\/forge\.example\.test\/acme\/sdk\/edit\/main\/docs\/guides\/install\.md"/,
+    );
+    assert.ok(!/href="[^"]*[0-9a-f]{40}/.test(await read("dist/sdk/guides/install/index.html")), "the edit URL never carries the resolved commit");
     assert.match(await read("dist/sdk/guides/install/index.html"), new RegExp(`\\.nimbus/sources/sdk/${next}/docs/guides/install\\.md`));
     assert.deepEqual(await readdir(sourceDir), [next], "only the latest commit folder is kept");
     assert.ok(!branch.includes(TOKEN));
@@ -300,32 +318,7 @@ export default defineConfig({
 
     // A path missing at the commit is the author's error, not a cache fallback.
     await assert.rejects(
-      (async () => {
-        const output: string[] = [];
-        const restore = [process.stdout, process.stderr].map((stream) => {
-          const original = stream.write.bind(stream);
-          stream.write = ((chunk: string | Uint8Array) => (output.push(String(chunk)), true)) as typeof stream.write;
-          return () => (stream.write = original);
-        });
-        try {
-          await build({
-            root: pathToFileURL(`${site}${path.sep}`),
-            configFile: false,
-            cacheDir: path.join(site, ".astro"),
-            outDir: "./dist",
-            vite: { cacheDir: path.join(site, ".vite") },
-            logLevel: "silent",
-            integrations: [
-              nimbus(
-                { site: "https://example.test", title: "Test", search: false, sources: { sdk: { repo, ref: "main", path: "guides" } } },
-                { admonitions: false, sitemap: false, validateMdx: false },
-              ),
-            ],
-          });
-        } finally {
-          for (const reset of restore) reset();
-        }
-      })(),
+      buildSite("main", { logLevel: "silent", config: { sources: { sdk: { repo, ref: "main", path: "guides" } }, api: undefined } }),
       /could not check out source "sdk" \(file:\/\/.* @ main\): path "guides" does not exist at commit/,
     );
 

@@ -19,6 +19,7 @@ import {
 import { notAPageCollectionMessage } from "./_internal/page-collection-error.js";
 import { loadCollectionOrWarn } from "./_internal/load-collection.js";
 import { runtimeWarn } from "./_internal/runtime-warn.js";
+import { parseContentSourcePath } from "./_internal/source-paths.js";
 import {
   getVisibleEntry,
   getVisibleEntries,
@@ -1047,15 +1048,26 @@ export async function getRouteNavigation(
  *
  * `{path}` is replaced with the entry's source path when Astro provides it,
  * falling back to the default docs collection path convention.
+ *
+ * An entry read from a content source (`docsCollection({ source })`) uses
+ * that source's `editPattern` instead: `{path}` is the file's path inside the
+ * repository and `{ref}` the configured ref. Without one, no edit URL.
  */
 export async function getEditUrl(entry: {
   id: string;
   filePath?: string;
 }): Promise<string | undefined> {
   const runtimeConfig = await loadNimbusConfig();
-  if (!runtimeConfig.editPattern) return undefined;
-
   const path = entry.filePath ?? `src/content/docs/${entry.id}.mdx`;
+
+  const remote = parseContentSourcePath(path);
+  if (remote) {
+    const source = runtimeConfig.sources?.[remote.name];
+    if (!source?.editPattern) return undefined;
+    return source.editPattern.replaceAll("{path}", remote.path).replaceAll("{ref}", source.ref);
+  }
+
+  if (!runtimeConfig.editPattern) return undefined;
   return runtimeConfig.editPattern.replace("{path}", path);
 }
 

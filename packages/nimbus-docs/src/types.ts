@@ -289,6 +289,14 @@ export interface ContentSource {
    * `""` (the default) is the whole repository.
    */
   path?: string;
+  /**
+   * Edit-link pattern for pages read from this source, used by `getEditUrl`.
+   * `{path}` is the file's repository-relative path and `{ref}` is `ref` as
+   * written here (a branch name stays a branch name, never the resolved
+   * commit). Without it, pages from this source get no edit link.
+   * Example: `"https://github.com/acme/sdk/edit/{ref}/{path}"`.
+   */
+  editPattern?: string;
 }
 
 /**
