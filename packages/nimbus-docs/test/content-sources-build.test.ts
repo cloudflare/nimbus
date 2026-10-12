@@ -118,6 +118,8 @@ test("a site builds its sdk collection and api spec from a git source, caches th
   );
   await write("nimbus.json", `${JSON.stringify({ lastReviewedNimbusVersion: runningNimbusVersion() })}\n`);
   await write("package.json", `{ "name": "fixture", "type": "module" }\n`);
+  // With a components registry, `check` scans the MDX files the build recorded.
+  await write("src/components.ts", "export const components = {};\n");
   await write(
     "src/content.config.ts",
     `import { defineCollection } from "astro:content";
@@ -172,7 +174,7 @@ export const { GET, getStaticPaths } = llmsSectionRoute();
 `,
   );
   // The Nimbus config as text, for \`check\`; the build gets the same config inline.
-  const astroConfig = (ref: string) => `import { defineConfig } from "astro/config";
+  const astroConfig = (ref: string, extraSources = "") => `import { defineConfig } from "astro/config";
 import nimbus, { defineConfig as defineNimbusConfig } from "@cloudflare/nimbus-docs";
 
 const nimbusConfig = defineNimbusConfig({
@@ -184,7 +186,7 @@ const nimbusConfig = defineNimbusConfig({
       repo: ${JSON.stringify(repo)},
       ref: ${ref},
       path: "docs",
-    },
+    },${extraSources}
   },
   api: [{ collection: "api", spec: { source: "sdk", path: "docs/openapi.json" } }],
 });
@@ -196,6 +198,16 @@ export default defineConfig({
 `;
 
   const traceFile = path.join(root, "git-trace.log");
+  // The Vite config Astro settles on, for the dev watch assertion.
+  let viteConfig: { server?: { watch?: { ignored?: unknown } } } | undefined;
+  const captureVite = {
+    name: "capture-vite",
+    hooks: {
+      "astro:config:done": ({ config }: { config: { vite: typeof viteConfig } }) => {
+        viteConfig = config.vite;
+      },
+    },
+  };
   /** The site config for `ref`; `override` replaces whole top-level keys. */
   const siteConfig = (ref: string, override: Partial<NimbusConfig> = {}): NimbusConfig => ({
     site: "https://example.test",
@@ -227,6 +239,7 @@ export default defineConfig({
         logLevel: options.logLevel ?? "info",
         integrations: [
           nimbus(siteConfig(ref, options.config), { admonitions: false, sitemap: false, validateMdx: false }),
+          captureVite,
         ],
       });
     } finally {
@@ -272,6 +285,11 @@ export default defineConfig({
     }).filter((finding) => finding.code === "nimbus/internal-link");
     assert.equal(linkFindings.length, 1, JSON.stringify(linkFindings));
     assert.match(linkFindings[0]!.message, /\/sdk\/nowhere/);
+    // The dev server never watches the checkout.
+    assert.ok(
+      (viteConfig?.server?.watch?.ignored as string[]).includes(`${site.replaceAll("\\", "/")}/.nimbus/sources/**`),
+      JSON.stringify(viteConfig?.server?.watch),
+    );
     assert.ok(existsSync(path.join(site, "dist/api/index.html")), "the API overview page is built");
     const apiPages = (await walk(path.join(site, "dist/api"))).filter((file) => file.endsWith("index.html"));
     assert.ok(apiPages.length >= 2, `api pages: ${apiPages.join(", ")}`);
@@ -357,6 +375,25 @@ export default defineConfig({
     assert.equal(warning?.severity, "warn");
     assert.match(warning?.message ?? "", new RegExp(`sources\\.sdk follows ref "main" of file://${remote.bare}`));
     assert.ok(!JSON.stringify(floating).includes(TOKEN));
+
+    // A declared source nothing reads is a warning; `sdk` is read by a collection and a spec.
+    await write("astro.config.ts", astroConfig(JSON.stringify(next), `\n    extra: { repo: ${JSON.stringify(repo)}, ref: ${JSON.stringify(next)}, path: "docs" },`));
+    const unreferenced = (await checkJson()).findings.filter((finding) => finding.code === "nimbus/source-unreferenced");
+    assert.equal(unreferenced.length, 1, JSON.stringify(unreferenced));
+    assert.equal(unreferenced[0]!.severity, "warn");
+    assert.match(unreferenced[0]!.message, /^sources\.extra is declared but nothing reads it/);
+    assert.ok(!JSON.stringify(unreferenced).includes(TOKEN));
+
+    // The last build recorded the remote MDX files it validated; once the
+    // checkout is gone (a fresh clone, a pruned cache), `check` skips them.
+    const recorded = JSON.parse(await read(".nimbus/page-collections.json")) as { mdxFiles: string[] };
+    const remoteMdx = `.nimbus/sources/sdk/${remote.commit}/docs/guides/links.mdx`;
+    assert.ok(recorded.mdxFiles.includes(remoteMdx), recorded.mdxFiles.join(", "));
+    await write("astro.config.ts", astroConfig(JSON.stringify(remote.commit)));
+    await rm(path.join(site, ".nimbus/sources"), { recursive: true, force: true });
+    const stale = await checkJson();
+    assert.deepEqual(stale.findings.filter((finding) => JSON.stringify(finding).includes(".nimbus/sources")), []);
+    assert.ok(!stale.findings.some((finding) => finding.code === "nimbus/component-pascalcase"), JSON.stringify(stale.findings));
 
     // 5. No cache and no remote: the build fails naming the source, without the token.
     await rm(path.join(site, ".nimbus/sources"), { recursive: true, force: true });

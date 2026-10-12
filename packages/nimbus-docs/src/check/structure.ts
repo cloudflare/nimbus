@@ -19,6 +19,7 @@ import { cloudflareTrailingSlashWarning } from "../_internal/cloudflare-trailing
 import { parseAstroConfigFields, type ConfigParseResult } from "../_internal/parse-nimbus-config.js";
 import {
   parseCollectionBases,
+  parseCollectionSources,
   parseContentCollections,
 } from "../_internal/parse-content-collections.js";
 import { readPageCollectionsFile } from "../_internal/page-collections.js";
@@ -57,6 +58,7 @@ export async function checkStructure(
 
   const config = checkConfigZod(findings, notes, parsed);
   await checkApiCollections(cwd, findings, notes, parsed, config);
+  await checkSourceReferences(cwd, findings, parsed, config);
   await checkRequestRendering(cwd, findings, notes, parsed, config);
   await checkDuplicateRoutes(cwd, findings, parsed);
   await checkMdxComponents(cwd, findings, notes, parsed);
@@ -162,6 +164,55 @@ async function checkApiCollections(
       file: relFile(contentConfigPath),
       line: lineOf(api.source, registration.offset),
       message: unconfiguredApiCollectionMessage(registration.key, configured),
+      fixable: false,
+    });
+  }
+}
+
+/**
+ * A declared source that nothing reads is a warning: a collection reads it
+ * with `docsCollection({ source })`, an `api` entry with `spec: { source }`.
+ * Skipped, silently, when either side can't be read statically: a computed
+ * `sources` or `api` field, a spread, or a registration the parser can't see.
+ */
+async function checkSourceReferences(
+  cwd: string,
+  findings: CheckFinding[],
+  parsed: ConfigParseResult,
+  config: NimbusConfig | null,
+): Promise<void> {
+  if (!parsed.ok || config === null) return;
+  const names = Object.keys(config.sources ?? {});
+  if (names.length === 0) return;
+  // `config.sources` is empty when the map is computed (a templated `ref`
+  // alone keeps it readable); the `api` side must be literal too.
+  if (["api", "...spread"].some((field) => parsed.unresolved.includes(field))) return;
+  const contentConfigPath = path.join(cwd, "src", "content.config.ts");
+  const [collections, sources] = await Promise.all([
+    parseContentCollections(contentConfigPath),
+    parseCollectionSources(contentConfigPath),
+  ]);
+  if (collections === null || !collections.complete || sources === null) return;
+
+  const referenced = new Set<string>(sources.values());
+  for (const entry of config.api ?? []) {
+    for (const holder of entry.versions ?? [entry]) {
+      const spec = holder.spec as { source?: unknown } | string | undefined;
+      if (typeof spec === "object" && spec !== null && typeof spec.source === "string") referenced.add(spec.source);
+    }
+  }
+  const sourcesField = parsed.location.fields.get("sources");
+  for (const name of names) {
+    if (referenced.has(name)) continue;
+    findings.push({
+      scope: "structure",
+      code: "nimbus/source-unreferenced",
+      severity: "warn",
+      file: relFile(parsed.location.file),
+      line: lineOf(parsed.location.source, sourcesField?.keyStart ?? parsed.location.objectStart),
+      message:
+        `sources.${name} is declared but nothing reads it. ` +
+        `Add docsCollection({ source: "${name}" }) to src/content.config.ts, point an api entry at it with spec: { source: "${name}", path }, or remove it.`,
       fixable: false,
     });
   }

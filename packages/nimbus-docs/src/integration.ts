@@ -105,6 +105,7 @@ import {
   checkoutContentSources,
   collectSourceSpecs,
   registerContentSourceCheckouts,
+  SOURCES_DIR,
 } from "./_internal/content-sources.js";
 import type { PublishSpecResult } from "./_internal/api/publish-spec.js";
 import type { AgentApiPublication } from "./types.js";
@@ -2473,6 +2474,14 @@ export function nimbus(
               ),
               "import.meta.env.NIMBUS_PROJECT_ROOT":
                 JSON.stringify(projectRoot),
+            },
+            // A content-source checkout is frozen for the dev server: it
+            // changes only when a build fetches a new commit, so watching it
+            // (thousands of files for a large source) buys nothing.
+            server: {
+              watch: {
+                ignored: [path.join(projectRoot, SOURCES_DIR, "**").replaceAll("\\", "/")],
+              },
             },
             plugins: [
               {

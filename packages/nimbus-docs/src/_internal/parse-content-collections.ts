@@ -155,6 +155,45 @@ export async function parseContentCollections(
 export async function parseCollectionBases(
   filePath: string,
 ): Promise<Map<string, string> | null> {
+  const values = await parseCollectionValues(filePath);
+  if (values === null) return null;
+  const out = new Map<string, string>();
+  for (const [key, valueText] of values) {
+    // Default the folder to the key name. Override if a literal `base:`
+    // appears in the entry's value.
+    const baseMatch = valueText.match(/\bbase\s*:\s*["']([^"']+)["']/);
+    out.set(key, baseMatch ? baseMatch[1]! : key);
+  }
+  return out;
+}
+
+/**
+ * The content source each collection reads, from a literal `source: "<name>"`
+ * in its entry (`docsCollection({ source: "sdk" })`): a `Map<key, name>` over
+ * the collections that have one. Same contract and limitations as
+ * `parseCollectionBases`; a computed `source` is not seen.
+ */
+export async function parseCollectionSources(
+  filePath: string,
+): Promise<Map<string, string> | null> {
+  const values = await parseCollectionValues(filePath);
+  if (values === null) return null;
+  const out = new Map<string, string>();
+  for (const [key, valueText] of values) {
+    const sourceMatch = valueText.match(/\bsource\s*:\s*["']([^"']+)["']/);
+    if (sourceMatch) out.set(key, sourceMatch[1]!);
+  }
+  return out;
+}
+
+/**
+ * Each statically keyed collection entry's value text — or, for a shorthand
+ * entry (`{ docs }`), the local `const|let|var docs = …` declaration it refers
+ * to. `null` when the file is missing or the registration isn't parseable.
+ */
+async function parseCollectionValues(
+  filePath: string,
+): Promise<Map<string, string> | null> {
   let source: string;
   try {
     source = await fs.readFile(filePath, "utf8");
@@ -183,16 +222,12 @@ export async function parseCollectionBases(
     const key = rawKey.trim().replace(/^['"`]|['"`]$/g, "");
     if (!COLLECTION_KEY.test(key)) continue;
 
-    // Default the folder to the key name. Override if a literal `base:`
-    // appears in the entry's value — or, for shorthand entries (`{ docs }`),
-    // in the local `const|let|var docs = …` declaration the shorthand
-    // refers to.
-    const valueText =
+    out.set(
+      key,
       colonIdx === -1
         ? findLocalDeclarationValue(stripped, key)
-        : entry.slice(colonIdx + 1);
-    const baseMatch = valueText.match(/\bbase\s*:\s*["']([^"']+)["']/);
-    out.set(key, baseMatch ? baseMatch[1]! : key);
+        : entry.slice(colonIdx + 1),
+    );
   }
 
   return out;
