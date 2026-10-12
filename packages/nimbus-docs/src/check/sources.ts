@@ -1,14 +1,13 @@
 /**
  * `check`'s view of the Nimbus config's `sources`: a `ref` templated for
  * previews (`process.env.SDK_DOCS_REF ?? "<commit>"`) keeps the config
- * statically readable, a literal branch or tag is reported as floating, and a
- * source with no checkout yet is named so the first build's fetch is no
- * surprise. The probe reads the config text; nothing is executed.
+ * statically readable, and a literal branch or tag is reported as floating.
+ * The probe reads the config text; nothing is executed.
  */
 
 import ts from "typescript";
 
-import { isCommitRef, listSourceCheckouts, redactRepo, SOURCES_DIR } from "../_internal/content-sources.js";
+import { isCommitRef, redactRepo } from "../_internal/content-sources.js";
 import { literalValue } from "../_internal/parse-nimbus-config.js";
 import type { ContentSource } from "../types.js";
 import type { CheckFinding } from "./finding.js";
@@ -94,7 +93,6 @@ export interface SourceFindingLocation {
 
 /** The findings for one validated `sources` map. */
 export function sourceFindings(
-  cwd: string,
   sources: Record<string, ContentSource> | undefined,
   templated: ReadonlySet<string>,
   location: SourceFindingLocation,
@@ -111,16 +109,6 @@ export function sourceFindings(
         message:
           `sources.${name} follows ref "${source.ref}" of ${repo}, so its content can change between builds. ` +
           `Pin a 40-character commit for reproducible builds (\`git ls-remote ${repo} ${source.ref}\`).`,
-        fixable: false,
-      });
-    }
-    if (listSourceCheckouts(cwd, name).length === 0) {
-      findings.push({
-        scope: "structure",
-        code: "nimbus/source-cache-missing",
-        severity: "info",
-        ...location,
-        message: `sources.${name} has no checkout under ${SOURCES_DIR}/${name}/ yet; the next build fetches it from ${repo}.`,
         fixable: false,
       });
     }

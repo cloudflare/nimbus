@@ -66,7 +66,6 @@ import {
 import {
   registeredContentSourceNames,
   resolveContentSourceCheckout,
-  SOURCES_DIR,
 } from "./_internal/content-sources.js";
 
 // Re-export the public schema factories from `nimbus-docs/content` so users
@@ -287,9 +286,6 @@ function contentSourceLoader(source: string, pattern: string): Loader {
         context.meta.set(META_KEY, stamp);
       }
       const relative = path.relative(projectRoot, checkout.contentDir).split(path.sep).join("/");
-      if (!relative.startsWith(`${SOURCES_DIR}/`)) {
-        throw new Error(`nimbus-docs: source "${source}" resolved outside ${SOURCES_DIR}: ${relative}`);
-      }
       const inner = withNimbusMarkdown(glob({ base: `./${relative}`, pattern }));
       await inner.load({ ...context, watcher: undefined });
     },

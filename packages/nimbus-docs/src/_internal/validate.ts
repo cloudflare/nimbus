@@ -211,7 +211,10 @@ const ABBREVIATED_COMMIT = /^[0-9a-f]{7,39}$/i;
 const contentSourceShape = {
   repo: z
     .string({ error: '"sources.<name>.repo" must be a string: an https or ssh URL, or a local path, that `git clone` accepts' })
-    .min(1, '"sources.<name>.repo" must not be empty'),
+    .min(1, '"sources.<name>.repo" must not be empty')
+    .refine((repo) => !repo.startsWith("-"), {
+      message: '"sources.<name>.repo" must not start with "-" (git would read it as an option)',
+    }),
   ref: z
     .string({ error: '"sources.<name>.ref" must be a string: a 40-character commit, or a branch or tag name' })
     .superRefine((ref, ctx) => {

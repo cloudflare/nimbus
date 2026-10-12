@@ -55,7 +55,7 @@ export async function checkStructure(
   const findings: CheckFinding[] = [];
   const notes: Note[] = [];
 
-  const config = checkConfigZod(cwd, findings, notes, parsed);
+  const config = checkConfigZod(findings, notes, parsed);
   await checkApiCollections(cwd, findings, notes, parsed, config);
   await checkRequestRendering(cwd, findings, notes, parsed, config);
   await checkDuplicateRoutes(cwd, findings, parsed);
@@ -303,7 +303,6 @@ async function checkRequestRendering(
 }
 
 function checkConfigZod(
-  cwd: string,
   findings: CheckFinding[],
   notes: Note[],
   parsed: ConfigParseResult,
@@ -359,7 +358,7 @@ function checkConfigZod(
     if (config.sources) {
       const sourcesField = parsed.location.fields.get("sources");
       findings.push(
-        ...sourceFindings(cwd, config.sources, templatedRefs, {
+        ...sourceFindings(config.sources, templatedRefs, {
           file,
           line: lineOf(parsed.location.source, sourcesField?.keyStart ?? parsed.location.objectStart),
         }),

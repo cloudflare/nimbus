@@ -20,7 +20,6 @@
  */
 
 import type { NimbusConfig } from "../types.js";
-import { redactRepo } from "./content-sources.js";
 import type { VersionAlternatesTable } from "./version-alternates.js";
 
 const VIRTUAL_ID = "virtual:nimbus/config";
@@ -106,17 +105,9 @@ export function virtualConfigPlugin(
           ),
         }
       : {}),
-    // A source's `repo` may carry a credential; the page bundle gets it without.
-    ...(config.sources
-      ? {
-          sources: Object.fromEntries(
-            Object.entries(config.sources).map(([name, source]) => [
-              name,
-              { ...source, repo: redactRepo(source.repo) },
-            ]),
-          ),
-        }
-      : {}),
+    // A source's `repo` may carry a credential, and nothing at runtime reads
+    // `sources` yet: the page bundle gets the config without it.
+    sources: undefined,
   };
   return {
     name: "nimbus-docs:virtual-config",

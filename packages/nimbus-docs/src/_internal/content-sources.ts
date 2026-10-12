@@ -42,16 +42,19 @@ export function isCommitRef(ref: string): boolean {
   return COMMIT.test(ref);
 }
 
+/** A lone username this long is a token (`https://<token>@host/…`), not a login. */
+const TOKEN_USERNAME_LENGTH = 8;
+
 /**
  * The repository URL for logs, errors and the marker: the password is dropped,
- * and the username too when it stands alone (then it is the token).
+ * and the username too when it stands alone and is long enough to be a token.
  */
 export function redactRepo(repo: string): string {
   try {
     const url = new URL(repo);
     if (!url.username && !url.password) return repo;
     if (url.password) url.password = "";
-    else url.username = "";
+    else if (url.username.length >= TOKEN_USERNAME_LENGTH) url.username = "";
     return url.href;
   } catch {
     // Not a WHATWG URL (`file://user:token@/path`, or scp-like): drop the whole userinfo.
@@ -64,10 +67,15 @@ function secretsOf(repo: string): string[] {
   let parts: string[];
   try {
     const url = new URL(repo);
-    parts = url.password ? [url.password] : url.username ? [url.username] : [];
+    parts = url.password
+      ? [url.password]
+      : url.username.length >= TOKEN_USERNAME_LENGTH
+        ? [url.username]
+        : [];
   } catch {
     const match = /\/\/([^@/]+)@/.exec(repo);
-    parts = match ? [match[1]!.split(":").pop()!] : [];
+    const userinfo = match ? match[1]!.split(":") : [];
+    parts = userinfo.length > 1 ? [userinfo[userinfo.length - 1]!] : userinfo[0] && userinfo[0].length >= TOKEN_USERNAME_LENGTH ? [userinfo[0]] : [];
   }
   const out = new Set<string>();
   for (const part of parts) {
@@ -183,6 +191,9 @@ interface FetchOptions {
 
 const SHA_REFUSED = /not our ref|unadvertised object|allowReachableSHA1InWant|allowAnySHA1InWant|Server does not allow/i;
 
+/** A fetch failure the author fixes in the config, never covered by the cache fallback. */
+class SourceConfigError extends Error {}
+
 async function fetchInto({ source, commit, ref, dir }: FetchOptions): Promise<void> {
   const timeout = timeoutMs(FETCH_TIMEOUT_ENV, DEFAULT_FETCH_TIMEOUT);
   const tmp = `${dir}.tmp-${process.pid}-${Date.now()}`;
@@ -192,8 +203,8 @@ async function fetchInto({ source, commit, ref, dir }: FetchOptions): Promise<vo
   fs.mkdirSync(tmp, { recursive: true });
   try {
     await run(["init", "-q"]);
-    await run(["remote", "add", "origin", source.repo]);
-    if (source.path) await run(["sparse-checkout", "set", source.path]);
+    await run(["remote", "add", "origin", "--", source.repo]);
+    if (source.path) await run(["sparse-checkout", "set", "--", source.path]);
     const fetchArgs = ["fetch", "-q", "--filter=blob:none", "--depth=1", "origin"];
     try {
       await run([...fetchArgs, commit]);
@@ -206,14 +217,15 @@ async function fetchInto({ source, commit, ref, dir }: FetchOptions): Promise<vo
         );
       }
       await run([...fetchArgs, ref]);
-      const fetched = (await run(["rev-parse", "FETCH_HEAD"])).trim();
+      // An annotated tag's FETCH_HEAD is the tag object; compare the commit it points at.
+      const fetched = (await run(["rev-parse", "FETCH_HEAD^{commit}"])).trim();
       if (fetched !== commit) {
-        throw new Error(`ref "${ref}" moved from ${commit.slice(0, 12)} to ${fetched.slice(0, 12)} during the build`);
+        throw new SourceConfigError(`ref "${ref}" moved from ${commit.slice(0, 12)} to ${fetched.slice(0, 12)} during the build`);
       }
     }
     await run(["checkout", "-q", "FETCH_HEAD"]);
     if (source.path && !fs.existsSync(path.join(tmp, source.path))) {
-      throw new Error(`path "${source.path}" does not exist at commit ${commit.slice(0, 12)}`);
+      throw new SourceConfigError(`path "${source.path}" does not exist at commit ${commit.slice(0, 12)}`);
     }
     // The cache is per commit and never updated in place: drop the repository
     // (and with it the remote URL) and keep only the files.
@@ -227,6 +239,12 @@ async function fetchInto({ source, commit, ref, dir }: FetchOptions): Promise<vo
       fetchedAt: new Date().toISOString(),
     };
     fs.writeFileSync(path.join(tmp, SOURCE_MARKER), `${JSON.stringify(marker, null, 2)}\n`);
+    // A concurrent build may have finished the same checkout meanwhile and be
+    // reading it: the first writer wins, this copy is dropped.
+    if (readSourceMarker(dir)?.path === source.path) {
+      fs.rmSync(tmp, { recursive: true, force: true });
+      return;
+    }
     fs.rmSync(dir, { recursive: true, force: true });
     fs.renameSync(tmp, dir);
   } catch (error) {
@@ -235,23 +253,30 @@ async function fetchInto({ source, commit, ref, dir }: FetchOptions): Promise<vo
   }
 }
 
-/** After a successful fetch only the latest commit folder per source is kept. */
+/**
+ * After a successful fetch only the latest commit folder per source is kept.
+ * A `.tmp-*` folder is another build's fetch in progress and stays.
+ */
 function pruneSourceCache(cacheDir: string, keep: string): void {
   for (const entry of fs.readdirSync(cacheDir)) {
-    if (entry === keep) continue;
+    if (entry === keep || entry.includes(".tmp-")) continue;
     fs.rmSync(path.join(cacheDir, entry), { recursive: true, force: true });
   }
 }
 
 async function resolveRef(source: ContentSource): Promise<string> {
+  // The `^{}` pattern asks for an annotated tag's peeled commit, which
+  // ls-remote prints only when a pattern names it.
   const out = await git(
-    ["ls-remote", "--", source.repo, `refs/heads/${source.ref}`, `refs/tags/${source.ref}`],
+    ["ls-remote", "--", source.repo, `refs/heads/${source.ref}`, `refs/tags/${source.ref}`, `refs/tags/${source.ref}^{}`],
     { repo: source.repo, timeout: timeoutMs(RESOLVE_TIMEOUT_ENV, DEFAULT_RESOLVE_TIMEOUT) },
   );
   const lines = out.split("\n").filter((line) => line.trim());
-  // An annotated tag lists the tag object first and the commit it points at as `<ref>^{}`.
+  // A branch wins over a tag of the same name. An annotated tag lists the tag
+  // object first and the commit it points at as `<ref>^{}`.
+  const branch = lines.find((line) => line.endsWith(`\trefs/heads/${source.ref}`));
   const peeled = lines.find((line) => line.endsWith("^{}"));
-  const commit = (peeled ?? lines[0])?.split(/\s+/)[0];
+  const commit = (branch ?? peeled ?? lines[0])?.split(/\s+/)[0];
   if (!commit || !COMMIT.test(commit)) throw new Error(`ref "${source.ref}" was not found on the remote`);
   return commit;
 }
@@ -301,6 +326,11 @@ async function ensureSourceCheckout(
       log(level, `nimbus: ${label}: fetched commit ${commit.slice(0, 12)}.${floatingNote}`);
       return checkout(false);
     } catch (error) {
+      // Only a failed transport falls back to the cache; a wrong path or a
+      // ref that moved mid-build is the author's to fix.
+      if (error instanceof SourceConfigError) {
+        throw authorError(`nimbus-docs: could not check out ${label}: ${error.message}.`);
+      }
       failure = (error as Error).message;
     }
   }
