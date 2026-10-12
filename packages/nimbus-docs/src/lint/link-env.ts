@@ -26,6 +26,9 @@ export function inferProjectRoot(absPath: string): string {
   // `/Users/me/src/projects/my-docs/src/content/...`) infers `my-docs`,
   // not `/Users/me`.
   const norm = absPath.replace(/\\/g, "/");
+  // A page read from a content source sits under `<root>/.nimbus/sources/`.
+  const checkout = norm.lastIndexOf("/.nimbus/sources/");
+  if (checkout !== -1) return norm.slice(0, checkout);
   const idx = norm.lastIndexOf("/src/");
   return idx === -1 ? path.dirname(absPath) : norm.slice(0, idx);
 }

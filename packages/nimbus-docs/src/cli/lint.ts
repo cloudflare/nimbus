@@ -20,6 +20,7 @@ import path from "node:path";
 
 import type { Features } from "satteri";
 
+import { listContentSourceContentDirs } from "../_internal/content-sources.js";
 import { setMarkdownFeatures } from "../_internal/markdown-features.js";
 import { materializedFeatures } from "../check/authoring.js";
 import { isBuildValidator } from "../lint/diagnostic.js";
@@ -100,7 +101,9 @@ export async function lintCommand(flags: LintCliFlags): Promise<void> {
     }
   }
 
-  const files = findMdxFiles([contentDir]);
+  // Pages read from a content source live under `.nimbus/sources`; they are
+  // linted with the local ones.
+  const files = findMdxFiles([contentDir, ...listContentSourceContentDirs(cwd)]);
   if (files.length === 0) {
     // Exit nonzero: a lint step that finds nothing to lint is almost always a
     // misconfigured working directory, not a clean pass. Failing loudly stops a

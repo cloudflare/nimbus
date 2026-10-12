@@ -15,6 +15,7 @@ import path from "node:path";
 
 import type { Features } from "satteri";
 
+import { listContentSourceContentDirs } from "../_internal/content-sources.js";
 import { setMarkdownFeatures } from "../_internal/markdown-features.js";
 import {
   findMdxFiles,
@@ -60,7 +61,7 @@ export function checkAuthoring(cwd: string): ScopeReport {
     });
   }
 
-  const files = findMdxFiles([path.join(cwd, "src", "content")]);
+  const files = findMdxFiles([path.join(cwd, "src", "content"), ...listContentSourceContentDirs(cwd)]);
   if (files.length === 0) {
     return { scope: "authoring", findings, notes, evaluated: true };
   }

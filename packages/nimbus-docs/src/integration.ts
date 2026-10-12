@@ -1052,14 +1052,15 @@ export function nimbus(
         // index below read files inside the checkouts, and so do the loaders
         // at content sync. Every command, `preview` included, since the
         // citation index runs here for each; a pinned ref is a cache hit.
-        {
-          const checkouts = await checkoutContentSources(config.sources, {
-            projectRoot,
-            log: (level, message) => logger[level](message),
-          });
-          registerContentSourceCheckouts(astroConfig.root, checkouts);
-          applySourceSpecs(sourceSpecs, checkouts);
-        }
+        const checkouts = await checkoutContentSources(config.sources, {
+          projectRoot,
+          log: (level, message) => logger[level](message),
+        });
+        registerContentSourceCheckouts(astroConfig.root, checkouts);
+        applySourceSpecs(sourceSpecs, checkouts);
+        // The folder each remote collection reads, for the citation and
+        // authored-link passes below: a remote page is authored like a local one.
+        const sourceContentDirs = [...checkouts.values()].map((checkout) => checkout.contentDir);
         beginPreparedMarkdownSession(astroConfig.root);
         registerApiCollections(
           astroConfig.root,
@@ -2300,10 +2301,11 @@ export function nimbus(
                 ),
               };
 
-        const citationContentDirs = ["src/content"].map((d) =>
-          path.isAbsolute(d) ? d : path.join(projectRoot, d),
-        );
-        const authoredLinkSourceDirs = [srcDir];
+        const citationContentDirs = [
+          path.join(projectRoot, "src/content"),
+          ...sourceContentDirs,
+        ];
+        const authoredLinkSourceDirs = [srcDir, ...sourceContentDirs];
         // One `git log` per build. Request rendering needs the dates at
         // runtime; a production build with a sitemap needs them for
         // `lastmod`, and prerendered pages then read the same map instead of

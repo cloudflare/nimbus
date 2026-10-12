@@ -17,6 +17,8 @@ import { pathToFileURL } from "node:url";
 import { build } from "astro";
 
 import nimbus from "../src/index.ts";
+import { listContentSourceContentDirs } from "../src/_internal/content-sources.ts";
+import { lintPaths } from "../src/lint/engine.ts";
 import type { NimbusConfig } from "../src/types.ts";
 import { runningNimbusVersion } from "../src/_internal/upgrades.ts";
 import { formatCheckJson } from "../src/check/format.ts";
@@ -69,6 +71,8 @@ async function makeRemote(root: string) {
   await write("src/lib.ts", "export const lib = 1;\n");
   await write("docs/index.md", "---\ntitle: SDK overview\n---\n\nStart with [install](/sdk/guides/install).\n");
   await write("docs/guides/install.md", "---\ntitle: Install\n---\n\nInstall the SDK.\n");
+  await write("docs/guides/cite.md", "---\ntitle: Cite\n---\n\nCall [list widgets](api.ref:api:listWidgets).\n");
+  await write("docs/guides/links.mdx", "---\ntitle: Links\n---\n\nSee [install](/sdk/guides/install) and [nowhere](/sdk/nowhere).\n");
   await write("docs/openapi.json", `${JSON.stringify(SPEC, null, 2)}\n`);
   git(work, "init", "-q", "-b", "main");
   git(work, "add", "-A");
@@ -143,11 +147,11 @@ const { entry } = await getDocsPageProps(Astro);
 import { getCollectionStaticPaths, getCollectionPageProps, getEditUrl, getLastUpdated } from ${moduleUrl("../src/runtime.ts")};
 export const prerender = true;
 export const getStaticPaths = getCollectionStaticPaths("sdk");
-const { entry } = await getCollectionPageProps(Astro);
+const { entry, Content } = await getCollectionPageProps(Astro);
 const editUrl = (await getEditUrl(entry)) ?? "no-edit-url";
 const lastUpdated = (await getLastUpdated(entry))?.toISOString() ?? "no-date";
 ---
-<html><body><h1>{entry.data.title}</h1><p>{entry.filePath}</p><a id="edit" href={editUrl}>{editUrl}</a><time>{lastUpdated}</time></body></html>
+<html><body><h1>{entry.data.title}</h1><p>{entry.filePath}</p><a id="edit" href={editUrl}>{editUrl}</a><time>{lastUpdated}</time><main><Content /></main></body></html>
 `,
   );
   await write(
@@ -259,6 +263,15 @@ export default defineConfig({
     assert.match(await read("dist/sdk/guides/install/index.html"), /<a id="edit" href="no-edit-url">no-edit-url<\/a><time>no-date<\/time>/);
     assert.match(await read("dist/guide/index.html"), /Guide/);
     assert.match(await read("dist/sdk/llms.txt"), /\/sdk\/guides\/install/);
+    // The checkout is in citation scope: an `api.ref:` in a remote page resolves.
+    assert.match(await read("dist/sdk/guides/cite/index.html"), /href="\/api\/widgets\/listWidgets\/?"/);
+    // And in lint scope: the link checker reads the checkout like src/content.
+    assert.deepEqual(listContentSourceContentDirs(site), [path.join(checkout, "docs")]);
+    const linkFindings = lintPaths([path.join(checkout, "docs/guides/links.mdx")], site, {
+      rules: { "nimbus/internal-link": "error" },
+    }).filter((finding) => finding.code === "nimbus/internal-link");
+    assert.equal(linkFindings.length, 1, JSON.stringify(linkFindings));
+    assert.match(linkFindings[0]!.message, /\/sdk\/nowhere/);
     assert.ok(existsSync(path.join(site, "dist/api/index.html")), "the API overview page is built");
     const apiPages = (await walk(path.join(site, "dist/api"))).filter((file) => file.endsWith("index.html"));
     assert.ok(apiPages.length >= 2, `api pages: ${apiPages.join(", ")}`);

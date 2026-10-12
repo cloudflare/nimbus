@@ -173,6 +173,24 @@ export function listSourceCheckouts(projectRoot: string, name: string): SourceMa
   return markers.sort((a, b) => b.fetchedAt.localeCompare(a.fetchedAt));
 }
 
+/**
+ * The content folder of every finished checkout under `.nimbus/sources`, for
+ * tools that run without the config (`nimbus-docs lint`, `check`): a remote
+ * page is linted like a local one.
+ */
+export function listContentSourceContentDirs(projectRoot: string): string[] {
+  const root = path.join(projectRoot, ".nimbus", "sources");
+  if (!fs.existsSync(root)) return [];
+  const dirs: string[] = [];
+  for (const name of fs.readdirSync(root).sort()) {
+    for (const marker of listSourceCheckouts(projectRoot, name)) {
+      const dir = path.join(root, name, marker.commit);
+      dirs.push(marker.path ? path.join(dir, marker.path) : dir);
+    }
+  }
+  return dirs;
+}
+
 export function normalizeSourcePath(value: string | undefined): string {
   return (value ?? "")
     .replaceAll("\\", "/")
