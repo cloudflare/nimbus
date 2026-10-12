@@ -45,6 +45,7 @@ import {
 } from "../lint/site-model.js";
 import type { CheckFinding, Note, ScopeReport } from "./finding.js";
 import { lineOf, relFile } from "./loc.js";
+import { probeSources, sourceFindings } from "./sources.js";
 import type { NimbusConfig } from "../types.js";
 
 export async function checkStructure(
@@ -54,7 +55,7 @@ export async function checkStructure(
   const findings: CheckFinding[] = [];
   const notes: Note[] = [];
 
-  const config = checkConfigZod(findings, notes, parsed);
+  const config = checkConfigZod(cwd, findings, notes, parsed);
   await checkApiCollections(cwd, findings, notes, parsed, config);
   await checkRequestRendering(cwd, findings, notes, parsed, config);
   await checkDuplicateRoutes(cwd, findings, parsed);
@@ -302,6 +303,7 @@ async function checkRequestRendering(
 }
 
 function checkConfigZod(
+  cwd: string,
   findings: CheckFinding[],
   notes: Note[],
   parsed: ConfigParseResult,
@@ -311,9 +313,25 @@ function checkConfigZod(
   const file = relFile(parsed.location.file);
   const line = lineOf(parsed.location.source, parsed.location.objectStart);
 
-  const hasSpread = parsed.unresolved.includes("...spread");
-  if (parsed.unresolved.length > 0) {
-    const fields = parsed.unresolved
+  const probe: Record<string, unknown> = { ...parsed.config };
+  // A `sources` map whose only computed values are templated refs
+  // (`process.env.SDK_DOCS_REF ?? "<commit>"`) is read with each ref's
+  // fallback, so a preview-ready config keeps its readiness.
+  let templatedRefs = new Set<string>();
+  let unresolved = parsed.unresolved;
+  if (probe.sources === undefined && unresolved.includes("sources")) {
+    const raw = parsed.location.fields.get("sources")?.raw;
+    const sources = raw === undefined ? null : probeSources(raw);
+    if (sources) {
+      probe.sources = sources.probe;
+      templatedRefs = sources.templated;
+      unresolved = unresolved.filter((field) => field !== "sources");
+    }
+  }
+
+  const hasSpread = unresolved.includes("...spread");
+  if (unresolved.length > 0) {
+    const fields = unresolved
       .map((u) => (u === "...spread" ? "a spread (`...`)" : `\`${u}\``))
       .join(", ");
     notes.push({
@@ -323,7 +341,6 @@ function checkConfigZod(
     });
   }
 
-  const probe: Record<string, unknown> = { ...parsed.config };
   if (
     probe.site === undefined &&
     (hasSpread || parsed.unresolved.includes("site"))
@@ -338,7 +355,17 @@ function checkConfigZod(
   }
 
   try {
-    return validateNimbusConfig(probe);
+    const config = validateNimbusConfig(probe);
+    if (config.sources) {
+      const sourcesField = parsed.location.fields.get("sources");
+      findings.push(
+        ...sourceFindings(cwd, config.sources, templatedRefs, {
+          file,
+          line: lineOf(parsed.location.source, sourcesField?.keyStart ?? parsed.location.objectStart),
+        }),
+      );
+    }
+    return config;
   } catch (err) {
     findings.push({
       scope: "structure",

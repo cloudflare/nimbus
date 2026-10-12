@@ -256,7 +256,8 @@ function propertyKey(name: ts.PropertyName): string | null {
   return null;
 }
 
-function literalValue(node: ts.Expression): LiteralResult {
+/** The JSON-shaped value of an expression node, or `{ ok: false }` for anything computed. */
+export function literalValue(node: ts.Expression): LiteralResult {
   while (
     ts.isParenthesizedExpression(node) ||
     ts.isAsExpression(node) ||
