@@ -1,5 +1,6 @@
 ---
 "@cloudflare/nimbus-docs": minor
+"@cloudflare/create-nimbus-docs": patch
 ---
 
 - `sources` in the Nimbus config declares git repositories to read content from
