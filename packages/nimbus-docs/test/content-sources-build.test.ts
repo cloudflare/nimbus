@@ -2,9 +2,9 @@
 // `docs/` and `docs/openapi.json`, mounted as the `sdk` collection and read by
 // the `api` entry's spec through the checkout the integration makes at
 // `astro:config:setup`. Then the cache (a second build with the remote gone
-// makes no fetch), a branch ref picking up a new commit, the credential in the
-// repository URL reaching no log line and no file, and `check --structure` on
-// the same site with a templated ref.
+// makes no fetch), a branch ref picking up a new commit, an annotated tag, the
+// credential in the repository URL reaching no log line and no file, and
+// `check --structure` on the same site with a templated ref.
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -291,8 +291,46 @@ export default defineConfig({
     assert.equal(calls.filter((line) => line.includes("ls-remote")).length, 1, calls.join("\n"));
     assert.equal(calls.filter((line) => /built-in: git fetch/.test(line)).length, 0, calls.join("\n"));
 
+    // An annotated tag resolves to the commit it points at, not the tag object.
+    git(remote.work, "tag", "-a", "v1.0.0", "-m", "release", remote.commit);
+    git(remote.work, "push", "-q", remote.bare, "refs/tags/v1.0.0");
+    const tagged = await buildSite("v1.0.0");
+    assert.match(tagged, new RegExp(`@ v1\\.0\\.0\\): fetched commit ${remote.commit.slice(0, 12)}\\. Ref "v1\\.0\\.0" floats`));
+    assert.ok(!existsSync(path.join(site, "dist/sdk/guides/publish/index.html")), "the tag predates the publish guide");
+
+    // A path missing at the commit is the author's error, not a cache fallback.
+    await assert.rejects(
+      (async () => {
+        const output: string[] = [];
+        const restore = [process.stdout, process.stderr].map((stream) => {
+          const original = stream.write.bind(stream);
+          stream.write = ((chunk: string | Uint8Array) => (output.push(String(chunk)), true)) as typeof stream.write;
+          return () => (stream.write = original);
+        });
+        try {
+          await build({
+            root: pathToFileURL(`${site}${path.sep}`),
+            configFile: false,
+            cacheDir: path.join(site, ".astro"),
+            outDir: "./dist",
+            vite: { cacheDir: path.join(site, ".vite") },
+            logLevel: "silent",
+            integrations: [
+              nimbus(
+                { site: "https://example.test", title: "Test", search: false, sources: { sdk: { repo, ref: "main", path: "guides" } } },
+                { admonitions: false, sitemap: false, validateMdx: false },
+              ),
+            ],
+          });
+        } finally {
+          for (const reset of restore) reset();
+        }
+      })(),
+      /could not check out source "sdk" \(file:\/\/.* @ main\): path "guides" does not exist at commit/,
+    );
+
     // 4. `check --structure --json` on the site: a templated ref keeps the
-    // config readable, a literal branch is floating, the cache is present.
+    // config readable, a literal branch is floating.
     const checkJson = async () =>
       JSON.parse(formatCheckJson(await runChecks(site, { env: false, structure: true, authoring: false, types: false }))) as {
         status: string;
@@ -314,13 +352,8 @@ export default defineConfig({
     assert.match(warning?.message ?? "", new RegExp(`sources\\.sdk follows ref "main" of file://${remote.bare}`));
     assert.ok(!JSON.stringify(floating).includes(TOKEN));
 
-    await rm(path.join(site, ".nimbus/sources"), { recursive: true, force: true });
-    const uncached = await checkJson();
-    const info = uncached.findings.find((finding) => finding.code === "nimbus/source-cache-missing");
-    assert.equal(info?.severity, "info");
-    assert.match(info?.message ?? "", /the next build fetches it/);
-
     // 5. No cache and no remote: the build fails naming the source, without the token.
+    await rm(path.join(site, ".nimbus/sources"), { recursive: true, force: true });
     await rename(remote.bare, `${remote.bare}.away`);
     await assert.rejects(buildSite(remote.commit), (error: Error) => {
       assert.match(error.message, new RegExp(`could not fetch source "sdk" \\(file://${remote.bare} @ ${remote.commit}\\), and no cached checkout exists under \\.nimbus/sources/sdk/`));

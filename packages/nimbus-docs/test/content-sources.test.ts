@@ -57,6 +57,7 @@ test("an abbreviated commit, a bad ref, a bad name, a parent path, and an unknow
   assert.match(invalid({ ...base, sources: { sdk: { repo: "x", ref: "main", path: "/docs" } } }), /must be relative to the repository root/);
   assert.match(invalid({ ...base, sources: { sdk: { repo: "x", ref: "main", branch: "main" } } }), /sources field "branch"/);
   assert.match(invalid({ ...base, sources: { sdk: { ref: "main" } } }), /sources\.sdk\.repo/);
+  assert.match(invalid({ ...base, sources: { sdk: { repo: "--upload-pack=x", ref: "main" } } }), /must not start with "-"/);
 });
 
 test("a rejected sources entry never echoes the repository URL", () => {
@@ -131,6 +132,8 @@ test("redaction drops the password, or the username when it stands alone, in URL
   assert.equal(redactRepo(`file://x-access-token:${TOKEN}@/srv/git/sdk.git`), "file:///srv/git/sdk.git");
   assert.equal(redactRepo("https://github.com/acme/sdk.git"), "https://github.com/acme/sdk.git");
   assert.equal(redactRepo("git@github.com:acme/sdk.git"), "git@github.com:acme/sdk.git");
+  assert.equal(redactRepo("ssh://git@github.com/acme/sdk.git"), "ssh://git@github.com/acme/sdk.git", "a short username is a login, not a token");
+  assert.equal(redactText("fatal: git@host: denied", "ssh://git@host/r.git"), "fatal: git@host: denied");
   assert.equal(redactRepo("/srv/git/sdk.git"), "/srv/git/sdk.git");
   assert.equal(
     redactText(`fatal: Authentication failed for 'https://x:${TOKEN}@host/r.git/' (${TOKEN})`, `https://x:${TOKEN}@host/r.git`),
