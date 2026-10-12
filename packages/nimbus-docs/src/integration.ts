@@ -100,6 +100,12 @@ import {
 import { virtualAgentCapabilitiesPlugin } from "./_internal/virtual-agent-capabilities.js";
 import { API_CATALOG_PATH } from "./_internal/agent-api-catalog.js";
 import { publishOpenApiSpec } from "./_internal/api/publish-spec.js";
+import {
+  applySourceSpecs,
+  checkoutContentSources,
+  collectSourceSpecs,
+  registerContentSourceCheckouts,
+} from "./_internal/content-sources.js";
 import type { PublishSpecResult } from "./_internal/api/publish-spec.js";
 import type { AgentApiPublication } from "./types.js";
 import {
@@ -536,6 +542,10 @@ export function nimbus(
     { rules: options.rules, collections: options.collections },
     IMPLEMENTED_CODES,
   );
+
+  // The `api[].spec: { source, path }` entries, found once: each hook run
+  // points them at the checkout of that run.
+  const sourceSpecs = collectSourceSpecs(config.api);
 
   // Threaded from `astro:config:setup` to `astro:build:done` so the post-
   // build materialization knows where to write `.nimbus/routes.json` and
@@ -1038,6 +1048,17 @@ export function nimbus(
         }
         navBuildInputs = { srcDir, base: astroConfig.base, hasApi: Boolean(config.api?.length) };
         setLinkPolicy({ trailingSlash: astroConfig.trailingSlash, format: astroConfig.build.format });
+        // Content sources come first: the API spec read and the citation
+        // index below read files inside the checkouts, and so do the loaders
+        // at content sync. `preview` serves a finished build and needs none.
+        if (command !== "preview") {
+          const checkouts = await checkoutContentSources(config.sources, {
+            projectRoot,
+            log: (level, message) => logger[level](message),
+          });
+          registerContentSourceCheckouts(astroConfig.root, checkouts);
+          applySourceSpecs(sourceSpecs, checkouts);
+        }
         beginPreparedMarkdownSession(astroConfig.root);
         registerApiCollections(
           astroConfig.root,

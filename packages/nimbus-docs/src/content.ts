@@ -18,6 +18,7 @@
  *   })),
  */
 
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -62,6 +63,11 @@ import {
   rendersApiOnRequest,
   usesPageAssets,
 } from "./_internal/page-assets-config.js";
+import {
+  registeredContentSourceNames,
+  resolveContentSourceCheckout,
+  SOURCES_DIR,
+} from "./_internal/content-sources.js";
 
 // Re-export the public schema factories from `nimbus-docs/content` so users
 // have a single import for content-config concerns (collections + schemas).
@@ -108,6 +114,13 @@ export interface DocsCollectionOptions<
    * schema doesn't model. Declared fields in `schemaFields` stay typed.
    */
   strictFrontmatter?: boolean;
+  /**
+   * Read the collection from a content source declared in the Nimbus
+   * config's `sources` (by name) instead of `src/content/<base>`. The
+   * integration checks the source out before content sync; the loader reads
+   * the source's `path` inside that checkout. `base` is ignored.
+   */
+  source?: string;
 }
 
 export interface PartialsCollectionOptions<
@@ -217,9 +230,69 @@ export function docsCollection<
     strictFrontmatter: options.strictFrontmatter,
   });
 
+  if (options.source !== undefined) {
+    return { loader: contentSourceLoader(options.source, pattern), schema };
+  }
+
   return {
     loader: withNimbusMarkdown(glob({ base, pattern })),
     schema,
+  };
+}
+
+/**
+ * The loader behind `docsCollection({ source })`: the normal Nimbus glob
+ * loader over the source's folder inside its checkout. The checkout was made
+ * by the integration at `astro:config:setup` and is frozen per commit, so the
+ * inner loader gets no watcher.
+ */
+function contentSourceLoader(source: string, pattern: string): Loader {
+  return {
+    name: "nimbus-docs:content-source",
+    async load(context) {
+      const projectRoot = fileURLToPath(context.config.root);
+      const checkout = resolveContentSourceCheckout(context.config.root, source);
+      if (!checkout) {
+        const declared = registeredContentSourceNames(context.config.root);
+        throw authorError(
+          `nimbus-docs: collection "${context.collection}" in src/content.config.ts sets source: ${JSON.stringify(source)}, ` +
+            `but the Nimbus config (astro.config.*) declares no source named "${source}" in \`sources\`.`,
+          declared.length
+            ? `Declared sources: ${declared.map((name) => `"${name}"`).join(", ")}.`
+            : `Add sources: { ${JSON.stringify(source)}: { repo, ref, path } } to the Nimbus config.`,
+        );
+      }
+      let empty: boolean;
+      try {
+        empty = fs.readdirSync(checkout.contentDir).length === 0;
+      } catch {
+        empty = true;
+      }
+      if (empty) {
+        throw authorError(
+          `nimbus-docs: collection "${context.collection}" reads source "${source}" at commit ${checkout.commit.slice(0, 12)}, ` +
+            `but ${checkout.path ? `its folder "${checkout.path}"` : "the repository"} is missing or empty there.`,
+          `Check sources.${source}.path and the ref.`,
+        );
+      }
+      // Astro's glob loader keeps an existing entry (and its old filePath)
+      // when the file's digest is unchanged, so a checkout at a new commit
+      // folder would leave unchanged pages pointing at the previous folder,
+      // which no longer exists. Start from an empty store whenever the
+      // commit or the folder changes.
+      const META_KEY = "nimbus:content-source";
+      const stamp = `${checkout.commit}:${checkout.path}`;
+      if (context.meta.get(META_KEY) !== stamp) {
+        context.store.clear();
+        context.meta.set(META_KEY, stamp);
+      }
+      const relative = path.relative(projectRoot, checkout.contentDir).split(path.sep).join("/");
+      if (!relative.startsWith(`${SOURCES_DIR}/`)) {
+        throw new Error(`nimbus-docs: source "${source}" resolved outside ${SOURCES_DIR}: ${relative}`);
+      }
+      const inner = withNimbusMarkdown(glob({ base: `./${relative}`, pattern }));
+      await inner.load({ ...context, watcher: undefined });
+    },
   };
 }
 

@@ -10,6 +10,7 @@ import type { NimbusConfig } from "../types.js";
 import { withStrictKeys, reportUnknownKeys } from "./strict-keys.js";
 import { prefixEntryFault, routeSlugFault } from "./api/route-policy.js";
 import { GENERATED_SAMPLE_LANGS } from "./api/samples.js";
+import { isCommitRef, isSpecFromSource, normalizeSourcePath } from "./content-sources.js";
 
 // `new URL("https:example.com")` does NOT throw (protocol `https:`, host
 // `example.com`), so a bare `.url()`/`new URL()` check waves through a missing
@@ -197,9 +198,76 @@ const specSourceSchema = z.union(
   [z.string().min(1), z.record(z.string(), z.unknown())],
   {
     error:
-      '"api[].spec" must be a local file path (string) or an inline OpenAPI object — remote URLs are not supported in v1',
+      '"api[].spec" must be a local file path (string), { source, path } naming a content source, or an inline OpenAPI object — remote URLs are not supported in v1',
   },
 );
+
+// Content sources: `sources: { <name>: { repo, ref, path } }`. The name is a
+// cache folder; `ref` is a full commit (reproducible) or a branch or tag name;
+// `path` is a folder inside the repository. Messages never echo `repo`, which
+// may carry a credential.
+const SOURCE_NAME = /^[a-z0-9-]+$/;
+const ABBREVIATED_COMMIT = /^[0-9a-f]{7,39}$/i;
+const contentSourceShape = {
+  repo: z
+    .string({ error: '"sources.<name>.repo" must be a string: an https or ssh URL, or a local path, that `git clone` accepts' })
+    .min(1, '"sources.<name>.repo" must not be empty'),
+  ref: z
+    .string({ error: '"sources.<name>.ref" must be a string: a 40-character commit, or a branch or tag name' })
+    .superRefine((ref, ctx) => {
+      const fault = !ref
+        ? "must not be empty"
+        : isCommitRef(ref)
+          ? undefined
+          : ABBREVIATED_COMMIT.test(ref)
+            ? `looks like an abbreviated commit — use the full 40-character commit (\`git rev-parse ${ref}\`) so the build is reproducible`
+            : /^[0-9A-F]{40}$/.test(ref)
+              ? "must be a lowercase 40-character commit"
+              : /^-|[\s~^:?*[\\]|\.\.|@\{|\.lock$|\/$|^\/|\/\//.test(ref)
+                ? "must be a 40-character commit or a branch or tag name git accepts"
+                : undefined;
+      if (fault) ctx.addIssue({ code: "custom", message: `"sources.<name>.ref" ${fault}` });
+    }),
+  path: z
+    .string({ error: '"sources.<name>.path" must be a string: a folder inside the repository, or "" for the whole repository' })
+    .default("")
+    .superRefine((value, ctx) => {
+      const fault = /^[A-Za-z]:|^[\\/]/.test(value)
+        ? "must be relative to the repository root"
+        : value.split(/[\\/]/).includes("..")
+          ? 'must not contain a ".." segment'
+          : undefined;
+      if (fault) ctx.addIssue({ code: "custom", message: `"sources.<name>.path" ${fault}` });
+    })
+    .transform((value) => normalizeSourcePath(value)),
+};
+const contentSourceKeys = new Set(Object.keys(contentSourceShape));
+const contentSourceSchema = z
+  .object(contentSourceShape)
+  .passthrough()
+  .superRefine((source, ctx) => {
+    reportUnknownKeys(source, ctx, contentSourceKeys, {
+      removedKeys: {},
+      contextLabel: "sources field",
+      unknownHint: () => 'Valid keys are "repo", "ref", and "path".',
+    });
+  });
+const sourcesSchema = z
+  .record(z.string(), contentSourceSchema, {
+    error: '"sources" must be an object of { repo, ref, path } entries keyed by source name',
+  })
+  .optional()
+  .superRefine((sources, ctx) => {
+    for (const name of Object.keys(sources ?? {})) {
+      if (!SOURCE_NAME.test(name)) {
+        ctx.addIssue({
+          code: "custom",
+          path: [name],
+          message: `source name "${name}" must be lowercase letters, digits, and dashes only (it becomes the cache folder .nimbus/sources/${name}/)`,
+        });
+      }
+    }
+  });
 
 /**
  * Version ids that would shadow a top-level page slug within a family
@@ -626,6 +694,7 @@ const nimbusConfigSchema = withStrictKeys(
     search: searchSchema,
     versions: versionsSchema,
     api: apiSchema,
+    sources: sourcesSchema,
     apiReferences: apiReferencesSchema,
     rendering: renderingSchema,
   }),
@@ -672,6 +741,58 @@ const nimbusConfigSchema = withStrictKeys(
           ? `api collection "${entry.collection}" sets bundle: false, but rendering.collections.${entry.collection} is "${explicit}". Set it to "request", or remove bundle: false`
           : `api collection "${entry.collection}" sets bundle: false, which needs it rendered on request. Add rendering: { collections: { ${JSON.stringify(entry.collection)}: "request" } }, or remove bundle: false`,
       });
+    }
+  });
+  // A spec read through a source names a declared source and a file inside
+  // the source's `path` (the sparse checkout holds nothing else).
+  const withSources = data as {
+    api?: { collection?: string; spec?: unknown; versions?: { spec?: unknown }[] }[];
+    sources?: Record<string, { path?: string }>;
+  };
+  (withSources.api ?? []).forEach((entry, i) => {
+    const holders: { spec?: unknown; path: (string | number)[] }[] = entry.versions
+      ? entry.versions.map((version, vi) => ({ spec: version.spec, path: ["api", i, "versions", vi, "spec"] }))
+      : [{ spec: entry.spec, path: ["api", i, "spec"] }];
+    for (const holder of holders) {
+      if (!isSpecFromSource(holder.spec)) continue;
+      const { source, path: specPath } = holder.spec as { source: string; path?: unknown };
+      const declared = withSources.sources?.[source];
+      const names = Object.keys(withSources.sources ?? {});
+      if (!declared) {
+        ctx.addIssue({
+          code: "custom",
+          path: [...holder.path, "source"],
+          message:
+            `api collection "${entry.collection}" reads its spec from source "${source}", which "sources" doesn't declare` +
+            (names.length ? ` — declared: ${names.map((name) => `"${name}"`).join(", ")}` : ` — add sources: { "${source}": { repo, ref, path } } to the config`),
+        });
+        continue;
+      }
+      if (typeof specPath !== "string" || !normalizeSourcePath(specPath)) {
+        ctx.addIssue({
+          code: "custom",
+          path: [...holder.path, "path"],
+          message: `api collection "${entry.collection}" reads its spec from source "${source}" but names no file — set path to the spec's path inside the repository, e.g. "openapi.json"`,
+        });
+        continue;
+      }
+      const normalized = normalizeSourcePath(specPath);
+      const folder = normalizeSourcePath(declared.path);
+      if (normalized.split("/").includes("..")) {
+        ctx.addIssue({
+          code: "custom",
+          path: [...holder.path, "path"],
+          message: `api collection "${entry.collection}": spec path "${specPath}" must not contain a ".." segment`,
+        });
+      } else if (folder && normalized !== folder && !normalized.startsWith(`${folder}/`)) {
+        ctx.addIssue({
+          code: "custom",
+          path: [...holder.path, "path"],
+          message:
+            `api collection "${entry.collection}" reads "${normalized}" from source "${source}", but that source checks out only "${folder}/" — ` +
+            `widen sources.${source}.path to a folder that contains the spec, or set it to "" for the whole repository`,
+        });
+      }
     }
   });
   // A remote reference must not shadow a locally-built collection.
@@ -735,6 +856,8 @@ function formatReceived(input: unknown, path: ReadonlyArray<string | number>): s
     if (cursor === undefined) return null;
   }
   if (cursor === undefined) return null;
+  // A source's `repo` may carry a credential: never echo it, nor the object around it.
+  if (path[0] === "sources" && (path.length < 3 || path[2] === "repo")) return null;
   try {
     const json = JSON.stringify(cursor);
     if (json === undefined) return String(cursor);
