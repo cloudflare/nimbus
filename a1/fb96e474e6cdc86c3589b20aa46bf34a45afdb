@@ -1,0 +1,21 @@
+packages/nimbus-docs/src/check/env.ts
+  s_c4b4e2366d7ab0::t_7c02ab91e6f272 4-6,62,224-243
+packages/nimbus-docs/test/check/run.test.ts
+  s_c4b4e2366d7ab0::t_d6e1fc137d44bb 48-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a1fb96e474e6cdc86c3589b20aa46bf34a45afdb",
+  "prompts": {},
+  "sessions": {
+    "s_c4b4e2366d7ab0": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ece1d7faeffeogz4KpU2srbeyn",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
