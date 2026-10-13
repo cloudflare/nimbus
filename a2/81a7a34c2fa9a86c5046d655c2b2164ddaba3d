@@ -1,0 +1,21 @@
+.github/workflows/fork-preview.yml
+  s_bf88e10c129005::t_6da4917a007e3b 1-177
+CONTRIBUTING.md
+  s_bf88e10c129005::t_dc9d71839dc5b6 98,110,129,132,157-166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a281a7a34c2fa9a86c5046d655c2b2164ddaba3d",
+  "prompts": {},
+  "sessions": {
+    "s_bf88e10c129005": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ec9c6fdc8ffe2cBpRs3heaHCXW",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
