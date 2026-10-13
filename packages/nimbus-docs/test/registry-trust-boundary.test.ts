@@ -89,8 +89,8 @@ test("valid payload parses to a typed ComponentItem", async () => {
 test("exact dependency versions pass payload validation", async () => {
   const dependencies = [
     "@scalar/openapi-parser@0.28.12",
-    "openapi-sampler@1.7.4",
-    "@readme/httpsnippet@11.4.0",
+    "openapi-sampler@1.7.6",
+    "@readme/httpsnippet@11.4.1",
   ];
   stubFetch({
     contentType: "application/json",

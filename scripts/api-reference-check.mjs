@@ -79,9 +79,9 @@ const GLOBAL_TIMEOUT_MS = Number(
 );
 const DEFAULT_PHASE_TIMEOUT_MS = 10 * 60_000;
 const PEERS = {
-  "@readme/httpsnippet": "11.4.0",
+  "@readme/httpsnippet": "11.4.1",
   "@scalar/openapi-parser": "0.28.12",
-  "openapi-sampler": "1.7.4",
+  "openapi-sampler": "1.7.6",
 };
 const PINNED_REGISTRY_PEERS = Object.entries(PEERS).map(
   ([name, version]) => `${name}@${version}`,
