@@ -1,0 +1,29 @@
+.changeset/mcp-preflight-followups.md
+  s_c5b85cc5658eeb::t_8747904631dc62 5
+packages/nimbus-docs/src/check/structure.ts
+  s_b97e2fb8fd648d::t_b64a5e9e11554a 20,60-61,63-70,72,91,93-97,100-107,229-230,236,238,334,336,345,383
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "8438f456b9778274ab0f47bd8a1aba0d4649b779",
+  "prompts": {},
+  "sessions": {
+    "s_b97e2fb8fd648d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_eca93511effecyprf33dUb58La",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_c5b85cc5658eeb": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ecb197a94ffeOBt2zaOdFLJQnU",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
