@@ -1,0 +1,543 @@
+.changeset/headers-owner-policy.md
+  s_a02ee89d386231::t_1728e061e18f17 5
+.changeset/partial-builds.md
+  s_a02ee89d386231::t_c9b79c75d9edc1 6-12
+.github/workflows/ci.yml
+  s_a02ee89d386231::t_ba89af273d35d6 81-83,85-108
+.gitignore
+  s_a02ee89d386231::t_c9a21ac51004e7 28
+CONTRIBUTING.md
+  s_a02ee89d386231::t_5028b62ae36557 73
+apps/www/astro.config.ts
+  s_a02ee89d386231::t_24c3f0732f2b83 23
+apps/www/nimbus.json
+  s_a02ee89d386231::t_ad97821f3e901a 3
+apps/www/registry/features/404-page.md
+  s_a02ee89d386231::t_c3c4ee63fc68a1 20,57,69
+apps/www/registry/features/ai-native.md
+  s_a02ee89d386231::t_dadfce91123da0 15,25,71
+apps/www/registry/features/api-reference.md
+  s_a02ee89d386231::t_76d494e77ade37 44,58-60,99-102,151-160,170-176,304-329
+apps/www/registry/features/content-changelog.md
+  s_a02ee89d386231::t_42472de9eb5145 20
+apps/www/registry/features/content-concept.md
+  s_a02ee89d386231::t_c9f5bef252e32a 20
+apps/www/registry/features/content-example.md
+  s_a02ee89d386231::t_8a53baaa963587 20
+apps/www/registry/features/content-how-to.md
+  s_a02ee89d386231::t_bdea10c7441a4a 20
+apps/www/registry/features/content-overview.md
+  s_a02ee89d386231::t_f5aafc239ab7eb 20
+apps/www/registry/features/content-quickstart.md
+  s_a02ee89d386231::t_c60355ec70eb59 20
+apps/www/registry/features/content-reference.md
+  s_a02ee89d386231::t_b093f9d6d7e4ff 20
+apps/www/registry/features/content-troubleshooting.md
+  s_a02ee89d386231::t_825cc0f38fdefe 20
+apps/www/registry/features/content-tutorial.md
+  s_a02ee89d386231::t_9591d0e9bc8ce6 20
+apps/www/registry/features/new-version.md
+  s_a02ee89d386231::t_05bee3c5e97e7f 577-579,582-588,591-592,595-602,605-608
+apps/www/registry/manifests.ts
+  s_a02ee89d386231::t_c44c64ecd6469e 281-288,337
+apps/www/src/components/ui/image-zoom/ImageZoom.astro
+  s_a02ee89d386231::t_940e873b42c604 1-103
+apps/www/src/components/ui/image-zoom/image-zoom.client.ts
+  s_a02ee89d386231::t_f788fca02b0bc3 1-118
+apps/www/src/components/ui/image-zoom/index.ts
+  s_a02ee89d386231::t_f59b2923af0667 1
+apps/www/src/components/ui/page-actions/PageActions.astro
+  s_a02ee89d386231::t_e51207ca39375e 30
+apps/www/src/content/components/image-zoom.mdx
+  s_a02ee89d386231::t_59d236b1959aad 1-39
+apps/www/src/content/docs/ai/docs-for-agents.mdx
+  s_a02ee89d386231::t_457b30e74e838f 19-20,37
+apps/www/src/content/docs/ai/metadata-and-seo.mdx
+  s_a02ee89d386231::t_4aadafbdaf1829 44-45,48-59,64-69
+apps/www/src/content/docs/ai/override-markdown.mdx
+  s_a02ee89d386231::t_78912bef702cb2 145
+apps/www/src/content/docs/ai/publish-markdown.mdx
+  s_a02ee89d386231::t_f267cfa1138ce8 57-65,69,71,78-79
+apps/www/src/content/docs/api-reference.mdx
+  s_a02ee89d386231::t_1e9af5506e1da8 144,146,155,164-166,172,183-186
+apps/www/src/content/docs/cli.mdx
+  s_a02ee89d386231::t_d788799e80a315 46,157-158,161,170,186-187,198,217
+apps/www/src/content/docs/configuration.mdx
+  s_a02ee89d386231::t_7f205799711494 165-166,175
+apps/www/src/content/docs/installation.mdx
+  s_a02ee89d386231::t_7ea44aae4df419 26,35,38,55-58,95
+apps/www/src/content/docs/partial-builds.mdx
+  s_a02ee89d386231::t_f8cfc77d6db1cc 1-287
+apps/www/src/content/docs/writing/markdown-and-mdx.mdx
+  s_a02ee89d386231::t_7a577478e53c36 153-191
+apps/www/src/layouts/BaseLayout.astro
+  s_a02ee89d386231::t_8a48683bc3f960 27,111
+apps/www/src/layouts/DocsLayout.astro
+  s_a02ee89d386231::t_2a20decea1df05 16,267-268
+apps/www/src/pages/404.astro
+  s_a02ee89d386231::t_bd446d9361afe5 11
+apps/www/src/pages/[...slug]/index.md.ts
+  s_a02ee89d386231::t_f4042bbabde1fb 1,4
+apps/www/src/pages/[...slug]/index.mdx.ts
+  s_a02ee89d386231::t_2bead4c8c2e462 1,4
+apps/www/src/pages/components/[slug].astro
+  s_a02ee89d386231::t_3375868c6595ab 17,126
+apps/www/src/pages/llms-full.txt.ts
+  s_a02ee89d386231::t_9c95dfac708cad 1,4
+apps/www/src/pages/llms.txt.ts
+  s_a02ee89d386231::t_f9abd7fe94a0ee 1,4
+package.json
+  s_a02ee89d386231::t_8a2a1dbe1b9299 21
+packages/create-nimbus-docs/CHANGELOG.md
+  s_a02ee89d386231::t_b86cb51960f14f 3-64
+packages/create-nimbus-docs/package.json
+  s_a02ee89d386231::t_321cca7d95ef84 3,53
+packages/create-nimbus-docs/src/index.ts
+  s_a02ee89d386231::t_7f7c970530bd7f 19,31-33,36,75-76,78-81,143-144,197,220-246
+packages/create-nimbus-docs/src/scaffold.ts
+  s_a02ee89d386231::t_c13915c03b0b42 14,148-149,246,253-256,276,293,300,315-317,324-326,330-333,339,348,356,376-380,385-433,492,547,558-559,628-630,633,663,666-668,706-710,717-730
+packages/create-nimbus-docs/src/transformers/adapter.ts
+  s_a02ee89d386231::t_f7fc1c9866aa42 40-46
+packages/create-nimbus-docs/test/scaffold-server.test.ts
+  s_a02ee89d386231::t_4b0de4ee0500ef 112-114,173-187,189-191
+packages/create-nimbus-docs/test/scaffold.test.ts
+  s_a02ee89d386231::t_31af1f4dcc64b4 19,330,361,372,385-486
+packages/create-nimbus-docs/test/search-provider.test.ts
+  s_a02ee89d386231::t_51a89f1da1903f 15,21-30,33-36,46-47,50,54-64,71,74,83-102
+packages/create-nimbus-docs/tsdown.config.ts
+  s_a02ee89d386231::t_23de33d9d2fffe 44-46
+packages/nimbus-docs/CHANGELOG.md
+  s_a02ee89d386231::t_2a86cf0ec30baa 3-114
+packages/nimbus-docs/package.json
+  s_a02ee89d386231::t_a65fadc5b7520e 3,101-102,106-107,116,146,150,154,167,184
+packages/nimbus-docs/src/_internal/adapters.ts
+  s_a02ee89d386231::t_739b69a365330e 622,624,817,825,834,869-875,878-882,993-994,1037-1038
+packages/nimbus-docs/src/_internal/agent-discovery.ts
+  s_a02ee89d386231::t_d966151f113044 91-93,165-169,171-183,185,188-189,192-213,215-228,230-256,258-259,261-268,271-277,280-395,398-403,410-412,421,424-429,432-435,446,449,458-559
+packages/nimbus-docs/src/_internal/agent-endpoint-assets.ts
+  s_a02ee89d386231::t_6124f51db9580f 23-31,52,77-78,121-124,127-143,621-622,670-671,674-679,685,712,716-721,726,748-756,760-765,769,773-822,827,840-843,853-860,874-1072,1080-1102,1104,1107,1109,1811-1815,1822,1824-1825,1834-1844,1846,1848
+packages/nimbus-docs/src/_internal/agent-endpoint-coverage.ts
+  s_a02ee89d386231::t_83cd8be31815f2 26-28,76-103
+packages/nimbus-docs/src/_internal/agent-search.ts
+  s_a02ee89d386231::t_fb848c1ccd6c7c 50-51
+packages/nimbus-docs/src/_internal/api/api-view-types.ts
+  s_a02ee89d386231::t_89be044196d457 8,360-362
+packages/nimbus-docs/src/_internal/api/coordinates.ts
+  s_a02ee89d386231::t_25b100de996a14 22,300-312,548
+packages/nimbus-docs/src/_internal/api/markdown.ts
+  s_a02ee89d386231::t_1114eebc112517 141-144
+packages/nimbus-docs/src/_internal/api/nav-bounds.ts
+  s_a02ee89d386231::t_2c3806643f2837 23,59-84
+packages/nimbus-docs/src/_internal/api/operations.ts
+  s_a02ee89d386231::t_d4e744b9be1761 147,173,186,201
+packages/nimbus-docs/src/_internal/api/page-assets-build.ts
+  s_a02ee89d386231::t_931e4f99ceae21 49,837-838,843-848,877-878,885
+packages/nimbus-docs/src/_internal/api/parse.ts
+  s_a02ee89d386231::t_a333353851ff26 21,124-139,243,249,335-346,348-353,355-364,717-725
+packages/nimbus-docs/src/_internal/api/prepared.ts
+  s_a02ee89d386231::t_097b0a641284b3 2,36,45
+packages/nimbus-docs/src/_internal/api/route-policy.ts
+  s_a02ee89d386231::t_1cc994367a6666 10-16,22-23,25
+packages/nimbus-docs/src/_internal/api/samples.ts
+  s_a02ee89d386231::t_f1f9fdaa4fafba 681,728-734
+packages/nimbus-docs/src/_internal/api/view-model.ts
+  s_a02ee89d386231::t_2d22d08df81d49 59,897,902
+packages/nimbus-docs/src/_internal/author-error.ts
+  s_a02ee89d386231::t_d1c638c8159747 3-4,18-30
+packages/nimbus-docs/src/_internal/authored-link-normalizer.ts
+  s_a02ee89d386231::t_d88c4311cc86bc 7
+packages/nimbus-docs/src/_internal/authored-links.ts
+  s_a02ee89d386231::t_fb3b01d4519f33 2,4,43-44,156-158,161,172,179,536,540-549,559,573,606,613,636-647
+packages/nimbus-docs/src/_internal/build-partials.ts
+  s_a02ee89d386231::t_b576f41a8a73f9 1,37,45,50,63,188,251-264,268-271
+packages/nimbus-docs/src/_internal/build-slice.ts
+  s_a02ee89d386231::t_ba95639e7932f8 1-186
+packages/nimbus-docs/src/_internal/cloudflare-trailing-slash.ts
+  s_a02ee89d386231::t_b044997d7761b3 1-32
+packages/nimbus-docs/src/_internal/content.ts
+  s_a02ee89d386231::t_dfdd809bfc00e1 23,104-116
+packages/nimbus-docs/src/_internal/default-markdown-processor.ts
+  s_a02ee89d386231::t_9e0e1bfb86afe2 1-2,7,12,15-31
+packages/nimbus-docs/src/_internal/emitted-routes.ts
+  s_a02ee89d386231::t_e8b3385f342fae 36-41,43,50
+packages/nimbus-docs/src/_internal/git-last-updated.ts
+  s_a02ee89d386231::t_b4058701e2419d 53-55,60,116-125,130,132-137,140-149,153-154
+packages/nimbus-docs/src/_internal/last-updated-virtual.ts
+  s_a02ee89d386231::t_fb1c5fd6207ec9 20
+packages/nimbus-docs/src/_internal/llms-full.ts
+  s_a02ee89d386231::t_a0b69b9cce7040 37-38,57-96,98,101-103,105-110,112-114
+packages/nimbus-docs/src/_internal/markdown-features.ts
+  s_a02ee89d386231::t_a9407ad73147fa 1-33
+packages/nimbus-docs/src/_internal/markdown-loader.ts
+  s_a02ee89d386231::t_5b54d16c47c903 29-35,343-364,383-386
+packages/nimbus-docs/src/_internal/markdown-routes-plugin.ts
+  s_a02ee89d386231::t_bf211437d96916 59
+packages/nimbus-docs/src/_internal/markdown-source.ts
+  s_a02ee89d386231::t_050b8f6b0cbbb4 1-14
+packages/nimbus-docs/src/_internal/mounted-llms-route.ts
+  s_a02ee89d386231::t_a1ebdf7679ce92 2-8,11,13-15,19-25,29-30,32,34
+packages/nimbus-docs/src/_internal/page-urls.ts
+  s_a02ee89d386231::t_1bf52c6d96a731 18-28,32,39,41
+packages/nimbus-docs/src/_internal/parse-components-registry.ts
+  s_a02ee89d386231::t_c4dca31549a0f1 51-52,70-85
+packages/nimbus-docs/src/_internal/parse-nimbus-config.ts
+  s_a02ee89d386231::t_459ab04004252e 134-299,386-401,406-407,469,475
+packages/nimbus-docs/src/_internal/parse-object-literal.ts
+  s_a02ee89d386231::t_d99962cec665da 29-38
+packages/nimbus-docs/src/_internal/partial-headings.ts
+  s_a02ee89d386231::t_3990754dbc8769 111,117
+packages/nimbus-docs/src/_internal/prepared-markdown-registry.ts
+  s_a02ee89d386231::t_93ea1b2e106116 123-124
+packages/nimbus-docs/src/_internal/route-ownership.ts
+  s_a02ee89d386231::t_3d7b0afae96d61 60-61
+packages/nimbus-docs/src/_internal/runtime-config.ts
+  s_a02ee89d386231::t_9ccd07243177ed 26,67-78
+packages/nimbus-docs/src/_internal/scan-code-langs.ts
+  s_a02ee89d386231::t_63b9c917cbd513 14,18
+packages/nimbus-docs/src/_internal/section-llms-full-route.ts
+  s_a02ee89d386231::t_8fc8b15ef610af 1-63
+packages/nimbus-docs/src/_internal/sidebar.ts
+  s_a02ee89d386231::t_579d94dff4e6a0 445,502,608,1088-1093,1107,1412
+packages/nimbus-docs/src/_internal/sitemap-alias.ts
+  s_a02ee89d386231::t_602da4a1f1de19 1-69
+packages/nimbus-docs/src/_internal/sitemap-lastmod.ts
+  s_a02ee89d386231::t_40fde962ee8643 1-86
+packages/nimbus-docs/src/_internal/slice-output.ts
+  s_a02ee89d386231::t_93a981cc149901 1-99
+packages/nimbus-docs/src/_internal/social-image-size.ts
+  s_a02ee89d386231::t_42afcb65e9bf73 1-95
+packages/nimbus-docs/src/_internal/transform.ts
+  s_a02ee89d386231::t_847e4677d04031 14,17,25,94-97,105,113,115-120,136-153,155,157,255-274,279,315-316,319,618,623
+packages/nimbus-docs/src/_internal/upgrade-manifest.json
+  s_a02ee89d386231::t_c7c84dac9320af 4-20,22-109,743-792
+packages/nimbus-docs/src/_internal/upgrades.ts
+  s_a02ee89d386231::t_3e5b840a2bda45 8-9,41-42,59-94,113,285
+packages/nimbus-docs/src/_internal/validate.ts
+  s_a02ee89d386231::t_5b0fe52bf2ce3f 221,227-228
+packages/nimbus-docs/src/_internal/virtual-config.ts
+  s_a02ee89d386231::t_eb42cb391a45dc 54-70,87-94,135-136,142-144
+packages/nimbus-docs/src/adapters.ts
+  s_a02ee89d386231::t_0dbe0e194682f3 7-11
+packages/nimbus-docs/src/agent-endpoints.ts
+  s_a02ee89d386231::t_af30606871948d 30,435,480,487-492
+packages/nimbus-docs/src/api/index.ts
+  s_a02ee89d386231::t_27f5a196093103 125
+packages/nimbus-docs/src/build.ts
+  s_a02ee89d386231::t_b4505ce1d2f5e6 96,112,115-122
+packages/nimbus-docs/src/check/authoring.ts
+  s_a02ee89d386231::t_38f276c398c1fa 16-18,29,39,52-62,100,126,143,145,153-159
+packages/nimbus-docs/src/check/env.ts
+  s_a02ee89d386231::t_b664930f9b958a 258-262,269
+packages/nimbus-docs/src/check/format.ts
+  s_a02ee89d386231::t_ff45272bfdc9b0 7-8,28-29,45-49,145,147-152,210,221,244,259
+packages/nimbus-docs/src/check/migrations.ts
+  s_a02ee89d386231::t_72b00cd25ba52f 2,18
+packages/nimbus-docs/src/check/structure.ts
+  s_a02ee89d386231::t_4cba0f2d694b25 18-19,62,67-86
+packages/nimbus-docs/src/cli/_registry.generated.ts
+  s_a02ee89d386231::t_736487c5b2e8e7 30,206-211
+packages/nimbus-docs/src/cli/check.ts
+  s_a02ee89d386231::t_17af5b9bb5a894 12,54-58,101
+packages/nimbus-docs/src/cli/component.ts
+  s_a02ee89d386231::t_87e73fd526be2b 20,24-27,31,43-46,50,52-56,58-59,69-70,72,101,104-106,108-115,119-142,145,149,151-152,154,168,171-176,180,277-365,430-455,458
+packages/nimbus-docs/src/cli/flags.ts
+  s_a02ee89d386231::t_e0eaf3aadebb1a 12
+packages/nimbus-docs/src/cli/index.ts
+  s_a02ee89d386231::t_5e034dde7440da 25-26,38,68,133,183-206,215-218,226,322,409,490-491,497-498,500,503-508,510-514,550-551
+packages/nimbus-docs/src/cli/lint.ts
+  s_a02ee89d386231::t_d40e6f35342afc 21-26,88-92,94-97,115-125,239,265,294-300
+packages/nimbus-docs/src/cli/migrate.ts
+  s_a02ee89d386231::t_a88be914f2676b 17,114,375-377,403-406,420-421
+packages/nimbus-docs/src/cli/upgrade.ts
+  s_a02ee89d386231::t_ecacfe71ae5e7b 12,16,32,201-205,351,375-381,385,406-428,455-461,490-494,496-504,626-628,633,648,657,678-682,708-713,770-779,795-800,807,985-1051
+packages/nimbus-docs/src/components/NimbusHead.astro
+  s_a02ee89d386231::t_25b75bf26d6c55 30,56-61,89,216-229,258-259,261,303-304
+packages/nimbus-docs/src/content.ts
+  s_a02ee89d386231::t_3d66c5400771f2 24,26,28,50,182-185,193-195,473-495,602-606,681,690-693,702,783,785-787
+packages/nimbus-docs/src/integration.ts
+  s_a02ee89d386231::t_082a3d0e748536 37-41,43,55-56,79-91,182,194-200,216-217,267-299,393-400,572-575,579-581,596-605,635-674,788,803-809,1079-1080,1096-1134,1229-1233,1235-1240,1243-1247,1473-1482,1509-1541,1550,1615,1660-1664,1667,1753-1788,1869,1932,1935-1940,1944-1953,1967-1985,2081-2086,2090,2113,2131-2152,2288-2298,2343-2356,2371-2382,2405-2416,2624-2627,2638,2690-2712,2716-2721,2769,2781-2791,2795,2805-2808,2816-2823,2872-2874,2971-2974,2982,3160-3184,3257-3259,3262,3265-3275,3307-3320,3322-3325,3330,3344-3352,3355-3356,3375,3481-3492,3506-3515,3534,3540-3543,3546-3547,3555,3570-3575,3580,3589-3590,3603-3610,3618-3625,3646,3657-3671,3696-3697,3704,3711,3742-3743,3751-3762,3770,3773-3828,3834-3835,3840-3843,4265,4268-4284,4288,4301,4303-4304,4334-4343,4422-4426,4431-4433
+packages/nimbus-docs/src/lint/engine.ts
+  s_a02ee89d386231::t_3ec84e95174e73 164
+packages/nimbus-docs/src/lint/link-env.ts
+  s_a02ee89d386231::t_cac4eb93b84588 7,19,24-41
+packages/nimbus-docs/src/lint/link-resolver.ts
+  s_a02ee89d386231::t_bbc8f7aee825fe 12,15,43-44,108,112-124
+packages/nimbus-docs/src/lint/parse.ts
+  s_a02ee89d386231::t_7c3de52e5393bf 4-5,15-16,146
+packages/nimbus-docs/src/lint/route-truth.ts
+  s_a02ee89d386231::t_2954e41a23e3c9 12,44,60-61,74-75,80-93
+packages/nimbus-docs/src/lint/rule.ts
+  s_a02ee89d386231::t_dc04fd8e53688b 20-25
+packages/nimbus-docs/src/lint/rules/internal-link.ts
+  s_a02ee89d386231::t_ed2164fe6e0bd4 61,64,114-122,125,135,144
+packages/nimbus-docs/src/lint/site-model.ts
+  s_a02ee89d386231::t_faecee97a9acc1 373-392
+packages/nimbus-docs/src/lint/stale-config.ts
+  s_a02ee89d386231::t_9263a9faef8d60 1-44
+packages/nimbus-docs/src/markdown/index.ts
+  s_a02ee89d386231::t_9a2fcd3c8e834b 6-7,15-16
+packages/nimbus-docs/src/markdown/math.ts
+  s_a02ee89d386231::t_ca829a93081a4f 1-212
+packages/nimbus-docs/src/runtime.ts
+  s_a02ee89d386231::t_97b7bb35086d1c 15,348-350,368-374,840-844
+packages/nimbus-docs/src/styles/math.css
+  s_a02ee89d386231::t_2fb03e67e66d0b 1-49
+packages/nimbus-docs/src/types.ts
+  s_a02ee89d386231::t_ba50f7d0fbef13 236-239,243,955-960
+packages/nimbus-docs/src/types/virtual-modules.d.ts
+  s_a02ee89d386231::t_3d01da851fedef 30-41,51-52
+packages/nimbus-docs/test/admonition-render.test.ts
+  s_a02ee89d386231::t_5b2274ec5d0158 22,69,215,261
+packages/nimbus-docs/test/agent-discovery-build.test.ts
+  s_a02ee89d386231::t_8ad8f73d00f978 10-100,132,233-234,258-263
+packages/nimbus-docs/test/agent-discovery.test.ts
+  s_a02ee89d386231::t_cf8d1546172dac 65-69,179-182,191-194,198-201,292-676
+packages/nimbus-docs/test/agent-endpoint-assets.test.ts
+  s_a02ee89d386231::t_6740a5aaad2e99 334-353,444,448,457-458,1230-1504
+packages/nimbus-docs/test/agent-endpoint-lifecycle.test.ts
+  s_a02ee89d386231::t_cca9575018c4b2 18,38,220
+packages/nimbus-docs/test/agent-search.test.ts
+  s_a02ee89d386231::t_82564df2d75949 128,177
+packages/nimbus-docs/test/api-citation-base.test.ts
+  s_a02ee89d386231::t_f62070c80cc000 24,95
+packages/nimbus-docs/test/api-code-styles-build.test.ts
+  s_a02ee89d386231::t_415dd459998e1e 16,49
+packages/nimbus-docs/test/api-collection-build.test.ts
+  s_a02ee89d386231::t_c8997cb5f8907b 16,30
+packages/nimbus-docs/test/api-collection-dev-restart.test.ts
+  s_a02ee89d386231::t_67dcdade6750c0 17,111
+packages/nimbus-docs/test/api-loader.test.ts
+  s_a02ee89d386231::t_015d97f15e606c 6-8,908-956
+packages/nimbus-docs/test/api-markdown.test.ts
+  s_a02ee89d386231::t_6f4fc36f0bf785 156-157,319-320
+packages/nimbus-docs/test/api-nav-on-demand-build.test.ts
+  s_a02ee89d386231::t_f73a66acaa6048 25,90,196,265,292,300
+packages/nimbus-docs/test/api-openapi-fidelity.test.ts
+  s_a02ee89d386231::t_b897ac7f0219ee 84,91,97,198,204
+packages/nimbus-docs/test/api-page-assets-build.test.ts
+  s_a02ee89d386231::t_2cf7e4a6fb0c3b 24,128,415
+packages/nimbus-docs/test/api-prev-next.test.ts
+  s_a02ee89d386231::t_9888916746b784 1-44
+packages/nimbus-docs/test/api-query-versions-build.test.ts
+  s_a02ee89d386231::t_789abfe34b9042 19,170
+packages/nimbus-docs/test/api-route-policy-v2.test.ts
+  s_a02ee89d386231::t_030dbe4a2087b5 1-600
+packages/nimbus-docs/test/api-route-policy.test.ts
+  s_a02ee89d386231::t_31c178dfaa4b92 702,714,736,758,810-811,881-912
+packages/nimbus-docs/test/api-sample-servers.test.ts
+  s_a02ee89d386231::t_e116f86a8d994f 60-71
+packages/nimbus-docs/test/api-samples-wire-build.test.ts
+  s_a02ee89d386231::t_863849e1bb8353 12,21
+packages/nimbus-docs/test/api-schema-pages-build.test.ts
+  s_a02ee89d386231::t_2a9ece322b16fb 15,67
+packages/nimbus-docs/test/api-schema-pages.test.ts
+  s_a02ee89d386231::t_5525b311cddfd6 215
+packages/nimbus-docs/test/api-warning-groups.test.ts
+  s_a02ee89d386231::t_46907313331c97 1-32
+packages/nimbus-docs/test/author-error.test.ts
+  s_a02ee89d386231::t_41ffd6fb879e8e 4-5,19-30
+packages/nimbus-docs/test/authored-links.test.ts
+  s_a02ee89d386231::t_bc2ab8222bab76 182,231,316
+packages/nimbus-docs/test/build-partials.test.ts
+  s_a02ee89d386231::t_ef0d8efba15614 1-31
+packages/nimbus-docs/test/build-slice-small.test.ts
+  s_a02ee89d386231::t_f882a15273599d 1-581
+packages/nimbus-docs/test/build-slice.test.ts
+  s_a02ee89d386231::t_e59f0e7582e75d 1-146
+packages/nimbus-docs/test/check/authoring-coverage.test.ts
+  s_a02ee89d386231::t_915823cc2175e8 184-220
+packages/nimbus-docs/test/check/format.test.ts
+  s_a02ee89d386231::t_3b930aea54d705 8,379-401
+packages/nimbus-docs/test/check/run.test.ts
+  s_a02ee89d386231::t_c7fd6583f00bd8 137-141,146-191
+packages/nimbus-docs/test/check/signals.test.ts
+  s_a02ee89d386231::t_f333c908ff9a6e 292,301,334
+packages/nimbus-docs/test/cli-help.test.ts
+  s_a02ee89d386231::t_eca54988a337e3 19-31
+packages/nimbus-docs/test/cli-migrate.test.ts
+  s_a02ee89d386231::t_3a1ae07cec8dab 302-304
+packages/nimbus-docs/test/cli-overwrite.test.ts
+  s_a02ee89d386231::t_734cae572ee28a 6,11-12,100-263
+packages/nimbus-docs/test/cli-upgrade.test.ts
+  s_a02ee89d386231::t_aae04f80730154 450-504
+packages/nimbus-docs/test/cloudflare-trailing-slash.test.ts
+  s_a02ee89d386231::t_2131b2172a50b8 1-42
+packages/nimbus-docs/test/code-regions.test.ts
+  s_a02ee89d386231::t_1e4012f1cbb465 4
+packages/nimbus-docs/test/empty-page-build.test.ts
+  s_a02ee89d386231::t_ce21571ca14263 1-6,8-10,12-13,15-30,32-63,65
+packages/nimbus-docs/test/fixtures/agent-discovery-site.ts
+  s_a02ee89d386231::t_acd1b6ae98b5c3 6,23,76-77
+packages/nimbus-docs/test/fixtures/agent-site.ts
+  s_a02ee89d386231::t_9aa17f5233d46c 13,26,62,119
+packages/nimbus-docs/test/fixtures/png.ts
+  s_a02ee89d386231::t_f4a4e5c462d7bd 1-17
+packages/nimbus-docs/test/fixtures/slice-site.ts
+  s_a02ee89d386231::t_454ccefd986f88 1-591
+packages/nimbus-docs/test/fixtures/temp-root.ts
+  s_a02ee89d386231::t_870ef7f6d7828e 1-19
+packages/nimbus-docs/test/git-last-updated.test.ts
+  s_a02ee89d386231::t_f4c092679c9457 19-20,160-193
+packages/nimbus-docs/test/head-seo-build.test.ts
+  s_a02ee89d386231::t_d418cd2a6b7723 1-265
+packages/nimbus-docs/test/integration-dist-invariant.test.ts
+  s_a02ee89d386231::t_629450ac8e6da1 611,625-633
+packages/nimbus-docs/test/lint/lint-cli.test.ts
+  s_a02ee89d386231::t_e228a974d9889a 29-30,69-71,196-247
+packages/nimbus-docs/test/llms-full-split-build.test.ts
+  s_a02ee89d386231::t_4baf905b2ddf2f 1-176
+packages/nimbus-docs/test/llms-full.test.ts
+  s_a02ee89d386231::t_320b9a5b2f86ef 144-148
+packages/nimbus-docs/test/llms-split-modes-build.test.ts
+  s_a02ee89d386231::t_ab75f02f030791 1-170
+packages/nimbus-docs/test/markdown-features-build.test.ts
+  s_a02ee89d386231::t_f4d513523d6c32 1-110
+packages/nimbus-docs/test/markdown-features.test.ts
+  s_a02ee89d386231::t_e02c8c5941e9cf 1-116
+packages/nimbus-docs/test/markdown-loader.test.ts
+  s_a02ee89d386231::t_c0511e0b659cd1 352-373
+packages/nimbus-docs/test/markdown-source-ordering.test.ts
+  s_a02ee89d386231::t_2599d077004988 21,52,84,106,127
+packages/nimbus-docs/test/math-build.test.ts
+  s_a02ee89d386231::t_49792ee0eec541 1-163
+packages/nimbus-docs/test/math.test.ts
+  s_a02ee89d386231::t_ae8417aa16b1b7 1-37
+packages/nimbus-docs/test/nested-llms-build.test.ts
+  s_a02ee89d386231::t_862b8538b617bc 1-149
+packages/nimbus-docs/test/packed-migration.test.ts
+  s_a02ee89d386231::t_5d0d35846f1f51 9,14-19,21-22
+packages/nimbus-docs/test/page-collections-build.test.ts
+  s_a02ee89d386231::t_a0956df014e1d3 11,30,113-114
+packages/nimbus-docs/test/page-collections-lifecycle.test.ts
+  s_a02ee89d386231::t_23abe00e3e7267 1-72
+packages/nimbus-docs/test/pagefind-cleanup.test.ts
+  s_a02ee89d386231::t_a1a944cbd1b566 39-45,47-60,63-73,75-84,86,88,94-138,144-148,168-170,185-186,189,250-252,265-267,278-283,306-308
+packages/nimbus-docs/test/rendering-policy.test.ts
+  s_a02ee89d386231::t_2ebf4d322931ee 1247-1264,1455-1489
+packages/nimbus-docs/test/sidebar-mount-links.test.ts
+  s_a02ee89d386231::t_8fa44b3f558a77 1-19
+packages/nimbus-docs/test/sitemap-alias.test.ts
+  s_a02ee89d386231::t_83b503437f140e 1-79
+packages/nimbus-docs/test/sitemap-lastmod.test.ts
+  s_a02ee89d386231::t_961c1d85143d29 1-149
+packages/nimbus-docs/test/social-image-size.test.ts
+  s_a02ee89d386231::t_382d115d6cb6fd 1-56
+packages/nimbus-docs/test/upgrades.test.ts
+  s_a02ee89d386231::t_8104df11e5017e 13,42,48,50-54,58,245-249,344-394
+packages/nimbus-docs/test/version-switcher-render.test.ts
+  s_a02ee89d386231::t_64dc58fa970a94 1-178
+packages/nimbus-docs/test/virtual-config.test.ts
+  s_a02ee89d386231::t_bc03c439ed393e 31-32,84-85
+packages/nimbus-docs/tsdown.config.ts
+  s_a02ee89d386231::t_9791d086c3e791 33
+packages/nimbus-starter-source/AGENT.md
+  s_a02ee89d386231::t_8d5b4032afa39f 25,84-100
+packages/nimbus-starter-source/astro.config.ts
+  s_a02ee89d386231::t_4b1db03381bc08 50-51,53-56
+packages/nimbus-starter-source/nimbus.json
+  s_a02ee89d386231::t_5a943ec3a7f1f3 3
+packages/nimbus-starter-source/src/components/Render.astro
+  s_a02ee89d386231::t_baae83e5c4e69c 107
+packages/nimbus-starter-source/src/components/ui/api-code-rail/code-rail.css
+  s_a02ee89d386231::t_53bf8195cf983d 125-126,128,153
+packages/nimbus-starter-source/src/components/ui/api-field-row/api-field-row.client.ts
+  s_a02ee89d386231::t_150dc320000095 25-32
+packages/nimbus-starter-source/src/components/ui/api-field-row/field-list.css
+  s_a02ee89d386231::t_a7847487149d02 100-109,119-123
+packages/nimbus-starter-source/src/components/ui/api-layout/ApiBody.astro
+  s_a02ee89d386231::t_26b49b322084f6 20,125,209,212-225,229-237,239-241,244-245,277-279,367
+packages/nimbus-starter-source/src/components/ui/api-layout/ApiEndpointCard.astro
+  s_a02ee89d386231::t_9d050433a9df10 28-32,46
+packages/nimbus-starter-source/src/components/ui/api-layout/ApiLayout.astro
+  s_a02ee89d386231::t_c2801e443b3373 15,167
+packages/nimbus-starter-source/src/components/ui/api-layout/responses.client.ts
+  s_a02ee89d386231::t_ffb008f3bb4919 1-9
+packages/nimbus-starter-source/src/components/ui/banner/Banner.astro
+  s_a02ee89d386231::t_5c255efb121dcf 11,39
+packages/nimbus-starter-source/src/components/ui/breadcrumbs/Breadcrumbs.astro
+  s_a02ee89d386231::t_8d21719d0b55e0 27
+packages/nimbus-starter-source/src/components/ui/image-zoom/ImageZoom.astro
+  s_a02ee89d386231::t_d24ddca894d5a4 1-103
+packages/nimbus-starter-source/src/components/ui/image-zoom/image-zoom.client.ts
+  s_a02ee89d386231::t_e1764bc864bb49 1-118
+packages/nimbus-starter-source/src/components/ui/image-zoom/index.ts
+  s_a02ee89d386231::t_22c0a372de8d99 1
+packages/nimbus-starter-source/src/components/ui/package-managers/PackageManagers.astro
+  s_a02ee89d386231::t_172fefd6ad5a82 126
+packages/nimbus-starter-source/src/components/ui/package-managers/package-managers.client.ts
+  s_a02ee89d386231::t_101df949a16ba6 15,31,35,37-38,42
+packages/nimbus-starter-source/src/components/ui/page-actions/PageActions.astro
+  s_a02ee89d386231::t_f708b9c32c257c 28
+packages/nimbus-starter-source/src/components/ui/page-actions/page-actions.client.ts
+  s_a02ee89d386231::t_f0b22d4a9dee80 32-36,38-43
+packages/nimbus-starter-source/src/components/ui/search/SearchDialog.astro
+  s_a02ee89d386231::t_0b45bf922756c3 31-33
+packages/nimbus-starter-source/src/components/ui/search/providers/pagefind.ts
+  s_a02ee89d386231::t_70e2f2c85535b4 2,26-27,63-85
+packages/nimbus-starter-source/src/components/ui/search/search.client.ts
+  s_a02ee89d386231::t_8b1a6fd63950b2 184,202
+packages/nimbus-starter-source/src/components/ui/theme-toggle/ThemeToggle.astro
+  s_a02ee89d386231::t_88806a0b4fe2db 17,24-25
+packages/nimbus-starter-source/src/components/ui/theme-toggle/theme-toggle.client.ts
+  s_a02ee89d386231::t_f86a791d1efd3f 11,17,19-20,22-24,26-30,34
+packages/nimbus-starter-source/src/components/ui/toc/MobileTOC.astro
+  s_a02ee89d386231::t_b5c8be8f260b1f 42
+packages/nimbus-starter-source/src/components/ui/version-switcher/README.md
+  s_a02ee89d386231::t_0d47a90096aa42 49-52,55-61
+packages/nimbus-starter-source/src/components/ui/version-switcher/VersionSwitcher.astro
+  s_a02ee89d386231::t_e89a25d23a834c 158,199
+packages/nimbus-starter-source/src/layouts/BaseLayout.astro
+  s_a02ee89d386231::t_d5008171a72dba 27,75-76,79,98,111-115,125
+packages/nimbus-starter-source/src/layouts/DocsLayout.astro
+  s_a02ee89d386231::t_65539b78b47055 16,261-262
+packages/nimbus-starter-source/src/pages/404.astro
+  s_a02ee89d386231::t_3ae38c707f66f7 13
+packages/nimbus-starter-source/src/pages/[...section]/llms.txt.ts
+  s_a02ee89d386231::t_a228c51fd49085 1-4
+pnpm-lock.yaml
+  s_a02ee89d386231::t_3c923aec1b5d21 122,139-141,158-159,162,169-171,220-222,277-279,499-501,523-525,1450-1452,3889-3891,4035-4036,4603-4606,4687-4690,5215-5216,5276-5280,5441-5451,5518-5524,5534-5542,6340-6341,8816-8827,9185,10008-10009,10086-10087,10546,10552,10602-10603
+scripts/api-reference-check.mjs
+  s_a02ee89d386231::t_12cf3d23cc4784 823,1009-1026,1035,1045,1456-1459,1655-1656,1660-1663
+scripts/fixtures/api-reference-legacy/astro.config.ts
+  s_a02ee89d386231::t_765772dcab0d84 35-36,38-41
+scripts/fixtures/api-reference-legacy/nimbus.config.ts
+  s_a02ee89d386231::t_a42cc738c68b48 11-16
+scripts/fixtures/api-reference/astro.config.ts
+  s_a02ee89d386231::t_cfca83f7d8f355 16-21,53-54,56-59
+scripts/fixtures/api-reference/expected.json
+  s_a02ee89d386231::t_23d01f2a4b9d51 7,12,16
+scripts/fixtures/api-reference/pnpm-lock.yaml.template
+  s_a02ee89d386231::t_a8f0e7bfbede08 148-150,181-182,290,318,327,333,339,345,351,714-716,2239-2241,2779-2782,3172-3176,3286-3296,3382,3384,3389,3392,3406,3494-3495,3498,3516,3533,3791-3792,5403-5414,6405-6406,6739-6740
+scripts/freshness-guard.mjs
+  s_a02ee89d386231::t_959917649354fc 12,18-20,30-32,38-43,85-100,102-114,116-153,156
+scripts/freshness-guard.test.mjs
+  s_a02ee89d386231::t_5ece4cdd0b5105 1-66
+scripts/release.mjs
+  s_a02ee89d386231::t_e167180a4bde8e 238-251
+scripts/templates-check.mjs
+  s_a02ee89d386231::t_e0884a6dff2127 367,428-432
+scripts/upgrade-manifest.mjs
+  s_a02ee89d386231::t_4641438f3d703a 71-78,193-198,200-201,206,213-217,221
+scripts/upgrade-manifest.test.mjs
+  s_a02ee89d386231::t_be6b9396f3b51e 2-5,331-388
+scripts/webmcp-check.mjs
+  s_a02ee89d386231::t_a7c0330681035f 248-249,503
+scripts/workers-feasibility-check.mjs
+  s_a02ee89d386231::t_26cc4a6aa27a9e 555-556
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "bdc7fbbe25e73e1270e284ddf754a237e89b86c8",
+  "prompts": {},
+  "sessions": {
+    "s_a02ee89d386231": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ecb29952effedem7AiSdbSLlrP",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
