@@ -1,0 +1,19 @@
+scripts/workers-feasibility-check.mjs
+  s_8de24bfbbf1a12::t_f00889f49c2761 72-80,82,775,948
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "e95478e52ffc6061478edff49a7062deb43113d3",
+  "prompts": {},
+  "sessions": {
+    "s_8de24bfbbf1a12": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ed002f112ffe0fJ63F6NN7wr71",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
