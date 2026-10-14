@@ -1,0 +1,21 @@
+packages/nimbus-docs/src/integration.ts
+  s_8de24bfbbf1a12::t_1acae9b1b0bb2f 3800-3805,3808,3814
+packages/nimbus-docs/test/build-slice-small.test.ts
+  s_8de24bfbbf1a12::t_7434d40953d5ed 731-732,735-740,749-753,756-757,762
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "4fb568afeabec471077972feaf88311373c7edf3",
+  "prompts": {},
+  "sessions": {
+    "s_8de24bfbbf1a12": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ed002f112ffe0fJ63F6NN7wr71",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
