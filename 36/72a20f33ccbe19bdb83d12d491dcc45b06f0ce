@@ -1,0 +1,21 @@
+packages/nimbus-docs/src/cli/index.ts
+  s_8de24bfbbf1a12::t_e30b63a11ee2bf 344-351
+packages/nimbus-docs/test/cli-add-source.test.ts
+  s_8de24bfbbf1a12::t_6100d429afe98b 171-175
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "3672a20f33ccbe19bdb83d12d491dcc45b06f0ce",
+  "prompts": {},
+  "sessions": {
+    "s_8de24bfbbf1a12": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ed002f112ffe0fJ63F6NN7wr71",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
