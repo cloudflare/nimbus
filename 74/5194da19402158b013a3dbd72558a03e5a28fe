@@ -1,0 +1,19 @@
+CONTRIBUTING.md
+  s_a02ee89d386231::t_45a21e5c273a54 123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "745194da19402158b013a3dbd72558a03e5a28fe",
+  "prompts": {},
+  "sessions": {
+    "s_a02ee89d386231": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ecb29952effedem7AiSdbSLlrP",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
