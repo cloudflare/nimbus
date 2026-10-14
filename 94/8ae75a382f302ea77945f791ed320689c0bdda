@@ -1,0 +1,83 @@
+.changeset/partial-builds.md
+  s_8de24bfbbf1a12::t_9b170c877f00b9 1-12
+apps/www/astro.config.ts
+  s_8de24bfbbf1a12::t_71f47d573ee7cb 23
+apps/www/src/content/docs/partial-builds.mdx
+  s_8de24bfbbf1a12::t_ad9e3cb2c2e594 1-287
+packages/create-nimbus-docs/test/search-provider.test.ts
+  s_8de24bfbbf1a12::t_bd74cf9fd2cc8c 15,21-30,33-36,46-47,50,54-64,71,74,83-102
+packages/nimbus-docs/src/_internal/agent-discovery.ts
+  s_8de24bfbbf1a12::t_9b6466e0fc7b59 177-182,185,195-198,226,259
+packages/nimbus-docs/src/_internal/agent-endpoint-assets.ts
+  s_8de24bfbbf1a12::t_53cdf0c98712a7 127-138,840-843,853-860,949-952,1014-1016,1025-1027,1060-1067
+packages/nimbus-docs/src/_internal/api/page-assets-build.ts
+  s_8de24bfbbf1a12::t_82363352fe41ba 49,837-838,843-848,877-878,885
+packages/nimbus-docs/src/_internal/build-slice.ts
+  s_8de24bfbbf1a12::t_003a0a60536efb 1-186
+packages/nimbus-docs/src/_internal/content.ts
+  s_8de24bfbbf1a12::t_d2736a759ebfb3 23,104-116
+packages/nimbus-docs/src/_internal/emitted-routes.ts
+  s_8de24bfbbf1a12::t_2693cc8242ed07 36-41,43,50
+packages/nimbus-docs/src/_internal/markdown-loader.ts
+  s_8de24bfbbf1a12::t_f0d6ca6d46eff6 29-35,343-364
+packages/nimbus-docs/src/_internal/runtime-config.ts
+  s_8de24bfbbf1a12::t_cbdff04840b445 26,67-78
+packages/nimbus-docs/src/_internal/sitemap-alias.ts
+  s_8de24bfbbf1a12::t_e464d1078bcac7 11-12,33-38,41-42,48-53
+packages/nimbus-docs/src/_internal/slice-output.ts
+  s_8de24bfbbf1a12::t_8644801ddfc9c2 1-99
+packages/nimbus-docs/src/_internal/virtual-config.ts
+  s_8de24bfbbf1a12::t_e53e21119bee7e 54-70,135-136,142-144
+packages/nimbus-docs/src/cli/check.ts
+  s_8de24bfbbf1a12::t_d175dfb4639761 12,54-58
+packages/nimbus-docs/src/components/NimbusHead.astro
+  s_8de24bfbbf1a12::t_be66647ee208c8 30,258-259,261
+packages/nimbus-docs/src/content.ts
+  s_8de24bfbbf1a12::t_b7bd08a24b0342 50,182-185,473-495
+packages/nimbus-docs/src/integration.ts
+  s_8de24bfbbf1a12::t_fdfaba908dcb27 79-91,182,596-605,635-674,788,803-809,1096-1134,1230,2288-2298,2377-2380,2624-2627,2638,2690-2712,2971-2974,3160-3184,3257-3259,3262,3344-3352,3355-3356,3375,3506-3515,3534,3540-3543,3546-3547,3555,3570-3575,3580,3589-3590,3605,3618,3624,3646,3657-3671,3742-3743,3751-3762,3770,3773-3828,3834-3835,3840-3843,4337-4343,4424
+packages/nimbus-docs/src/lint/engine.ts
+  s_8de24bfbbf1a12::t_5ab80ff111f45f 164
+packages/nimbus-docs/src/lint/link-env.ts
+  s_8de24bfbbf1a12::t_48607269734a8d 7,19,24-41
+packages/nimbus-docs/src/lint/link-resolver.ts
+  s_8de24bfbbf1a12::t_8e583aa68e93ef 12,15,43-44,108,112-124
+packages/nimbus-docs/src/lint/route-truth.ts
+  s_8de24bfbbf1a12::t_dd5aa50120cdc9 12,44,60-61,74-75,80-93
+packages/nimbus-docs/src/lint/rule.ts
+  s_8de24bfbbf1a12::t_b3b18ae8962477 20-25
+packages/nimbus-docs/src/lint/rules/internal-link.ts
+  s_8de24bfbbf1a12::t_60fda646407269 61,64,114-122,125,135,144
+packages/nimbus-docs/src/lint/site-model.ts
+  s_8de24bfbbf1a12::t_57dfd8c0056039 373-392
+packages/nimbus-docs/src/runtime.ts
+  s_8de24bfbbf1a12::t_e9d20682ee2d9f 15,348-350,368-374
+packages/nimbus-docs/src/types/virtual-modules.d.ts
+  s_8de24bfbbf1a12::t_c59529b14f09da 30-41
+packages/nimbus-docs/test/build-slice-small.test.ts
+  s_8de24bfbbf1a12::t_350c8fe7f43733 1-581
+packages/nimbus-docs/test/build-slice.test.ts
+  s_8de24bfbbf1a12::t_a81299eea72939 1-146
+packages/nimbus-docs/test/fixtures/slice-site.ts
+  s_8de24bfbbf1a12::t_6ace81af33f225 1-591
+packages/nimbus-docs/test/rendering-policy.test.ts
+  s_8de24bfbbf1a12::t_0b716b8c2811f4 1247-1264
+packages/nimbus-starter-source/src/components/ui/search/providers/pagefind.ts
+  s_8de24bfbbf1a12::t_830a4bf4d030bf 2,26-27,63-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "948ae75a382f302ea77945f791ed320689c0bdda",
+  "prompts": {},
+  "sessions": {
+    "s_8de24bfbbf1a12": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ed002f112ffe0fJ63F6NN7wr71",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
