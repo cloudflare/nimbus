@@ -1,0 +1,43 @@
+packages/nimbus-docs/src/cli/index.ts
+  s_8de24bfbbf1a12::t_e30b63a11ee2bf 342-349
+packages/nimbus-docs/test/cli-add-source.test.ts
+  s_8de24bfbbf1a12::t_6100d429afe98b 171-175
+packages/nimbus-docs/src/_internal/content-sources.ts
+  s_8de24bfbbf1a12::t_5ca30c2118ecba 575-588,600-640,717-728,732-765,770-773,777-779,781,783-785,787-808,814-825,827-832,911-921,923,927-937,941-949,953-975,976-981,1001-1002,1018-1023,1046-1056,1062-1063,1065-1068
+packages/nimbus-docs/src/_internal/parse-content-collections.ts
+  s_8de24bfbbf1a12::t_3ed66f84e74433 44,225-233,242,244,369-371,384-484,493-499,501-517,520-559,567-573,575-576,584-597,614-626,628-629,631-634,637-645,647-664,692
+packages/nimbus-docs/src/_internal/parse-object-literal.ts
+  s_8de24bfbbf1a12::t_be0e20221fd5ed 22-24,27-29
+packages/nimbus-docs/src/content.ts
+  s_8de24bfbbf1a12::t_5de0e66cbb392d 55-56,303,305-320
+packages/nimbus-docs/src/integration.ts
+  s_8de24bfbbf1a12::t_3517fe385e28d3 95,101,106-107,1204-1239,1242-1263,1740,2858-2862
+packages/nimbus-docs/test/content-sources-build.test.ts
+  s_8de24bfbbf1a12::t_8180e0c2171e7e 192
+packages/nimbus-docs/test/content-sources-fallback.test.ts
+  s_8de24bfbbf1a12::t_70d56d2926f7b2 1-160,161-162,186-190
+packages/nimbus-docs/test/content-sources-slice.test.ts
+  s_8de24bfbbf1a12::t_6b00d5425127ba 1-199,215-271
+packages/nimbus-docs/test/content-sources.test.ts
+  s_8de24bfbbf1a12::t_bfcb75cf91cb08 11-19,299-337,343-395,420-437
+packages/nimbus-docs/test/fixtures/sources-child.ts
+  s_8de24bfbbf1a12::t_dd651e4adea35d 25
+packages/nimbus-docs/test/lint/parse-object-literal.test.ts
+  s_8de24bfbbf1a12::t_c5ea7bf7875e9f 37-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "190c0191bdd7451c84247896b9e9795d0ccf0c37",
+  "prompts": {},
+  "sessions": {
+    "s_8de24bfbbf1a12": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ed002f112ffe0fJ63F6NN7wr71",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
