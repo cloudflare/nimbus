@@ -1,0 +1,123 @@
+.changeset/upgrade-safety.md
+  s_8de24bfbbf1a12::t_d389e2ff2ee684 2-3,6-10
+.github/workflows/preview-release.yml
+  s_8de24bfbbf1a12::t_61baf2b7b0fd3d 46,67-100,130-137,169-170,172-177,186-187,190-192
+.github/workflows/release.yml
+  s_8de24bfbbf1a12::t_f939ede1f8bf7b 6-7,18,21-23,107-108,110,115,123-136,138,142-260
+.github/workflows/www-preview-cleanup.yml
+  s_8de24bfbbf1a12::t_3fc0777ffeb808 1-55
+AGENT.md
+  s_8de24bfbbf1a12::t_24f26821a4b3e4 57
+CLAUDE.md
+  s_8de24bfbbf1a12::t_0abaa8d696d9df 57
+CONTRIBUTING.md
+  s_8de24bfbbf1a12::t_77623887556deb 82-83,90-126,129,132,146
+apps/www/nimbus.json
+  s_8de24bfbbf1a12::t_ebe8b55a22e583 3
+apps/www/package.json
+  s_8de24bfbbf1a12::t_5acc117cb0b766 16-17,46
+apps/www/src/content/docs/api-reference.mdx
+  s_8de24bfbbf1a12::t_640329f11fbe27 347,457,459
+apps/www/src/content/docs/cli.mdx
+  s_8de24bfbbf1a12::t_67cd9ed9dfd14c 47,51,164
+apps/www/src/content/docs/writing/frontmatter.mdx
+  s_8de24bfbbf1a12::t_e8539f0f0293bd 62
+apps/www/wrangler.jsonc
+  s_8de24bfbbf1a12::t_55b74f8e61d431 9
+packages/create-nimbus-docs/CHANGELOG.md
+  s_8de24bfbbf1a12::t_5124c36dd2fb50 3-10
+packages/create-nimbus-docs/package.json
+  s_8de24bfbbf1a12::t_49679118fa2ff2 3
+packages/create-nimbus-docs/src/scaffold.ts
+  s_8de24bfbbf1a12::t_fc416a8eb26ca7 33,37,77,180,193,284,307-314,504,508
+packages/create-nimbus-docs/src/transformers/adapter.ts
+  s_8de24bfbbf1a12::t_af28fea99e0744 9,65-66,70,72,75-76
+packages/create-nimbus-docs/src/transformers/deploy.ts
+  s_8de24bfbbf1a12::t_d12a4c8246f9af 3,61,68
+packages/create-nimbus-docs/src/transformers/package.ts
+  s_8de24bfbbf1a12::t_0b71edbac896db 39-40
+packages/create-nimbus-docs/test/scaffold-server.test.ts
+  s_8de24bfbbf1a12::t_db8cd45d7e0fb7 75-84,215-216
+packages/create-nimbus-docs/test/scaffold.test.ts
+  s_8de24bfbbf1a12::t_a5a90f5f76e5e4 71-80,145-146,240-246,254-263,302-304,409-435
+packages/create-nimbus-docs/tsdown.config.ts
+  s_8de24bfbbf1a12::t_645ac518218826 14,30-36,57
+packages/nimbus-docs/CHANGELOG.md
+  s_8de24bfbbf1a12::t_676a821d5d1fa2 3-12
+packages/nimbus-docs/package.json
+  s_8de24bfbbf1a12::t_ed3ee0d915986d 3
+packages/nimbus-docs/src/_internal/adapters.ts
+  s_8de24bfbbf1a12::t_29400486933c5d 1-4,1156-1229
+packages/nimbus-docs/src/_internal/api/publish-spec.ts
+  s_8de24bfbbf1a12::t_6645398badb123 72
+packages/nimbus-docs/src/_internal/upgrade-manifest.json
+  s_8de24bfbbf1a12::t_add323309b24d0 793-823
+packages/nimbus-docs/src/adapters.ts
+  s_8de24bfbbf1a12::t_af91aba9d5bee2 24
+packages/nimbus-docs/src/check/migrations.ts
+  s_8de24bfbbf1a12::t_49ffad3f3a947b 58-61
+packages/nimbus-docs/src/cli/_registry.generated.ts
+  s_8de24bfbbf1a12::t_292900caf8b465 35
+packages/nimbus-docs/src/cli/adapter.ts
+  s_8de24bfbbf1a12::t_a859acee3ca423 31,297-298,333,360,488-489,509
+packages/nimbus-docs/src/cli/component.ts
+  s_8de24bfbbf1a12::t_356fc131283106 28,36-38,40-41,43-46,66-74,78-148,159-162,207,210-215,217-225,227-252,255,259-260,263,268,437-438,458,462-471,477-479
+packages/nimbus-docs/src/cli/index.ts
+  s_8de24bfbbf1a12::t_5e58dba1d97d2f 12-13,38,122,137-138,164,168,341-366,636-637,646-647,655-667,669-670
+packages/nimbus-docs/src/cli/upgrade.ts
+  s_8de24bfbbf1a12::t_cb783ddef05f09 520,654
+packages/nimbus-docs/test/adapter-installer.test.ts
+  s_8de24bfbbf1a12::t_ffe63f6c346dd7 55-64
+packages/nimbus-docs/test/adapter-version-warning.test.ts
+  s_8de24bfbbf1a12::t_9cca8f75191395 34,38-46
+packages/nimbus-docs/test/adapter-wrangler.test.ts
+  s_8de24bfbbf1a12::t_63cedff214c899 25-26,52,58-68,195-208,738-817
+packages/nimbus-docs/test/cli-add-slugs.test.ts
+  s_8de24bfbbf1a12::t_9e633230533807 1-46
+packages/nimbus-docs/test/cli-migrate.test.ts
+  s_8de24bfbbf1a12::t_321b46543fb3ea 279-284
+packages/nimbus-docs/test/cli-overwrite.test.ts
+  s_8de24bfbbf1a12::t_722e4b4d9ed4ec 1-3,12,43-44,63-65,92,124-125,195-199,243-357,365-366,370,374-424
+packages/nimbus-docs/test/publish-spec-concurrency.test.ts
+  s_8de24bfbbf1a12::t_1dd39bdb1b4bf8 1-31
+packages/nimbus-docs/test/publish-spec.test.ts
+  s_8de24bfbbf1a12::t_e4e1a7d8dff5c3 24,32
+packages/nimbus-docs/test/upgrades.test.ts
+  s_8de24bfbbf1a12::t_6c5f1c4692a88c 53,57
+packages/nimbus-starter-source/AGENT.md
+  s_8de24bfbbf1a12::t_17fc85decf929d 77
+packages/nimbus-starter-source/nimbus.json
+  s_8de24bfbbf1a12::t_8b0bfc4ca55175 3
+packages/nimbus-starter-source/package.json
+  s_8de24bfbbf1a12::t_1f0aecb8e52e8f 24
+packages/nimbus-starter-source/src/pages/og.png.ts
+  s_8de24bfbbf1a12::t_400a8b257cb504 1-3,15-16
+packages/nimbus-starter-source/src/pages/og/[...slug].ts
+  s_8de24bfbbf1a12::t_3faaa7ae27d578 1-2,4,19-20
+packages/nimbus-starter-source/src/pages/og/_og-card-config.ts
+  s_8de24bfbbf1a12::t_fe279d15b28e50 21-23
+pnpm-lock.yaml
+  s_8de24bfbbf1a12::t_06e897db848b01 121-122,374-376,810,813-814,822-823,828-829,834-835,840-841,846-847,949-950,952-953,967-968,970,985-986,988,1003-1004,1006-1007,1021-1022,1024,1039-1040,1042-1043,1057-1058,1060,1075-1076,1078-1079,1093-1094,1096,1111-1112,1114,1129-1130,1132,1147-1148,1150,1165-1166,1168,1183-1184,1186,1201-1202,1204,1219-1220,1222,1237-1238,1240-1241,1255-1256,1258,1273-1274,1276-1277,1291-1292,1294,1309-1310,1312-1313,1327-1328,1330-1331,1345-1346,1348-1349,1363-1364,1366,1381-1382,1384,1399-1404,1504-1507,1516-1521,1527-1530,1537-1539,1547-1550,1557-1559,1567-1569,1577-1579,1587-1589,1597-1599,1607-1609,1617-1619,1627-1629,1638-1641,1650-1653,1662-1665,1674-1677,1686-1689,1698-1701,1710-1713,1722-1726,1732-1735,1741-1744,1752-1755,1764-1767,1776-1781,3158-3162,4048-4049,4559-4567,4846-4849,5223-5224,5228-5229,5233,5242-5243,5966,5970,5972,5975,5978,5981,5984,6085,6094,6103,6112,6121,6130,6139,6148,6157,6166,6175,6184,6193,6202,6211,6220,6229,6238,6247,6256,6265,6274,6283,6292,6301,6310-6312,6400,6402,6410-6414,6420-6422,6428,6434,6440,6446,6452,6458,6464,6470,6476,6482,6490,6492,6500,6502,6510,6512,6520,6522,6530,6532,6540,6542,6550,6552,6560-6565,6570,6580-6582,6588,6594,6600-6602,6634,7956-7984,9200,9203-9206,9209,9928-9960,10257-10258,10552,10554-10558,10560,10563,10565-10566,10569,10573,10583
+scripts/fixtures/api-reference/pnpm-lock.yaml.template
+  s_8de24bfbbf1a12::t_4cf5be321650ac 44-46
+scripts/release.mjs
+  s_8de24bfbbf1a12::t_d1bd58d059baf8 445
+scripts/workers-feasibility-check.mjs
+  s_8de24bfbbf1a12::t_18cbf70e1c0e57 72-80,82,775,948
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "43d63a871f6d5e256863b9dd522b25b17a8ed10e",
+  "prompts": {},
+  "sessions": {
+    "s_8de24bfbbf1a12": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ed002f112ffe0fJ63F6NN7wr71",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
