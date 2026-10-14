@@ -1,0 +1,19 @@
+apps/www/src/content/docs/writing/content-sources.mdx
+  s_8de24bfbbf1a12::t_033056c96d245f 147,153,169
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5b2b63fb0fc737529f6fbbc79d91561dea730cba",
+  "prompts": {},
+  "sessions": {
+    "s_8de24bfbbf1a12": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ed002f112ffe0fJ63F6NN7wr71",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
