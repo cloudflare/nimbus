@@ -1,0 +1,19 @@
+packages/nimbus-docs/test/check/server-adapter.test.ts
+  s_8de24bfbbf1a12::t_872de708cb71c5 166-174
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "dac94f557887fa6c11f4b5d629aabad4319bb92c",
+  "prompts": {},
+  "sessions": {
+    "s_8de24bfbbf1a12": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ed002f112ffe0fJ63F6NN7wr71",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
