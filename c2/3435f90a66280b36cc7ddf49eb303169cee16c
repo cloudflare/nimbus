@@ -1,0 +1,19 @@
+packages/nimbus-docs/test/agent-endpoint-assets.test.ts
+  s_5cc9c56c6913e6::t_78327d1106fd9c 1390-1413
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c23435f90a66280b36cc7ddf49eb303169cee16c",
+  "prompts": {},
+  "sessions": {
+    "s_5cc9c56c6913e6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ac55bb6aac92259c6",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
