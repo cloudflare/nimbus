@@ -1,0 +1,39 @@
+.changeset/lazy-dev-headings.md
+  s_256334bcb6ac5e::t_ef3c0059ab00f7 1-6
+packages/nimbus-docs/src/_internal/agent-endpoint-assets.ts
+  s_256334bcb6ac5e::t_bfd5dd5b3d0590 201-204,1289-1290,1294-1295,1299-1300,1303-1304,1312-1340,1351-1355,1462-1465,1474
+packages/nimbus-docs/src/_internal/lazy-headings.ts
+  s_256334bcb6ac5e::t_da9328b61f739a 1-125
+packages/nimbus-docs/src/_internal/markdown-loader.ts
+  s_256334bcb6ac5e::t_1e9cefd73acded 16,18,20,475,486-503
+packages/nimbus-docs/src/_internal/prepared-headings.ts
+  s_256334bcb6ac5e::t_684ebe2838f770 21-22,66
+packages/nimbus-docs/src/_internal/prepared-markdown-registry.ts
+  s_256334bcb6ac5e::t_b1098ab12bb762 88-90,93-101,134-135,203-206,210,213-214,221,231-260
+packages/nimbus-docs/src/integration.ts
+  s_256334bcb6ac5e::t_e8c12c16b288b2 1289-1291,1568-1579
+packages/nimbus-docs/src/types/virtual-modules.d.ts
+  s_256334bcb6ac5e::t_2d4517f8b77d34 61-68
+packages/nimbus-docs/test/api-collection-dev-restart.test.ts
+  s_256334bcb6ac5e::t_d95efbcd1407ef 15,188-192,202
+packages/nimbus-docs/test/lazy-headings-dev.test.ts
+  s_256334bcb6ac5e::t_3e2edadb0710b7 1-48
+packages/nimbus-docs/test/lazy-headings.test.ts
+  s_256334bcb6ac5e::t_7c2b1f999db436 1-256
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "f491c712da5bb569e4289943e490d9591075ea5f",
+  "prompts": {},
+  "sessions": {
+    "s_256334bcb6ac5e": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_eba744cc1ffepEpFau4REb7ljc",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mvm <vance@cloudflare.com>"
+    }
+  }
+}
