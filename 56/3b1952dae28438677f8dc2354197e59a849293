@@ -1,0 +1,33 @@
+.changeset/nested-navigation.md
+  s_a9e21384122ee7::t_ba7e0d96a3c289 1-5
+apps/www/src/content/docs/navigation/sidebar.mdx
+  s_a9e21384122ee7::t_4cc20b9b139341 74-104
+packages/nimbus-docs/src/_internal/sidebar.ts
+  s_a9e21384122ee7::t_391bea536dca1f 14-15,74-77,89-106,228-326,389,394,403,416,421,427,566,607,623,634,636-638,661,1106-1108,1140-1141,1164-1167,1197-1358,1435
+packages/nimbus-docs/src/runtime.ts
+  s_a9e21384122ee7::t_0c8065f1908e38 50,68,838-845,865-869,879-898
+packages/nimbus-docs/test/sidebar-nested-collections-build.test.ts
+  s_a9e21384122ee7::t_34b77f0810546b 1-147
+packages/nimbus-docs/test/sidebar-nested-collections-cost.test.ts
+  s_a9e21384122ee7::t_5c36bd7d9b1cb5 1-72
+packages/nimbus-docs/test/sidebar-nested-collections-dev.test.ts
+  s_a9e21384122ee7::t_4c62d52d17cc99 1-124
+packages/nimbus-docs/test/sidebar-nested-collections.test.ts
+  s_a9e21384122ee7::t_b90ef90c34fcb1 1-398
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "563b1952dae28438677f8dc2354197e59a849293",
+  "prompts": {},
+  "sessions": {
+    "s_a9e21384122ee7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e445425e-ec2f-4547-ae91-92f1073d68e2",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
