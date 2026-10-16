@@ -1,0 +1,23 @@
+packages/nimbus-docs/src/_internal/collection-routes.ts
+  s_bc591af594ea35::t_bb5c8c6c6d8025 421-422,424-428,435-439
+packages/nimbus-docs/src/integration.ts
+  s_bc591af594ea35::t_3f4b8150ffe081 3338-3341,3351
+packages/nimbus-docs/test/collection-routes.test.ts
+  s_bc591af594ea35::t_bcbf545e62532e 274,281-292
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "52f89c14424b9ff40127f47d8cc03b613e3c2620",
+  "prompts": {},
+  "sessions": {
+    "s_bc591af594ea35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a350cfc6aeb8a24de",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
