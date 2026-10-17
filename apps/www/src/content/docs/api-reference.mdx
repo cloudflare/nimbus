@@ -62,6 +62,7 @@ Point the `api` entry's `spec` at the generated document, `./src/api/openapi.yam
 | `astro.config.ts` | Declares the specification, versions, routes, and rendering policy in the Nimbus config. |
 | `src/content.config.ts` | Registers the generated entries as an Astro content collection. |
 | `src/pages/api/[...slug].astro` | Renders API HTML through the user-owned API layout. |
+| `src/pages/nimbus-api/home/api/` | Serves the [API home](#the-api-home)'s later parts and its filter's list of endpoints. |
 | `src/pages/[...slug]/index.md.ts` | The starter's shared Markdown route. Serves an alternate Markdown version of every API page. |
 | `src/components/ui/api-*/` | Owns the reference's appearance and interaction design. |
 
@@ -256,7 +257,7 @@ api: [
 
 The version marked `default: true` owns `/api`; other versions mount below their version, such as `/api/v1`. If none is marked, the first version is the default. A deprecated version renders its status in the reference UI.
 
-The version picker keeps readers on the same page when they switch versions. Nimbus links pages across versions in this order:
+The version picker sits in the header beside search on every API page, at every width; the recipe's route passes it to `Header`'s `actions` slot. It keeps readers on the same page when they switch versions. Nimbus links pages across versions in this order:
 
 1. **Same coordinate.** Pages that share a coordinate, such as the same `operationId`, are the same page. This link always wins.
 2. **Same method and path.** When an `operationId` changed between versions, an operation links to the one with the same HTTP method and path. A path segment that is a single parameter may be renamed, so `/zones/{zone_id}` matches `/zones/{id}`, but `{name}.{format}` must stay the same. Among operations not already linked between the two versions, the match must be the only one on each side. Links chain across versions, so a v1 page can link to a v3 page through v2.
@@ -336,7 +337,7 @@ The API rail renders the same markup as the docs sidebar: groups are native `<de
 
 Set `sidebar` on the `api` entry in the Nimbus config. A site that passes its entry to `apiCollection({ … })` still takes the mode from the config, and the build warns if the two disagree.
 
-Every group page lists its operations and its subsections, and the API overview lists every top-level section, so all pages stay reachable in every mode.
+Every group page lists its operations and its subsections, and the [API home](#the-api-home) lists every operation, so all pages stay reachable in every mode.
 
 #### Upgrading an existing site
 
@@ -347,6 +348,31 @@ Every group page lists its operations and its subsections, and the API overview 
 For each component already in your project whose copy differs from the registry, it asks whether to overwrite it. Choose **Overwrite** for `api-layout` and `api-sidebar`, which replaces your edits to those two, and **Skip** for the rest to keep yours. `--overwrite` replaces every component `api-layout` uses that you haven't edited, including the docs sidebar, and asks about the ones you have; without a terminal it keeps those and lists them, and `--overwrite --yes` replaces them too.
 
 Components come from the registry on nimbus-docs.com, which is updated shortly after each release. If `add` warns that the registry is older than your project, the new components aren't published yet: keep `sidebar: "full"` and try again later.
+
+### The API home
+
+The API home lists every operation and webhook of the version, the way a section page lists its own: each `x-tagGroups` group a heading, in the spec's order, each section its linked title and description, then its operations, name first with the method and path beneath. Sections in no group come after the groups, then operations without a tag, then webhooks. A filter at the top searches every endpoint: Enter opens the first match and Escape clears it.
+
+A large spec loads in parts. The page holds the first `API_HOME_CHUNK_SIZE` endpoints, 150 unless you change it in `src/components/ui/api-layout/home.ts`, keeping sections whole where they fit and splitting a larger one into continued parts. Each later part is a page of its own, which the home fetches as the reader nears the end; without JavaScript, the list ends in a link to the next part. The filter fetches a compact list of every endpoint the first time it's focused, so it finds endpoints that haven't loaded, and shows up to 200 matches. Browser find-in-page searches only the parts that have loaded.
+
+The parts and the filter's list come from two routes the [recipe](#install-with-the-recipe) writes under `src/pages/nimbus-api/home/<collection>/`, served at `/nimbus-api/home/<collection>/<version>/<n>/` and `…/<version>/index.json`, with `default` as the version of an unversioned API. They render like the collection's pages, built or on request, and the part pages are `noindex`.
+
+To build your own page from the whole reference, read a version's root page with `getApiRoot` from `@cloudflare/nimbus-docs/runtime`; leave out `version` for the default. Its `index` holds every operation and webhook exactly once, each with its `method`, `path` and link. `apiIndexRows(index)` flattens it, and `chunkApiIndex(index, { size })` splits it the way the home does.
+
+```astro title="src/pages/endpoints.astro"
+---
+import { apiIndexRows, getApiRoot, withBase } from "@cloudflare/nimbus-docs/runtime";
+
+const root = await getApiRoot(Astro, { collection: "api" });
+const rows = root ? apiIndexRows(root.index) : [];
+---
+
+<ul>
+  {rows.map(([method, path, label, href]) => (
+    <li><a href={withBase(href, import.meta.env.BASE_URL)}>{label}</a> <code>{method} {path}</code></li>
+  ))}
+</ul>
+```
 
 ### Published spec
 
@@ -649,6 +675,7 @@ For a collection named `api`, the reference integrates with these routes when th
 | `/api/llms.txt` | API-only `llms.txt` index. |
 | `/llms.txt` and `/llms-full.txt` | Site-wide page index and full Markdown documentation. |
 | `/nimbus-api/coordinates.json` | Public coordinate-to-URL manifest. |
+| `/nimbus-api/home/api/<version>/<n>/` and `…/index.json` | The [API home](#the-api-home)'s later parts (`noindex`) and its filter's list of endpoints. |
 | `/api/openapi.json` | The published spec; other versions at `/api/<version>/openapi.json`. See [Published spec](#published-spec). |
 | `/.well-known/api-catalog` and `/.well-known/ard.json` | The site's API catalog and discovery manifest, listing each visible version. |
 

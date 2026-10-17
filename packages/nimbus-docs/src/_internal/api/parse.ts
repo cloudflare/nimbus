@@ -590,6 +590,14 @@ class Walker implements ParseContext {
     // that is ALSO a declared tag was already made a page by the loop above
     // (ensureSection is idempotent), so this never downgrades a real tag.
     for (const name of this.tagGroupNames) this.ensureSection(name, undefined, false);
+    // Sections are created declared tags first, so record each group's place in
+    // x-tagGroups for lists that follow the spec's group order.
+    let group = 0;
+    for (const name of this.tagGroupNames) {
+      const facts = this.nodes.get(sectionCoordinate(name))?.facts;
+      if (facts?.kind === "section") facts.group = group;
+      group++;
+    }
   }
 
   /**

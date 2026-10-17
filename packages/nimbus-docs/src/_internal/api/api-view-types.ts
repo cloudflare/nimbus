@@ -305,9 +305,22 @@ export interface ApiDiscriminatorEntry {
   variant: ApiVariant;
 }
 
+/** An operation in a list: its link, plus what a row shows without opening it. */
+export interface ApiOperationRef extends ApiRef {
+  /** The HTTP method, as on the operation page (`GET`, …). */
+  method: string;
+  /** The path, or a webhook's name. */
+  path: string;
+  /** Present on section pages; the API home's index leaves it out to stay small. */
+  description?: string;
+  deprecated?: boolean;
+  /** A webhook: `path` is its name, and it is delivered rather than called. */
+  webhook?: boolean;
+}
+
 export interface ApiSectionPage extends ApiPageBase {
   kind: "section";
-  operations: ApiRef[];
+  operations: ApiOperationRef[];
   /** Subsections that have pages, in navigation order. Absent when none. A
    *  subsection without a page is replaced by its own subsections. */
   sections?: ApiRef[];
@@ -320,6 +333,41 @@ export interface ApiRootPage extends ApiPageBase {
   /** Top-level sections that have pages. An `x-tagGroups` category has no page,
    *  so its member sections are listed in its place. */
   sections: ApiRef[];
+  /** Every operation and webhook of this version, each exactly once, in reading
+   *  order. Split it into pages with `chunkApiIndex`. */
+  index: ApiRootIndex;
+}
+
+/** The API home's list: tag groups, then untagged operations, then webhooks. */
+export interface ApiRootIndex {
+  /** In `x-tagGroups` order. Sections in no group come last, in a group whose
+   *  `label` is `null`; without `x-tagGroups` that is the only group. */
+  groups: ApiIndexGroup[];
+  /** Operations with no tag, which belong to the API root. */
+  operations: ApiOperationRef[];
+  webhooks: ApiOperationRef[];
+}
+
+export interface ApiIndexGroup {
+  /** `null` for the sections in no group. */
+  label: string | null;
+  /** A fragment id for the group's heading. */
+  anchor: string;
+  /** Present when the group's name is also a tag with a page. */
+  ref?: ApiRef;
+  sections: ApiIndexSection[];
+  /** Operations tagged with the group itself. */
+  operations: ApiOperationRef[];
+}
+
+export interface ApiIndexSection {
+  ref: ApiRef;
+  /** A fragment id for the section's heading. */
+  anchor: string;
+  description?: string;
+  operations: ApiOperationRef[];
+  /** Subsections, in navigation order. */
+  sections: ApiIndexSection[];
 }
 
 export type ApiPageProps =

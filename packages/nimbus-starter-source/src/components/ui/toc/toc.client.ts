@@ -317,6 +317,27 @@ function initToc(root: HTMLElement): () => void {
     passive: true,
     signal: controller.signal,
   });
+  // Content that loads later (the API home's parts) dispatches
+  // `nb:toc-headings`: track the headings that have appeared since.
+  document.addEventListener(
+    "nb:toc-headings",
+    () => {
+      let added = false;
+      slugs.forEach((slug, index) => {
+        if (observed.some((o) => o.index === index)) return;
+        const el = document.getElementById(slug);
+        if (!el) return;
+        observed.push({ el, index });
+        indexOfEl.set(el, index);
+        spy.observe(el);
+        added = true;
+      });
+      if (!added) return;
+      observed.sort((a, b) => a.index - b.index);
+      onLayoutChange();
+    },
+    { signal: controller.signal },
+  );
 
   const ro = new ResizeObserver(onLayoutChange);
   ro.observe(nav);

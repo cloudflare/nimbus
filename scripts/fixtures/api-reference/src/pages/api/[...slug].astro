@@ -2,6 +2,7 @@
 import { getApiRoute, getApiStaticPaths } from "@cloudflare/nimbus-docs/runtime";
 import Header from "@/components/Header.astro";
 import { ApiLayout } from "@/components/ui/api-layout";
+import { VersionSwitcher } from "@/components/ui/version-switcher";
 import BaseLayout from "@/layouts/BaseLayout.astro";
 
 export const prerender = true;
@@ -30,6 +31,8 @@ const socialImage = new URL(page.href, Astro.url).search
   apiVersion={version ?? undefined}
   coordinate={coordinate}
 >
-  <Header showSidebar collection={collection} />
+  <Header showSidebar collection={collection}>
+    <VersionSwitcher slot="actions" apiCollection={collection} apiVersion={version} coordinate={coordinate} />
+  </Header>
   <ApiLayout page={page} nav={nav} collection={collection} version={version} coordinate={coordinate} />
 </BaseLayout>

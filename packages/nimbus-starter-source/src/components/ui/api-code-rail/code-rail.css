@@ -216,9 +216,10 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: 0.625rem 0.75rem;
+  padding: 0.75rem;
   font-size: 0.8125rem;
-  line-height: 1.6;
+  /* 13/20: a whole-pixel line, so the rail lines up with itself. */
+  line-height: 1.25rem;
 }
 
 /* Gutter line numbers, counted off Shiki's per-line spans. Shiki separates
@@ -236,7 +237,7 @@
   width: 1.25rem;
   margin-right: 1rem;
   text-align: right;
-  color: var(--color-muted-foreground);
+  color: color-mix(in oklab, var(--nb-muted-foreground) 65%, transparent);
   user-select: none;
 }
 /* Shiki emits a trailing empty line; don't number a blank last row. */

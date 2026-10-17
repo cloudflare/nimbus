@@ -115,6 +115,8 @@ export interface SectionFacts {
   /** Reader-facing label from the tag's `x-displayName`, when it differs from `name`. */
   displayName?: string;
   description?: string;
+  /** Its position in `x-tagGroups`, when it names a tag group. */
+  group?: number;
 }
 
 export interface AuthRequirement {

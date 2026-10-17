@@ -649,6 +649,8 @@ async function assertRecipeFixtureParity() {
   const recipe = await readFile(API_REFERENCE_RECIPE, "utf8");
   for (const [path, language] of [
     ["src/pages/api/[...slug].astro", "astro"],
+    ["src/pages/nimbus-api/home/api/[version]/[chunk].astro", "astro"],
+    ["src/pages/nimbus-api/home/api/[version]/index.json.ts", "ts"],
   ]) {
     const fixtureSource = await readFile(join(OVERLAY, path), "utf8");
     const fixture = fixtureSource.endsWith("\n")
@@ -672,6 +674,8 @@ async function applyOverlay() {
     "astro.config.ts",
     "src/content.config.ts",
     "src/pages/api/[...slug].astro",
+    "src/pages/nimbus-api/home/api/[version]/[chunk].astro",
+    "src/pages/nimbus-api/home/api/[version]/index.json.ts",
   ];
   for (const file of files) {
     const target = join(site, file);
@@ -970,6 +974,26 @@ async function assertArtifactsAndSmoke(dist) {
   assert(
     titleOf(operationHtml)?.includes(" · API |"),
     "API leaf page titles must end with \" · API\"",
+  );
+  // The API home lists every endpoint, name first, and its filter reads a
+  // list of every endpoint. An unversioned API shows no version picker.
+  const overviewHtml = await readFile(join(dist, "api", "index.html"), "utf8");
+  assert(
+    overviewHtml.includes("data-api-home-chunk") &&
+      overviewHtml.includes('href="/api/charges/create/"'),
+    "the API home does not list its endpoints",
+  );
+  const homeRows = JSON.parse(
+    await readFile(join(dist, "nimbus-api", "home", "api", "default", "index.json"), "utf8"),
+  );
+  assert(
+    Array.isArray(homeRows) &&
+      homeRows.some((row) => row[0] === "POST" && row[3] === "/api/charges/create/"),
+    "the API home's filter list is missing an endpoint",
+  );
+  assert(
+    !operationHtml.includes('data-slot="version-switcher"'),
+    "an unversioned API must not show a version picker",
   );
   const apiNav = /<nav[^>]*data-nb-api-nav[^>]*>([\s\S]*?)<\/nav>/.exec(
     operationHtml,

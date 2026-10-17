@@ -1202,7 +1202,10 @@ export function getTOC(
 
 import type { AstroGlobal, GetStaticPaths } from "astro";
 
-function pageResolutionContext(astro: AstroGlobal): PageResolutionContext {
+/** What page resolution reads from a page's `Astro` or an endpoint's context. */
+type RouteContext = Pick<AstroGlobal, "locals" | "props" | "params" | "url" | "routePattern" | "request">;
+
+function pageResolutionContext(astro: RouteContext): PageResolutionContext {
   const audience = (
     astro.locals as {
       nimbus?: { audience?: NonNullable<ProjectionContext["audience"]> };
@@ -1737,6 +1740,141 @@ export function getApiRoute(
   });
 }
 
+export {
+  API_INDEX_CHUNK_SIZE,
+  apiHomeChunkHref,
+  apiHomeIndexHref,
+  apiIndexRows,
+  chunkApiIndex,
+} from "./_internal/api/home-index.js";
+export type {
+  ApiIndexChunk,
+  ApiIndexChunkGroup,
+  ApiIndexChunkList,
+  ApiIndexChunkSection,
+  ApiIndexRow,
+} from "./_internal/api/home-index.js";
+
+// The version an API home route names: `default` for an unversioned API, a
+// declared version id otherwise. `undefined` when it names neither.
+async function apiHomeVersion(
+  collection: string,
+  segment: string | undefined,
+): Promise<string | null | undefined> {
+  if (!(await loadApiCollections()).includes(collection)) return undefined;
+  const versions = await getApiVersions(collection);
+  if (!versions) return segment === "default" ? null : undefined;
+  return versions.find((v) => v.version === segment)?.version;
+}
+
+/**
+ * The root page of one API version: its servers, sections, and `index` of every
+ * endpoint. Readable from any route, not only the API reference's own, so a
+ * site can build pages from the whole reference. Pass no `version` for the
+ * default. `null` when the collection has no such version.
+ *
+ *   const root = await getApiRoot(Astro, { collection: "api", version: "v2" });
+ */
+export async function getApiRoot(
+  astro: RouteContext | undefined,
+  options: { collection: string; version?: string | null },
+): Promise<import("./api/index.js").ApiRootPage | null> {
+  const { collection } = options;
+  if (!(await loadApiCollections()).includes(collection)) return null;
+  const versions = await getApiVersions(collection);
+  const version = versions
+    ? (versions.find((v) => v.version === options.version) ??
+        (options.version == null ? versions.find((v) => v.isDefault) : undefined))?.version
+    : options.version == null
+      ? null
+      : undefined;
+  if (version === undefined) return null;
+  const { page } = await renderApiEntry(astro, collection, version, collection);
+  return page.kind === "api" ? page : null;
+}
+
+/**
+ * `getStaticPaths` for the API home's routes: `"chunks"` gives one path per
+ * later chunk of each version's home (`[version]/[chunk]`), `"index"` one per
+ * version for its filter rows (`[version]`). An unversioned API's version
+ * segment is `default`. Pass the `size` the home page chunks by.
+ */
+export function getApiHomeStaticPaths(
+  collection: string,
+  route: "chunks" | "index",
+  options: { size?: number } = {},
+): GetStaticPaths {
+  return async () => {
+    if (!(await loadApiCollections()).includes(collection)) {
+      throw new Error(
+        `nimbus-docs: getApiHomeStaticPaths("${collection}") found no matching \`api\` entry in the Nimbus config (astro.config.*).`,
+      );
+    }
+    // A partial build that leaves the collection out has no pages to read.
+    if ((await loadEmptyCollections()).includes(collection)) return [];
+    const { chunkApiIndex } = await import("./_internal/api/home-index.js");
+    const versions = (await getApiVersions(collection))?.map((v) => v.version) ?? [null];
+    const paths: Array<{ params: Record<string, string>; props: Record<string, unknown> }> = [];
+    for (const version of versions) {
+      const segment = version ?? "default";
+      if (route === "index") {
+        paths.push({ params: { version: segment }, props: { collection, version } });
+        continue;
+      }
+      const root = await getApiRoot(undefined, { collection, version });
+      const count = root ? chunkApiIndex(root.index, options).length : 0;
+      for (let n = 2; n <= count; n++) {
+        paths.push({ params: { version: segment, chunk: String(n) }, props: { collection, version } });
+      }
+    }
+    return paths;
+  };
+}
+
+/**
+ * Resolve an API home route (`[version]/[chunk]` or `[version]`): the version's
+ * root page and navigation, as `getApiRoute` returns them, plus the home's
+ * chunks and the requested one. A version or chunk that doesn't exist is a
+ * `404` response.
+ */
+export async function getApiHome(
+  astro: RouteContext,
+  collection: string,
+  options: { size?: number } = {},
+): Promise<
+  | (ApiRouteProps & {
+      page: import("./api/index.js").ApiRootPage;
+      chunks: import("./_internal/api/home-index.js").ApiIndexChunk[];
+      chunk?: import("./_internal/api/home-index.js").ApiIndexChunk;
+    })
+  | Response
+> {
+  const notFound = () => new Response(null, { status: 404, statusText: "Not found" });
+  const version = await apiHomeVersion(collection, astro.params.version);
+  if (version === undefined) return notFound();
+  const { page, nav } = await renderApiEntry(astro, collection, version, collection);
+  if (page.kind !== "api") return notFound();
+  const { chunkApiIndex } = await import("./_internal/api/home-index.js");
+  const chunks = chunkApiIndex(page.index, options);
+  let chunk: (typeof chunks)[number] | undefined;
+  if (astro.params.chunk !== undefined) {
+    const n = Number(astro.params.chunk);
+    chunk = Number.isInteger(n) && n >= 2 && String(n) === astro.params.chunk ? chunks[n - 1] : undefined;
+    if (!chunk) return notFound();
+  }
+  const { navLists } = await import("virtual:nimbus/config");
+  const list = navLists?.[collection]?.[version ?? ""];
+  return {
+    page,
+    nav: list ? { ...nav, listHref: `/_nimbus/pages/${list}` } : nav,
+    collection,
+    version,
+    coordinate: collection,
+    chunks,
+    ...(chunk ? { chunk } : {}),
+  };
+}
+
 async function resolveApiRoute(
   astro: AstroGlobal,
 ): Promise<ApiRouteProps | Response> {
@@ -1758,112 +1896,8 @@ async function resolveApiRoute(
           ? getApiAssetEntry(collection, id, astro.request)
           : getVisibleEntry(collection, id, ctx);
       },
-      async render(collection, version, coordinate, resolvedEntry) {
-        const { hasApiPageAssets } =
-          await import("./_internal/api/page-assets-runtime.js");
-        if (await hasApiPageAssets(collection)) {
-          // bundle: false reads each page through the site's Astro live
-          // collection (src/live.config.ts). The request keeps the
-          // same-origin fallback for client files served elsewhere.
-          const [
-            { getLiveEntry },
-            { API_PAGES_COLLECTION, liveConfigSnippet },
-          ] = await Promise.all([import("astro:content"), import("./live.js")]);
-          const result = await getLiveEntry(API_PAGES_COLLECTION, {
-            collection,
-            version,
-            id: coordinate,
-            request: astro.request,
-          });
-          if (result.error) {
-            if (/is not a live collection/.test(result.error.message))
-              throw new Error(
-                `nimbus-docs: api "${collection}" sets bundle: false, but src/live.config.ts doesn't register the apiPages live collection:\n\n${liveConfigSnippet}`,
-              );
-            throw result.error;
-          }
-          if (!result.entry)
-            throw new Error(`Missing API page ${coordinate} in ${collection}.`);
-          // Astro's route cache applies the entry's tags when it's enabled.
-          const cache = (
-            astro as {
-              cache?: { enabled?: boolean; set(entry: unknown): void };
-            }
-          ).cache;
-          if (cache?.enabled) cache.set(result.entry);
-          return result.entry.data as unknown as Awaited<
-            ReturnType<
-              typeof import("./_internal/api/page-assets-runtime.js").getApiAssetPage
-            >
-          >;
-        }
-        const projection = pageResolutionContext(astro).projection;
-        const entry =
-          resolvedEntry ??
-          (await getVisibleEntries([collection], projection)).find(
-            (candidate) => {
-              const data = candidate.data as {
-                coordinate?: string;
-                version?: string;
-              };
-              return (
-                data.coordinate === coordinate &&
-                (data.version ?? null) === version
-              );
-            },
-          );
-        if (!entry) {
-          throw new Error(`Missing prepared API entry for "${coordinate}".`);
-        }
-        const { activatePreparedApiNav, isPreparedApiNav, isPreparedApiPage } =
-          await import("./_internal/api/prepared.js");
-        const prepared = (entry.data as { prepared?: unknown }).prepared;
-        if (!isPreparedApiPage(prepared)) {
-          if (THIN_API_ENTRIES) {
-            return projectConfiguredApiPage(collection, version, coordinate);
-          }
-          throw new Error(
-            `nimbus-docs: API entry "${entry.id}" is missing prepared page data. Rebuild the content collection.`,
-          );
-        }
-        const navEntry =
-          entry.id === prepared.navEntryId
-            ? entry
-            : await getVisibleEntry(
-                collection,
-                prepared.navEntryId,
-                projection,
-              );
-        const preparedNav = (
-          navEntry?.data as { prepared?: { nav?: unknown } } | undefined
-        )?.prepared?.nav;
-        if (!isPreparedApiNav(preparedNav)) {
-          throw new Error(
-            `nimbus-docs: API collection "${collection}" is missing prepared navigation for "${coordinate}".`,
-          );
-        }
-        const [
-          { applyApiSidebarMode },
-          { resolveApiVersion, targetUrlFields },
-          config,
-        ] = await Promise.all([
-          import("./_internal/api/nav-bounds.js"),
-          import("./_internal/api/resolve-versions.js"),
-          loadNimbusConfig(),
-        ]);
-        const target = resolveApiVersion(config.api, collection, version, await loadMountContext());
-        const nav = activatePreparedApiNav(preparedNav, coordinate);
-        return {
-          page: prepared.page,
-          nav: target
-            ? applyApiSidebarMode(nav, {
-                mode: target.sidebar,
-                mountPath: target.mountPath,
-                ...targetUrlFields(target),
-                overview: prepared.page.kind === "api",
-              })
-            : nav,
-        };
+      render(collection, version, coordinate, resolvedEntry) {
+        return renderApiEntry(astro, collection, version, coordinate, resolvedEntry);
       },
     },
   );
@@ -1882,6 +1916,125 @@ async function resolveApiRoute(
     collection: result.page.collection,
     version: result.page.version,
     coordinate: result.page.coordinate,
+  };
+}
+
+// Read one prepared API page and its navigation, from whichever store the
+// collection uses: the live collection (`bundle: false`), the prepared content
+// entry, or a projection of the configured model (thin entries). Without
+// `astro` (a `getStaticPaths` call), the live collection isn't readable.
+async function renderApiEntry(
+  astro: RouteContext | undefined,
+  collection: string,
+  version: string | null,
+  coordinate: string,
+  resolvedEntry?: Awaited<ReturnType<typeof getVisibleEntry>>,
+) {
+  const { hasApiPageAssets } =
+    await import("./_internal/api/page-assets-runtime.js");
+  if (await hasApiPageAssets(collection)) {
+    if (!astro) throw new Error(`nimbus-docs: api "${collection}" sets bundle: false, so its pages are only readable while rendering a request.`);
+    // bundle: false reads each page through the site's Astro live
+    // collection (src/live.config.ts). The request keeps the
+    // same-origin fallback for client files served elsewhere.
+    const [
+      { getLiveEntry },
+      { API_PAGES_COLLECTION, liveConfigSnippet },
+    ] = await Promise.all([import("astro:content"), import("./live.js")]);
+    const result = await getLiveEntry(API_PAGES_COLLECTION, {
+      collection,
+      version,
+      id: coordinate,
+      request: astro.request,
+    });
+    if (result.error) {
+      if (/is not a live collection/.test(result.error.message))
+        throw new Error(
+          `nimbus-docs: api "${collection}" sets bundle: false, but src/live.config.ts doesn't register the apiPages live collection:\n\n${liveConfigSnippet}`,
+        );
+      throw result.error;
+    }
+    if (!result.entry)
+      throw new Error(`Missing API page ${coordinate} in ${collection}.`);
+    // Astro's route cache applies the entry's tags when it's enabled.
+    const cache = (
+      astro as {
+        cache?: { enabled?: boolean; set(entry: unknown): void };
+      }
+    ).cache;
+    if (cache?.enabled) cache.set(result.entry);
+    return result.entry.data as unknown as Awaited<
+      ReturnType<
+        typeof import("./_internal/api/page-assets-runtime.js").getApiAssetPage
+      >
+    >;
+  }
+  const projection = astro ? pageResolutionContext(astro).projection : undefined;
+  const entry =
+    resolvedEntry ??
+    (await getVisibleEntries([collection], projection)).find(
+      (candidate) => {
+        const data = candidate.data as {
+          coordinate?: string;
+          version?: string;
+        };
+        return (
+          data.coordinate === coordinate &&
+          (data.version ?? null) === version
+        );
+      },
+    );
+  if (!entry) {
+    throw new Error(`Missing prepared API entry for "${coordinate}".`);
+  }
+  const { activatePreparedApiNav, isPreparedApiNav, isPreparedApiPage } =
+    await import("./_internal/api/prepared.js");
+  const prepared = (entry.data as { prepared?: unknown }).prepared;
+  if (!isPreparedApiPage(prepared)) {
+    if (THIN_API_ENTRIES) {
+      return projectConfiguredApiPage(collection, version, coordinate);
+    }
+    throw new Error(
+      `nimbus-docs: API entry "${entry.id}" is missing prepared page data. Rebuild the content collection.`,
+    );
+  }
+  const navEntry =
+    entry.id === prepared.navEntryId
+      ? entry
+      : await getVisibleEntry(
+          collection,
+          prepared.navEntryId,
+          projection,
+        );
+  const preparedNav = (
+    navEntry?.data as { prepared?: { nav?: unknown } } | undefined
+  )?.prepared?.nav;
+  if (!isPreparedApiNav(preparedNav)) {
+    throw new Error(
+      `nimbus-docs: API collection "${collection}" is missing prepared navigation for "${coordinate}".`,
+    );
+  }
+  const [
+    { applyApiSidebarMode },
+    { resolveApiVersion, targetUrlFields },
+    config,
+  ] = await Promise.all([
+    import("./_internal/api/nav-bounds.js"),
+    import("./_internal/api/resolve-versions.js"),
+    loadNimbusConfig(),
+  ]);
+  const target = resolveApiVersion(config.api, collection, version, await loadMountContext());
+  const nav = activatePreparedApiNav(preparedNav, coordinate);
+  return {
+    page: prepared.page,
+    nav: target
+      ? applyApiSidebarMode(nav, {
+          mode: target.sidebar,
+          mountPath: target.mountPath,
+          ...targetUrlFields(target),
+          overview: prepared.page.kind === "api",
+        })
+      : nav,
   };
 }
 

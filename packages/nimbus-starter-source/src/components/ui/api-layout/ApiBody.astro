@@ -17,17 +17,31 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { ApiFieldList, ApiUnionExplorer } from "@/components/ui/api-field-row";
 import { PageActions } from "@/components/ui/page-actions";
 import ApiEndpointCard from "./ApiEndpointCard.astro";
+import ApiHome from "./ApiHome.astro";
+import ApiOperationList from "./ApiOperationList.astro";
+import ApiHomeChunk from "./ApiHomeChunk.astro";
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { authFields } from "./auth";
 import { cn } from "@/lib/cn";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
 import type { ApiPageProps, ApiResponseView } from "@cloudflare/nimbus-docs/api";
+import { apiHomeChunkHref, type ApiIndexChunk } from "@cloudflare/nimbus-docs/runtime";
 
 interface Props {
   page: ApiPageProps;
+  /** The API version this page belongs to; the API home loads its later chunks by it. */
+  version?: string | null;
+  /** On an API home chunk route: the part to show, and every part. */
+  home?: { chunk: ApiIndexChunk; chunks: ApiIndexChunk[] };
 }
 
-const { page } = Astro.props;
+const { page, version, home } = Astro.props;
+// A chunk page: one part of the API home's list, as a page of its own, so a
+// reader without script can walk the whole list.
+const homeChunk = page.kind === "api" ? home?.chunk : undefined;
+const homeTotal = home?.chunks.at(-1)?.end ?? 0;
+const homeNext = homeChunk && home?.chunks[homeChunk.number];
+const title = homeChunk ? `${page.title}: endpoints ${homeChunk.start}–${homeChunk.end}` : page.title;
 const markdownUrl = page.markdownHref;
 
 const detail = (v: unknown): string => JSON.stringify(v);
@@ -105,17 +119,17 @@ const deprecationHtml = page.deprecated
     endpoint bar carries the sidebar method chip + verb + path; page actions sit
     beneath so they read as page-level utilities, not part of the endpoint. */}
 <div data-slot="page-header" class="mt-6 flex flex-col gap-4">
-  <h1 class="mb-0 leading-tight text-foreground [text-wrap:balance]" style="font-size:var(--nb-h1-size);font-weight:var(--nb-h1-weight);letter-spacing:var(--nb-h1-tracking)">{page.title}</h1>
+  <h1 class="mb-0 leading-tight text-foreground [text-wrap:balance]" style="font-size:var(--nb-h1-size);font-weight:var(--nb-h1-weight);letter-spacing:var(--nb-h1-tracking)">{title}</h1>
 
-  {page.descriptionHtml && (
-    <div class="nb-md text-muted-foreground" set:html={page.descriptionHtml} />
+  {!homeChunk && page.descriptionHtml && (
+    <div class="nb-md text-muted-foreground [overflow-wrap:anywhere]" set:html={page.descriptionHtml} />
   )}
 
   {page.kind === "operation" && (
     <ApiEndpointCard method={page.method} path={page.path} server={page.server} isWebhook={page.isWebhook} />
   )}
 
-  <PageActions markdownUrl={markdownUrl} />
+  {!homeChunk && <PageActions markdownUrl={markdownUrl} />}
 </div>
 
 <div class="mt-8 flex flex-col gap-8">
@@ -145,7 +159,7 @@ const deprecationHtml = page.deprecated
           data-request-examples={requestExamples.length > 1 ? "" : undefined}
         >
           <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-sm font-normal text-muted-foreground">
+            <h2 class="fl-title">
               {requestExamples.length === 1 ? "Example request" : "Example requests"}
             </h2>
             {requestExamples.length > 1 && (
@@ -187,7 +201,7 @@ const deprecationHtml = page.deprecated
       {page.additionalBodies?.map((body) => (
         <section id={body.anchor} class="scroll-mt-24">
           <div class="mb-2 flex items-center gap-2">
-            <h2 class="text-sm font-normal text-muted-foreground" aria-label={`Request body (${body.mediaType})`}>Request body</h2>
+            <h2 class="fl-title" aria-label={`Request body (${body.mediaType})`}>Request body</h2>
             <span class="font-mono text-[0.6875rem] uppercase text-muted-foreground">{mediaBadge(body.mediaType)}</span>
           </div>
           {body.union ? (
@@ -207,7 +221,7 @@ const deprecationHtml = page.deprecated
 
       {page.responses.length > 0 && (
         <section class="scroll-mt-24" data-api-responses>
-          <h2 class="mb-3 text-sm font-normal text-muted-foreground">Returns</h2>
+          <h2 class="fl-title mb-3">Returns</h2>
           <div class="flex flex-col gap-6">
             {page.responses.map((r) => {
               // Error responses start closed so the success shape leads; a
@@ -316,20 +330,21 @@ const deprecationHtml = page.deprecated
 
   {page.kind === "section" && (
     <>
-      <ul class="flex list-none flex-col gap-1 p-0">
-        {page.operations.map((op) => (
-          <li>
-            <a href={withBase(op.href, import.meta.env.BASE_URL)} class="font-medium underline-offset-2 hover:underline">{op.label}</a>
-          </li>
-        ))}
-      </ul>
+      {page.operations.length > 0 && (
+        <section>
+          <h2 class="fl-title mb-3">
+            Endpoints <span class="fl-badge">{page.operations.length}</span>
+          </h2>
+          <ApiOperationList operations={page.operations} />
+        </section>
+      )}
       {page.sections && (
         <section>
-          <h2 class="mb-2 text-sm font-medium text-foreground">Sections</h2>
+          <h2 class="fl-title mb-3">Sections</h2>
           <ul class="flex list-none flex-col gap-1 p-0">
             {page.sections.map((s) => (
               <li>
-                <a href={withBase(s.href, import.meta.env.BASE_URL)} class="font-medium underline-offset-2 hover:underline">{s.label}</a>
+                <a href={withBase(s.href, import.meta.env.BASE_URL)} class="font-medium underline-offset-4 hover:underline">{s.label}</a>
               </li>
             ))}
           </ul>
@@ -338,26 +353,19 @@ const deprecationHtml = page.deprecated
     </>
   )}
 
-  {page.kind === "api" && (
+  {page.kind === "api" && !homeChunk && <ApiHome page={page} version={version} />}
+
+  {page.kind === "api" && homeChunk && (
     <>
-      {page.version && <p class="text-sm text-muted-foreground">Version: <code class="font-mono">{page.version}</code></p>}
-      {page.servers.length > 0 && (
-        <section>
-          <h2 class="mb-2 text-sm font-medium text-foreground">Servers</h2>
-          <ul class="flex list-none flex-col gap-1 p-0 font-mono text-xs text-muted-foreground">
-            {page.servers.map((s) => <li>{s}</li>)}
-          </ul>
-        </section>
-      )}
-      {page.sections.length > 0 && (
-        <ul class="flex list-none flex-col gap-1 p-0">
-          {page.sections.map((s) => (
-            <li>
-              <a href={withBase(s.href, import.meta.env.BASE_URL)} class="font-medium underline-offset-2 hover:underline">{s.label}</a>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ApiHomeChunk chunk={homeChunk} grouped={page.index.groups.some((group) => group.label !== null)} />
+      <nav aria-label="Endpoint list" class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+        <a href={withBase(page.href, import.meta.env.BASE_URL)} class="font-medium text-foreground underline-offset-4 hover:underline">All endpoints</a>
+        {homeNext && (
+          <a href={withBase(apiHomeChunkHref(page.collection, version, homeNext.number), import.meta.env.BASE_URL)} class="font-medium text-foreground underline-offset-4 hover:underline">
+            Next: endpoints {homeNext.start}–{homeNext.end} of {homeTotal}
+          </a>
+        )}
+      </nav>
     </>
   )}
 </div>

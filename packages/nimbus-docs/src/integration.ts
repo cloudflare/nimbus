@@ -3084,6 +3084,21 @@ export function nimbus(
           noteStaticPaths(mode);
           return;
         }
+        // An API home's chunk and index routes, which the api-reference recipe
+        // writes under src/pages/nimbus-api/home/<collection>/, render like
+        // that collection's pages.
+        if (renderingRoutes.size > 0) {
+          const relative = path
+            .relative(path.join(srcDirForBuild, "pages"), path.resolve(projectRootForBuild, component))
+            .replaceAll("\\", "/");
+          const home = /^nimbus-api\/home\/([^/[\]]+)\//u.exec(relative)?.[1];
+          const homeMode = home ? compiledPolicyForBuild?.collections[home] : undefined;
+          if (homeMode) {
+            route.prerender = homeMode === "build";
+            noteStaticPaths(homeMode);
+            return;
+          }
+        }
         // Project-owned agent route files are policy-managed when they call
         // a Nimbus agent factory: the policy wins over their `prerender`
         // export, the same way it wins for page routes, so copied starter

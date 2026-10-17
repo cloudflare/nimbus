@@ -713,13 +713,15 @@ pre.astro-code .highlighted-word {
 	:is([data-nb-sidebar], [data-nb-api-nav]) details:not([open]) > ul {
 		display: none;
 	}
-	/* Docs sidebar: 14px rows to sit with the 16px body. */
-	[data-nb-sidebar] :is(li > a, details > summary) {
+	/* 14px rows to sit with the 16px body, in the docs and API sidebars alike,
+	   so rows land on the same pixels on both. An on-demand API sidebar and its
+	   filter results have no data-nb-sidebar wrapper, so they're named too. */
+	:is([data-nb-sidebar], [data-nb-api-nav], [data-nb-nav-results]) :is(li > a, details > summary) {
 		font-size: 0.875rem;
 		line-height: 1.25rem;
 		font-weight: 450;
 	}
-	[data-nb-sidebar] li > a[aria-current="page"] {
+	:is([data-nb-sidebar], [data-nb-api-nav], [data-nb-nav-results]) li > a[aria-current="page"] {
 		font-weight: 500;
 	}
 	/* A top-level group reads as a section heading, set apart from the loose

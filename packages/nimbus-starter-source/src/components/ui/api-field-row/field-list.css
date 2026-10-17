@@ -36,8 +36,8 @@
 }
 .fl-title {
   font-size: 0.875rem;
-  font-weight: 400;
-  color: var(--color-muted-foreground);
+  font-weight: 550;
+  color: var(--color-foreground);
   display: flex;
   align-items: center;
   gap: 6px;

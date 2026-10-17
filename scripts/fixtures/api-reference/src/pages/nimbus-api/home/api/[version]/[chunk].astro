@@ -1,0 +1,27 @@
+---
+import { getApiHome, getApiHomeStaticPaths } from "@cloudflare/nimbus-docs/runtime";
+import Header from "@/components/Header.astro";
+import { API_HOME_CHUNK_SIZE, ApiLayout } from "@/components/ui/api-layout";
+import { VersionSwitcher } from "@/components/ui/version-switcher";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+
+export const prerender = true;
+export const getStaticPaths = getApiHomeStaticPaths("api", "chunks", { size: API_HOME_CHUNK_SIZE });
+
+const home = await getApiHome(Astro, "api", { size: API_HOME_CHUNK_SIZE });
+if (home instanceof Response) return home;
+const { page, nav, chunk, chunks, collection, version, coordinate } = home;
+---
+
+<BaseLayout
+  title={`${page.title}: endpoints ${chunk!.start}–${chunk!.end} · API`}
+  description={page.description}
+  noindex
+  collection={collection}
+  apiVersion={version ?? undefined}
+>
+  <Header showSidebar collection={collection}>
+    <VersionSwitcher slot="actions" apiCollection={collection} apiVersion={version} coordinate={coordinate} />
+  </Header>
+  <ApiLayout page={page} nav={nav} collection={collection} version={version} coordinate={coordinate} home={{ chunk: chunk!, chunks }} />
+</BaseLayout>

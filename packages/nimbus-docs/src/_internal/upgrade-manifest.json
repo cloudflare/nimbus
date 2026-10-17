@@ -938,6 +938,54 @@
       "verify": [
         "After deploying, a request for a file under /_astro/ returns Cache-Control: public, max-age=31536000, immutable."
       ]
+    },
+    {
+      "id": "api-home",
+      "introducedIn": "0.19.0",
+      "mode": "optional",
+      "changeset": "api-reference-redesign",
+      "summary": "Optionally adopt the API home that lists every endpoint with a filter, section pages that list endpoints name first, and the API version picker in the header.",
+      "affected": "Sites with an API reference (the api-layout registry component and the route the api-reference recipe wrote).",
+      "instructions": [
+        "No action is needed: existing API components keep working, and section and root pages only gain fields.",
+        "Commit first, then update these together. Reinstall the layout with nimbus-docs add api-layout --overwrite, and review the change with git diff.",
+        "ApiLayout no longer renders the version picker. In the API route (src/pages/api/[...slug].astro, or wherever yours is), pass it to the header: <Header showSidebar collection={collection}><VersionSwitcher slot=\"actions\" apiCollection={collection} apiVersion={version} coordinate={coordinate} /></Header>, importing VersionSwitcher from @/components/ui/version-switcher.",
+        "Add the API home's two routes from the api-reference recipe (https://nimbus-docs.com/api-reference/#the-api-home) under src/pages/nimbus-api/home/<collection>/, with your collection's name in the folder and in each call. Without them, a home with more than 150 endpoints links to parts that don't exist."
+      ],
+      "verify": [
+        "The API home lists every endpoint, and the filter finds one by name, method or path.",
+        "On a versioned API, the header shows the version picker on API pages, and choosing a version stays on the same page."
+      ]
+    },
+    {
+      "id": "api-code-rail-lines",
+      "introducedIn": "0.19.0",
+      "mode": "optional",
+      "changeset": "api-reference-redesign",
+      "summary": "Optionally take whole-pixel code rail lines with quieter line numbers, and section titles in full ink on API pages.",
+      "affected": "Sites with the api-code-rail or api-field-row registry components.",
+      "instructions": [
+        "No action is needed.",
+        "Reinstall with nimbus-docs add api-code-rail --overwrite and nimbus-docs add api-field-row --overwrite, or copy the changes into code-rail.css and field-list.css by hand."
+      ],
+      "verify": [
+        "Code samples in the rail read at 13/20 and the request, response and field section titles are in the foreground colour."
+      ]
+    },
+    {
+      "id": "api-sidebar-alignment",
+      "introducedIn": "0.19.0",
+      "mode": "optional",
+      "changeset": "api-reference-redesign",
+      "summary": "Optionally give the API sidebar the docs sidebar's 14px rows, so rows don't move between docs and API pages.",
+      "affected": "Sites with an API reference whose src/styles/globals.css has the \"Sidebar rows\" section.",
+      "instructions": [
+        "No action is needed.",
+        "Take the change with nimbus-docs diff src/styles/globals.css --apply, or add [data-nb-api-nav] and [data-nb-nav-results] beside [data-nb-sidebar] in the 14px row and current-page rules of the \"Sidebar rows\" section. It pairs with the api-home entry's ApiLayout, whose rail padding matches the docs sidebar."
+      ],
+      "verify": [
+        "At 1440px a sidebar row's text sits at the same position on a docs page and an API page."
+      ]
     }
   ]
 }

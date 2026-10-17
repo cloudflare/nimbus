@@ -213,10 +213,11 @@ pre-resolved on the view-model; the components hold only the look.
 
 `getApiPage` also returns the page's versioning identity — `collection`,
 `version`, and `coordinate`. Threading them into `NimbusHead` emits the
-canonical + cross-version alternates on the coordinate axis, and into
-`ApiLayout` lights up the version picker and the deprecated-version banner. A
-single-version spec returns `version: null`, so both features stay dormant with
-no extra wiring.
+canonical + cross-version alternates on the coordinate axis, into `ApiLayout`
+the deprecated-version banner, and into `VersionSwitcher`, passed to `Header`'s
+`actions` slot, the version picker beside search. A single-version spec returns
+`version: null`, so the picker and the banner stay dormant with no extra
+wiring.
 
 `ApiLayout` renders the three-column region, not the document shell. The
 generated starter's `BaseLayout` already owns metadata, global styles, search,
@@ -233,6 +234,7 @@ Write `src/pages/api/[...slug].astro`:
 import { getApiRoute, getApiStaticPaths } from "@cloudflare/nimbus-docs/runtime";
 import Header from "@/components/Header.astro";
 import { ApiLayout } from "@/components/ui/api-layout";
+import { VersionSwitcher } from "@/components/ui/version-switcher";
 import BaseLayout from "@/layouts/BaseLayout.astro";
 
 export const prerender = true;
@@ -261,7 +263,9 @@ const socialImage = new URL(page.href, Astro.url).search
   apiVersion={version ?? undefined}
   coordinate={coordinate}
 >
-  <Header showSidebar collection={collection} />
+  <Header showSidebar collection={collection}>
+    <VersionSwitcher slot="actions" apiCollection={collection} apiVersion={version} coordinate={coordinate} />
+  </Header>
   <ApiLayout page={page} nav={nav} collection={collection} version={version} coordinate={coordinate} />
 </BaseLayout>
 ```
@@ -272,6 +276,71 @@ collapse-all affordance), edit `src/components/ui/api-sidebar/`; the active/
 expanded flags and verb come pre-resolved on each `ApiNavItem`. For a large
 API (hundreds of operations), suggest `sidebar: "on-demand"` on the `api`
 entry so pages don't each carry the whole tree.
+
+### 4e. Scaffold the API home's routes
+
+The API home lists every endpoint of a version, a part of at most
+`API_HOME_CHUNK_SIZE` endpoints at a time. Later parts are pages of their own,
+which the home fetches as the reader scrolls and which a reader without script
+walks as ordinary pages; the filter reads a compact list of every endpoint.
+Both routes read the version's root page through `getApiHome`, and render the
+same way as the API pages: built on a static site, on request when the
+rendering policy renders the collection on request. Chunk pages are `noindex`.
+
+Write the routes under `src/pages/nimbus-api/home/<collection>/`, with the
+collection name as the folder and in each call. For the `api` collection:
+
+<!-- api-reference-fixture:src/pages/nimbus-api/home/api/[version]/[chunk].astro -->
+```astro
+---
+import { getApiHome, getApiHomeStaticPaths } from "@cloudflare/nimbus-docs/runtime";
+import Header from "@/components/Header.astro";
+import { API_HOME_CHUNK_SIZE, ApiLayout } from "@/components/ui/api-layout";
+import { VersionSwitcher } from "@/components/ui/version-switcher";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+
+export const prerender = true;
+export const getStaticPaths = getApiHomeStaticPaths("api", "chunks", { size: API_HOME_CHUNK_SIZE });
+
+const home = await getApiHome(Astro, "api", { size: API_HOME_CHUNK_SIZE });
+if (home instanceof Response) return home;
+const { page, nav, chunk, chunks, collection, version, coordinate } = home;
+---
+
+<BaseLayout
+  title={`${page.title}: endpoints ${chunk!.start}–${chunk!.end} · API`}
+  description={page.description}
+  noindex
+  collection={collection}
+  apiVersion={version ?? undefined}
+>
+  <Header showSidebar collection={collection}>
+    <VersionSwitcher slot="actions" apiCollection={collection} apiVersion={version} coordinate={coordinate} />
+  </Header>
+  <ApiLayout page={page} nav={nav} collection={collection} version={version} coordinate={coordinate} home={{ chunk: chunk!, chunks }} />
+</BaseLayout>
+```
+
+<!-- api-reference-fixture:src/pages/nimbus-api/home/api/[version]/index.json.ts -->
+```ts
+import type { APIRoute } from "astro";
+import { apiIndexRows, getApiHome, getApiHomeStaticPaths } from "@cloudflare/nimbus-docs/runtime";
+
+export const prerender = true;
+export const getStaticPaths = getApiHomeStaticPaths("api", "index");
+
+export const GET: APIRoute = async (context) => {
+  const home = await getApiHome(context, "api");
+  if (home instanceof Response) return home;
+  return new Response(JSON.stringify(apiIndexRows(home.page.index)), {
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
+};
+```
+
+An unversioned API serves them under the version segment `default`. Without
+these routes, the home shows its first part and a link to a page that doesn't
+exist, so add them with the API route.
 
 ## 5. Optional — add to the sidebar
 

@@ -342,7 +342,7 @@ export const MANIFESTS = {
     title: "ApiLayout",
     description:
       "Three-column reference shell (nav · content · code rail) composing ApiSidebar + ApiFieldRow + ApiCodeRail. Renders any `ApiPageProps` by kind; widths inherit the site's layout tokens.",
-    registryDependencies: ["api-sidebar", "api-field-row", "api-code-rail", "badge", "banner", "breadcrumbs", "page-actions", "pagination", "layer-card", "version-switcher", "cn"],
+    registryDependencies: ["api-sidebar", "api-field-row", "api-code-rail", "badge", "banner", "breadcrumbs", "page-actions", "pagination", "layer-card", "toc", "version-switcher", "cn"],
     docs: "API pages are served by a route such as src/pages/<collection>/[...slug].astro. See https://nimbus-docs.com/api-reference/",
     // Optional peers of nimbus-docs's API engine, installed only when a site opts
     // into the reference

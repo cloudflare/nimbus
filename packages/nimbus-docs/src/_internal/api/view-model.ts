@@ -20,6 +20,7 @@ import type {
   ResponseMediaFacts,
   ScalarShape,
   SchemaFacts,
+  SectionFacts,
   SecuritySchemeFacts,
   UnionShape,
   VariantRef,
@@ -31,10 +32,13 @@ import {
   type ApiBreadcrumb,
   type ApiConstraint,
   type ApiFieldView,
+  type ApiIndexGroup,
+  type ApiIndexSection,
   type ApiNav,
   type ApiNavItem,
   type ApiNodeKind,
   type ApiOperationPage,
+  type ApiOperationRef,
   type ApiPageBase,
   type ApiPageIndexEntry,
   type ApiPageProps,
@@ -43,6 +47,7 @@ import {
   type ApiRequestBodyView,
   type ApiResponseMediaView,
   type ApiResponseView,
+  type ApiRootIndex,
   type ApiRootPage,
   type ApiRouteProvenance,
   type ApiScalarView,
@@ -689,6 +694,89 @@ function protocolString(
   return typeof value === "string" ? value : undefined;
 }
 
+function operationRef(view: ModelView, node: Node, withDescription: boolean): ApiOperationRef {
+  const f = node.facts as OperationFacts;
+  const webhook = protocolString(f.protocol, "webhook");
+  const ref: ApiOperationRef = {
+    ...refFor(view, node),
+    method: protocolString(f.protocol, "method") ?? "",
+    path: protocolString(f.protocol, "path") ?? webhook ?? "",
+  };
+  const description = withDescription ? descriptionOf(node) : undefined;
+  if (description) ref.description = description;
+  if (f.deprecated) ref.deprecated = true;
+  if (webhook !== undefined) ref.webhook = true;
+  return ref;
+}
+
+// A node's operations and subsections for the API home. A subsection without
+// a page (an x-tagGroups category) hands its own operations and subsections
+// up, so every operation is listed exactly once.
+function indexChildren(
+  view: ModelView,
+  parent: Coordinate,
+): { operations: ApiOperationRef[]; sections: ApiIndexSection[] } {
+  const operations: ApiOperationRef[] = [];
+  const sections: ApiIndexSection[] = [];
+  for (const child of view.childrenOf(parent)) {
+    if (child.kind === "operation") operations.push(operationRef(view, child, false));
+    else if (child.kind === "section") {
+      if (view.hasPage(child.id)) sections.push(indexSection(view, child));
+      else {
+        const inner = indexChildren(view, child.id);
+        operations.push(...inner.operations);
+        sections.push(...inner.sections);
+      }
+    }
+  }
+  return { operations, sections };
+}
+
+function indexSection(view: ModelView, node: Node): ApiIndexSection {
+  const section: ApiIndexSection = {
+    ref: refFor(view, node),
+    anchor: coordinateAnchor(node.id),
+    ...indexChildren(view, node.id),
+  };
+  const description = descriptionOf(node);
+  if (description) section.description = description;
+  return section;
+}
+
+function rootIndex(view: ModelView, root: Node): ApiRootIndex {
+  const grouped: Array<{ order: number; group: ApiIndexGroup }> = [];
+  const ungrouped: ApiIndexGroup = { label: null, anchor: "more", sections: [], operations: [] };
+  const operations: ApiOperationRef[] = [];
+  const webhooks: ApiOperationRef[] = [];
+  for (const child of view.childrenOf(root.id)) {
+    if (child.kind === "operation") {
+      const ref = operationRef(view, child, false);
+      (ref.webhook ? webhooks : operations).push(ref);
+      continue;
+    }
+    if (child.kind !== "section") continue;
+    const order = (child.facts as SectionFacts).group;
+    if (order !== undefined) {
+      const group: ApiIndexGroup = {
+        label: labelFor(child),
+        anchor: coordinateAnchor(child.id),
+        ...indexChildren(view, child.id),
+      };
+      if (view.hasPage(child.id)) group.ref = refFor(view, child);
+      grouped.push({ order, group });
+    } else if (view.hasPage(child.id)) {
+      ungrouped.sections.push(indexSection(view, child));
+    } else {
+      const inner = indexChildren(view, child.id);
+      ungrouped.operations.push(...inner.operations);
+      ungrouped.sections.push(...inner.sections);
+    }
+  }
+  const groups = grouped.sort((a, b) => a.order - b.order).map(({ group }) => group);
+  if (ungrouped.sections.length > 0 || ungrouped.operations.length > 0) groups.push(ungrouped);
+  return { groups, operations, webhooks };
+}
+
 export function projectPageProps(
   model: DocsModel,
   coordinate: Coordinate,
@@ -778,7 +866,7 @@ function projectPageWithView(
       const operations = view
         .childrenOf(node.id)
         .filter((n) => n.kind === "operation")
-        .map((n) => refFor(view, n));
+        .map((n) => operationRef(view, n, true));
       const page: ApiSectionPage = {
         ...base(view, node),
         kind: "section",
@@ -796,6 +884,7 @@ function projectPageWithView(
         kind: "api",
         servers: [...f.servers],
         sections,
+        index: rootIndex(view, node),
       };
       if (f.version) page.version = f.version;
       return page;
