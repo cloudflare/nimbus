@@ -1,5 +1,27 @@
 # @cloudflare/create-nimbus-docs
 
+## 0.7.14
+
+### Patch Changes
+
+- [#244](https://github.com/cloudflare/nimbus/pull/244) [`17bf1ce`](https://github.com/cloudflare/nimbus/commit/17bf1ce27555cb1cfde41384de5cf3baa0ee956d) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `NIMBUS_BUILD_ONLY=docs-es` builds one collection, or a comma-separated set, and leaves the others empty; `dev`, `sync` and `check` ignore it with one notice.
+  - A slice without the `docs` collection writes its sitemap, search bundle, stylesheet, assets and `llms-full.txt` under its prefix, and drops the root files the root slice serves.
+  - The root slice's `llms.txt` lists every collection's `llms.txt`, and search merges the other slices' indexes at runtime.
+  - `nimbus-docs lint` checks links into other slices against the previous build's routes, as warnings.
+  - A slice build fails on an unknown collection, and on docs version collections split across slices. Slices work under Astro's `base`: every URL a slice serves and advertises is under it.
+  - The route list `nimbus-docs lint` checks against reads `_redirects` where the Cloudflare adapter moves it when the site has a `base`, so redirects stay known to link checking.
+  - `searchIndex` in `virtual:nimbus/config` names the search bundles as served URLs, base included. The starter's search provider loads its slice's bundle and merges the others.
+  - A guide, "Build one locale or one part", with the Worker and zone routes per slice and a workflow that builds the slice a pull request touched.
+
+- [#243](https://github.com/cloudflare/nimbus/pull/243) [`5604125`](https://github.com/cloudflare/nimbus/commit/5604125caf0c1be174a63c5c25da79a6b1f52599) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `agents: { mcp: true }` serves a remote MCP server at `/mcp` with `list_pages` and `get_page` over the published Markdown, plus a Server Card at `/mcp/server-card`, a line in `llms.txt` and an entry in the AI catalog. It needs a server adapter and `@modelcontextprotocol/server`; `nimbus-docs check` reports a missing SDK.
+  - The starter shows a "Copy MCP URL" page action that copies the server URL when the server is on. On an existing site, run `nimbus-docs diff src/components/ConnectMcp.astro --apply` and `nimbus-docs diff src/components/connect-mcp.client.ts --apply`, then render `<ConnectMcp />` in one row with `<PageActions />` in `src/layouts/DocsLayout.astro` when `capabilities.mcpUrl` is set, as the Remote MCP server guide shows.
+
+- [#260](https://github.com/cloudflare/nimbus/pull/260) [`0c31e84`](https://github.com/cloudflare/nimbus/commit/0c31e846a224f92eb66552b7e58183ca2e4cccb9) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `add --overwrite` without a terminal keeps components you've edited and exits 1; `--overwrite --yes` replaces them and says how many carried edits.
+  - `add a b` installs both; an unknown slug stops before anything is installed.
+  - `check` says an optional upgrade stays listed until `migrate` records the version as reviewed.
+  - New pnpm sites build pages with local images: `sharp` is a starter dependency.
+  - `astro build --root <site>` from another folder finds the social-card font.
+
 ## 0.7.13
 
 ### Patch Changes
