@@ -625,7 +625,7 @@ function assertProse(html) {
     "build-prepared Git last-updated metadata did not render",
   );
   assert(
-    html.includes('href="/favicon.ico"'),
+    html.includes('href="/favicon.svg"'),
     "build-derived favicon metadata did not render",
   );
   assert(

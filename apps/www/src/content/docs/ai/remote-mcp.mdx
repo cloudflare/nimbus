@@ -97,7 +97,7 @@ A site made before the action existed can add the two starter files:
 
 `diff` needs a site on a released version. Otherwise, copy both files from a newly scaffolded site.
 
-Then in `src/layouts/DocsLayout.astro`, render it after `<PageActions />` when the server is on, in one row:
+Then in `src/layouts/DocsLayout.astro`, pass it to `PageActions`, which renders it after its own actions:
 
 ```astro title="src/layouts/DocsLayout.astro"
 ---
@@ -105,18 +105,12 @@ import ConnectMcp from "@/components/ConnectMcp.astro";
 import { capabilities } from "virtual:nimbus/agent-capabilities";
 ---
 
-{capabilities.mcpUrl ? (
-  <div class:list={["not-prose -ml-2 flex flex-wrap items-center gap-y-1 text-[0.8125rem]", description ? undefined : "mt-3"]}>
-    <PageActions markdownUrl={markdownUrl} lastUpdated={lastUpdated} class="ml-0" />
-    {(markdownUrl || lastUpdated) && <span aria-hidden="true" class="hidden select-none text-muted-foreground/40 sm:inline">|</span>}
-    <ConnectMcp />
-  </div>
-) : (
-  <PageActions markdownUrl={markdownUrl} lastUpdated={lastUpdated} class={description ? undefined : "mt-3"} />
-)}
+<PageActions markdownUrl={markdownUrl} lastUpdated={lastUpdated} class={description ? undefined : "mt-3"}>
+  {capabilities.mcpUrl && <ConnectMcp />}
+</PageActions>
 ```
 
-The guard keeps the action's script off sites without the server.
+The guard keeps the action's script off sites without the server. A `PageActions` copied before the slot existed doesn't render children: update it with `nimbus-docs add page-actions --overwrite`, or keep `<ConnectMcp />` after it.
 
 ## Limits and safety
 

@@ -9,7 +9,8 @@ import type { HTMLAttributes } from "astro/types";
 
 type Props = HTMLAttributes<"div">;
 
-const { class: className, ...attrs } = Astro.props;
+// A composing component can pass its own `data-slot` in place of this one.
+const { class: className, "data-slot": slot = "popover", ...attrs } = Astro.props;
 // Deterministic ID — per-page counter on Astro.locals. Order is stable
 // within a page render, so two builds of the same page produce the same
 // IDs. Required for incremental builds: `crypto.randomUUID()` would make
@@ -24,7 +25,7 @@ counters.set("popover", n);
 const popoverId = `popover-${n.toString(16).padStart(8, "0")}`;
 ---
 
-<div class={cn("relative inline-block", className)} data-popover-root data-popover-id={popoverId} {...attrs}>
+<div data-slot={slot} class={cn("relative inline-block", className)} data-popover-root data-popover-id={popoverId} {...attrs}>
   <slot />
 </div>
 

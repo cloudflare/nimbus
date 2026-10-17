@@ -61,7 +61,7 @@
 .fl-item {
   padding: 8px 0;
   border-top: 1px solid color-mix(in oklab, var(--color-border) 40%, transparent);
-  scroll-margin-top: 6rem;
+  scroll-margin-top: calc(var(--nb-header-height) + 2.5rem);
 }
 .fl-item:first-child {
   border-top: none;
@@ -292,7 +292,7 @@
   display: block;
   margin-top: 4px;
   /* Centres the glyph on the guide line; "}" ink centre sits 0.208em in. */
-  margin-left: calc(var(--fl-guide) + 0.5px - 0.208em);
+  margin-inline-start: calc(var(--fl-guide) + 0.5px - 0.208em);
   font-size: 0.8125rem;
   line-height: 1.5rem;
   color: var(--color-muted-foreground);
@@ -300,9 +300,9 @@
 
 .fl-children {
   margin-top: 4px;
-  margin-left: var(--fl-guide);
-  padding-left: calc(var(--fl-indent) - var(--fl-guide));
-  border-left: 1px solid var(--color-border);
+  margin-inline-start: var(--fl-guide);
+  padding-inline-start: calc(var(--fl-indent) - var(--fl-guide));
+  border-inline-start: 1px solid var(--color-border);
 }
 .fl-children--union {
   border-style: dashed;

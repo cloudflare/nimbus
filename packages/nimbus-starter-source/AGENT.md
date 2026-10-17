@@ -24,7 +24,6 @@ src/
 │   ├── [...slug]/index.mdx.ts  # authored source of every page, all collections
 │   ├── [...section]/llms.txt.ts  # per-section llms.txt, nested sections included
 │   ├── 404.astro
-│   ├── index.astro              # home page (the empty starter uses content/docs/index.mdx)
 │   ├── llms.txt.ts
 │   ├── llms-full.txt.ts
 │   ├── nimbus-api/coordinates.json.ts  # API citation manifest
@@ -95,6 +94,8 @@ sidebar: {
   ],
 },
 ```
+
+The header's section tabs come from the same list: each top-level item that autogenerates from another collection (`{ label: "API", autogenerate: { collection: "api", prefix: "/reference" } }`) becomes a tab, and the tabs show once there are two. Folders of `src/content/docs/` and external links stay in the sidebar. For any other header link, edit `src/components/Header.astro`.
 
 Everything else: <https://nimbus-docs.com/navigation/sidebar/>.
 

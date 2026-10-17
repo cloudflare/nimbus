@@ -9,7 +9,7 @@ import type { HTMLAttributes } from "astro/types";
 import SidebarGroup from "./SidebarGroup.astro";
 import SidebarLink from "./SidebarLink.astro";
 import type { SidebarItem } from "@cloudflare/nimbus-docs/types";
-import { sidebarHash } from "@cloudflare/nimbus-docs";
+import { sidebarHash } from "@cloudflare/nimbus-docs/runtime";
 
 interface Props extends HTMLAttributes<"div"> {
   items: SidebarItem[];
@@ -22,6 +22,7 @@ const hash = sidebarHash(items);
 ---
 
 <div
+  data-slot="sidebar"
   data-nb-sidebar
   data-nb-sidebar-hash={hash}
   data-nb-sidebar-persist={persist ? "" : undefined}
@@ -32,7 +33,16 @@ const hash = sidebarHash(items);
     {items.map((item) =>
       item.type === "group" ? (
         <li>
-          <SidebarGroup label={item.label} items={item.children} collapsed={item.collapsed} badge={item.badge} icon={item.icon} />
+          <SidebarGroup
+            label={item.label}
+            items={item.children}
+            collapsed={item.collapsed}
+            badge={item.badge}
+            icon={item.icon}
+            indexHref={item.indexHref}
+            indexIsCurrent={item.indexIsCurrent}
+            indexIsExternal={item.indexIsExternal}
+          />
         </li>
       ) : item.type === "external" ? (
         <li>
@@ -53,11 +63,4 @@ const hash = sidebarHash(items);
 
 <style is:global>
   [data-nb-sidebar-hidden] { display: none; }
-  /* Visual break before the last top-level sidebar item (the Components
-     showcase group). */
-  [data-nb-sidebar] > ul.top-level > li:last-child {
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--nb-border);
-  }
 </style>

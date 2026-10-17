@@ -1,42 +1,53 @@
 ---
 /**
- * LinkCard — link-styled card with an optional leading icon, title, and
- * optional description. Title and icon shift to primary on hover.
+ * LinkCard — link-styled card with title, optional description, and
+ * trailing arrow that nudges on hover. Title shifts to primary on hover.
  *
- *   <LinkCard title="Get started" description="5-min intro" href="/start" icon="ph:rocket-launch" />
+ *   <LinkCard title="Get started" description="5-min intro" href="/start" />
  *   <LinkCard title="Title only" href="/x" />
+ *
+ * For a rich title or description, use the `title` and `description` slots.
  */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 
 interface Props extends HTMLAttributes<"a"> {
-  title: string;
+  /** Iconify icon name, e.g. `ph:rocket-launch`, shown before the title. */
+  icon?: string;
+  title?: string;
   description?: string;
   href: string;
-  /** Iconify icon name, e.g. `ph:rocket-launch`. */
-  icon?: string;
 }
 
 const { title, description, href, icon, class: className, ...attrs } = Astro.props;
+const hasDescription = Boolean(description) || Astro.slots.has("description");
 ---
 
 <a
+  data-slot="link-card"
   href={href}
   class={cn(
-    "group flex items-center gap-4 rounded-lg bg-card p-5 shadow-sm ring ring-border no-underline text-inherit transition-all hover:shadow-default hover:ring-border-strong",
+    "group flex items-center justify-between gap-3 rounded-lg bg-card p-5 shadow-sm ring ring-border no-underline text-inherit transition-all hover:shadow-default hover:ring-border-strong",
     className,
   )}
   {...attrs}
 >
   {icon && (
     <Icon
+      data-slot="link-card-leading"
       name={icon}
       class="shrink-0 w-6 h-6 text-muted-foreground transition-colors group-hover:text-primary"
     />
   )}
-  <div class="min-w-0">
-    <h3 class="m-0 text-base font-semibold leading-snug text-foreground transition-colors group-hover:text-primary">{title}</h3>
-    {description && <p class="mt-1 text-sm leading-normal text-muted-foreground">{description}</p>}
+  <div data-slot="link-card-body" class="min-w-0 [overflow-wrap:anywhere]">
+    <h3 data-slot="link-card-title" class="m-0 text-base font-semibold leading-snug text-foreground transition-colors group-hover:text-primary"><slot name="title">{title}</slot></h3>
+    {hasDescription && <span data-slot="link-card-description" class="mt-1 block text-sm leading-normal text-muted-foreground"><slot name="description">{description}</slot></span>}
   </div>
+  <Icon
+    data-slot="link-card-icon"
+    name="ph:caret-right"
+    class="shrink-0 w-4 h-4 text-muted-foreground transition-all group-hover:translate-x-0.5 group-hover:text-primary rtl:-scale-x-100 rtl:group-hover:-translate-x-0.5"
+   
+  />
 </a>

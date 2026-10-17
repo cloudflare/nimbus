@@ -44,12 +44,13 @@ const sizes = "(min-width: 768px) 768px, 100vw";
 ---
 
 <figure
+  data-slot="frame"
   class={cn("frame", className)}
   data-frame-aspect={aspect}
   style={aspect ? `--frame-aspect: ${aspect};` : undefined}
   {...attrs}
 >
-  <div class="frame-media">
+  <div data-slot="frame-media" class="frame-media">
     {
       src ? (
         typeof src === "string" ? (
@@ -62,7 +63,7 @@ const sizes = "(min-width: 768px) 768px, 100vw";
       )
     }
   </div>
-  {caption && <figcaption class="frame-caption">{caption}</figcaption>}
+  {caption && <figcaption data-slot="frame-caption" class="frame-caption">{caption}</figcaption>}
 </figure>
 
 <style>
@@ -118,7 +119,7 @@ const sizes = "(min-width: 768px) 768px, 100vw";
     margin-top: 0.75rem;
     text-align: center;
     font-size: 0.8125rem;
-    line-height: 1.4;
+    line-height: 1.25rem;
     color: var(--nb-muted-foreground);
   }
 </style>

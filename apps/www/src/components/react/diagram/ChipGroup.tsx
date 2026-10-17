@@ -51,7 +51,7 @@ export function ChipGroup<T extends string = string>({
             disabled={d}
             className={cn(
               "select-none cursor-pointer",
-              "border-r last:border-r-0 border-neutral-200 dark:border-neutral-800",
+              "border-e last:border-e-0 border-neutral-200 dark:border-neutral-800",
               "px-2.5 py-1.5 font-mono text-[10px] font-medium uppercase tracking-wider",
               "transition-[color,background-color] duration-150 ease-out",
               "disabled:opacity-40 disabled:cursor-not-allowed",

@@ -34,7 +34,8 @@ const copyLabel = server ? "Copy request URL" : "Copy path";
 const variant = methodVariant(method);
 ---
 
-<LayerCard orientation="horizontal" class={className}>
+{/* The method and URL read as one line of code, left to right in every language. */}
+<LayerCard orientation="horizontal" dir="ltr" class={className}>
   <LayerCardHeader class="py-2 ps-2 pe-3">
     <ApiMethodChip method={method} display="glyph" size="md" decorative />
     <span class="font-mono text-[0.8125rem] font-medium" style={`color:var(--nb-m-${variant})`}>
@@ -52,7 +53,7 @@ const variant = methodVariant(method);
       data-url={url}
       aria-label={copyLabel}
       title={copyLabel}
-      class="group relative isolate flex shrink-0 cursor-pointer items-center justify-center overflow-hidden border-0 border-l border-border bg-inherit px-3 text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      class="group relative isolate flex shrink-0 cursor-pointer items-center justify-center overflow-hidden border-0 border-s border-border bg-inherit px-3 text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
     >
       <span class="pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-200 group-data-[copied]:-translate-y-full group-data-[copied]:opacity-0">
         <Icon name="ph:copy" class="size-3.5" />

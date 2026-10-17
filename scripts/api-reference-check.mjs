@@ -1439,7 +1439,7 @@ async function assertBasePathMetadata() {
     "non-root homepage is not classified as a website",
   );
   assert(
-    ordinaryHtml.includes('href="/docs/favicon.ico"'),
+    ordinaryHtml.includes('href="/docs/favicon.svg"'),
     "non-root favicon URL is malformed",
   );
   assert(

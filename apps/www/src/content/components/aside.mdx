@@ -8,7 +8,10 @@ props:
     description: Visual treatment that conveys the callout's intent.
   - name: title
     type: string
-    description: Optional heading override. Defaults to the capitalised type label.
+    description: Optional heading override. Defaults to the capitalised type label. For a title with formatting, pass a `title` slot.
+  - name: icon
+    type: string
+    description: "Iconify name (e.g. `ph:rocket`) in place of the type's icon, or an `icon` slot."
 ---
 
 import Showcase from "@/components/showcase/Showcase.astro";

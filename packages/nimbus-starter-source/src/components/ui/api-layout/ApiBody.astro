@@ -104,7 +104,7 @@ const deprecationHtml = page.deprecated
 {/* Header order (locked): title → description → endpoint → page actions. The
     endpoint bar carries the sidebar method chip + verb + path; page actions sit
     beneath so they read as page-level utilities, not part of the endpoint. */}
-<div class="mt-6 flex flex-col gap-4">
+<div data-slot="page-header" class="mt-6 flex flex-col gap-4">
   <h1 class="mb-0 leading-tight text-foreground [text-wrap:balance]" style="font-size:var(--nb-h1-size);font-weight:var(--nb-h1-weight);letter-spacing:var(--nb-h1-tracking)">{page.title}</h1>
 
   {page.descriptionHtml && (
@@ -233,7 +233,7 @@ const deprecationHtml = page.deprecated
                   )}
                 >
                   {collapsed && (
-                    <Icon name="ph:caret-right" class="size-3 self-center text-muted-foreground transition-transform group-open/response:rotate-90" />
+                    <Icon name="ph:caret-right" class="size-3 self-center text-muted-foreground transition-transform group-open/response:rotate-90 rtl:rotate-180 rtl:group-open/response:rotate-90" />
                   )}
                   <h3 class={cn("font-mono text-sm font-medium", statusToneClass(r.status))}>{r.status}</h3>
                   {inline !== undefined ? (
@@ -289,8 +289,8 @@ const deprecationHtml = page.deprecated
         <section>
           <p class="text-sm">
             <span class="text-muted-foreground">Type:</span>
-            <code class="ml-1 font-mono text-foreground">{page.scalar.type}</code>
-            {page.scalar.nullable && <span class="ml-1 text-muted-foreground">(nullable)</span>}
+            <code class="ms-1 font-mono text-foreground">{page.scalar.type}</code>
+            {page.scalar.nullable && <span class="ms-1 text-muted-foreground">(nullable)</span>}
           </p>
           {(page.scalar.enum || page.scalar.default !== undefined || page.scalar.example !== undefined) && (
             <p class="mt-1 font-mono text-xs break-words text-muted-foreground">
@@ -391,7 +391,7 @@ const deprecationHtml = page.deprecated
   .nb-md ul,
   .nb-md ol {
     margin: 0.375rem 0 0;
-    padding-left: 1.25em;
+    padding-inline-start: 1.25em;
   }
   .nb-md ul {
     list-style: disc;

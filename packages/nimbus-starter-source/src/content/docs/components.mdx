@@ -1,207 +1,167 @@
 ---
 title: Components
-description: The visual component set ships in the starter, not the framework.
+description: The components every page can use, and the MDX that renders each one.
 sidebar:
-  order: 2
+  order: 4
 ---
 
-The starter ships a handful of essential components, available globally in
-any MDX file without `import`:
-
-- `<Aside>` — note / tip / caution / danger callouts
-- `<Card>` + `<CardGrid>` — landing pages and feature lists
-- `<Tabs>` + `<TabItem>` — multi-variant content
-- `<Steps>` + `<Step>` — numbered procedures
-- `<PackageManagers>` — install commands across npm / pnpm / yarn / bun
+Every `.mdx` file can use these components without an import. Each one is a file in `src/components/ui/`, so you can change how it looks or works.
 
 ## Aside
 
-<Aside type="note" title="Build-time validation">
-  Asides are the most-used component in any docs site. The starter ships
-  four variants out of the box.
+Set a note, tip, caution, or warning apart from the text around it.
+
+<Aside type="note">
+  Pages are validated at build time.
 </Aside>
 
-<Aside type="tip">
-  Title is optional. If omitted, the variant name is used.
+<Aside type="caution" title="Before you deploy">
+  Set `site` in `astro.config.ts` to your production URL.
 </Aside>
 
-<Aside type="caution" title="Heads up">
-  Caution variant for warnings that aren't catastrophic.
+```mdx
+<Aside type="note">
+  Pages are validated at build time.
 </Aside>
 
-<Aside type="danger" title="Stop">
-  Danger variant when something is genuinely dangerous.
+<Aside type="caution" title="Before you deploy">
+  Set `site` in `astro.config.ts` to your production URL.
 </Aside>
+```
 
-## Cards
+| Prop | Value |
+|---|---|
+| `type` | `note` (default), `tip`, `caution`, or `danger` |
+| `title` | Text above the content. Defaults to the type's name. |
+| `icon` | Any `ph:` icon name, in place of the type's icon. |
 
-<CardGrid>
-  <Card title="Steps" icon="ph:arrow-right">
-    Numbered procedures for tutorials and walkthroughs.
-  </Card>
-  <Card title="Tabs">
-    Multi-variant content for code samples, OS-specific instructions, or
-    anything where the same content has several variants.
-  </Card>
-</CardGrid>
+For a title with formatting, pass it as a slot: `<Fragment slot="title">Uses <code>env</code></Fragment>`.
 
 ## Steps
 
+Number a procedure. Each step has a title and its own content.
+
 <Steps>
-  <Step title="Install Nimbus">
-    Scaffold a new project with `pnpm create @cloudflare/nimbus-docs my-app`.
+  <Step title="Create the page">
+    Add `src/content/docs/deploy.mdx` with a `title`.
   </Step>
-  <Step title="Edit content">
-    Write MDX files in `src/content/docs/`.
-  </Step>
-  <Step title="Ship">
-    Run `astro build` and deploy using the target or adapter selected during setup.
+  <Step title="Preview it">
+    Run `npm run dev` and open the page.
   </Step>
 </Steps>
 
-## Package managers
+```mdx
+<Steps>
+  <Step title="Create the page">
+    Add `src/content/docs/deploy.mdx` with a `title`.
+  </Step>
+  <Step title="Preview it">
+    Run `npm run dev` and open the page.
+  </Step>
+</Steps>
+```
 
-For install commands, prefer `<PackageManagers>` over `<Tabs>` — it generates
-all four package-manager commands from a single source of truth and
-remembers the reader's pick across pages.
-
-<PackageManagers pkg="@cloudflare/nimbus-docs" />
-
-For dev dependencies:
-
-<PackageManagers pkg="tailwindcss" dev />
-
-For non-install commands (run, exec, dlx):
-
-<PackageManagers type="run" args="build" />
+| Prop | Value |
+|---|---|
+| `start` on `Steps` | The first step's number. Defaults to 1. |
+| `title` on `Step` | The step's heading. Also accepts a `title` slot. |
 
 ## Tabs
 
-Use `<Tabs>` for content that isn't a package install — config snippets,
-OS-specific instructions, multi-language examples.
+Show the same content in several variants. Give tabs a `syncKey`, and the reader's choice carries over to every set of tabs with the same key.
 
-<Tabs>
-  <TabItem label="TypeScript">
-    ```ts
-    import nimbus from "@cloudflare/nimbus-docs";
-
-    export default {
-      integrations: [nimbus({ /* … */ })],
-    };
-    ```
+<Tabs syncKey="os">
+  <TabItem label="macOS">
+    Press <kbd>⌘</kbd> <kbd>K</kbd> to search.
   </TabItem>
-  <TabItem label="JavaScript">
-    ```js
-    import nimbus from "@cloudflare/nimbus-docs";
-
-    export default {
-      integrations: [nimbus({ /* … */ })],
-    };
-    ```
+  <TabItem label="Windows">
+    Press <kbd>Ctrl</kbd> <kbd>K</kbd> to search.
   </TabItem>
 </Tabs>
 
-## Code blocks
-
-Fenced code blocks render through Shiki with a dual-theme palette. Premium
-features compose on top: filename frames, line / diff / focus highlighting,
-and word highlights — all driven by meta strings and inline notation.
-
-### Filename
-
-````mdx
-```ts title="src/lib/cn.ts"
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-```
-````
-
-Renders as:
-
-```ts title="src/lib/cn.ts"
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+```mdx
+<Tabs syncKey="os">
+  <TabItem label="macOS">
+    Press <kbd>⌘</kbd> <kbd>K</kbd> to search.
+  </TabItem>
+  <TabItem label="Windows">
+    Press <kbd>Ctrl</kbd> <kbd>K</kbd> to search.
+  </TabItem>
+</Tabs>
 ```
 
-### Line highlighting
+| Prop | Value |
+|---|---|
+| `syncKey` on `Tabs` | Tabs with the same key switch together, and remember the choice. |
+| `label` on `TabItem` | The tab's name. Required. |
 
-Use the `{1,3-5}` meta syntax to emphasize specific lines, or
-`// [!code highlight]` inline.
+## Package managers
 
-```ts {2,4-5}
-function add(a: number, b: number) {
-  const sum = a + b;
-  // not this line
-  console.log(sum);
-  return sum;
-}
+Write an install command once and show it for npm, pnpm, Yarn, and Bun.
+
+<PackageManagers pkg="your-package" />
+
+```mdx
+<PackageManagers pkg="your-package" />
 ```
 
-### Diff
+Add `dev` for a dev dependency, or `type="run" args="build"` for a script.
 
-Mark added and removed lines with `// [!code ++]` and `// [!code --]`.
+## Cards
 
-```ts
-function greet(name: string) {
-  console.log("Hello"); // [!code --]
-  console.log(`Hello, ${name}!`); // [!code ++]
-}
+Link readers to the next places to go, in a grid that stacks on small screens.
+
+<CardGrid>
+  <Card title="Write a page" icon="ph:pencil-simple">
+    Create an `.mdx` file in `src/content/docs/`.
+  </Card>
+  <Card title="Change the theme" icon="ph:palette">
+    Edit the colour and type tokens in `src/styles/globals.css`.
+  </Card>
+</CardGrid>
+
+```mdx
+<CardGrid>
+  <Card title="Write a page" icon="ph:pencil-simple">
+    Create an `.mdx` file in `src/content/docs/`.
+  </Card>
+  <Card title="Change the theme" icon="ph:palette">
+    Edit the colour and type tokens in `src/styles/globals.css`.
+  </Card>
+</CardGrid>
 ```
 
-### Focus
+| Prop | Value |
+|---|---|
+| `title` on `Card` | The card's heading. Also accepts a `title` slot. |
+| `icon` on `Card` | Any `ph:` icon name. Also accepts an `icon` slot. |
 
-`// [!code focus]` dims the surrounding code; hover the block to reveal.
-
-```ts
-const config = {
-  site: "https://example.com",
-  title: "Nimbus", // [!code focus]
-  description: "Minimal docs starter",
-  locale: "en",
-};
-```
-
-### Errors and warnings
-
-`// [!code error]` and `// [!code warning]` tint the line accordingly.
-
-```ts
-function divide(a: number, b: number) {
-  return a / b; // [!code warning]
-  return a / 0; // [!code error]
-}
-```
-
-### Word highlighting
-
-`// [!code word:foo]` highlights every occurrence of `foo`. Or pass
-a `/pattern/` directly in the meta.
-
-```ts /useState/
-import { useState } from "react";
-
-function Counter() {
-  const [count, setCount] = useState(0);
-  return count;
-}
-```
+Icons come from [Phosphor](https://phosphoricons.com): use any name with the `ph:` prefix.
 
 ## Partials
 
-Reuse a chunk of MDX across pages with `<Render>`. Partials live in
-`src/content/partials/`; include one by id (its path without the extension):
+Write a passage once and include it on any page. Partials live in `src/content/partials/`.
 
 <Render file="example" />
 
-## Why so few?
+```mdx
+<Render file="example" />
+```
 
-Everything else (Accordion, FileTree, LinkCard, Embed, Frame, etc.) installs
-on demand via `nimbus-docs add <name>` from the registry. Keeps the starter lean.
+## Restyle any part
+
+Every part of every component has a `data-slot` attribute, so you can restyle one piece from `src/styles/globals.css` without editing the component.
+
+```css title="src/styles/globals.css"
+[data-slot="card-title"] {
+  letter-spacing: -0.01em;
+}
+```
+
+Corners come from two tokens in the same file: `--nb-radius` for cards, callouts, code blocks and buttons, and `--nb-radius-sm` for the small marks inside them. Change them to re-round the whole site.
+
+## Add more
+
+Accordions, file trees, link cards, embeds, and more install from the registry when you need them. Each one lands as a file in `src/components/ui/`, like the components above.
+
+<PackageManagers type="dlx" pkg="@cloudflare/nimbus-docs" args="add accordion" />

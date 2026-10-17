@@ -70,6 +70,14 @@ export const MANIFESTS = {
     dependencies: ["clsx", "tailwind-merge"],
   },
 
+  variants: {
+    type: "registry:lib",
+    title: "variants",
+    description: "Turns a component's variant tables into one class function; Badge and Button pick their look with it.",
+    paths: ["lib/variants.ts"],
+    registryDependencies: ["cn"],
+  },
+
   // Behavior primitives (mount, disclosure, tabs-controller, scroll-lock,
   // dom, ids) and the pkgm command translator ship as named exports from
   // the framework (`nimbus-docs/client`, `nimbus-docs/lib/pkgm`), not as
@@ -98,7 +106,7 @@ export const MANIFESTS = {
     type: "registry:ui",
     title: "Badge",
     description: "Small status / category pill.",
-    registryDependencies: ["cn"],
+    registryDependencies: ["cn", "variants"],
   },
 
   banner: {
@@ -120,7 +128,7 @@ export const MANIFESTS = {
     title: "Button",
     description:
       "Action trigger with variant/size/shape options. Owns the shared button/variants styling that LinkButton reuses.",
-    registryDependencies: ["cn"],
+    registryDependencies: ["cn", "variants"],
   },
 
   card: {

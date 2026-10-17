@@ -182,17 +182,7 @@
 [data-nb-api-coderail] .nb-cr-respsection .nb-code-copy {
   display: none;
 }
-/* Slim, unobtrusive scrollbars on every scroller in the rail — the code <pre>
-   scrolls long lines horizontally (request AND response; `pre.astro-code` is
-   overflow-x:auto from globals, and the rail sets its figure overflow:visible
-   so the pre is the scroller), and the response body scrolls tall JSON
-   vertically. Thumb only, transparent track, matching the sidebar column. The
-   bar only paints when there's actual overflow, so short samples stay clean. */
-[data-nb-api-coderail] .nb-cr-body pre.astro-code,
-[data-nb-api-coderail] .nb-cr-respbody {
-  scrollbar-width: thin;
-  scrollbar-color: gray transparent;
-}
+/* The response body scrolls tall JSON; scrollbars come from globals.css. */
 [data-nb-api-coderail] .nb-cr-respbody {
   max-height: 20rem;
   overflow-y: auto;

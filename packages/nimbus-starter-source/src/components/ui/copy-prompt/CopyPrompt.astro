@@ -20,6 +20,7 @@ const { text, class: className, ...attrs } = Astro.props;
 ---
 
 <div
+  data-slot="copy-prompt"
   data-nb-copy-prompt
   class={cn(
     "not-prose my-6 flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3 sm:gap-4",
@@ -27,10 +28,10 @@ const { text, class: className, ...attrs } = Astro.props;
   )}
   {...attrs}
 >
-  <p class="m-0 min-w-0 flex-1 truncate text-foreground">
+  <p data-slot="copy-prompt-text" title={text} class="m-0 min-w-0 flex-1 truncate text-foreground">
     <span data-nb-copy-prompt-text>{text}</span>
   </p>
-  <button type="button" class={buttonVariants({ variant: "primary", size: "base" })}>
+  <button type="button" data-slot="copy-prompt-button" class={buttonVariants({ variant: "primary", size: "base" })}>
     {/* Both labels share one grid cell so the button never changes width. */}
     <span class="grid justify-items-center" aria-live="polite">
       <span class="col-start-1 row-start-1" data-nb-copy-prompt-idle>Copy prompt</span>

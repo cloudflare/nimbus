@@ -36,13 +36,12 @@ const onActiveTrail = Boolean(item.expanded || item.active);
 {
   hasChildren ? (
     <details
-      data-nb-sidebar-group
       data-nb-nav-group={item.coordinate}
       data-nb-nav-src={deferred ? withBase(item.childrenHref!, import.meta.env.BASE_URL) : undefined}
       open={onActiveTrail || undefined}
     >
       <SidebarGroupHeader label={item.label} hasActive={onActiveTrail} deprecated={item.deprecated} />
-      <ul class="nb-sidebar-list">
+      <ul>
         {item.href && (
           <li>
             <SidebarLink label="Overview" href={item.href} isCurrent={item.active} />
@@ -61,8 +60,7 @@ const onActiveTrail = Boolean(item.expanded || item.active);
       label={item.label}
       href={item.href ?? "#"}
       isCurrent={item.active}
-      data-nb-filter-text={item.method}
-      class={item.deprecated ? "px-1 line-through" : "px-1"}
+      class={item.deprecated ? "line-through" : undefined}
     >
       <ApiMethodChip slot="leading" method={item.method} display="label" />
     </SidebarLink>

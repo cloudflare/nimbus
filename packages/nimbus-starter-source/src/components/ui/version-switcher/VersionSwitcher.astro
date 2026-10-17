@@ -145,7 +145,7 @@ const labelId = `nb-version-picker-${Math.random().toString(36).slice(2, 9)}`;
 ---
 
 {entries.length >= 2 && variant === "header" && (
-  <Popover class={cn("hidden md:inline-block", className)}>
+  <Popover data-slot="version-switcher" class={cn("hidden md:inline-block", className)}>
     <PopoverTrigger
       class="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[0.8125rem] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors aria-[expanded=true]:bg-accent aria-[expanded=true]:text-foreground"
       aria-label={`Switch version (current: ${activeLabel})`}
@@ -171,7 +171,7 @@ const labelId = `nb-version-picker-${Math.random().toString(36).slice(2, 9)}`;
               <span class="flex items-center gap-2">
                 <span>{entry.label}</span>
                 {entry.isCurrent && (
-                  <span class="text-[0.6875rem] uppercase tracking-wide text-muted-foreground/70">
+                  <span class="text-[0.6875rem] uppercase tracking-wide text-muted-foreground">
                     latest
                   </span>
                 )}
@@ -191,7 +191,7 @@ const labelId = `nb-version-picker-${Math.random().toString(36).slice(2, 9)}`;
   >
     <h3
       id={labelId}
-      class="flex items-center gap-1.5 text-[0.6875rem] uppercase tracking-wide font-semibold text-muted-foreground/80 mb-2 px-2"
+      class="flex items-center gap-1.5 text-[0.6875rem] uppercase tracking-wide font-semibold text-muted-foreground mb-2 px-2"
     >
       <Icon name="ph:git-branch" class="w-3 h-3" />
       Version
@@ -212,7 +212,7 @@ const labelId = `nb-version-picker-${Math.random().toString(36).slice(2, 9)}`;
             <span class="flex items-center gap-2">
               <span>{entry.label}</span>
               {entry.isCurrent && (
-                <span class="text-[0.6875rem] uppercase tracking-wide text-muted-foreground/70">
+                <span class="text-[0.6875rem] uppercase tracking-wide text-muted-foreground">
                   latest
                 </span>
               )}

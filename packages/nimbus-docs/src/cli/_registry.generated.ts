@@ -38,6 +38,12 @@ export const BUNDLED_INDEX: BundledIndex = {
       "title": "cn",
       "description": "Tailwind-aware className merger built on clsx + tailwind-merge."
     },
+    "variants": {
+      "name": "variants",
+      "type": "registry:lib",
+      "title": "variants",
+      "description": "Turns a component's variant tables into one class function; Badge and Button pick their look with it."
+    },
     "accordion": {
       "name": "accordion",
       "type": "registry:ui",

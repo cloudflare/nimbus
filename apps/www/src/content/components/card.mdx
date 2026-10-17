@@ -4,11 +4,10 @@ tagline: "Boxed content block with icon, title, and slot — group with CardGrid
 props:
   - name: title
     type: string
-    required: true
-    description: Heading rendered at the top of the card.
+    description: Heading rendered at the top of the card. For a title with formatting, pass a `title` slot instead.
   - name: icon
     type: string
-    description: "Iconify name (e.g. `ph:lightning`) rendered above the title."
+    description: "Iconify name (e.g. `ph:lightning`) rendered above the title. For a custom mark, pass an `icon` slot."
 ---
 import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";

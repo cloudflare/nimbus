@@ -1,8 +1,10 @@
-/* Docs markdown styling scoped to docs content containers only. */
+/* Docs markdown styling scoped to docs content containers only.
+   Every size and line height is a whole pixel on a 4px grid: body 16/28,
+   small text 14/24, headings from the --nb-h* tokens in globals.css. */
 
 .docs-content {
-  font-size: 0.9375rem;
-  line-height: 1.75;
+  font-size: 1rem;
+  line-height: 1.75rem;
   color: var(--nb-foreground);
   /* Break a long unbroken token (URL, hash, no-space string) so it wraps within
      the content column instead of leaking past the page width. Inherited, so it
@@ -21,12 +23,12 @@
 }
 
 .docs-content :where(ul:not([class])) {
-  padding-left: 1.25rem;
+  padding-inline-start: 1.25rem;
   list-style-type: disc;
 }
 
 .docs-content :where(ol:not([class])) {
-  padding-left: 1.25rem;
+  padding-inline-start: 1.25rem;
   list-style-type: decimal;
 }
 
@@ -40,19 +42,28 @@
 
 .docs-content :where(li:not([class])) {
   margin: 0.25rem 0;
+  padding-inline-start: 0.25rem;
+}
+
+/* Markers sit back a step so the text leads, not the bullet. */
+.docs-content :where(li:not([class]))::marker {
+  color: var(--nb-muted-foreground);
+}
+
+.docs-content :where(ol:not([class]) > li:not([class]))::marker {
+  font-variant-numeric: tabular-nums;
 }
 
 .docs-content :where(blockquote:not([class])) {
-  margin: 1.25rem 0;
-  padding-left: 1rem;
-  border-left: 2px solid var(--nb-border);
+  padding-inline-start: 1rem;
+  border-inline-start: 2px solid var(--nb-border-strong);
   color: var(--nb-muted-foreground);
 }
 
 .docs-content :where(hr:not([class])) {
   border: 0;
   border-top: 1px solid var(--nb-border);
-  margin: 1.5rem 0;
+  margin: 2.5rem 0;
 }
 
 /* Component boundary — elements with a class attribute are component-owned.
@@ -62,9 +73,11 @@
   font-size: inherit;
 }
 
-/* Markdown heading typography is token-driven from globals.css. */
+/* Markdown heading typography is token-driven from globals.css. Space above
+   a heading is larger than below it, so each heading groups with its section. */
 .docs-content :where(h1:not([class])) {
   font-size: var(--nb-h1-size);
+  line-height: var(--nb-h1-leading);
   font-weight: var(--nb-h1-weight);
   letter-spacing: var(--nb-h1-tracking);
   margin-top: 0;
@@ -72,33 +85,39 @@
 
 .docs-content :where(h2:not([class])) {
   font-size: var(--nb-h2-size);
+  line-height: var(--nb-h2-leading);
   font-weight: var(--nb-h2-weight);
   letter-spacing: var(--nb-h2-tracking);
-  margin-top: 2.5rem;
+  margin-top: 3rem;
 }
 
 .docs-content :where(h3:not([class])) {
   font-size: var(--nb-h3-size);
+  line-height: var(--nb-h3-leading);
   font-weight: var(--nb-h3-weight);
   letter-spacing: var(--nb-h3-tracking);
-  margin-top: 2rem;
+  margin-top: 2.25rem;
 }
 
 .docs-content :where(h4:not([class]), h5:not([class]), h6:not([class])) {
   font-weight: var(--nb-h4-weight);
+  margin-top: 1.75rem;
 }
 
-.docs-content :where(h1:not([class]), h2:not([class]), h3:not([class]), h4:not([class])) {
-  scroll-margin-top: 5rem;
+.docs-content > :where(h2:not([class]), h3:not([class]), h4:not([class])) + * {
+  margin-top: 0.5rem;
 }
 
+/* Clear the sticky header, plus the On this page bar below xl. */
+.docs-content :where(h1:not([class]), h2:not([class]), h3:not([class]), h4:not([class])),
 .docs-content :where([data-footnote-ref][id], [data-footnotes] li[id]) {
-  scroll-margin-top: 8rem;
+  scroll-margin-top: calc(var(--nb-header-height) + 4.5rem);
 }
 
 @media (min-width: 80rem) {
+  .docs-content :where(h1:not([class]), h2:not([class]), h3:not([class]), h4:not([class])),
   .docs-content :where([data-footnote-ref][id], [data-footnotes] li[id]) {
-    scroll-margin-top: 5rem;
+    scroll-margin-top: calc(var(--nb-header-height) + 1.5rem);
   }
 }
 
@@ -118,7 +137,7 @@
 }
 
 .docs-content .heading-anchor {
-  margin-left: 0.5rem;
+  margin-inline-start: 0.5rem;
   color: var(--nb-muted-foreground);
   text-decoration: none;
   opacity: 0;
@@ -134,16 +153,22 @@
   color: var(--nb-foreground);
 }
 
+/* Inline code: a quiet tint, no outline. 14px on a 16px line, so a run of
+   code reads as part of the sentence rather than a row of buttons. */
 .docs-content :where(code:not([class])):not(:where(pre *)) {
   font-family: var(--nb-font-mono);
   direction: ltr;
   unicode-bidi: isolate;
-  background: var(--nb-muted);
-  border: 1px solid var(--nb-border);
-  border-radius: 0.375rem;
-  padding: 0.125rem 0.375rem;
-  font-size: 0.8125em;
+  background: color-mix(in oklch, var(--nb-foreground) 6%, transparent);
+  border-radius: var(--nb-radius-sm);
+  padding: 0.125rem 0.3125rem;
+  font-size: 0.875em;
+  /* A smaller font on its own line height would grow the line box by half a
+     pixel; 1 keeps every line of text exactly 28px. */
+  line-height: 1;
   font-weight: 450;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 .docs-content :where(code:not([class])):not(:where(pre *))::before,
@@ -151,16 +176,32 @@
   content: none;
 }
 
+/* Links that are code keep the link's underline, not a tint. */
+.docs-content :where(a:not([class])) :where(code:not([class])) {
+  background: none;
+  padding: 0;
+}
+
 .docs-content :where(pre:not([class])) {
   font-family: var(--nb-font-mono);
 }
 
 /* Shiki-rendered code blocks — wider vertical margin than base rhythm
-   (1.25rem) because code blocks are visually dense. Inline code-token
-   styling (background, border, padding) is reset because Shiki spans
-   already carry their own colors via inline styles. */
+   because code blocks are visually dense. Inline code-token styling
+   (background, padding) is reset because Shiki spans already carry
+   their own colors via inline styles. */
 .docs-content .nb-code-figure {
   margin: 1.5rem 0;
+}
+
+/* Inside a step, code follows its title closely: the step already spaces
+   itself from its neighbours. */
+.docs-content :where([data-step] > div) > .nb-code-figure:first-child {
+  margin-top: 0.75rem;
+}
+
+.docs-content :where([data-step] > div) > .nb-code-figure:last-child {
+  margin-bottom: 0;
 }
 
 .docs-content pre.astro-code code {
@@ -174,45 +215,51 @@
   border-radius: 0;
 }
 
-/* Rounded bordered table that fills its container on desktop and falls back to
-   horizontal scroll on narrow viewports. The earlier rule used `display:block`
-   unconditionally, which kept the outer border at 100% but let thead/tbody
-   shrink to content width — leaving dead space on the right for tables with
-   short cells. */
+/* Tables: 14/20 cells on a 41px row, an unfilled header in secondary text,
+   and lines only between rows. Fills its column; scroll is owned by the
+   `.nb-table-scroll` wrapper (injected by the tableScroll() hast plugin),
+   since `overflow` is ignored on a table. */
 .docs-content :where(table:not([class])) {
   display: table;
   width: 100%;
   max-width: 100%;
-  text-align: left;
+  text-align: start;
   border-collapse: separate;
   border-spacing: 0;
-  border-radius: 0.75rem;
+  border-radius: var(--nb-radius);
   border: 1px solid var(--nb-border);
   table-layout: auto;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
 }
 
-@media (max-width: 640px) {
-  .docs-content :where(table:not([class])) {
-    display: block;
-    overflow-x: auto;
-    overflow-y: hidden;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-  }
+/* Wide tables scroll within this box at all widths instead of overflowing the
+   page; short tables still fill it via the inner `width: 100%`. */
+.docs-content :where(.nb-table-scroll) {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .docs-content :where(th:not([class])),
 .docs-content :where(td:not([class])) {
-  padding: 0.625rem 0.75rem;
-  text-align: left;
+  padding: 0.625rem 0.875rem;
+  text-align: start;
   vertical-align: top;
   border-bottom: 1px solid var(--nb-border);
 }
 
 .docs-content :where(th:not([class])) {
-  background: var(--nb-muted);
-  font-weight: 600;
-  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--nb-muted-foreground);
+  white-space: nowrap;
+}
+
+/* Code in a cell is usually an identifier: keep it whole and let the table
+   scroll rather than break `RateLimit-Remaining` across two lines. */
+.docs-content :where(td:not([class])) :where(code:not([class])) {
   white-space: nowrap;
 }
 
@@ -220,35 +267,22 @@
   border-bottom: none;
 }
 
-/* Round the outer corner cells to match the table's border-radius —
-   `border-collapse: separate` leaves square cell backgrounds (the muted
-   thead fill in particular) that would otherwise poke past the rounded
-   table border. */
-.docs-content :where(thead:not([class]) tr:not([class]):first-child th:not([class]):first-child) {
-  border-top-left-radius: 0.75rem;
-}
-.docs-content :where(thead:not([class]) tr:not([class]):first-child th:not([class]):last-child) {
-  border-top-right-radius: 0.75rem;
-}
-.docs-content :where(tbody:not([class]) tr:not([class]):last-child td:not([class]):first-child) {
-  border-bottom-left-radius: 0.75rem;
-}
-.docs-content :where(tbody:not([class]) tr:not([class]):last-child td:not([class]):last-child) {
-  border-bottom-right-radius: 0.75rem;
-}
-
 .docs-content :where(a:not([class])) {
   color: var(--nb-foreground);
   text-decoration-line: underline;
   text-decoration-color: var(--nb-border-strong);
-  text-underline-offset: 3px;
+  text-underline-offset: 4px;
   text-decoration-thickness: 1px;
   font-weight: 500;
   transition: text-decoration-color 0.15s;
 }
 
 .docs-content :where(a:not([class]):hover) {
-  text-decoration-color: var(--nb-foreground);
+  text-decoration-color: var(--nb-brand);
+}
+
+.docs-content :where(strong:not([class])) {
+  font-weight: 600;
 }
 
 /* ---- Long-tail prose vocabulary ----
@@ -256,20 +290,24 @@
    render with raw browser defaults. Same component boundary as the rest
    of the file: `:not([class])` leaves component-owned markup alone. */
 
-/* Keycaps. The thicker bottom border stands in for a pressed edge —
-   border darkening, not a drop shadow. */
+/* Keycaps: a 20px cap with a 1px pressed edge drawn by the shadow, so the
+   key sits on the text baseline without changing the line height. */
 .docs-content :where(kbd:not([class])) {
-  display: inline-block;
-  font-family: var(--nb-font-mono);
-  font-size: 0.75em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.3125rem;
+  font-family: var(--nb-font-sans);
+  font-size: 0.75rem;
   font-weight: 500;
   line-height: 1;
+  white-space: nowrap;
   color: var(--nb-foreground);
-  background: var(--nb-muted);
-  border: 1px solid var(--nb-border);
-  border-bottom-width: 2px;
-  border-radius: 0.375rem;
-  padding: 0.1875rem 0.375rem;
+  background: var(--nb-card);
+  border-radius: 0.3125rem;
+  box-shadow: 0 0 0 1px var(--nb-border-strong), 0 1px 0 1px var(--nb-border-strong);
   vertical-align: 0.0625rem;
 }
 
@@ -277,10 +315,11 @@
    browser's fluorescent yellow. `box-decoration-break` keeps the tint
    coherent when the highlight wraps across lines. */
 .docs-content :where(mark:not([class])) {
-  background: color-mix(in oklch, var(--nb-primary) 12%, transparent);
+  background: color-mix(in oklch, var(--nb-primary) 10%, transparent);
   color: var(--nb-foreground);
-  border-radius: 0.25rem;
-  padding: 0.0625rem 0.25rem;
+  line-height: 1;
+  border-radius: var(--nb-radius-sm);
+  padding: 0.125rem 0.25rem;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
@@ -290,15 +329,15 @@
    without this the rows below would grow double carets and borders. */
 .docs-content :where(details:not([class]):not(.file-tree *)) {
   border: 1px solid var(--nb-border);
-  border-radius: 0.5rem;
-  padding: 0.625rem 0.875rem;
+  border-radius: var(--nb-radius);
+  padding: 0.625rem 1rem;
 }
 
 .docs-content :where(details:not([class]):not(.file-tree *) > summary) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.625rem;
+  gap: 0.75rem;
   cursor: pointer;
   font-weight: 500;
   list-style: none;
@@ -317,28 +356,47 @@
   height: 0.4375em;
   border-right: 1.5px solid var(--nb-muted-foreground);
   border-bottom: 1.5px solid var(--nb-muted-foreground);
-  transform: rotate(-45deg);
+  transform: rotate(45deg) translateY(-0.125em);
   transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .docs-content :where(details[open]:not([class]):not(.file-tree *) > summary)::after {
-  transform: rotate(45deg) translateY(-0.125em);
+  transform: rotate(-135deg) translateY(-0.125em);
 }
 
 .docs-content :where(details[open]:not([class]):not(.file-tree *) > summary) {
   margin-bottom: 0.5rem;
 }
 
-/* Definition lists — term/description pairs. */
+.docs-content :where(details:not([class]):not(.file-tree *)) > :where(:not(summary)) {
+  color: var(--nb-muted-foreground);
+}
+
+/* Definition lists — a term, then its description in secondary text. */
 .docs-content :where(dt:not([class])) {
   font-weight: 600;
 }
 
 .docs-content :where(dt:not([class]):not(:first-child)) {
-  margin-top: 0.75rem;
+  margin-top: 1rem;
 }
 
 .docs-content :where(dd:not([class])) {
-  margin-left: 1rem;
   color: var(--nb-muted-foreground);
+}
+
+/* Footnotes: set apart below a rule, in small secondary text. */
+.docs-content :where([data-footnotes]) {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--nb-border);
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+  color: var(--nb-muted-foreground);
+}
+
+.docs-content :where([data-footnote-ref]) {
+  font-weight: 500;
+  text-decoration: none;
+  margin-inline-start: 0.0625rem;
 }

@@ -17,12 +17,12 @@ test("every generated variant keeps footnote jumps below the sticky header", () 
       );
       assert.match(
         prose,
-        /\.docs-content\s+:where\(\[data-footnote-ref\]\[id\],\s*\[data-footnotes\]\s+li\[id\]\)\s*\{[^}]*scroll-margin-top:\s*8rem;/s,
+        /\.docs-content\s+:where\(\[data-footnote-ref\]\[id\],\s*\[data-footnotes\]\s+li\[id\]\)\s*\{[^}]*scroll-margin-top:\s*calc\(var\(--nb-header-height\)\s*\+\s*4\.5rem\);/s,
         `${path.basename(dir)} does not offset both footnote jump targets`,
       );
       assert.match(
         prose,
-        /@media\s*\(min-width:\s*80rem\)\s*\{\s*\.docs-content\s+:where\(\[data-footnote-ref\]\[id\],\s*\[data-footnotes\]\s+li\[id\]\)\s*\{[^}]*scroll-margin-top:\s*5rem;/s,
+        /@media\s*\(min-width:\s*80rem\)\s*\{[^{}]*\.docs-content\s+:where\(\[data-footnote-ref\]\[id\],\s*\[data-footnotes\]\s+li\[id\]\)\s*\{[^}]*scroll-margin-top:\s*calc\(var\(--nb-header-height\)\s*\+\s*1\.5rem\);/s,
         `${path.basename(dir)} does not restore the desktop offset`,
       );
     }

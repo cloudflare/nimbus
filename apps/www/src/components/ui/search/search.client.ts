@@ -50,6 +50,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
 
   function clearResults(): void {
     for (const result of resultsContainer.querySelectorAll("[role='option']")) result.remove();
+    resultsContainer.hidden = true;
     input.setAttribute("aria-expanded", "false");
     input.removeAttribute("aria-activedescendant");
   }
@@ -81,7 +82,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
 
     if (result.subResults?.length) {
       const subList = document.createElement("div");
-      subList.className = "mt-2 border-l border-border pl-3";
+      subList.className = "mt-2 border-s border-border ps-3";
       for (const sub of result.subResults.slice(0, 3)) {
         subList.appendChild(resultLink(sub.title, sub.url, "block truncate py-0.5 text-xs text-muted-foreground no-underline hover:text-foreground"));
       }
@@ -135,6 +136,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
       emptyState.style.display = "none";
       input.setAttribute("aria-expanded", "true");
       for (const result of results) resultsContainer.appendChild(buildResult(result));
+      resultsContainer.hidden = false;
     } catch {
       if (signal.aborted) return;
       clearResults();

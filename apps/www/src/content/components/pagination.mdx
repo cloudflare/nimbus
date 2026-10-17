@@ -4,8 +4,19 @@ tagline: "Previous / next links at the bottom of a doc page — driven by the si
 props:
   - name: prevNext
     type: "{ prev?: { label: string; href: string }; next?: { label: string; href: string } }"
-    required: true
-    description: Sibling page references. Either side can be omitted (first / last page).
+    description: Sibling page references. Either side can be omitted (first / last page). Ignored when you pass `PaginationLink` children.
+  - name: prevLabel
+    type: string
+    defaultValue: '"Previous"'
+    description: Caption above the previous page's title.
+  - name: nextLabel
+    type: string
+    defaultValue: '"Next"'
+    description: Caption above the next page's title.
+  - name: keys
+    type: boolean
+    defaultValue: "true"
+    description: "While focus is in the bar, `[` and `]` move to the previous and next page. Set `false` to turn them off."
 ---
 import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";

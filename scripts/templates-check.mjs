@@ -658,11 +658,11 @@ if (LANE === "static") {
   const home = read("index.html");
   assert.deepEqual(hrefs(home, 'link[rel="canonical"]'), ["https://example.com/docs"]);
   assert.equal(home.querySelector('meta[property="og:type"]')?.getAttribute("content"), "website");
-  const page = read("getting-started.html");
-  assert.deepEqual(hrefs(page, 'link[rel="canonical"]'), ["https://example.com/docs/getting-started"]);
-  assert.equal(page.querySelector('meta[property="og:url"]')?.getAttribute("content"), "https://example.com/docs/getting-started");
-  assert.ok(hrefs(page, 'a[aria-current="page"]').includes("/docs/getting-started"), "the sidebar marks the current page");
-  assert.deepEqual(hrefs(page, 'nav[aria-label="Pagination"] a'), ["/docs/welcome", "/docs/components"]);
+  const page = read("writing-pages.html");
+  assert.deepEqual(hrefs(page, 'link[rel="canonical"]'), ["https://example.com/docs/writing-pages"]);
+  assert.equal(page.querySelector('meta[property="og:url"]')?.getAttribute("content"), "https://example.com/docs/writing-pages");
+  assert.ok(hrefs(page, 'a[aria-current="page"]').includes("/docs/writing-pages"), "the sidebar marks the current page");
+  assert.deepEqual(hrefs(page, 'nav[aria-label="Pagination"] a'), ["/docs", "/docs/components"]);
   const breadcrumb = page.querySelector('nav[aria-label="Breadcrumb"]');
   assert.ok(breadcrumb, "the page has breadcrumbs");
   assert.doesNotMatch(breadcrumb.textContent, /\.html/i);
@@ -671,16 +671,18 @@ if (LANE === "static") {
 
   buildWith(`base: "/docs", trailingSlash: "always",`);
   const slashedHome = read("index.html");
-  assert.deepEqual(hrefs(slashedHome, "main a"), ["/docs/welcome/", "/docs/getting-started/", "/docs/components/"]);
+  const sidebarLinks = hrefs(slashedHome, "[data-nb-sidebar] a");
+  assert.ok(sidebarLinks.includes("/docs/") && sidebarLinks.includes("/docs/components/"), `sidebar links: ${sidebarLinks}`);
+  assert.ok(sidebarLinks.every((href) => href.endsWith("/")), "every sidebar link has the slash");
   assert.equal(hrefs(slashedHome, "header a")[0], "/docs/");
 
   // Both at once: `.html` pathnames, but every URL keeps the slash.
   buildWith(`base: "/docs", trailingSlash: "always", build: { format: "file" },`);
   assert.deepEqual(hrefs(read("index.html"), 'link[rel="canonical"]'), ["https://example.com/docs/"]);
-  const slashedPage = read("getting-started.html");
-  assert.deepEqual(hrefs(slashedPage, 'link[rel="canonical"]'), ["https://example.com/docs/getting-started/"]);
-  assert.equal(slashedPage.querySelector('meta[property="og:url"]')?.getAttribute("content"), "https://example.com/docs/getting-started/");
-  assert.ok(hrefs(slashedPage, 'a[aria-current="page"]').includes("/docs/getting-started/"), "the canonical matches the sidebar link");
+  const slashedPage = read("components.html");
+  assert.deepEqual(hrefs(slashedPage, 'link[rel="canonical"]'), ["https://example.com/docs/components/"]);
+  assert.equal(slashedPage.querySelector('meta[property="og:url"]')?.getAttribute("content"), "https://example.com/docs/components/");
+  assert.ok(hrefs(slashedPage, 'a[aria-current="page"]').includes("/docs/components/"), "the canonical matches the sidebar link");
   ok("a base with build.format: \"file\", trailingSlash: \"always\", or both keeps links, nav, and canonicals on real routes");
 }
 

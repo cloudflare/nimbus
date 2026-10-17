@@ -4,11 +4,10 @@ tagline: "Link-styled card with an optional leading icon, title, and description
 props:
   - name: title
     type: string
-    required: true
-    description: Heading rendered as the card label.
+    description: Heading rendered as the card label. For a title with formatting, pass a `title` slot instead.
   - name: description
     type: string
-    description: Optional subtitle below the title.
+    description: Optional subtitle below the title, or a `description` slot.
   - name: href
     type: string
     required: true

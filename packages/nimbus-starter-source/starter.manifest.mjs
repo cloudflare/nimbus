@@ -101,16 +101,13 @@ export const STARTER_MANIFEST = {
 
   templates: {
     template: {
-      // The default template ships the kitchen-sink content (welcome /
-      // getting-started / components). Reusing src/content/docs/ keeps
-      // a single canonical copy; no override needed.
+      // The default template ships the starter content (a fill-in
+      // Introduction and the Components page). Reusing src/content/docs/
+      // keeps a single canonical copy; no override needed.
       contentDir: "src/content/docs/",
     },
     "template-empty": {
       contentDir: "templates/empty/content/docs/",
-      // The empty variant's home is its docs index.mdx; the landing page
-      // would shadow it at `/` and links to pages the variant doesn't have.
-      excludePaths: ["src/pages/index.astro"],
     },
   },
 };

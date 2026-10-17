@@ -25,8 +25,10 @@ function anchor(trigger: HTMLElement, content: HTMLElement) {
     }
   }
 
+  // start and end are inline sides: right to left, start is the right edge.
+  const rtl = getComputedStyle(trigger).direction === "rtl";
   let left: number;
-  if (placement.endsWith("end")) {
+  if (placement.endsWith("end") !== rtl) {
     left = triggerRect.right - contentRect.width;
   } else {
     left = triggerRect.left;

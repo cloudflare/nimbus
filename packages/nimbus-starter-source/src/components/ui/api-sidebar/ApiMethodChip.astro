@@ -21,6 +21,12 @@
  * colour) — the word disambiguates them everywhere except the glyph rail, which
  * sits beside a labelled endpoint card.
  *
+ * The label chip is a bare `<i data-m="get">GET</i>`: a sidebar repeats it on
+ * every operation row, so it carries the full method (for colour and for the
+ * sidebar filter, which matches `DELETE` on a `DEL` chip) and nothing else.
+ * Styles are global for the same reason: a scoped style would stamp a
+ * `data-astro-cid-*` attribute on every chip.
+ *
  * Renders nothing for a missing/blank method.
  */
 import { methodLabel, methodVariant } from "./method";
@@ -62,14 +68,13 @@ const glyphs: Record<string, string> = {
         <Fragment set:html={glyphs[variant]} />
       </span>
     ) : (
-      <span class:list={["nb-api-chip", `nb-api-chip--${variant}`, "is-label", `is-${size}`]}>
-        {label}
-      </span>
+      <i data-m={verb} class={size === "md" ? "is-md" : undefined}>{label}</i>
     ))
 }
 
-<style>
-  .nb-api-chip {
+<style is:global>
+  .nb-api-chip,
+  i[data-m] {
     --nb-api-verb: 5ch;
     font-size: 0.625rem;
     box-sizing: border-box;
@@ -88,7 +93,15 @@ const glyphs: Record<string, string> = {
     line-height: 1;
     -webkit-font-smoothing: antialiased;
   }
-  .nb-api-chip.is-md {
+  i[data-m] {
+    font-style: normal;
+    width: calc(var(--nb-api-verb) + 0.5em);
+    --m: var(--nb-m-other);
+    --m-tint: var(--nb-m-other-tint);
+    --m-line: var(--nb-m-other-line);
+  }
+  .nb-api-chip.is-md,
+  i[data-m].is-md {
     font-size: 0.8125rem;
   }
   .nb-api-chip svg {
@@ -99,26 +112,23 @@ const glyphs: Record<string, string> = {
   .nb-api-chip.is-glyph {
     width: 2em;
   }
-  .nb-api-chip.is-label {
-    width: calc(var(--nb-api-verb) + 0.5em);
-  }
 
-  .nb-api-chip--get {
+  .nb-api-chip--get, i[data-m="get"], i[data-m="head"] {
     --m: var(--nb-m-get);
     --m-tint: var(--nb-m-get-tint);
     --m-line: var(--nb-m-get-line);
   }
-  .nb-api-chip--post {
+  .nb-api-chip--post, i[data-m="post"] {
     --m: var(--nb-m-post);
     --m-tint: var(--nb-m-post-tint);
     --m-line: var(--nb-m-post-line);
   }
-  .nb-api-chip--put {
+  .nb-api-chip--put, i[data-m="put"], i[data-m="patch"] {
     --m: var(--nb-m-put);
     --m-tint: var(--nb-m-put-tint);
     --m-line: var(--nb-m-put-line);
   }
-  .nb-api-chip--delete {
+  .nb-api-chip--delete, i[data-m="delete"] {
     --m: var(--nb-m-delete);
     --m-tint: var(--nb-m-delete-tint);
     --m-line: var(--nb-m-delete-line);

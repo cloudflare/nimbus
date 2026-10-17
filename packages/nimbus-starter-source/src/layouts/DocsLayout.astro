@@ -8,6 +8,8 @@
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import BaseLayout from "./BaseLayout.astro";
 import Header from "@/components/Header.astro";
+import Logo from "@/components/Logo.astro";
+import { config } from "virtual:nimbus/config";
 import { Banner } from "@/components/ui/banner";
 import { Sidebar, SidebarFilter } from "@/components/ui/sidebar";
 import { TOC, MobileTOC } from "@/components/ui/toc";
@@ -71,12 +73,23 @@ if (!effectiveSearchable || versionStatus?.isHidden) {
   }
 }
 
+// The filter earns its place only once the sidebar is long enough to search.
+const countLinks = (items: typeof sidebar): number =>
+  Array.isArray(items)
+    ? items.reduce((n, item) => n + (item.type === "group" ? countLinks(item.children) + (item.indexHref ? 1 : 0) : 1), 0)
+    : 0;
+const showFilter = countLinks(sidebar) >= 12;
+
+// Below xl the On this page bar's own borders separate the header from the
+// content, so the header rule only draws where that bar is hidden.
+const hasMobileToc = headings !== false && headings.length > 0;
 const hasHeader = Astro.slots.has("header");
 const hasSidebar = Astro.slots.has("sidebar");
 const hasToc = Astro.slots.has("toc");
 const hasPageTitle = Astro.slots.has("page-title");
 const hasContentFooter = Astro.slots.has("content-footer");
 const hasPagination = Astro.slots.has("pagination");
+const showToc = headings !== false && (hasToc || headings.length > 0);
 ---
 
 <BaseLayout title={title} description={description} noindex={noindex || draft} markdownUrl={markdownUrl} socialImage={socialImage} lastUpdated={lastUpdated} head={head} collection={collection} entryId={entryId}>
@@ -91,7 +104,7 @@ const hasPagination = Astro.slots.has("pagination");
       <div class="flex-1 mx-auto w-full">
         <div class="flex">
           {showSidebar && (
-            <aside id="desktop-sidebar" data-nb-desktop-sidebar class="hidden md:flex w-60 lg:w-(--nb-sidebar-width) shrink-0 border-r border-border bg-background sticky top-14 h-[calc(100vh-3.5rem)] flex-col relative">
+            <aside id="desktop-sidebar" aria-label="Sidebar" data-nb-desktop-sidebar class="hidden md:flex w-60 lg:w-(--nb-sidebar-width) shrink-0 border-e border-border bg-background sticky top-14 h-[calc(100vh-3.5rem)] flex-col relative">
               {/* One tree per page: this node moves into the mobile drawer
                   while it is open and comes back on close. It owns the
                   scroll, so open-group and scroll state follow it. */}
@@ -100,7 +113,7 @@ const hasPagination = Astro.slots.has("pagination");
                   <slot name="sidebar" />
                 ) : (
                   <nav class="px-4 pb-12 pt-5">
-                    <SidebarFilter />
+                    {showFilter && <SidebarFilter />}
                     <Sidebar items={sidebar} persist />
                   </nav>
                 )}
@@ -140,7 +153,7 @@ const hasPagination = Astro.slots.has("pagination");
                 const raw = JSON.parse(sessionStorage.getItem("sidebar-state") || "null");
                 const state = raw && content.dataset.nbSidebarHash === raw.hash ? raw : null;
                 if (state) {
-                  const groups = content.querySelectorAll("[data-nb-sidebar-group]");
+                  const groups = content.querySelectorAll("details");
                   for (let i = 0; i < groups.length; i++) {
                     if (typeof state.open[i] === "boolean") {
                       setGroupOpen(groups[i], state.open[i]);
@@ -150,10 +163,10 @@ const hasPagination = Astro.slots.has("pagination");
 
                 const active = sidebar.querySelector("[aria-current='page']");
                 if (active) {
-                  let d = active.closest("[data-nb-sidebar-group]");
+                  let d = active.closest("details");
                   while (d) {
                     setGroupOpen(d, true);
-                    d = d.parentElement && d.parentElement.closest("[data-nb-sidebar-group]");
+                    d = d.parentElement && d.parentElement.closest("details");
                   }
                 }
 
@@ -182,6 +195,9 @@ const hasPagination = Astro.slots.has("pagination");
           </script>
           )}
 
+          {/* No sidebar: a spacer the TOC's width keeps the body centred on the page. */}
+          {!showSidebar && showToc && <div aria-hidden="true" class="hidden xl:block w-(--nb-toc-width) shrink-0" />}
+
           <main id="main-content" tabindex="-1" transition:name="nb-content" class="flex-1 min-w-0">
             <div class="mx-auto max-w-(--nb-content-max) px-4 md:px-6 pt-6 pb-12">
               {versionStatus?.isDeprecated && (
@@ -202,24 +218,21 @@ const hasPagination = Astro.slots.has("pagination");
                   <slot name="page-title" />
                 ) : (
                   <Fragment>
-                    <div class="flex items-center gap-3 flex-wrap mt-6">
-                      <h1 class="text-foreground mb-0 leading-tight [text-wrap:balance]" style={`font-size:var(--nb-h1-size);font-weight:var(--nb-h1-weight);letter-spacing:var(--nb-h1-tracking)`}>{title}</h1>
+                    {/* The page header: title, description and page actions, as one styleable part. */}
+                    <div data-slot="page-header" class="mt-6">
+                    <div class="flex items-center gap-3 flex-wrap">
+                      <h1 class="text-foreground mb-0 [overflow-wrap:anywhere] [text-wrap:balance]" style={`font-size:var(--nb-h1-size);line-height:var(--nb-h1-leading);font-weight:var(--nb-h1-weight);letter-spacing:var(--nb-h1-tracking)`}>{title}</h1>
                       {draft && <Badge text="Draft" variant="warning" size="medium" />}
                     </div>
                     {description && (
-                      <p class="text-[0.9375rem] sm:text-[1.0625rem] text-muted-foreground leading-relaxed mt-2 mb-2 [text-wrap:pretty]">{description}</p>
+                      <p class="text-base leading-7 sm:text-lg sm:leading-7 text-muted-foreground mt-2 mb-2 [text-wrap:pretty]">{description}</p>
                     )}
-                    {capabilities.mcpUrl ? (
-                      <div class:list={["not-prose -ml-2 flex flex-wrap items-center gap-y-1 text-[0.8125rem]", description ? undefined : "mt-3"]}>
-                        <PageActions markdownUrl={markdownUrl} lastUpdated={lastUpdated} class="ml-0" />
-                        {(markdownUrl || lastUpdated) && <span aria-hidden="true" class="hidden select-none text-muted-foreground/40 sm:inline">|</span>}
-                        <ConnectMcp />
-                      </div>
-                    ) : (
-                      <PageActions markdownUrl={markdownUrl} lastUpdated={lastUpdated} class={description ? undefined : "mt-3"} />
-                    )}
-                    {headings !== false && headings.length > 0 && (
-                      <div class="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-14 z-20 -mx-4 mt-3 border-y px-4 py-2 backdrop-blur md:-mx-6 md:px-6 xl:hidden">
+                    <PageActions markdownUrl={markdownUrl} lastUpdated={lastUpdated} class={description ? undefined : "mt-3"}>
+                      {capabilities.mcpUrl && <ConnectMcp />}
+                    </PageActions>
+                    </div>
+                    {hasMobileToc && (
+                      <div class="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-(--nb-header-height) z-20 -mx-4 mt-3 mb-6 border-y px-4 py-2 backdrop-blur md:-mx-6 md:px-6 xl:hidden">
                         <MobileTOC headings={headings} />
                       </div>
                     )}
@@ -231,7 +244,7 @@ const hasPagination = Astro.slots.has("pagination");
                           <div class="h-px flex-1 bg-border"></div>
                         </div>
                       ) : (
-                        <div class="mt-3 mb-6 h-px w-full bg-border" role="none" />
+                        <div class={`mt-3 mb-6 h-px w-full bg-border ${hasMobileToc ? "hidden xl:block" : ""}`} role="none" />
                       )
                     )}
                     {!description && !markdownUrl && audience !== "human" && <div class="mb-4" />}
@@ -255,9 +268,9 @@ const hasPagination = Astro.slots.has("pagination");
             </div>
           </main>
 
-          {headings !== false && (hasToc || headings.length > 0) && (
-            <aside data-nb-toc-scroll-host class="hidden xl:block w-(--nb-toc-width) shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
-              <div class="pt-6 pb-8 pl-8 pr-6">
+          {showToc && (
+            <aside aria-label="On this page" data-nb-toc-scroll-host class="hidden xl:block w-(--nb-toc-width) shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
+              <div class="pt-6 pb-8 ps-8 pe-6">
                 {hasToc ? <slot name="toc" /> : <TOC headings={headings} />}
               </div>
             </aside>
@@ -275,12 +288,16 @@ const hasPagination = Astro.slots.has("pagination");
     <dialog
       data-mobile-sidebar
       data-state="closed"
-      class="group fixed inset-0 m-0 h-full w-full max-h-full max-w-full border-0 bg-transparent p-0 [&::backdrop]:bg-transparent"
+      class="group fixed inset-0 m-0 h-full w-full max-h-full max-w-full border-0 bg-transparent p-0 transition-[background-color] duration-250 ease-out data-[state=open]:bg-black/40 motion-reduce:transition-none [&::backdrop]:bg-transparent"
       aria-label="Site navigation"
     >
-      <div data-mobile-sidebar-panel class="flex h-full w-(--nb-sidebar-width) max-w-[85vw] -translate-x-full flex-col border-r border-border bg-card transition-transform duration-250 ease-out group-data-[state=open]:translate-x-0 motion-reduce:transition-none">
+      <div data-mobile-sidebar-panel class="flex h-full w-(--nb-sidebar-width) max-w-[85vw] -translate-x-full flex-col border-e border-border bg-card transition-transform duration-250 ease-out group-data-[state=open]:translate-x-0 rtl:translate-x-full rtl:group-data-[state=open]:translate-x-0 motion-reduce:transition-none">
         <div class="sticky top-0 z-[1] flex items-center justify-between border-b border-border bg-card px-4 py-3">
-          <span class="font-semibold text-sm text-foreground">Navigation</span>
+          {/* The logo, as in the header; the site title stays as its accessible name. */}
+          <a href={homeHref} class="flex items-center text-foreground transition-opacity hover:opacity-70">
+            <Logo class="h-5 w-8 shrink-0" />
+            <span class="sr-only">{config.title}</span>
+          </a>
           <button data-close-sidebar class="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label="Close sidebar">
             <Icon name="ph:x" class="w-5 h-5" />
           </button>

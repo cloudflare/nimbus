@@ -35,20 +35,15 @@ mount("[data-nb-nav-list]", (filter) => {
     const item = template.content.cloneNode(true) as DocumentFragment;
     const link = item.querySelector("a");
     if (link) link.href = base + url;
-    // The template's SidebarLink and ApiMethodChip are the site's own; a
-    // customised one without these classes still gets its title.
-    const label = item.querySelector(".break-words") ?? link;
-    if (label) label.textContent = title;
-    const chip = item.querySelector<HTMLElement>(".nb-api-chip");
-    if (!chip) return item;
-    const variant = methodVariant(method);
-    if (variant) {
-      chip.className = chip.className.replace(
-        /nb-api-chip--\w+/,
-        `nb-api-chip--${variant}`,
-      );
+    // The template's row is a bare link holding a method chip: the title
+    // replaces the link's text, and the chip goes back in front of it.
+    const chip = link?.querySelector<HTMLElement>("i[data-m]");
+    if (link) link.textContent = title;
+    if (link && chip && methodVariant(method)) {
+      chip.dataset.m = method!.toLowerCase();
       chip.textContent = methodLabel(method)!;
-    } else chip.remove();
+      link.prepend(chip);
+    }
     return item;
   };
 

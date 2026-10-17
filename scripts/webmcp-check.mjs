@@ -305,7 +305,7 @@ try {
     }
   }
   // A genuine Astro client navigation must tear down the old tool and remount it.
-  await agent.locator('a[href="/docs/getting-started/"]').first().click();
+  await agent.locator('a[href="/docs/components/"]').first().click();
   await agent.waitForFunction(
     () =>
       window.__unregisterCount >= 1 &&

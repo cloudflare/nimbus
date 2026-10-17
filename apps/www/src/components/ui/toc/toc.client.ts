@@ -39,11 +39,13 @@ function initToc(root: HTMLElement): () => void {
   // static gray rail, capturing each link's arc-length range as we go.
   function buildRail() {
     const navRect = nav!.getBoundingClientRect();
+    // The rail is the links' inline-start border: their left edge, or right in RTL.
+    const rtl = getComputedStyle(nav!).direction === "rtl";
 
     const m = Array.from(links).map((link) => {
       const r = link.getBoundingClientRect();
       return {
-        x: r.left - navRect.left + 1,
+        x: rtl ? r.right - navRect.left - 1 : r.left - navRect.left + 1,
         yTop: r.top - navRect.top,
         yBot: r.top - navRect.top + r.height,
       };

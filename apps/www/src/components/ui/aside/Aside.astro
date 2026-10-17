@@ -1,4 +1,13 @@
 ---
+/**
+ * Aside — a note, tip, caution or danger callout.
+ *
+ *   <Aside type="tip" title="Before you start">Install Node 22.</Aside>
+ *
+ * For a rich title, pass it as a slot: <Fragment slot="title">Uses <code>env</code></Fragment>.
+ * Each type's colour comes from CSS keyed on `data-type`, so a site can add
+ * its own type with a rule and an icon.
+ */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
@@ -7,37 +16,40 @@ interface Props extends HTMLAttributes<"aside"> {
   // Uses `type` (not `variant`) to match the conventional <Aside type="…"> authoring API.
   type?: "note" | "tip" | "caution" | "danger";
   title?: string;
+  /** Iconify name; replaces the type's icon. */
+  icon?: string;
 }
 
-const { type = "note", title, class: className, ...attrs } = Astro.props;
+const { type = "note", title, icon, class: className, ...attrs } = Astro.props;
 
-const config: Record<string, { label: string; color: string; tint: string }> = {
-  note:    { label: "Note",    color: "var(--nb-info)",    tint: "var(--nb-info-muted)" },
-  tip:     { label: "Tip",     color: "var(--nb-success)", tint: "var(--nb-success-muted)" },
-  caution: { label: "Caution", color: "var(--nb-warning)", tint: "var(--nb-warning-muted)" },
-  danger:  { label: "Danger",  color: "var(--nb-danger)",  tint: "var(--nb-danger-muted)" },
+const defaults: Record<string, { label: string; icon: string }> = {
+  note:    { label: "Note",    icon: "ph:info" },
+  tip:     { label: "Tip",     icon: "ph:lightbulb" },
+  caution: { label: "Caution", icon: "ph:warning" },
+  danger:  { label: "Danger",  icon: "ph:warning-circle" },
 };
 
-const c = config[type] ?? config.note;
-const displayTitle = title ?? c.label;
+const d = defaults[type] ?? defaults.note;
+const hasTitleSlot = Astro.slots.has("title");
+const displayTitle = title ?? d.label;
 ---
 
 <aside
   role="note"
-  aria-label={displayTitle}
-  class={cn("aside-card flex items-start gap-3 rounded-lg px-4 py-3 my-4", className)}
-  style={`--_c: ${c.color}; --_t: ${c.tint};`}
+  aria-label={hasTitleSlot ? undefined : displayTitle}
+  data-slot="aside"
+  data-type={type}
+  class={cn("aside-card flex items-start gap-3 rounded-lg px-4 py-3 my-6", className)}
   {...attrs}
 >
-  <span class="shrink-0 flex items-center h-[1.375em]" aria-hidden="true">
-    {type === "note" && <Icon name="ph:info" class="w-[1em] h-[1em]" />}
-    {type === "tip" && <Icon name="ph:lightbulb" class="w-[1em] h-[1em]" />}
-    {type === "caution" && <Icon name="ph:warning" class="w-[1em] h-[1em]" />}
-    {type === "danger" && <Icon name="ph:warning-circle" class="w-[1em] h-[1em]" />}
+  <span data-slot="aside-icon" class="aside-card-icon shrink-0 flex items-center h-6" aria-hidden="true">
+    <slot name="icon"><Icon name={icon ?? d.icon} class="size-4" /></slot>
   </span>
-  <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-    <p class="m-0 text-base font-semibold leading-snug">{displayTitle}</p>
-    <div class="aside-card-body text-sm leading-normal">
+  <div class="flex min-w-0 flex-1 flex-col text-sm leading-6">
+    <p data-slot="aside-title" class="aside-card-title m-0 font-semibold">
+      <slot name="title">{displayTitle}</slot>
+    </p>
+    <div data-slot="aside-content" class="aside-card-body">
       <slot />
     </div>
   </div>
@@ -45,29 +57,37 @@ const displayTitle = title ?? c.label;
 
 <style>
   .aside-card {
+    --_c: var(--nb-info);
+    --_f: var(--nb-info-foreground);
+    --_t: var(--nb-info-muted);
     border: 1px solid color-mix(in oklch, var(--_c) 25%, transparent);
     background: var(--_t);
   }
+  .aside-card[data-type="tip"]     { --_c: var(--nb-success); --_f: var(--nb-success-foreground); --_t: var(--nb-success-muted); }
+  .aside-card[data-type="caution"] { --_c: var(--nb-warning); --_f: var(--nb-warning-foreground); --_t: var(--nb-warning-muted); }
+  .aside-card[data-type="danger"]  { --_c: var(--nb-danger);  --_f: var(--nb-danger-foreground);  --_t: var(--nb-danger-muted); }
 
-  /* Icon + title stay in semantic color; body text stays readable */
-  .aside-card > :global(:first-child) { color: var(--_c); }
-  .aside-card > :global(:last-child) > :global(:first-child) { color: var(--_c); }
+  /* Icon + title in the type's text colour; body text stays readable.
+     --_c tints the border and inline code, --_f is for text. */
+  .aside-card-icon,
+  .aside-card-title { color: var(--_f); }
   .aside-card-body { color: var(--nb-foreground); }
 
   .aside-card-body :global(p) { margin: 0; }
-  .aside-card-body :global(p + p) { margin-top: 0.375rem; }
-  .aside-card-body :global(a) { text-decoration: underline; text-underline-offset: 2px; }
+  .aside-card-body :global(p + p) { margin-top: 0.5rem; }
+  .aside-card-body :global(a) { color: var(--nb-foreground); font-weight: 500; text-decoration: underline; text-decoration-color: var(--nb-border-strong); text-underline-offset: 4px; }
 
   /* Inline code only — exclude code inside Expressive Code pre blocks */
   .aside-card-body :global(code:not(:where(pre *))) {
     font-family: var(--nb-font-mono);
-    font-size: 0.8125em;
+    font-size: 0.875em;
     background: color-mix(in oklch, var(--_c) 10%, transparent);
     border: 1px solid color-mix(in oklch, var(--_c) 15%, transparent);
-    border-radius: 0.25rem;
-    padding: 0.0625rem 0.3125rem;
+    border-radius: var(--nb-radius-sm);
+    padding: 0.125rem 0.3125rem;
+    line-height: 1;
   }
-  .aside-card-body :global(strong) { font-weight: 600; color: inherit; }
+  .aside-card-body :global(strong) { font-weight: 600; color: var(--nb-foreground); }
 
   /* Shiki code blocks inside Asides */
   .aside-card-body :global(.astro-code) {

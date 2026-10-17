@@ -18,7 +18,7 @@ export function CardBadge({ label, tone = "accent", className }: CardBadgeProps)
   return (
     <div
       className={cn(
-        "absolute -top-3 left-3 z-10 flex items-center gap-1.5 border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 rounded-sm shadow-xs px-2 py-0.5",
+        "absolute -top-3 start-3 z-10 flex items-center gap-1.5 border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 rounded-sm shadow-xs px-2 py-0.5",
         className,
       )}
     >

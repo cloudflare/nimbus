@@ -849,7 +849,7 @@
         "No action is needed: sites without agents.mcp are unchanged.",
         "To serve the server, add the server adapter for your host if the site has none (nimbus-docs add adapter-cloudflare, nimbus-docs add adapter-netlify, nimbus-docs add adapter-node or nimbus-docs add adapter-vercel), install @modelcontextprotocol/server@2, and set agents: { mcp: true } in the Nimbus config.",
         "To show the Copy MCP URL action, run nimbus-docs diff src/components/ConnectMcp.astro --apply and nimbus-docs diff src/components/connect-mcp.client.ts --apply. diff needs a site on a released version; otherwise copy both files from a newly scaffolded site.",
-        "Then in src/layouts/DocsLayout.astro, import ConnectMcp from \"@/components/ConnectMcp.astro\" and { capabilities } from \"virtual:nimbus/agent-capabilities\", and when capabilities.mcpUrl is set render <ConnectMcp /> after <PageActions />, as the starter's DocsLayout.astro does (nimbus-docs diff src/layouts/DocsLayout.astro shows the change). Without the server, keep <PageActions /> as it is."
+        "Then in src/layouts/DocsLayout.astro, import ConnectMcp from \"@/components/ConnectMcp.astro\" and and { capabilities } from \"virtual:nimbus/agent-capabilities\", and pass it to PageActions: <PageActions …>{capabilities.mcpUrl && <ConnectMcp />}</PageActions>, as the starter's DocsLayout.astro does (nimbus-docs diff src/layouts/DocsLayout.astro shows the change). The guard keeps its script off sites without the server. A PageActions copied before this release has no slot: update it with nimbus-docs add page-actions --overwrite, or render <ConnectMcp /> after it."
       ],
       "verify": [
         "Run astro dev, then npx @modelcontextprotocol/inspector --cli http://localhost:4321/mcp --transport http --method tools/list (with the base path, and /mcp/ under trailingSlash: \"always\"), and confirm it lists get_page and list_pages.",
@@ -870,9 +870,9 @@
       ],
       "verify": [
         "Build the site and confirm the output has no Nimbus discovery documents and the homepage Link header has no rel=\"ard\" or rel=\"api-catalog\"."
-        ]
-      },
-      {
+      ]
+    },
+    {
       "id": "collection-urls-from-routes",
       "introducedIn": "0.19.0",
       "mode": "optional",
@@ -886,6 +886,57 @@
       ],
       "verify": [
         "Run nimbus-docs check and astro build; with a moved collection, confirm check lists its URL and nimbus-docs lint reports no links to the old URLs."
+      ]
+    },
+    {
+      "id": "redesigned-starter",
+      "introducedIn": "0.19.0",
+      "mode": "optional",
+      "changeset": "redesigned-starter",
+      "summary": "Optionally adopt the redesigned starter: a new type scale, steel accent, code blocks, pagination bar and logo, phone section tabs, right-to-left layout and thin scrollbars.",
+      "affected": "Sites scaffolded before 0.19.0 that want the new look. Existing sites keep their current look until they adopt it.",
+      "instructions": [
+        "No action is needed: existing sites keep working and keep their look.",
+        "Commit first, then run nimbus-docs outdated. For files you haven't edited, nimbus-docs diff <file> --apply updates them; merge edited ones by hand. Update these together: src/styles/globals.css, src/styles/prose.css, src/layouts/DocsLayout.astro, src/layouts/BaseLayout.astro, src/components/Header.astro, and the new src/components/Logo.astro.",
+        "Reinstall the changed components with nimbus-docs add <component> --overwrite: aside, steps, card, link-card, tabs, toc, search, page-actions, package-managers, pagination, badge and button. Badge and Button install src/lib/variants.ts with them.",
+        "Component APIs only add options: Pagination takes prevLabel, nextLabel and keys, or PaginationLink and PaginationKey children, and its [ and ] keys work while focus is in the bar; Aside takes icon and title/icon slots; Card and LinkCard make title optional and take title slots; Step renders a list item inside Steps, which keeps content before the first Step above the list.",
+        "Right-to-left: with dir=\"rtl\" on <html>, the layout mirrors and code stays left to right. Nothing changes for left-to-right sites."
+      ],
+      "verify": [
+        "Build the site and compare a page with a newly scaffolded one at desktop and phone widths, light and dark.",
+        "With focus in the pagination bar, [ and ] move between pages; from elsewhere on the page they do nothing."
+      ]
+    },
+    {
+      "id": "lighter-sidebar-rows",
+      "introducedIn": "0.19.0",
+      "mode": "optional",
+      "changeset": "redesigned-starter",
+      "summary": "Optionally adopt sidebar rows with no per-row class or data attribute, styled by position, so large sidebars carry much less HTML.",
+      "affected": "Sites with copied sidebar components, or CSS and scripts that select rows by nb-sidebar-link, nb-sidebar-row, nb-sidebar-list or the data-nb-sidebar-link, data-nb-sidebar-group and data-nb-sidebar-group-label attributes.",
+      "instructions": [
+        "No action is needed: copied sidebar components keep working.",
+        "To adopt it, update these together with nimbus-docs diff <file> --apply (nimbus-docs outdated lists them): src/components/ui/sidebar/*, src/layouts/DocsLayout.astro and the \"Sidebar rows\" section of src/styles/globals.css. With an API reference, reinstall api-sidebar last with nimbus-docs add api-sidebar --overwrite. Updating only some of these files breaks the sidebar's styling.",
+        "This replaces the lighter-sidebar-markup entry's row classes: rows are [data-nb-sidebar] li > a, group rows details > summary, group lists details > ul, and an API method chip is i[data-m]. The classes still style an element that carries them. Move your own selectors to these.",
+        "Rows and group headers have no data-slot; a group keeps data-slot=\"sidebar-group\"."
+      ],
+      "verify": [
+        "The sidebar looks as before, the filter finds pages (including a full HTTP method on an abbreviated chip), and open groups persist across pages."
+      ]
+    },
+    {
+      "id": "favicons-and-asset-caching",
+      "introducedIn": "0.19.0",
+      "mode": "optional",
+      "changeset": "redesigned-starter",
+      "summary": "Optionally take the new favicons and an immutable cache rule for built assets.",
+      "affected": "Sites that want the new Nimbus favicons or long-lived caching for /_astro/* on hosts that read public/_headers (Cloudflare, Netlify).",
+      "instructions": [
+        "No action is needed.",
+        "nimbus-docs outdated and diff don't track public/, so copy public/favicon.svg, public/favicon.ico and public/_headers from a newly scaffolded site. Keep your own favicon if you have one, and merge the cache rule into an existing _headers file rather than replacing it."
+      ],
+      "verify": [
+        "After deploying, a request for a file under /_astro/ returns Cache-Control: public, max-age=31536000, immutable."
       ]
     }
   ]

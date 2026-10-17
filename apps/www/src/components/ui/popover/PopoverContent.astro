@@ -12,10 +12,12 @@ interface Props extends HTMLAttributes<"div"> {
   placement?: Placement;
 }
 
-const { placement = "bottom-start", class: className, ...attrs } = Astro.props;
+// A composing component can pass its own `data-slot` in place of this one.
+const { placement = "bottom-start", class: className, "data-slot": slot = "popover-content", ...attrs } = Astro.props;
 ---
 
 <div
+  data-slot={slot}
   data-popover-content
   data-placement={placement}
   class={cn(

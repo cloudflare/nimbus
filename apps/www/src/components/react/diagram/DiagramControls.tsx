@@ -52,7 +52,7 @@ export function DiagramControls({
           {status}
         </span>
       )}
-      <ActionBar className="ml-auto">
+      <ActionBar className="ms-auto">
         {playPause && (
           <ActionButton label={ctx.playing ? "Pause" : "Play"} onClick={ctx.toggle} />
         )}

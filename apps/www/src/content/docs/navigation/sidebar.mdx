@@ -229,15 +229,16 @@ Set `features.sidebar: false` in `astro.config.ts` to disable the rail site-wide
 
 Sidebar groups are native `<details>`/`<summary>` elements: opening and closing needs no JavaScript, links in closed groups stay in the HTML for find-in-page and crawlers, and closed lists carry `display: none` so large trees stay fast. A group with a landing page lists it as the group's first child, labelled "Overview" — the summary row is label-only.
 
-Each row type has one class, defined once in the "Sidebar rows" section of `src/styles/globals.css`. Edit those rules to restyle every row. They sit in Tailwind's `components` layer, so a Tailwind utility on a row still overrides them:
+Rows carry no class or data attribute, so a sidebar of thousands of pages stays light. The "Sidebar rows" section of `src/styles/globals.css` styles them by position inside the sidebar (`[data-nb-sidebar]`, and `[data-nb-api-nav]` for the API reference). Edit those rules to restyle every row. They sit in Tailwind's `components` layer, so a Tailwind utility on a row still overrides them:
 
-| Hook | Element |
+| Selector | Element |
 |---|---|
-| `nb-sidebar-link` | A leaf row: `<a class="nb-sidebar-link" href>Label</a>`. The current page carries `aria-current="page"`. |
-| `nb-sidebar-row` | A group's `<summary>`. The caret is its `::after` mask, rotated by `details[open]`; the active trail carries `data-nb-active`. |
-| `nb-sidebar-list` | A group's child `<ul>`. |
+| `[data-nb-sidebar] li > a` | A leaf row: `<a href>Label</a>`. The current page carries `aria-current="page"`. |
+| `[data-nb-sidebar] details > summary` | A group's row. The caret is its `::after` mask, rotated by `details[open]`; the active trail carries `data-nb-active`. |
+| `[data-nb-sidebar] details > ul` | A group's child list. |
+| `i[data-m]` | An API operation's method chip; `data-m` is the lowercase method. |
 
-The `data-nb-sidebar-*` attributes (`data-nb-sidebar-group`, `data-nb-sidebar-group-label`, `data-nb-sidebar-link`) are unchanged, so selectors in your own code keep matching. The API reference rail composes the same atoms, so these hooks style both rails.
+The `.nb-sidebar-link`, `.nb-sidebar-row` and `.nb-sidebar-list` classes still style an element that carries them, for a row placed elsewhere. Sites that styled rows by those classes or by the old `data-nb-sidebar-*` attributes switch to the selectors above; the `lighter-sidebar-rows` upgrade entry lists the steps.
 
 Each page renders one sidebar tree: the mobile drawer borrows the rail's tree while it is open and returns it on close, so open groups, the filter, and scroll position stay with you across the breakpoint.
 

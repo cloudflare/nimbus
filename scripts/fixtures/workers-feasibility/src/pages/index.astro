@@ -1,0 +1,15 @@
+---
+// The fixture removes the starter's docs content, home page included, so it
+// keeps a homepage of its own for the discovery checks.
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Header from "../components/Header.astro";
+import { config } from "virtual:nimbus/config";
+---
+
+<BaseLayout title={config.title} description={config.description}>
+  <Header />
+  <main id="main-content" tabindex="-1" class="mx-auto max-w-2xl px-6 py-24">
+    <h1>{config.title}</h1>
+    <p>{config.description}</p>
+  </main>
+</BaseLayout>

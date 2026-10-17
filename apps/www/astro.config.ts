@@ -2,6 +2,7 @@ import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 import nimbus, { defineConfig as defineNimbusConfig } from "@cloudflare/nimbus-docs";
+import { tableScroll } from "@cloudflare/nimbus-docs/markdown";
 
 const nimbusConfig = defineNimbusConfig({
   site: "https://nimbus-docs.com",
@@ -39,7 +40,7 @@ const nimbusConfig = defineNimbusConfig({
 
 export default defineConfig({
   output: "static",
-  integrations: [react(), nimbus(nimbusConfig)],
+  integrations: [react(), nimbus(nimbusConfig, { markdown: { hastPlugins: [tableScroll()] } })],
   vite: {
     // Tailwind v4 via its Vite plugin (replaces the PostCSS plugin, which
     // doesn't build under Astro 7's Vite 8 bundler).

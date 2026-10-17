@@ -1,9 +1,9 @@
 ---
 /**
  * SidebarGroupHeader — a sidebar group's `<summary>` row: label, optional
- * leading icon, badge, and a caret drawn by CSS (`nb-sidebar-row`'s `::after`
+ * leading icon, badge, and a caret drawn by CSS (the summary's `::after`
  * mask, rotated by `details[open]`). The caller renders it as the first child
- * of a `<details data-nb-sidebar-group>`.
+ * of a sidebar `<details>`.
  *
  * The summary is label-only: a group's landing page renders as the group's
  * first child row ("Overview"), so keyboard and screen-reader users get one
@@ -13,7 +13,6 @@
  * styling lives in `src/styles/globals.css` ("Sidebar rows").
  */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
-import { cn } from "@/lib/cn";
 import { Badge } from "@/components/ui/badge";
 import type { SidebarBadge } from "@cloudflare/nimbus-docs/types";
 
@@ -30,13 +29,9 @@ interface Props {
 const { label, hasActive, badge, icon, deprecated } = Astro.props;
 ---
 
-<summary
-  class="nb-sidebar-row"
-  data-nb-sidebar-group-label
-  data-nb-active={hasActive ? "" : undefined}
->
+<summary data-nb-active={hasActive ? "" : undefined}>
   {icon && <Icon name={icon} class="h-4 w-4 shrink-0 text-muted-foreground" />}
-  <span class={cn("break-words", deprecated && "line-through")}>{label}</span>
+  {deprecated ? <span class="line-through">{label}</span> : label}
   {badge &&
     (typeof badge === "string" ? <Badge text={badge} /> : <Badge text={badge.text} variant={badge.variant} />)}
 </summary>

@@ -26,7 +26,7 @@ interface Props extends HTMLAttributes<"div"> {}
 const { class: className, ...attrs } = Astro.props;
 ---
 
-<div class={cn("file-tree", className)} data-file-tree {...attrs}>
+<div class={cn("file-tree", className)} data-file-tree data-slot="file-tree" {...attrs}>
   <template data-ft-icon-chev><Icon name="ph:caret-right" class="ft-chev" /></template>
   <template data-ft-icon-folder><Icon name="ph:folder" class="ft-icon" /></template>
   <template data-ft-icon-file><Icon name="ph:file" class="ft-icon" /></template>
@@ -36,7 +36,7 @@ const { class: className, ...attrs } = Astro.props;
 <style>
   .file-tree {
     margin: 1rem 0;
-    border-radius: 0.5rem;
+    border-radius: var(--nb-radius);
     padding: 0.75rem 1rem;
     font-family: var(--nb-font-mono);
     font-size: 0.875rem;
@@ -51,17 +51,18 @@ const { class: className, ...attrs } = Astro.props;
   .file-tree :global(ul) {
     list-style: none;
     margin: 0;
-    padding: 0 0 0 1.25rem;
+    padding: 0;
+    padding-inline-start: 1.25rem;
   }
 
-  .file-tree > :global(ul) { padding-left: 0; }
+  .file-tree > :global(ul) { padding-inline-start: 0; }
 
   /* Guide lines on nested lists */
   .file-tree :global(ul ul) { position: relative; }
   .file-tree :global(ul ul)::before {
     content: "";
     position: absolute;
-    left: 0.4375rem;
+    inset-inline-start: 0.4375rem;
     top: 0;
     bottom: 0.25rem;
     width: 1px;
@@ -80,11 +81,13 @@ const { class: className, ...attrs } = Astro.props;
   /* Directory rows — details/summary */
   .file-tree :global(details) { margin: 0; }
 
+  /* Rows top-align so a long name wraps under itself with its icon on the
+     first line; 4 + 16 + 4 = 24px per line. */
   .file-tree :global(summary) {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.5rem;
-    padding: 0.3125rem 0.375rem;
+    padding: 0.25rem 0.375rem;
     margin: 0 -0.375rem;
     cursor: pointer;
     list-style: none;
@@ -103,9 +106,9 @@ const { class: className, ...attrs } = Astro.props;
   /* File rows */
   .file-tree :global([data-file]) {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.5rem;
-    padding: 0.3125rem 0.375rem;
+    padding: 0.25rem 0.375rem;
     margin: 0 -0.375rem;
     border-radius: 0.375rem;
     cursor: default;
@@ -116,10 +119,14 @@ const { class: className, ...attrs } = Astro.props;
     flex-shrink: 0;
     width: 0.875rem;
     height: 0.875rem;
+    margin-block: 0.0625rem;
     color: var(--nb-muted-foreground);
     transition: transform 0.15s ease;
   }
 
+  .file-tree :global(.ft-chev:dir(rtl)) {
+    transform: rotate(180deg);
+  }
   .file-tree :global(details[open] > summary > .ft-chev) {
     transform: rotate(90deg);
   }
@@ -129,6 +136,7 @@ const { class: className, ...attrs } = Astro.props;
     flex-shrink: 0;
     width: 0.875rem;
     height: 0.875rem;
+    margin-block: 0.0625rem;
     color: var(--nb-muted-foreground);
   }
 
@@ -138,10 +146,11 @@ const { class: className, ...attrs } = Astro.props;
     width: 0.875rem;
   }
 
-  /* Clamp label to one line */
+  /* A name too long for the row wraps rather than running past the card. */
   .file-tree :global(.ft-label) {
     min-width: 0;
-    white-space: nowrap;
+    line-height: 1rem;
+    overflow-wrap: anywhere;
   }
 
   /* Highlighted entries */
@@ -155,8 +164,9 @@ const { class: className, ...attrs } = Astro.props;
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.3125rem 0.375rem;
+    padding: 0.25rem 0.375rem;
     margin: 0 -0.375rem;
+    line-height: 1rem;
     color: var(--nb-muted-foreground);
     letter-spacing: 0.1em;
   }

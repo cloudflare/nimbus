@@ -70,13 +70,16 @@ test("every generated variant ships the adapter marker and implicit build defaul
       const excluded = new Set(
         (STARTER_MANIFEST.templates[path.basename(dir)]?.excludePaths ?? []).map((file) => file.replace(/^src\//, "")),
       );
-      assert.deepEqual(
-        routeEntrypoints(dir),
-        STARTER_ROUTE_INVENTORY.map((route) => route.entrypoint).filter((entrypoint) => !excluded.has(entrypoint)).sort(),
-        `${path.basename(dir)} has an unclassified or missing route entrypoint`,
-      );
       // One source per URL: a landing page and a docs index both claim `/`.
       const docsIndex = ["index.mdx", "index.md"].some((file) => fs.existsSync(path.join(dir, "src/content/docs", file)));
+      // A docs index takes the place of the optional landing page.
+      assert.deepEqual(
+        routeEntrypoints(dir),
+        STARTER_ROUTE_INVENTORY.filter((route) => !excluded.has(route.entrypoint) && !(docsIndex && route.allowsContentShadow))
+          .map((route) => route.entrypoint)
+          .sort(),
+        `${path.basename(dir)} has an unclassified or missing route entrypoint`,
+      );
       assert.equal(
         docsIndex && fs.existsSync(path.join(dir, "src/pages/index.astro")),
         false,

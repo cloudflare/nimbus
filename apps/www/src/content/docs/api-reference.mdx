@@ -332,7 +332,7 @@ tags:
 
 In every mode, the sidebar keeps the groups a reader opened and its scroll position from page to page for the rest of the session, in the desktop rail and the mobile drawer. Restored groups appear already open. Rows loaded on one page show on the next before it paints; a new deployment starts over, so rows saved before it are never shown after it.
 
-The API rail renders the same markup as the docs sidebar: groups are native `<details>`/`<summary>` rows styled by the `nb-sidebar-row`, `nb-sidebar-link`, and `nb-sidebar-list` classes in `src/styles/globals.css`, a group's page lists as its first "Overview" child, and each page renders one tree that the mobile drawer borrows while open. See [Sidebar — markup and styling hooks](/navigation/sidebar#markup-and-styling-hooks).
+The API rail renders the same markup as the docs sidebar: groups are native `<details>`/`<summary>` rows styled by position (`[data-nb-api-nav] li > a`, `details > summary`, `details > ul`) in `src/styles/globals.css`, a group's page lists as its first "Overview" child, and each page renders one tree that the mobile drawer borrows while open. See [Sidebar — markup and styling hooks](/navigation/sidebar#markup-and-styling-hooks).
 
 Set `sidebar` on the `api` entry in the Nimbus config. A site that passes its entry to `apiCollection({ … })` still takes the mode from the config, and the build warns if the two disagree.
 

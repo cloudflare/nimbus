@@ -81,7 +81,7 @@ if (versionStatus?.isHidden) {
 >
   <div
     data-mobile-sidebar-panel
-    class="flex h-full w-(--nb-sidebar-width) max-w-[85vw] -translate-x-full flex-col border-r border-border bg-card transition-transform duration-250 ease-out group-data-[state=open]:translate-x-0 motion-reduce:transition-none"
+    class="flex h-full w-(--nb-sidebar-width) max-w-[85vw] -translate-x-full flex-col border-e border-border bg-card transition-transform duration-250 ease-out group-data-[state=open]:translate-x-0 rtl:translate-x-full rtl:group-data-[state=open]:translate-x-0 motion-reduce:transition-none"
   >
     <div class="z-[1] flex items-center justify-between border-b border-border bg-card px-4 py-3">
       <span class="text-sm font-semibold text-foreground">Navigation</span>
@@ -107,20 +107,20 @@ if (versionStatus?.isHidden) {
   <aside
     transition:name="nb-api-sidebar"
     transition:animate="none"
-    class="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 flex-col border-r border-border bg-background md:flex lg:w-(--nb-sidebar-width)"
+    class="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 flex-col border-e border-border bg-background md:flex lg:w-(--nb-sidebar-width)"
   >
-    {picker && <VersionSwitcher {...picker} class="mx-4 mt-6 mb-0 shrink-0 pl-2" />}
+    {picker && <VersionSwitcher {...picker} class="mx-4 mt-6 mb-0 shrink-0 ps-2" />}
     <div
       data-nb-api-tree
       data-nb-nav-state={navKey}
       data-nb-nav-build={navBuildId}
       data-nb-nav-scroller="nav"
-      class="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-color:gray_transparent] [scrollbar-width:thin]"
+      class="min-h-0 flex-1 overflow-y-auto overscroll-contain"
     >
       {/* A full tree filters in place, as the docs sidebar does. An on-demand
           tree holds only part of the API, so its filter searches the
           version's page list instead (`api-nav-filter.client`). */}
-      <div class="pt-8 pb-12 pl-6 pr-4" data-nb-sidebar={nav.listHref ? undefined : ""}>
+      <div class="pt-8 pb-12 ps-6 pe-4" data-nb-sidebar={nav.listHref ? undefined : ""}>
         <SidebarFilter data-nb-nav-list={nav.listHref && withBase(nav.listHref, import.meta.env.BASE_URL)} />
         {nav.listHref && (
           <>
@@ -128,7 +128,7 @@ if (versionStatus?.isHidden) {
             <ul data-nb-nav-results hidden class="flex list-none flex-col gap-0.5 p-0"></ul>
             <template data-nb-nav-result>
               <li>
-                <SidebarLink label="" href="/" class="px-1">
+                <SidebarLink label="" href="/">
                   <ApiMethodChip slot="leading" method="GET" display="label" />
                 </SidebarLink>
               </li>
@@ -173,7 +173,7 @@ if (versionStatus?.isHidden) {
         at 90rem+ it becomes the sticky right column. The left padding keeps overflow-y-auto
         from clipping the LayerCard's outset ring at the scroll edge. */}
     {hasRail && (
-      <div class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 md:px-8 min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:h-[calc(100vh-3.5rem)] min-[90rem]:w-[29rem] min-[90rem]:shrink-0 min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pr-6 min-[90rem]:pb-8 min-[90rem]:pl-1 min-[90rem]:[scrollbar-color:gray_transparent] min-[90rem]:[scrollbar-width:thin] 2xl:w-(--nb-code-rail-width)">
+      <div class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 md:px-8 min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:h-[calc(100vh-3.5rem)] min-[90rem]:w-[29rem] min-[90rem]:shrink-0 min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1 2xl:w-(--nb-code-rail-width)">
         <ApiCodeRail
           responses={page.responses}
           samples={page.samples}

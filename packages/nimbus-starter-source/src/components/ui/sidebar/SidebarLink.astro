@@ -1,11 +1,10 @@
 ---
 /**
- * SidebarLink — a leaf row: `<a class="nb-sidebar-link">Label</a>`, with an
- * inner span only when a badge or the `leading` slot needs one. The row's
- * styling is the `nb-sidebar-link` class in `src/styles/globals.css`
- * ("Sidebar rows").
+ * SidebarLink — a leaf row: a bare `<a href>Label</a>`. Large sidebars repeat
+ * this thousands of times, so the row carries no class or data attribute; the
+ * sidebar styles every `li > a` by position (`src/styles/globals.css`,
+ * "Sidebar rows"). A label gets its own span only when a badge follows it.
  */
-import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 import { Badge } from "@/components/ui/badge";
 import type { SidebarBadge } from "@cloudflare/nimbus-docs/types";
@@ -27,8 +26,7 @@ const plain = !hasLeading && !badge;
 <a
   href={resolvedHref}
   aria-current={isCurrent ? "page" : undefined}
-  data-nb-sidebar-link
-  class={cn("nb-sidebar-link", className)}
+  class={className}
   {...attrs}
 >
   {plain ? (
@@ -36,7 +34,7 @@ const plain = !hasLeading && !badge;
   ) : (
     <Fragment>
       <slot name="leading" />
-      <span class="break-words">{label}</span>
+      {badge ? <span>{label}</span> : label}
       {badge &&
         (typeof badge === "string" ? (
           <Badge text={badge} />
