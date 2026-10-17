@@ -1,5 +1,83 @@
 # @cloudflare/nimbus-docs
 
+## 0.19.0
+
+### Minor Changes
+
+- [#265](https://github.com/cloudflare/nimbus/pull/265) [`2440889`](https://github.com/cloudflare/nimbus/commit/2440889264a395db732535475096bea06918f45e) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `agents: { discovery: false }` leaves origin-root agent discovery to the site that owns the domain: no `/.well-known/ard.json`, `ai-catalog.json` or `api-catalog`, no `rel="ard"` or `rel="api-catalog"` homepage links, and your own `.well-known` files are kept.
+
+- [#267](https://github.com/cloudflare/nimbus/pull/267) [`eb1a3a6`](https://github.com/cloudflare/nimbus/commit/eb1a3a64afc6f41ede9bc133756226d712a9a362) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - A collection is served where its route file is: `src/pages/products/sdk/[...slug].astro` serves `sdk` at `/products/sdk`, and every URL Nimbus builds follows: pages, sidebar, Markdown versions, `llms.txt`, sitemap, search, social cards, and for an API its versions, `openapi.json` and catalog entry. Sites whose route folders match their collection names build the same output.
+  - `getCollectionUrl(collection)` returns where a collection is served, for links in components. A name that isn't a page collection throws.
+  - `nimbus-docs check` lists where each collection is served when a route moves one; `check --json` always includes it.
+  - Sites that build broken URLs today now fail with an error naming the file and the fix: several routes for one collection with none at its default URL, two collections on one URL, a collection served only from dynamic folders, a docs or version route away from its URL, a page under another collection's moved URL, an API collection at the site root, a route helper in a route whose parameter isn't `slug` (`[...path].astro`), or a route helper running in a route its collection isn't served from.
+  - A sidebar `prefix` for a collection served by a route helper is deprecated: the route sets the URL.
+  - `getIndexedTopLevel()` groups a moved collection under its URL: a group's `slug` and `label` can contain `/` (`products/sdk`). Components that build `/${slug}/llms.txt` or show `label` should expect it.
+  - Two new warnings, from the build and `check`: a second static route for a collection that's already served elsewhere (its pages duplicate the collection's), and a helper route in a nested folder whose `getStaticPaths` Nimbus can't read.
+  - `nimbus-docs lint` follows the pages Astro writes for a dynamic redirect (`"/sdk/[...slug]": "/products/sdk/[...slug]"`) instead of taking them for pages, so a redirect to a missing page is reported and `nimbus/redirected-link` finds links through it.
+  - `nimbus-docs lint` suggests the new URL for a link into a moved collection (`/sdk/setup` → `/products/kit/setup`), and never suggests the site root or an error page as a near-match. Builds record each collection's URL in `.nimbus/routes.json` for this.
+  - `nimbus-docs check` checks collections added since the last build, alongside the ones that build recorded.
+
+- [#268](https://github.com/cloudflare/nimbus/pull/268) [`4b77047`](https://github.com/cloudflare/nimbus/commit/4b7704780030eef2e9b9976a1bd10636de1d5ff9) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Request-rendered collections are served where their route file is too, nested folders, kept copies and `base` included. A request-rendered route under a folder no collection is served from returns not found and logs why. A request-rendered collection's `index` page is listed in the sitemap, search and route checks at the collection's URL (`/products/kit/`), not `/products/kit/index/`.
+  - In `astro dev`, moving, adding or removing a collection's route file restarts the server onto the new URLs and logs the redirect to add. Editing a route's template doesn't restart.
+  - With the nested `[...section]/llms.txt` route, a collection at a nested URL is linked from the `llms.txt` of the section above it, not only from the root `llms.txt`.
+
+- [#253](https://github.com/cloudflare/nimbus/pull/253) [`3fa357f`](https://github.com/cloudflare/nimbus/commit/3fa357fbd7ad5f2f5910cedaa5b2cbe21a404ae0) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - A page collection's files can live anywhere: a glob over a folder outside `src/` gets callouts, components, citations, links, collision checks and lint like a page under `src/content`.
+  - A loader with no files gets citations, links, Markdown versions, `llms.txt` and URL collision checks through `withNimbusMarkdown()`.
+  - Two files with one slug fail the build in any collection, `.md` files included; in collections made with the factories, so does a byte-identical copy.
+  - `sources` in the Nimbus config checks out another git repository at build time; `docsCollection({ source, base })` and `api[].spec: { source, path }` read it.
+  - A pinned commit is fetched once and builds offline; a branch builds from its last snapshot when the remote is down.
+  - `NIMBUS_BUILD_ONLY` fetches only the sources its collections and `api` entries read; `astro dev`, `astro sync` and `astro preview` start without a source they can't fetch, leaving its collections empty, while `astro build` fails naming what reads it.
+  - A `repo` with a token or password in it is refused; credentials come from git.
+  - Pages from a source get the source's `editPattern` and no git date.
+  - A source page with no frontmatter `title` takes its first heading, else its file name; the sidebar never shows a blank label.
+  - Relative links between a source collection's pages (`2-options.md#signal`) become page URLs; a link to a file the collection doesn't publish stays as written, with a warning.
+  - A `ref` that starts with `refs/` (such as `refs/pull/12/head`) is used as written.
+  - `nimbus-docs check` reports `nimbus/source-floating-ref` and `nimbus/source-unreferenced`.
+  - `nimbus-docs lint` reads source snapshots and reports problems by source and repository path; `--fix` never writes them.
+  - `nimbus-docs lint` says how many Markdown (`.md`) pages it leaves out.
+  - `nimbus-docs add source <name|url>` adds a content source: `git` (`github`, `gitlab`, `bitbucket`), `notion`, or a guide for any provider from its docs URL.
+  - `add source notion` has your agent write a Notion loader into the site, with drafts, slugs and ordering from the database's properties. It warns when no row publishes, naming the status values the database uses.
+  - `list --type source` lists the sources.
+  - Each source guide carries its own route, rendering and sidebar steps, ends with what to report to the user, and prints from its first heading.
+
+- [#270](https://github.com/cloudflare/nimbus/pull/270) [`0b30e24`](https://github.com/cloudflare/nimbus/commit/0b30e24899737c94098df4f9b7b34ea1e9dadb26) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - A collection served inside an autogenerated sidebar folder appears in that folder, as a group linking its landing page, so breadcrumbs and previous and next links cross between them. Its `index` page sets the group's label and order, shows only its landing (`hideChildren`) or leaves it out (`sidebar.hidden`); naming it in `sidebar.items`, or linking to its URL there, places it by hand; a labeled `{ autogenerate: { collection } }` group for one links its landing page and holds the collections inside it. A page the sidebar leaves out keeps the breadcrumbs of the folders above it, and a crumb, titled like the page, for each page between there and itself. A docs folder whose only page is its `index` becomes a group to hold such a collection, keeping the page's label. Sites without such a collection build the same sidebar.
+
+- [#244](https://github.com/cloudflare/nimbus/pull/244) [`17bf1ce`](https://github.com/cloudflare/nimbus/commit/17bf1ce27555cb1cfde41384de5cf3baa0ee956d) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `NIMBUS_BUILD_ONLY=docs-es` builds one collection, or a comma-separated set, and leaves the others empty; `dev`, `sync` and `check` ignore it with one notice.
+  - A slice without the `docs` collection writes its sitemap, search bundle, stylesheet, assets and `llms-full.txt` under its prefix, and drops the root files the root slice serves.
+  - The root slice's `llms.txt` lists every collection's `llms.txt`, and search merges the other slices' indexes at runtime.
+  - `nimbus-docs lint` checks links into other slices against the previous build's routes, as warnings.
+  - A slice build fails on an unknown collection, and on docs version collections split across slices. Slices work under Astro's `base`: every URL a slice serves and advertises is under it.
+  - The route list `nimbus-docs lint` checks against reads `_redirects` where the Cloudflare adapter moves it when the site has a `base`, so redirects stay known to link checking.
+  - `searchIndex` in `virtual:nimbus/config` names the search bundles as served URLs, base included. The starter's search provider loads its slice's bundle and merges the others.
+  - A guide, "Build one locale or one part", with the Worker and zone routes per slice and a workflow that builds the slice a pull request touched.
+
+- [#243](https://github.com/cloudflare/nimbus/pull/243) [`5604125`](https://github.com/cloudflare/nimbus/commit/5604125caf0c1be174a63c5c25da79a6b1f52599) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `agents: { mcp: true }` serves a remote MCP server at `/mcp` with `list_pages` and `get_page` over the published Markdown, plus a Server Card at `/mcp/server-card`, a line in `llms.txt` and an entry in the AI catalog. It needs a server adapter and `@modelcontextprotocol/server`; `nimbus-docs check` reports a missing SDK.
+  - The starter shows a "Copy MCP URL" page action that copies the server URL when the server is on. On an existing site, run `nimbus-docs diff src/components/ConnectMcp.astro --apply` and `nimbus-docs diff src/components/connect-mcp.client.ts --apply`, then render `<ConnectMcp />` in one row with `<PageActions />` in `src/layouts/DocsLayout.astro` when `capabilities.mcpUrl` is set, as the Remote MCP server guide shows.
+
+- [#260](https://github.com/cloudflare/nimbus/pull/260) [`0c31e84`](https://github.com/cloudflare/nimbus/commit/0c31e846a224f92eb66552b7e58183ca2e4cccb9) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `add --overwrite` without a terminal keeps components you've edited and exits 1; `--overwrite --yes` replaces them and says how many carried edits.
+  - `add a b` installs both; an unknown slug stops before anything is installed.
+  - `check` says an optional upgrade stays listed until `migrate` records the version as reviewed.
+  - New pnpm sites build pages with local images: `sharp` is a starter dependency.
+  - `astro build --root <site>` from another folder finds the social-card font.
+
+### Patch Changes
+
+- [#266](https://github.com/cloudflare/nimbus/pull/266) [`662c1c8`](https://github.com/cloudflare/nimbus/commit/662c1c89605172cd2fd0f4e66b188009b4d1492a) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `add adapter-cloudflare` in a coding agent session wires the adapter as it does from a shell; the agent gets the recipe only where the CLI can't edit the config safely.
+  - `check` reports a missing `@scalar/openapi-parser` for sites with API collections, and `check --fix --yes` installs it.
+  - Without a terminal, `check` suggests `--fix --yes` or editing by hand, whichever `--fix` can do; `migrate --print` on a preview build says reviews start on a release.
+
+- [#263](https://github.com/cloudflare/nimbus/pull/263) [`46ecb84`](https://github.com/cloudflare/nimbus/commit/46ecb848379db22af91b828ba0c12c66dc4de87e) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `nimbus/image-ref` checks image paths under Astro's `base`: an inline image needs the base written and a reference definition must not repeat it. `lint --fix` repairs both when the file is in `public/`. Its `ignore` patterns are written without the base, as for links.
+  - Under a base, `nimbus-docs lint` now reports inline images written without it, such as `/arch.png`, which can fail CI where it passed before. Those images return 404 on the deployed site.
+
+- [#271](https://github.com/cloudflare/nimbus/pull/271) [`f491c71`](https://github.com/cloudflare/nimbus/commit/f491c712da5bb569e4289943e490d9591075ea5f) Thanks [@mvvmm](https://github.com/mvvmm)! - - `astro dev` renders a page's headings when the page is first requested, not every page at content sync. Startup and each file save no longer scale with the number of docs.
+  - Builds are unchanged.
+
+- [#264](https://github.com/cloudflare/nimbus/pull/264) [`68b9f7c`](https://github.com/cloudflare/nimbus/commit/68b9f7c8c3f2628ed1d27299d0cc66f096211848) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - The API catalog and `ard.json` list every visible API version: a query-addressed version at its query URL, and the non-default versions of a `bundle: false` collection, whose specs are now published too.
+  - Homepage `Link` headers advertise only API family defaults and link to the complete catalog, keeping response headers independent of version count.
+  - `AgentApiPublication.markdownUrl` is now optional, because versions without a Markdown reference have none. Code that reads it from `@cloudflare/nimbus-docs/types` or `virtual:nimbus/agent-capabilities` must handle `undefined`.
+
+- [#252](https://github.com/cloudflare/nimbus/pull/252) [`a7ea698`](https://github.com/cloudflare/nimbus/commit/a7ea698585994e56fcba3d449aa09abf7aec4dc9) Thanks [@sansynx](https://github.com/sansynx)! - `nimbus-docs check` now reports a missing server adapter for `agents.mcp`, request rendering and `api` with `bundle: false`, and a missing MCP SDK, before a build. Adapter errors name every supported host instead of suggesting Cloudflare first. The placeholder `site` warning names Cloudflare Workers only when no other adapter is configured, so a Node site with a leftover `wrangler.jsonc` no longer gets it. The MCP server keeps serving requests on a connection after it rejects an oversized body. Preview builds report starter freshness and diffs correctly, `add adapter-*` keeps the adapter's version range, and `agents: { MCP: true }` suggests `mcp`.
+
 ## 0.18.1
 
 ### Patch Changes
