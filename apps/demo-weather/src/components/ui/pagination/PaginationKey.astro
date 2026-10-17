@@ -1,0 +1,52 @@
+---
+/**
+ * PaginationKey — the key cap that moves to this page. Hidden on touch
+ * screens, and when the bar has `keys={false}`.
+ */
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+
+type Props = HTMLAttributes<"kbd">;
+
+const { class: className, ...attrs } = Astro.props;
+---
+
+<kbd
+  aria-hidden="true"
+  dir="ltr"
+  data-slot="pagination-key"
+  data-nb-pagination-cap
+  class={cn("nb-pagination-key pointer-coarse:hidden", className)}
+  {...attrs}
+><slot /></kbd>
+
+<style>
+  /* A 20px cap with a 1px pressed edge drawn by the shadow; it presses on
+     [ / ] or a click, then the page changes. */
+  .nb-pagination-key {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.3125rem;
+    font: 500 0.75rem/1 var(--nb-font-mono);
+    color: var(--nb-muted-foreground);
+    background: var(--nb-card);
+    border-radius: 0.3125rem;
+    box-shadow: 0 0 0 1px var(--nb-border-strong), 0 1px 0 1px var(--nb-border-strong);
+    transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+  }
+  .nb-pagination-key[data-down] {
+    transform: translateY(1px);
+    box-shadow: 0 0 0 1px var(--nb-border-strong);
+    color: var(--nb-foreground);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nb-pagination-key {
+      transition: none;
+    }
+  }
+</style>

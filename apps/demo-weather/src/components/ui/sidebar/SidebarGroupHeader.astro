@@ -1,0 +1,37 @@
+---
+/**
+ * SidebarGroupHeader — a sidebar group's `<summary>` row: label, optional
+ * leading icon, badge, and a caret drawn by CSS (the summary's `::after`
+ * mask, rotated by `details[open]`). The caller renders it as the first child
+ * of a sidebar `<details>`.
+ *
+ * The summary is label-only: a group's landing page renders as the group's
+ * first child row ("Overview"), so keyboard and screen-reader users get one
+ * disclosure control and one link, never a link nested in a control.
+ *
+ * `deprecated` strikes the label through. The row, caret, and child-list
+ * styling lives in `src/styles/globals.css` ("Sidebar rows").
+ */
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
+import { Badge } from "@/components/ui/badge";
+import type { SidebarBadge } from "@cloudflare/nimbus-docs/types";
+
+interface Props {
+  label: string;
+  /** True when this group is on the active trail — emphasizes the label. */
+  hasActive?: boolean;
+  badge?: SidebarBadge;
+  icon?: string;
+  /** Strike the label through for deprecated sections. */
+  deprecated?: boolean;
+}
+
+const { label, hasActive, badge, icon, deprecated } = Astro.props;
+---
+
+<summary data-nb-active={hasActive ? "" : undefined}>
+  {icon && <Icon name={icon} class="h-4 w-4 shrink-0 text-muted-foreground" />}
+  {deprecated ? <span class="line-through">{label}</span> : label}
+  {badge &&
+    (typeof badge === "string" ? <Badge text={badge} /> : <Badge text={badge.text} variant={badge.variant} />)}
+</summary>

@@ -1,0 +1,30 @@
+---
+title: Rate limits
+description: Per-second and per-day limits, the headers that report them, and how to back off.
+sidebar:
+  order: 4
+---
+
+Limits protect the API from bursts, and your bill from bugs.
+
+## Your limits
+
+Each plan has a per-second and a per-day limit for each product. [Get your limits](api.ref:api:getRateLimits) to see the current values, and [get usage](api.ref:api:getUsage) for what you've used so far.
+
+## Headers on every response
+
+Every response reports where you stand:
+
+| Header | Meaning |
+|---|---|
+| `RateLimit-Limit` | Requests allowed in the current window. |
+| `RateLimit-Remaining` | Requests left. |
+| `RateLimit-Reset` | Seconds until the window resets. |
+
+## When you go over
+
+A request over the limit gets `429` with `type: rate_limited` and a `Retry-After` header. Wait that many seconds before retrying, and add jitter if you run many workers so they don't all retry at once.
+
+## Stay under your limits
+
+Forecast data changes at most every 15 minutes, and observations every 10. Caching responses for that long is the cheapest way to stay under your limits. For many places at once, one [batch request](/guides/batch-forecasts) replaces up to 100 calls' worth of round trips, though each point still counts as one call.

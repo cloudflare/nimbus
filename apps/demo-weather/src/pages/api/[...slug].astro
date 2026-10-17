@@ -1,0 +1,38 @@
+---
+import { getApiRoute, getApiStaticPaths } from "@cloudflare/nimbus-docs/runtime";
+import Header from "@/components/Header.astro";
+import { ApiLayout } from "@/components/ui/api-layout";
+import { VersionSwitcher } from "@/components/ui/version-switcher";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+
+export const prerender = true;
+export const getStaticPaths = getApiStaticPaths("api");
+
+const result = await getApiRoute(Astro);
+if (result instanceof Response) return result;
+const { page, nav, collection, version, coordinate } = result;
+// The generated per-page card exists for the default version's version-free
+// URL; a non-default query-mode page (its href carries the version query) uses
+// the site's shared social image instead. The card path derives from the
+// documentation pathname, never from `page.href` verbatim — the query would
+// land inside the file name.
+const pagePathname = new URL(page.href, Astro.url).pathname;
+const socialImage = new URL(page.href, Astro.url).search
+  ? undefined
+  : `/og${pagePathname.replace(/\/$/, "")}.png`;
+---
+
+<BaseLayout
+  title={page.kind === "api" ? "API reference" : `${page.title} · API reference`}
+  description={page.description}
+  markdownUrl={page.markdownHref}
+  socialImage={socialImage}
+  collection={collection}
+  apiVersion={version ?? undefined}
+  coordinate={coordinate}
+>
+  <Header showSidebar collection={collection}>
+    <VersionSwitcher slot="actions" apiCollection={collection} apiVersion={version} coordinate={coordinate} />
+  </Header>
+  <ApiLayout page={page} nav={nav} collection={collection} version={version} coordinate={coordinate} />
+</BaseLayout>

@@ -1,0 +1,96 @@
+---
+/**
+ * Aside — a note, tip, caution or danger callout.
+ *
+ *   <Aside type="tip" title="Before you start">Install Node 22.</Aside>
+ *
+ * For a rich title, pass it as a slot: <Fragment slot="title">Uses <code>env</code></Fragment>.
+ * Each type's colour comes from CSS keyed on `data-type`, so a site can add
+ * its own type with a rule and an icon.
+ */
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"aside"> {
+  // Uses `type` (not `variant`) to match the conventional <Aside type="…"> authoring API.
+  type?: "note" | "tip" | "caution" | "danger";
+  title?: string;
+  /** Iconify name; replaces the type's icon. */
+  icon?: string;
+}
+
+const { type = "note", title, icon, class: className, ...attrs } = Astro.props;
+
+const defaults: Record<string, { label: string; icon: string }> = {
+  note:    { label: "Note",    icon: "ph:info" },
+  tip:     { label: "Tip",     icon: "ph:lightbulb" },
+  caution: { label: "Caution", icon: "ph:warning" },
+  danger:  { label: "Danger",  icon: "ph:warning-circle" },
+};
+
+const d = defaults[type] ?? defaults.note;
+const hasTitleSlot = Astro.slots.has("title");
+const displayTitle = title ?? d.label;
+---
+
+<aside
+  role="note"
+  aria-label={hasTitleSlot ? undefined : displayTitle}
+  data-slot="aside"
+  data-type={type}
+  class={cn("aside-card flex items-start gap-3 rounded-lg px-4 py-3 my-6", className)}
+  {...attrs}
+>
+  <span data-slot="aside-icon" class="aside-card-icon shrink-0 flex items-center h-6" aria-hidden="true">
+    <slot name="icon"><Icon name={icon ?? d.icon} class="size-4" /></slot>
+  </span>
+  <div class="flex min-w-0 flex-1 flex-col text-sm leading-6">
+    <p data-slot="aside-title" class="aside-card-title m-0 font-semibold">
+      <slot name="title">{displayTitle}</slot>
+    </p>
+    <div data-slot="aside-content" class="aside-card-body">
+      <slot />
+    </div>
+  </div>
+</aside>
+
+<style>
+  .aside-card {
+    --_c: var(--nb-info);
+    --_f: var(--nb-info-foreground);
+    --_t: var(--nb-info-muted);
+    border: 1px solid color-mix(in oklch, var(--_c) 25%, transparent);
+    background: var(--_t);
+  }
+  .aside-card[data-type="tip"]     { --_c: var(--nb-success); --_f: var(--nb-success-foreground); --_t: var(--nb-success-muted); }
+  .aside-card[data-type="caution"] { --_c: var(--nb-warning); --_f: var(--nb-warning-foreground); --_t: var(--nb-warning-muted); }
+  .aside-card[data-type="danger"]  { --_c: var(--nb-danger);  --_f: var(--nb-danger-foreground);  --_t: var(--nb-danger-muted); }
+
+  /* Icon + title in the type's text colour; body text stays readable.
+     --_c tints the border and inline code, --_f is for text. */
+  .aside-card-icon,
+  .aside-card-title { color: var(--_f); }
+  .aside-card-body { color: var(--nb-foreground); }
+
+  .aside-card-body :global(p) { margin: 0; }
+  .aside-card-body :global(p + p) { margin-top: 0.5rem; }
+  .aside-card-body :global(a) { color: var(--nb-foreground); font-weight: 500; text-decoration: underline; text-decoration-color: var(--nb-border-strong); text-underline-offset: 4px; }
+
+  /* Inline code only — exclude code inside Expressive Code pre blocks */
+  .aside-card-body :global(code:not(:where(pre *))) {
+    font-family: var(--nb-font-mono);
+    font-size: 0.875em;
+    background: color-mix(in oklch, var(--_c) 10%, transparent);
+    border: 1px solid color-mix(in oklch, var(--_c) 15%, transparent);
+    border-radius: var(--nb-radius-sm);
+    padding: 0.125rem 0.3125rem;
+    line-height: 1;
+  }
+  .aside-card-body :global(strong) { font-weight: 600; color: var(--nb-foreground); }
+
+  /* Shiki code blocks inside Asides */
+  .aside-card-body :global(.astro-code) {
+    margin: 0.75rem 0;
+  }
+</style>

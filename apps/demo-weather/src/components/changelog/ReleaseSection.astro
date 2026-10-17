@@ -1,0 +1,23 @@
+---
+/**
+ * A section of a release note ("New", "Improved", "Deprecated", "Fixed"). On
+ * the release's own page it's an h2 with an id, for "On this page". The
+ * changelog page swaps in ReleaseSectionCompact, an h4 without one, because
+ * there each release is an h3 under its year and every release has its own
+ * "New".
+ */
+import { releaseSectionId } from "./release";
+
+interface Props {
+  title: string;
+  level?: 2 | 4;
+}
+
+const { title, level = 2 } = Astro.props;
+const Heading = level === 2 ? "h2" : "h4";
+---
+
+<section class="cl-section">
+  <Heading id={level === 2 ? releaseSectionId(title) : undefined}>{title}</Heading>
+  <slot />
+</section>

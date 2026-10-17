@@ -1,0 +1,23 @@
+---
+/**
+ * CollapsibleTrigger — the button that toggles the Collapsible.
+ * Slot accepts arbitrary content; component author provides full visuals.
+ */
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"button"> {}
+
+// A composing component can pass its own `data-slot` in place of this one.
+const { class: className, type, "data-slot": slot = "collapsible-trigger", ...attrs } = Astro.props;
+---
+
+<button
+  data-slot={slot}
+  type={type ?? "button"}
+  data-nb-collapsible-trigger
+  class={cn("w-full text-start cursor-pointer select-none", className)}
+  {...attrs}
+>
+  <slot />
+</button>

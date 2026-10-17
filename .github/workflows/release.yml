@@ -258,3 +258,51 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  # The weather demo builds against the framework at the same release commit,
+  # so it never shows a Nimbus older than the one on npm.
+  deploy-demo-weather:
+    name: Deploy the weather demo
+    needs: [build-www, deploy-www]
+    if: ${{ !cancelled() && needs.deploy-www.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ needs.build-www.outputs.sha }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm --filter "@nimbus/demo-weather..." build
+
+      - name: Deploy
+        working-directory: apps/demo-weather
+        run: |
+          set -o pipefail
+          # A rerun of an older release must not replace a newer demo.
+          for pkg in nimbus-docs create-nimbus-docs; do
+            expected=$(jq -r .version "../../packages/$pkg/package.json")
+            latest=$(npm view "@cloudflare/$pkg" dist-tags.latest --json | jq -er '.')
+            if [ "$expected" != "$latest" ]; then
+              echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is $latest. Refusing to replace the newer demo."
+              exit 1
+            fi
+          done
+          pnpm exec wrangler deploy
+          curl --fail --show-error --silent --retry 5 --retry-delay 3 -o /dev/null https://weather.nimbus-docs.com/
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

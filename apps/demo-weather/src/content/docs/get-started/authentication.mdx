@@ -1,0 +1,49 @@
+---
+title: Authentication
+description: Send your API key as a bearer token. Account endpoints use OAuth client credentials.
+sidebar:
+  order: 2
+---
+
+Every request carries an API key. Account management, such as keys and members, uses an OAuth token instead.
+
+## Send your key
+
+Send your key in the `Authorization` header:
+
+```http
+GET /v2/forecasts/daily?latitude=59.91&longitude=10.75 HTTP/1.1
+Host: api.weather.example
+Authorization: Bearer wx_live_9bR4Tq0sXk1mZp8vYw2c
+```
+
+Keys starting `wx_live_` are billed. Keys starting `wx_test_` return realistic fixed data and are free. A missing, invalid, or revoked key gets `401` with `type: authentication`; see [Errors](/concepts/errors).
+
+## Scopes
+
+A key can be limited to the products it needs:
+
+| Scope | Allows |
+|---|---|
+| `weather:read` | Forecasts, observations, alerts, imagery, history |
+| `stations:write` | Registering private stations and submitting readings |
+| `alerts:manage` | Creating and changing alert subscriptions |
+| `exports:create` | Starting bulk exports |
+
+A key without the scope an endpoint needs gets `403` with `type: permission`.
+
+## Keys in the browser
+
+A key used from a browser is visible to anyone. Give browser keys only `weather:read` and set `allowed_origins` when you [create the key](api.ref:api:createApiKey).
+
+<Aside type="caution">
+Never ship a key with `stations:write`, `alerts:manage`, or `exports:create` to a browser or a mobile app. Call those endpoints from your server.
+</Aside>
+
+## Account endpoints
+
+Managing keys, members, and the audit log needs an OAuth access token from the client-credentials flow, not an API key. Request one from `https://auth.weather.example/oauth/token` with the `account` scope.
+
+## Rotate a key
+
+[Rotate a key](api.ref:api:rotateApiKey) to get a new secret while the old one keeps working for a grace period, so you can deploy the change without downtime. [Revoke a key](api.ref:api:revokeApiKey) to stop it at once.

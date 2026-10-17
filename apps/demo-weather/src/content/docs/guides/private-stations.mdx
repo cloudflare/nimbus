@@ -1,0 +1,61 @@
+---
+title: Report from your own station
+description: Register a private station, add its sensors, send readings, and keep an eye on its health.
+sidebar:
+  order: 3
+---
+
+Run your own sensors, on a rooftop or a farm, and the API stores their readings alongside the public network, quality-checks them, and serves them back through the same observation endpoints.
+
+## Before you begin
+
+You need a key with the `stations:write` scope. See [Authentication](/get-started/authentication).
+
+## Set up the station
+
+<Steps>
+<Step>
+
+**Register it.** Give it a name, a position, and how often it reports ([reference](api.ref:api:createStation)):
+
+```sh
+curl https://api.weather.example/v2/stations \
+  -H "Authorization: Bearer $WEATHER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "Rooftop – Grünerløkka", "latitude": 59.9236, "longitude": 10.7591, "elevation": 34, "reporting_interval": 5 }'
+```
+
+The response has the station's id, such as `stn_01492`. Private stations are visible only to your organization until you set `public` to `true`.
+
+</Step>
+<Step>
+
+**Add its sensors.** [Add a sensor](api.ref:api:addSensor) for each instrument, so quality control knows what each reading came from.
+
+</Step>
+<Step>
+
+**Send readings.** [Submit readings](api.ref:api:submitReadings) in batches of up to 1,000, as JSON or as a logger file uploaded as multipart form data:
+
+```json
+{
+  "readings": [
+    { "observed_at": "2026-01-14T07:55:00Z", "temperature": -2.6, "humidity": 84, "pressure": 1009.8, "wind_speed": 3.9, "wind_direction": 15 }
+  ]
+}
+```
+
+</Step>
+</Steps>
+
+<Aside>
+Readings are always sent in SI units, whatever `units` you read them back in: °C, percent, hPa at station level, m/s, and degrees true.
+</Aside>
+
+## Keep it accurate
+
+When you service a sensor, [record a calibration](api.ref:api:recordCalibration); readings after its date are corrected with the new offset. [List readings](api.ref:api:listReadings) to see what was stored, corrected, or flagged.
+
+## Watch its health
+
+[Get station health](api.ref:api:getStationHealth) reports the last 7 days: `completeness` is the share of expected reports that arrived, `suspect_readings` counts what quality control flagged, and `issues` names problems such as `stale`, `frozen_sensor`, `out_of_range`, or `clock_drift`.

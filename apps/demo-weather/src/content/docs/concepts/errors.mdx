@@ -1,0 +1,44 @@
+---
+title: Errors
+description: Every error has the same shape, a stable code, and a request id.
+sidebar:
+  order: 5
+---
+
+Errors use standard HTTP status codes and one JSON shape, so one handler covers every endpoint.
+
+## The error shape
+
+```json
+{
+  "error": {
+    "type": "invalid_request",
+    "code": "parameter_out_of_range",
+    "message": "latitude must be between -90 and 90.",
+    "param": "latitude",
+    "request_id": "req_7Kq2LmB3x9"
+  }
+}
+```
+
+Match on `code`, not `message`. Messages may change; codes don't. `param` names the parameter at fault when there is one.
+
+## Status codes
+
+| Status | `type` | Meaning |
+|---|---|---|
+| 400 | `invalid_request` | A parameter is missing, malformed, or out of range. |
+| 401 | `authentication` | The key is missing, invalid, or revoked. |
+| 403 | `permission` | The key lacks the scope for this endpoint. |
+| 404 | `not_found` | The resource doesn't exist, or belongs to another organization. |
+| 409 | `invalid_request` | The resource isn't ready, such as downloading an unfinished export. |
+| 429 | `rate_limited` | Too many requests. See [Rate limits](/concepts/rate-limits). |
+| 5xx | `server` | Something failed on our side. Retry with backoff. |
+
+## Retrying
+
+Retry `429` after `Retry-After`, and `5xx` with exponential backoff. Don't retry `4xx` errors other than `429`: the same request fails the same way.
+
+## Getting help
+
+Include `request_id` when you contact support. It finds your request in our logs without any other detail.

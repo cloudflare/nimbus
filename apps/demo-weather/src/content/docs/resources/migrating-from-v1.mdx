@@ -1,0 +1,48 @@
+---
+title: Migrate from v1
+description: What changed in v2, and how to move before v1 stops responding on 2026-12-31.
+sidebar:
+  order: 2
+---
+
+Everything that changed between v1 and v2, and what to change in your code. Most clients need the authentication, units, and endpoint changes; read the rest if you use pagination or alerts.
+
+<Aside type="caution">
+v1 stops responding on 2026-12-31. Requests after that date return `410 Gone`.
+</Aside>
+
+## Authentication
+
+v1 took the key as a `key` query parameter, which leaked into logs and browser history. v2 takes it as a bearer token. See [Authentication](/get-started/authentication).
+
+## Units
+
+v1 returned imperial units only, in fields named for them (`temp_f`, `wind_mph`). v2 returns neutral names (`temperature`, `wind.speed`) in the units you ask for. Pass `units=imperial` to keep v1's values.
+
+| v1 | v2 |
+|---|---|
+| `temp_f` | `temperature` |
+| `feels_like_f` | `feels_like` |
+| `wind_mph`, `wind_dir` | `wind.speed`, `wind.direction` (degrees, not compass points) |
+| `condition` (text) | `condition.code`, `condition.label`, `condition.text` |
+| `lat`, `lon` | `latitude`, `longitude`, nested under `coordinates` |
+
+## Endpoints
+
+| v1 | v2 |
+|---|---|
+| [`GET /forecast`](api.ref:api@v1:getForecast) | [`GET /forecasts/daily`](api.ref:api:getDailyForecast) |
+| `GET /forecast/hourly` | `GET /forecasts/hourly` |
+| [`GET /current`](api.ref:api@v1:getCurrent) | [`GET /observations/nearest`](api.ref:api:getNearestObservation) |
+| `GET /stations/{id}/observations/latest` | Same path, now [`getLatestObservation`](api.ref:api:getLatestObservation) |
+| `GET /radar/{z}/{x}/{y}.png` | `GET /tiles/radar/{z}/{x}/{y}.png` |
+| `GET /history` | `GET /history/daily`, or an export for long ranges |
+| `GET /ping` | `GET /status` |
+
+## Pagination
+
+Page numbers (`page`, `per_page`) became cursors (`cursor`, `limit`). See [Pagination](/concepts/pagination).
+
+## Alerts
+
+v1's three levels (`advisory`, `watch`, `warning`) became the Common Alerting Protocol's `severity`, `urgency`, and `certainty`. Each alert now has an `event` type that says which `details` it carries.

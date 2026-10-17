@@ -148,7 +148,7 @@ const labelId = `nb-version-picker-${Math.random().toString(36).slice(2, 9)}`;
   <Popover data-slot="version-switcher" class={cn("inline-block", className)}>
     <PopoverTrigger
       class="inline-flex items-center gap-1.5 h-8 px-2 sm:px-2.5 rounded-md text-[0.8125rem] font-medium whitespace-nowrap text-muted-foreground hover:text-foreground hover:bg-accent transition-colors aria-[expanded=true]:bg-accent aria-[expanded=true]:text-foreground"
-      aria-label={`Switch version (current: ${activeLabel})`}
+      aria-label={`${activeLabel}, switch version`}
     >
       {/* Phones keep the label and caret; the icon returns from 640px. */}
       <Icon name="ph:git-branch" class="hidden sm:block w-3.5 h-3.5" />

@@ -1,0 +1,23 @@
+---
+title: Minute-by-minute precipitation for the next two hours
+description: Radar nowcasting at five-minute steps, for "rain in 12 minutes" moments.
+date: 2026-05-19
+version: "2.9.0"
+tags: [Forecasts]
+---
+
+Precipitation for the next two hours, minute by minute.
+
+<ReleaseSection title="New">
+
+
+- [Minute-by-minute precipitation](/api/forecasts/get-minutely-precipitation/) returns precipitation intensity for the next two hours in five-minute steps, from radar nowcasting.
+
+</ReleaseSection>
+
+<ReleaseSection title="Coverage">
+
+
+Europe and North America at launch. Elsewhere the endpoint returns `404` with the code `coverage_unavailable`.
+
+</ReleaseSection>

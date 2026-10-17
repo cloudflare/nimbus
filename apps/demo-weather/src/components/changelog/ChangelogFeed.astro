@@ -1,0 +1,74 @@
+---
+/**
+ * ChangelogFeed — releases, newest first, under a heading per year.
+ * Renders inside the docs prose column; the page's table of contents lists
+ * the same years and versions.
+ */
+import type { CollectionEntry } from "astro:content";
+import ChangelogEntry from "./ChangelogEntry.astro";
+import { byYear } from "./release";
+
+interface Props {
+  entries: CollectionEntry<"changelog">[];
+}
+---
+
+{byYear(Astro.props.entries).map(([year, entries]) => (
+  <>
+    <h2 id={`y${year}`}>{year}</h2>
+    {entries.map((entry) => <ChangelogEntry entry={entry} />)}
+  </>
+))}
+
+<style>
+  :global(.cl-release) {
+    margin-top: 2rem;
+    padding-bottom: 2.5rem;
+    border-bottom: 1px solid var(--nb-border);
+  }
+  :global(.cl-release:last-child) {
+    border-bottom: 0;
+  }
+  :global(.docs-content .cl-meta) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.625rem;
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+    color: var(--nb-muted-foreground);
+  }
+  :global(.cl-meta > * + *::before) {
+    content: "·";
+    margin-inline-end: 0.625rem;
+    color: var(--nb-border-strong);
+  }
+  :global(.cl-version) {
+    font-family: var(--nb-font-mono);
+    font-weight: 500;
+    color: var(--nb-foreground);
+  }
+  /* The release is one prose block: the docs rhythm, scoped inside it. */
+  :global(.cl-release > * + *) {
+    margin-top: 1.25rem;
+  }
+  :global(.cl-release > h3) {
+    margin-top: 0.375rem;
+    /* Land with the meta line above it in view. */
+    scroll-margin-top: 6.5rem;
+  }
+  :global(.cl-release > h3 + *) {
+    margin-top: 0.75rem;
+  }
+  :global(.cl-release > h3 a) {
+    color: inherit;
+    font-weight: inherit;
+    text-decoration: none;
+  }
+  :global(.cl-release > h3 a:hover) {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-thickness: 1px;
+  }
+</style>

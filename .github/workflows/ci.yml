@@ -107,6 +107,31 @@ jobs:
 
       - run: pnpm --filter "@nimbus/www..." build
 
+  # The weather demo is deployed with each release; check and build it on
+  # every PR so a framework or starter change that breaks it fails here.
+  demo-weather:
+    name: Weather demo build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter "@nimbus/demo-weather^..." build
+
+      - run: pnpm --filter @nimbus/demo-weather check
+
+      - run: pnpm --filter @nimbus/demo-weather build
+
   windows-child-process:
     name: Windows child process
     runs-on: windows-latest

@@ -1,0 +1,23 @@
+---
+title: Lightning proximity, and Parquet exports
+description: Version 2.7.0 adds lightning proximity for outdoor-safety decisions and Parquet as an export format.
+date: 2025-11-03
+version: "2.7.0"
+tags: [Alerts, Exports]
+---
+
+Lightning data for outdoor-safety decisions, and a faster export format.
+
+<ReleaseSection title="New">
+
+
+- [Get lightning proximity](/api/lightning/get-lightning-proximity/) returns the nearest strike in the last 30 minutes, its distance and bearing, and whether activity is approaching. Built for "clear the field" decisions at stadiums, pools, and worksites.
+
+</ReleaseSection>
+
+<ReleaseSection title="Improved">
+
+
+- Exports can now be written as Parquet as well as CSV and JSON. Set `format: "parquet"` when you create the export.
+
+</ReleaseSection>

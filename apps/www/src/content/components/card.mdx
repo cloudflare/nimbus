@@ -8,6 +8,9 @@ props:
   - name: icon
     type: string
     description: "Iconify name (e.g. `ph:lightning`) rendered above the title. For a custom mark, pass an `icon` slot."
+  - name: href
+    type: string
+    description: Makes the whole card a link. A linked card's title is text, not a heading, since the link names it.
 ---
 import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";
@@ -52,6 +55,20 @@ Iconify slugs work out of the box — use any `ph:*` (Phosphor) name.
   <div class="w-full">
     <Card title="Agent-ready" icon="ph:robot">
       Every page ships a markdown alternate so agents read content without parsing chrome.
+    </Card>
+  </div>
+</Example>
+
+### Linked
+
+With `href`, the whole card is the link, for a row of places to start.
+
+<Example code={`<Card title="Quickstart" icon="ph:lightning" href="/get-started/">
+  Install Nimbus and publish your first page.
+</Card>`} contentClass="w-full">
+  <div class="w-full">
+    <Card title="Quickstart" icon="ph:lightning" href="/get-started/">
+      Install Nimbus and publish your first page.
     </Card>
   </div>
 </Example>

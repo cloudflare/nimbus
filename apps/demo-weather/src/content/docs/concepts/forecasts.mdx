@@ -1,0 +1,81 @@
+---
+title: How forecasts are made
+description: From observations to the numbers in a response, and what the pipeline means for the data you get.
+sidebar:
+  order: 0
+---
+
+import { ForecastPipeline } from "@/components/diagrams/ForecastPipeline";
+
+Every forecast the API returns comes out of the same hourly pipeline. Knowing its shape explains why a forecast changes between two requests, why `generated_at` matters, and which endpoint to use for which horizon.
+
+## From observation to response
+
+<ForecastPipeline client:visible />
+
+Observations feed a single picture of the atmosphere, three models run forward from it, and a blend chooses between them. The [daily](api.ref:api:getDailyForecast), [hourly](api.ref:api:getHourlyForecast), and [minutely](api.ref:api:getMinutelyPrecipitation) endpoints all read from the blend.
+
+## Observations
+
+Three sources report what the weather is doing now:
+
+- **Stations**: 40,000 ground stations report temperature, wind, pressure, and precipitation, most of them every 10 minutes. [Private stations](/guides/private-stations) you run feed in too.
+- **Satellites**: geostationary imagery every 10 minutes, and polar passes for the high latitudes.
+- **Radar**: a composite scan every 5 minutes, which shows where precipitation is falling and how hard.
+
+![Composite radar over southern Norway at 06:00 UTC: a band of light snow crosses the country from the southwest, with a heavier core just north of Oslo.](/images/radar-composite.svg)
+
+The radar composite above is the same data the nowcast extrapolates, and the same data behind the [radar tiles](api.ref:api:getTile).
+
+## Three models, one blend
+
+Each model trades reach for detail. The blend weights them by lead time: nowcast dominates the first hour, regional the first three days, and global the rest.
+
+<Tabs syncKey="model">
+<TabItem label="Global">
+
+The global model covers the whole planet and sees furthest.
+
+| Property | Value |
+|---|---|
+| Grid spacing | 9 km |
+| New run | Every 6 hours |
+| Looks ahead | 16 days |
+| Best for | Planning a week or more out |
+
+</TabItem>
+<TabItem label="Regional">
+
+The regional model resolves terrain, coastlines, and showers the global grid is too coarse to see.
+
+| Property | Value |
+|---|---|
+| Grid spacing | 2.5 km |
+| New run | Every hour |
+| Looks ahead | 3 days |
+| Best for | Tomorrow's timing, mountains, coasts |
+
+</TabItem>
+<TabItem label="Nowcast">
+
+The nowcast doesn't simulate the atmosphere. It moves the latest radar scan forward along the observed motion.
+
+| Property | Value |
+|---|---|
+| Grid spacing | 1 km |
+| New run | Every 5 minutes |
+| Looks ahead | 2 hours |
+| Best for | Will it rain in the next hour |
+
+</TabItem>
+</Tabs>
+
+## When a forecast changes
+
+A response is a snapshot of the latest blend. `generated_at` is when the run behind it finished, in UTC, so two responses with the same `generated_at` hold the same forecast.
+
+<Aside type="tip">
+Cache a forecast until the next run, not for a fixed time. Daily forecasts change at most every hour; minutely precipitation can change every 5 minutes.
+</Aside>
+
+A forecast is the most likely outcome, not a promise. For the spread of possible outcomes, the [v3 preview](/concepts/versioning#the-v3-preview) adds ensemble forecasts.

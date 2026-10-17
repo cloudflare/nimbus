@@ -1,0 +1,49 @@
+---
+title: Forecast many places at once
+description: Get daily or hourly forecasts for up to 100 points in one request, and match each result to your own ids.
+sidebar:
+  order: 2
+---
+
+A fleet of warehouses, a list of stores, a delivery route: when you need forecasts for many places, ask for them in one request instead of one each.
+
+## Send a batch
+
+[Get forecasts for many points](api.ref:api:batchForecasts) takes up to 100 points and a forecast `kind`, `daily` or `hourly`. Give each point a `ref` of your own; it comes back with its result.
+
+```sh
+curl https://api.weather.example/v2/forecasts/batch \
+  -H "Authorization: Bearer $WEATHER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "kind": "daily",
+    "units": "metric",
+    "points": [
+      { "latitude": 59.9139, "longitude": 10.7522, "ref": "warehouse-12" },
+      { "latitude": 60.3913, "longitude": 5.3221, "ref": "warehouse-31" }
+    ]
+  }'
+```
+
+## Read the results
+
+Results come back with your `ref`, a `status`, and a `forecast` in the same shape as a single-point request:
+
+```json
+{
+  "results": [
+    { "ref": "warehouse-12", "status": "ok", "forecast": { "location": { "name": "Oslo" }, "days": [ ... ] } },
+    { "ref": "warehouse-31", "status": "ok", "forecast": { "location": { "name": "Bergen" }, "days": [ ... ] } }
+  ]
+}
+```
+
+Match results on `ref`, not position. A point that fails has `status: error` while the others still succeed, so one bad coordinate never fails the batch.
+
+## More than 100 points
+
+Split the list into batches of 100 and send them in sequence, or a few at a time within your [rate limits](/concepts/rate-limits).
+
+## Billing
+
+Each point counts as one call, so a batch of 100 costs the same as 100 single requests. What you save is round trips: one request, one response, one retry if something fails.

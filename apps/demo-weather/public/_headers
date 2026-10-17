@@ -1,0 +1,4 @@
+# Hashed build files never change, so browsers keep them for a year without
+# asking again. Hosts that don't read _headers ignore this file.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable

@@ -1,0 +1,57 @@
+---
+/**
+ * TabsList — container for tab triggers with animated indicator bar.
+ * Renders `role="tablist"` with a sliding underline indicator.
+ */
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"div"> {}
+
+const { class: className, ...attrs } = Astro.props;
+---
+
+<div
+  data-nb-tabs-list
+  class={cn(
+    // Scroll horizontally when the triggers exceed the column instead of
+    // leaking past the page. Scrollbar hidden so it doesn't collide with the
+    // underline/indicator on classic-scrollbar platforms; the strip stays
+    // scrollable via wheel/touch and the tabs remain keyboard-navigable.
+    "relative flex overflow-x-auto overscroll-x-contain border-b border-border",
+    "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+    className,
+  )}
+  role="tablist"
+  data-slot="tabs-list"
+  {...attrs}
+>
+  <span
+    class="pointer-events-none absolute bottom-0 h-0.5 rounded-t-sm bg-brand transition-[left,width] duration-200 ease-out"
+    data-nb-tabs-indicator
+    data-slot="tabs-indicator"
+    aria-hidden="true"
+  ></span>
+  <slot />
+</div>
+
+<style>
+  /* A strip that scrolls fades at the edge with more tabs behind it, since its
+     scrollbar is hidden. tabs.client.ts sets data-overflow. */
+  [data-nb-tabs-list][data-overflow="end"] {
+    mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+  }
+  [data-nb-tabs-list][data-overflow="start"] {
+    mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent);
+  }
+  [data-nb-tabs-list][data-overflow="both"] {
+    mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
+  }
+  /* Right to left, the strip starts at the right edge. */
+  [data-nb-tabs-list][data-overflow="end"]:dir(rtl) {
+    mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent);
+  }
+  [data-nb-tabs-list][data-overflow="start"]:dir(rtl) {
+    mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+  }
+</style>

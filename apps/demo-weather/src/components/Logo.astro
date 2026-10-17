@@ -1,0 +1,15 @@
+---
+/**
+ * The Sample Co logo: the cloud mark and the name, in the text colour. The
+ * header and the drawer size the mark with `class`; the name follows it.
+ */
+import CloudMark from "./CloudMark.astro";
+
+interface Props { class?: string }
+const { class: cls = "h-5 w-8 shrink-0" } = Astro.props;
+---
+
+<span class="inline-flex items-center gap-2" aria-hidden="true">
+  <CloudMark class={cls} />
+  <span class="text-[0.9375rem] font-semibold tracking-[-0.01em]">Sample Co</span>
+</span>

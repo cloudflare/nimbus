@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1400" viewBox="0 0 2400 1400" font-family="Inter, system-ui, sans-serif">
+  <defs>
+    <filter id="rain" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="120" xChannelSelector="R" yChannelSelector="G" result="d"/>
+      <feGaussianBlur in="d" stdDeviation="10"/>
+    </filter>
+    <filter id="coast" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="4" seed="3" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="40" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <pattern id="grid" width="200" height="200" patternUnits="userSpaceOnUse">
+      <path d="M200 0H0V200" fill="none" stroke="#9fb3c8" stroke-opacity="0.35" stroke-width="1.5"/>
+    </pattern>
+    <linearGradient id="scale" x1="0" x2="1">
+      <stop offset="0" stop-color="#b7e4c7"/>
+      <stop offset="0.3" stop-color="#52b788"/>
+      <stop offset="0.55" stop-color="#f4d35e"/>
+      <stop offset="0.8" stop-color="#f08c3a"/>
+      <stop offset="1" stop-color="#d1495b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Sea and land -->
+  <rect width="2400" height="1400" fill="#e6eef5"/>
+  <g filter="url(#coast)" fill="#f4f1ea" stroke="#c9c2b2" stroke-width="3">
+    <path d="M520 0 H2400 V1400 H1500 C1460 1300 1400 1240 1330 1230 C1250 1220 1210 1160 1160 1100 C1110 1040 1020 1060 960 1010 C900 960 860 900 780 880 C700 860 650 780 600 720 C560 670 470 650 430 590 C390 530 420 470 380 410 C340 350 300 300 330 230 C360 160 450 120 470 60 Z"/>
+    <path d="M140 980 C220 930 320 950 360 1010 C400 1070 330 1130 250 1120 C170 1110 90 1040 140 980 Z"/>
+  </g>
+  <!-- Fjords and lakes -->
+  <g fill="#e6eef5" stroke="#c9c2b2" stroke-width="2.5" filter="url(#coast)">
+    <path d="M1240 1180 C1270 1080 1300 980 1320 900 C1330 860 1350 860 1352 900 C1350 990 1320 1090 1290 1200 Z"/>
+    <path d="M700 820 C760 760 830 740 900 700 C920 690 930 705 915 718 C850 760 780 800 730 850 Z"/>
+    <ellipse cx="1540" cy="640" rx="60" ry="26"/>
+    <ellipse cx="1720" cy="980" rx="38" ry="18"/>
+  </g>
+  <rect width="2400" height="1400" fill="url(#grid)"/>
+
+  <!-- Precipitation: a band of snow moving east, with heavier cores -->
+  <g filter="url(#rain)" opacity="0.88">
+    <path d="M820 1100 C900 820 1100 600 1380 470 C1600 370 1820 360 1960 420 C2020 450 1990 520 1900 540 C1700 590 1520 700 1420 860 C1340 990 1300 1120 1180 1180 C1040 1250 860 1230 820 1100 Z" fill="#b7e4c7"/>
+    <path d="M960 1040 C1030 860 1180 700 1400 590 C1560 510 1720 490 1820 520 C1760 580 1600 640 1500 760 C1420 860 1380 990 1260 1070 C1150 1140 1000 1130 960 1040 Z" fill="#52b788"/>
+    <path d="M1120 960 C1180 860 1290 760 1420 700 C1500 670 1560 680 1540 720 C1480 790 1420 880 1350 950 C1280 1010 1160 1020 1120 960 Z" fill="#f4d35e"/>
+    <ellipse cx="1330" cy="860" rx="70" ry="44" fill="#f08c3a" transform="rotate(-35 1330 860)"/>
+    <ellipse cx="1350" cy="845" rx="24" ry="16" fill="#d1495b" transform="rotate(-35 1350 845)"/>
+    <path d="M360 520 C420 470 520 470 560 520 C600 570 540 640 460 640 C380 640 310 580 360 520 Z" fill="#b7e4c7"/>
+    <path d="M410 545 C450 520 500 525 515 555 C525 585 485 610 445 605 C405 600 385 565 410 545 Z" fill="#52b788"/>
+  </g>
+
+  <!-- Places -->
+  <g font-size="30" font-weight="500" fill="#1f2a37">
+    <circle cx="1300" cy="1000" r="9" fill="#1f2a37"/><text x="1320" y="1032">Oslo</text>
+    <circle cx="625" cy="722" r="7" fill="#1f2a37"/><text x="643" y="712">Bergen</text>
+    <circle cx="250" cy="1040" r="7" fill="#1f2a37"/><text x="200" y="1090">Stavanger</text>
+    <circle cx="1210" cy="250" r="7" fill="#1f2a37"/><text x="1228" y="280">Trondheim</text>
+    <circle cx="2010" cy="1060" r="7" fill="#1f2a37"/><text x="2028" y="1090">Karlstad</text>
+  </g>
+
+  <!-- Title -->
+  <g>
+    <rect x="48" y="48" width="760" height="124" rx="16" fill="#ffffff" fill-opacity="0.92" stroke="#d5dde6"/>
+    <text x="80" y="102" font-size="34" font-weight="600" fill="#111827">Composite reflectivity</text>
+    <text x="80" y="146" font-size="26" fill="#4b5563">2026-01-14 06:00 UTC · 5-minute scan · Sample Co radar</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(1720 1240)">
+    <rect x="-32" y="-60" width="664" height="152" rx="16" fill="#ffffff" fill-opacity="0.92" stroke="#d5dde6"/>
+    <text x="0" y="-18" font-size="24" font-weight="600" fill="#111827">Reflectivity (dBZ)</text>
+    <rect x="0" y="4" width="600" height="22" rx="4" fill="url(#scale)"/>
+    <g font-size="22" fill="#4b5563">
+      <text x="0" y="62">10</text><text x="140" y="62">20</text><text x="290" y="62">30</text><text x="440" y="62">40</text><text x="560" y="62">50+</text>
+    </g>
+  </g>
+
+  <!-- Scale bar -->
+  <g transform="translate(80 1300)" font-size="22" fill="#1f2a37">
+    <rect x="0" y="0" width="240" height="10" fill="#1f2a37"/>
+    <rect x="0" y="0" width="120" height="10" fill="#ffffff" stroke="#1f2a37" stroke-width="2"/>
+    <text x="0" y="44">0</text><text x="210" y="44">100 km</text>
+  </g>
+</svg>

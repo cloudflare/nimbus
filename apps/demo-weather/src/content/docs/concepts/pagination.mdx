@@ -1,0 +1,45 @@
+---
+title: Pagination
+description: List endpoints return a cursor. Pass it back to get the next page.
+sidebar:
+  order: 6
+---
+
+Lists can be long, so list endpoints return them a page at a time.
+
+## How pages work
+
+List endpoints return up to `limit` results and a cursor:
+
+```json
+{
+  "data": [ ... ],
+  "next_cursor": "c_2xQm8uY0",
+  "has_more": true
+}
+```
+
+Pass `next_cursor` as `cursor` to get the next page. When `has_more` is `false`, `next_cursor` is `null`.
+
+```sh
+curl "https://api.weather.example/v2/stations?country=NO&limit=100&cursor=c_2xQm8uY0" \
+  -H "Authorization: Bearer $WEATHER_API_KEY"
+```
+
+## Fetch every page
+
+```js
+let cursor = null;
+const stations = [];
+do {
+  const url = new URL("https://api.weather.example/v2/stations");
+  url.search = new URLSearchParams({ country: "NO", limit: "100", ...(cursor && { cursor }) });
+  const page = await (await fetch(url, { headers })).json();
+  stations.push(...page.data);
+  cursor = page.next_cursor;
+} while (cursor);
+```
+
+## Limits and expiry
+
+`limit` defaults to 50 and goes up to 500. Cursors expire after 24 hours. v1 used page numbers instead, which skipped or repeated results when new observations arrived mid-scan.

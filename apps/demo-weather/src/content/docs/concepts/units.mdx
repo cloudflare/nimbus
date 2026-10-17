@@ -1,0 +1,35 @@
+---
+title: Units
+description: Choose metric, imperial, or SI for every measurement in a response.
+sidebar:
+  order: 2
+---
+
+Every measurement in a response is in one unit system, and you choose which.
+
+## Choose a unit system
+
+Pass `units` on any endpoint that returns measurements. The response echoes the choice in its `units` field, so stored responses stay self-describing.
+
+```sh
+curl "https://api.weather.example/v2/forecasts/daily?latitude=40.7128&longitude=-74.006&units=imperial" \
+  -H "Authorization: Bearer $WEATHER_API_KEY"
+```
+
+## Units by measurement
+
+| Measurement | `metric` (default) | `imperial` | `si` |
+|---|---|---|---|
+| Temperature | °C | °F | K |
+| Wind speed | m/s | mph | m/s |
+| Precipitation | mm | in | mm |
+| Snowfall | cm | in | m |
+| Visibility | km | mi | m |
+| Pressure | hPa | hPa | Pa |
+
+## Values that never change units
+
+- **Times** are always UTC in ISO 8601.
+- **Coordinates** are always WGS 84 decimal degrees.
+- **Directions** are always degrees true, from 0 to 359.
+- **Readings you submit** from a private station are always SI, whatever `units` you read them back in. See [Report from your own station](/guides/private-stations).

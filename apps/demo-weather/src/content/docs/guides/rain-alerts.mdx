@@ -1,0 +1,82 @@
+---
+title: Build a rain alert
+description: Subscribe to alerts for the zones you care about and handle them on your server, step by step.
+sidebar:
+  order: 1
+---
+
+import { AlertFlow } from "@/components/diagrams/AlertFlow";
+
+By the end of this guide, your server receives a signed request whenever a moderate or worse alert takes effect in the zones you choose, and handles each one exactly once.
+
+## How alerts reach you
+
+<AlertFlow client:visible />
+
+## Before you begin
+
+- A key with the `alerts:manage` scope. See [Authentication](/get-started/authentication).
+- An HTTPS endpoint the internet can reach. For local development, a tunnel works.
+
+## Find your zones
+
+Alerts are issued for zones, such as a county or a forecast region. [List alerts for a point](api.ref:api:listAlertsForPoint) to see which zones cover a place today, or [list zones](api.ref:api:listZones) to browse them. Note each zone's id, such as `zone_no_03`.
+
+## Subscribe and receive
+
+<Steps>
+<Step>
+
+**Create the subscription.** Send your endpoint, the events, the zones, and the lowest severity you want ([reference](api.ref:api:createSubscription)):
+
+```sh
+curl https://api.weather.example/v2/alerts/subscriptions \
+  -H "Authorization: Bearer $WEATHER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com/hooks/weather",
+    "events": ["alert.issued", "alert.updated", "alert.cancelled"],
+    "zones": ["zone_no_03"],
+    "min_severity": "moderate"
+  }'
+```
+
+Deliveries are signed with your organization's webhook secret, in the dashboard under **Webhooks**. Store it as `WEATHER_WEBHOOK_SECRET`.
+
+</Step>
+<Step>
+
+**Verify each delivery.** Check the `Webhook-Signature` header before trusting the body. [Webhook events](/resources/webhook-events#verify-the-signature) has the verification code.
+
+</Step>
+<Step>
+
+**Handle the event.** Return `200` within 10 seconds, then do the work. Deduplicate on the event `id`, because deliveries can repeat:
+
+```ts
+app.post("/hooks/weather", async (req, res) => {
+  if (!verify(req.get("Webhook-Signature"), req.rawBody, process.env.WEATHER_WEBHOOK_SECRET)) {
+    return res.sendStatus(400);
+  }
+  res.sendStatus(200);
+  const event = JSON.parse(req.rawBody);
+  if (await seen(event.id)) return;
+  await notifyTeam(event);
+});
+```
+
+</Step>
+<Step>
+
+**Send a test event.** [Send a test event](api.ref:api:sendTestEvent) to your subscription and watch your endpoint receive it.
+
+</Step>
+</Steps>
+
+## Choose a severity
+
+`min_severity` follows the Common Alerting Protocol: `minor`, `moderate`, `severe`, or `extreme`. Start at `moderate`; `minor` includes routine advisories that most people don't want pushed.
+
+## When deliveries fail
+
+A delivery that doesn't get a 2xx within 10 seconds is retried with exponential backoff for 24 hours. [List deliveries](api.ref:api:listDeliveries) to see what was sent and how your endpoint answered, and [retry one](api.ref:api:retryDelivery) by hand once it's fixed.

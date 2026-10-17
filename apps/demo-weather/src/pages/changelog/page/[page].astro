@@ -1,0 +1,19 @@
+---
+/** /changelog/page/<n>/ — older releases, `PAGE_SIZE` to a page. Page 1 is /changelog/. */
+import type { GetStaticPaths } from "astro";
+import { getCollection } from "astro:content";
+import ChangelogPage from "@/components/changelog/ChangelogPage.astro";
+import { paginate } from "@/components/changelog/release";
+
+export const prerender = true;
+export const getStaticPaths = (async () => {
+  const entries = await getCollection("changelog", (e) => !e.data.draft);
+  return paginate(entries)
+    .slice(1)
+    .map((_, i) => ({ params: { page: String(i + 2) }, props: { entries } }));
+}) satisfies GetStaticPaths;
+
+const { entries } = Astro.props;
+---
+
+<ChangelogPage entries={entries} page={Number(Astro.params.page)} />

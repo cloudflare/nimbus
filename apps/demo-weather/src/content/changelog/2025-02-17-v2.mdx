@@ -1,0 +1,26 @@
+---
+title: Weather API v2
+description: Version 2.0.0 is released, with cursor pagination, a consistent error shape and metric units by default.
+date: 2025-02-17
+version: "2.0.0"
+tags: [API]
+---
+
+v2 is generally available, with one shape for every endpoint.
+
+<ReleaseSection title="New">
+
+
+- Cursor pagination on every list (`next_cursor`), replacing page numbers. See [Pagination](/concepts/pagination).
+- One error shape for every endpoint, with a stable `code` and a `request_id`. See [Errors](/concepts/errors).
+- A `units` parameter on every endpoint that returns measurements; metric by default. See [Units](/concepts/units).
+- Bearer-token authentication, replacing the `key` query parameter.
+
+</ReleaseSection>
+
+<ReleaseSection title="Deprecated">
+
+
+- v1 keeps working until 2026-12-31, then returns `410 Gone`. See [Migrate from v1](/resources/migrating-from-v1).
+
+</ReleaseSection>

@@ -1,0 +1,8 @@
+---
+/** A release section on the changelog page: an h4, without an id. */
+import ReleaseSection from "./ReleaseSection.astro";
+
+const { title } = Astro.props;
+---
+
+<ReleaseSection title={title} level={4}><slot /></ReleaseSection>

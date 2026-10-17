@@ -1,0 +1,51 @@
+---
+title: SDKs and tools
+description: The Node.js library, the OpenAPI spec, and versions of these docs for AI tools.
+sidebar:
+  order: 3
+---
+
+import { FileTree } from "@/components/ui/file-tree";
+
+You can call the API with any HTTP client. These make it quicker.
+
+## Node.js library
+
+The library wraps every v2 endpoint with typed requests and responses, retries `429` and `5xx` for you, and follows pagination cursors.
+
+<PackageManagers pkg="@sample-co/weather" />
+
+```js
+import { Weather } from "@sample-co/weather";
+
+const weather = new Weather({ apiKey: process.env.WEATHER_API_KEY });
+const forecast = await weather.forecasts.daily({ latitude: 59.9139, longitude: 10.7522, days: 7 });
+```
+
+A small alerting service built on the library: `index.ts` creates the client and the subscription, `webhook.ts` verifies and handles deliveries, and `.env` holds `WEATHER_API_KEY` and the signing secret.
+
+<FileTree>
+- rain-alerts/
+  - src/
+    - **index.ts**
+    - webhook.ts
+    - places.ts
+  - test/
+    - webhook.test.ts
+  - .env
+  - package.json
+</FileTree>
+
+[Build a rain alert](/guides/rain-alerts) builds it step by step.
+
+## The API reference
+
+Each endpoint page in the [API reference](/api) has request samples in several languages, every parameter and field, and the errors it returns. Use the version picker in the header to switch between v2 and v1.
+
+## Docs for AI tools
+
+These docs are also published for agents and AI tools:
+
+- [`/llms.txt`](/llms.txt) indexes every page, with a section per part of the site.
+- Every page has a Markdown version: add `index.md` to its address, or choose **View as Markdown** at the top of the page.
+- **Copy page** puts a page's Markdown on your clipboard, ready to paste into a chat.

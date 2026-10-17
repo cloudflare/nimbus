@@ -1,0 +1,103 @@
+---
+title: Quickstart
+description: Get an API key and make your first forecast request.
+sidebar:
+  order: 1
+---
+
+In two minutes you'll have a key, a seven-day forecast for Oslo, and a sense of how every response is shaped.
+
+## Before you begin
+
+You need a Sample Co account and a terminal with `curl`, or Node.js 20 or later. Test keys (starting `wx_test_`) are free and return realistic fixed data, so you can follow along without a billing plan.
+
+## Make your first request
+
+<Steps>
+<Step>
+
+**Create a key.** In the dashboard, open **API keys** and choose **Create key**. Copy the secret: it's shown once. Save it as an environment variable:
+
+```sh
+export WEATHER_API_KEY="wx_test_..."
+```
+
+</Step>
+<Step>
+
+**Request a forecast.** Ask for the next seven days in Oslo:
+
+<Tabs syncKey="lang">
+<TabItem label="curl">
+
+```sh
+curl "https://api.weather.example/v2/forecasts/daily?latitude=59.9139&longitude=10.7522&days=7" \
+  -H "Authorization: Bearer $WEATHER_API_KEY"
+```
+
+</TabItem>
+<TabItem label="JavaScript">
+
+```js
+const url = new URL("https://api.weather.example/v2/forecasts/daily");
+url.search = new URLSearchParams({ latitude: "59.9139", longitude: "10.7522", days: "7" });
+
+const res = await fetch(url, {
+  headers: { Authorization: `Bearer ${process.env.WEATHER_API_KEY}` },
+});
+const forecast = await res.json();
+```
+
+</TabItem>
+<TabItem label="Python">
+
+```python
+import os, requests
+
+res = requests.get(
+    "https://api.weather.example/v2/forecasts/daily",
+    params={"latitude": 59.9139, "longitude": 10.7522, "days": 7},
+    headers={"Authorization": f"Bearer {os.environ['WEATHER_API_KEY']}"},
+)
+forecast = res.json()
+```
+
+</TabItem>
+</Tabs>
+
+</Step>
+<Step>
+
+**Read the response.** Each day has a high, a low, precipitation, and a condition:
+
+```json
+{
+  "location": { "id": "loc_oslo_no", "name": "Oslo", "country": "NO", "timezone": "Europe/Oslo" },
+  "generated_at": "2026-01-14T06:00:00Z",
+  "units": "metric",
+  "days": [
+    {
+      "date": "2026-01-14",
+      "temperature_max": -1.0,
+      "temperature_min": -6.1,
+      "precipitation_sum": 2.4,
+      "condition": { "code": 71, "label": "snow_light", "text": "Light snow" }
+    }
+  ]
+}
+```
+
+</Step>
+</Steps>
+
+## What's in every response
+
+- **`location`** is the named place closest to your coordinates, with its time zone. See [Locations and coordinates](/concepts/locations).
+- **`units`** echoes the unit system the values are in. See [Units](/concepts/units).
+- **`generated_at`** is when the model run behind the data finished, in UTC.
+
+## Next steps
+
+- [Authentication](/get-started/authentication): scopes, browser keys, and rotating a key.
+- [Forecast many places at once](/guides/batch-forecasts): up to 100 points in one request.
+- The [daily forecast reference](api.ref:api:getDailyForecast): every parameter and field.

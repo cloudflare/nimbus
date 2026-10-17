@@ -1,0 +1,35 @@
+---
+/**
+ * Dialog — modal overlay built on the native <dialog>.
+ *
+ * Open with `el.showModal()`, close with `el.close()` or Escape.
+ * Scroll-lock and backdrop-click-to-close are handled automatically.
+ *
+ *   <Dialog id="confirm">
+ *     <DialogContent>
+ *       <div>Are you sure?</div>
+ *       <DialogClose>Cancel</DialogClose>
+ *     </DialogContent>
+ *   </Dialog>
+ */
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"dialog"> {}
+
+// A composing component can pass its own `data-slot` in place of this one.
+const { class: className, "data-slot": slot = "dialog", ...attrs } = Astro.props;
+---
+
+<dialog
+  data-slot={slot}
+  data-dialog
+  class={cn("fixed inset-0 z-50 m-0 h-full w-full max-h-full max-w-full bg-transparent p-0 backdrop:bg-black/40", className)}
+  {...attrs}
+>
+  <slot />
+</dialog>
+
+<script>
+  import "./dialog.client";
+</script>

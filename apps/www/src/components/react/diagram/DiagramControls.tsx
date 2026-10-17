@@ -45,7 +45,7 @@ export function DiagramControls({
       {status != null && (
         <span
           className={cn(
-            "font-mono text-[9px] uppercase tracking-widest text-neutral-500 dark:text-neutral-400 select-none",
+            "font-mono text-[9px] leading-4 uppercase tracking-widest text-neutral-500 dark:text-neutral-400 select-none",
             statusClassName,
           )}
         >

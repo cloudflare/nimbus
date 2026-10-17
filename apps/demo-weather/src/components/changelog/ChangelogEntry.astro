@@ -1,0 +1,31 @@
+---
+/**
+ * ChangelogEntry — one release: a meta line (version, date, products), the
+ * title as an h3 linking to the entry's own page, then the full body.
+ */
+import { render, type CollectionEntry } from "astro:content";
+import { components } from "@/components";
+import ReleaseSectionCompact from "./ReleaseSectionCompact.astro";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
+import { anchor, dateLabel } from "./release";
+
+interface Props {
+  entry: CollectionEntry<"changelog">;
+}
+
+const { entry } = Astro.props;
+const { title, date, version, tags } = entry.data;
+const href = withBase(`/changelog/${entry.id}/`, import.meta.env.BASE_URL);
+const { Content } = await render(entry);
+
+---
+
+<section class="cl-release" aria-labelledby={anchor(entry)}>
+  <p class="cl-meta">
+    {version && <span class="cl-version">{version}</span>}
+    <time datetime={date.toISOString().slice(0, 10)}>{dateLabel(date)}</time>
+    {tags.length > 0 && <span>{tags.join(", ")}</span>}
+  </p>
+  <h3 id={anchor(entry)}><a href={href}>{title}</a></h3>
+  <Content components={{ ...components, ReleaseSection: ReleaseSectionCompact }} />
+</section>

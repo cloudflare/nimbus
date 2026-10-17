@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nimbus-demo-weather",
+  "compatibility_date": "2026-10-09",
+  "compatibility_flags": ["nodejs_compat"],
+  // The site's own subdomain. `site` in astro.config.ts matches it.
+  "routes": [{ "pattern": "weather.nimbus-docs.com", "custom_domain": true }],
+  "preview_urls": false,
+}

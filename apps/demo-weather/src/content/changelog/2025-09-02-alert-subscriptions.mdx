@@ -1,0 +1,27 @@
+---
+title: Alert subscriptions and webhooks
+description: Version 2.6.0 lets you subscribe to alerts for an area and receive them as webhooks.
+date: 2025-09-02
+version: "2.6.0"
+tags: [Alerts, Webhooks]
+---
+
+Get alerts pushed to your server instead of polling for them.
+
+<ReleaseSection title="New">
+
+
+- [Create a subscription](/api/alerts/create-subscription/) for your zones and the events you want, and each new, updated, or cancelled alert arrives at your endpoint as a signed webhook. See [Build a rain alert](/guides/rain-alerts).
+
+```json
+{
+  "url": "https://example.com/hooks/weather",
+  "events": ["alert.issued", "alert.updated", "alert.cancelled"],
+  "zones": ["zone_no_03"],
+  "min_severity": "moderate"
+}
+```
+
+- Verify each delivery with its `Webhook-Signature` header. See [Webhook events](/resources/webhook-events#verify-the-signature).
+
+</ReleaseSection>

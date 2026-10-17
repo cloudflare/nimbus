@@ -1,0 +1,34 @@
+---
+title: Versioning
+description: The version is in the URL. v2 is current, v1 is deprecated until 2026-12-31, and v3 is in preview.
+sidebar:
+  order: 3
+---
+
+Each major version has its own base URL, and nothing changes under you inside one.
+
+## Versions
+
+| Version | Base URL | Status |
+|---|---|---|
+| v2 | `https://api.weather.example/v2` | Current. Build on it. |
+| v1 | `https://api.weather.example/v1` | Deprecated. Stops responding on 2026-12-31. |
+| v3 | `https://api.weather.example/v3-preview` | Preview, by request. Fields may change. |
+
+The [API reference](/api) shows v2 by default; its version picker switches to v1 on the same page where the endpoint exists in both.
+
+## What changes inside a version
+
+Within v2, changes are additive: new endpoints, new optional parameters, new fields in responses, and new values in open lists such as condition codes. Write clients that ignore fields they don't know. Removals and renames only happen in a new major version, announced in the [changelog](/changelog).
+
+## Deprecations
+
+A deprecated endpoint keeps working until its version's end date. The reference marks it, and the [changelog](/changelog) names what replaces it: `GET /ping`, for example, gave way to [`GET /status`](api.ref:api:getServiceStatus) in 2.8.0.
+
+## v1
+
+v1 stops responding on 2026-12-31; requests after that return `410 Gone`. [Migrate from v1](/resources/migrating-from-v1) lists every change.
+
+## The v3 preview
+
+v3 adds ensemble and probabilistic forecasts. It's for evaluation: fields may change before release, so don't build production systems on it yet. Ask support for access.

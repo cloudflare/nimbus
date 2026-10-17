@@ -1,0 +1,22 @@
+---
+/** LayerCardContent — raised content layer of a LayerCard. */
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"div"> {}
+
+// A composing component can pass its own `data-slot` in place of this one.
+const { class: className, "data-slot": slot = "layer-card-content", ...attrs } = Astro.props;
+---
+
+<div
+  data-slot={slot}
+  class={cn(
+    "relative flex flex-col gap-2 overflow-hidden rounded-lg bg-card p-4 pe-3 text-sm leading-6 text-foreground ring ring-border",
+    "group-data-[orientation=horizontal]/layer:min-w-0 group-data-[orientation=horizontal]/layer:flex-1",
+    className,
+  )}
+  {...attrs}
+>
+  <slot />
+</div>

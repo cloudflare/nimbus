@@ -1,0 +1,26 @@
+---
+title: Register and report from your own stations
+description: Private stations are now generally available, with readings, sensors, calibrations and health.
+date: 2026-09-22
+version: "2.12.0"
+tags: [Stations, API]
+---
+
+Private stations are generally available: register your own sensors and report alongside the public network.
+
+<ReleaseSection title="New">
+
+
+- [Register a private station](/api/stations/create-station/) and submit its readings alongside the public network. Private stations are visible only to your organization until you set `public` to `true`. See [Report from your own station](/guides/private-stations).
+- [Submit up to 1,000 readings](/api/stations/submit-readings/) per request, as JSON or a logger file uploaded as multipart form data.
+- Record a calibration, and readings after its date are corrected with the new offset.
+- [Station health](/api/stations/get-station-health/) reports completeness and quality-control flags over the last 7 days.
+
+```bash
+curl -X POST https://api.weather.example/v2/stations \
+  -H "Authorization: Bearer $WEATHER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Rooftop, Oslo office", "latitude": 59.91, "longitude": 10.75}'
+```
+
+</ReleaseSection>

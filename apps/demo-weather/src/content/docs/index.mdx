@@ -1,0 +1,31 @@
+---
+title: Overview
+description: Forecasts, observations, alerts, maps, and climate data for anywhere on Earth, over one REST API.
+---
+
+The Weather API tells you what the weather is doing at any point on Earth, what it will do over the next sixteen days, and what it did on any day since 1940. Every endpoint takes the same locations, returns the same units, and fails the same way, so once you've made one request, the rest of the API reads the same.
+
+<Aside title="Times and units">Times are always UTC, and units default to metric. [Units](/concepts/units) shows how to switch.</Aside>
+
+Start with the quickstart for a key and your first response, or go straight to the reference if you know what you need.
+
+<CardGrid>
+  <Card title="Quickstart" icon="ph:lightning" href="/get-started/quickstart">Your first request in two minutes.</Card>
+  <Card title="API reference" icon="ph:brackets-curly" href="/api">Every endpoint and field.</Card>
+  <Card title="Build a rain alert" icon="ph:bell-ringing" href="/guides/rain-alerts">Alerts pushed to your server.</Card>
+  <Card title="Migrate from v1" icon="ph:arrows-clockwise" href="/resources/migrating-from-v1">v1 stops responding on 2026-12-31.</Card>
+</CardGrid>
+
+## Where the data comes from
+
+Observations arrive from 40,000 ground stations, satellites, and the radar network, and feed three forecast models that are blended into one answer. [How forecasts are made](/concepts/forecasts) follows that pipeline from a station reading to the numbers in a response.
+
+Forecasts run from minute-by-minute precipitation for the next two hours out to daily forecasts sixteen days ahead. Alerts come from national weather services and can be pushed to your server by webhook. Radar and satellite imagery is served as map tiles, and the climate archive holds daily history and normals back to 1940.
+
+## Base URL
+
+```text
+https://api.weather.example/v2
+```
+
+Every request needs an [API key](/get-started/authentication). v2 is current; [Versioning](/concepts/versioning) covers v1 and the v3 preview.

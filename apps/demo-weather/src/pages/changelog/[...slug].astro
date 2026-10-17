@@ -1,0 +1,53 @@
+---
+/** One release on its own page, in the docs layout. */
+import type { GetStaticPaths } from "astro";
+import { readFileSync } from "node:fs";
+import DocsLayout from "@/layouts/DocsLayout.astro";
+import { getCollectionStaticPaths, getCollectionPage, getTOC } from "@cloudflare/nimbus-docs/runtime";
+import { components } from "@/components";
+import { dateLabel, paginate, releaseSections } from "@/components/changelog/release";
+import { getCollection } from "astro:content";
+import { Pagination } from "@/components/ui/pagination";
+
+export const prerender = true;
+export const getStaticPaths: GetStaticPaths = async (options) =>
+  (await getCollectionStaticPaths("changelog")(options)).filter((path) => path.params.slug);
+
+const page = await getCollectionPage<"changelog">(Astro);
+if (page instanceof Response) return page;
+const { entry, Content, headings, markdownUrl, ogImageUrl } = page;
+const { title, description, date, version, tags } = entry.data;
+// Newer and older releases, so a release page walks the changelog like a docs page walks its section.
+const releases = paginate(await getCollection("changelog", (e) => !e.data.draft)).flat();
+const at = releases.findIndex((e) => e.id === entry.id);
+const link = (e: (typeof releases)[number] | undefined) => e && { label: `${e.data.version ?? dateLabel(e.data.date)}: ${e.data.title}`, href: `/changelog/${e.id}/` };
+const prevNext = { prev: link(releases[at - 1]), next: link(releases[at + 1]) };
+---
+
+<DocsLayout
+  title={title}
+  description={description}
+  sidebar={false}
+  headings={releaseSections(entry.body || (entry.filePath ? readFileSync(entry.filePath, "utf8") : ""))}
+  prevNext={prevNext}
+  breadcrumbs={[{ label: "Changelog", href: "/changelog/" }, { label: version ?? dateLabel(date) }]}
+  markdownUrl={markdownUrl}
+  socialImage={entry.data.socialImage ?? ogImageUrl}
+  noindex={entry.data.noindex}
+  collection={entry.collection}
+  entryId={entry.id}
+>
+  <p class="cl-meta">
+    {version && <span class="cl-version">{version}</span>}
+    <time datetime={date.toISOString().slice(0, 10)}>{dateLabel(date, "long")}</time>
+    {tags.length > 0 && <span>{tags.join(", ")}</span>}
+  </p>
+  <Content components={components} />
+  <Pagination slot="pagination" prevNext={prevNext} prevLabel="Newer" nextLabel="Older" />
+</DocsLayout>
+
+<style>
+  .cl-meta { display: flex; flex-wrap: wrap; gap: 0.25rem 0.625rem; margin: 0; font-size: 0.8125rem; color: var(--nb-muted-foreground); }
+  .cl-meta > * + *::before { content: "·"; margin-right: 0.625rem; color: var(--nb-border-strong); }
+  .cl-version { font-family: var(--nb-font-mono); font-weight: 500; color: var(--nb-foreground); }
+</style>

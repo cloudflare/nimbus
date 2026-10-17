@@ -1,0 +1,47 @@
+---
+title: FAQ
+description: Short answers to the questions people ask before and after their first request.
+sidebar:
+  order: 4
+---
+
+import { Accordion, AccordionContent, AccordionGroup, AccordionTrigger } from "@/components/ui/accordion";
+
+<AccordionGroup>
+  <Accordion>
+    <AccordionTrigger>Is there a free way to try the API?</AccordionTrigger>
+    <AccordionContent>
+      Yes. Keys that start with `wx_test_` are free and return realistic fixed data for every endpoint, so you can build against the real response shapes before you're billed. See [Authentication](/get-started/authentication).
+    </AccordionContent>
+  </Accordion>
+  <Accordion>
+    <AccordionTrigger>How far ahead do forecasts go, and how far back does history?</AccordionTrigger>
+    <AccordionContent>
+      Daily forecasts reach sixteen days ahead. Historical observations go back to 1940 for any point on Earth.
+    </AccordionContent>
+  </Accordion>
+  <Accordion>
+    <AccordionTrigger>How often does the data change?</AccordionTrigger>
+    <AccordionContent>
+      Forecasts update at most every 15 minutes and observations every 10. Cache responses for that long: it's faster for your readers and keeps you under your [rate limits](/concepts/rate-limits).
+    </AccordionContent>
+  </Accordion>
+  <Accordion>
+    <AccordionTrigger>Which time zone and units do responses use?</AccordionTrigger>
+    <AccordionContent>
+      Times are always UTC. Units default to metric; [Units](/concepts/units) shows how to ask for imperial or a mix.
+    </AccordionContent>
+  </Accordion>
+  <Accordion>
+    <AccordionTrigger>When does v1 stop working?</AccordionTrigger>
+    <AccordionContent>
+      v1 is deprecated and stops responding on 2026-12-31. [Migrate from v1](/resources/migrating-from-v1) lists every change, endpoint by endpoint.
+    </AccordionContent>
+  </Accordion>
+  <Accordion>
+    <AccordionTrigger>What happens when I go over my limit?</AccordionTrigger>
+    <AccordionContent>
+      The request gets `429` with a `Retry-After` header. Wait that many seconds before retrying, with a little jitter if you run many workers.
+    </AccordionContent>
+  </Accordion>
+</AccordionGroup>

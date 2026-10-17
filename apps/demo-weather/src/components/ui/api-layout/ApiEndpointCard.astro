@@ -1,0 +1,106 @@
+---
+/**
+ * ApiEndpointCard — the operation's request line as a horizontal LayerCard.
+ *
+ * The recessed header (left) holds the method: a decorative `ApiMethodChip`
+ * glyph and the verb in its palette colour. The raised content (right) holds
+ * the full request URL (server muted, then path) and a copy button split off
+ * by a divider. Glyph and verb read the shared `--nb-m-*` palette
+ * (`globals.css`), so the card and the sidebar never disagree on a method.
+ */
+import { LayerCard, LayerCardHeader, LayerCardContent } from "@/components/ui/layer-card";
+import ApiMethodChip from "@/components/ui/api-sidebar/ApiMethodChip.astro";
+import { methodVariant } from "@/components/ui/api-sidebar/method";
+import { Badge } from "@/components/ui/badge";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
+
+interface Props {
+  method: string;
+  path: string;
+  /** Effective server base URL; when absent, the card shows the path alone. */
+  server?: string;
+  isWebhook?: boolean;
+  class?: string;
+}
+
+const { method, path, server, isWebhook, class: className } = Astro.props;
+
+// A server URL can carry a query or fragment (`…/v1?key=1`); the path goes before it.
+const at = server?.search(/[?#]/) ?? -1;
+const serverQuery = at < 0 ? "" : server!.slice(at);
+const base = at < 0 ? (server ?? "") : server!.slice(0, at).replace(/\/+$/, "");
+const url = `${base}${path}${serverQuery}`;
+const copyLabel = server ? "Copy request URL" : "Copy path";
+const variant = methodVariant(method);
+---
+
+{/* The method and URL read as one line of code, left to right in every language. */}
+<LayerCard orientation="horizontal" dir="ltr" class={className}>
+  <LayerCardHeader class="py-2 ps-2 pe-3">
+    <ApiMethodChip method={method} display="glyph" size="md" decorative />
+    <span class="font-mono text-[0.8125rem] font-medium" style={`color:var(--nb-m-${variant})`}>
+      {method.toUpperCase()}
+    </span>
+  </LayerCardHeader>
+  <LayerCardContent class="flex-row items-stretch gap-0 p-0">
+    <code class="min-w-0 grow self-center truncate px-3 font-mono text-[0.8125rem] text-foreground">
+      {server && <span class="text-muted-foreground">{base}</span>}{path}{serverQuery && <span class="text-muted-foreground">{serverQuery}</span>}
+    </code>
+    {isWebhook && <Badge text="Webhook" variant="outline" class="me-3 self-center" />}
+    <button
+      type="button"
+      data-nb-copy-url
+      data-url={url}
+      aria-label={copyLabel}
+      title={copyLabel}
+      class="group relative isolate flex shrink-0 cursor-pointer items-center justify-center overflow-hidden border-0 border-s border-border bg-inherit px-3 text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+    >
+      <span class="pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-200 group-data-[copied]:-translate-y-full group-data-[copied]:opacity-0">
+        <Icon name="ph:copy" class="size-3.5" />
+      </span>
+      <span class="pointer-events-none absolute inset-0 flex translate-y-full items-center justify-center text-success opacity-0 transition-all duration-200 group-data-[copied]:translate-y-0 group-data-[copied]:opacity-100">
+        <Icon name="ph:check" class="size-3.5" />
+      </span>
+      <span class="invisible size-3.5"></span>
+      <span class="sr-only" aria-live="polite" data-copy-status></span>
+    </button>
+  </LayerCardContent>
+</LayerCard>
+
+<script>
+  // Copy the request URL. mount() re-binds per navigation.
+  import { mount } from "@cloudflare/nimbus-docs/client";
+
+  mount("[data-nb-copy-url]", (btn) => {
+    if (!(btn instanceof HTMLButtonElement)) return () => {};
+    const controller = new AbortController();
+    const status = btn.querySelector("[data-copy-status]");
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    btn.addEventListener(
+      "click",
+      async () => {
+        const value = btn.dataset.url;
+        if (!value) return;
+        try {
+          await navigator.clipboard.writeText(value);
+        } catch {
+          return;
+        }
+        btn.setAttribute("data-copied", "");
+        if (status) status.textContent = "Copied";
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          btn.removeAttribute("data-copied");
+          if (status) status.textContent = "";
+        }, 1500);
+      },
+      { signal: controller.signal },
+    );
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  });
+</script>

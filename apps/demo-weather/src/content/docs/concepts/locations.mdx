@@ -1,0 +1,37 @@
+---
+title: Locations and coordinates
+description: Every endpoint takes a point as latitude and longitude, and answers with the named place nearest to it.
+sidebar:
+  order: 1
+---
+
+The API works on points, not place names. You send coordinates; responses tell you which named place, station, or zone they matched.
+
+## Coordinates
+
+Send `latitude` and `longitude` in decimal degrees, WGS 84, as the same GPS uses. Latitude runs from -90 to 90 and longitude from -180 to 180; anything outside gets `400` with the code `parameter_out_of_range`.
+
+Four decimal places locate a point to about 11 metres, which is finer than any forecast grid. Rounding to four places also makes repeated requests for the same place cacheable.
+
+## From a name to a point
+
+When you have a place name, [search locations](api.ref:api:searchLocations) first. Results start with the query and are ranked by population, so `q=Osl` returns Oslo before smaller places:
+
+```sh
+curl "https://api.weather.example/v2/locations/search?q=Osl&country=NO" \
+  -H "Authorization: Bearer $WEATHER_API_KEY"
+```
+
+Each result has a `location_id`, its coordinates, and its time zone. [Get a location](api.ref:api:getLocation) by id later without searching again.
+
+## From a point to a name
+
+[Find the nearest location](api.ref:api:reverseGeocode) turns coordinates into the closest named place. Forecasts and observations already include it as `location`, so you only need this endpoint to label a point before requesting anything else.
+
+## Time zones
+
+Times in responses are UTC. Each `location` carries an IANA time zone, such as `Europe/Oslo`, for showing local times; [get a time zone](api.ref:api:getTimezone) for its current offset and daylight saving rules.
+
+## Stations near a point
+
+Observations come from stations, not points. [List stations near a location](api.ref:api:listNearbyStations) to choose one, or ask for the [nearest observation](api.ref:api:getNearestObservation) and let the API choose.

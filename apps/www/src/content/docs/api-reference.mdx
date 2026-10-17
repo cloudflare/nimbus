@@ -14,6 +14,8 @@ Nimbus currently supports OpenAPI 3.x. Nimbus turns a local OpenAPI document int
 
 The OpenAPI document remains the source of truth. You do not create one MDX file per operation or schema.
 
+To see a finished reference, open the [weather demo](https://weather.nimbus-docs.com/api/): a Nimbus site with a 105-endpoint API in three versions, rendered on request on Cloudflare Workers.
+
 ### Install with the recipe
 
 Start with an OpenAPI 3.x document stored in your repository. If you have a Swagger 2.0 document, [convert it first](#convert-a-swagger-20-document). `src/api/openapi.yaml` is the usual location, but Nimbus accepts any project-relative local path, a file in another git repository declared as a [content source](/writing/content-sources#api-specs-from-a-source) (`spec: { source: "sdk", path: "openapi.json" }`), or an inline document object. Remote specification URLs are not supported.

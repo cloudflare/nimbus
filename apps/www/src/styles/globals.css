@@ -85,7 +85,8 @@
 	--nb-m-post: var(--nb-info);
 	--nb-m-post-tint: var(--nb-info-muted);
 	--nb-m-post-line: oklch(0.685 0.169 237.323 / 0.25);
-	--nb-m-put: var(--nb-warning);
+	/* A step darker than the warning colour: 4.5:1 on its own tint. */
+	--nb-m-put: oklch(0.5 0.13 55);
 	--nb-m-put-tint: var(--nb-warning-muted);
 	--nb-m-put-line: oklch(0.739 0.177 58.2 / 0.25);
 	--nb-m-delete: var(--nb-danger);
@@ -196,6 +197,7 @@
  
 	/* API method palette — dark lines; text and tint follow the status tokens. */
 	--nb-m-get-line: oklch(0.765 0.177 163.223 / 0.25);
+	--nb-m-put: var(--nb-warning);
 	--nb-m-put-line: oklch(0.645 0.168 50 / 0.25);
 	--nb-m-delete-line: oklch(0.577 0.245 27.325 / 0.25);
  

@@ -1,0 +1,44 @@
+---
+title: Webhook events
+description: The events a subscription can send, how to verify each delivery, and how retries work.
+sidebar:
+  order: 1
+---
+
+Alert subscriptions push events to your server as they happen. To set one up, follow [Build a rain alert](/guides/rain-alerts).
+
+## Events
+
+The API sends a `POST` to your endpoint for each event:
+
+| Event | When |
+|---|---|
+| `alert.issued` | A new alert takes effect in your zones. |
+| `alert.updated` | An alert's area, timing, or severity changes. |
+| `alert.cancelled` | The issuer withdraws an alert early. |
+| `alert.expired` | An alert reaches its end time. |
+
+The [API reference](/api) has each event's payload under **Webhooks**.
+
+## Verify the signature
+
+Every delivery has a `Webhook-Signature` header: a timestamp and an HMAC-SHA256 of `<timestamp>.<body>` with your webhook secret. Reject anything older than five minutes, so a captured request can't be replayed.
+
+```ts
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+export function verify(header: string | undefined, body: string, secret: string): boolean {
+  const parts = new Map((header ?? "").split(",").map((part) => part.split("=", 2) as [string, string]));
+  const t = Number(parts.get("t"));
+  const v1 = parts.get("v1") ?? "";
+  if (!Number.isFinite(t) || Math.abs(Date.now() / 1000 - t) > 300) return false;
+  const expected = createHmac("sha256", secret).update(`${t}.${body}`).digest();
+  const given = Buffer.from(v1, "hex");
+  // A malformed or truncated signature is a mismatch, not an error.
+  return given.length === expected.length && timingSafeEqual(given, expected);
+}
+```
+
+## Retries and duplicates
+
+Return a 2xx within 10 seconds. Otherwise the delivery is retried with exponential backoff for 24 hours. Deliveries can repeat, so deduplicate on the event `id`. [List deliveries](api.ref:api:listDeliveries) to debug a subscription, and [retry one](api.ref:api:retryDelivery) by hand.

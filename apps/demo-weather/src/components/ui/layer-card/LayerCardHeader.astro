@@ -1,0 +1,22 @@
+---
+/** LayerCardHeader — recessed header layer of a LayerCard. */
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"div"> {}
+
+// A composing component can pass its own `data-slot` in place of this one.
+const { class: className, "data-slot": slot = "layer-card-header", ...attrs } = Astro.props;
+---
+
+<div
+  data-slot={slot}
+  class={cn(
+    "flex min-w-0 items-center gap-2 bg-muted px-3 py-2 text-[0.8125rem] font-medium leading-5 text-muted-foreground [overflow-wrap:anywhere]",
+    "group-data-[orientation=horizontal]/layer:shrink-0",
+    className,
+  )}
+  {...attrs}
+>
+  <slot />
+</div>

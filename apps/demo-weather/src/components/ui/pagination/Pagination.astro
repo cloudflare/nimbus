@@ -1,0 +1,113 @@
+---
+/**
+ * Pagination — previous/next page links as one surface. A highlight slides to
+ * whichever half you point at, and [ / ] move between pages from the keyboard.
+ *
+ * Pass `prevNext` for the docs default, or compose your own links:
+ *
+ *   <Pagination>
+ *     <PaginationLink rel="prev" href="/blog/older" label="Older">Older post</PaginationLink>
+ *     <PaginationLink rel="next" href="/blog/newer" label="Newer">Newer post</PaginationLink>
+ *   </Pagination>
+ */
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+import type { PrevNext } from "@cloudflare/nimbus-docs/types";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
+import PaginationLink from "./PaginationLink.astro";
+
+interface Props extends HTMLAttributes<"nav"> {
+  /** The page's neighbours. Ignored when links are passed as children. */
+  prevNext?: PrevNext;
+  /** Caption above the previous page's title. */
+  prevLabel?: string;
+  /** Caption above the next page's title. */
+  nextLabel?: string;
+  /** `[` and `]` move between pages while focus is in the bar. */
+  keys?: boolean;
+}
+
+const {
+  prevNext,
+  prevLabel = "Previous",
+  nextLabel = "Next",
+  keys = true,
+  class: className,
+  ...attrs
+} = Astro.props;
+const composed = Astro.slots.has("default");
+const prev = composed ? undefined : prevNext?.prev;
+const next = composed ? undefined : prevNext?.next;
+---
+
+{(composed || prev || next) && (
+  <nav aria-label="Pagination" data-slot="pagination" class={cn("mt-12", className)} {...attrs}>
+    <div
+      data-nb-pagination
+      data-slot="pagination-bar"
+      data-keys={keys ? undefined : "false"}
+      class="nb-pagination-bar group/pager relative flex min-h-14 items-stretch rounded-full border border-border bg-card p-1 shadow-sm"
+    >
+      <span
+        data-slot="pagination-highlight"
+        data-state="hidden"
+        aria-hidden="true"
+        class="nb-pagination-highlight pointer-events-none absolute top-1 bottom-1 rounded-full bg-accent"
+      ></span>
+      {composed ? (
+        <slot />
+      ) : (
+        <>
+          {prev && (
+            <PaginationLink rel="prev" href={withBase(prev.href, import.meta.env.BASE_URL)} label={prevLabel}>
+              {prev.label}
+            </PaginationLink>
+          )}
+          {next && (
+            <PaginationLink rel="next" href={withBase(next.href, import.meta.env.BASE_URL)} label={nextLabel}>
+              {next.label}
+            </PaginationLink>
+          )}
+        </>
+      )}
+    </div>
+  </nav>
+)}
+
+<style>
+  /* With one neighbour, the bar is that half alone, on its own side. */
+  @media (min-width: 40rem) {
+    .nb-pagination-bar:not(:has([data-slot="pagination-link"] + [data-slot="pagination-link"])) {
+      width: 50%;
+    }
+    .nb-pagination-bar:has([rel="next"]):not(:has([rel="prev"])) {
+      margin-inline-start: auto;
+    }
+  }
+
+  /* The highlight moves between halves; it never jumps or blinks. */
+  .nb-pagination-highlight {
+    opacity: 0;
+    transition:
+      left 280ms cubic-bezier(0.32, 0.72, 0, 1),
+      width 280ms cubic-bezier(0.32, 0.72, 0, 1),
+      opacity 180ms ease-out;
+  }
+  .nb-pagination-highlight[data-state="visible"] {
+    opacity: 1;
+  }
+
+  .nb-pagination-bar[data-keys="false"] :global([data-slot="pagination-key"]) {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nb-pagination-highlight {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  import "./pagination.client";
+</script>

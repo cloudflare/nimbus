@@ -986,6 +986,36 @@
       "verify": [
         "At 1440px a sidebar row's text sits at the same position on a docs page and an API page."
       ]
+    },
+    {
+      "id": "card-links",
+      "introducedIn": "0.19.0",
+      "mode": "optional",
+      "changeset": "card-links-and-diagram-controls",
+      "summary": "Optionally take a Card that becomes a link with href.",
+      "affected": "Sites with the starter's Card (src/components/ui/card/Card.astro).",
+      "instructions": [
+        "No action is needed: Card keeps its props and look.",
+        "Update it with nimbus-docs diff src/components/ui/card/Card.astro --apply, or merge by hand if you edited it. Then <Card title=\"…\" href=\"…\"> makes the whole card a link, and its title is text rather than a heading."
+      ],
+      "verify": [
+        "A card with href is one link, focusable from the keyboard, and a card without it renders as before."
+      ]
+    },
+    {
+      "id": "diagram-controls-height",
+      "introducedIn": "0.19.0",
+      "mode": "optional",
+      "changeset": "card-links-and-diagram-controls",
+      "summary": "Optionally fix diagram buttons and controls that grow to the article's line height inside prose.",
+      "affected": "Sites with the diagram registry lib (src/components/react/diagram/).",
+      "instructions": [
+        "No action is needed.",
+        "Reinstall with nimbus-docs add diagram --overwrite, or add leading-4 to the button classes in ActionButton.tsx and DiagramControls.tsx."
+      ],
+      "verify": [
+        "A diagram's Pause and Reset buttons are 32px tall inside an MDX page."
+      ]
     }
   ]
 }

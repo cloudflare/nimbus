@@ -1,0 +1,23 @@
+---
+title: Spray windows for agriculture, and GET /ping is deprecated
+description: Version 2.8.0 adds spray windows and deprecates the ping endpoint.
+date: 2026-01-12
+version: "2.8.0"
+tags: [Agriculture, API]
+---
+
+A new agriculture endpoint, and a replacement for the ping endpoint.
+
+<ReleaseSection title="New">
+
+
+- [Get spray windows](/api/agriculture/get-spray-windows/) returns the hours when wind, rain, and temperature allow crop spraying at a field, ranked by drift risk.
+
+</ReleaseSection>
+
+<ReleaseSection title="Deprecated">
+
+
+- `GET /ping`. Use [`GET /status`](/api/service/get-service-status/) instead: it reports the same liveness and adds per-region status. `GET /ping` keeps working until v3.
+
+</ReleaseSection>

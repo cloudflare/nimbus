@@ -1,0 +1,114 @@
+---
+/**
+ * Steps — ordered list with numbered circles and connecting lines.
+ * Wrap a markdown ordered list, or only <Step> children; put any intro
+ * text before <Steps>. Set `start` to offset the counter.
+ */
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"div"> {
+  start?: number;
+}
+
+const { start, class: className, ...attrs } = Astro.props;
+
+// <Step> children are list items; give them their list on the server. Content
+// before the first Step (an introduction) stays outside the list.
+const content = await Astro.slots.render("default");
+const firstStep = content.search(/<li\b(?:[^>"']|"[^"]*"|'[^']*')*\sdata-step\b/);
+const stepMode = firstStep !== -1;
+const lead = stepMode ? content.slice(0, firstStep) : "";
+const steps = stepMode ? content.slice(firstStep) : content;
+---
+
+<div
+  data-steps
+  data-slot="steps"
+  class={cn("steps", className)}
+  style={start !== undefined ? `--steps-start: ${start};` : undefined}
+  {...attrs}
+>
+  {lead.trim() && <div data-slot="steps-intro" class="mb-4" set:html={lead} />}
+  {stepMode ? <ol role="list" data-slot="steps-list" set:html={steps} /> : <Fragment set:html={steps} />}
+</div>
+
+<script>
+  import "./steps.client";
+</script>
+
+<style>
+  .steps {
+    --_start: var(--steps-start, 1);
+    --_marker: 1.75rem;
+    margin: 1.5rem 0;
+  }
+
+  .steps > :global(ol) {
+    counter-reset: step calc(var(--_start) - 1);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* A padded item with a positioned number, so inline code and links flow
+     on the first line like any paragraph. */
+  .steps > :global(ol > li) {
+    counter-increment: step;
+    position: relative;
+    min-height: var(--_marker);
+    /* Cancel the prose li margin — step rhythm comes from padding. */
+    margin: 0;
+    padding-block: 0 1.5rem;
+    padding-inline: calc(var(--_marker) + 0.75rem) 0;
+  }
+
+  .steps > :global(ol > li:last-child) {
+    padding-bottom: 0;
+  }
+
+  /* Number marker, centred on the first line of text. */
+  .steps > :global(ol > li)::before {
+    content: counter(step);
+    position: absolute;
+    inset-inline-start: 0;
+    top: 0;
+    top: max(0px, calc((1lh - var(--_marker)) / 2));
+    width: var(--_marker);
+    height: var(--_marker);
+    border-radius: var(--nb-radius);
+    background: var(--nb-accent);
+    color: var(--nb-foreground);
+    border: 1px solid var(--nb-border-strong);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+    z-index: 1;
+  }
+
+  /* Connecting line — runs from below the marker to the bottom of the step. */
+  .steps > :global(ol > li:not(:last-child))::after {
+    content: "";
+    position: absolute;
+    inset-inline-start: calc(var(--_marker) / 2 - 0.75px);
+    top: var(--_marker);
+    top: calc(max(0px, (1lh - var(--_marker)) / 2) + var(--_marker));
+    bottom: 0;
+    width: 1.5px;
+    background: var(--nb-border);
+  }
+
+  .steps > :global(ol > li > p:first-child > strong:only-child) {
+    color: var(--nb-foreground);
+  }
+
+  .steps > :global(ol > li > p) {
+    margin: 0;
+  }
+
+  .steps > :global(ol > li > * + *) {
+    margin-top: 0.5rem;
+  }
+</style>

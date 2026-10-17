@@ -1,0 +1,46 @@
+---
+/**
+ * SidebarLink — a leaf row: a bare `<a href>Label</a>`. Large sidebars repeat
+ * this thousands of times, so the row carries no class or data attribute; the
+ * sidebar styles every `li > a` by position (`src/styles/globals.css`,
+ * "Sidebar rows"). A label gets its own span only when a badge follows it.
+ */
+import type { HTMLAttributes } from "astro/types";
+import { Badge } from "@/components/ui/badge";
+import type { SidebarBadge } from "@cloudflare/nimbus-docs/types";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
+
+interface Props extends HTMLAttributes<"a"> {
+  label: string;
+  href: string;
+  isCurrent?: boolean;
+  badge?: SidebarBadge;
+}
+
+const { label, href, isCurrent, badge, class: className, ...attrs } = Astro.props;
+const resolvedHref = withBase(href, import.meta.env.BASE_URL);
+const hasLeading = Astro.slots.has("leading");
+const plain = !hasLeading && !badge;
+---
+
+<a
+  href={resolvedHref}
+  aria-current={isCurrent ? "page" : undefined}
+  class={className}
+  {...attrs}
+>
+  {plain ? (
+    label
+  ) : (
+    <Fragment>
+      <slot name="leading" />
+      {badge ? <span>{label}</span> : label}
+      {badge &&
+        (typeof badge === "string" ? (
+          <Badge text={badge} />
+        ) : (
+          <Badge text={badge.text} variant={badge.variant} />
+        ))}
+    </Fragment>
+  )}
+</a>
