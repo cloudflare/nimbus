@@ -1,0 +1,31 @@
+apps/www/registry/features/api-reference.md
+  s_99ba16e62e345f::t_5ed3b36de49f68 236,241,245-247,260,264,272,283-297
+packages/nimbus-docs/src/_internal/api/home-index.ts
+  s_99ba16e62e345f::t_574375f1dcbdc6 3,208-209,211-245,248-266
+packages/nimbus-docs/src/_internal/upgrade-manifest.json
+  s_99ba16e62e345f::t_5c9ff9db38c612 953
+packages/nimbus-docs/src/runtime.ts
+  s_99ba16e62e345f::t_0e48184d1a0108 1624-1628,1638-1639,1646-1650,1652-1664,1668-1673,1699-1700,1717,1729,1743,1758,1775-1776,1812,1841-1855,1857-1863
+packages/nimbus-docs/test/api-home-index.test.ts
+  s_99ba16e62e345f::t_3910a62deb58bc 3-4,21-29,296-344
+packages/nimbus-starter-source/src/components/ui/api-layout/ApiHome.astro
+  s_99ba16e62e345f::t_1dcfa95604daaf 7-13,17-18,23,26,29-31,33-37,40,47,51,55,60,87,107,227-228,231-235,245,248-249,252-254,288
+scripts/fixtures/api-reference/src/pages/api/[...slug].astro
+  s_99ba16e62e345f::t_496fa570a1c315 4,9,13-15,28,32,40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "84e908620db4f941f32f0b947ac699f22464f068",
+  "prompts": {},
+  "sessions": {
+    "s_99ba16e62e345f": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_eac7a4b12ffeJuUPjo7DWtmB6S",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
