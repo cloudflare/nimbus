@@ -17,7 +17,7 @@
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@iconify-json/ph": "^1.2.0",
     "@resvg/resvg-js": "^2.6.2",
-    "astro": "7.3.1",
+    "astro": "7.3.3",
     "clsx": "^2.1.1",
     "satori": "^0.26.0",
     "sharp": "^0.35.4",
