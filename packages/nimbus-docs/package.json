@@ -222,7 +222,7 @@
 		"@types/semver": "^7.7.1",
 		"ajv": "8.20.0",
 		"ajv-formats": "3.0.1",
-		"astro": "7.3.1",
+		"astro": "7.3.3",
 		"jsdom": "^29.1.1",
 		"openapi-sampler": "^1.7.4",
 		"satori": "^0.26.0",
