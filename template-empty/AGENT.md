@@ -11,7 +11,7 @@ astro.config.ts              # imports nimbus + defineNimbusConfig
 nimbus.json                  # records the last reviewed Nimbus package version
 src/
 ├── components.ts            # MDX globals — components every .mdx can use without an import
-├── components/              # AgentDirective, Header, Render + ui/<slug>/
+├── components/              # AgentDirective, Header, Logo (drawn from logo.ts), Render + ui/<slug>/
 ├── content/
 │   ├── docs/*.mdx
 │   └── partials/*.mdx       # referenced via <Render file="..." />
@@ -24,13 +24,13 @@ src/
 │   ├── [...slug]/index.mdx.ts  # authored source of every page, all collections
 │   ├── [...section]/llms.txt.ts  # per-section llms.txt, nested sections included
 │   ├── 404.astro
-│   ├── index.astro              # home page (the empty starter uses content/docs/index.mdx)
 │   ├── llms.txt.ts
 │   ├── llms-full.txt.ts
 │   ├── nimbus-api/coordinates.json.ts  # API citation manifest
 │   ├── og.png.ts                # site-level OG card
 │   ├── og/
-│   │   ├── _og-card-config.ts   # shared OG theme tokens (underscore = not a route)
+│   │   ├── _card.ts             # the card's look, shared by both routes (underscore = not a route)
+│   │   ├── _fonts/              # the card's fonts
 │   │   └── [...slug].ts         # per-page OG cards
 │   └── robots.txt.ts
 └── styles/                  # globals.css, prose.css
@@ -70,11 +70,11 @@ Rules:
 | Feature recipe | `npx @cloudflare/nimbus-docs add <feature-slug> --print`. Prints the recipe for you to follow; it changes no files itself. |
 | Check it builds | `npx @cloudflare/nimbus-docs check` — build-free preflight (env + structure + authoring + types). `--json` for an agent loop, `--fix` to repair what's safe. |
 | Custom page route | Add a file under `src/pages/`. |
-| Custom OG style | Edit `src/pages/og/_og-card-config.ts`. |
+| Custom OG style | Edit `src/pages/og/_card.ts`. The card draws the logo from `src/components/logo.ts`, the same drawing as the header. |
 | Check for updates | `npx @cloudflare/nimbus-docs outdated` — starter files behind their tag + registry components behind. |
 | Upgrade Nimbus | Update the package, then run `npx @cloudflare/nimbus-docs migrate --dry-run --diff`. Review every change and required manual step before applying. |
 | Upgrade a starter file | `npx @cloudflare/nimbus-docs diff <file>` to review, `diff --apply <file>` to pull a clean upstream change. |
-| Upgrade a registry component | `npx @cloudflare/nimbus-docs add <slug> --overwrite`, then review with `git diff`. |
+| Upgrade a registry component | `npx @cloudflare/nimbus-docs add <slug> --overwrite`, then review with `git diff`. Components you edited are kept and listed. To compare one with upstream, commit, run the `--overwrite --yes` command it prints, and read `git diff`; unless the user decided to discard their edits, undo the whole run with `git checkout -- . && git clean -fd`, since it also rewrote `nimbus.json`. |
 
 Sätteri is Nimbus's default Markdown and MDX processor. Extend it using `markdown.mdastPlugins` for Markdown AST transformations or `markdown.hastPlugins` for HTML AST transformations.
 If the site replaces Sätteri with another processor, set `admonitions: false` and keep that processor's existing callout implementation.
@@ -96,11 +96,13 @@ sidebar: {
 },
 ```
 
+The header's section tabs come from the same list: each top-level item that autogenerates from another collection (`{ label: "API", autogenerate: { collection: "api", prefix: "/reference" } }`) becomes a tab, and the tabs show once there are two. Folders of `src/content/docs/` and external links stay in the sidebar. For any other header link, edit `src/components/Header.astro`.
+
 Everything else: <https://nimbus-docs.com/navigation/sidebar/>.
 
 ## Agent interfaces
 
-Read the release-matched guide at [`node_modules/@cloudflare/nimbus-docs/dist/docs-for-agents.md`](node_modules/@cloudflare/nimbus-docs/dist/docs-for-agents.md), especially for preview packages. Nimbus publishes discovery automatically; add project-owned Skills under `skills/<name>/SKILL.md`. Keep `<WebMCP />` in `BaseLayout.astro` for browser-agent search with default Pagefind. Markdown negotiation applies to request-rendered pages; static hosting and response headers follow the deployment target's setup.
+Read the release-matched guide at [`node_modules/@cloudflare/nimbus-docs/dist/docs-for-agents.md`](node_modules/@cloudflare/nimbus-docs/dist/docs-for-agents.md), especially for preview packages. Nimbus publishes discovery automatically; add project-owned Skills under `skills/<name>/SKILL.md`. Keep `<WebMCP />` in `BaseLayout.astro` for browser-agent search with default Pagefind, and render `<ConnectMcp />` in `DocsLayout.astro` only when `capabilities.mcpUrl` is set (`agents: { mcp: true }`; needs a server adapter and `@modelcontextprotocol/server`). Markdown negotiation applies to request-rendered pages; static hosting and response headers follow the deployment target's setup.
 
 ## Upgrading Nimbus
 

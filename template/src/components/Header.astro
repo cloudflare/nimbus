@@ -1,4 +1,5 @@
 ---
+import Logo from "./Logo.astro";
 import type { SidebarSection } from "@cloudflare/nimbus-docs/types";
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { Button } from "./ui/button";
@@ -6,7 +7,7 @@ import { LinkButton } from "./ui/link-button";
 import { ThemeToggle } from "./ui/theme-toggle";
 import SearchTrigger from "./ui/search/SearchTrigger.astro";
 import { config } from "virtual:nimbus/config";
-import { getSidebarSections, stripBase, withBase } from "@cloudflare/nimbus-docs/runtime";
+import { getCollectionUrl, getSidebarSections, stripBase, withBase } from "@cloudflare/nimbus-docs/runtime";
 
 interface Props {
   /** Astro collection id for the current page, forwarded from DocsLayout. */
@@ -29,8 +30,30 @@ const { collection, showSidebar = true, sections: sectionsProp } = Astro.props;
 
 // Normalize trailing slash so isActive matches sidebar hrefs.
 const currentSlug = stripBase(Astro.url.pathname, import.meta.env.BASE_URL).replace(/\/$/, "") || "/";
-const sections =
+const sidebarSections =
   sectionsProp ?? (await getSidebarSections(currentSlug, { collection }));
+// An API reference beside the docs isn't in the docs sidebar, so the docs and
+// each reference become the tabs. A reference served at the root is the site.
+const apiHrefs = (
+  await Promise.all((config.api ?? []).map(async (entry) => ({ entry, href: await getCollectionUrl(entry.collection) })))
+).filter(({ href }) => href !== "/");
+// The reference the page is in: the longest mount that is the path or a folder of it.
+const mountOf = (href: string) => href.replace(/\/$/, "");
+const activeApi = apiHrefs
+  .filter(({ href }) => currentSlug === mountOf(href) || currentSlug.startsWith(`${mountOf(href)}/`))
+  .sort((a, b) => b.href.length - a.href.length)[0];
+const sections =
+  sidebarSections.length >= 2 || sectionsProp || apiHrefs.length === 0
+    ? sidebarSections
+    : [
+        // A page outside every collection (the 404) is in neither tab.
+        { label: "Docs", href: "/", isActive: activeApi === undefined && collection !== undefined },
+        ...apiHrefs.map((api) => ({
+          label: apiHrefs.length === 1 ? "API reference" : (api.entry.label ?? api.entry.collection),
+          href: api.href,
+          isActive: api === activeApi,
+        })),
+      ];
 const showSections = sections.length >= 2;
 const homeHref = withBase("/", import.meta.env.BASE_URL);
 const resolveSectionHref = (href: string): string =>
@@ -41,15 +64,15 @@ const resolveSectionHref = (href: string): string =>
   <div class="mx-auto flex items-center justify-between gap-3 h-14 px-4 lg:px-6">
     <div class="flex items-center gap-3 min-w-0">
       <slot name="brand">
-        <a href={homeHref} class="group shrink-0">
-          <span class="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
-            {config.title}
-          </span>
+        {/* The mark alone; the site title stays as the link's accessible name. */}
+        <a href={homeHref} class="flex shrink-0 items-center text-foreground transition-opacity hover:opacity-70">
+          <Logo class="h-5 w-8 shrink-0" />
+          <span class="sr-only">{config.title}</span>
         </a>
       </slot>
 
       {showSections && (
-        <nav aria-label="Sections" class="hidden md:flex items-center gap-1 ml-4 pl-4 border-l border-border h-6 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <nav aria-label="Sections" class="hidden md:flex items-center gap-1 ms-4 ps-4 border-s border-border h-6 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {sections.map((section) => (
             <a
               href={resolveSectionHref(section.href)}
@@ -99,4 +122,23 @@ const resolveSectionHref = (href: string): string =>
       )}
     </div>
   </div>
+  {/* Phones: the tabs on a row of their own under the bar. */}
+  {showSections && (
+    <nav aria-label="Sections" data-nb-header-tabs class="md:hidden flex items-center gap-1 h-10 px-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {sections.map((section) => (
+        <a
+          href={resolveSectionHref(section.href)}
+          aria-current={section.isActive ? "page" : undefined}
+          class:list={[
+            "px-2 py-1 rounded-md text-[0.8125rem] font-medium no-underline transition-colors shrink-0 whitespace-nowrap",
+            section.isActive
+              ? "text-foreground bg-accent"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent/60",
+          ]}
+        >
+          {section.label}
+        </a>
+      ))}
+    </nav>
+  )}
 </header>

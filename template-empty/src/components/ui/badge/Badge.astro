@@ -1,5 +1,5 @@
 ---
-import { cn } from "@/lib/cn";
+import { variants } from "@/lib/variants";
 import type { HTMLAttributes } from "astro/types";
 
 interface Props extends HTMLAttributes<"span"> {
@@ -9,36 +9,34 @@ interface Props extends HTMLAttributes<"span"> {
   size?: "small" | "medium" | "large";
 }
 
-const { text, variant = "default", size = "small", class: className, ...attrs } = Astro.props;
+const { text, variant, size, class: className, ...attrs } = Astro.props;
 
 // note→info, tip→success, caution→warning: variant aliases
-const variantClass: Record<string, string> = {
-  default: "bg-accent text-muted-foreground",
-  info:    "bg-info-muted text-info",
-  note:    "bg-info-muted text-info",
-  success: "bg-success-muted text-success",
-  tip:     "bg-success-muted text-success",
-  warning: "bg-warning-muted text-warning",
-  caution: "bg-warning-muted text-warning",
-  danger:  "bg-danger-muted text-danger",
-  outline: "border border-border bg-card text-foreground",
-};
-
-const sizeClass: Record<string, string> = {
-  small:  "px-2 py-0.5 text-xs",
-  medium: "px-2.5 py-0.5 text-[0.8125rem]",
-  large:  "px-3 py-1 text-sm",
-};
+const badge = variants({
+  base: "inline-flex items-center rounded-full font-medium whitespace-nowrap",
+  variants: {
+    variant: {
+      default: "bg-accent text-muted-foreground",
+      info:    "bg-info-muted text-info-foreground",
+      note:    "bg-info-muted text-info-foreground",
+      success: "bg-success-muted text-success-foreground",
+      tip:     "bg-success-muted text-success-foreground",
+      warning: "bg-warning-muted text-warning-foreground",
+      caution: "bg-warning-muted text-warning-foreground",
+      danger:  "bg-danger-muted text-danger-foreground",
+      outline: "bg-card text-foreground ring ring-border ring-inset",
+    },
+    size: {
+      // Whole-pixel heights: 20, 24 and 28.
+      small:  "px-2 py-0.5 text-xs leading-4",
+      medium: "px-2.5 py-0.5 text-[0.8125rem] leading-5",
+      large:  "px-3 py-1 text-sm leading-5",
+    },
+  },
+  defaults: { variant: "default", size: "small" },
+});
 ---
 
-<span
-  class={cn(
-    "inline-flex items-center rounded-full font-medium whitespace-nowrap leading-none",
-    variantClass[variant] ?? variantClass.default,
-    sizeClass[size] ?? sizeClass.small,
-    className,
-  )}
-  {...attrs}
->
+<span data-slot="badge" data-variant={variant ?? "default"} class={badge({ variant, size }, className)} {...attrs}>
   {text ?? <slot />}
 </span>

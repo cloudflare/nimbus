@@ -53,6 +53,8 @@ const {
 ---
 
 <button
+  data-slot="button"
+  data-variant={variant}
   type={type}
   disabled={disabled || loading}
   class={cn(buttonVariants({ variant, size, shape }), className)}

@@ -8,6 +8,7 @@ const { class: className, ...attrs } = Astro.props;
 ---
 
 <div
+  data-slot="card-grid"
   class={cn("grid grid-cols-1 gap-4 my-4 sm:grid-cols-2 [&>*]:my-0", className)}
   {...attrs}
 >

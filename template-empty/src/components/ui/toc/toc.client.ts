@@ -39,11 +39,13 @@ function initToc(root: HTMLElement): () => void {
   // static gray rail, capturing each link's arc-length range as we go.
   function buildRail() {
     const navRect = nav!.getBoundingClientRect();
+    // The rail is the links' inline-start border: their left edge, or right in RTL.
+    const rtl = getComputedStyle(nav!).direction === "rtl";
 
     const m = Array.from(links).map((link) => {
       const r = link.getBoundingClientRect();
       return {
-        x: r.left - navRect.left + 1,
+        x: rtl ? r.right - navRect.left - 1 : r.left - navRect.left + 1,
         yTop: r.top - navRect.top,
         yBot: r.top - navRect.top + r.height,
       };
@@ -315,6 +317,27 @@ function initToc(root: HTMLElement): () => void {
     passive: true,
     signal: controller.signal,
   });
+  // Content that loads later (the API home's parts) dispatches
+  // `nb:toc-headings`: track the headings that have appeared since.
+  document.addEventListener(
+    "nb:toc-headings",
+    () => {
+      let added = false;
+      slugs.forEach((slug, index) => {
+        if (observed.some((o) => o.index === index)) return;
+        const el = document.getElementById(slug);
+        if (!el) return;
+        observed.push({ el, index });
+        indexOfEl.set(el, index);
+        spy.observe(el);
+        added = true;
+      });
+      if (!added) return;
+      observed.sort((a, b) => a.index - b.index);
+      onLayoutChange();
+    },
+    { signal: controller.signal },
+  );
 
   const ro = new ResizeObserver(onLayoutChange);
   ro.observe(nav);

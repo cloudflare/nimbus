@@ -14,7 +14,6 @@ import {
 } from "@cloudflare/nimbus-docs/runtime";
 import { components } from "../components";
 
-export const prerender = true;
 export const getStaticPaths = getDocsStaticPaths;
 
 const page = await getDocsPage(Astro);

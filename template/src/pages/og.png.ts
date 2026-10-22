@@ -1,17 +1,12 @@
-import { generateOpenGraphImage } from "astro-og-canvas";
 import { config } from "virtual:nimbus/config";
-import { ogCardConfig } from "./og/_og-card-config";
+import { renderSiteCard } from "./og/_card";
 
 export const prerender = true;
 
+// The site's card, for pages without one of their own: its description, or
+// its title when it has none.
 export async function GET() {
-  const body = await generateOpenGraphImage({
-    title: config.title,
-    description: config.description,
-    ...ogCardConfig,
-  });
-
-  return new Response(body, {
+  return new Response(await renderSiteCard({ title: config.description || config.title }), {
     headers: { "Content-Type": "image/png" },
   });
 }

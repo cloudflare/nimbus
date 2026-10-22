@@ -13,10 +13,15 @@ const nimbusConfig = defineNimbusConfig({
   // CHANGE_ME: your project's name — used for <title>, the home H1, and OG.
   title: "Nimbus",
   // CHANGE_ME: a one-line description of your docs — used for meta + OG.
-  description: "Minimal starter consuming nimbus-docs.",
+  description: "Nimbus, authoring tool for docs",
   locale: "en",
-  github: null,
+  // CHANGE_ME: your repository — shown as the GitHub link in the header.
+  github: "https://github.com/cloudflare/nimbus",
   socialImageAlt: "Nimbus documentation preview",
+  // The home page leads the sidebar; every other page joins it automatically.
+  sidebar: {
+    items: ["index", { autogenerate: { collection: "docs" } }],
+  },
 });
 
 export default defineConfig({

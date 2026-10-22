@@ -17,28 +17,34 @@ const resolvedMarkdownUrl = markdownUrl
 const baseBtn =
   "inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-transparent px-2 py-1 text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2";
 
+// Extra actions (the layout passes Connect MCP) render after the built-in
+// ones. Rendered here so an action that renders nothing adds no separator.
+const extra = Astro.slots.has("default") ? (await Astro.slots.render("default")).trim() : "";
+
 const formattedDate = lastUpdated
   ? new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric" }).format(lastUpdated)
   : null;
 ---
 
-{(markdownUrl || lastUpdated) && (
+{(markdownUrl || lastUpdated || extra) && (
   <div
     data-nb-page-actions
+    data-slot="page-actions"
     data-pagefind-ignore
     data-md-url={resolvedMarkdownUrl}
-    class={cn("not-prose -ml-2 flex flex-wrap items-center gap-y-1 text-[0.8125rem]", className)}
+    class={cn("not-prose -ms-2 flex flex-wrap items-center gap-y-1 text-[0.8125rem] leading-5", className)}
     {...attrs}
   >
+    {/* Phones get the short forms ("Oct 12, 2026", "Markdown"), so the row stays on one line. */}
     {lastUpdated && (
       <span class="inline-flex items-center gap-1.5 px-2 py-1 text-muted-foreground">
         <Icon name="ph:clock" class="w-3.5 h-3.5" />
-        Updated <time datetime={lastUpdated.toISOString()}>{formattedDate}</time>
+        <span class="sr-only sm:not-sr-only">Updated</span> <time datetime={lastUpdated.toISOString()}>{formattedDate}</time>
       </span>
     )}
 
     {markdownUrl && lastUpdated && (
-      <span aria-hidden="true" class="select-none text-muted-foreground/40">|</span>
+      <span aria-hidden="true" data-slot="page-actions-separator" class="hidden select-none text-muted-foreground/40 sm:inline">|</span>
     )}
 
     {markdownUrl && (
@@ -49,19 +55,26 @@ const formattedDate = lastUpdated
           <span data-nb-page-actions-label aria-live="polite">Copy page</span>
         </button>
 
-        <span aria-hidden="true" class="select-none text-muted-foreground/40">|</span>
+        <span aria-hidden="true" data-slot="page-actions-separator" class="hidden select-none text-muted-foreground/40 sm:inline">|</span>
 
         <a
           href={resolvedMarkdownUrl}
           target="_blank"
           rel="noopener noreferrer"
+          aria-label="View as Markdown"
           class={baseBtn}
         >
           <Icon name="ph:markdown-logo" class="w-3.5 h-3.5" />
-          View as Markdown
+          <span class="sm:hidden" aria-hidden="true">Markdown</span>
+          <span class="hidden sm:inline" aria-hidden="true">View as Markdown</span>
         </a>
       </>
     )}
+
+    {extra && (markdownUrl || lastUpdated) && (
+      <span aria-hidden="true" data-slot="page-actions-separator" class="hidden select-none text-muted-foreground/40 sm:inline">|</span>
+    )}
+    {extra && <Fragment set:html={extra} />}
   </div>
 )}
 

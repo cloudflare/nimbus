@@ -7,7 +7,7 @@
  * classes for a button-shaped element; `buttonIconSize` sizes a leading/
  * trailing icon for a given size.
  */
-import { cn } from "@/lib/cn";
+import { variants } from "@/lib/variants";
 
 export type ButtonVariant =
   | "primary"
@@ -22,7 +22,7 @@ export type ButtonShape = "base" | "square" | "circle";
 // `rounded-lg` is the default radius for every button; `circle` overrides
 // it to `rounded-full` (see `buttonVariants`), `square` keeps it.
 export const buttonBase =
-  "group inline-flex w-max shrink-0 items-center justify-center rounded-lg font-medium whitespace-nowrap no-underline transition-all cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+  "group inline-flex max-w-full shrink-0 items-center justify-center rounded-lg text-center font-medium no-underline [text-wrap:balance] transition-all cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
 export const buttonVariantClasses: Record<ButtonVariant, string> = {
   primary:
@@ -66,17 +66,26 @@ export interface ButtonVariantsOptions {
   shape?: ButtonShape;
 }
 
+const button = variants({
+  base: buttonBase,
+  variants: {
+    variant: buttonVariantClasses,
+    size: buttonSizeText,
+    // Square and circle are icon-only: equal sides, no padding. Their size
+    // comes from `compound` below.
+    shape: { base: "", square: "p-0", circle: "p-0 rounded-full" },
+  },
+  defaults: { variant: "secondary", size: "base", shape: "base" },
+  compound: (["square", "circle"] as const).flatMap((shape) =>
+    (Object.keys(buttonSizeCompact) as ButtonSize[]).map((size) => ({
+      shape,
+      size,
+      class: buttonSizeCompact[size],
+    })),
+  ),
+});
+
 /** Compose the base + variant + size/shape classes for a button-shaped element. */
-export function buttonVariants({
-  variant = "secondary",
-  size = "base",
-  shape = "base",
-}: ButtonVariantsOptions = {}): string {
-  // base + square inherit `rounded-lg` from buttonBase; circle overrides it
-  // to a full pill.
-  const dims =
-    shape === "base"
-      ? buttonSizeText[size]
-      : cn(buttonSizeCompact[size], "p-0", shape === "circle" && "rounded-full");
-  return cn(buttonBase, buttonVariantClasses[variant], dims);
+export function buttonVariants(options: ButtonVariantsOptions = {}): string {
+  return button(options);
 }

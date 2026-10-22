@@ -1,0 +1,35 @@
+---
+/**
+ * ApiOperationList — operations, name first: each name is the link (underlined
+ * on hover), with the method and path set small beneath it. Used by section
+ * pages and the API home. Paths and methods stay left to right in a
+ * right-to-left page, as code does.
+ */
+import ApiMethodChip from "@/components/ui/api-sidebar/ApiMethodChip.astro";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
+import type { ApiOperationRef } from "@cloudflare/nimbus-docs/api";
+
+interface Props {
+  operations: ApiOperationRef[];
+}
+
+const { operations } = Astro.props;
+---
+
+<ul data-slot="api-operation-list" class="m-0 flex list-none flex-col gap-1 p-0">
+  {operations.map((op) => (
+    <li>
+      <a href={withBase(op.href, import.meta.env.BASE_URL)} data-slot="api-operation-row" class="group flex flex-col gap-1 py-2 text-inherit no-underline">
+        <div data-slot="api-operation-name" class:list={[
+          "w-fit text-[0.9375rem] font-medium leading-6 text-foreground underline-offset-4 [overflow-wrap:anywhere] group-hover:underline",
+          op.deprecated && "text-muted-foreground line-through",
+        ]}>{op.label}</div>
+        {op.path && (
+          <div dir="ltr" class="flex min-w-0 max-w-full items-center gap-2 self-start">
+            <ApiMethodChip method={op.method} display="label" /> <code class="min-w-0 truncate font-mono text-xs text-muted-foreground" title={op.path}>{op.path}</code>
+          </div>
+        )}
+      </a>
+    </li>
+  ))}
+</ul>

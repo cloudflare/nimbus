@@ -1,0 +1,50 @@
+---
+title: Introduction
+description: What your product does, who it's for, and where to start.
+sidebar:
+  order: 0
+---
+
+Describe your product in two sentences: what it does, and who it's for. A reader should know within ten seconds whether they're in the right place.
+
+<Aside type="tip" title="This page is yours">
+  Edit `src/content/docs/index.mdx` and save. The page reloads with your changes.
+</Aside>
+
+## What you can do
+
+List the three things people come here to do, in the words they would use.
+
+- Something a reader can accomplish on day one.
+- Something they'll need once they're up and running.
+- Something that makes your product different.
+
+## Get started
+
+Show the shortest path to something working. Name the prerequisites first, then one command or one click at a time.
+
+<Steps>
+  <Step title="Install">
+    ```sh
+    npm install your-package
+    ```
+  </Step>
+  <Step title="See it work">
+    Show the one result that proves the setup worked.
+  </Step>
+</Steps>
+
+## Add your next page
+
+Create a file beside this one. It joins the sidebar as soon as you save.
+
+```mdx title="src/content/docs/quickstart.mdx"
+---
+title: Quickstart
+description: From nothing to a working setup in five minutes.
+---
+
+Your first guide starts here.
+```
+
+Before you publish, run `npx @cloudflare/nimbus-docs check` to catch mistakes before your readers do.

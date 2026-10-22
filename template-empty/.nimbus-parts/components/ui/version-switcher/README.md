@@ -1,0 +1,96 @@
+# VersionSwitcher
+
+Header dropdown + mobile sidebar control for switching docs versions or
+API versions.
+
+Reads from the framework's data layer (`getVersions`,
+`getVersionAlternates`, `getCurrentVersion`). Renders nothing when the
+site is unversioned or has only one version, or when the page's
+`collection` isn't a docs version (an API reference or blog page).
+
+## API versions
+
+`ApiLayout` (from `nimbus-docs add api-layout`) already mounts the picker in
+API mode at the top of its sidebar, which the mobile drawer reuses. Nothing
+to wire. It renders nothing for an unversioned or single-version API.
+
+## After `nimbus-docs add version-switcher`, wire two placements
+
+The recipe installs the component files but does **not** edit your
+layouts. Two manual wires:
+
+### 1. Desktop header
+
+Edit `src/components/Header.astro`. Accept `collection` and `entryId`
+as props, then render:
+
+```astro
+---
+import { VersionSwitcher } from "./ui/version-switcher";
+
+interface Props {
+  collection?: string;
+  entryId?: string;
+}
+
+const { collection, entryId } = Astro.props;
+---
+
+{/* ... existing header content ... */}
+<div class="flex items-center gap-2">
+  <VersionSwitcher collection={collection} entryId={entryId} />
+  {/* ... other header controls (search, theme toggle, etc.) ... */}
+</div>
+```
+
+### 2. Mobile sidebar
+
+Edit `src/layouts/DocsLayout.astro`. Inside the mobile sidebar drawer
+(the `<dialog data-mobile-sidebar>` block), add the picker between the
+"Navigation" header bar and the `data-nb-sidebar-drawer-slot` div. Leave
+the slot empty: the rail's sidebar tree moves into it while the drawer is
+open.
+
+```astro
+<VersionSwitcher
+  collection={collection}
+  entryId={entryId}
+  variant="sidebar"
+  class="mx-4 mt-4"
+/>
+<div data-nb-sidebar-drawer-slot class="..."></div>
+```
+
+The `variant="sidebar"` mode has no built-in breakpoint gating — it
+inherits visibility from its container, so it works in a mobile drawer
+(shown below `md`) and in a persistent desktop sidebar (like the API
+reference's left column, shown above `md`) alike. The `header` variant
+is the dropdown for a top bar. Pass a `class` to gate visibility if a
+placement needs it.
+
+### 3. Pass props through your layout chain
+
+`DocsLayout.astro` should already accept `collection` and `entryId` as
+props (set up by the `new-collection` recipe or the framework's default
+route scaffolding) and forward them to `Header`:
+
+```astro
+<Header collection={collection} entryId={entryId} />
+```
+
+If your layout doesn't do this yet, see the framework spec for the
+required props chain: `route → DocsLayout → BaseLayout → NimbusHead` +
+`route → DocsLayout → Header → VersionSwitcher`.
+
+## Props
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `collection` | `string` | `undefined` | `entry.collection` from your route. Drives the "stay on this page" logic for the current version. A collection outside the docs versions hides the docs picker. |
+| `entryId` | `string` | `undefined` | `entry.id` from your route. Drives per-version `href` via the alternates table. |
+| `apiCollection` | `string` | `undefined` | API mode: the `api` entry's collection. Set it to switch API versions instead of docs versions. |
+| `apiVersion` | `string \| null` | `undefined` | API mode: this page's version, from `getApiRoute`. |
+| `coordinate` | `string` | `undefined` | API mode: this page's coordinate, from `getApiRoute`. Keeps the reader on the same operation in the target version. |
+| `variant` | `"header"` \| `"sidebar"` | `"header"` | Desktop popover or mobile sidebar section. |
+
+Both placements share the same data; render both and let CSS pick.

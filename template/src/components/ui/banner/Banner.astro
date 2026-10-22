@@ -27,6 +27,7 @@ const c = config[variant] ?? config.note;
 ---
 
 <div
+  data-slot="banner"
   role={variant === "danger" || variant === "caution" ? "alert" : "status"}
   class={cn("banner-card my-4 flex w-full items-start gap-3 rounded-lg px-4 py-3 text-sm leading-normal text-foreground", className)}
   style={`--_c: ${c.color}; --_t: ${c.tint};`}
@@ -35,14 +36,15 @@ const c = config[variant] ?? config.note;
     : {})}
   {...attrs}
 >
-  <div class="banner-card-body min-w-0 flex-1">
+  <div data-slot="banner-content" class="banner-card-body min-w-0 flex-1">
     <Fragment set:html={content} />
   </div>
   {dismissible && (
     <button
       type="button"
       data-nb-banner-close
-      class="-my-1 -mr-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-current opacity-60 transition-[background-color,opacity] hover:bg-card/60 hover:opacity-100"
+      data-slot="banner-close"
+      class="-my-1 -me-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-current opacity-60 transition-[background-color,opacity] hover:bg-card/60 hover:opacity-100"
       aria-label="Dismiss banner"
     >
       <Icon name="ph:x" class="w-3.5 h-3.5" />

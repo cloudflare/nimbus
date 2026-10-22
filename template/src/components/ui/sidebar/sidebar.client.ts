@@ -1,8 +1,9 @@
 /** Sidebar runtime: filter, persistence, "/" shortcut.
  *
- * Groups are native `<details data-nb-sidebar-group>`: open state is the
- * element's own `open` property, and changes arrive as `toggle` events
- * (captured on the root — `toggle` doesn't bubble). No click simulation.
+ * Groups are native `<details>`: open state is the element's own `open`
+ * property, and changes arrive as `toggle` events (captured on the root —
+ * `toggle` doesn't bubble). No click simulation. Rows carry no class or data
+ * attribute, so a link row is any `li > a` and a group any `details`.
  */
 
 import { mount } from "@cloudflare/nimbus-docs/client";
@@ -17,7 +18,7 @@ interface SidebarState {
 
 function groupsOf(root: HTMLElement): HTMLDetailsElement[] {
   return Array.from(
-    root.querySelectorAll<HTMLDetailsElement>("details[data-nb-sidebar-group]"),
+    root.querySelectorAll<HTMLDetailsElement>("details"),
   );
 }
 
@@ -81,7 +82,7 @@ function resetFilter(root: HTMLElement): void {
   });
   // Close groups the filter opened, restoring the reader's previous state.
   root
-    .querySelectorAll<HTMLDetailsElement>("[data-nb-sidebar-group][data-nb-opened-by-filter]")
+    .querySelectorAll<HTMLDetailsElement>("details[data-nb-opened-by-filter]")
     .forEach((group) => {
       group.open = false;
       group.removeAttribute("data-nb-opened-by-filter");
@@ -89,28 +90,28 @@ function resetFilter(root: HTMLElement): void {
 }
 
 function applyFilter(root: HTMLElement, query: string): void {
-  const links = root.querySelectorAll<HTMLElement>("[data-nb-sidebar-link]");
-  const groups = root.querySelectorAll<HTMLElement>("[data-nb-sidebar-group]");
+  const links = root.querySelectorAll<HTMLElement>("li > a");
+  const groups = root.querySelectorAll<HTMLElement>("details");
 
   links.forEach((link) => link.setAttribute("data-nb-sidebar-hidden", ""));
   groups.forEach((group) => group.setAttribute("data-nb-sidebar-hidden", ""));
 
   links.forEach((link) => {
-    // `data-nb-filter-text` adds words the link doesn't show, like a full HTTP verb.
-    const text =
-      `${link.textContent ?? ""} ${link.dataset.nbFilterText ?? ""}`.toLowerCase();
+    // A method chip's `data-m` adds the full verb its label may abbreviate.
+    const method = link.querySelector<HTMLElement>("i[data-m]")?.dataset.m ?? "";
+    const text = `${link.textContent ?? ""} ${method}`.toLowerCase();
     if (!text.includes(query)) return;
     link.removeAttribute("data-nb-sidebar-hidden");
     revealAncestors(link, root);
   });
 
   groups.forEach((group) => {
-    const label = group.querySelector("[data-nb-sidebar-group-label]");
+    const label = group.querySelector(":scope > summary");
     const text = label?.textContent?.toLowerCase() ?? "";
     if (!text.includes(query)) return;
     group.removeAttribute("data-nb-sidebar-hidden");
     openGroup(group);
-    group.querySelectorAll<HTMLElement>("[data-nb-sidebar-link], [data-nb-sidebar-group]")
+    group.querySelectorAll<HTMLElement>("li > a, details")
       .forEach((child) => child.removeAttribute("data-nb-sidebar-hidden"));
   });
 }
@@ -118,7 +119,7 @@ function applyFilter(root: HTMLElement, query: string): void {
 function revealAncestors(el: HTMLElement, scope: Element): void {
   let parent: HTMLElement | null = el.parentElement;
   while (parent && parent !== scope) {
-    if (parent.hasAttribute("data-nb-sidebar-group")) {
+    if (parent instanceof HTMLDetailsElement) {
       parent.removeAttribute("data-nb-sidebar-hidden");
       openGroup(parent);
     }
@@ -197,7 +198,7 @@ function initPersistence(root: HTMLElement): (() => void) | null {
   // group the filter opened is transient state and not saved.
   const handleToggle = (event: Event) => {
     const group = event.target as HTMLElement | null;
-    if (!group?.matches?.("[data-nb-sidebar-group]")) return;
+    if (!(group instanceof HTMLDetailsElement)) return;
     if (group.hasAttribute("data-nb-opened-by-filter")) return;
     save();
   };

@@ -1,0 +1,388 @@
+---
+/**
+ * ApiHome — the API home: every endpoint of the version on one page, laid out
+ * like a section page, with a filter.
+ *
+ * Large specs: the list is split into parts of at most `API_HOME_CHUNK_SIZE`
+ * endpoints, the size the API route passes to `getApiStaticPaths` and
+ * `getApiRoute`. The first renders here; each later part is a page of its own,
+ * served by the same route, fetched and appended about 1,500px before the
+ * reader reaches the end. Without script, the list ends in a link to the next
+ * part. The filter searches the version's page list, fetched on first focus,
+ * so it finds endpoints that haven't loaded. Coming back to the page restores
+ * the parts that were loaded and the scroll position.
+ */
+import ApiHomeChunk from "./ApiHomeChunk.astro";
+import ApiOperationList from "./ApiOperationList.astro";
+import { apiIndexRows, withBase } from "@cloudflare/nimbus-docs/runtime";
+import type { ApiHome } from "@cloudflare/nimbus-docs/runtime";
+import type { ApiRootPage } from "@cloudflare/nimbus-docs/api";
+
+interface Props {
+  page: ApiRootPage;
+  home?: ApiHome;
+}
+
+const { page, home } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const grouped = page.index.groups.some((group) => group.label !== null);
+const later = (home?.parts ?? []).slice(1).map((part) => ({
+  href: withBase(part.href, base),
+  label: `endpoints ${part.start}–${part.end} of ${home!.total}`,
+}));
+const rows = apiIndexRows(page.index);
+const methods = [...new Set(rows.map(([method]) => method.toUpperCase()))];
+if (rows.length > 0 && !home) {
+  throw new Error("ApiHome: pass `home` from getApiRoute() to ApiLayout, as the api-reference recipe's route does.");
+}
+---
+
+{!home ? (
+  <p class="nb-ix-none">No endpoints in this version.</p>
+) : (
+  <div
+    data-slot="api-home"
+    class="nb-ix"
+    data-nb-ix
+    data-filter-src={home.listHref && withBase(home.listHref, base)}
+    data-base={base}
+    data-later={JSON.stringify(later)}
+  >
+    <div class="nb-ix-bar" hidden={!home.listHref}>
+      <label class="nb-ix-filter">
+        <svg viewBox="0 0 256 256" aria-hidden="true"><circle cx="116" cy="116" r="72" fill="none" stroke="currentColor" stroke-width="20" /><path d="M168 168l52 52" stroke="currentColor" stroke-width="20" stroke-linecap="round" /></svg>
+        <span class="sr-only">Filter endpoints</span>
+        <input type="search" placeholder={`Filter ${home.total} endpoints`} autocomplete="off" spellcheck="false" data-nb-ix-input />
+      </label>
+    </div>
+
+    <div data-nb-ix-feed>
+      <ApiHomeChunk chunk={home.part} grouped={grouped} />
+    </div>
+
+    {later.length > 0 && (
+      <a class="nb-ix-more" href={later[0]!.href} data-nb-ix-more data-pagefind-ignore>
+        <span data-nb-ix-more-label>Next: {later[0]!.label}</span>
+      </a>
+    )}
+
+    {/* Filter results are built in the browser; search indexes the page's own list. */}
+    <div data-nb-ix-results hidden data-pagefind-ignore>
+      <div data-nb-ix-results-list></div>
+      <p class="nb-ix-note" hidden data-nb-ix-note></p>
+      <button type="button" class="nb-ix-retry" hidden data-nb-ix-retry>Retry</button>
+    </div>
+    <p class="sr-only" aria-live="polite" data-nb-ix-status></p>
+
+    {/* One result row per method, cloned and filled in by the filter. */}
+    {methods.map((method) => (
+      <template data-nb-ix-row={method}>
+        <ApiOperationList operations={[{ href: "#", label: "", method, path: "/" }]} />
+      </template>
+    ))}
+  </div>
+)}
+
+<script>
+  import { navigate } from "astro:transitions/client";
+  import { loadNavList, matchNavList, type NavListRow } from "@cloudflare/nimbus-docs/client";
+
+  type Later = { href: string; label: string };
+
+  const LIMIT = 200;
+
+  // A back/forward visit restores what was loaded; anything else starts fresh.
+  let traversing =
+    (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type === "back_forward";
+  document.addEventListener("astro:before-preparation", (e) => {
+    traversing = (e as Event & { navigationType?: string }).navigationType === "traverse";
+  });
+
+  function init() {
+    const root = document.querySelector<HTMLElement>("[data-nb-ix]");
+    if (!root || root.dataset.ready === "true") return;
+    root.dataset.ready = "true";
+    // Fixed now: by the time a back/forward navigation saves, location already
+    // names the next page.
+    const stateKey = `nb-ix:${location.pathname}${location.search}`;
+    // List rows carry urls before the site's base, as the page's own do.
+    const base = (root.dataset.base ?? "/").replace(/\/$/, "");
+    const based = (href: string) => (href.startsWith("/") ? `${base}${href}` : href);
+
+    const input = root.querySelector<HTMLInputElement>("[data-nb-ix-input]")!;
+    const feed = root.querySelector<HTMLElement>("[data-nb-ix-feed]")!;
+    const more = root.querySelector<HTMLAnchorElement>("[data-nb-ix-more]");
+    const moreLabel = root.querySelector<HTMLElement>("[data-nb-ix-more-label]");
+    const results = root.querySelector<HTMLElement>("[data-nb-ix-results]")!;
+    const list = root.querySelector<HTMLElement>("[data-nb-ix-results-list]")!;
+    const note = root.querySelector<HTMLElement>("[data-nb-ix-note]")!;
+    const retry = root.querySelector<HTMLButtonElement>("[data-nb-ix-retry]")!;
+    const status = root.querySelector<HTMLElement>("[data-nb-ix-status]")!;
+    const later: Later[] = JSON.parse(root.dataset.later ?? "[]");
+    let loaded = 0;
+    let loading: Promise<void> | null = null;
+    const leave = new AbortController();
+
+    // ---- The list, a part at a time ----
+    const ahead = 1500;
+    const loadNext = (): Promise<void> => {
+      if (loading) return loading;
+      if (loaded >= later.length) return Promise.resolve();
+      const next = later[loaded]!;
+      if (moreLabel) moreLabel.textContent = "Loading more endpoints…";
+      let appended = false;
+      loading = fetch(next.href)
+        .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+        .then((html) => {
+          const chunk = new DOMParser().parseFromString(html, "text/html").querySelector("[data-api-home-chunk]");
+          if (!chunk) throw new Error("no chunk");
+          feed.append(document.adoptNode(chunk));
+          loaded++;
+          appended = true;
+          document.dispatchEvent(new Event("nb:toc-headings"));
+          const after = later[loaded];
+          if (after && more && moreLabel) {
+            more.href = after.href;
+            moreLabel.textContent = `Next: ${after.label}`;
+          } else {
+            more?.remove();
+            observer?.disconnect();
+          }
+        })
+        .catch(() => {
+          // The link still leads to the next part, a page of its own.
+          if (moreLabel) moreLabel.textContent = `Next: ${next.label}`;
+        })
+        .finally(() => {
+          loading = null;
+          // A short part can leave the visible link in range, where the observer won't fire again.
+          if (appended && more?.isConnected && !more.hidden && more.getBoundingClientRect().top < innerHeight + ahead)
+            void loadNext();
+        });
+      return loading;
+    };
+    const observer = more
+      ? new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && void loadNext(), {
+          rootMargin: `0px 0px ${ahead}px 0px`,
+        })
+      : null;
+    if (more) observer!.observe(more);
+
+    // ---- A link to a heading in a part that hasn't loaded ----
+    const reveal = async (id: string) => {
+      while (!document.getElementById(id) && loaded < later.length) {
+        const before = loaded;
+        await loadNext();
+        if (loaded === before) break;
+      }
+    };
+    const pendingId = (href: string | null) => {
+      if (!href?.startsWith("#") || loaded >= later.length) return null;
+      const id = decodeURIComponent(href.slice(1));
+      return id && !document.getElementById(id) ? id : null;
+    };
+    document.addEventListener(
+      "click",
+      (e) => {
+        const id = pendingId((e.target as HTMLElement).closest?.("a")?.getAttribute("href") ?? null);
+        if (!id) return;
+        e.preventDefault();
+        // Load up to the heading, then let the router make the hash
+        // navigation, so Back and Forward keep working.
+        void reveal(id).then(() => navigate(`#${encodeURIComponent(id)}`));
+      },
+      { signal: leave.signal },
+    );
+    const initial = pendingId(location.hash || null);
+    if (initial) void reveal(initial).then(() => document.getElementById(initial)?.scrollIntoView());
+
+    // ---- Back to the page: reload what was loaded, then the scroll ----
+    const saved = (() => {
+      try {
+        return JSON.parse(sessionStorage.getItem(stateKey) ?? "null") as { loaded: number; y: number } | null;
+      } catch {
+        return null;
+      }
+    })();
+    if (traversing && saved && saved.loaded > 0) {
+      void (async () => {
+        while (loaded < Math.min(saved.loaded, later.length)) {
+          const before = loaded;
+          await loadNext();
+          if (loaded === before) break;
+        }
+        window.scrollTo(0, saved.y);
+      })();
+    }
+    const save = () => {
+      try {
+        sessionStorage.setItem(stateKey, JSON.stringify({ loaded, y: window.scrollY }));
+      } catch {}
+    };
+    window.addEventListener("pagehide", save, { signal: leave.signal });
+    document.addEventListener(
+      "astro:before-preparation",
+      () => {
+        save();
+        observer?.disconnect();
+        leave.abort();
+      },
+      { signal: leave.signal },
+    );
+
+    // ---- Filter: every endpoint, loaded or not ----
+    let rows: NavListRow[] | null = null;
+    const getRows = (): Promise<NavListRow[] | null> =>
+      rows
+        ? Promise.resolve(rows)
+        : root.dataset.filterSrc
+          ? loadNavList(root.dataset.filterSrc)
+              .then((list) => (rows = list.filter((row) => row.method)))
+              .catch(() => null)
+          : Promise.resolve(null);
+    const templates = new Map(
+      [...root.querySelectorAll<HTMLTemplateElement>("template[data-nb-ix-row]")].map((t) => [t.dataset.nbIxRow!, t]),
+    );
+    const fallback = templates.values().next().value as HTMLTemplateElement | undefined;
+    const say = (text: string, showNote = true) => {
+      note.textContent = text;
+      note.hidden = !showNote;
+      status.textContent = text;
+    };
+    const render = (matches: NavListRow[]) => {
+      const shown = matches.slice(0, LIMIT);
+      const ul = (fallback?.content.querySelector("ul")?.cloneNode(false) as HTMLUListElement | undefined) ?? document.createElement("ul");
+      for (const { method, path, title, url } of shown) {
+        const template = templates.get(method!.toUpperCase()) ?? fallback;
+        const li = template!.content.querySelector("li")!.cloneNode(true) as HTMLLIElement;
+        const a = li.querySelector("a")!;
+        a.href = based(url);
+        a.querySelector("[data-slot=api-operation-name]")!.textContent = title;
+        li.querySelector("code")!.textContent = path ?? "";
+        ul.append(li);
+      }
+      list.replaceChildren(...(shown.length ? [ul] : []));
+      retry.hidden = true;
+      if (matches.length === 0) say("No endpoints match.");
+      else if (matches.length > LIMIT) say(`Showing ${LIMIT} of ${matches.length} endpoints.`);
+      else say(matches.length === 1 ? "1 endpoint" : `${matches.length} endpoints`, false);
+    };
+    const terms = () => input.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    const apply = async () => {
+      const current = terms();
+      const filtering = current.length > 0;
+      feed.hidden = filtering;
+      if (more) more.hidden = filtering;
+      results.hidden = !filtering;
+      if (!filtering) {
+        list.replaceChildren();
+        status.textContent = "";
+        return;
+      }
+      if (!rows) {
+        list.replaceChildren();
+        retry.hidden = true;
+        say("Loading endpoints…");
+      }
+      const all = await getRows();
+      if (terms().join(" ") !== current.join(" ")) return;
+      if (!all) {
+        list.replaceChildren();
+        say("Couldn't load the endpoint list.");
+        retry.hidden = false;
+        return;
+      }
+      render(matchNavList(all, current.join(" ")));
+    };
+    retry.addEventListener("click", () => void apply());
+    input.addEventListener("focus", () => void getRows(), { once: true });
+    input.addEventListener("input", () => void apply());
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && input.value) {
+        e.preventDefault();
+        input.value = "";
+        void apply();
+      }
+      if (e.key === "Enter" && !results.hidden) list.querySelector<HTMLAnchorElement>("a")?.click();
+    });
+  }
+
+  init();
+  document.addEventListener("astro:page-load", init);
+</script>
+
+<style>
+  .nb-ix {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+  .nb-ix-bar {
+    position: sticky;
+    top: var(--nb-header-height);
+    z-index: 5;
+    margin: 0 0 -1.5rem;
+    padding: 0.5rem 0;
+    background: var(--nb-background);
+  }
+  .nb-ix-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 2.5rem;
+    padding-inline: 0.75rem 0.5rem;
+    border-radius: var(--nb-radius);
+    background: var(--nb-card);
+    box-shadow: var(--nb-shadow-sm), 0 0 0 1px var(--nb-border);
+    color: var(--nb-muted-foreground);
+  }
+  .nb-ix-filter:focus-within {
+    box-shadow: var(--nb-shadow-sm), 0 0 0 1px var(--nb-border-strong), 0 0 0 4px var(--nb-ring);
+  }
+  .nb-ix-filter svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+  .nb-ix-filter input {
+    min-width: 0;
+    flex: 1;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: 0.875rem;
+    color: var(--nb-foreground);
+  }
+  .nb-ix-filter input::placeholder {
+    color: var(--nb-muted-foreground);
+  }
+  .nb-ix-filter input::-webkit-search-cancel-button {
+    display: none;
+  }
+  .nb-ix-more {
+    align-self: flex-start;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--nb-muted-foreground);
+    text-decoration: none;
+    text-underline-offset: 4px;
+  }
+  .nb-ix-more:hover {
+    color: var(--nb-foreground);
+    text-decoration: underline;
+  }
+  .nb-ix-none,
+  .nb-ix-note {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--nb-muted-foreground);
+  }
+  .nb-ix-retry {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--nb-foreground);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+</style>

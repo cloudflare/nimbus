@@ -1,0 +1,119 @@
+---
+title: Writing pages
+description: Create a page, organise the sidebar, and use Markdown and components to write it.
+sidebar:
+  order: 3
+---
+
+Every page is an `.mdx` file in `src/content/docs/`. The file path becomes the URL, so `src/content/docs/guides/deploy.mdx` is served at `/guides/deploy/`. Start from the [introduction](/) if you haven't opened the project yet.
+
+## Create a page
+
+Add a file with a `title` in its frontmatter. The title becomes the page heading, so don't repeat it in the body.
+
+```mdx title="src/content/docs/guides/deploy.mdx" {2-3}
+---
+title: Deploy
+description: Ship the site to production.
+---
+
+Run the build, then upload the output.
+```
+
+Frontmatter is validated at build time. A missing title or a misspelled field fails the build with a message that names the file and the field.
+
+- `title` is required. Everything else is optional.
+- `description` appears under the heading, in search results, and in social cards.
+- `sidebar` controls where the page sits in the navigation.
+  - `order` sorts pages within a group, lowest first.
+  - `badge` adds a short label next to the link.
+
+### Frontmatter fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `title` | string | The page heading and the `<title>` tag. |
+| `description` | string | One-line summary for search, social cards, and the page header. |
+| `sidebar.order` | number | Position within the sidebar group. Lower numbers come first. |
+| `draft` | boolean | Builds the page in development only. It never reaches production. |
+
+## Write with Markdown
+
+Standard Markdown works everywhere: **bold**, *italic*, [links](/), `inline code`, lists, tables, and fenced code blocks. Press <kbd>⌘</kbd> <kbd>K</kbd> to search the site for anything else.
+
+> Write the page you would want to find. One topic per page, and a title that says what the reader will be able to do.
+
+Code blocks are highlighted at build time. Add a `title` to show a filename, and line numbers in braces to draw attention to specific lines.
+
+```ts title="astro.config.ts" {3}
+const nimbusConfig = defineNimbusConfig({
+  site: "https://docs.example.com",
+  title: "My docs",
+  description: "Guides and reference for My product.",
+});
+```
+
+<Aside type="tip" title="Preview as you write">
+  The dev server reloads the page on every save. Run `npm run dev` and keep the page open next to your editor.
+</Aside>
+
+### Organise the sidebar
+
+Folders become sidebar groups. Inside a group, pages sort by `sidebar.order`, then by title.
+
+1. Create a folder in `src/content/docs/`, for example `guides/`.
+2. Move related pages into it.
+3. Set `sidebar.order` on each page to fix the order.
+
+## Use components
+
+Components are available in every `.mdx` file without an import. Install more from the registry when you need them.
+
+<Steps>
+  <Step title="Add a component">
+    Run `npx @cloudflare/nimbus-docs add accordion` to copy it into `src/components/ui/`.
+  </Step>
+  <Step title="Register it">
+    Add it to `src/components.ts` so every page can use it.
+  </Step>
+</Steps>
+
+<Tabs>
+  <TabItem label="npm">
+    ```sh
+    npx @cloudflare/nimbus-docs add accordion
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```sh
+    pnpm dlx @cloudflare/nimbus-docs add accordion
+    ```
+  </TabItem>
+</Tabs>
+
+#### What ships with the starter
+
+<dl>
+  <dt>Aside</dt>
+  <dd>Notes, tips, cautions, and warnings that stand apart from the text.</dd>
+  <dt>Steps</dt>
+  <dd>Numbered procedures, each with a title and its own content.</dd>
+  <dt>Tabs</dt>
+  <dd>The same content in several variants, such as one command per package manager.</dd>
+</dl>
+
+<details>
+  <summary>Can I use plain Markdown files instead of MDX?</summary>
+
+  Yes. MDX is a superset of Markdown, so any `.md` content works unchanged in an `.mdx` file. You only need MDX syntax when you add a component.
+</details>
+
+---
+
+<Aside type="note">
+  Every page also has a Markdown version for agents and readers who prefer plain text. Add `index.md` to any page URL to see it.
+</Aside>
+
+Pages you write today keep working when you upgrade Nimbus[^1]. Use <mark>highlights</mark> sparingly; they lose their meaning when everything is marked.
+
+[^1]: Changes that need your attention are listed by `npx @cloudflare/nimbus-docs migrate --dry-run`.

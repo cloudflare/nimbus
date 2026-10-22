@@ -1,5 +1,6 @@
 ---
 import { capabilities, options } from "virtual:nimbus/agent-capabilities";
+import { searchIndex } from "virtual:nimbus/config";
 ---
 
 {capabilities.search === "pagefind" && (
@@ -9,6 +10,8 @@ import { capabilities, options } from "virtual:nimbus/agent-capabilities";
     site: options.site,
     title: options.title,
     base: options.base,
+    bundle: searchIndex.bundle,
+    merge: searchIndex.merge,
   })} />
 )}
 

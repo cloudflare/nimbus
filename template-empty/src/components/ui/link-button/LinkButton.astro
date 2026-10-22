@@ -53,6 +53,8 @@ const resolvedSize: ButtonSize = size === "md" ? "base" : size;
 ---
 
 <a
+  data-slot="button"
+  data-variant={resolvedVariant}
   href={href}
   class={cn(
     buttonVariants({ variant: resolvedVariant, size: resolvedSize, shape }),
@@ -66,7 +68,7 @@ const resolvedSize: ButtonSize = size === "md" ? "base" : size;
       <Icon
         name="ph:caret-right"
         class={cn(
-          "transition-transform group-hover:translate-x-0.5",
+          "transition-transform group-hover:translate-x-0.5 rtl:-scale-x-100 rtl:group-hover:-translate-x-0.5",
           buttonIconSize[resolvedSize],
         )}
        

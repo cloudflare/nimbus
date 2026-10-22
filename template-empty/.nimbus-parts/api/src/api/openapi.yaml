@@ -1,0 +1,263 @@
+# A sample to start from. Replace it with your own OpenAPI 3.x spec, or point
+# the `api` entry in astro.config.ts at another file.
+openapi: 3.1.0
+info:
+  title: Weather API
+  version: 1.0.0
+  description: Forecasts and severe-weather alerts for anywhere on Earth.
+servers:
+  - url: https://api.weather.example/v1
+security:
+  - bearer: []
+tags:
+  - name: Locations
+    description: Find places by name.
+  - name: Forecasts
+    description: Daily forecasts for any place.
+  - name: Alerts
+    description: Official warnings for severe weather.
+x-tagGroups:
+  - name: Weather
+    tags:
+      - Locations
+      - Forecasts
+      - Alerts
+paths:
+  /locations:
+    get:
+      operationId: searchLocations
+      summary: Search locations
+      description: Find places whose name matches a query, best match first.
+      tags: [Locations]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: A place name, such as `Lisbon` or `Lisbon, PT`.
+          schema:
+            type: string
+            minLength: 2
+        - name: limit
+          in: query
+          description: How many matches to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 5
+      responses:
+        "200":
+          description: Matching places.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Location"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /locations/{location_id}:
+    get:
+      operationId: getLocation
+      summary: Retrieve a location
+      tags: [Locations]
+      parameters:
+        - $ref: "#/components/parameters/LocationId"
+      responses:
+        "200":
+          description: The location.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /forecasts:
+    get:
+      operationId: getDailyForecast
+      summary: Daily forecast
+      description: Up to 14 days of forecasts for a location, starting today in its time zone.
+      tags: [Forecasts]
+      parameters:
+        - name: location_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 14
+            default: 7
+        - name: units
+          in: query
+          schema:
+            type: string
+            enum: [metric, imperial]
+            default: metric
+      responses:
+        "200":
+          description: One entry per day.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [location_id, days]
+                properties:
+                  location_id:
+                    type: string
+                  days:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DailyForecast"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /alerts:
+    get:
+      operationId: listAlerts
+      summary: List alerts
+      description: Active alerts, most severe first.
+      tags: [Alerts]
+      parameters:
+        - name: severity
+          in: query
+          schema:
+            $ref: "#/components/schemas/Severity"
+      responses:
+        "200":
+          description: Active alerts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Alert"
+  /alerts/{alert_id}:
+    get:
+      operationId: getAlert
+      summary: Retrieve an alert
+      tags: [Alerts]
+      parameters:
+        - name: alert_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The alert.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+  parameters:
+    LocationId:
+      name: location_id
+      in: path
+      required: true
+      schema:
+        type: string
+        examples: [loc_lisbon]
+  responses:
+    BadRequest:
+      description: The request was malformed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Nothing exists at that id.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Location:
+      type: object
+      required: [id, name, latitude, longitude, timezone]
+      properties:
+        id:
+          type: string
+          examples: [loc_lisbon]
+        name:
+          type: string
+          examples: [Lisbon]
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2 code.
+          examples: [PT]
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+        timezone:
+          type: string
+          examples: [Europe/Lisbon]
+    DailyForecast:
+      type: object
+      required: [date, temperature_max, temperature_min, summary]
+      properties:
+        date:
+          type: string
+          format: date
+        temperature_max:
+          type: number
+        temperature_min:
+          type: number
+        precipitation_probability:
+          type: integer
+          minimum: 0
+          maximum: 100
+        summary:
+          type: string
+          examples: [Sunny spells, light breeze]
+    Severity:
+      type: string
+      enum: [minor, moderate, severe, extreme]
+    Alert:
+      type: object
+      required: [id, headline, severity, starts_at]
+      properties:
+        id:
+          type: string
+        headline:
+          type: string
+          examples: [Heat warning for the Lisbon district]
+        severity:
+          $ref: "#/components/schemas/Severity"
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          examples: [not_found]
+        message:
+          type: string

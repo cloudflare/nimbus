@@ -1,0 +1,141 @@
+---
+/**
+ * ApiMethodChip — the method indicator for an API operation. Colours come from
+ * the shared `--nb-m-*` palette (`globals.css`); the variant key comes from
+ * `methodVariant` (`./method`), shared across the sidebar, endpoint card, and
+ * code rail so they can never disagree on a method's colour.
+ *
+ * `display` selects the presentation:
+ *   - "glyph" — direction arrow only, in a 20×20 square (code rail, card).
+ *   - "label" — the verb word only (sidebar).
+ *
+ * `decorative` (glyph only) drops the `role="img"`/`aria-label` and marks the
+ * arrow `aria-hidden` — for when a visible verb word sits beside it (endpoint
+ * card header) and should own the accessible name instead, avoiding a
+ * double-announce.
+ *
+ * Label chips share one uniform width (`--nb-api-verb`, sized to the widest
+ * verb) so operation rows align into a clean column; long verbs are abbreviated
+ * to stay inside it. The full verb is preserved as the accessible name. POST,
+ * PUT, and PATCH intentionally share one "write" arrow (PATCH folds to PUT's
+ * colour) — the word disambiguates them everywhere except the glyph rail, which
+ * sits beside a labelled endpoint card.
+ *
+ * The label chip is a bare `<i data-m="get">GET</i>`: a sidebar repeats it on
+ * every operation row, so it carries the full method (for colour and for the
+ * sidebar filter, which matches `DELETE` on a `DEL` chip) and nothing else.
+ * Styles are global for the same reason: a scoped style would stamp a
+ * `data-astro-cid-*` attribute on every chip.
+ *
+ * Renders nothing for a missing/blank method.
+ */
+import { methodLabel, methodVariant } from "./method";
+
+interface Props {
+  method?: string;
+  display?: "glyph" | "label";
+  size?: "sm" | "md";
+  decorative?: boolean;
+}
+
+const { method, display = "glyph", size = "sm", decorative = false } = Astro.props;
+const verb = method?.toLowerCase();
+const name = verb?.toUpperCase();
+const variant = methodVariant(method);
+
+const label = methodLabel(method);
+
+const S = `width:1.08em;height:1.08em;flex:none`;
+const A = `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="${S}" aria-hidden="true"`;
+const glyphs: Record<string, string> = {
+  get: `<svg ${A}><path d="M17 7 7 17"/><path d="M17 17H7V7"/></svg>`,
+  post: `<svg ${A}><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>`,
+  put: `<svg ${A}><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>`,
+  delete: `<svg ${A}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
+  other: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" style="${S}" aria-hidden="true"><circle cx="12" cy="12" r="3.25"/></svg>`,
+};
+---
+
+{
+  variant &&
+    (display === "glyph" ? (
+      <span
+        class:list={["nb-api-chip", `nb-api-chip--${variant}`, "is-glyph", `is-${size}`]}
+        role={decorative ? undefined : "img"}
+        aria-label={decorative ? undefined : name}
+        aria-hidden={decorative ? "true" : undefined}
+      >
+        <Fragment set:html={glyphs[variant]} />
+      </span>
+    ) : (
+      <i data-m={verb} class={size === "md" ? "is-md" : undefined}>{label}</i>
+    ))
+}
+
+<style is:global>
+  .nb-api-chip,
+  i[data-m] {
+    --nb-api-verb: 5ch;
+    font-size: 0.625rem;
+    box-sizing: border-box;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4em;
+    height: 2em;
+    border: 1px solid var(--m-line);
+    border-radius: 0.46em;
+    background-color: var(--m-tint);
+    color: var(--m);
+    font-family: var(--nb-font-mono, ui-monospace, monospace);
+    font-weight: 500;
+    line-height: 1;
+    -webkit-font-smoothing: antialiased;
+  }
+  i[data-m] {
+    font-style: normal;
+    width: calc(var(--nb-api-verb) + 0.5em);
+    --m: var(--nb-m-other);
+    --m-tint: var(--nb-m-other-tint);
+    --m-line: var(--nb-m-other-line);
+  }
+  .nb-api-chip.is-md,
+  i[data-m].is-md {
+    font-size: 0.8125rem;
+  }
+  .nb-api-chip svg {
+    width: 1.08em;
+    height: 1.08em;
+    flex: none;
+  }
+  .nb-api-chip.is-glyph {
+    width: 2em;
+  }
+
+  .nb-api-chip--get, i[data-m="get"], i[data-m="head"] {
+    --m: var(--nb-m-get);
+    --m-tint: var(--nb-m-get-tint);
+    --m-line: var(--nb-m-get-line);
+  }
+  .nb-api-chip--post, i[data-m="post"] {
+    --m: var(--nb-m-post);
+    --m-tint: var(--nb-m-post-tint);
+    --m-line: var(--nb-m-post-line);
+  }
+  .nb-api-chip--put, i[data-m="put"], i[data-m="patch"] {
+    --m: var(--nb-m-put);
+    --m-tint: var(--nb-m-put-tint);
+    --m-line: var(--nb-m-put-line);
+  }
+  .nb-api-chip--delete, i[data-m="delete"] {
+    --m: var(--nb-m-delete);
+    --m-tint: var(--nb-m-delete-tint);
+    --m-line: var(--nb-m-delete-line);
+  }
+  .nb-api-chip--other {
+    --m: var(--nb-m-other);
+    --m-tint: var(--nb-m-other-tint);
+    --m-line: var(--nb-m-other-line);
+  }
+</style>

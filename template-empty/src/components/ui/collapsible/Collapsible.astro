@@ -8,10 +8,12 @@ interface Props extends HTMLAttributes<"div"> {
   open?: boolean;
 }
 
-const { open = false, class: className, ...attrs } = Astro.props;
+// A composing component can pass its own `data-slot` in place of this one.
+const { open = false, class: className, "data-slot": slot = "collapsible", ...attrs } = Astro.props;
 ---
 
 <div
+  data-slot={slot}
   data-nb-collapsible
   data-nb-default-open={open ? "true" : undefined}
   class={cn(className)}

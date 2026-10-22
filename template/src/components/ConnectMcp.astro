@@ -1,0 +1,28 @@
+---
+import { capabilities } from "virtual:nimbus/agent-capabilities";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+
+type Props = HTMLAttributes<"div">;
+
+const { class: className, ...attrs } = Astro.props;
+const url = capabilities.mcpUrl;
+
+const actionBtn =
+  "inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-transparent px-2 py-1 text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2";
+---
+
+{url && (
+  <div data-nb-connect-mcp data-pagefind-ignore class={cn("not-prose inline-flex text-[0.8125rem]", className)} {...attrs}>
+    <button type="button" data-nb-connect-mcp-copy data-copy={url} title="Copy MCP server URL" class={actionBtn}>
+      <Icon name="ph:plugs-connected" class="w-3.5 h-3.5" />
+      <span data-nb-connect-mcp-label>Copy MCP URL</span>
+    </button>
+    <span class="sr-only" role="status" data-nb-connect-mcp-status></span>
+  </div>
+)}
+
+<script>
+  import "./connect-mcp.client";
+</script>

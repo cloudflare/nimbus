@@ -1,0 +1,143 @@
+---
+/**
+ * ApiHomeChunk — one part of the API home's list: each tag group a heading,
+ * each section its linked title, description and endpoints, name first; then
+ * untagged endpoints and webhooks. The home page renders the first part; each
+ * later part is a page of its own, served by the API route at
+ * `<home>/index/<n>/`, which the home fetches and appends as the reader
+ * scrolls. Edits here show in both.
+ */
+import ApiOperationList from "./ApiOperationList.astro";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
+import type { ApiIndexChunk } from "@cloudflare/nimbus-docs/runtime";
+
+interface Props {
+  chunk: ApiIndexChunk;
+  /** Whether the spec has tag groups; without them, sections in no group get
+   *  no "More" heading. */
+  grouped: boolean;
+}
+
+const { chunk, grouped } = Astro.props;
+const href = (path: string) => withBase(path, import.meta.env.BASE_URL);
+const Heading = (depth: number) => `h${Math.min(6, depth)}` as "h2";
+const first = chunk.groups[0];
+---
+
+<div class="nb-ix-chunk" data-api-home-chunk data-continues={first?.continued ? "" : undefined}>
+  {chunk.groups.map((group) => {
+    const label = group.label ?? (grouped ? "More" : null);
+    const level = label ? 3 : 2;
+    return (
+      <section class="nb-ix-group">
+        {label && (group.continued ? (
+          <h2 class="sr-only">{label}, continued</h2>
+        ) : (
+          <h2 id={group.anchor} class="nb-ix-group-name">
+            {group.ref ? <a href={href(group.ref.href)}>{label}</a> : label}
+          </h2>
+        ))}
+        {group.operations.length > 0 && <ApiOperationList operations={group.operations} />}
+        {group.sections.map((section) => {
+          const Tag = Heading(level + section.depth);
+          return (
+            <section class="nb-ix-section">
+              <Tag id={section.anchor} class="nb-ix-section-title">
+                <a href={href(section.ref.href)}>{section.ref.label}</a>
+                {section.continued && <span class="nb-ix-continued"> (continued)</span>}
+              </Tag>
+              {section.description && <p class="nb-ix-section-desc">{section.description}</p>}
+              {section.operations.length > 0 && <ApiOperationList operations={section.operations} />}
+            </section>
+          );
+        })}
+      </section>
+    );
+  })}
+
+  {chunk.operations && (
+    <section class="nb-ix-group">
+      <h2 id={chunk.operations.anchor} class="nb-ix-group-name">
+        Other endpoints{chunk.operations.continued && <span class="nb-ix-continued"> (continued)</span>}
+      </h2>
+      <ApiOperationList operations={chunk.operations.operations} />
+    </section>
+  )}
+
+  {chunk.webhooks && (
+    <section class="nb-ix-group">
+      <h2 id={chunk.webhooks.anchor} class="nb-ix-group-name">
+        Webhooks{chunk.webhooks.continued && <span class="nb-ix-continued"> (continued)</span>}
+      </h2>
+      <ApiOperationList operations={chunk.webhooks.operations} />
+    </section>
+  )}
+</div>
+
+<style>
+  .nb-ix-chunk {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+  /* Parts join with the spacing they'd have inside one part: a new group's
+     gap, or a section's when the group carries on. */
+  :global([data-api-home-chunk] + [data-api-home-chunk]) {
+    margin-top: 3rem;
+  }
+  :global([data-api-home-chunk] + [data-api-home-chunk][data-continues]) {
+    margin-top: 2rem;
+  }
+  .nb-ix-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+  .nb-ix-section {
+    display: flex;
+    flex-direction: column;
+  }
+  /* Clear the sticky header and the filter bar beneath it. */
+  .nb-ix-group-name,
+  .nb-ix-section-title {
+    scroll-margin-top: calc(var(--nb-header-height) + 4.5rem);
+  }
+  .nb-ix-group-name {
+    margin: 0;
+    font-size: var(--nb-h2-size);
+    line-height: var(--nb-h2-leading);
+    font-weight: var(--nb-h2-weight);
+    color: var(--nb-foreground);
+  }
+  .nb-ix-section-title {
+    margin: 0;
+    font-size: var(--nb-h3-size);
+    line-height: var(--nb-h3-leading);
+    font-weight: var(--nb-h3-weight);
+    color: var(--nb-foreground);
+    overflow-wrap: break-word;
+  }
+  .nb-ix-group-name a,
+  .nb-ix-section-title a {
+    color: inherit;
+    text-decoration: none;
+    text-underline-offset: 4px;
+  }
+  .nb-ix-group-name a:hover,
+  .nb-ix-section-title a:hover {
+    text-decoration: underline;
+  }
+  .nb-ix-continued {
+    font-weight: 400;
+    color: var(--nb-muted-foreground);
+  }
+  .nb-ix-section-desc {
+    margin: 0.25rem 0 0;
+    font-size: 0.9375rem;
+    line-height: 1.5rem;
+    color: var(--nb-muted-foreground);
+  }
+  .nb-ix-section > :global([data-slot="api-operation-list"]) {
+    margin-top: 0.75rem;
+  }
+</style>

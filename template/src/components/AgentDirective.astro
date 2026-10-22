@@ -11,7 +11,7 @@ interface Props {
 const { markdownUrl, llmsUrl } = Astro.props;
 ---
 
-<aside class="sr-only" data-ai-agent-directive>
+<aside class="sr-only" aria-label="For AI agents" data-ai-agent-directive>
   {markdownUrl ? (
     <Fragment>
       This page is available in Markdown format. Markdown is recommended for AI

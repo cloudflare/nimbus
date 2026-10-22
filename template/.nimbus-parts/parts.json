@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "api": {
+    "files": {
+      "src/pages/api/[...slug].astro": "api/src/pages/api/[...slug].astro",
+      "src/content.config.ts": "api/src/content.config.ts",
+      "astro.config.ts": "api/astro.config.ts",
+      "AGENT.md": "api/AGENT.md"
+    },
+    "only": {
+      "files": {
+        "src/pages/[...slug].astro": "api/src/pages/api/[...slug].astro",
+        "src/content.config.ts": "api-only/src/content.config.ts",
+        "astro.config.ts": "api-only/astro.config.ts",
+        "AGENT.md": "api-only/AGENT.md"
+      },
+      "remove": [
+        "src/content/docs"
+      ]
+    },
+    "spec": {
+      "from": "api/src/api/openapi.yaml",
+      "to": "src/api/openapi.yaml"
+    },
+    "components": [
+      {
+        "slug": "api-code-rail",
+        "type": "registry:ui",
+        "version": "0.19.0",
+        "hash": "sha256:08bbd9c0bb6a97b08a89941d581ef848d1f7db16529cabaf4dd1b3e9ccc777a0",
+        "files": [
+          "components/ui/api-code-rail/ApiCodeRail.astro",
+          "components/ui/api-code-rail/code-rail.client.ts",
+          "components/ui/api-code-rail/code-rail.css",
+          "components/ui/api-code-rail/index.ts"
+        ]
+      },
+      {
+        "slug": "api-field-row",
+        "type": "registry:ui",
+        "version": "0.19.0",
+        "hash": "sha256:d25541a78637136378e70027c1975700cff60678d6a8e7e1a627995f732fabd4",
+        "files": [
+          "components/ui/api-field-row/ApiFieldList.astro",
+          "components/ui/api-field-row/ApiFieldRow.astro",
+          "components/ui/api-field-row/ApiUnionExplorer.astro",
+          "components/ui/api-field-row/api-field-row.client.ts",
+          "components/ui/api-field-row/field-list.css",
+          "components/ui/api-field-row/index.ts",
+          "components/ui/api-field-row/type-display.ts"
+        ]
+      },
+      {
+        "slug": "api-layout",
+        "type": "registry:ui",
+        "version": "0.19.0",
+        "hash": "sha256:7d4a0179429f39f6762cde98e62c44249cf526426ab8fe30a2346b25244b83c4",
+        "files": [
+          "components/ui/api-layout/ApiBody.astro",
+          "components/ui/api-layout/ApiEndpointCard.astro",
+          "components/ui/api-layout/ApiHome.astro",
+          "components/ui/api-layout/ApiHomeChunk.astro",
+          "components/ui/api-layout/ApiLayout.astro",
+          "components/ui/api-layout/ApiOperationList.astro",
+          "components/ui/api-layout/auth.ts",
+          "components/ui/api-layout/home.ts",
+          "components/ui/api-layout/index.ts",
+          "components/ui/api-layout/request-examples.client.ts",
+          "components/ui/api-layout/responses.client.ts"
+        ]
+      },
+      {
+        "slug": "api-sidebar",
+        "type": "registry:ui",
+        "version": "0.19.0",
+        "hash": "sha256:41d432bb3e12a07b704c475b717d9f5942eeb84de9d0190ef77ad5ef7dc0ebfb",
+        "files": [
+          "components/ui/api-sidebar/ApiMethodChip.astro",
+          "components/ui/api-sidebar/ApiSidebar.astro",
+          "components/ui/api-sidebar/ApiSidebarItem.astro",
+          "components/ui/api-sidebar/api-nav-filter.client.ts",
+          "components/ui/api-sidebar/index.ts",
+          "components/ui/api-sidebar/method.ts"
+        ]
+      },
+      {
+        "slug": "popover",
+        "type": "registry:ui",
+        "version": "0.19.0",
+        "hash": "sha256:1e9c5da6177a5cd296f2fcd3be00b3ff25dca92eb5259bf5f9f938b9784c929d",
+        "files": [
+          "components/ui/popover/Popover.astro",
+          "components/ui/popover/PopoverContent.astro",
+          "components/ui/popover/PopoverTrigger.astro",
+          "components/ui/popover/index.ts",
+          "components/ui/popover/popover.client.ts"
+        ]
+      },
+      {
+        "slug": "version-switcher",
+        "type": "registry:ui",
+        "version": "0.19.0",
+        "hash": "sha256:b12bbdb26b876403cddd83472c7a75653041c1722e0a283cfae4b09afd3118d2",
+        "files": [
+          "components/ui/version-switcher/README.md",
+          "components/ui/version-switcher/VersionSwitcher.astro",
+          "components/ui/version-switcher/index.ts"
+        ]
+      }
+    ],
+    "dependencies": {
+      "@scalar/openapi-parser": "0.28.12",
+      "openapi-sampler": "1.7.4",
+      "@readme/httpsnippet": "11.4.0"
+    }
+  }
+}

@@ -1,0 +1,40 @@
+---
+import { getApiStaticPaths, getApiRoute } from "@cloudflare/nimbus-docs/runtime";
+import Header from "@/components/Header.astro";
+import { API_HOME_CHUNK_SIZE, ApiLayout } from "@/components/ui/api-layout";
+import { VersionSwitcher } from "@/components/ui/version-switcher";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+
+export const getStaticPaths = getApiStaticPaths("api", { homeChunkSize: API_HOME_CHUNK_SIZE });
+
+const result = await getApiRoute(Astro, "api", { homeChunkSize: API_HOME_CHUNK_SIZE });
+if (result instanceof Response) return result;
+const { page, nav, collection, version, coordinate, home } = result;
+// A later part of the API home's list: a page of its own, kept out of search.
+const part = home && home.part.number > 1 ? home.part : undefined;
+// The generated per-page card exists for the default version's version-free
+// URL; a non-default query-mode page (its href carries the version query) uses
+// the site's shared social image instead. The card path derives from the
+// documentation pathname, never from `page.href` verbatim — the query would
+// land inside the file name.
+const pagePathname = new URL(page.href, Astro.url).pathname;
+const socialImage = new URL(page.href, Astro.url).search
+  ? undefined
+  : `/og${pagePathname.replace(/\/$/, "")}.png`;
+---
+
+<BaseLayout
+  title={part ? `${page.title}: endpoints ${part.start}–${part.end} · API` : page.kind === "api" ? page.title : `${page.title} · API`}
+  description={page.description}
+  markdownUrl={page.markdownHref}
+  socialImage={socialImage}
+  noindex={part !== undefined}
+  collection={collection}
+  apiVersion={version ?? undefined}
+  coordinate={coordinate}
+>
+  <Header showSidebar collection={collection}>
+    <VersionSwitcher slot="actions" apiCollection={collection} apiVersion={version} coordinate={coordinate} />
+  </Header>
+  <ApiLayout page={page} nav={nav} collection={collection} version={version} coordinate={coordinate} home={home} />
+</BaseLayout>
