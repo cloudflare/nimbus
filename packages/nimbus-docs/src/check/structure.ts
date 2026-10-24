@@ -266,6 +266,22 @@ function checkSourceReferences(
   }
 }
 
+/** With a computed `api`, a zero-argument `apiCollection()` is the one registration
+ * the build must pair with an `api` entry, so it is the one `check` may assume. */
+async function assumedApiCollections(srcDir: string, notes: Note[]): Promise<string[]> {
+  const api = await parseApiCollections(path.join(srcDir, "content.config.ts"));
+  const assumed = (api?.registrations ?? [])
+    .filter((registration) => registration.kind === "config")
+    .map((registration) => registration.key);
+  if (assumed.length > 0)
+    notes.push(skippedNote(
+      "nimbus/api-collections-assumed",
+      "`api` isn't a plain literal, so zero-argument apiCollection() registrations are taken as " +
+        `API collections: ${assumed.map((key) => `"${key}"`).join(", ")}.`,
+    ));
+  return assumed;
+}
+
 function apiCollectionsSkipped(cause: string): Note {
   return skippedNote(
     "nimbus/api-collections-skipped",
@@ -401,8 +417,9 @@ async function checkRequestRendering(
 
   // The same before-sync candidate set the build uses: `docs`, version
   // collections, API collections, and every key in `rendering.collections`.
-  // Which collections are pages is never parsed from content.config.ts.
-  const apiCollections = (config.api ?? []).map((entry) => entry.collection);
+  const apiCollections = parsed.unresolved.includes("api")
+    ? await assumedApiCollections(srcDir, notes)
+    : (config.api ?? []).map((entry) => entry.collection);
   const candidates = [
     ...new Set([
       "docs",
