@@ -276,6 +276,17 @@ function familySpec(version: string): string {
   );
 }
 
+// A three-level tag hierarchy for `sections: "hierarchical"`.
+const TREE_TAGS = [{ name: "zones" }, { name: "zones-dns", parent: "zones" }, { name: "zones-dns-records", parent: "zones-dns" }];
+function treeSpec(version: string): string {
+  return JSON.stringify(
+    spec(
+      { "/records": { get: { operationId: "listRecords", summary: `Records (${version})`, tags: ["zones-dns-records"], ...OK } } },
+      { tags: TREE_TAGS },
+    ),
+  );
+}
+
 let root: string;
 let app: { render(request: Request): Promise<Response> };
 
@@ -302,6 +313,8 @@ before(async () => {
     await write(`specs/fam-${v}.json`, familySpec(v));
     await write(`specs/qfam-${v}.json`, familySpec(v));
   }
+  await write("specs/tree.json", treeSpec("tree"));
+  for (const v of ["nested", "flat"]) await write(`specs/hfam-${v}.json`, treeSpec(v));
   await write(
     "src/content.config.ts",
     `import { defineCollection } from "astro:content";
@@ -311,6 +324,8 @@ export const collections = {
   zones: defineCollection(apiCollection()),
   fam: defineCollection(apiCollection()),
   qfam: defineCollection(apiCollection()),
+  tree: defineCollection(apiCollection()),
+  hfam: defineCollection(apiCollection()),
 };`,
   );
   await write(
@@ -329,7 +344,7 @@ const { Content } = await getDocsPageProps(Astro);
 `,
   );
   await write("src/pages/index.astro", "<html><body><h1>Home</h1></body></html>\n");
-  for (const c of ["zones", "fam", "qfam"]) await write(`src/pages/${c}/[...slug].astro`, apiPage(c));
+  for (const c of ["zones", "fam", "qfam", "tree", "hfam"]) await write(`src/pages/${c}/[...slug].astro`, apiPage(c));
   await write(
     "src/pages/[...slug]/index.md.ts",
     `import { markdownRoute } from ${mod("agent-endpoints.ts")};\nexport const prerender = true;\nexport const { GET, getStaticPaths } = markdownRoute();`,
@@ -403,6 +418,23 @@ const { Content } = await getDocsPageProps(Astro);
               versions: [
                 { version: "v2", spec: "./specs/fam-v2.json", default: true, routes: { convention: "resource-action-v2" } },
                 { version: "v1", spec: "./specs/fam-v1.json", routes: { convention: "resource-action-v1" } },
+              ],
+            },
+            {
+              collection: "tree",
+              spec: "./specs/tree.json",
+              routes: { convention: "resource-action-v2", sections: "hierarchical" },
+            },
+            {
+              collection: "hfam",
+              versions: [
+                {
+                  version: "nested",
+                  spec: "./specs/hfam-nested.json",
+                  default: true,
+                  routes: { convention: "resource-action-v2", sections: "hierarchical" },
+                },
+                { version: "flat", spec: "./specs/hfam-flat.json", routes: { convention: "resource-action-v2" } },
               ],
             },
             {
@@ -504,6 +536,42 @@ describe("a family mixing v1 and v2 links each tag page to its counterpart", () 
     assert.ok(has(alts, "/qfam/tags/User-Management/?version=v1"), alts.join(" "));
     const old = await rendered("/docs/qfam/tags/User-Management/?version=v1");
     assert.ok(has(hrefs(old, "alt"), "/qfam/tags/user-management/"), hrefs(old, "alt").join(" "));
+  });
+});
+
+describe("every surface agrees on a hierarchical section URL", () => {
+  test("the section page and its Markdown twin are written at the nested path only", async () => {
+    assert.ok(existsSync(dist("tree/zones/dns/records/index.html")));
+    assert.ok(existsSync(dist("tree/zones/dns/records/index.md")));
+    assert.ok(existsSync(dist("tree/zones/dns/index.html")));
+    assert.equal(existsSync(dist("tree/tags")), false);
+  });
+
+  test("sidebar, section page, breadcrumbs and the operation's crumb", async () => {
+    const overview = await read("tree/index.html");
+    const nav = hrefs(overview, "nav");
+    assert.ok(has(nav, "/tree/zones/dns/records/"), nav.join(" "));
+    assert.ok(nav.every((h) => !h.includes("/tags/")), nav.join(" "));
+    const section = await read("tree/zones/dns/records/index.html");
+    assert.ok(has(hrefs(section, "self"), "/tree/zones/dns/records/"));
+    const crumbs = hrefs(section, "crumb");
+    assert.ok(has(crumbs, "/tree/zones/") && has(crumbs, "/tree/zones/dns/"), crumbs.join(" "));
+    const operation = await read("tree/records/list/index.html");
+    assert.ok(has(hrefs(operation, "crumb"), "/tree/zones/dns/records/"));
+  });
+
+  test("coordinates.json, llms.txt and the sitemap", async () => {
+    const manifest = await read("nimbus-api/coordinates.json");
+    assert.match(manifest, /"url":"\/tree\/zones\/dns\/records"/);
+    assert.match(await read("tree/llms.txt"), /\/tree\/zones\/dns\/records\//);
+    assert.match(await read("sitemap-0.xml"), /https:\/\/example\.test\/docs\/tree\/zones\/dns\/records\//);
+  });
+
+  test("a family mixing flat and hierarchical sections links each section page to its counterpart", async () => {
+    const nested = await read("hfam/zones/dns/records/index.html");
+    assert.ok(has(hrefs(nested, "alt"), "/hfam/flat/tags/zones-dns-records/"), hrefs(nested, "alt").join(" "));
+    const flat = await read("hfam/flat/tags/zones-dns-records/index.html");
+    assert.ok(has(hrefs(flat, "alt"), "/hfam/zones/dns/records/"), hrefs(flat, "alt").join(" "));
   });
 });
 

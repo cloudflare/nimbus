@@ -28,7 +28,7 @@ export interface ParseContext extends FieldSink {
   readonly schemaPages: boolean;
   page(coord: Coordinate, slug: string, provenance?: RouteProvenance): void;
   attachToNav(tag: string | undefined, coord: Coordinate, label: string): void;
-  ensureSection(tag: string, description?: string, page?: boolean): void;
+  ensureSection(tag: string, description?: string, page?: boolean, displayName?: string): void;
   /** Record how an operation's slug was resolved (`resource-action-v1` provenance). */
   recordRouteProvenance(coord: Coordinate, provenance: RouteProvenance): void;
   /** Mark an `operations` override key as consumed, so an unused key is caught. */

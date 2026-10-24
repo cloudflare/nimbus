@@ -310,6 +310,20 @@ export function policyTagRouteSegment(tag: string): string {
   return cleaned === "" ? `tag-${fnv1a36(tag)}` : cleaned;
 }
 
+/**
+ * A tag's own segment on a hierarchical section path: its v2 segment with the
+ * parent's projected name and a following `-` removed when it starts that way,
+ * so `zero-trust-devices` under `zero-trust` is `devices`. The comparison is on
+ * projected names, never on the parent's own (already stripped) segment.
+ */
+export function hierarchicalTagRouteSegment(tag: string, parent?: string): string {
+  const own = policyTagRouteSegment(tag);
+  if (parent === undefined) return own;
+  const prefix = `${policyTagRouteSegment(parent)}-`;
+  const stripped = own.startsWith(prefix) ? own.slice(prefix.length) : own;
+  return stripped === "" ? `tag-${fnv1a36(tag)}` : stripped;
+}
+
 /** True when a top-level body property name reads like a coordinate prefix. */
 export function isShadowingBodyProperty(name: string): boolean {
   return SHADOWING_NAMES.has(name);
@@ -547,10 +561,14 @@ export class CoordinateRegistry {
           ? `Pin an explicit \`routes.operations\` override for one of them so their URLs stay distinct — ` +
             `a derived slug comes from the operation's method and path, so renaming the operationId will not change it.`
           : `Rename one operation, schema, tag, or webhook so their URLs stay distinct.`;
+      // A tag page's segment is set in config, so name that remedy when a tag is one side.
+      const tag = [coordinate, prior].find((c) => c.startsWith("tags."))?.slice("tags.".length);
+      const tagAdvice = tag ? ` Or give tag "${tag}" another segment in \`routes.tagSegments\`.` : "";
       this.error(
         `pages "${prior}"${at(priorReg)}${via(prior)} and "${coordinate}"${at(currReg)}${via(coordinate)} both map to the ` +
           `route slug "${slug || "(index)"}". ` +
           advice +
+          tagAdvice +
           synthesizedFixHint([priorReg ?? {}, currReg ?? {}]),
         coordinate,
         currReg?.source ?? source,

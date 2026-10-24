@@ -43,6 +43,16 @@ Derivation recognizes `/<resource>` and `/<resource>/{parameter}` after prefix r
 
 Tag pages follow the convention too. `resource-action-v2` lowercases them, so `User Management` is at `/api/tags/user-management`. The earlier `resource-action-v1` keeps the tag's casing: `/api/tags/User-Management`. A tag's coordinate, such as `tags.Locations`, is the same under both.
 
+Under `resource-action-v2`, `sections: "hierarchical"` serves tag pages at the tag hierarchy's path instead. A tag's parent comes from `tag.parent` or `x-tagGroups`; a tag `zero-trust-devices` under `zero-trust` drops the parent's prefix, so it is served at `/api/zero-trust/devices/`. An `x-tagGroups` category that is not itself a tag has no page and adds no segment. Coordinates and operation URLs do not change. A page's first segment may not be one Nimbus holds for its own pages: `tags`, `schemas`, `webhooks`, `errors`, `changelog` and `index`; deeper segments are free, so `zones/schemas/` is fine. `tagSegments` replaces one tag's segment under either setting, which is how a tag named like a reserved segment gets a URL:
+
+```ts
+routes: {
+  convention: "resource-action-v2",
+  sections: "hierarchical",
+  tagSegments: { tags: "tagging" },
+},
+```
+
 A convention never changes once released; new routing ships under a new name.
 
 An explicit operation override, keyed by the exact usable `operationId`, takes precedence and can preserve an existing URL or handle a path that cannot be derived:

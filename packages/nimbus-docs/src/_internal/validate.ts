@@ -393,6 +393,12 @@ const routePolicyShape = {
   }),
   stripPathPrefixes: z.array(z.string()).optional(),
   operations: z.record(z.string(), z.string()).optional(),
+  sections: z
+    .enum(["flat", "hierarchical"], {
+      error: '"api[].routes.sections" must be "flat" or "hierarchical"',
+    })
+    .optional(),
+  tagSegments: z.record(z.string(), z.string()).optional(),
 };
 const routePolicyKeys = new Set(Object.keys(routePolicyShape));
 const routePolicySchema = z
@@ -402,8 +408,29 @@ const routePolicySchema = z
     reportUnknownKeys(policy, ctx, routePolicyKeys, {
       removedKeys: {},
       contextLabel: "api routes field",
-      unknownHint: () => 'Valid keys are "convention", "stripPathPrefixes", and "operations".',
+      unknownHint: () =>
+        'Valid keys are "convention", "stripPathPrefixes", "operations", "sections", and "tagSegments".',
     });
+    if (policy.convention === "resource-action-v1") {
+      for (const field of ["sections", "tagSegments"] as const) {
+        if (policy[field] === undefined || policy[field] === "flat") continue;
+        ctx.addIssue({
+          code: "custom",
+          path: [field],
+          message: `"${field}" needs "resource-action-v2"; "resource-action-v1" keeps its tags/ URLs.`,
+        });
+      }
+    }
+    for (const [tag, segment] of Object.entries(policy.tagSegments ?? {})) {
+      const fault = segment.includes("/") ? "has a '/', but a tag segment is one path segment" : routeSlugFault(segment);
+      if (fault) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["tagSegments", tag],
+          message: `tag segment for "${tag}" → "${segment}" ${fault}`,
+        });
+      }
+    }
     (policy.stripPathPrefixes ?? []).forEach((entry, i) => {
       const fault = prefixEntryFault(entry);
       if (fault) {

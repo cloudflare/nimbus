@@ -19,7 +19,7 @@ Each `api` entry in the Nimbus config declares one API reference. To set one up,
 | `versionUrl` | `{ in: "path" }` \| `{ in: "query", param? }` | `{ in: "path" }` | Where the version sits in URLs. Query mode needs request rendering. |
 | `label` | `string` | `collection` | The API's name in build messages. |
 | `requireOperationId` | `boolean` | `false` | Fail the build when an operation has no `operationId`, instead of deriving a coordinate from its method and path. |
-| `routes` | `{ convention, stripPathPrefixes?, operations? }` | — | The route convention. See [Routes and coordinates](/api-reference/openapi/routes). |
+| `routes` | `{ convention, stripPathPrefixes?, operations?, sections?, tagSegments? }` | — | The route convention. See [Routes and coordinates](/api-reference/openapi/routes). |
 | `sidebar` | `"full"` \| `"on-demand"` | `"full"` | How much of the navigation each page includes. See [Large APIs](/api-reference/large-apis). |
 | `schemaPages` | `boolean` | `false` | Publish a page for every schema, and make schemas citable. |
 | `samples` | `{ generate?, keepGenerated? }` | all three languages | Which code samples Nimbus generates. See [Code samples](/api-reference/openapi/code-samples). |

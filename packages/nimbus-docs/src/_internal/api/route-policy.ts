@@ -27,6 +27,10 @@ export interface RoutePolicy {
   stripPathPrefixes?: string[];
   /** `operationId` → complete collection-relative slug. Bypasses derivation. */
   operations?: Record<string, string>;
+  /** Tag page URLs: `tags/<segment>` (default) or the tag hierarchy's path. */
+  sections?: "flat" | "hierarchical";
+  /** Tag name → its own URL segment, replacing the derived one. */
+  tagSegments?: Record<string, string>;
 }
 
 /**

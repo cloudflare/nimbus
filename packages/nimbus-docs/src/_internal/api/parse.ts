@@ -18,8 +18,10 @@ import {
   CoordinateRegistry,
   apiCoordinate,
   sectionCoordinate,
+  hierarchicalTagRouteSegment,
   policyTagRouteSegment,
   tagRouteSegment,
+  RESERVED_ROUTE_SEGMENTS,
   type Diagnostic,
 } from "./coordinates.js";
 import { openApiParserMissing } from "./parser-missing.js";
@@ -450,6 +452,9 @@ class Walker implements ParseContext {
   private readonly navRoots: NavNode[] = [];
   private readonly tagParent = new Map<string, string>();
   private readonly tagGroupNames = new Set<string>();
+  private readonly pagelessCategories = new Set<string>();
+  private readonly sectionRoutes = new Map<string, string>();
+  private readonly consumedTagSegments = new Set<string>();
   readonly resolver: SchemaResolver;
 
   /** Optional sample generators; null when the peer deps are not installed. */
@@ -524,6 +529,16 @@ class Walker implements ParseContext {
    *  this concrete spec version; a key that never matched is a typo — fail the
    *  build naming it, rather than silently letting the operation derive. */
   private checkUnusedOverrides(): void {
+    for (const tag of Object.keys(this.routePolicy?.tagSegments ?? {})) {
+      if (this.consumedTagSegments.has(tag)) continue;
+      this.registry.addError(
+        `Tag segment for "${tag}" does not match any tag with a page in this spec — ` +
+          `remove it or correct the tag name. Segments are keyed by the exact tag name.`,
+        undefined,
+        undefined,
+        "unused-route-override",
+      );
+    }
     const overrides = this.routePolicy?.operations;
     if (!overrides) return;
     for (const key of Object.keys(overrides)) {
@@ -627,7 +642,9 @@ class Walker implements ParseContext {
       if (isPlainObject(tag) && typeof tag.name === "string") sections.add(tag.name);
     }
     for (const group of asArray(this.doc["x-tagGroups"])) {
-      if (isPlainObject(group) && typeof group.name === "string") sections.add(group.name);
+      if (!isPlainObject(group) || typeof group.name !== "string") continue;
+      if (!sections.has(group.name)) this.pagelessCategories.add(group.name);
+      sections.add(group.name);
     }
     for (const item of Object.values(this.doc.paths ?? {})) {
       if (item === null || typeof item !== "object") continue;
@@ -725,16 +742,57 @@ class Walker implements ParseContext {
     });
     // A nav-only category (page === false) is a grouping node with a model node
     // for ancestry but no page — so it is never routed and carries no href.
-    // `resource-action-v2` routes tag pages through the policy's lowercase
-    // projection; v1 and legacy keep the case-preserving segment, byte for byte.
     if (page) {
-      const segment =
-        this.routePolicy?.convention === "resource-action-v2"
-          ? policyTagRouteSegment(tag)
-          : tagRouteSegment(tag);
-      this.page(coord, `tags/${segment}`);
+      const route = this.sectionRoute(tag);
+      const top = route.split("/")[0]!;
+      if (this.routePolicy?.sections === "hierarchical" && RESERVED_ROUTE_SEGMENTS.has(top)) {
+        this.registry.addError(
+          `Tag "${tag}" resolves to route "${route}", whose top-level segment "${top}" is held for Nimbus ` +
+            `([${[...RESERVED_ROUTE_SEGMENTS].join(", ")}] and the API root). ` +
+            `Give it another segment in \`routes.tagSegments\`.`,
+          coord,
+          `#/tags/${tag}`,
+          "route-reserved-collision",
+        );
+      }
+      this.page(coord, route);
     }
     this.navByTag.set(tag, { coordinate: coord, label: label ?? tag, kind: "section", children: [] });
+  }
+
+  /**
+   * A tag page's route. `resource-action-v2` projects the tag to lowercase
+   * kebab; v1 and legacy keep the case-preserving segment, byte for byte. Under
+   * `sections: "hierarchical"` the route is the path of every ancestor that has
+   * a page, then the tag's own segment; a page-less `x-tagGroups` category is
+   * transparent. Memoized: an ancestor's route is reused by every descendant.
+   */
+  private sectionRoute(tag: string): string {
+    const memo = this.sectionRoutes.get(tag);
+    if (memo !== undefined) return memo;
+    const policy = this.routePolicy;
+    let route: string;
+    if (!policy || policy.convention === "resource-action-v1") {
+      route = `tags/${tagRouteSegment(tag)}`;
+    } else {
+      const override = policy.tagSegments?.[tag];
+      if (override !== undefined) this.consumedTagSegments.add(tag);
+      if (policy.sections !== "hierarchical") {
+        route = `tags/${override ?? policyTagRouteSegment(tag)}`;
+      } else {
+        const parent = this.pagedAncestor(tag);
+        const own = override ?? hierarchicalTagRouteSegment(tag, parent);
+        route = parent === undefined ? own : `${this.sectionRoute(parent)}/${own}`;
+      }
+    }
+    this.sectionRoutes.set(tag, route);
+    return route;
+  }
+
+  private pagedAncestor(tag: string): string | undefined {
+    let parent = this.tagParent.get(tag);
+    while (parent !== undefined && this.pagelessCategories.has(parent)) parent = this.tagParent.get(parent);
+    return parent;
   }
 
   /**

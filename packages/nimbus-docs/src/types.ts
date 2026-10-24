@@ -288,6 +288,19 @@ export interface ApiRoutePolicy {
    * intentional vocabulary, and already-published routes.
    */
   operations?: Record<string, string>;
+  /**
+   * Where tag pages live under `resource-action-v2`. `"flat"` (default) is
+   * `tags/<segment>`. `"hierarchical"` follows the tag hierarchy (`tag.parent`,
+   * `x-tagGroups`): a tag `devices` under `zero-trust` is served at
+   * `zero-trust/devices`. A tag whose segment starts with its parent's
+   * (`zero-trust-devices`) drops that prefix. Coordinates do not change.
+   */
+  sections?: "flat" | "hierarchical";
+  /**
+   * Tag name → its own URL segment (one lowercase kebab-case segment), replacing
+   * the derived one. How a tag named like a reserved segment (`tags`) gets a URL.
+   */
+  tagSegments?: Record<string, string>;
 }
 
 /**
