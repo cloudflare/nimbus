@@ -1,0 +1,19 @@
+.changeset/api-parse-once.md
+  s_8312c247a1ad00::t_092f72651f06d1 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b69d4a4d1f60d0db776741d51a5c38a5fd9b3848",
+  "prompts": {},
+  "sessions": {
+    "s_8312c247a1ad00": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-aea730345fb8f40c9",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
