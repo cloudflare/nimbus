@@ -1,0 +1,19 @@
+.changeset/api-cache-miss-reason.md
+  s_248c973a08aab2::t_769f2065f81fd3 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5d65e1766f910a77cad4ec6fb2cf590e4633ef01",
+  "prompts": {},
+  "sessions": {
+    "s_248c973a08aab2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ae5f5cc06ff5a99b0",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
