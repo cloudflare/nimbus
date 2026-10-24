@@ -5,6 +5,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 import {
   buildApiModel,
@@ -2087,5 +2088,102 @@ describe("cURL heredoc", () => {
       } },
     };
     assert.deepEqual(buildOperationSamples(unusual, input).map((s) => s.lang), ["typescript", "python"]);
+  });
+});
+
+describe("authored samples without the generator packages", () => {
+  const input = {
+    method: "get",
+    path: "/ping",
+    params: [],
+    auth: [],
+    xCodeSamples: [
+      { lang: "curl", label: "cURL", source: "curl https://api.probe.test/v1/ping" },
+      { lang: "hcl", label: "Terraform", source: 'resource "probe_ping" "x" {}' },
+    ],
+  };
+
+  test("null tools return the authored samples with the ids and labels the tools give them", async () => {
+    const tools = await loadSampleTools();
+    assert.ok(tools);
+    const out = buildOperationSamples(null, input);
+    assert.deepEqual(out, buildOperationSamples(tools, input));
+    assert.deepEqual(out.map((s) => [s.id, s.lang, s.label]), [["curl", "curl", "cURL"], ["hcl", "hcl", "Terraform"]]);
+  });
+
+  test("null tools with nothing authored give no samples, and keepGenerated adds none", () => {
+    assert.deepEqual(buildOperationSamples(null, { ...input, xCodeSamples: undefined }), []);
+    assert.deepEqual(
+      buildOperationSamples(null, { ...input, keepGenerated: ["python"] }),
+      buildOperationSamples(null, input),
+    );
+  });
+
+  test("with the generators unresolvable, authored samples render and the warning names the requested languages", () => {
+    const child = fileURLToPath(new URL("./fixtures/no-sample-tools-child.ts", import.meta.url));
+    const run = (generate: string[] | null) => {
+      const result = spawnSync(
+        process.execPath,
+        ["--import", import.meta.resolve("tsx"), child, JSON.stringify(generate)],
+        { encoding: "utf8", timeout: 60_000 },
+      );
+      assert.equal(result.status, 0, result.stderr);
+      const out = JSON.parse(result.stdout) as { samples: { id: string; lang: string }[]; markdown: string };
+      assert.deepEqual(out.samples.map((s) => [s.id, s.lang]), [["curl", "curl"], ["hcl", "hcl"]]);
+      assert.match(out.markdown, /### cURL\n\n```bash\ncurl https/);
+      assert.match(out.markdown, /### Terraform\n\n```hcl\nresource/);
+      return result.stderr;
+    };
+    assert.doesNotMatch(run([]), /samples omitted/);
+    assert.match(
+      run(null),
+      /Generated code samples omitted — install openapi-sampler and @readme\/httpsnippet to derive curl, typescript, python examples, or set `samples.generate: \[\]`/,
+    );
+  });
+});
+
+describe("authored sample highlighting", () => {
+  const source = 'resource "probe_ping" "x" {\n  name = "x"\n}';
+  const shell = "curl -s https://api.probe.test/v1/ping | jq .";
+  const samplesSpec = (samples: Record<string, string>[]) => ({
+    ...baseSpec,
+    paths: {
+      "/ping": { get: { operationId: "ping", "x-codeSamples": samples, responses: { "200": { description: "ok" } } } },
+    },
+  });
+  const highlighted = async (samples: Record<string, string>[]) => {
+    const page = await prepareApiPageCode(await operationPage(samplesSpec(samples), "ping"));
+    assert.equal(page.kind, "operation");
+    return (page as ApiOperationPage).samples;
+  };
+
+  test("a sample in any language the bundled Shiki knows is highlighted", async () => {
+    const [hcl, text, unknown] = await highlighted([
+      { lang: "hcl", source },
+      { lang: "text", source },
+      { lang: "notalanguage", source },
+    ]);
+    assert.equal(unknown!.highlightedHtml, text!.highlightedHtml);
+    assert.ok((hcl!.highlightedHtml!.match(/<span class="/g) ?? []).length > (text!.highlightedHtml!.match(/<span class="/g) ?? []).length);
+  });
+
+  test("curl in any case highlights as bash, and other languages are matched case-insensitively", async () => {
+    const [curl, upper, bash, mixed] = await highlighted([
+      { lang: "curl", source: shell },
+      { lang: "CURL", source: shell },
+      { lang: "bash", source: shell },
+      { lang: "Shell", source: shell },
+    ]);
+    assert.equal(curl!.highlightedHtml, bash!.highlightedHtml);
+    assert.equal(upper!.highlightedHtml, bash!.highlightedHtml);
+    assert.equal(mixed!.highlightedHtml!.replaceAll('data-nb-lang="shell"', 'data-nb-lang="bash"'), bash!.highlightedHtml);
+  });
+
+  test("highlighting leaves ids, languages and the Markdown twin as authored", async () => {
+    const op = await operationPage(samplesSpec([{ lang: "HCL", label: "Terraform", source }, { lang: "CURL", source: shell }]), "ping");
+    const rail = await prepareApiPageCode(op);
+    assert.equal(rail.kind, "operation");
+    assert.deepEqual((rail as ApiOperationPage).samples.map((s) => [s.id, s.lang]), [["HCL", "HCL"], ["CURL", "CURL"]]);
+    assert.match(renderApiPageMarkdown(op), /### Terraform\n\n```HCL\nresource/);
   });
 });

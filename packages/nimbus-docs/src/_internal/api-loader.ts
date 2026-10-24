@@ -1,4 +1,5 @@
 import { codeToHtml } from "shiki";
+import { SHIKI_KNOWN } from "./shiki-langs.js";
 import { collectionMountPrefix } from "./collection-mount.js";
 import { projectMountContext } from "./project-mount-context.js";
 import { usesPageAssets } from "./page-assets-config.js";
@@ -138,24 +139,10 @@ function projectedNav(
     : nav;
 }
 
-const HIGHLIGHTABLE = new Set([
-  "bash",
-  "go",
-  "java",
-  "javascript",
-  "json",
-  "php",
-  "python",
-  "ruby",
-  "shell",
-  "typescript",
-  "xml",
-  "yaml",
-]);
-
 function sampleLanguage(lang: string): string {
-  if (lang === "curl") return "bash";
-  return HIGHLIGHTABLE.has(lang) ? lang : "text";
+  const name = lang.toLowerCase();
+  if (name === "curl") return "bash";
+  return SHIKI_KNOWN.has(name) ? name : "text";
 }
 
 function exampleSource(example: ApiExampleView): string {

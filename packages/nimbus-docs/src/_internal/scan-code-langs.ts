@@ -9,7 +9,8 @@
  */
 import { readFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
-import { bundledLanguagesInfo, isSpecialLang } from "shiki";
+import { isSpecialLang } from "shiki";
+import { SHIKI_KNOWN } from "./shiki-langs.js";
 import { walkFiles } from "./fs-walk.js";
 import { parseMarkdownSource } from "./markdown-source.js";
 
@@ -31,13 +32,6 @@ function fencedCodeBlocks(content: string, extension: string): ScannedCodeBlock[
 
   return blocks;
 }
-
-// Grammars Shiki can resolve (bundled ids + aliases). Tokens outside this set
-// are dropped before reaching Shiki, which throws on grammars it can't load;
-// such code renders as plaintext instead.
-const SHIKI_KNOWN = new Set<string>(
-  bundledLanguagesInfo.flatMap((l) => [l.id, ...(l.aliases ?? [])]),
-);
 
 /**
  * Scan a project's content directories for code-fence languages.

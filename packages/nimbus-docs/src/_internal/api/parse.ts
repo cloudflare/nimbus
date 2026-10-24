@@ -38,8 +38,9 @@ import type {
 import type { RoutePolicy } from "./route-policy.js";
 import type { ApiSamples } from "../../types.js";
 import { collectSecuritySchemes } from "./facts.js";
-import { loadSampleTools } from "./samples.js";
+import { GENERATED_SAMPLE_LANGS, loadSampleTools } from "./samples.js";
 import type { SampleTools } from "./samples.js";
+import { explainReferenceErrors } from "./publish-spec.js";
 import { refProbe, refProbeIntact } from "./ref-probe.js";
 import { SchemaResolver, docNeedsRawDoc } from "./schema-resolver.js";
 import { asString, isPlainObject } from "./schema-algebra.js";
@@ -159,6 +160,13 @@ export async function parseOpenApi(source: SpecSource, onceKey?: string): Promis
     // rewrites a non-string `info.version` on the object it is handed, so it
     // must not share the document the walk reads.
     const validation = await parser.validate(source.spec);
+    // One parse serves the walk and the ref-preserving copy below: Scalar's
+    // `dereference` structured-clones before resolving, so the document it is
+    // handed keeps its `$ref`s. The probe notices a parser that resolves in
+    // place instead; the copy is then parsed again rather than losing links.
+    let parsed = parser.normalize(source.spec);
+    if (parsed === undefined) throw new Error("the document is empty, or neither JSON nor YAML");
+    const probe = refProbe(parsed);
     // The walker reads OpenAPI 3.x only; a Swagger 2.0 document would render
     // without servers, parameter types, or response schemas.
     if (validation.version === "2.0") {
@@ -170,33 +178,25 @@ export async function parseOpenApi(source: SpecSource, onceKey?: string): Promis
         },
       ]);
     }
-    for (const e of validation.errors ?? []) {
-      // A tag's `parent` is OpenAPI 3.2, and Nimbus nests tags by it whatever
-      // version a spec declares, so it isn't a deviation worth a warning.
-      if (isTagParent(e)) continue;
+    // A tag's `parent` is OpenAPI 3.2, and Nimbus nests tags by it whatever
+    // version a spec declares, so it isn't a deviation worth a warning.
+    const deviations = (validation.errors ?? []).filter((e) => !isTagParent(e)).map((e) => e.message);
+    for (const message of explainReferenceErrors(deviations, parsed)) {
       preDiagnostics.push({
         level: "warning",
-        message: `Spec deviates from OpenAPI: ${e.message}`,
+        message: `Spec deviates from OpenAPI: ${message}`,
         source: label,
       });
     }
-
-    // One parse serves the walk and the ref-preserving copy below: Scalar's
-    // `dereference` structured-clones before resolving, so the document it is
-    // handed keeps its `$ref`s. The probe notices a parser that resolves in
-    // place instead; the copy is then parsed again rather than losing links.
-    let parsed = parser.normalize(source.spec);
-    if (parsed === undefined) throw new Error("the document is empty, or neither JSON nor YAML");
-    const probe = refProbe(parsed);
 
     // Unresolved references degrade gracefully — the affected field renders as
     // an unknown type rather than aborting a 3,000-operation build.
     const { schema: document, errors } = await parser.dereference(parsed);
     if (!refProbeIntact(probe)) parsed = parser.normalize(source.spec) ?? parsed;
-    for (const e of errors ?? []) {
+    for (const message of explainReferenceErrors((errors ?? []).map((e) => e.message), parsed)) {
       preDiagnostics.push({
         level: "warning",
-        message: `Unresolved reference: ${e.message}`,
+        message: `Unresolved reference: ${message}`,
         source: label,
       });
     }
@@ -212,14 +212,15 @@ export async function parseOpenApi(source: SpecSource, onceKey?: string): Promis
     // so the only thing lost without a raw doc is the link, never the page.
     const rawDoc = docNeedsRawDoc(document) ? parsed : undefined;
 
-    // Code samples are best-effort: derived when the optional tooling is
-    // present, silently absent (never fatal) when it is not.
+    // Generated samples are best-effort: derived when the optional tooling is
+    // present, absent (never fatal) when it is not.
     const sampleTools = await loadSampleTools();
-    if (!sampleTools && hasCallableOperations(document)) {
+    const generate = source.samples?.generate ?? GENERATED_SAMPLE_LANGS;
+    if (!sampleTools && generate.length > 0 && hasCallableOperations(document)) {
       preDiagnostics.push({
         level: "warning",
         message:
-          "Code samples omitted — install openapi-sampler and @readme/httpsnippet to derive curl/TypeScript/Python examples (the api-layout registry recipe pulls both).",
+          `Generated code samples omitted — install openapi-sampler and @readme/httpsnippet to derive ${generate.join(", ")} examples, or set \`samples.generate: []\` to publish authored samples only.`,
         source: label,
       });
     }

@@ -8,6 +8,17 @@ import { OPENAPI_MEDIA_TYPE, publishOpenApiSpec } from "../src/_internal/api/pub
 
 const fixtures = path.resolve(import.meta.dirname, "fixtures/api");
 
+const response = (schema: unknown) => ({
+  responses: {
+    "200": { description: "ok", content: { "application/json": { schema } } },
+  },
+});
+const spec = (paths: Record<string, unknown>) => ({
+  openapi: "3.0.0",
+  info: { title: "t", version: "1" },
+  paths,
+});
+
 test("a single-file spec publishes as itself", async () => {
   const result = await publishOpenApiSpec("smallco.yaml", fixtures);
   assert.equal(result.error, undefined);
@@ -34,27 +45,21 @@ test("a multi-file spec publishes as one self-contained document with the pinned
   );
 });
 
+test("a property named $ref is a name, not a reference", async () => {
+  for (const keyword of ["properties", "patternProperties", "dependentSchemas", "definitions", "$defs"]) {
+    const named = { type: "object", [keyword]: { $ref: { type: "string" } } };
+    const result = await publishOpenApiSpec(spec({ "/a/b": { get: response(named) } }), fixtures);
+    assert.equal(result.error, undefined, keyword);
+    const schema = JSON.parse(result.spec!.contents).paths["/a/b"].get.responses["200"].content["application/json"].schema;
+    assert.deepEqual(schema, named, keyword);
+  }
+  const multi = await publishOpenApiSpec("object-ref/openapi.yaml", fixtures);
+  assert.equal(multi.error, undefined);
+  const [bundled] = Object.values(JSON.parse(multi.spec!.contents)["x-ext"]) as { Thing: unknown }[];
+  assert.deepEqual(bundled!.Thing, { type: "object", properties: { $ref: { type: "string" } } });
+});
+
 test("a $ref key that isn't a reference string is reported by location", async () => {
-  const response = (schema: unknown) => ({
-    responses: {
-      "200": { description: "ok", content: { "application/json": { schema } } },
-    },
-  });
-  const spec = (paths: Record<string, unknown>) => ({
-    openapi: "3.0.0",
-    info: { title: "t", version: "1" },
-    paths,
-  });
-  const named = { type: "object", properties: { $ref: { type: "string" } } };
-  assert.equal(
-    (
-      await publishOpenApiSpec(
-        spec({ "/a/b": { get: response(named) } }),
-        fixtures,
-      )
-    ).error,
-    '"$ref" isn\'t a reference string at #/paths/~1a~1b/get/responses/200/content/application~1json/schema/properties/$ref',
-  );
   // Each parser error is matched to its own value: a number is located too,
   // and a broken string reference keeps the parser's own message.
   const mixed = spec({
@@ -70,10 +75,26 @@ test("a $ref key that isn't a reference string is reported by location", async (
     error,
     /Can't resolve reference: #\/components\/schemas\/\[object Object\]/,
   );
+  // The parser reports one error for every object-valued $ref; only the real
+  // one is a fault, so only it is located.
+  const beside = spec({
+    "/named": { get: response({ type: "object", properties: { $ref: { type: "string" } } }) },
+    "/real": { get: response({ $ref: { type: "string" } }) },
+  });
+  assert.equal(
+    (await publishOpenApiSpec(beside, fixtures)).error,
+    '"$ref" isn\'t a reference string at #/paths/~1real/get/responses/200/content/application~1json/schema/$ref',
+  );
+  // A property named `properties` is a schema, so its own $ref is a reference.
+  const nested = spec({ "/p": { get: response({ type: "object", properties: { properties: { $ref: 7 } } }) } });
+  assert.equal(
+    (await publishOpenApiSpec(nested, fixtures)).error,
+    '"$ref" isn\'t a reference string at #/paths/~1p/get/responses/200/content/application~1json/schema/properties/properties/$ref',
+  );
   // In a multi-file spec the location names the author's file, not the bundle.
   assert.equal(
-    (await publishOpenApiSpec("object-ref/openapi.yaml", fixtures)).error,
-    '"$ref" isn\'t a reference string at schemas.yaml#/Thing/properties/$ref',
+    (await publishOpenApiSpec("number-ref/openapi.yaml", fixtures)).error,
+    '"$ref" isn\'t a reference string at schemas.yaml#/Thing/$ref',
   );
 });
 

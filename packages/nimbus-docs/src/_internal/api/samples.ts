@@ -282,12 +282,13 @@ export interface OperationSampleInput {
  * this is the last line holding the contract.
  */
 export function buildOperationSamples(
-  tools: SampleTools,
+  tools: SampleTools | null,
   input: OperationSampleInput,
 ): CodeSample[] {
   const generated = LANGS.filter((l) => input.generate?.includes(l.lang) ?? true);
+  const fromTools = (langs: LangTarget[]) => (tools ? generateSamples(tools, input, langs) : []);
   const authored = fromSpecCodeSamples(input.xCodeSamples);
-  if (authored.length === 0) return withIds(generateSamples(tools, input, generated));
+  if (authored.length === 0) return withIds(fromTools(generated));
   const keep = input.keepGenerated ?? [];
   if (keep.length === 0) return withIds(authored);
   const used = new Set(authored.map((s) => {
@@ -295,7 +296,7 @@ export function buildOperationSamples(
     return LANG_ALIASES[lang] ?? lang;
   }));
   const langs = generated.filter((l) => keep.includes(l.lang) && !used.has(l.lang));
-  return withIds([...authored, ...generateSamples(tools, input, langs)]);
+  return withIds([...authored, ...fromTools(langs)]);
 }
 
 // A sample's id is its language for the first sample in that language, then

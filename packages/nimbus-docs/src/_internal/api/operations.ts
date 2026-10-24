@@ -416,7 +416,7 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
     ).map((example) => ({ ...example, mediaType: requestEntry.mediaType }));
     if (requestExamples.length > 0) facts.requestExamples = requestExamples;
   }
-  if (site.sampleTarget && ctx.sampleTools) {
+  if (site.sampleTarget) {
     facts.samples = buildOperationSamples(ctx.sampleTools, {
       method: site.sampleTarget.method,
       path: site.sampleTarget.path,
