@@ -28,6 +28,7 @@ import { ApiBuildError } from "./_internal/api/coordinates.js";
 import { unusedExtensions, warnUnusedExtensions } from "./_internal/api/extensions.js";
 import { authorError } from "./_internal/author-error.js";
 import { collectionMountPrefix, getMountContext } from "./_internal/collection-mount.js";
+import type { RebuildReason } from "./_internal/api/page-assets-build.js";
 import type { Loader } from "astro/loaders";
 import { z } from "astro/zod";
 
@@ -194,6 +195,39 @@ function loadApiLoader(): Promise<ApiLoaderModule> {
   return import(
     /* @vite-ignore */ new URL(specifier, import.meta.url).href
   ) as Promise<ApiLoaderModule>;
+}
+
+const INPUT_NAMES: Record<string, string> = {
+  environment: "Nimbus or an installed package",
+  collection: "the collection name",
+  spec: "the spec",
+  requireOperationId: "requireOperationId",
+  schemaPages: "schemaPages",
+  routes: "routes",
+  samples: "samples",
+  extensions: "extensions",
+};
+
+/** " Rebuilt v2: the spec changed." for each version prepared instead of reused. */
+function describeRebuilds(
+  versions: Array<{
+    target: { version: string | null };
+    prepared: { rebuilt?: RebuildReason };
+  }>,
+): string {
+  const notes = versions.flatMap(({ target, prepared }) => {
+    const rebuilt = prepared.rebuilt;
+    if (!rebuilt) return [];
+    const subject = target.version ? ` ${target.version}` : "";
+    const names = rebuilt.changed.map((name) => INPUT_NAMES[name] ?? name);
+    const reason = rebuilt.first
+      ? "nothing cached yet"
+      : names.length
+        ? `${[names.slice(0, -1).join(", "), names.at(-1)].filter(Boolean).join(" and ")} changed`
+        : "its cache entry was missing";
+    return [`Rebuilt${subject}: ${reason}.`];
+  });
+  return notes.length ? ` ${notes.join(" ")}` : "";
 }
 
 export function withNimbusMarkdown<T extends Loader>(loader: T): T {
@@ -769,12 +803,15 @@ export function apiCollection(options?: ApiCollectionOptions): {
         .filter((t) => !t.isDefault && t.version)
         .map((t) => t.version!);
 
+      let preparationNote = "";
       const index = async () => {
         let bundledBytes = 0;
         if (usesPageAssets(astroConfig.root, collection)) {
-          const { prepareApiAssetFamily } =
+          const { prepareApiAssetFamily, getApiAssetPreparationMetrics } =
             await import("./_internal/api/page-assets-build.js");
-          await prepareApiAssetFamily(
+          const started = performance.now();
+          const before = getApiAssetPreparationMetrics();
+          const prepared = await prepareApiAssetFamily(
             rootDir,
             {
               collection,
@@ -790,6 +827,17 @@ export function apiCollection(options?: ApiCollectionOptions): {
               sidebar,
             },
             (message) => logger.warn(message),
+          );
+          preparationNote = describeRebuilds(prepared.versions);
+          const after = getApiAssetPreparationMetrics();
+          const delta = Object.fromEntries(
+            Object.entries(after).map(([name, value]) => [
+              name,
+              value - before[name as keyof typeof before],
+            ]),
+          );
+          logger.debug(
+            `API "${collection}" prepared in ${Math.round(performance.now() - started)} ms ${JSON.stringify(delta)}`,
           );
           // No per-page payload or page index enters Astro's bundled store.
           // Build consumers enumerate the default staged index instead.
@@ -1003,7 +1051,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
               for (const entry of nextEntries) store.set(entry);
               logger.info(
                 usesPageAssets(astroConfig.root, collection)
-                  ? `Prepared API pages for "${collection}" as static assets (bundle: false).`
+                  ? `Prepared API pages for "${collection}" as static assets (bundle: false).${preparationNote}`
                   : `Indexed ${store.keys().length} API pages for "${collection}".`,
               );
             } catch (error) {

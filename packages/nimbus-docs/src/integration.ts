@@ -2824,6 +2824,7 @@ export function nimbus(
               agentEndpointAssets.preparedHeadingsPlugin(astroConfig.root),
               agentEndpointAssets.agentEndpointAssetsRuntimePlugin(
                 astroConfig.root,
+                () => building && outputModeForBuild === "server",
               ),
               markdownRoutes.plugin,
               agentEndpointAssets.agentEndpointAssetLoaderPlugin(
@@ -3532,8 +3533,12 @@ export function nimbus(
         if (
           agentEndpointAssets.isAgentEndpointAssetRequested(projectRootForBuild)
         ) {
+          const started = performance.now();
           await agentEndpointAssets.ensureAgentEndpointAssets(
             projectRootForBuild,
+          );
+          logger.debug(
+            `nimbus: baked agent-endpoint assets in ${Math.round(performance.now() - started)} ms`,
           );
         }
       },
@@ -3553,11 +3558,13 @@ export function nimbus(
         );
         updateConfig({ define: { __NIMBUS_BUILD_ID__: JSON.stringify(id) } });
       },
-      "astro:build:ssr": async () => {
+      "astro:build:ssr": async ({ logger }) => {
         const target = fileURLToPath(clientDirectory);
         const agents = await loadAgentEndpointAssets();
+        const started = performance.now();
         if (agents.isAgentEndpointAssetRequested(projectRootForBuild))
           await agents.stageAgentEndpointAssets(projectRootForBuild, target);
+        const agentsStaged = performance.now();
         const { apiNavListFiles } = await import("./_internal/api/nav-list.js");
         // A slice stages only the API collections it holds (see the
         // client-side staging plugin for the same rule).
@@ -3566,6 +3573,10 @@ export function nimbus(
             await import("./_internal/api/page-assets-build.js");
           await stagePageAssetDeployment(projectRootForBuild, target, sliceApiCollections());
         }
+        logger.debug(
+          `nimbus: staged agent-endpoint assets in ${Math.round(agentsStaged - started)} ms, ` +
+            `page assets in ${Math.round(performance.now() - agentsStaged)} ms`,
+        );
       },
       "astro:routes:resolved": ({ routes, logger }) => {
         // A route file deleted or renamed in dev no longer has a mismatch.

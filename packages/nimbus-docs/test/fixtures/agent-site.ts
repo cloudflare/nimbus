@@ -193,6 +193,6 @@ export async function agentManifest(root: string) {
       url: string;
       path: string;
     }>;
-    llmsAssets: Array<{ scope: string; surface: string; section?: string; path: string }>;
+    llmsAssets: Array<{ scope: string; surface: string; section?: string; path: string; digest: string }>;
   };
 }

@@ -38,6 +38,7 @@ import {
   stageAgentEndpointAssets,
 } from "../src/_internal/agent-endpoint-assets.ts";
 import { collectionUrlsKey } from "../src/_internal/collection-mount.ts";
+import { renderApiPageMarkdown } from "../src/_internal/api/markdown.ts";
 
 const roots: string[] = [];
 const capability = { generation: 1, base: "/docs" };
@@ -527,7 +528,17 @@ test("Markdown and llms.txt endpoints expose metadata and stage bodies as assets
   assert.ok(source);
   assert.doesNotMatch(source, /Unique prepared body/);
   assert.match(source, /assets\//);
+  assert.doesNotMatch(source, /headings/);
   assert.equal(isAgentEndpointAssetRequested(projectRoot), true);
+  const server = agentEndpointAssetsRuntimePlugin(projectRoot, () => true);
+  assert.match(
+    (await server.load.call({ environment: { name: "ssr" } }, id)) ?? "",
+    /export const manifest = null;/,
+  );
+  assert.match(
+    (await server.load.call({ environment: { name: "prerender" } }, id)) ?? "",
+    /assets\//,
+  );
 
   const output = path.join(projectRoot, "dist", "client");
   const stale = path.join(
@@ -552,6 +563,16 @@ test("Markdown and llms.txt endpoints expose metadata and stage bodies as assets
   await assert.rejects(readFile(stale, "utf8"), { code: "ENOENT" });
   await assert.rejects(readFile(legacyStale, "utf8"), { code: "ENOENT" });
   const manifest = await ensureAgentEndpointAssets(projectRoot);
+  const { headings: _headings, ...staged } = manifest;
+  assert.deepEqual(
+    JSON.parse(
+      await readFile(
+        path.join(output, "_nimbus", "agent-endpoint-assets", "manifest.json"),
+        "utf8",
+      ),
+    ),
+    JSON.parse(JSON.stringify(staged)),
+  );
   for (const asset of [
     ...manifest.markdownAssets,
     ...manifest.llmsAssets,
@@ -1227,6 +1248,10 @@ test("bakes every Markdown asset at its public URL, API pages included, hidden A
     ].join("\n"),
   );
   assert.doesNotMatch(api.content, /^# /);
+  assert.equal(
+    api.content,
+    renderApiPageMarkdown(visible.data.prepared.page as never, { base: "/docs" }),
+  );
 });
 
 test("bakes the MCP page index only for a site that serves /mcp; API pages carry no docs version", async () => {
@@ -1594,4 +1619,23 @@ test("an index listing too many entries warns that the deploy will fail", async 
   configure(projectRoot, options);
   await bakeAgentEndpointAssets(options);
   assert.ok(warnings.some((warning) => /^\/llms-full\.txt is \d+ KiB, over Cloudflare's 25 MiB file limit, so the deploy will fail\.$/.test(warning)), warnings.join("\n"));
+});
+
+test("a manifest over the static file limit fails staging before any file is copied", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", [
+    { id: "guide", body: "Unique prepared body", data: { title: "Guide" } },
+  ]);
+  configure(projectRoot, {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+  });
+  const output = path.join(projectRoot, "dist", "client");
+  await assert.rejects(
+    stageAgentEndpointAssets(projectRoot, output, 64),
+    /manifest\.json is \d+ KiB, over Cloudflare's 25 MiB static file limit/,
+  );
+  await assert.rejects(readdir(path.join(output, "_nimbus")), { code: "ENOENT" });
 });

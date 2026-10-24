@@ -1,6 +1,7 @@
 import { invalidateDevModules, type DevServerGraphs } from "./dev-invalidation.js";
 import { createHash, randomUUID } from "node:crypto";
 import {
+  constants,
   lstat,
   mkdir,
   open,
@@ -10,6 +11,7 @@ import {
   realpath,
   rename,
   rm,
+  writeFile,
 } from "node:fs/promises";
 import path from "node:path";
 
@@ -109,6 +111,14 @@ export interface AgentEndpointAssetManifest {
   llmsAssets: LlmsEndpointAsset[];
   pageIndex?: PageIndexAsset;
   headings: PreparedHeadingRecord[];
+}
+
+/** What a deployed server reads: the manifest without the build-only headings. */
+export type StagedAgentEndpointManifest = Omit<AgentEndpointAssetManifest, "headings">;
+
+function stagedManifest(manifest: AgentEndpointAssetManifest): StagedAgentEndpointManifest {
+  const { headings: _headings, ...staged } = manifest;
+  return staged;
 }
 
 function manifestAssets(manifest: AgentEndpointAssetManifest): Array<{ path: string }> {
@@ -1463,6 +1473,7 @@ export function preparedHeadingsPlugin(
 
 export function agentEndpointAssetsRuntimePlugin(
   root: URL | string,
+  serverBuild: () => boolean = () => false,
 ): PreparedHeadingsPlugin {
   return {
     name: "nimbus-docs:agent-endpoint-assets-runtime",
@@ -1471,17 +1482,11 @@ export function agentEndpointAssetsRuntimePlugin(
     },
     async load(id) {
       if (id !== ARTIFACTS_RESOLVED_ID) return undefined;
-      if (this.environment?.name === "ssr") {
-        registerAgentEndpointAssetDemand(root);
-      }
+      const server = this.environment?.name === "ssr";
+      if (server) registerAgentEndpointAssetDemand(root);
       const manifest = await ensureAgentEndpointAssets(root);
-      return (
-        `export const projectRoot = ${JSON.stringify(preparedMarkdownRootKey(root))};\n` +
-        `export const base = ${JSON.stringify(manifest.base)};\n` +
-        `export const markdownAssets = ${JSON.stringify(manifest.markdownAssets)};\n` +
-        `export const llmsAssets = ${JSON.stringify(manifest.llmsAssets)};\n` +
-        `export const pageIndex = ${JSON.stringify(manifest.pageIndex ?? null)};\n`
-      );
+      const literal = server && serverBuild() ? null : stagedManifest(manifest);
+      return `export const manifest = ${JSON.stringify(literal)};\n`;
     },
     handleHotUpdate(context) {
       invalidateDevModules(context.server, [ARTIFACTS_RESOLVED_ID]);
@@ -1532,9 +1537,19 @@ export async function removeAgentEndpointAssets(
 export async function stageAgentEndpointAssets(
   root: URL | string,
   outputRoot: string,
+  limitBytes = LLMS_FULL_LIMIT_BYTES,
 ): Promise<void> {
   const projectRoot = preparedMarkdownRootKey(root);
   const manifest = await ensureAgentEndpointAssets(projectRoot);
+  // Every agent endpoint reads this one file, so a server build cannot ship without it.
+  const manifestBody = JSON.stringify(stagedManifest(manifest));
+  const manifestBytes = utf8Length(manifestBody);
+  if (manifestBytes > limitBytes) {
+    throw new Error(
+      `nimbus-docs: _nimbus/agent-endpoint-assets/manifest.json is ${mebibytes(manifestBytes)}, over Cloudflare's 25 MiB static file limit, so the deploy would fail. ` +
+        "It holds one entry per Markdown twin and llms file, so fewer pages shrink it; a site this large needs splitting.",
+    );
+  }
   const sourceRoot = agentEndpointAssetRoot(projectRoot);
   const targetRoot = path.join(outputRoot, "_nimbus", "agent-endpoint-assets");
   const assets = manifestAssets(manifest);
@@ -1543,16 +1558,31 @@ export async function stageAgentEndpointAssets(
     target: resolveContainedAssetPath(targetRoot, asset.path),
   }));
   await removeAgentEndpointAssets(outputRoot);
+  // The roots and each directory are checked once; a file then costs one
+  // lstat (a symlinked source must not be followed) and one clone.
+  await assertNoSymlink(projectRoot, sourceRoot);
+  const directories = new Map<string, string>();
+  for (const { source, target } of copies) {
+    directories.set(path.dirname(target), path.dirname(source));
+  }
+  for (const [target, source] of directories) {
+    await assertNoSymlink(sourceRoot, source);
+    await mkdir(target, { recursive: true });
+    await assertNoSymlink(targetRoot, target);
+  }
   for (let index = 0; index < copies.length; index += 64) {
     await Promise.all(
       copies.slice(index, index + 64).map(async ({ source, target }) => {
-        await assertNoSymlink(projectRoot, source);
-        await mkdir(path.dirname(target), { recursive: true });
-        await assertNoSymlink(outputRoot, target);
-        await copyFile(source, target);
+        if ((await lstat(source)).isSymbolicLink()) {
+          throw new Error(
+            `nimbus-docs: agent-endpoint asset path contains a symbolic link: ${source}.`,
+          );
+        }
+        await copyFile(source, target, constants.COPYFILE_FICLONE);
       }),
     );
   }
+  await writeFile(path.join(targetRoot, "manifest.json"), manifestBody, "utf8");
 }
 
 export function configureAgentEndpointAssetRoot(

@@ -112,6 +112,39 @@ test("API preparation reuses versions, shares unchanged records and keeps URL co
     assert.notEqual(changed.manifest.v2, first.manifest.v2);
   }));
 
+test("a prepared version says why it was not reused", async () =>
+  temporary(async (root) => {
+    const first = await prepareApiAssetFamily(root, family(spec()));
+    assert.deepEqual(first.versions[0]!.prepared.rebuilt, { first: true, changed: [] });
+    assert.equal(first.versions[1]!.prepared.rebuilt, undefined);
+    const second = await prepareApiAssetFamily(root, family(spec()));
+    assert.deepEqual(second.versions[0]!.prepared.rebuilt, { first: true, changed: [] });
+    clearApiPageAssetManifest(root);
+    const third = await prepareApiAssetFamily(root, family(spec()));
+    assert.ok(third.versions.every(({ prepared }) => prepared.rebuilt === undefined));
+    const changed = await prepareApiAssetFamily(root, family(spec(), spec("changed")));
+    assert.deepEqual(changed.versions[0]!.prepared.rebuilt, { first: false, changed: ["spec"] });
+    assert.equal(changed.versions[1]!.prepared.rebuilt, undefined);
+    const back = await prepareApiAssetFamily(root, family(spec()));
+    assert.equal(back.versions[0]!.prepared.rebuilt, undefined);
+    const forth = await prepareApiAssetFamily(root, family(spec(), spec("changed")));
+    assert.equal(forth.versions[0]!.prepared.rebuilt, undefined);
+    const extended = await prepareApiAssetFamily(root, {
+      ...family(spec(), spec("changed")),
+      extensions: ["x-example"],
+    });
+    assert.deepEqual(extended.versions[0]!.prepared.rebuilt, {
+      first: false,
+      changed: ["extensions"],
+    });
+    await rm(path.join(root, ".nimbus/cache/page-assets/versions"), { recursive: true, force: true });
+    const missing = await prepareApiAssetFamily(root, {
+      ...family(spec(), spec("changed")),
+      extensions: ["x-example"],
+    });
+    assert.deepEqual(missing.versions[0]!.prepared.rebuilt, { first: false, changed: [] });
+  }));
+
 test("corrupt packed cache rebuilds from the spec; restored CI caches relocate", async () =>
   temporary(async (root) => {
     const first = await prepareApiAssetFamily(root, family(spec()));
@@ -208,6 +241,13 @@ test("successful-build pruning keeps every current family and excludes stale dep
       (await readdir(path.join(root, "dist/client/_nimbus/pages"))).sort(),
       reachable,
     );
+    const inputsDirectory = path.join(root, ".nimbus/cache/page-assets/inputs");
+    const remembered = (await readdir(inputsDirectory)).sort();
+    assert.ok(remembered.length > 0);
+    await writeFile(
+      path.join(inputsDirectory, `${"0".repeat(64)}.json`),
+      JSON.stringify({ inputHash: "gone", components: {} }),
+    );
     await pruneApiPageAssetCache(root);
     await assert.rejects(
       readFile(
@@ -219,6 +259,7 @@ test("successful-build pruning keeps every current family and excludes stale dep
       ),
       /ENOENT/,
     );
+    assert.deepEqual((await readdir(inputsDirectory)).sort(), remembered);
     assert.ok(await readFile(other.versions[0]!.prepared.citationSummaryPath));
     const again = await prepareApiAssetFamily(root, {
       ...family(spec()),

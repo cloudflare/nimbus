@@ -11,11 +11,7 @@ import {
   loadRequestRenderingCollections,
   loadNimbusConfig,
 } from "./runtime-config.js";
-import {
-  getIndexedEntries,
-  getVersionStatus,
-  renderIndexedEntryMarkdown,
-} from "../runtime.js";
+import { getIndexedEntries, getVersionStatus } from "../runtime.js";
 import { readConfiguredMarkdownEndpointPayload } from "./agent-endpoint-asset-reader.js";
 
 export const prerender = true;
@@ -65,18 +61,13 @@ export async function GET() {
     if (item.version) route.version = item.version;
     if (versionStatus?.isDeprecated) route.deprecated = true;
     if (route.request && searchable) {
-      route.content = apiCollections.has(collection)
-        ? await renderIndexedEntryMarkdown(item, { base: import.meta.env.BASE_URL })
-        : (
-            await readConfiguredMarkdownEndpointPayload(
-              projectRoot,
-              {
-                collection,
-                id: item.entry.id,
-                surface: "markdown",
-              },
-            )
-          ).content;
+      route.content = (
+        await readConfiguredMarkdownEndpointPayload(projectRoot, {
+          collection,
+          id: item.entry.id,
+          surface: "markdown",
+        })
+      ).content;
     }
     routes.push(route);
   }

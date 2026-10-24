@@ -97,7 +97,7 @@ When the document would be over 25 MiB (Cloudflare's per-file limit), `/llms-ful
 - A section over the limit is itself an index: it links its sub-folders' files, marked "split further" where they're split again, and links each of its own pages' Markdown. A folder over the limit with no sub-folders is a list of links to its pages, marked "links to its pages".
 - Pages at the top of the site are linked from `/llms-full.txt`, not included in it.
 
-The build log lists the files it wrote. On Cloudflare (the adapter, or a `wrangler` file), the build warns about any agent file over 25 MiB, including a single page's Markdown, because that file would fail the deploy.
+The build log lists the files it wrote. On Cloudflare (the adapter, or a `wrangler` file), the build warns about any agent file over 25 MiB, including a single page's Markdown, because that file would fail the deploy. A server build also stages `_nimbus/agent-endpoint-assets/manifest.json`, the list of every agent file, and reads it at request time instead of bundling it into the Worker; the build fails if that one file would pass the limit.
 
 ### 4. Add section indexes
 

@@ -122,7 +122,7 @@ test("on request, every split file is served and no staged copy is over the limi
     return response.status === 200 ? response.text() : null;
   });
   assert.equal(files.size, 6);
-  for (const file of filesUnder(path.join(site.root, "dist/_nimbus/agent-endpoint-assets"))) {
+  for (const file of filesUnder(path.join(site.root, "dist/_nimbus/agent-endpoint-assets/assets"))) {
     assert.ok(statSync(file).size <= LIMIT, `${file} is ${statSync(file).size} bytes`);
   }
 });

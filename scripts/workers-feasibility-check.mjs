@@ -915,7 +915,7 @@ const WORKER_TEXT_DENYLIST = [
   {
     category: "agent-endpoint asset",
     pattern:
-      /\.astro[\\/]nimbus[\\/]agent-endpoint-assets|nimbus\/agent-endpoint-assets\/manifest\.json/,
+      /\.astro[\\/]nimbus[\\/]agent-endpoint-assets|(?<!_)nimbus\/agent-endpoint-assets\/manifest\.json/,
   },
   {
     category: "native binding",
@@ -999,6 +999,17 @@ function assertWorkerPurityScanner() {
       },
     ]).some((violation) => violation.endsWith("wasm payload")),
     "Worker purity scanner missed its WASM negative control",
+  );
+  assert(
+    workerPurityViolations([
+      {
+        path: "agent-endpoints.js",
+        body: Buffer.from(
+          'readStagedAsset("_nimbus/agent-endpoint-assets/manifest.json", { request })',
+        ),
+      },
+    ]).length === 0,
+    "Worker purity scanner rejected the published agent-endpoint manifest",
   );
   assert(
     workerPurityViolations([

@@ -72,13 +72,20 @@ const verifiedCitationSummaries = new WeakMap<PageAssetWriter, Set<string>>();
 const BUILD_PREPARATIONS = Symbol.for(
   "@cloudflare/nimbus-docs/api-build-preparations/v1",
 );
+// Why each version was prepared this process, so the content loader's later
+// hit on the same inputs can still report it. Keyed like `buildPreparations`.
+const REBUILD_REASONS = Symbol.for(
+  "@cloudflare/nimbus-docs/api-rebuild-reasons/v1",
+);
 const preparationGlobals = globalThis as typeof globalThis & {
   [BUILD_PREPARATIONS]?: Map<string, PreparedApiAssetVersion>;
+  [REBUILD_REASONS]?: Map<string, { inputHash: string; rebuilt: RebuildReason }>;
 };
 // Once per API per process: the cause is the same for every version.
 const externalReferenceWarnings = new Set<string>();
 const buildPreparations: Map<string, PreparedApiAssetVersion> =
   (preparationGlobals[BUILD_PREPARATIONS] ??= new Map());
+const rebuildReasons = (preparationGlobals[REBUILD_REASONS] ??= new Map());
 const preparedRecordMemos = new WeakMap<PageAssetWriter, Map<string, string>>();
 const PREPARED_RECORD_MEMO_BYTES = 8 * 1024 * 1024;
 // Two 64-character digests, UTF-16 strings plus conservative Map-entry overhead.
@@ -130,6 +137,14 @@ export interface PreparedApiAssetVersion {
   /** Listed `api[].extensions` names the version never uses, so a reused
    *  version still warns. */
   unusedExtensions?: string[];
+  /** Why this process prepared the version instead of reusing it. */
+  rebuilt?: RebuildReason;
+}
+/** The inputs that differ from the last preparation of this version, none
+ *  when its cache entry had gone missing, `first` when it was never prepared here. */
+export interface RebuildReason {
+  first: boolean;
+  changed: string[];
 }
 export interface ApiPageAssetMetadata {
   nav: PreparedApiNav;
@@ -174,6 +189,8 @@ export function clearApiPageAssetManifest(root: URL | string): void {
   resetPageAssetStaging(key);
   for (const memo of buildPreparations.keys())
     if (memo.startsWith(`${key}\0`)) buildPreparations.delete(memo);
+  for (const memo of rebuildReasons.keys())
+    if (memo.startsWith(`${key}\0`)) rebuildReasons.delete(memo);
 }
 
 /** Root and dependency bytes, not timestamps, decide whether preparation is reusable.
@@ -341,6 +358,33 @@ export async function apiPreparationEnvironment(
   );
 }
 
+/** The inputs the last preparation of a version hashed, kept so a miss can say
+ * which of them changed. Diagnostic only: nothing is reused from it, and each
+ * version's one small file is pruned with the version. */
+interface PreparationInputs {
+  inputHash: string;
+  components: Record<string, string>;
+}
+async function readPreparationInputs(
+  filename: string,
+): Promise<PreparationInputs | undefined> {
+  try {
+    const value = JSON.parse(await readFile(filename, "utf8"));
+    if (typeof value?.inputHash !== "string" || !value.components) return undefined;
+    return value as PreparationInputs;
+  } catch {
+    return undefined;
+  }
+}
+async function rememberPreparationInputs(
+  filename: string,
+  inputs: PreparationInputs,
+  previous: PreparationInputs | undefined,
+): Promise<void> {
+  if (previous?.inputHash === inputs.inputHash) return;
+  await writeAtomic(filename, JSON.stringify(inputs));
+}
+
 /** A version cache file is its hash, a newline, then the JSON it hashes, so a
  * read checks the bytes it already holds instead of serialising them again. */
 async function writeVersionCache(
@@ -386,18 +430,37 @@ export async function prepareApiAssetVersion(
     throw new Error(
       `API ${target.family}: authored input contains reserved nimbus-ref: prefix.`,
     );
-  const inputHash = pageAssetDigest(
-    JSON.stringify({
-      environment,
-      collection: target.namespace,
-      spec: pageAssetDigest(raw),
-      requireOperationId: target.requireOperationId,
-      schemaPages: target.schemaPages,
-      routes: target.routes,
-      samples: target.samples,
-      extensions: target.extensions,
-    }),
+  const inputs = {
+    environment,
+    collection: target.namespace,
+    spec: pageAssetDigest(raw),
+    requireOperationId: target.requireOperationId,
+    schemaPages: target.schemaPages,
+    routes: target.routes,
+    samples: target.samples,
+    extensions: target.extensions,
+  };
+  const inputHash = pageAssetDigest(JSON.stringify(inputs));
+  const components = Object.fromEntries(
+    Object.entries(inputs).map(([name, value]) => [
+      name,
+      pageAssetDigest(JSON.stringify(value ?? null)),
+    ]),
   );
+  const reasonKey = `${preparedMarkdownRootKey(root)}\0${target.versionKey}`;
+  const recordedReason = (hit: PreparedApiAssetVersion) => {
+    const reason = rebuildReasons.get(reasonKey);
+    if (!reason) return hit;
+    if (reason.inputHash === inputHash) return { ...hit, rebuilt: reason.rebuilt };
+    rebuildReasons.delete(reasonKey);
+    return hit;
+  };
+  const inputsFile = path.join(
+    writer.cacheDirectory,
+    "inputs",
+    `${pageAssetDigest(target.versionKey)}.json`,
+  );
+  const previousInputs = await readPreparationInputs(inputsFile);
   const filename = path.join(
     writer.cacheDirectory,
     "versions",
@@ -408,7 +471,7 @@ export async function prepareApiAssetVersion(
   if (built) {
     restoreCodeStyleCSS(built.codeStyleCSS);
     preparationMetrics.versionCacheHits++;
-    return { ...built, reused: true };
+    return recordedReason({ ...built, reused: true });
   }
   {
     try {
@@ -446,7 +509,8 @@ export async function prepareApiAssetVersion(
         throw new Error("Missing cached syntax highlighting CSS");
       restoreCodeStyleCSS(value.codeStyleCSS);
       preparationMetrics.versionCacheHits++;
-      return { ...value, reused: true };
+      await rememberPreparationInputs(inputsFile, { inputHash, components }, previousInputs);
+      return recordedReason({ ...value, reused: true });
     } catch {
       /* Rebuild missing or corrupt cache entries from source. */
     }
@@ -550,8 +614,17 @@ export async function prepareApiAssetVersion(
     };
     const unused = unusedExtensions(model, target.extensions);
     if (unused.length > 0) value.unusedExtensions = unused;
-    if (!bypass) await writeVersionCache(filename, value);
-    else if (buildsPageAssets(root)) buildPreparations.set(buildKey, value);
+    if (!bypass) {
+      await writeVersionCache(filename, value);
+      await rememberPreparationInputs(inputsFile, { inputHash, components }, previousInputs);
+      value.rebuilt = {
+        first: !previousInputs,
+        changed: Object.keys(components).filter(
+          (name) => previousInputs && previousInputs.components[name] !== components[name],
+        ),
+      };
+      rebuildReasons.set(reasonKey, { inputHash, rebuilt: value.rebuilt });
+    } else if (buildsPageAssets(root)) buildPreparations.set(buildKey, value);
     return value;
   } finally {
     setApiModelPageReferences(spine, false);
@@ -953,9 +1026,18 @@ export async function pruneApiPageAssetCache(
       /* Uncacheable sources have no version artifact to retain. */
     }
   }
+  const inputsDirectory = path.join(cache, "inputs");
+  const currentInputs = new Set<string>();
+  for (const filename of await readdir(inputsDirectory).catch(() => [])) {
+    const remembered = await readPreparationInputs(
+      path.join(inputsDirectory, filename),
+    );
+    if (remembered && inputs.has(remembered.inputHash)) currentInputs.add(filename);
+  }
   const retain: Record<string, (filename: string) => boolean> = {
     citations: (filename) =>
       citationHashes.has(filename.replace(/\.json$/, "")),
+    inputs: (filename) => currentInputs.has(filename),
     assets: (filename) => files.has(filename),
     versions: (filename) =>
       inputs.has(filename.replace(/(?:\.citations)?\.json$/, "")),

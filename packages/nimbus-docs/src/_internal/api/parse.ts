@@ -40,6 +40,7 @@ import type { ApiSamples } from "../../types.js";
 import { collectSecuritySchemes } from "./facts.js";
 import { loadSampleTools } from "./samples.js";
 import type { SampleTools } from "./samples.js";
+import { refProbe, refProbeIntact } from "./ref-probe.js";
 import { SchemaResolver, docNeedsRawDoc } from "./schema-resolver.js";
 import { asString, isPlainObject } from "./schema-algebra.js";
 import { parseOperations } from "./operations.js";
@@ -95,12 +96,13 @@ interface ScalarParserModule {
     /** The detected specification version: `"2.0"`, `"3.0"`, or `"3.1"`. */
     version?: string;
   }>;
-  dereference: (input: string | Record<string, unknown>) => Promise<{
+  dereference: (input: string | Record<string, unknown> | OpenApiDocument) => Promise<{
     schema?: OpenApiDocument;
     errors?: ScalarValidationError[];
   }>;
-  /** Ref-preserving normalization — same source, `$ref`s intact. Synchronous. */
-  normalize: (input: string | Record<string, unknown>) => OpenApiDocument;
+  /** Ref-preserving normalization — same source, `$ref`s intact. Synchronous;
+   * `undefined` for text that is neither JSON nor YAML. */
+  normalize: (input: string | Record<string, unknown>) => OpenApiDocument | undefined;
 }
 
 /**
@@ -153,7 +155,9 @@ export async function parseOpenApi(source: SpecSource, onceKey?: string): Promis
   try {
     // `validate` is advisory. `dereference` alone does not check structure — the
     // walkability gate below does that — so validation issues become warnings,
-    // never a build-abort.
+    // never a build-abort. For text it parses its own copy: Scalar's validator
+    // rewrites a non-string `info.version` on the object it is handed, so it
+    // must not share the document the walk reads.
     const validation = await parser.validate(source.spec);
     // The walker reads OpenAPI 3.x only; a Swagger 2.0 document would render
     // without servers, parameter types, or response schemas.
@@ -177,9 +181,18 @@ export async function parseOpenApi(source: SpecSource, onceKey?: string): Promis
       });
     }
 
+    // One parse serves the walk and the ref-preserving copy below: Scalar's
+    // `dereference` structured-clones before resolving, so the document it is
+    // handed keeps its `$ref`s. The probe notices a parser that resolves in
+    // place instead; the copy is then parsed again rather than losing links.
+    let parsed = parser.normalize(source.spec);
+    if (parsed === undefined) throw new Error("the document is empty, or neither JSON nor YAML");
+    const probe = refProbe(parsed);
+
     // Unresolved references degrade gracefully — the affected field renders as
     // an unknown type rather than aborting a 3,000-operation build.
-    const { schema: document, errors } = await parser.dereference(source.spec);
+    const { schema: document, errors } = await parser.dereference(parsed);
+    if (!refProbeIntact(probe)) parsed = parser.normalize(source.spec) ?? parsed;
     for (const e of errors ?? []) {
       preDiagnostics.push({
         level: "warning",
@@ -192,20 +205,12 @@ export async function parseOpenApi(source: SpecSource, onceKey?: string): Promis
     // absent or a structural slot that must be an object is not one.
     assertWalkable(document, label);
 
-    // Ref-preserving copy, for recovering the names that dereference clones away
-    // — union variant branches and named-schema map values (`map<Name>`). Only
-    // worth a second parse when the spec actually carries one; and best-effort —
-    // a normalize failure (or its absence) must never abort an otherwise walkable
-    // build. The walk still finds these in the dereferenced doc and renders them
-    // unlinked, so the only thing lost without a raw doc is the link, never the page.
-    let rawDoc: OpenApiDocument | undefined;
-    if (docNeedsRawDoc(document)) {
-      try {
-        rawDoc = parser.normalize(source.spec);
-      } catch {
-        rawDoc = undefined;
-      }
-    }
+    // The ref-preserving document, for recovering the names that dereference
+    // clones away — union variant branches and named-schema map values
+    // (`map<Name>`). Only handed on when the spec carries one; the walk still
+    // finds these in the dereferenced doc and renders them unlinked otherwise,
+    // so the only thing lost without a raw doc is the link, never the page.
+    const rawDoc = docNeedsRawDoc(document) ? parsed : undefined;
 
     // Code samples are best-effort: derived when the optional tooling is
     // present, silently absent (never fatal) when it is not.

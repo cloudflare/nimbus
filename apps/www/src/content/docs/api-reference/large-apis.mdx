@@ -146,7 +146,7 @@ With `bundle: false`, Nimbus reuses the versions you didn't change. In CI:
 - Save it after a successful production deploy, not after previews, so "previous" means the live release.
 - Key the cache by project, with a fallback key so adding a version keeps earlier entries.
 
-Nimbus checks the cache and rebuilds anything missing or damaged, so keep your specs in the repository. Upgrading Nimbus can rebuild every version once.
+Nimbus checks the cache and rebuilds anything missing or damaged, so keep your specs in the repository. Upgrading Nimbus can rebuild every version once. When a version is rebuilt, the "Prepared API pages" line says why: the spec, the routes, the samples, Nimbus or an installed package changed, or nothing was cached yet. `astro build --verbose` adds the preparation, bake and staging timings.
 
 API pages show the sidebar filter; press `/` to focus it.
 

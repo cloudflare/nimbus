@@ -228,6 +228,27 @@ describe("api resilience — two pages that collide on a route slug are fatal", 
     components: { schemas: { User: { type: "object", properties: { id: { type: "string" } } } } },
   });
 
+  test("text that is neither JSON nor YAML fails with a pointed could-not-be-parsed error", async () => {
+    await assert.rejects(
+      () => parseOpenApi({ collection: "bad", spec: "{ not a document", label: "garbage.json" }),
+      (err: unknown) =>
+        err instanceof ApiBuildError &&
+        err.diagnostics.some((d) => d.level === "error" && /could not be parsed/.test(d.message)),
+    );
+  });
+
+  test("a JSON spec and its YAML twin parse to the same model, union links included", async () => {
+    const yaml = fixtureText("smallco.yaml");
+    const fromYaml = await parseOpenApi({ collection: "twin", label: "smallco.yaml", spec: yaml });
+    const { parse } = await import("yaml");
+    const fromJson = await parseOpenApi({
+      collection: "twin",
+      label: "smallco.json",
+      spec: JSON.stringify(parse(yaml)),
+    });
+    assert.deepEqual(fromJson.model, fromYaml.model);
+  });
+
   test("colliding slugs fail at buildApiModel with a pointed error", async () => {
     await assert.rejects(
       () => buildApiModel({ collection: "collide", spec: collidingSpec, label: "collide.json" }),

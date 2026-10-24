@@ -7,6 +7,7 @@
  */
 import type { APIRoute, GetStaticPaths } from "astro";
 import { getLlmsPayload } from "../agent-endpoints.js";
+import { loadAgentEndpointManifest } from "./agent-endpoint-manifest.js";
 import { findOwnMarkdownRoute, higherMarkdownRouteOwner } from "./markdown-routes.js";
 
 // Spelled as a constant: the build tells a route that serves `/llms-full.txt`
@@ -21,7 +22,7 @@ function mountOf(routePattern: string): string {
 
 export const getStaticPaths: GetStaticPaths = async ({ routePattern }) => {
   const [{ llmsAssets }, { routes }] = await Promise.all([
-    import("virtual:nimbus/agent-endpoint-assets"),
+    loadAgentEndpointManifest(),
     import("virtual:nimbus/markdown-routes"),
   ]);
   const mount = mountOf(routePattern);

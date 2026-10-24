@@ -4,6 +4,7 @@ import type {
   LlmsEndpointAsset,
   MarkdownEndpointAsset,
 } from "./_internal/agent-endpoint-assets.js";
+import { loadAgentEndpointManifest } from "./_internal/agent-endpoint-manifest.js";
 import { readStagedAsset } from "./_internal/staged-asset-reader.js";
 import {
   findOwnMarkdownRoute,
@@ -35,9 +36,6 @@ export type LlmsEndpointPayload = LlmsEndpointReference & {
   body: string;
 };
 
-let agentEndpointAssetsModule: Promise<
-  typeof import("virtual:nimbus/agent-endpoint-assets")
-> | null = null;
 let markdownByIdentity:
   | Map<string, MarkdownEndpointAsset>
   | undefined;
@@ -47,11 +45,6 @@ let llmsByIdentity: Map<string, LlmsEndpointAsset> | undefined;
 
 interface AgentEndpointContext {
   request?: Request;
-}
-
-function loadAgentEndpointAssets() {
-  agentEndpointAssetsModule ??= import("virtual:nimbus/agent-endpoint-assets");
-  return agentEndpointAssetsModule;
 }
 
 function markdownIdentity(reference: MarkdownEndpointReference): string {
@@ -110,8 +103,8 @@ async function sectionApiCollection(section: string): Promise<string | undefined
   return collectionContaining((config.api ?? []).map((entry) => entry.collection), `/${section}`, context);
 }
 
-async function markdownIndexes() {
-  const { markdownAssets } = await loadAgentEndpointAssets();
+async function markdownIndexes(request?: Request) {
+  const { markdownAssets } = await loadAgentEndpointManifest(request);
   if (!markdownByIdentity || !markdownByRoute || !markdownByUrl) {
     markdownByIdentity = new Map();
     markdownByRoute = new Map();
@@ -132,8 +125,8 @@ async function markdownIndexes() {
   return { markdownAssets, markdownByIdentity, markdownByRoute, markdownByUrl };
 }
 
-async function llmsIndex() {
-  const { llmsAssets } = await loadAgentEndpointAssets();
+async function llmsIndex(request?: Request) {
+  const { llmsAssets } = await loadAgentEndpointManifest(request);
   if (!llmsByIdentity) {
     llmsByIdentity = new Map(
       llmsAssets.map((asset) => [llmsIdentity(asset), asset]),
@@ -193,7 +186,7 @@ export async function getMarkdownPayload(options: {
     ))
   )
     return null;
-  const indexes = await markdownIndexes();
+  const indexes = await markdownIndexes(options.context?.request);
   const asset = options.reference
     ? indexes.markdownByIdentity.get(markdownIdentity(options.reference))
     : indexes.markdownByRoute.get(markdownRouteIdentity(options));
@@ -288,7 +281,7 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
     },
     GET: (context) =>
       endpointResponse(context, async () => {
-        const indexes = await markdownIndexes();
+        const indexes = await markdownIndexes(context.request);
         const reference = (
           context.props as { reference?: MarkdownEndpointReference }
         ).reference;
@@ -296,7 +289,7 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
         if (reference) {
           asset = indexes.markdownByIdentity.get(markdownIdentity(reference));
         } else {
-          const { base } = await loadAgentEndpointAssets();
+          const { base } = await loadAgentEndpointManifest(context.request);
           const url = requestAssetUrl(context.url, base);
           asset = url ? indexes.markdownByUrl.get(url) : undefined;
         }
@@ -305,7 +298,7 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
           // request-rendered root route: no asset exists at /index.md and a
           // prebuilt /llms.txt can't be reached by rewrite, so the factory
           // serves the site llms index itself.
-          const { base } = await loadAgentEndpointAssets();
+          const { base } = await loadAgentEndpointManifest(context.request);
           if (requestAssetUrl(context.url, base) === "/index.md") {
             const fallback = await getLlmsPayload(
               { scope: "site", surface: "index" },
@@ -367,7 +360,7 @@ export async function getLlmsPayload(
     const api = await sectionApiCollection(reference.section);
     if (api && !(await selectedApiOutputIsDefault(api, context.request))) return null;
   }
-  const { llmsByIdentity } = await llmsIndex();
+  const { llmsByIdentity } = await llmsIndex(context.request);
   const asset = llmsByIdentity.get(llmsIdentity(reference));
   if (!asset) return null;
   return {

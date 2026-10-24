@@ -79,12 +79,9 @@ declare module "virtual:nimbus/headings" {
 }
 
 declare module "virtual:nimbus/agent-endpoint-assets" {
-  export const projectRoot: string;
-  export const base: string;
-  export const markdownAssets: import("../_internal/agent-endpoint-assets.js").MarkdownEndpointAsset[];
-  export const llmsAssets: import("../_internal/agent-endpoint-assets.js").LlmsEndpointAsset[];
-  /** `null` unless `agents.mcp` is on. */
-  export const pageIndex: import("../_internal/agent-endpoint-assets.js").PageIndexAsset | null;
+  export const manifest:
+    | import("../_internal/agent-endpoint-assets.js").StagedAgentEndpointManifest
+    | null;
 }
 
 declare module "virtual:nimbus/markdown-routes" {

@@ -2,7 +2,7 @@
 // payloads, and on request they 404 unknown sections and 500 without details.
 
 import assert from "node:assert/strict";
-import { readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, test } from "node:test";
 
@@ -97,6 +97,15 @@ test("factories rendered on request serve by URL, 404 unknown sections, and 500 
   const asset = (await agentManifest(site.root)).llmsAssets.find(
     (candidate) => candidate.section === "changelog",
   )!;
+  // The server reads the manifest from its deployed assets; the bundle carries
+  // no copy (Astro's own asset list names the file, so test for the digest).
+  for (const file of await readdir(path.join(site.root, ".server"), { recursive: true })) {
+    if (!/\.m?js$/.test(file)) continue;
+    assert.ok(
+      !(await readFile(path.join(site.root, ".server", file), "utf8")).includes(asset.digest),
+      file,
+    );
+  }
   await rm(path.join(site.root, ".astro/nimbus/agent-endpoint-assets", asset.path));
   const realFetch = globalThis.fetch;
   const realError = console.error;
