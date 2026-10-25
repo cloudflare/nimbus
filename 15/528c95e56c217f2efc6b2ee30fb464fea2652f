@@ -1,0 +1,19 @@
+packages/nimbus-docs/scripts/check-test-reports.mjs
+  s_c381e2ce5b46fa::t_8cd7882740d9fd 1-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "15528c95e56c217f2efc6b2ee30fb464fea2652f",
+  "prompts": {},
+  "sessions": {
+    "s_c381e2ce5b46fa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a3c0d0ec91bf27e4f",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
