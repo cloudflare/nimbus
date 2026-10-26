@@ -32,16 +32,16 @@
     "node": ">=22.12.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.62.1",
+    "@playwright/test": "1.64.1",
     "@changesets/changelog-github": "^0.7.0",
     "@changesets/cli": "^2.31.0",
     "@eslint/js": "^10.0.1",
     "cross-spawn": "7.0.6",
-    "eslint": "^10.8.0",
+    "eslint": "^10.13.0",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "pkg-pr-new": "^0.0.79",
+    "pkg-pr-new": "^0.0.91",
     "semver": "7.8.5",
-    "typescript-eslint": "^8.66.0",
-    "yaml": "2.9.0"
+    "typescript-eslint": "^8.72.0",
+    "yaml": "2.9.1"
   }
 }
