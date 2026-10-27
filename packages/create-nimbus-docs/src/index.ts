@@ -22,6 +22,7 @@ import { existsSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import * as p from "@clack/prompts";
 import mri from "mri";
+import { lt } from "semver";
 import { scaffold, ScaffoldError, type ScaffoldResult } from "./scaffold.js";
 import {
   getPromptResponses,
@@ -142,9 +143,7 @@ if (args.version) {
   process.exit(0);
 }
 
-const [nodeMajor] = process.versions.node.split(".");
-const [minMajor] = __MIN_NODE_VERSION__.split(".");
-if (Number(nodeMajor) < Number(minMajor)) {
+if (lt(process.versions.node, __MIN_NODE_VERSION__)) {
   console.error(
     `create-nimbus-docs requires Node ${__MIN_NODE_VERSION__} or later. You are running ${process.versions.node}.`,
   );

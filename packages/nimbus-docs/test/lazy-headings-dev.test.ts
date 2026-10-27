@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { dev } from "astro";
+import { JSDOM } from "jsdom";
 
 import { paritySite, src } from "./fixtures/parity-site.ts";
 
@@ -29,16 +30,16 @@ test("dev resolves page headings per request and follows edits", async () => {
       const get = async () => {
         const response = await fetch(`http://127.0.0.1:${server.address.port}/`);
         assert.equal(response.status, 200);
-        return /<pre>(.*)<\/pre>/u.exec(await response.text())?.[1];
+        return new JSDOM(await response.text()).window.document.querySelector("pre")?.textContent;
       };
-      assert.equal(await get(), "[&quot;first&quot;,&quot;nested&quot;]");
+      assert.equal(await get(), '["first","nested"]');
       await site.write("src/content/docs/index.md", "---\ntitle: Home\n---\n\n## Renamed\n");
-      let seen: string | undefined;
-      for (let attempt = 0; attempt < 40 && seen !== "[&quot;renamed&quot;]"; attempt += 1) {
+      let seen: string | null | undefined;
+      for (let attempt = 0; attempt < 40 && seen !== '["renamed"]'; attempt += 1) {
         await new Promise((resolve) => setTimeout(resolve, 250));
         seen = await get();
       }
-      assert.equal(seen, "[&quot;renamed&quot;]");
+      assert.equal(seen, '["renamed"]');
     } finally {
       await server.stop();
     }

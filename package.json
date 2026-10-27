@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@10.34.9",
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
@@ -19,29 +19,30 @@
     "site-parts:check": "node scripts/site-parts-check.mjs",
     "templates:sync": "node scripts/sync-templates-repo.mjs",
     "upgrades:check": "node scripts/upgrade-manifest.mjs",
-    "test:upgrades": "node --test scripts/upgrade-manifest.test.mjs scripts/sync-reviewed-baselines.test.mjs scripts/freshness-guard.test.mjs",
+    "test:upgrades": "node --test scripts/upgrade-manifest.test.mjs scripts/sync-reviewed-baselines.test.mjs scripts/freshness-guard.test.mjs scripts/changeset-version.test.mjs",
     "local": "node scripts/local.mjs",
     "local:auto": "node scripts/local.mjs --auto",
     "local:reset": "node scripts/local.mjs --auto --reset",
     "local:add": "node scripts/local-add.mjs",
     "changeset": "changeset",
-    "changeset:version": "changeset version && node scripts/sync-reviewed-baselines.mjs && pnpm --filter @nimbus/www generate-registry",
+    "changeset:version": "node scripts/changeset-version.mjs && node scripts/sync-reviewed-baselines.mjs && pnpm --filter @nimbus/www generate-registry",
     "changeset:publish": "changeset publish"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": "^22.23.4 || ^24.15.0 || >=26.0.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.62.1",
     "@changesets/changelog-github": "^0.7.0",
-    "@changesets/cli": "^2.31.0",
+    "@changesets/cli": "^3.0.3",
+    "@changesets/get-release-plan": "^5.0.2",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.64.1",
     "cross-spawn": "7.0.6",
-    "eslint": "^10.8.0",
+    "eslint": "^10.13.0",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "pkg-pr-new": "^0.0.79",
+    "pkg-pr-new": "^0.0.91",
     "semver": "7.8.5",
-    "typescript-eslint": "^8.66.0",
-    "yaml": "2.9.0"
+    "typescript-eslint": "^8.72.1",
+    "yaml": "2.9.1"
   }
 }

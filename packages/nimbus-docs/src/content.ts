@@ -21,6 +21,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { satisfies } from "semver";
 
 import { AstroError } from "astro/errors";
 import { glob } from "astro/loaders";
@@ -1111,10 +1112,9 @@ export function apiCollection(options?: ApiCollectionOptions): {
 }
 
 function assertSupportedNode(): void {
-  const [major = 0, minor = 0] = process.versions.node.split(".").map(Number);
-  if (major < 22 || (major === 22 && minor < 12)) {
+  if (!satisfies(process.versions.node, ">=22.23.4")) {
     throw new Error(
-      `nimbus-docs api: Node >=22.12.0 is required to build an API reference ` +
+      `nimbus-docs api: Node >=22.23.4 is required to build an API reference ` +
         `(running ${process.versions.node}). Upgrade Node, or remove the \`api\` entries from the Nimbus config.`,
     );
   }

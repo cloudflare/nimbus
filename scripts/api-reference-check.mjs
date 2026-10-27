@@ -587,7 +587,7 @@ async function assertNoSourceShortcut() {
   );
 }
 
-// Drop the config-derived, registry-npmjs `tarball:` field (pinned pnpm 9.0.0
+// Drop the config-derived, registry-npmjs `tarball:` field (pnpm
 // format) so the frozen-lock invariant holds regardless of the runner's registry.
 function normalizeLockForComparison(lock) {
   return lock.replace(
@@ -1629,16 +1629,17 @@ async function assertBasePathMetadata() {
 
 async function execute() {
   const started = Date.now();
+  const workspacePackage = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8"));
   assert(
-    satisfies(process.versions.node, ">=22.12.0"),
-    `Node 22.12 or newer is required; found ${process.version}`,
+    satisfies(process.versions.node, workspacePackage.engines.node),
+    `Node ${workspacePackage.engines.node} is required; found ${process.version}`,
   );
   const pnpmVersion = (
     await run("pnpm", ["--version"], { timeoutMs: 30_000 })
   ).stdout.trim();
   assert(
-    pnpmVersion === "9.0.0",
-    `ambient pnpm 9.0.0 is required; found ${pnpmVersion}. If upgrading pnpm intentionally, update packageManager and regenerate scripts/fixtures/api-reference/pnpm-lock.yaml.template together`,
+    `pnpm@${pnpmVersion}` === workspacePackage.packageManager,
+    `ambient ${workspacePackage.packageManager} is required; found pnpm ${pnpmVersion}. Regenerate scripts/fixtures/api-reference/pnpm-lock.yaml.template when upgrading pnpm`,
   );
   ok(`preflight Node ${process.version}, pnpm ${pnpmVersion}`);
 

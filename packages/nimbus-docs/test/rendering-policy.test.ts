@@ -610,13 +610,13 @@ test("sitemap deduplicates the deployment root across trailing slash policies", 
       base: "/docs",
       trailingSlash: "never",
       buildFormat: "directory",
-      expected: "https://example.test/docs",
+      expected: "https://example.test/docs/",
     },
     {
       base: "/docs",
       trailingSlash: "ignore",
       buildFormat: "file",
-      expected: "https://example.test/docs",
+      expected: "https://example.test/docs/",
     },
   ] as const) {
     const serialized: string[] = [];

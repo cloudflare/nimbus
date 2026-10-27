@@ -14,7 +14,7 @@ updates:
         patterns:
           - "*"
     ignore:
-      # Types track the oldest supported node (engines: >=22.12.0).
+      # Types track the oldest supported Node major.
       - dependency-name: "@types/node"
         update-types:
           - version-update:semver-major

@@ -30,7 +30,7 @@ import {
   readDependencyNames,
 } from "./probe.js";
 
-const MIN_NODE = "22.12.0";
+const MIN_NODE = "22.23.4";
 
 // Narrow on purpose: this flags only the literal unchanged-scaffold strings, to
 // avoid false positives on user-chosen values. The build-time resolver in

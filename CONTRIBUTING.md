@@ -53,7 +53,7 @@ one production corpus is not sufficient evidence of consumer compatibility.
 
 ### Local development
 
-Requires **Node ≥ 22.12.0** and **pnpm 9** (pinned via `packageManager`, so Corepack fetches it for you).
+Requires **Node 22.23.4+, 24.15.0+, or 26+** and **pnpm 10** (pinned via `packageManager`, so Corepack fetches it for you). Node 23 and 25 are not supported for contributing. Use the latest patched release of your Node line.
 
 ```sh
 pnpm install

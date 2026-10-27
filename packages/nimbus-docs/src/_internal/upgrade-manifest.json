@@ -20,6 +20,23 @@
   },
   "entries": [
     {
+      "id": "dependency-runtime-requirements",
+      "introducedIn": "0.20.0",
+      "mode": "review-required",
+      "changeset": "dependency-compatibility",
+      "summary": "Update Node and Astro before installing the refreshed Nimbus dependencies.",
+      "affected": "Projects building with Node below 22.23.4 or Astro below 7.2.10.",
+      "instructions": [
+        "Upgrade Node to 22.23.4 or newer locally and in CI and hosting build environments before updating Nimbus. Use the latest patched release of your Node line.",
+        "Update Astro to at least 7.2.10 within major 7. New starters use Astro 7.4.2.",
+        "Reinstall dependencies with the project's package manager and commit the updated lockfile. Existing Satori 0.26 installations remain supported; new starters use Satori 0.63."
+      ],
+      "verify": [
+        "Confirm node --version in the local, CI, and hosting build environments meets the new minimum.",
+        "Run the project's typecheck and production build, including API references and OG images when enabled."
+      ]
+    },
+    {
       "id": "math-rendering",
       "introducedIn": "0.18.0",
       "mode": "optional",
