@@ -19,6 +19,7 @@ import type {
   ApiResponseView,
   ApiScalarView,
   ApiUnionView,
+  ApiVariant,
   JsonValue,
 } from "./view-model.js";
 import { withBase } from "../url.js";
@@ -151,7 +152,12 @@ function renderField(field: ApiFieldView, depth: number, out: string[], base?: s
 
   if (field.union) {
     const label = field.union.kind === "oneOf" ? "one of" : "any of";
-    out.push(`${pad}  - ${label}: ${field.union.variants.map((v) => variantLabel(v, base)).join(", ")}`);
+    if (field.union.variants.some(opens)) {
+      out.push(`${pad}  - ${label}:`);
+      for (const v of field.union.variants) renderVariant(v, depth + 2, out, base);
+    } else {
+      out.push(`${pad}  - ${label}: ${field.union.variants.map((v) => variantLabel(v, base)).join(", ")}`);
+    }
     if (field.union.discriminator) {
       out.push(`${pad}  - discriminator: ${inlineCode(field.union.discriminator)}`);
     }
@@ -182,9 +188,27 @@ function variantLabel(v: { label: string; href?: string }, base?: string): strin
   return v.href ? link(v.label, v.href, base) : inlineCode(v.label);
 }
 
+/** A variant with something beneath its label: its own union, or an inline
+ *  branch's fields, which have no other home. A named branch stays a label, as
+ *  before, so a twin's size does not follow `schemaPages`. */
+function opens(v: ApiVariant): boolean {
+  return Boolean(v.union || (v.fields && !v.href && !v.name));
+}
+
+function renderVariant(v: ApiVariant, depth: number, out: string[], base?: string): void {
+  const pad = "  ".repeat(depth);
+  out.push(`${pad}- ${variantLabel(v, base)}`);
+  if (v.union) {
+    out.push(`${pad}  - ${v.union.kind === "oneOf" ? "one of" : "any of"}:`);
+    for (const inner of v.union.variants) renderVariant(inner, depth + 2, out, base);
+  } else if (v.fields && !v.href && !v.name) {
+    for (const f of v.fields) renderField(f, depth + 1, out, base);
+  }
+}
+
 function renderUnion(union: ApiUnionView, out: string[], base?: string): void {
   out.push(union.kind === "oneOf" ? "One of:" : "Any of:", "");
-  for (const v of union.variants) out.push(`- ${variantLabel(v, base)}`);
+  for (const v of union.variants) renderVariant(v, 0, out, base);
   out.push("");
   if (union.discriminator) {
     out.push(`Discriminator: ${inlineCode(union.discriminator)}`, "");

@@ -22,37 +22,41 @@ const entries =
 ---
 
 <div class={nested ? "fl-children fl-children--union" : ""}>
-  <p class="fl-union-label">One of the following:</p>
+  <p class="fl-union-label">{union.kind === "anyOf" ? "Any of the following:" : "One of the following:"}</p>
   <ul class="fl-list">
     {entries.map(({ variant, value }, i) => {
       const hasFields = variant.fields && variant.fields.length > 0;
       const open = i === 0 && AUTO_OPEN_DEPTH >= depth + 1;
-      return hasFields ? (
+      return variant.union || hasFields ? (
         <li class="fl-item fl-item--child">
           <div class="fl-body">
             <div class="fl-sig">
               {variant.href ? (
-                <a href={withBase(variant.href, import.meta.env.BASE_URL)} class="fl-type-link fl-variant-link">{variant.label}</a>
+                <a href={withBase(variant.href, import.meta.env.BASE_URL)} class="fl-type-link fl-variant-link">{variant.title ?? variant.label}</a>
               ) : (
-                <div class="fl-name">{variant.label}</div>
+                <div class="fl-name">{variant.title ?? variant.label}</div>
               )}
               {value && <div class="fl-type">{value}</div>}
               <button type="button" class="fl-count" data-fl-toggle data-pagefind-ignore aria-expanded={open ? "true" : "false"}>
-                <span class="fl-count-brace" aria-hidden="true">{"{"}</span><span class="fl-count-text">{countLabel(variant.fields!.length, "property")}</span><span class="fl-count-brace" aria-hidden="true">{"}"}</span>
+                <span class="fl-count-brace" aria-hidden="true">{"{"}</span><span class="fl-count-text">{variant.union ? countLabel(variant.union.variants.length, "variant") : countLabel(variant.fields!.length, "property")}</span><span class="fl-count-brace" aria-hidden="true">{"}"}</span>
               </button>
             </div>
             {variant.href && (
               <div class="fl-desc">
-                <a href={withBase(variant.href, import.meta.env.BASE_URL)}>View {variant.label} schema →</a>
+                <a href={withBase(variant.href, import.meta.env.BASE_URL)}>View {variant.title ?? variant.label} schema →</a>
               </div>
             )}
             <details class="fl-expandable" open={open}>
               <summary class="fl-expand-trigger"></summary>
-              <ul class="fl-list fl-children">
-                {variant.fields!.map((f) => (
-                  <ApiFieldRow field={f} depth={depth + 1} anchored={false} />
-                ))}
-              </ul>
+              {variant.union ? (
+                <Astro.self union={variant.union} nested depth={depth + 1} />
+              ) : (
+                <ul class="fl-list fl-children">
+                  {variant.fields!.map((f) => (
+                    <ApiFieldRow field={f} depth={depth + 1} anchored={false} />
+                  ))}
+                </ul>
+              )}
               <span class="fl-fold-close" aria-hidden="true" data-pagefind-ignore>{"}"}</span>
             </details>
           </div>
@@ -61,9 +65,9 @@ const entries =
         <li class="fl-item fl-item--child">
           <div class="fl-sig">
             {variant.href ? (
-              <a href={withBase(variant.href, import.meta.env.BASE_URL)} class="fl-type-link fl-variant-link">{variant.label}</a>
+              <a href={withBase(variant.href, import.meta.env.BASE_URL)} class="fl-type-link fl-variant-link">{variant.title ?? variant.label}</a>
             ) : (
-              <div class="fl-name">{variant.label}</div>
+              <div class="fl-name">{variant.title ?? variant.label}</div>
             )}
             {value && <div class="fl-type">{value}</div>}
           </div>

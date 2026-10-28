@@ -121,6 +121,6 @@ Each schema then also gets:
 - sitemap, search, and `llms.txt` entries;
 - coordinates, for the schema and its fields, in citations and `coordinates.json`.
 
-Type names such as union variants, discriminator mappings, and `map<Name>` value types link to their schema pages; without them, they render as text. A union variant previews its properties one level deep, so turn schema pages on if readers need a variant's nested fields.
+Type names such as union variants, discriminator mappings, and `map<Name>` value types link to their schema pages; without them, they render as text. A named union branch is labelled by its schema key and carries the schema's `title` when it declares one, so your union explorer can show `title ?? label`; the starter does. A union variant opens in place: a branch that is itself a union shows its own branches, as deep as the spec nests, and an object branch previews its properties. A union among those properties shows its branches but not their fields, so turn schema pages on if readers need to follow a type that far. The Markdown version prints nested branches and the fields of inline branches; a named branch stays a label or a link.
 
 With schema pages off, an `api.ref:` citation in your content to a schema or a schema field fails the build and names the setting. Cite an operation that uses the type instead. Schema names claim their `schemas/<Name>` routes either way, so turning schema pages on can't collide with an operation. The setting applies to every version of a family.

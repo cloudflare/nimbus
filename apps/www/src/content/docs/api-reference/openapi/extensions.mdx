@@ -1,6 +1,6 @@
 ---
 title: Vendor extensions
-description: Show your spec's own x-* fields on API pages, typed, in your copies of the API components.
+description: Show your spec's own x-* fields on API pages, typed, in your copies of the API components, and order a section's operations.
 aiGenerated: true
 sidebar:
   order: 4
@@ -63,3 +63,22 @@ declare module "@cloudflare/nimbus-docs/types" {
 ```
 
 `page.extensions?.["x-acme-plans"]` is then `string[] | undefined`; names you don't declare stay JSON values.
+
+## Operation order
+
+Section pages, the sidebar, the [API home's index](/api-reference/large-apis#the-api-home) and the Markdown versions list a section's operations in the spec's path order. `x-nimbus-order` on an operation moves it ahead: lower numbers come first, and operations without it follow in path order. A value that is not a number is ignored. Sections keep their order, and webhooks keep the spec's. Set it in the spec, or in a step that prepares the spec before Nimbus reads it, for example from a CRUD rank so list, get, create, update and delete lead every section.
+
+```yaml title="openapi.yaml"
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      x-nimbus-order: 1
+    post:
+      operationId: createUser
+      x-nimbus-order: 3
+  /users/{id}:
+    get:
+      operationId: getUser
+      x-nimbus-order: 2
+```

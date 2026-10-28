@@ -217,6 +217,55 @@ describe("api markdown emitter", () => {
     assert.match(md, /- `b` → \[B\]\(\/disc\/schemas\/B\/\)/);
   });
 
+  test("a nested union prints its branches as a nested list, and an unlinked branch its fields", async () => {
+    const model = await buildApiModel({
+      collection: "nest",
+      spec: {
+        openapi: "3.0.0",
+        info: { title: "N", version: "1" },
+        paths: {
+          "/r": {
+            post: {
+              operationId: "create",
+              requestBody: { content: { "application/json": { schema: { anyOf: [{ $ref: "#/components/schemas/Group" }] } } } },
+              responses: { "200": { description: "ok" } },
+            },
+          },
+          "/f": {
+            post: {
+              operationId: "createField",
+              requestBody: {
+                content: {
+                  "application/json": {
+                    schema: { type: "object", properties: { source: { anyOf: [{ $ref: "#/components/schemas/Group" }] } } },
+                  },
+                },
+              },
+              responses: { "200": { description: "ok" } },
+            },
+          },
+        },
+        components: {
+          schemas: {
+            Group: {
+              oneOf: [
+                { $ref: "#/components/schemas/A" },
+                { type: "string" },
+                { title: "Inline", type: "object", properties: { z: { type: "string" } } },
+              ],
+            },
+            A: { type: "object", properties: { content: { type: "string" } } },
+          },
+        },
+      },
+    });
+    const md = renderApiPageMarkdown(getApiPageProps(model, "create"));
+    assert.match(md, /^Any of:\n\n- `Group`\n  - one of:\n    - `A`\n    - `string`\n    - `Inline`\n      - `z` \(/m);
+    assert.doesNotMatch(md, /`content` \(/, "a named branch without a page stays a label; only an inline branch prints fields");
+    const field = renderApiPageMarkdown(getApiPageProps(model, "createField"));
+    assert.match(field, /^- `source` \(.*any of.*\)\n  - any of:\n    - `Group`\n      - one of:\n        - `A`\n        - `string`\n        - `Inline`\n          - `z` \(/m);
+  });
+
   test("a union field renders its variants XOR its children — no hidden coordinates leak", () => {
     const md = renderApiPageMarkdown(
       schema([

@@ -360,24 +360,36 @@ function scalarView(shape: ScalarShape): ApiScalarView {
   return out;
 }
 
+/** A branch as its label and link only. Links follow pages, not nodes: with
+ *  `schemaPages: false` the schema node still exists (so its properties preview
+ *  inline) but has no page to link to. */
+function variantLink(view: ModelView, v: VariantRef): ApiVariant {
+  const resolved = v.coordinate && view.node(v.coordinate) ? v.coordinate : undefined;
+  const out: ApiVariant = { label: v.label };
+  if (v.name) out.name = v.name;
+  if (v.title) out.title = v.title;
+  if (resolved && view.hasPage(resolved)) out.href = view.href(resolved);
+  return out;
+}
+
 function variantView(
   view: ModelView,
   v: VariantRef,
   inlineFields = false,
+  seen: ReadonlySet<Coordinate> = new Set(),
 ): ApiVariant {
+  const out = variantLink(view, v);
   const resolved = v.coordinate && view.node(v.coordinate) ? v.coordinate : undefined;
-  // Links follow pages, not nodes: with `schemaPages: false` the schema node
-  // still exists (so its properties preview inline) but has no page to link to.
-  const out: ApiVariant =
-    resolved && view.hasPage(resolved)
-      ? { label: v.label, href: view.href(resolved) }
-      : { label: v.label };
-  if (inlineFields && resolved) {
-    // Inline the variant's properties one level deep — nested unions inside the
-    // variant link out (allowInline = false) so a cyclic union can't recurse.
-    // A bounded preview; overflow past the ceiling is simply dropped (the full
-    // variant is one click away on its own page).
-    const fields = boundFields(topLevelFields(view, resolved, false)).fields;
+  if (!resolved || seen.has(resolved)) return out;
+  const facts = view.node(resolved)!.facts;
+  const nested = facts.kind === "schema" || facts.kind === "variant" ? facts.union : undefined;
+  if (nested) {
+    out.union = unionView(view, nested, inlineFields, new Set([...seen, resolved]));
+  } else if (inlineFields || facts.kind === "variant") {
+    // `seen` is the path of branches above; a repeat stays a label. The preview
+    // passes `false` so a union among these properties shows branches only:
+    // named schemas form a DAG, and opening them again per path is exponential.
+    const fields = boundFields(topLevelFields(view, resolved, false, new Set([...seen, resolved]))).fields;
     if (fields.length > 0) out.fields = fields;
   }
   return out;
@@ -387,20 +399,23 @@ function unionView(
   view: ModelView,
   shape: UnionShape,
   inlineFields = false,
+  seen: ReadonlySet<Coordinate> = new Set(),
 ): ApiUnionView {
   // When a discriminator mapping is present the explorer iterates it exclusively
-  // (its variants are the named, linkable ones), so inlining variant field-trees
-  // into the raw `variants` list too would just double the payload — skip it.
+  // (its variants are the named, linkable ones), so the raw `variants` stay label
+  // and link only — opening them too would just double the payload.
   const hasMapping = Boolean(shape.mapping && shape.mapping.length > 0);
   const out: ApiUnionView = {
     kind: shape.kind,
-    variants: shape.variants.map((v) => variantView(view, v, inlineFields && !hasMapping)),
+    variants: shape.variants.map((v) =>
+      hasMapping ? variantLink(view, v) : variantView(view, v, inlineFields, seen),
+    ),
   };
   if (shape.discriminator) out.discriminator = shape.discriminator;
   if (shape.mapping && shape.mapping.length > 0) {
     out.mapping = shape.mapping.map((m) => ({
       value: m.value,
-      variant: variantView(view, m.variant, inlineFields),
+      variant: variantView(view, m.variant, inlineFields, seen),
     }));
   }
   return out;
@@ -411,8 +426,9 @@ function unionView(
  * collapse. Across the 10,379-page Cloudflare documentation set the largest page carries
  * 848 fields (p99.9 = 694), so at 1000 this never fires on any real spec
  * measured; it exists only to bound a pathological spec (a container with
- * thousands of siblings) so generated Markdown cannot blow past a sane size. The
- * companion structural bound is `SCHEMA_FIELD_DEPTH` (parse.ts). Kept fields are
+ * thousands of siblings) so generated Markdown cannot blow past a sane size.
+ * Depth has no numeric bound: the walk and the projection both stop only at a
+ * schema already on the current path. Kept fields are
  * required-first then source order (see `requiredFirst`), so a truncated
  * container stays byte-reproducible across builds — load-bearing for the
  * markdown-diff use case.
@@ -434,19 +450,20 @@ function boundFields(all: ApiFieldView[]): {
 
 // `allowInline` governs ONLY whether a field's union variants inline their
 // property previews (it is forwarded to `unionView`); ordinary object children
-// always recurse. It exists to stop a cyclic union from inlining forever, not to
-// gate general field depth — that is `SCHEMA_FIELD_DEPTH` at the parse seam.
+// always recurse. `seen` is the path of union branches above this field, so a
+// branch that reappears inside its own fields stays a label.
 function fieldView(
   view: ModelView,
   node: Node,
   allowInline = true,
+  seen: ReadonlySet<Coordinate> = new Set(),
 ): ApiFieldView {
   const f = node.facts as FieldFacts | ParameterFacts;
   const childNodes = view
     .childrenOf(node.id)
     .filter((n) => n.kind === "field");
   const ordered = requiredFirst(childNodes);
-  const bounded = boundFields(ordered.map((child) => fieldView(view, child, allowInline)));
+  const bounded = boundFields(ordered.map((child) => fieldView(view, child, allowInline, seen)));
 
   const out: ApiFieldView = {
     coordinate: node.id,
@@ -476,7 +493,7 @@ function fieldView(
     out.description = description;
     out.descriptionHtml = renderMarkdown(description);
   }
-  if (f.union) out.union = unionView(view, f.union, allowInline);
+  if (f.union) out.union = unionView(view, f.union, allowInline, seen);
   if (f.typeRef?.coordinate && view.hasPage(f.typeRef.coordinate)) {
     out.typeRef = { label: f.typeRef.label, href: view.href(f.typeRef.coordinate) };
   }
@@ -497,9 +514,10 @@ function topLevelFields(
   view: ModelView,
   parent: Coordinate,
   allowInline = true,
+  seen: ReadonlySet<Coordinate> = new Set(),
 ): ApiFieldView[] {
   const fields = view.childrenOf(parent).filter((n) => n.kind === "field");
-  return requiredFirst(fields).map((node) => fieldView(view, node, allowInline));
+  return requiredFirst(fields).map((node) => fieldView(view, node, allowInline, seen));
 }
 
 function paramGroups(view: ModelView, opCoord: Coordinate): ApiParamGroup[] {
@@ -851,7 +869,7 @@ function projectPageWithView(
     }
     case "schema": {
       const f = node.facts as SchemaFacts;
-      const schemaFields = boundFields(topLevelFields(view, node.id));
+      const schemaFields = boundFields(topLevelFields(view, node.id, true, new Set([node.id])));
       const page: ApiSchemaPage = {
         ...base(view, node),
         kind: "schema",
@@ -859,7 +877,7 @@ function projectPageWithView(
       };
       if (schemaFields.truncated) page.truncated = { total: schemaFields.total };
       if (f.scalar) page.scalar = scalarView(f.scalar);
-      if (f.union) page.union = unionView(view, f.union);
+      if (f.union) page.union = unionView(view, f.union, false, new Set([node.id]));
       return page;
     }
     case "section": {
@@ -1098,9 +1116,9 @@ function walkFieldCitations(
   // `ApiFieldRow` renders `field.union ? <ApiUnionExplorer> : <children>` — the
   // same XOR the page uses for its body. So when a field carries a union, its
   // own `children` (a sibling `properties` block) are NOT emitted as rows; stop
-  // here rather than index a coordinate that has no id on the page. The union's
-  // variant fields are the named component schema's OWN coordinates (see
-  // `variantView`), indexed canonically on that schema's page — never here.
+  // here rather than index a coordinate that has no id on the page. A union's
+  // variant fields render unanchored (see `variantView`): a named schema's are
+  // indexed canonically on its own page, an inline branch's nowhere.
   if (field.union) return;
   for (const child of field.children) walkFieldCitations(child, slug, seen, out);
 }
@@ -1113,9 +1131,10 @@ function walkFieldCitations(
  *   - request body and each response body render `fields` XOR the union explorer
  *     (`bodyUnion ? <ApiUnionExplorer> : <ApiFieldList>`), so the field list is
  *     skipped whenever a union is present;
- *   - a union's variants are named component schemas whose fields live on their
- *     OWN schema pages, so they are never re-indexed here (that would attribute a
- *     coordinate to the wrong page). */
+ *   - a union's variant fields render unanchored: a named schema's live on its
+ *     OWN schema page and an inline branch's have no id anywhere, so neither is
+ *     indexed here (that would attribute a coordinate to the wrong page, or to a
+ *     dead fragment). */
 function pageFieldRoots(page: ApiPageProps): ApiFieldView[] {
   if (page.kind === "operation") {
     const roots: ApiFieldView[] = [...page.parameters.flatMap((g) => g.fields)];

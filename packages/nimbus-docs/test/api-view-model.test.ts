@@ -247,7 +247,7 @@ describe("nesting: children, childCount, required-first", () => {
     const p = getApiPageProps(smallco, "Mixed") as ApiSchemaPage;
     assert.equal(p.union!.kind, "anyOf");
     const [card, inline] = p.union!.variants;
-    assert.deepEqual(card, { label: "Card", href: "/smallco/schemas/Card/" });
+    assert.deepEqual(card, { label: "Card", name: "Card", href: "/smallco/schemas/Card/" });
     assert.equal(inline.label, "string");
     assert.equal(inline.href, undefined);
   });
@@ -1374,5 +1374,345 @@ describe("opaque handle + page-only projection", () => {
     const create = slugs.find((s) => s.coordinate === "create");
     assert.ok(create);
     assert.equal(typeof create!.slug, "string");
+  });
+});
+
+describe("unions: a branch that is itself a union opens", () => {
+  const spec = `
+openapi: 3.1.0
+info: { title: T, version: "1" }
+paths:
+  /records:
+    post:
+      operationId: createRecord
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+                - $ref: "#/components/schemas/WithoutData"
+                - $ref: "#/components/schemas/WithData"
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: "#/components/schemas/WithoutData"
+                  - $ref: "#/components/schemas/WithData"
+  /mapped:
+    post:
+      operationId: createMapped
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/WithoutData"
+                - $ref: "#/components/schemas/WithData"
+              discriminator:
+                propertyName: kind
+                mapping:
+                  plain: "#/components/schemas/WithoutData"
+                  data: "#/components/schemas/WithData"
+      responses:
+        "200": { description: ok }
+  /exprs:
+    post:
+      operationId: createExpr
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Expr" }
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    WithoutData:
+      oneOf:
+        - $ref: "#/components/schemas/ARecord"
+        - $ref: "#/components/schemas/TXTRecord"
+    WithData:
+      oneOf:
+        - $ref: "#/components/schemas/SRVRecord"
+    ARecord: { type: object, properties: { content: { type: string } } }
+    TXTRecord: { type: object, properties: { content: { type: string } } }
+    SRVRecord: { type: object, properties: { data: { type: object } } }
+    Expr:
+      oneOf:
+        - $ref: "#/components/schemas/Expr"
+        - type: string
+`;
+
+  test("a nested named union is carried as `variant.union`, down to the branch fields, with schema pages off", async () => {
+    const model = await buildApiModel({ collection: "n", spec });
+    const page = getApiPageProps(model, "createRecord") as ApiOperationPage;
+    const [without, withData] = page.bodyUnion!.variants;
+    assert.equal(without!.href, undefined);
+    assert.equal(without!.fields, undefined, "a union branch carries its union, not fields");
+    assert.equal(without!.union!.kind, "oneOf");
+    assert.deepEqual(without!.union!.variants.map((v) => v.label), ["ARecord", "TXTRecord"]);
+    assert.ok(without!.union!.variants[0]!.fields?.some((f) => f.name === "content"), "the inner branch inlines its fields");
+    assert.equal(withData!.union!.variants.length, 1);
+    const response = page.responses.find((r) => r.status === "200")!;
+    assert.equal(response.bodyUnion!.variants[0]!.union!.variants.length, 2, "a response body nests the same way");
+    assert.doesNotThrow(() => structuredClone(page.bodyUnion));
+  });
+
+  test("with a discriminator mapping, the mapping opens and the raw variants stay links", async () => {
+    const model = await buildApiModel({ collection: "n", spec });
+    const page = getApiPageProps(model, "createMapped") as ApiOperationPage;
+    const union = page.bodyUnion!;
+    assert.deepEqual(union.variants, [
+      { label: "WithoutData", name: "WithoutData" },
+      { label: "WithData", name: "WithData" },
+    ]);
+    assert.equal(union.mapping![0]!.variant.union!.variants.length, 2);
+  });
+
+  test("a cyclic union stops at its first repeat, on the operation and on the schema page", async () => {
+    const model = await buildApiModel({ collection: "n", spec, schemaPages: true });
+    const page = getApiPageProps(model, "createExpr") as ApiOperationPage;
+    const expr = page.bodyUnion!.variants[0]!;
+    assert.equal(expr.label, "Expr");
+    assert.equal(expr.union!.variants[0]!.label, "Expr");
+    assert.equal(expr.union!.variants[0]!.union, undefined, "the repeat is a label");
+    const schema = getApiPageProps(model, "Expr") as ApiSchemaPage;
+    assert.equal(schema.union!.variants[0]!.union, undefined, "a schema page does not nest into itself");
+  });
+});
+
+describe("unions: an inline branch with structure opens in place", () => {
+  const spec = `
+openapi: 3.1.0
+info: { title: T, version: "1" }
+paths:
+  /pay:
+    post:
+      operationId: pay
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - title: Card
+                  type: object
+                  properties:
+                    number: { type: string }
+                - type: string
+                - oneOf:
+                    - title: Wire
+                      type: object
+                      properties:
+                        iban: { type: string }
+                    - $ref: "#/components/schemas/Named"
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  "1": { type: string }
+                  choice:
+                    anyOf:
+                      - type: object
+                        properties:
+                          flag: { type: boolean }
+  /pick:
+    post:
+      operationId: pick
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                "1": { type: string }
+              oneOf:
+                - type: object
+                  properties:
+                    y: { type: string }
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    Named: { title: Named Thing, type: object, properties: { id: { type: string } } }
+    Choice:
+      oneOf:
+        - title: Card
+          type: object
+          properties:
+            number: { type: string }
+        - type: integer
+`;
+  let model: ApiModel;
+  before(async () => {
+    model = await buildApiModel({ collection: "n", spec, schemaPages: true });
+  });
+
+  test("an inline object branch carries its fields under `<op>.<position>`; a scalar branch stays a label", () => {
+    const page = getApiPageProps(model, "pay") as ApiOperationPage;
+    assert.equal(page.body.length, 0, "variants are not top-level fields");
+    const [card, scalar, nested] = page.bodyUnion!.variants;
+    assert.equal(card!.label, "Card");
+    assert.equal(card!.href, undefined);
+    assert.deepEqual(card!.fields!.map((f) => [f.name, f.coordinate]), [["number", "pay.1.number"]]);
+    assert.deepEqual(scalar, { label: "string" });
+    const [wire, named] = nested!.union!.variants;
+    assert.deepEqual(wire!.fields!.map((f) => f.coordinate), ["pay.3.1.iban"]);
+    assert.equal(named!.label, "Named", "a named branch is labelled by its key");
+    assert.equal(named!.title, "Named Thing", "and carries its schema title for components to show");
+    assert.equal(named!.name, "Named");
+    assert.equal(named!.href, "/n/schemas/Named/");
+    assert.equal(named!.fields![0]!.coordinate, "Named.id");
+  });
+
+  test("a field union's inline branch opens under the field, beside a sibling property", () => {
+    const page = getApiPageProps(model, "pay") as ApiOperationPage;
+    const response = page.responses.find((r) => r.status === "200")!;
+    assert.deepEqual(response.fields.map((f) => f.name), ["1", "choice"]);
+    const choice = response.fields[1]!;
+    assert.equal(choice.union!.variants[0]!.fields![0]!.coordinate, "pay.response.200.choice.1.flag");
+  });
+
+  test("a position that is also a property name is not minted", () => {
+    const page = getApiPageProps(model, "pick") as ApiOperationPage;
+    assert.deepEqual(page.body.map((f) => f.coordinate), ["pick.1"]);
+    assert.equal(page.bodyUnion!.variants[0]!.fields, undefined);
+  });
+
+  test("a response body's inline branch opens under the response", () => {
+    const page = getApiPageProps(model, "pay") as ApiOperationPage;
+    const response = page.responses.find((r) => r.status === "200")!;
+    assert.equal(response.fields[1]!.union!.variants[0]!.fields![0]!.coordinate, "pay.response.200.choice.1.flag");
+  });
+
+  test("a union the raw document cannot see keeps its branches as labels", async () => {
+    const only = await buildApiModel({
+      collection: "n",
+      spec: `
+openapi: 3.1.0
+info: { title: T, version: "1" }
+paths:
+  /x:
+    post:
+      operationId: xml
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { ok: { type: boolean } } }
+          application/xml:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/Named"
+                - type: object
+                  properties:
+                    y: { type: string }
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    Named: { type: object, properties: { id: { type: string } } }
+`,
+    });
+    const page = getApiPageProps(only, "xml") as ApiOperationPage;
+    const xml = page.additionalBodies!.find((b) => b.mediaType === "application/xml")!;
+    assert.ok(xml.union!.variants.every((v) => v.fields === undefined && v.union === undefined));
+  });
+
+  test("a self-referential inline branch stops at its repeat", async () => {
+    const cyclic = await buildApiModel({
+      collection: "n",
+      spec: `
+openapi: 3.1.0
+info: { title: T, version: "1" }
+paths:
+  /t:
+    post:
+      operationId: tree
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Tree" }
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    Tree:
+      oneOf:
+        - type: object
+          properties:
+            next: { $ref: "#/components/schemas/Tree" }
+        - type: string
+`,
+    });
+    const page = getApiPageProps(cyclic, "tree") as ApiOperationPage;
+    const node = page.bodyUnion!.variants[0]!;
+    assert.equal(node.fields![0]!.name, "next");
+    assert.deepEqual(node.fields![0]!.union!.variants[0], { label: "object" }, "the repeat is a label");
+  });
+
+  test("a schema page's inline branch opens too", () => {
+    const page = getApiPageProps(model, "Choice") as ApiSchemaPage;
+    assert.equal(page.fields.length, 0);
+    assert.deepEqual(page.union!.variants[0]!.fields!.map((f) => f.coordinate), ["Choice.1.number"]);
+    assert.deepEqual(page.union!.variants[1], { label: "integer" });
+  });
+});
+
+describe("unions: branch labels", () => {
+  const spec = {
+    openapi: "3.1.0",
+    info: { title: "L", version: "1" },
+    paths: {
+      "/r": {
+        post: {
+          operationId: "create",
+          requestBody: {
+            content: {
+              "application/json": {
+                schema: {
+                  anyOf: [{ $ref: "#/components/schemas/Titled" }, { $ref: "#/components/schemas/Plain" }],
+                },
+              },
+            },
+          },
+          responses: { "200": { description: "ok" } },
+        },
+      },
+    },
+    components: {
+      schemas: {
+        Titled: {
+          title: "Titled Thing",
+          type: "object",
+          properties: { kind: { anyOf: [{ $ref: "#/components/schemas/Plain" }, { type: "string" }] } },
+        },
+        Plain: { type: "object", properties: { id: { type: "string" } } },
+      },
+    },
+  };
+
+  test("a $ref branch is labelled by its key and carries `title` only when the schema declares one", async () => {
+    const model = await buildApiModel({ collection: "l", spec });
+    const page = getApiPageProps(model, "create") as ApiOperationPage;
+    const [titled, plain] = page.bodyUnion!.variants;
+    assert.equal(titled!.label, "Titled");
+    assert.equal(titled!.title, "Titled Thing");
+    assert.equal(titled!.name, "Titled");
+    assert.equal(plain!.label, "Plain");
+    assert.equal(plain!.title, undefined);
+    assert.equal(plain!.name, "Plain");
+  });
+
+  test("`anyOf` survives into a nested union's kind, and a union among previewed properties shows branches without fields", async () => {
+    const model = await buildApiModel({ collection: "l", spec });
+    const page = getApiPageProps(model, "create") as ApiOperationPage;
+    assert.equal(page.bodyUnion!.kind, "anyOf");
+    const kind = page.bodyUnion!.variants[0]!.fields!.find((f) => f.name === "kind")!;
+    assert.equal(kind.union!.kind, "anyOf");
+    assert.deepEqual(kind.union!.variants[0], { label: "Plain", name: "Plain" });
   });
 });
