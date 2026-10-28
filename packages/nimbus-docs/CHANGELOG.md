@@ -1,5 +1,13 @@
 # @cloudflare/nimbus-docs
 
+## 0.19.2
+
+### Patch Changes
+
+- [#307](https://github.com/cloudflare/nimbus/pull/307) [`adbb51d`](https://github.com/cloudflare/nimbus/commit/adbb51dd047f460d7635596887b5e9eb740bb8dd) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - A `<link rel="canonical">` in a page's or the site's `head` is the page's only canonical: Nimbus no longer adds its own beside it, and `og:url` and the structured data follow it.
+
+- [#308](https://github.com/cloudflare/nimbus/pull/308) [`c29ffa5`](https://github.com/cloudflare/nimbus/commit/c29ffa56bece852efd060cb9edcd912f0c544d2d) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - With Astro's experimental incremental build, a page is rebuilt when its sidebar, breadcrumbs or prev/next links change, not only when its own file does. A page whose loader gives no digest is rendered every build. The first build after upgrading renders every page once.
+
 ## 0.19.1
 
 ### Patch Changes
