@@ -3,7 +3,6 @@ import {
   schemaCoordinate,
   schemaFieldCoordinate,
 } from "./coordinates.js";
-import { SCHEMA_FIELD_DEPTH } from "./openapi-types.js";
 import {
   asString,
   constraintsOf,
@@ -13,7 +12,7 @@ import {
   typeLabel,
 } from "./schema-algebra.js";
 import type { Coordinate, ScalarShape, SchemaFacts } from "./model.js";
-import { addField, walkFields } from "./field-walk.js";
+import { addField, walkFields, warnFieldCeiling } from "./field-walk.js";
 import type { ParseContext } from "./parse-context.js";
 
 export function parseSchemas(ctx: ParseContext): void {
@@ -24,15 +23,19 @@ export function parseSchemas(ctx: ParseContext): void {
       isUserIdentity: true,
     });
     const fieldCoords: Coordinate[] = [];
+    let ownFields = false;
     const rawSchema = ctx.resolver.rawAlias(name);
-    walkFields(ctx.resolver, schema, SCHEMA_FIELD_DEPTH, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField) => {
+    if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind) => {
       const fieldCoord = schemaFieldCoordinate(coord, fieldPath);
       // A nested schema field parents to its container field; a top-level one
       // parents to the schema node.
       const parent = parentPath ? schemaFieldCoordinate(coord, parentPath) : coord;
-      addField(ctx, fieldCoord, parent, fieldSchema, required, "field", `#/components/schemas/${name}`, rawField);
-      fieldCoords.push(fieldCoord);
-    }, rawSchema);
+      addField(ctx, fieldCoord, parent, fieldSchema, required, kind, `#/components/schemas/${name}`, rawField);
+      if (kind === "field") {
+        fieldCoords.push(fieldCoord);
+        if (!parentPath) ownFields = true;
+      }
+    }, rawSchema)) warnFieldCeiling(ctx.registry, coord);
     const facts: SchemaFacts = {
       kind: "schema",
       name,
@@ -45,16 +48,15 @@ export function parseSchemas(ctx: ParseContext): void {
     // `scalar`. `leaf` folds `allOf` wrappers; `item` descends into array
     // items (where an array-of-scalar's enum/constraints live). Still excluded:
     // a bare `{}`/empty object (nothing to show). A schema with BOTH properties
-    // and a container-level enum/union keeps only its fields (fieldCoords > 0
-    // short-circuits). Not yet done: walking each variant's own fields, so
-    // `create.source.card.number` is not yet minted — variants link, not expand.
-    if (fieldCoords.length === 0) {
+    // and a container-level enum/union keeps only its fields; the fields of an
+    // inline union branch are the union's, not the schema's own.
+    if (!ownFields) {
       const leaf = foldAllOf(schema);
       const leafItems = leaf.type === "array" && leaf.items ? foldAllOf(leaf.items) : undefined;
       // Route the schema-page union through the same raw-recovery path as
       // fields/bodies so an array-item or `allOf`-composed union surfaces with
       // named, linked branches (not just a top-level `$ref`-alias union).
-      const union = ctx.resolver.unionPreferRaw(ctx.resolver.rawAlias(name), leaf, leafItems);
+      const union = ctx.resolver.unionPreferRaw(ctx.resolver.rawAlias(name), leaf, leafItems, coord);
       const item = leafItems ?? leaf;
       const constraints = constraintsOf(item);
       const enumValues =

@@ -1,9 +1,10 @@
 import type { SchemaResolver } from "./schema-resolver.js";
-import type { CoordinateRegistry } from "./coordinates.js";
-import type { Coordinate, FieldFacts, Node } from "./model.js";
+import { joinPath, type CoordinateRegistry } from "./coordinates.js";
+import type { Coordinate, FieldFacts, Node, VariantFacts } from "./model.js";
 import type { OpenApiSchema } from "./openapi-types.js";
 import {
   asString,
+  branchesOf,
   collectObjectShape,
   constraintsOf,
   foldAllOf,
@@ -44,10 +45,16 @@ export function extensionValues(
 }
 
 /**
- * Walk an object schema's properties, invoking `visit` per field. Depth-bounded
- * and cycle-guarded by object identity so recursive/self-referential schemas
- * link out rather than blowing the stack. Arrays are addressed straight through
- * (rule 5). Union projection is intentionally shallow in v1.
+ * Walk an object schema's properties, invoking `visit` per field. Cycle-guarded
+ * by object identity along the current path, so a recursive schema stops at its
+ * first repeat instead of blowing the stack. Arrays are addressed straight through
+ * (rule 5). A union branch with no `$ref` but structure of its own is visited
+ * as a `variant` at its 1-based position, then walked like a field; a `$ref`
+ * branch is a named schema, documented on its own node.
+ *
+ * Depth has no bound; `FIELD_WALK_CEILING` caps the nodes one walk mints, since a
+ * schema shared along many paths is minted once per path. Returns `true` when
+ * the ceiling stopped the walk, so the caller can say so.
  *
  * `parentPath` is the dotted path of the field's container (`undefined` for a
  * top-level field, whose container is the operation/response/schema node). The
@@ -57,45 +64,55 @@ export function extensionValues(
 export function walkFields(
   resolver: SchemaResolver,
   schema: OpenApiSchema,
-  depth: number,
   seen: Set<OpenApiSchema>,
-  visit: (
-    path: string,
-    schema: OpenApiSchema,
-    required: boolean,
-    topLevelName: string | undefined,
-    parentPath: string | undefined,
-    rawSchema: OpenApiSchema | undefined,
-  ) => void,
+  visit: FieldVisitor,
   rawSchema?: OpenApiSchema,
   role?: FieldRole,
-): void {
-  walkFieldsInner(resolver, schema, rawSchema, "", depth, seen, visit, true, role);
+): boolean {
+  const budget = { left: FIELD_WALK_CEILING };
+  walkFieldsInner(resolver, schema, rawSchema, "", seen, visit, true, role, budget);
+  return budget.left < 0;
+}
+
+/** Nodes one walk may mint. Far above any measured spec (Cloudflare's largest
+ *  page is under 1,000 fields); the backstop for a wide, deep, shared graph. */
+export const FIELD_WALK_CEILING = 25_000;
+
+export function warnFieldCeiling(registry: CoordinateRegistry, coordinate: Coordinate, source?: string): void {
+  registry.addWarning(
+    `Field list stopped at ${FIELD_WALK_CEILING} nodes: the schema has more fields along its paths than one list documents`,
+    coordinate,
+    source ?? undefined,
+    "field-walk-ceiling",
+  );
 }
 
 /** Which side of the exchange a field list describes. A request leaves out
  *  `readOnly` properties and a response `writeOnly` ones, as their examples do. */
 export type FieldRole = "request" | "response";
 
+export type FieldVisitor = (
+  path: string,
+  schema: OpenApiSchema,
+  required: boolean,
+  topLevelName: string | undefined,
+  parentPath: string | undefined,
+  rawSchema: OpenApiSchema | undefined,
+  kind: "field" | "variant",
+) => void;
+
 function walkFieldsInner(
   resolver: SchemaResolver,
   schema: OpenApiSchema,
   rawSchema: OpenApiSchema | undefined,
   prefix: string,
-  depth: number,
   seen: Set<OpenApiSchema>,
-  visit: (
-    path: string,
-    schema: OpenApiSchema,
-    required: boolean,
-    topLevelName: string | undefined,
-    parentPath: string | undefined,
-    rawSchema: OpenApiSchema | undefined,
-  ) => void,
+  visit: FieldVisitor,
   topLevel: boolean,
   role: FieldRole | undefined,
+  budget: { left: number },
 ): void {
-  if (depth <= 0 || seen.has(schema)) return;
+  if (seen.has(schema) || budget.left < 0) return;
   seen.add(schema);
 
   // Arrays address straight through their item schema (rule 5). `allOf` folds
@@ -114,15 +131,29 @@ function walkFieldsInner(
     if (role && hiddenFor(role, propSchema)) continue;
     const fieldPath = prefix ? `${prefix}.${name}` : name;
     const rawProp = rawProps[name];
-    visit(fieldPath, propSchema, required.has(name), topLevel ? name : undefined, prefix || undefined, rawProp);
-    const child = propSchema.type === "array" && propSchema.items ? propSchema.items : propSchema;
-    const childShape = collectObjectShape(child);
-    if (Object.keys(childShape.properties).length > 0) {
-      walkFieldsInner(resolver, propSchema, rawProp, fieldPath, depth - 1, seen, visit, false, role);
+    if (--budget.left < 0) break;
+    visit(fieldPath, propSchema, required.has(name), topLevel ? name : undefined, prefix || undefined, rawProp, "field");
+    if (hasStructure(propSchema)) {
+      walkFieldsInner(resolver, propSchema, rawProp, fieldPath, seen, visit, false, role, budget);
     }
   }
 
+  // A branch is visited only when its walk can run, so a cycle repeat leaves
+  // no empty variant behind.
+  for (const { index, schema: branch, raw } of resolver.anonymousBranches(rawSchema, effective, undefined)) {
+    if (seen.has(branch)) continue;
+    if (--budget.left < 0) break;
+    const path = joinPath(prefix, String(index + 1));
+    visit(path, branch, false, undefined, prefix || undefined, raw, "variant");
+    walkFieldsInner(resolver, branch, raw, path, seen, visit, false, role, budget);
+  }
+
   seen.delete(schema);
+}
+
+function hasStructure(schema: OpenApiSchema): boolean {
+  const child = schema.type === "array" && schema.items ? schema.items : schema;
+  return Object.keys(collectObjectShape(child).properties).length > 0 || branchesOf(child) !== undefined;
 }
 
 function hiddenFor(role: FieldRole, schema: OpenApiSchema): boolean {
@@ -149,7 +180,7 @@ export function addField(
   parent: Coordinate,
   schema: OpenApiSchema,
   required: boolean,
-  kind: "field",
+  kind: "field" | "variant",
   source?: string,
   rawSchema?: OpenApiSchema,
 ): void {
@@ -167,14 +198,14 @@ export function addField(
     folded.type === "array" && folded.items ? foldAllOf(folded.items) : undefined;
   // Prefer the raw (ref-preserving) union so a field's `anyOf`/`oneOf` branches
   // become named, linked variants; the dereferenced shape is the fallback.
-  const union = sink.resolver.unionPreferRaw(rawSchema, folded, items);
+  const union = sink.resolver.unionPreferRaw(rawSchema, folded, items, coord);
   // A `map<T>` whose value is a named component reads as `map<object>` after
   // dereference (the name is gone); recover it from the raw doc so the label
   // becomes `map<Name>` and the inner links to its page.
   const label = typeLabel(folded);
   const mapRef = label.startsWith("map<") ? sink.resolver.mapValueRef(rawSchema) : undefined;
-  const facts: FieldFacts = {
-    kind: "field",
+  const facts: FieldFacts | VariantFacts = {
+    kind,
     type: mapRef ? `map<${mapRef.label}>` : label,
     required,
     description: asString(folded.description),
@@ -190,5 +221,5 @@ export function addField(
   // The folded schema puts a property's own value over its `$ref` target's.
   const extensions = extensionValues(sink.extensions, folded);
   if (extensions) facts.extensions = extensions;
-  sink.node(coord, "field", parent, facts, source ?? null);
+  sink.node(coord, kind, parent, facts, source ?? null);
 }

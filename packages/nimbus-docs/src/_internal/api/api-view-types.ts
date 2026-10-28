@@ -280,17 +280,27 @@ export interface ApiSchemaPage extends ApiPageBase {
 }
 
 /** One branch of a union. `href` is present only when the branch resolves to a
- *  named component schema page; an anonymous inline branch has a label only. */
+ *  named component schema page. */
 export interface ApiVariant {
+  /** The component schema's key for a named branch; a type label for an inline one. */
   label: string;
+  /** The component schema's key, present only for a named branch. */
+  name?: string;
+  /** The component schema's `title`, when it declares one; a component shows
+   *  `title ?? label` to read the spec's own name for the branch. */
+  title?: string;
   href?: string;
   /**
    * The variant's own properties, inlined so a field union renders an in-place
-   * explorer instead of only a link. Present only for field unions (one level
-   * deep) when the branch resolves to a named schema; schema-page unions and
-   * nested variant unions link out instead.
+   * explorer instead of only a link. Present for an inline object branch
+   * wherever it appears, and for a named schema's when the union is projected
+   * with inline fields; a schema page's named branches link out instead.
+   * Absent when the variant carries `union`.
    */
   fields?: ApiFieldView[];
+  /** The variant's own union, when the branch is itself a `oneOf`/`anyOf`:
+   *  nested as deep as the spec goes, and a branch already on the path stays a label. */
+  union?: ApiUnionView;
 }
 
 export interface ApiUnionView {

@@ -11,8 +11,11 @@ import {
   buildApiModel,
   getApiPageProps,
   renderApiPageMarkdown,
+  type ApiOperationPage,
   type ApiSchemaPage,
 } from "../src/api/index.js";
+import { parseOpenApi } from "../src/_internal/api/parse.js";
+import { FIELD_WALK_CEILING } from "../src/_internal/api/field-walk.js";
 
 const CEILING = 1000;
 
@@ -90,9 +93,9 @@ describe("inline-field ceiling", () => {
   });
 });
 
-describe("depth bound", () => {
-  test("nesting is bounded at SCHEMA_FIELD_DEPTH (6) — deeper fields are omitted", async () => {
-    // Build a linear chain a0 -> a1 -> ... -> a9 (depth 9). Only 6 levels render.
+describe("depth", () => {
+  test("nesting renders as deep as the spec goes — only a repeat on the path stops it", async () => {
+    // Build a linear chain a0 -> a1 -> ... -> a9 (depth 9). Every level renders.
     const schemas: Record<string, unknown> = {};
     for (let i = 0; i < 9; i += 1) {
       schemas[`A${i}`] = {
@@ -109,7 +112,84 @@ describe("depth bound", () => {
       depth += 1;
       cursor = cursor.children[0];
     }
-    assert.ok(depth <= 6, `chain renders at most 6 levels deep, got ${depth}`);
-    assert.ok(depth >= 5, `a deep chain still renders several levels, got ${depth}`);
+    assert.equal(depth, 10, `the whole chain renders, got ${depth}`);
+  });
+});
+
+// A schema shared along many paths is minted once per path, so a layered graph
+// (every level's branches all point at every branch of the next) is exponential
+// in its depth. Projection keeps page data bounded; the walk's node ceiling is
+// the backstop when the graph itself is pathological.
+describe("shared graphs", () => {
+  function layered(width: number, depth: number, link: (refs: unknown[]) => unknown): Record<string, unknown> {
+    const schemas: Record<string, unknown> = {};
+    for (let level = 0; level <= depth; level += 1) {
+      for (let k = 0; k < width; k += 1) {
+        const refs = Array.from({ length: width }, (_, j) => ({ $ref: `#/components/schemas/L${level + 1}_${j}` }));
+        schemas[`L${level}_${k}`] =
+          level === depth
+            ? { type: "object", properties: { leaf: { type: "string" } } }
+            : { type: "object", properties: { v: { type: "string" }, next: link(refs) } };
+      }
+    }
+    return schemas;
+  }
+  function operationOver(schemas: Record<string, unknown>, body: unknown) {
+    return {
+      ...specWith(schemas),
+      paths: {
+        "/r": {
+          post: {
+            operationId: "create",
+            requestBody: { content: { "application/json": { schema: body } } },
+            responses: { "200": { description: "ok" } },
+          },
+        },
+      },
+    };
+  }
+
+  test("a union DAG of named schemas projects bounded page data: a union among previewed properties shows branches only", async () => {
+    const schemas = layered(4, 8, (refs) => ({ oneOf: refs }));
+    const spec = operationOver(schemas, { oneOf: [0, 1, 2, 3].map((k) => ({ $ref: `#/components/schemas/L0_${k}` })) });
+    const model = await buildApiModel({ collection: "dag", spec });
+    const page = getApiPageProps(model, "create") as ApiOperationPage;
+    const first = page.bodyUnion!.variants[0]!;
+    const next = first.fields!.find((f) => f.name === "next")!;
+    assert.equal(next.union!.variants.length, 4);
+    assert.equal(next.union!.variants[0]!.fields, undefined, "one level of preview, then labels");
+    assert.ok(JSON.stringify(page).length < 100_000, `page data stays small: ${JSON.stringify(page).length} bytes`);
+  });
+
+  test("a plain property DAG past the walk ceiling is cut with a warning naming the list", async () => {
+    const schemas = layered(4, 9, (refs) => ({
+      type: "object",
+      properties: Object.fromEntries(refs.map((ref, j) => [`p${j}`, ref])),
+    }));
+    const { model, diagnostics } = await parseOpenApi({
+      collection: "dag",
+      spec: operationOver(schemas, { $ref: "#/components/schemas/L0_0" }),
+      label: "dag",
+    });
+    const minted = [...model.nodes.keys()].filter((id) => id.startsWith("create.") && !id.startsWith("create.response")).length;
+    assert.ok(minted <= FIELD_WALK_CEILING + 1, `minted ${minted} nodes`);
+    const cut = diagnostics.filter((d) => d.code === "field-walk-ceiling");
+    const body = cut.find((d) => d.coordinate === "create");
+    assert.ok(body, "the operation's body list is named");
+    assert.match(body!.message, /25,?000 nodes/);
+    assert.ok(cut.every((d) => d.level === "warning"), "a cut is a warning, never an error");
+  });
+
+  test("a graph under the ceiling walks in full with no warning", async () => {
+    const schemas = layered(3, 4, (refs) => ({
+      type: "object",
+      properties: Object.fromEntries(refs.map((ref, j) => [`p${j}`, ref])),
+    }));
+    const { diagnostics } = await parseOpenApi({
+      collection: "dag",
+      spec: operationOver(schemas, { $ref: "#/components/schemas/L0_0" }),
+      label: "dag",
+    });
+    assert.equal(diagnostics.filter((d) => d.code === "field-walk-ceiling").length, 0);
   });
 });

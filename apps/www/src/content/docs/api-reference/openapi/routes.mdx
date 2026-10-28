@@ -121,6 +121,19 @@ Each schema then also gets:
 - sitemap, search, and `llms.txt` entries;
 - coordinates, for the schema and its fields, in citations and `coordinates.json`.
 
-Type names such as union variants, discriminator mappings, and `map<Name>` value types link to their schema pages; without them, they render as text. A union variant previews its properties one level deep, so turn schema pages on if readers need a variant's nested fields.
+Type names such as union variants, discriminator mappings, and `map<Name>` value types link to their schema pages; without them, they render as text.
 
 With schema pages off, an `api.ref:` citation in your content to a schema or a schema field fails the build and names the setting. Cite an operation that uses the type instead. Schema names claim their `schemas/<Name>` routes either way, so turning schema pages on can't collide with an operation. The setting applies to every version of a family.
+
+## Unions
+
+A `oneOf`/`anyOf` opens where it is declared, and keeps opening as deep as the spec nests:
+
+- A branch that is itself a union carries its branches as `union`.
+- A branch that is a named schema is labelled by its key (`label`, also `name`) and carries the schema's `title` when it declares one; the starter's union explorer shows `title ?? label`. It links to the schema page when there is one, and previews the schema's properties, nested objects included: a union among them shows its branches, a named one as a label and an inline one with its fields. None of the preview is anchored: the schema's fields, and the branches inside them, belong to its own page.
+- A branch declared inline, with no `$ref`, is addressed by its 1-based position: the second branch of a `source` field is `source.2`, its `iban` property `source.2.iban`. Its fields always open, are anchored on the page, and can be cited. Positions follow the document, so inserting a branch renumbers the ones after it.
+- A branch already open above it stays a label, so a self-referential schema stops at its first repeat.
+
+The Markdown version prints nested branches as a nested list and the fields of inline branches; a named branch stays a label or a link, even when it is itself a union, as it does with schema pages off.
+
+Depth has no limit. A field list stops at 25,000 nodes, far beyond any spec measured, and the build then warns with the code `field-walk-ceiling` naming the list.

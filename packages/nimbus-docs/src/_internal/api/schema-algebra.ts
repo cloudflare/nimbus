@@ -75,6 +75,13 @@ export function collectObjectShape(schema: OpenApiSchema): {
   return { properties, required };
 }
 
+/** A schema's `oneOf`/`anyOf` branches after folding `allOf`, when it has any. */
+export function branchesOf(schema: OpenApiSchema): OpenApiSchema[] | undefined {
+  const folded = foldAllOf(schema);
+  const branches = folded.oneOf ?? folded.anyOf;
+  return Array.isArray(branches) && branches.length > 0 ? branches : undefined;
+}
+
 export function hasProperties(schema: OpenApiSchema): boolean {
   return Boolean(schema.properties && Object.keys(schema.properties).length > 0);
 }

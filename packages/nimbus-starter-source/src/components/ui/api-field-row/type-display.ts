@@ -55,7 +55,7 @@ function unionVariants(union: ApiUnionView) {
 
 /** Variant names joined for the name tooltip on a union field. */
 export function unionTitle(union: ApiUnionView): string {
-  return unionVariants(union).map((v) => v.label).join(" or ");
+  return unionVariants(union).map((v) => v.title ?? v.label).join(" or ");
 }
 
 /** The coloured type preview for a field, as a token stream. Separators carry

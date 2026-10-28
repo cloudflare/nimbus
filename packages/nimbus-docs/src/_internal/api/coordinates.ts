@@ -198,8 +198,8 @@ export function responseMediaFieldCoordinate(
 
 /**
  * Union variant field = `…<variant>.<path>`. Variant is the discriminator
- * mapping value, else the `$ref` schema name; an anonymous inline variant gets
- * its 1-based position and a build warning (name your variants).
+ * mapping value, else the `$ref` schema name; an inline variant is its 1-based
+ * position (a variant node minted in place has an empty `path`).
  */
 export function variantFieldCoordinate(
   base: Coordinate,

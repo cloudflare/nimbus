@@ -54,7 +54,7 @@ function pagelessSchemaCoordinates(model: DocsModel): Map<Coordinate, string> {
     let result: string | null = null;
     if (node?.kind === "schema" && node.facts.kind === "schema") {
       result = model.pages.pages.has(coordinate) ? null : node.facts.name;
-    } else if (node?.kind === "field" && node.parent !== null) {
+    } else if ((node?.kind === "field" || node?.kind === "variant") && node.parent !== null) {
       result = schemaOf(node.parent);
     }
     owner.set(coordinate, result);

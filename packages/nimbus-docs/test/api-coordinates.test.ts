@@ -114,6 +114,10 @@ describe("coordinate builders: one composable form per node kind", () => {
     );
   });
 
+  test("an inline variant node is `<base>.<1-based position>` — no path of its own", () => {
+    assert.equal(variantFieldCoordinate("create", "1", ""), "create.1");
+  });
+
   test("error code is `errors.<code>` — the reserved errors namespace", () => {
     assert.equal(errorCodeCoordinate("card_declined"), "errors.card_declined");
   });
