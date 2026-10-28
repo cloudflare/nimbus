@@ -18,3 +18,6 @@ updates:
       - dependency-name: "@types/node"
         update-types:
           - version-update:semver-major
+      # Keep 0.20.3: newer declaration bundling regressed public ApiExtensions augmentation.
+      # Revisit manually with packages/nimbus-docs/test/api-extensions.test.ts.
+      - dependency-name: "tsdown"
