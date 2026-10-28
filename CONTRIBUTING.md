@@ -55,6 +55,8 @@ one production corpus is not sufficient evidence of consumer compatibility.
 
 Requires **Node 22.23.4+, 24.15.0+, or 26+** and **pnpm 10** (pinned via `packageManager`, so Corepack fetches it for you). Node 23 and 25 are not supported for contributing. Use the latest patched release of your Node line.
 
+Node 25+ no longer bundles Corepack; install it with `npm install -g corepack && corepack enable`, or install pnpm 10 directly.
+
 ```sh
 pnpm install
 pnpm dev                 # kitchen-sink dev server at http://localhost:4321 — every component on one page

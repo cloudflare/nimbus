@@ -1631,7 +1631,9 @@ async function execute() {
   const started = Date.now();
   const workspacePackage = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8"));
   assert(
-    satisfies(process.versions.node, workspacePackage.engines.node),
+    satisfies(process.versions.node, workspacePackage.engines.node, {
+      includePrerelease: true,
+    }),
     `Node ${workspacePackage.engines.node} is required; found ${process.version}`,
   );
   const pnpmVersion = (
