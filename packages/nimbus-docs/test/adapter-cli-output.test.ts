@@ -12,7 +12,7 @@ const TSX = import.meta.resolve("tsx");
 // Every variable the agent detector reads, so a "shell" run inside an agent
 // session (this suite's own, say) isn't detected as one.
 const NO_AGENT = Object.fromEntries(
-  ["AI_AGENT", "CLAUDECODE", "CLAUDE_CODE", "CODEX_SANDBOX", "CODEX_CI", "CODEX_THREAD_ID", "CURSOR_AGENT", "GEMINI_CLI", "OPENCODE_CLIENT", "REPL_ID"].map((name) => [name, ""]),
+  ["AI_AGENT", "CLAUDECODE", "CLAUDE_CODE", "CODEX_SANDBOX", "CODEX_CI", "CODEX_THREAD_ID", "CURSOR_AGENT", "GEMINI_CLI", "OPENCODE", "OPENCODE_CLIENT", "REPL_ID"].map((name) => [name, ""]),
 );
 
 test("adapter install commands preserve the supported range without claiming an exact pin", () => {
