@@ -17,6 +17,7 @@ import { satisfies } from "semver";
 import { ADAPTER_IDS, ADAPTER_RECIPES } from "../_internal/adapters.js";
 import { readBuildEnv } from "../_internal/dotenv.js";
 import { deriveFootprint, type FeatureRecipe } from "../_internal/footprint.js";
+import { MIN_NODE_VERSION, supportsNodeVersion } from "../_internal/node-version.js";
 import type { ConfigParseResult } from "../_internal/parse-nimbus-config.js";
 import { mcpSdkMessage, openApiParserMessage } from "../_internal/server-adapter.js";
 import { dependenciesMissing, hasPnpInstall } from "../_internal/upgrades.js";
@@ -29,8 +30,6 @@ import {
   hasPackageJson,
   readDependencyNames,
 } from "./probe.js";
-
-const MIN_NODE = "22.23.4";
 
 // Narrow on purpose: this flags only the literal unchanged-scaffold strings, to
 // avoid false positives on user-chosen values. The build-time resolver in
@@ -108,12 +107,12 @@ export function checkFeatureEnvKeys(
 
 function checkNodeVersion(findings: CheckFinding[]): void {
   const current = process.versions.node;
-  if (compareSemver(current, MIN_NODE) < 0) {
+  if (!supportsNodeVersion(current)) {
     findings.push({
       scope: "env",
       code: "nimbus/node-version",
       severity: "error",
-      message: `Node ${current} is below the supported floor (>=${MIN_NODE}). Upgrade Node to build.`,
+      message: `Node ${current} is below the supported floor (>=${MIN_NODE_VERSION}). Upgrade Node to build.`,
       fixable: false,
     });
   }
@@ -353,14 +352,4 @@ function readInstalledVersion(cwd: string, pkg: string): string | null {
     }
     if (path.dirname(dir) === dir) return null;
   }
-}
-
-function compareSemver(a: string, b: string): number {
-  const pa = a.split(".").map((n) => parseInt(n, 10) || 0);
-  const pb = b.split(".").map((n) => parseInt(n, 10) || 0);
-  for (let i = 0; i < 3; i++) {
-    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
-    if (d !== 0) return d;
-  }
-  return 0;
 }

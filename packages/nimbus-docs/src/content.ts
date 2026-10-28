@@ -21,7 +21,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { satisfies } from "semver";
 
 import { AstroError } from "astro/errors";
 import { glob } from "astro/loaders";
@@ -54,6 +53,7 @@ import {
 import { isCollectionInBuildSlice } from "./_internal/build-slice.js";
 import { getAuthoredLinkNormalizer } from "./_internal/authored-link-normalizer.js";
 import { prepareMarkdownLoader } from "./_internal/markdown-loader.js";
+import { MIN_NODE_VERSION, supportsNodeVersion } from "./_internal/node-version.js";
 import {
   missingContentSource,
   recordUnavailableSourceCollection,
@@ -1112,9 +1112,9 @@ export function apiCollection(options?: ApiCollectionOptions): {
 }
 
 function assertSupportedNode(): void {
-  if (!satisfies(process.versions.node, ">=22.23.4")) {
+  if (!supportsNodeVersion(process.versions.node)) {
     throw new Error(
-      `nimbus-docs api: Node >=22.23.4 is required to build an API reference ` +
+      `nimbus-docs api: Node >=${MIN_NODE_VERSION} is required to build an API reference ` +
         `(running ${process.versions.node}). Upgrade Node, or remove the \`api\` entries from the Nimbus config.`,
     );
   }
