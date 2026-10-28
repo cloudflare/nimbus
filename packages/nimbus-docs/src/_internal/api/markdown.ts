@@ -188,20 +188,21 @@ function variantLabel(v: { label: string; href?: string }, base?: string): strin
   return v.href ? link(v.label, v.href, base) : inlineCode(v.label);
 }
 
-/** A variant with something beneath its label: its own union, or an inline
- *  branch's fields, which have no other home. A named branch stays a label, as
- *  before, so a twin's size does not follow `schemaPages`. */
+/** An inline branch with something beneath its label: its own union or its
+ *  fields, which have no other home. A named branch stays a label, union or not,
+ *  so a twin's size does not follow `schemaPages`. */
 function opens(v: ApiVariant): boolean {
-  return Boolean(v.union || (v.fields && !v.href && !v.name));
+  return !v.name && Boolean(v.union || v.fields);
 }
 
 function renderVariant(v: ApiVariant, depth: number, out: string[], base?: string): void {
   const pad = "  ".repeat(depth);
   out.push(`${pad}- ${variantLabel(v, base)}`);
+  if (v.name) return;
   if (v.union) {
     out.push(`${pad}  - ${v.union.kind === "oneOf" ? "one of" : "any of"}:`);
     for (const inner of v.union.variants) renderVariant(inner, depth + 2, out, base);
-  } else if (v.fields && !v.href && !v.name) {
+  } else if (v.fields) {
     for (const f of v.fields) renderField(f, depth + 1, out, base);
   }
 }

@@ -66,7 +66,7 @@ declare module "@cloudflare/nimbus-docs/types" {
 
 ## Operation order
 
-Section pages, the sidebar, the [API home's index](/api-reference/large-apis#the-api-home) and the Markdown versions list a section's operations in the spec's path order. `x-nimbus-order` on an operation moves it ahead: lower numbers come first, and operations without it follow in path order. A value that is not a number is ignored. Sections keep their order, and webhooks keep the spec's. Set it in the spec, or in a step that prepares the spec before Nimbus reads it, for example from a CRUD rank so list, get, create, update and delete lead every section.
+Section pages, the sidebar, the [API home's index](/api-reference/large-apis#the-api-home) and the Markdown versions list a section's operations in the spec's path order. `x-nimbus-order` on an operation moves it ahead: lower numbers come first, and operations without it, or sharing a value, follow in path order. A value that is not a number is ignored. Sections keep their order, and webhooks keep the spec's. Set it in the spec, or in a step that prepares the spec before Nimbus reads it, for example from a CRUD rank so list, get, create, update and delete lead every section.
 
 ```yaml title="openapi.yaml"
 paths:

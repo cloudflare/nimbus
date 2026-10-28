@@ -1759,4 +1759,35 @@ describe("citations: a page owns the fields of its inline branches", () => {
     assert.equal(targets.get("create.source.2.iban")!.slug, targets.get("create.source")!.slug);
     assert.equal(targets.has("Card.number"), false, "a named branch's field belongs to its own page");
   });
+
+  test("a named branch that is itself a union keeps its inline branches on its own page", async () => {
+    const spec = {
+      openapi: "3.1.0",
+      info: { title: "C", version: "1" },
+      paths: {
+        "/r": {
+          post: {
+            operationId: "create",
+            requestBody: {
+              content: {
+                "application/json": {
+                  schema: { type: "object", properties: { source: { oneOf: [{ $ref: "#/components/schemas/Group" }] } } },
+                },
+              },
+            },
+            responses: { "200": { description: "ok" } },
+          },
+        },
+      },
+      components: {
+        schemas: { Group: { oneOf: [{ type: "object", properties: { kind: { type: "string" } } }] } },
+      },
+    };
+    const off = new Map(fieldCitations(unwrapModel(await buildApiModel({ collection: "c", spec }))).map((t) => [t.coordinate, t]));
+    assert.ok(off.has("create.source"));
+    assert.equal(off.has("Group.1.kind"), false, "without a schema page the branch is unpublished, not the operation's");
+    const on = new Map(fieldCitations(unwrapModel(await buildApiModel({ collection: "c", spec, schemaPages: true }))).map((t) => [t.coordinate, t]));
+    assert.ok(on.has("Group.1.kind"), "with a schema page the branch is cited there");
+    assert.notEqual(on.get("Group.1.kind")!.slug, on.get("create.source")!.slug);
+  });
 });

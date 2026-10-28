@@ -9,9 +9,10 @@ interface Props {
   union: ApiUnionView;
   nested?: boolean;
   depth?: number;
+  anchored?: boolean;
 }
 
-const { union, nested = false, depth = 0 } = Astro.props;
+const { union, nested = false, depth = 0, anchored = true } = Astro.props;
 
 const AUTO_OPEN_DEPTH = 1;
 
@@ -49,11 +50,11 @@ const entries =
             <details class="fl-expandable" open={open}>
               <summary class="fl-expand-trigger"></summary>
               {variant.union ? (
-                <Astro.self union={variant.union} nested depth={depth + 1} />
+                <Astro.self union={variant.union} nested depth={depth + 1} anchored={anchored && !variant.name} />
               ) : (
                 <ul class="fl-list fl-children">
                   {variant.fields!.map((f) => (
-                    <ApiFieldRow field={f} depth={depth + 1} anchored={!variant.name} />
+                    <ApiFieldRow field={f} depth={depth + 1} anchored={anchored && !variant.name} />
                   ))}
                 </ul>
               )}

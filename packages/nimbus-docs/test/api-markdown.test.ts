@@ -217,8 +217,9 @@ describe("api markdown emitter", () => {
     assert.match(md, /- `b` → \[B\]\(\/disc\/schemas\/B\/\)/);
   });
 
-  test("a nested union prints its branches as a nested list, and an unlinked branch its fields", async () => {
+  test("a nested union prints its branches as a nested list; a named branch stays a link, union or not", async () => {
     const model = await buildApiModel({
+      schemaPages: true,
       collection: "nest",
       spec: {
         openapi: "3.0.0",
@@ -237,7 +238,10 @@ describe("api markdown emitter", () => {
               requestBody: {
                 content: {
                   "application/json": {
-                    schema: { type: "object", properties: { source: { anyOf: [{ $ref: "#/components/schemas/Group" }] } } },
+                    schema: {
+                      type: "object",
+                      properties: { source: { anyOf: [{ $ref: "#/components/schemas/Group" }, { type: "object", properties: { x: { type: "string" } } }] } },
+                    },
                   },
                 },
               },
@@ -260,10 +264,13 @@ describe("api markdown emitter", () => {
       },
     });
     const md = renderApiPageMarkdown(getApiPageProps(model, "create"));
-    assert.match(md, /^Any of:\n\n- `Group`\n  - one of:\n    - `A`\n    - `string`\n    - `Inline`\n      - `z` \(/m);
-    assert.doesNotMatch(md, /`content` \(/, "a named branch without a page stays a label; only an inline branch prints fields");
+    assert.match(md, /^Any of:\n\n- \[Group\]\(\/nest\/schemas\/Group\/\)\n\n/m, "a named branch stays a link even when it is itself a union");
+    assert.doesNotMatch(md, /Group\.3\.z/, "a named branch's inline branches belong to its own page");
     const field = renderApiPageMarkdown(getApiPageProps(model, "createField"));
-    assert.match(field, /^- `source` \(.*any of.*\)\n  - any of:\n    - `Group`\n      - one of:\n        - `A`\n        - `string`\n        - `Inline`\n          - `z` \(/m);
+    assert.match(field, /^- `source` \(.*\)\n  - any of:\n    - \[Group\]\(\/nest\/schemas\/Group\/\)\n    - `object`\n      - `x` \(`createField\.source\.2\.x`/m, "beside each other: the named branch stays a link, the inline one opens");
+    const group = renderApiPageMarkdown(getApiPageProps(model, "Group"));
+    assert.match(group, /^One of:\n\n- \[A\]\(\/nest\/schemas\/A\/\)\n- `string`\n- `Inline`\n  - `z` \(`Group\.3\.z`/m, "the schema page prints its nested list and inline fields");
+    assert.doesNotMatch(group, /`content` \(/, "a named branch's fields stay on its page");
   });
 
   test("a union field renders its variants XOR its children — no hidden coordinates leak", () => {

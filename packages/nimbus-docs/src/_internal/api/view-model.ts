@@ -1121,19 +1121,21 @@ function walkFieldCitations(
 }
 
 /** The fields a union renders that this page owns: an inline branch's, at any
- *  depth of nested union. A named branch's fields are its own page's. */
+ *  depth of nested union. A named branch's content, fields or branches, is its
+ *  own page's. */
 function inlineVariantFields(union: ApiUnionView): ApiFieldView[] {
   return union.variants.flatMap((v) => {
+    if (v.name) return [];
     if (v.union) return inlineVariantFields(v.union);
-    return v.name || !v.fields ? [] : v.fields;
+    return v.fields ?? [];
   });
 }
 
 /** The `ApiFieldView` roots a page renders as anchored rows (`id={field.anchor}`)
  *  and owns. Mirrors `api-layout/ApiBody.astro`: each body renders `fields` XOR
- *  its union explorer, and the explorer anchors only an inline branch's fields
- *  (a named schema's are its own page's), so no indexed coordinate is a dead
- *  fragment or another page's. */
+ *  its union explorer, and the explorer anchors an inline branch's fields only
+ *  while no named branch is above them (a named schema's content is its own
+ *  page's), so no indexed coordinate is a dead fragment or another page's. */
 function pageFieldRoots(page: ApiPageProps): ApiFieldView[] {
   const bodyRoots = (fields: ApiFieldView[], union: ApiUnionView | undefined) =>
     union ? inlineVariantFields(union) : fields;
