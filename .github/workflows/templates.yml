@@ -42,8 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Netlify is covered by the pnpm@latest matrix below.
-        lane: [static, vercel, node, cloudflare]
+        lane: [static, vercel, node, cloudflare, netlify]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
@@ -85,12 +84,13 @@ jobs:
       - name: Scaffold, build and check sites with an API reference
         run: node scripts/site-parts-check.mjs
 
+  # Catch build-policy changes in newer pnpm majors.
   templates-modern-pnpm:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        lane: [static, cloudflare, netlify]
+        lane: [cloudflare]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 

@@ -1638,7 +1638,7 @@ async function execute() {
     await run("pnpm", ["--version"], { timeoutMs: 30_000 })
   ).stdout.trim();
   assert(
-    `pnpm@${pnpmVersion}` === workspacePackage.packageManager,
+    `pnpm@${pnpmVersion}` === workspacePackage.packageManager.split("+")[0],
     `ambient ${workspacePackage.packageManager} is required; found pnpm ${pnpmVersion}. Regenerate scripts/fixtures/api-reference/pnpm-lock.yaml.template when upgrading pnpm`,
   );
   ok(`preflight Node ${process.version}, pnpm ${pnpmVersion}`);
