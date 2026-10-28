@@ -1113,51 +1113,42 @@ function walkFieldCitations(
     seen.add(field.coordinate);
     out.push({ coordinate: field.coordinate, slug, anchor: field.anchor });
   }
-  // `ApiFieldRow` renders `field.union ? <ApiUnionExplorer> : <children>` — the
-  // same XOR the page uses for its body. So when a field carries a union, its
-  // own `children` (a sibling `properties` block) are NOT emitted as rows; stop
-  // here rather than index a coordinate that has no id on the page. A union's
-  // variant fields render unanchored (see `variantView`): a named schema's are
-  // indexed canonically on its own page, an inline branch's nowhere.
-  if (field.union) return;
-  for (const child of field.children) walkFieldCitations(child, slug, seen, out);
+  // A field renders its union XOR its children, so a union's sibling
+  // `properties` are never rows. Of the union's branches, only an inline one's
+  // fields are anchored here: a named schema's belong to its own page.
+  const roots = field.union ? inlineVariantFields(field.union) : field.children;
+  for (const child of roots) walkFieldCitations(child, slug, seen, out);
+}
+
+/** The fields a union renders that this page owns: an inline branch's, at any
+ *  depth of nested union. A named branch's fields are its own page's. */
+function inlineVariantFields(union: ApiUnionView): ApiFieldView[] {
+  return union.variants.flatMap((v) => {
+    if (v.union) return inlineVariantFields(v.union);
+    return v.name || !v.fields ? [] : v.fields;
+  });
 }
 
 /** The `ApiFieldView` roots a page renders as anchored rows (`id={field.anchor}`)
- *  and OWNS — i.e. the field's canonical page. Mirrors the renderer's choices in
- *  `api-layout/ApiBody.astro` exactly, so no coordinate is indexed that the page
- *  does not emit an id for (a dead fragment) and none the page does emit is
- *  missed:
- *   - request body and each response body render `fields` XOR the union explorer
- *     (`bodyUnion ? <ApiUnionExplorer> : <ApiFieldList>`), so the field list is
- *     skipped whenever a union is present;
- *   - a union's variant fields render unanchored: a named schema's live on its
- *     OWN schema page and an inline branch's have no id anywhere, so neither is
- *     indexed here (that would attribute a coordinate to the wrong page, or to a
- *     dead fragment). */
+ *  and owns. Mirrors `api-layout/ApiBody.astro`: each body renders `fields` XOR
+ *  its union explorer, and the explorer anchors only an inline branch's fields
+ *  (a named schema's are its own page's), so no indexed coordinate is a dead
+ *  fragment or another page's. */
 function pageFieldRoots(page: ApiPageProps): ApiFieldView[] {
+  const bodyRoots = (fields: ApiFieldView[], union: ApiUnionView | undefined) =>
+    union ? inlineVariantFields(union) : fields;
   if (page.kind === "operation") {
     const roots: ApiFieldView[] = [...page.parameters.flatMap((g) => g.fields)];
-    if (!page.bodyUnion) roots.push(...page.body);
-    // Each additional media body renders `fields` XOR its union explorer, same as
-    // the primary — so a multipart field is a live anchor, not a dead fragment.
-    for (const b of page.additionalBodies ?? []) {
-      if (!b.union) roots.push(...b.fields);
-    }
+    roots.push(...bodyRoots(page.body, page.bodyUnion));
+    for (const b of page.additionalBodies ?? []) roots.push(...bodyRoots(b.fields, b.union));
     for (const r of page.responses) {
       roots.push(...(r.headers ?? []));
-      if (!r.bodyUnion) roots.push(...r.fields);
-      // Additional response media render like additional request bodies.
-      for (const m of r.additionalMedia ?? []) {
-        if (!m.union) roots.push(...m.fields);
-      }
+      roots.push(...bodyRoots(r.fields, r.bodyUnion));
+      for (const m of r.additionalMedia ?? []) roots.push(...bodyRoots(m.fields, m.union));
     }
     return roots;
   }
-  // A schema page renders its own `fields` (a pure-union schema simply has none);
-  // its union explorer, when present, links to component pages that carry the
-  // variant fields under their own coordinates.
-  if (page.kind === "schema") return [...page.fields];
+  if (page.kind === "schema") return [...page.fields, ...(page.union ? inlineVariantFields(page.union) : [])];
   return [];
 }
 

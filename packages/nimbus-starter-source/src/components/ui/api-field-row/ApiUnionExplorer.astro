@@ -53,7 +53,7 @@ const entries =
               ) : (
                 <ul class="fl-list fl-children">
                   {variant.fields!.map((f) => (
-                    <ApiFieldRow field={f} depth={depth + 1} anchored={false} />
+                    <ApiFieldRow field={f} depth={depth + 1} anchored={!variant.name} />
                   ))}
                 </ul>
               )}

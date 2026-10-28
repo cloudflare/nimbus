@@ -23,7 +23,8 @@ import {
   type ApiSectionPage,
   renderApiPageMarkdown,
 } from "../src/api/index.js";
-import { coordinateAnchor } from "../src/_internal/api/view-model.js";
+import { coordinateAnchor, fieldCitations } from "../src/_internal/api/view-model.js";
+import { unwrapModel } from "../src/_internal/api/model-handle.js";
 import { setLinkPolicy } from "../src/_internal/url.js";
 
 function fixture(rel: string): string {
@@ -1714,5 +1715,48 @@ describe("unions: branch labels", () => {
     const kind = page.bodyUnion!.variants[0]!.fields!.find((f) => f.name === "kind")!;
     assert.equal(kind.union!.kind, "anyOf");
     assert.deepEqual(kind.union!.variants[0], { label: "Plain", name: "Plain" });
+  });
+});
+
+describe("citations: a page owns the fields of its inline branches", () => {
+  test("an inline branch's field is a citation target on the operation page; a named branch's is not", async () => {
+    const model = await buildApiModel({
+      collection: "c",
+      spec: {
+        openapi: "3.1.0",
+        info: { title: "C", version: "1" },
+        paths: {
+          "/r": {
+            post: {
+              operationId: "create",
+              requestBody: {
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      properties: {
+                        source: {
+                          oneOf: [
+                            { $ref: "#/components/schemas/Card" },
+                            { type: "object", properties: { iban: { type: "string" } } },
+                          ],
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+              responses: { "200": { description: "ok" } },
+            },
+          },
+        },
+        components: { schemas: { Card: { type: "object", properties: { number: { type: "string" } } } } },
+      },
+    });
+    const targets = new Map(fieldCitations(unwrapModel(model)).map((t) => [t.coordinate, t]));
+    assert.ok(targets.has("create.source"));
+    assert.ok(targets.has("create.source.2.iban"), "inline branch field is anchored on the page");
+    assert.equal(targets.get("create.source.2.iban")!.slug, targets.get("create.source")!.slug);
+    assert.equal(targets.has("Card.number"), false, "a named branch's field belongs to its own page");
   });
 });
