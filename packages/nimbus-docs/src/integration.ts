@@ -3678,7 +3678,11 @@ export function nimbus(
               (candidate) => candidate.pathname === "/",
             ),
         );
-        if (sitemapHasResolvedRootPage && sitemapRootUrl) {
+        if (
+          sitemapHasResolvedRootPage &&
+          sitemapRootUrl &&
+          !sitemapCustomPages.includes(sitemapRootUrl)
+        ) {
           sitemapCustomPages.push(sitemapRootUrl);
         }
         endpointRoutesForBuild = routes
