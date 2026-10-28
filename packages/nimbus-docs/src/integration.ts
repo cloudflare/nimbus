@@ -632,7 +632,8 @@ export function nimbus(
   let sitemapExcludedPaths = new Set<string>();
   let sitemapTrailingSlash: "always" | "never" | "ignore" = "ignore";
   let mcpServerForBuild: McpServerIdentity | undefined;
-  let sitemapBareRootUrl: string | null = null;
+  let sitemapRootUrl: string | null = null;
+  let sitemapRootAliasUrl: string | null = null;
   let sitemapHasResolvedRootPage = false;
   let building = false;
   // A partial build (`NIMBUS_BUILD_ONLY`): the collections it holds, or null
@@ -1674,7 +1675,8 @@ export function nimbus(
         sitemapCustomPages = [];
         sitemapExcludedPaths = new Set();
         sitemapTrailingSlash = astroConfig.trailingSlash;
-        sitemapBareRootUrl = null;
+        sitemapRootUrl = null;
+        sitemapRootAliasUrl = null;
         sitemapHasResolvedRootPage = false;
 
         // One reading of Markdown for the whole site: every internal parse
@@ -2531,7 +2533,9 @@ export function nimbus(
             config.site,
           );
           if (deploymentRoot.pathname !== "/") {
-            sitemapBareRootUrl = deploymentRoot.href.replace(/\/$/, "");
+            const bareRootUrl = deploymentRoot.href.replace(/\/$/, "");
+            sitemapRootUrl = new URL(withBase("/", astroConfig.base || "/"), config.site).href;
+            sitemapRootAliasUrl = sitemapRootUrl === bareRootUrl ? `${bareRootUrl}/` : bareRootUrl;
           }
           const sitemapIntegration = sitemap({
             // Our public `SitemapSerialize` types `changefreq` as a
@@ -2554,12 +2558,10 @@ export function nimbus(
             }) as unknown as NonNullable<
               Parameters<typeof sitemap>[0]
             >["serialize"],
-            ...((sitemapOpts?.customPages || requestRenderingConfigured) && {
-              customPages: sitemapCustomPages,
-            }),
+            customPages: sitemapCustomPages,
             filter: (url: string) => {
               if (!hiddenFilter(url)) return false;
-              if (sitemapHasResolvedRootPage && url === sitemapBareRootUrl) return false;
+              if (sitemapHasResolvedRootPage && url === sitemapRootAliasUrl) return false;
               const { pathname } = new URL(url, config.site);
               return (
                 !isRequestRouteInventoryPath(pathname, astroConfig.base) &&
@@ -3676,6 +3678,9 @@ export function nimbus(
               (candidate) => candidate.pathname === "/",
             ),
         );
+        if (sitemapHasResolvedRootPage && sitemapRootUrl) {
+          sitemapCustomPages.push(sitemapRootUrl);
+        }
         endpointRoutesForBuild = routes
           .filter((route) => route.type === "endpoint")
           .map((route) => ({
