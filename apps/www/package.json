@@ -28,7 +28,7 @@
     "@resvg/resvg-js": "^2.6.2",
     "astro": "7.3.3",
     "clsx": "^2.1.1",
-    "framer-motion": "^13.2.0",
+    "framer-motion": "^14.6.0",
     "hast-util-from-html": "^2.0.3",
     "hast-util-sanitize": "^5.0.2",
     "hast-util-to-html": "^9.0.5",
