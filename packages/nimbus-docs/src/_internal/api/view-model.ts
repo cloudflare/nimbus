@@ -392,7 +392,19 @@ function variantView(
     const fields = boundFields(topLevelFields(view, resolved, false, new Set([...seen, resolved]))).fields;
     if (fields.length > 0) out.fields = fields;
   }
+  if (v.name) unanchorVariant(out);
   return out;
+}
+
+function unanchorVariant(v: ApiVariant): void {
+  for (const f of v.fields ?? []) unanchorField(f);
+  for (const inner of v.union?.variants ?? []) unanchorVariant(inner);
+}
+
+function unanchorField(f: ApiFieldView): void {
+  delete f.anchor;
+  for (const child of f.children) unanchorField(child);
+  for (const inner of f.union?.variants ?? []) unanchorVariant(inner);
 }
 
 function unionView(
@@ -1109,36 +1121,28 @@ function walkFieldCitations(
   seen: Set<string>,
   out: Array<{ coordinate: string; slug: string; anchor: string }>,
 ): void {
+  if (!field.anchor) return;
   if (!seen.has(field.coordinate)) {
     seen.add(field.coordinate);
     out.push({ coordinate: field.coordinate, slug, anchor: field.anchor });
   }
   // A field renders its union XOR its children, so a union's sibling
-  // `properties` are never rows. Of the union's branches, only an inline one's
-  // fields are anchored here: a named schema's belong to its own page.
-  const roots = field.union ? inlineVariantFields(field.union) : field.children;
+  // `properties` are never rows.
+  const roots = field.union ? branchFields(field.union) : field.children;
   for (const child of roots) walkFieldCitations(child, slug, seen, out);
 }
 
-/** The fields a union renders that this page owns: an inline branch's, at any
- *  depth of nested union. A named branch's content, fields or branches, is its
- *  own page's. */
-function inlineVariantFields(union: ApiUnionView): ApiFieldView[] {
-  return union.variants.flatMap((v) => {
-    if (v.name) return [];
-    if (v.union) return inlineVariantFields(v.union);
-    return v.fields ?? [];
-  });
+function branchFields(union: ApiUnionView): ApiFieldView[] {
+  return union.variants.flatMap((v) => (v.union ? branchFields(v.union) : v.fields ?? []));
 }
 
-/** The `ApiFieldView` roots a page renders as anchored rows (`id={field.anchor}`)
- *  and owns. Mirrors `api-layout/ApiBody.astro`: each body renders `fields` XOR
- *  its union explorer, and the explorer anchors an inline branch's fields only
- *  while no named branch is above them (a named schema's content is its own
- *  page's), so no indexed coordinate is a dead fragment or another page's. */
+/** The `ApiFieldView` roots a page renders. Mirrors `api-layout/ApiBody.astro`:
+ *  each body renders `fields` XOR its union explorer. Only fields carrying an
+ *  `anchor` are this page's, so no indexed coordinate is a dead fragment or
+ *  another page's. */
 function pageFieldRoots(page: ApiPageProps): ApiFieldView[] {
   const bodyRoots = (fields: ApiFieldView[], union: ApiUnionView | undefined) =>
-    union ? inlineVariantFields(union) : fields;
+    union ? branchFields(union) : fields;
   if (page.kind === "operation") {
     const roots: ApiFieldView[] = [...page.parameters.flatMap((g) => g.fields)];
     roots.push(...bodyRoots(page.body, page.bodyUnion));
@@ -1150,7 +1154,7 @@ function pageFieldRoots(page: ApiPageProps): ApiFieldView[] {
     }
     return roots;
   }
-  if (page.kind === "schema") return [...page.fields, ...(page.union ? inlineVariantFields(page.union) : [])];
+  if (page.kind === "schema") return [...page.fields, ...(page.union ? branchFields(page.union) : [])];
   return [];
 }
 

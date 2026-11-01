@@ -88,7 +88,9 @@ export interface ApiFieldView {
   example?: JsonValue;
   description?: string;
   descriptionHtml?: string;
-  anchor: string;
+  /** Present only on the page that owns the field: absent beneath a named
+   *  branch's preview, whose content belongs to the schema's own page. */
+  anchor?: string;
   children: ApiFieldView[];
   childCount: number;
   truncated: boolean;

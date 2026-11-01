@@ -15,6 +15,7 @@ import {
   getApiPageIndex,
   getApiPageSlugs,
   apiSchemaVersion,
+  type ApiFieldView,
   type ApiModel,
   type ApiNavItem,
   type ApiOperationPage,
@@ -1715,6 +1716,69 @@ describe("unions: branch labels", () => {
     const kind = page.bodyUnion!.variants[0]!.fields!.find((f) => f.name === "kind")!;
     assert.equal(kind.union!.kind, "anyOf");
     assert.deepEqual(kind.union!.variants[0], { label: "Plain", name: "Plain" });
+  });
+});
+
+describe("anchors: a page anchors only the fields it owns", () => {
+  test("nothing beneath a named branch carries an anchor; an inline branch's fields do, at any depth", async () => {
+    const model = await buildApiModel({
+      collection: "a",
+      spec: {
+        openapi: "3.1.0",
+        info: { title: "A", version: "1" },
+        paths: {
+          "/r": {
+            post: {
+              operationId: "create",
+              requestBody: {
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      properties: {
+                        source: {
+                          oneOf: [
+                            { $ref: "#/components/schemas/Node" },
+                            { type: "object", properties: { a: { oneOf: [{ type: "object", properties: { b: { type: "string" } } }] } } },
+                          ],
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+              responses: { "200": { description: "ok" } },
+            },
+          },
+        },
+        components: {
+          schemas: {
+            Node: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                link: { oneOf: [{ $ref: "#/components/schemas/Other" }, { type: "object", properties: { url: { type: "string" } } }] },
+              },
+            },
+            Other: { type: "object", properties: { q: { type: "string" } } },
+          },
+        },
+      },
+    });
+    const page = getApiPageProps(model, "create") as ApiOperationPage;
+    const source = page.body.find((f) => f.name === "source")!;
+    const [named, inline] = source.union!.variants;
+    const anchors: string[] = [];
+    const collect = (f: ApiFieldView): void => {
+      if (f.anchor) anchors.push(f.coordinate);
+      f.children.forEach(collect);
+      for (const v of f.union?.variants ?? []) (v.fields ?? []).forEach(collect);
+    };
+    named.fields!.forEach(collect);
+    assert.ok(named.fields!.some((f) => f.name === "link"), "the named branch still previews its fields");
+    assert.deepEqual(anchors, [], "a named branch's preview, and any inline branch inside it, is unanchored");
+    inline.fields!.forEach(collect);
+    assert.deepEqual(anchors, ["create.source.2.a", "create.source.2.a.1.b"]);
   });
 });
 

@@ -8,10 +8,9 @@ import "./field-list.css";
 interface Props {
   field: ApiFieldView;
   depth?: number;
-  anchored?: boolean;
 }
 
-const { field, depth = 0, anchored = true } = Astro.props;
+const { field, depth = 0 } = Astro.props;
 
 const AUTO_OPEN_DEPTH = 1;
 const expandable = isExpandable(field);
@@ -31,11 +30,11 @@ const linkSvg = `<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a
 ---
 
 <li
-  id={anchored ? field.anchor : undefined}
+  id={field.anchor}
   class:list={["fl-item", depth > 0 && "fl-item--child"]}
 >
   <div class="fl-row">
-    {anchored && (
+    {field.anchor && (
       <a
         href={`#${field.anchor}`}
         class="fl-anchor"
@@ -95,11 +94,11 @@ const linkSvg = `<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a
           {/* Toggled by the { n properties } button on the signature line. */}
           <summary class="fl-expand-trigger"></summary>
           {field.union ? (
-            <ApiUnionExplorer union={field.union} depth={depth} nested anchored={anchored} />
+            <ApiUnionExplorer union={field.union} depth={depth} nested />
           ) : (
             <ul class="fl-list fl-children">
               {field.children.map((child) => (
-                <Astro.self field={child} depth={depth + 1} anchored={anchored} />
+                <Astro.self field={child} depth={depth + 1} />
               ))}
               {field.truncated && (
                 <li class="fl-truncated">… {omitted} more field(s) omitted</li>
