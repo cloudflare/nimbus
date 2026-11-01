@@ -161,6 +161,28 @@ describe("shared graphs", () => {
     assert.ok(JSON.stringify(page).length < 100_000, `page data stays small: ${JSON.stringify(page).length} bytes`);
   });
 
+  test("a DAG made only of named unions projects bounded page data: a named union opens one level", async () => {
+    const schemas: Record<string, unknown> = {};
+    for (let level = 0; level <= 10; level += 1) {
+      for (let k = 0; k < 4; k += 1) {
+        schemas[`L${level}_${k}`] =
+          level === 10
+            ? { type: "object", properties: { leaf: { type: "string" } } }
+            : { oneOf: Array.from({ length: 4 }, (_, j) => ({ $ref: `#/components/schemas/L${level + 1}_${j}` })) };
+      }
+    }
+    const model = await buildApiModel({
+      collection: "unions",
+      spec: operationOver(schemas, { type: "object", properties: { f: { $ref: "#/components/schemas/L0_0" } } }),
+    });
+    const page = getApiPageProps(model, "create") as ApiOperationPage;
+    assert.ok(JSON.stringify(page).length < 100_000, `page data ${JSON.stringify(page).length} bytes`);
+    const first = page.body.find((f) => f.name === "f")!.union!.variants[0];
+    assert.equal(first.name, "L1_0");
+    assert.ok(first.union, "the field's named union branch opens");
+    assert.equal(first.union!.variants[0].union, undefined, "its own named union branches stay labels");
+  });
+
   test("a plain property DAG past the walk ceiling is cut with a warning naming the list", async () => {
     const schemas = layered(4, 9, (refs) => ({
       type: "object",
@@ -176,7 +198,7 @@ describe("shared graphs", () => {
     const cut = diagnostics.filter((d) => d.code === "field-walk-ceiling");
     const body = cut.find((d) => d.coordinate === "create");
     assert.ok(body, "the operation's body list is named");
-    assert.match(body!.message, /25,?000 nodes/);
+    assert.match(body!.message, /25,000 fields/);
     assert.ok(cut.every((d) => d.level === "warning"), "a cut is a warning, never an error");
   });
 

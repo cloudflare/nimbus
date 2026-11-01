@@ -377,6 +377,7 @@ function variantView(
   v: VariantRef,
   inlineFields = false,
   seen: ReadonlySet<Coordinate> = new Set(),
+  openNamed = inlineFields,
 ): ApiVariant {
   const out = variantLink(view, v);
   const resolved = v.coordinate && view.node(v.coordinate) ? v.coordinate : undefined;
@@ -384,11 +385,14 @@ function variantView(
   const facts = view.node(resolved)!.facts;
   const nested = facts.kind === "schema" || facts.kind === "variant" ? facts.union : undefined;
   if (nested) {
-    out.union = unionView(view, nested, inlineFields, new Set([...seen, resolved]));
+    // A named union opens one level and its own named unions stay labels:
+    // named schemas form a DAG, and opening every one per path is exponential.
+    if (openNamed || !v.name) {
+      out.union = unionView(view, nested, inlineFields, new Set([...seen, resolved]), openNamed && !v.name);
+    }
   } else if (inlineFields || facts.kind === "variant") {
     // `seen` is the path of branches above; a repeat stays a label. The preview
-    // passes `false` so a union among these properties shows branches only:
-    // named schemas form a DAG, and opening them again per path is exponential.
+    // passes `false` so a named union among these properties stays a label.
     const fields = boundFields(topLevelFields(view, resolved, false, new Set([...seen, resolved]))).fields;
     if (fields.length > 0) out.fields = fields;
   }
@@ -412,6 +416,7 @@ function unionView(
   shape: UnionShape,
   inlineFields = false,
   seen: ReadonlySet<Coordinate> = new Set(),
+  openNamed = inlineFields,
 ): ApiUnionView {
   // When a discriminator mapping is present the explorer iterates it exclusively
   // (its variants are the named, linkable ones), so the raw `variants` stay label
@@ -420,7 +425,7 @@ function unionView(
   const out: ApiUnionView = {
     kind: shape.kind,
     variants: shape.variants.map((v) =>
-      hasMapping ? variantLink(view, v) : variantView(view, v, inlineFields, seen),
+      hasMapping ? variantLink(view, v) : variantView(view, v, inlineFields, seen, openNamed),
     ),
   };
   if (shape.discriminator) out.discriminator = shape.discriminator;
@@ -439,8 +444,9 @@ function unionView(
  * 848 fields (p99.9 = 694), so at 1000 this never fires on any real spec
  * measured; it exists only to bound a pathological spec (a container with
  * thousands of siblings) so generated Markdown cannot blow past a sane size.
- * Depth has no numeric bound: the walk and the projection both stop only at a
- * schema already on the current path. Kept fields are
+ * Depth has no numeric bound: the walk stops at a schema already on the current
+ * path or at `FIELD_WALK_CEILING` nodes, and the projection opens a named union
+ * one level (see `variantView`). Kept fields are
  * required-first then source order (see `requiredFirst`), so a truncated
  * container stays byte-reproducible across builds — load-bearing for the
  * markdown-diff use case.
@@ -460,9 +466,9 @@ function boundFields(all: ApiFieldView[]): {
   return { fields: all.slice(0, FIELD_INLINE_CEILING), truncated: true, total: all.length };
 }
 
-// `allowInline` governs ONLY whether a field's union variants inline their
-// property previews (it is forwarded to `unionView`); ordinary object children
-// always recurse. `seen` is the path of union branches above this field, so a
+// `allowInline` governs whether a field's named union branches preview (it is
+// forwarded to `unionView`); inline branches and ordinary object children
+// always open. `seen` is the path of union branches above this field, so a
 // branch that reappears inside its own fields stays a label.
 function fieldView(
   view: ModelView,

@@ -80,9 +80,9 @@ export const FIELD_WALK_CEILING = 25_000;
 
 export function warnFieldCeiling(registry: CoordinateRegistry, coordinate: Coordinate, source?: string): void {
   registry.addWarning(
-    `Field list stopped at ${FIELD_WALK_CEILING} nodes: the schema has more fields along its paths than one list documents`,
+    `Field list stopped at ${FIELD_WALK_CEILING.toLocaleString("en-US")} fields: the schema nests or shares more fields than one list documents`,
     coordinate,
-    source ?? undefined,
+    source,
     "field-walk-ceiling",
   );
 }
