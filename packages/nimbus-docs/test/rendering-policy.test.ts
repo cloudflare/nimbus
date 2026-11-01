@@ -704,7 +704,7 @@ test("sitemap keeps one canonical request root across policies and repeated rout
 });
 
 test("sitemap deduplicates mixed routes for every trailing slash policy", async (t) => {
-  for (const trailingSlash of ["always", "never", "ignore"] as const) {
+  for (const [base, trailingSlash, buildFormat, root] of SITEMAP_ROOT_POLICIES) {
     const xml = await generateRequestSitemap(
       t,
       [
@@ -717,8 +717,9 @@ test("sitemap deduplicates mixed routes for every trailing slash policy", async 
       ],
       [{ pathname: "guide" }],
       {},
-      "/docs",
+      base,
       trailingSlash,
+      buildFormat,
     );
 
     assert.equal(
@@ -738,10 +739,11 @@ test("sitemap deduplicates mixed routes for every trailing slash policy", async 
       ],
       [],
       {},
-      "/docs",
+      base,
       trailingSlash,
+      buildFormat,
     );
-    const suffix = trailingSlash === "never" ? "" : "/";
+    const suffix = root.endsWith("/") ? "/" : "";
     assert.match(
       requestOnlyXml,
       new RegExp(
