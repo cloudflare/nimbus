@@ -41,7 +41,12 @@ export const collections = { api: defineCollection(apiCollection()) };`,
     assert.equal((await page("/api/Pets/listPets/")).status, 404);
     const home = await page("/");
     assert.match(home.body, /api:api /);
-    const document = new JSDOM(home.body).window.document;
-    assert.equal(document.querySelector("a.self")?.getAttribute("href"), "/");
+    const { window } = new JSDOM(home.body);
+    try {
+      const selfLinks = [...window.document.querySelectorAll("a.self")];
+      assert.deepEqual(selfLinks.map((link) => link.getAttribute("href")), ["/"]);
+    } finally {
+      window.close();
+    }
   });
 });

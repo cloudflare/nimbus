@@ -30,7 +30,12 @@ test("dev resolves page headings per request and follows edits", async () => {
       const get = async () => {
         const response = await fetch(`http://127.0.0.1:${server.address.port}/`);
         assert.equal(response.status, 200);
-        return new JSDOM(await response.text()).window.document.querySelector("pre")?.textContent;
+        const { window } = new JSDOM(await response.text());
+        try {
+          return window.document.querySelector("pre")?.textContent;
+        } finally {
+          window.close();
+        }
       };
       assert.equal(await get(), '["first","nested"]');
       await site.write("src/content/docs/index.md", "---\ntitle: Home\n---\n\n## Renamed\n");

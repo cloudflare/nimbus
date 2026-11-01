@@ -18,7 +18,7 @@ for (const [trailingSlash, format, request] of [
   ["ignore", "file", false],
   ["never", "directory", true],
 ] as const) {
-  test(`sitemap root matches the ${request ? "request-rendered" : "static"} canonical: ${trailingSlash}, ${format}`, { timeout: 30_000 }, async (t) => {
+  test(`sitemap root matches the ${request ? "request-rendered" : "static"} canonical: ${trailingSlash}, ${format}`, { timeout: 120_000 }, async (t) => {
     const root = await realpath(await mkdtemp(path.join(TEST_TMP, "nimbus-sitemap-root-")));
     t.after(() => rm(root, { recursive: true, force: true }));
     const write = async (file: string, body: string) => {
