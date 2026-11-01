@@ -5,11 +5,10 @@ import { compare, eq, gt, lt, lte, major, minor, patch, prerelease, valid } from
 
 import { CLI_PACKAGE, declaresCli, detectPackageManager, installCommand, invocation } from "../cli/pm.js";
 import { getCommand } from "../lib/pkgm.js";
+import pkg from "../../package.json" with { type: "json" };
 import { resolveMigrationSrcDir } from "./migrations.js";
 import { stripComments, stripStrings } from "./parse-object-literal.js";
 import rawManifest from "./upgrade-manifest.json";
-
-declare const __APP_VERSION__: string;
 
 export type UpgradeMode = "automatic" | "detectable-manual" | "review-required" | "optional";
 
@@ -46,14 +45,7 @@ interface UpgradeManifest {
 export const UPGRADE_MANIFEST = rawManifest as UpgradeManifest;
 
 export function runningNimbusVersion(): string {
-  if (typeof __APP_VERSION__ !== "undefined") return __APP_VERSION__;
-  const version = (JSON.parse(
-    fs.readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
-  ) as { version?: unknown }).version;
-  if (typeof version !== "string" || !valid(version)) {
-    throw new Error("Could not determine the executing Nimbus version.");
-  }
-  return version;
+  return pkg.version;
 }
 
 /** What a site uses, for skipping upgrade entries that can't apply to it. */
