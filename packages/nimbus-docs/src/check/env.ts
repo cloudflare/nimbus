@@ -17,7 +17,7 @@ import { satisfies } from "semver";
 import { ADAPTER_IDS, ADAPTER_RECIPES } from "../_internal/adapters.js";
 import { readBuildEnv } from "../_internal/dotenv.js";
 import { deriveFootprint, type FeatureRecipe } from "../_internal/footprint.js";
-import { MIN_NODE_VERSION, supportsNodeVersion } from "../_internal/node-version.js";
+import { NODE_VERSION_RANGE, supportsNodeVersion } from "../_internal/node-version.js";
 import type { ConfigParseResult } from "../_internal/parse-nimbus-config.js";
 import { mcpSdkMessage, openApiParserMessage } from "../_internal/server-adapter.js";
 import { dependenciesMissing, hasPnpInstall } from "../_internal/upgrades.js";
@@ -112,7 +112,7 @@ function checkNodeVersion(findings: CheckFinding[]): void {
       scope: "env",
       code: "nimbus/node-version",
       severity: "error",
-      message: `Node ${current} is below the supported floor (>=${MIN_NODE_VERSION}). Upgrade Node to build.`,
+      message: `Node ${current} is outside the supported range (${NODE_VERSION_RANGE}). Upgrade Node to build.`,
       fixable: false,
     });
   }

@@ -53,7 +53,7 @@ import {
 import { isCollectionInBuildSlice } from "./_internal/build-slice.js";
 import { getAuthoredLinkNormalizer } from "./_internal/authored-link-normalizer.js";
 import { prepareMarkdownLoader } from "./_internal/markdown-loader.js";
-import { MIN_NODE_VERSION, supportsNodeVersion } from "./_internal/node-version.js";
+import { NODE_VERSION_RANGE, supportsNodeVersion } from "./_internal/node-version.js";
 import {
   missingContentSource,
   recordUnavailableSourceCollection,
@@ -1114,7 +1114,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
 function assertSupportedNode(): void {
   if (!supportsNodeVersion(process.versions.node)) {
     throw new Error(
-      `nimbus-docs api: Node >=${MIN_NODE_VERSION} is required to build an API reference ` +
+      `nimbus-docs api: Node ${NODE_VERSION_RANGE} is required to build an API reference ` +
         `(running ${process.versions.node}). Upgrade Node, or remove the \`api\` entries from the Nimbus config.`,
     );
   }
