@@ -300,8 +300,9 @@ export interface ApiVariant {
    * Absent when the variant carries `union`.
    */
   fields?: ApiFieldView[];
-  /** The variant's own union, when the branch is itself a `oneOf`/`anyOf`:
-   *  nested as deep as the spec goes, and a branch already on the path stays a label. */
+  /** The variant's own union, when the branch is itself a `oneOf`/`anyOf`.
+   *  Inline branches nest as deep as the spec goes; a named union opens one
+   *  level on an operation page, and a branch already on the path stays a label. */
   union?: ApiUnionView;
 }
 
