@@ -200,6 +200,8 @@ describe("shared graphs", () => {
     assert.ok(body, "the operation's body list is named");
     assert.match(body!.message, /25,000 fields/);
     assert.ok(cut.every((d) => d.level === "warning"), "a cut is a warning, never an error");
+    const schema = cut.find((d) => d.coordinate === "L0_0");
+    assert.equal(schema?.source, "#/components/schemas/L0_0", "a cut schema list names the schema");
   });
 
   test("a graph under the ceiling walks in full with no warning", async () => {

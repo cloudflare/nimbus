@@ -136,4 +136,4 @@ A `oneOf`/`anyOf` opens where it is declared, and inline branches keep opening a
 
 The Markdown version prints nested branches as a nested list and the fields of inline branches; a named branch stays a label or a link, even when it is itself a union, as it does with schema pages off.
 
-Depth has no limit. A field list stops at 25,000 nodes, far beyond any spec measured, and the build then warns with the code `field-walk-ceiling` naming the list.
+Depth has no limit. A field list stops at 25,000 fields, far beyond any spec measured, and the build then warns, naming the operation or schema whose list it cut. The page shows the fields up to the cut.

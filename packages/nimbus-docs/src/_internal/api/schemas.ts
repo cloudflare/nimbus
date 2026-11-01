@@ -35,7 +35,7 @@ export function parseSchemas(ctx: ParseContext): void {
         fieldCoords.push(fieldCoord);
         if (!parentPath) ownFields = true;
       }
-    }, rawSchema)) warnFieldCeiling(ctx.registry, coord);
+    }, rawSchema)) warnFieldCeiling(ctx.registry, coord, `#/components/schemas/${name}`);
     const facts: SchemaFacts = {
       kind: "schema",
       name,
