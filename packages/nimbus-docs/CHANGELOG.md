@@ -1,5 +1,17 @@
 # @cloudflare/nimbus-docs
 
+## 0.19.2
+
+### Patch Changes
+
+- [#309](https://github.com/cloudflare/nimbus/pull/309) [`6c20aff`](https://github.com/cloudflare/nimbus/commit/6c20afff42806719bbf15e87471609ef23c5bd5b) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - API pages show every union branch. Inline branches open with their fields at `<base>.<position>` (`source.2.iban`), anchored and citable. A branch that is itself a union carries `variant.union`, and a named branch carries `name` and `title` beside `label`. Field nesting no longer stops at six levels; a list stops at 25,000 fields with a build warning. `x-nimbus-order` on an operation orders its section.
+
+  `ApiFieldView.anchor` is now optional: it is set only on the page that owns the field, so render `id={field.anchor}`. A custom component that requires a `string` needs updating.
+
+- [#307](https://github.com/cloudflare/nimbus/pull/307) [`adbb51d`](https://github.com/cloudflare/nimbus/commit/adbb51dd047f460d7635596887b5e9eb740bb8dd) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - A `<link rel="canonical">` in a page's or the site's `head` is the page's only canonical: Nimbus no longer adds its own beside it, and `og:url` and the structured data follow it.
+
+- [#308](https://github.com/cloudflare/nimbus/pull/308) [`c29ffa5`](https://github.com/cloudflare/nimbus/commit/c29ffa56bece852efd060cb9edcd912f0c544d2d) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - With Astro's experimental incremental build, a page is rebuilt when its sidebar, breadcrumbs or prev/next links change, not only when its own file does. A page whose loader gives no digest is rendered every build. The first build after upgrading renders every page once.
+
 ## 0.19.1
 
 ### Patch Changes
