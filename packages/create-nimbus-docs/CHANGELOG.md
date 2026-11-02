@@ -1,5 +1,11 @@
 # @cloudflare/create-nimbus-docs
 
+## 0.8.2
+
+### Patch Changes
+
+- [#309](https://github.com/cloudflare/nimbus/pull/309) [`6c20aff`](https://github.com/cloudflare/nimbus/commit/6c20afff42806719bbf15e87471609ef23c5bd5b) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - The starter's union explorer opens nested unions, labels `anyOf` and `oneOf`, shows a branch's `title`, and anchors whatever the page data anchors. `ApiFieldRow` and `ApiUnionExplorer` no longer take an `anchored` prop.
+
 ## 0.8.1
 
 ### Patch Changes
