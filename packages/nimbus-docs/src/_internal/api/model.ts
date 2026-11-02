@@ -24,6 +24,7 @@ export type NodeKind =
   | "operation"
   | "parameter"
   | "field"
+  | "variant"
   | "schema"
   | "response"
   | "requestBody"
@@ -79,6 +80,7 @@ export type Facts =
   | OperationFacts
   | ParameterFacts
   | FieldFacts
+  | VariantFacts
   | SchemaFacts
   | ResponseFacts
   | RequestBodyFacts
@@ -203,11 +205,17 @@ export interface FieldFacts {
 
 /**
  * One branch of a union. `coordinate` is set when the branch resolves to a
- * named component schema (so a consumer can link to its page); an anonymous
- * inline branch carries only its `label` (a type name), never a link.
+ * named component schema (so a consumer can link to its page) or to an inline
+ * branch minted in place as a `variant` node (`<base>.<1-based position>`); an
+ * inline scalar branch carries only its `label` (a type name).
  */
 export interface VariantRef {
+  /** The component schema's key for a named branch; a type label for an inline one. */
   label: string;
+  /** The component schema's key, present only for a named branch. */
+  name?: string;
+  /** The component schema's `title`, when it declares one. */
+  title?: string;
   coordinate?: Coordinate;
 }
 
@@ -223,6 +231,12 @@ export interface UnionShape {
 export interface DiscriminatorMapEntry {
   value: string;
   variant: VariantRef;
+}
+
+/** An inline union branch with structure of its own — properties or a nested
+ *  union — minted where it is declared so the branch can open in place. */
+export interface VariantFacts extends Omit<FieldFacts, "kind"> {
+  kind: "variant";
 }
 
 export interface ParameterFacts extends Omit<FieldFacts, "kind"> {

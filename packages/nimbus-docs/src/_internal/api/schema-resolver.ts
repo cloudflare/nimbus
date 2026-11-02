@@ -1,17 +1,19 @@
-import { schemaCoordinate } from "./coordinates.js";
+import { joinPath, schemaCoordinate } from "./coordinates.js";
 import {
   HTTP_METHODS,
-  SCHEMA_FIELD_DEPTH,
   type HttpMethod,
   type OpenApiDocument,
   type OpenApiOperation,
   type OpenApiSchema,
 } from "./openapi-types.js";
-import type { UnionShape, VariantRef } from "./model.js";
+import type { Coordinate, UnionShape, VariantRef } from "./model.js";
 import {
+  branchesOf,
+  collectObjectShape,
   foldAllOf,
   hasProperties,
   isPlainObject,
+  itemsOf,
   mapValueSchema,
   primaryMediaSchema,
   typeLabel,
@@ -26,28 +28,28 @@ import {
  * Short-circuits on the first hit; a spec with neither skips the second parse. */
 export function docNeedsRawDoc(doc: OpenApiDocument): boolean {
   const seen = new WeakSet<object>();
-  const has = (schema: OpenApiSchema | undefined, depth: number): boolean => {
-    if (!schema || typeof schema !== "object" || depth <= 0 || seen.has(schema)) return false;
+  const has = (schema: OpenApiSchema | undefined): boolean => {
+    if (!schema || typeof schema !== "object" || seen.has(schema)) return false;
     seen.add(schema);
     const folded = foldAllOf(schema);
     if (Array.isArray(folded.oneOf) || Array.isArray(folded.anyOf)) return true;
-    if (folded.items && has(folded.items, depth - 1)) return true;
+    if (folded.items && has(folded.items)) return true;
     const ap = folded.additionalProperties;
     if (ap && typeof ap === "object") {
       // A map whose value is an object is, in the dereferenced doc, a resolved
       // (name-stripped) schema — the raw doc restores `map<Name>` and its link.
       const apFolded = foldAllOf(ap);
       if (apFolded.type === "object" || (apFolded.properties && Object.keys(apFolded.properties).length > 0)) return true;
-      if (has(ap, depth - 1)) return true;
+      if (has(ap)) return true;
     }
     for (const prop of Object.values(folded.properties ?? {})) {
-      if (has(prop, depth - 1)) return true;
+      if (has(prop)) return true;
     }
     return false;
   };
   const paramsHaveUnion = (params: unknown): boolean => {
     if (!Array.isArray(params)) return false;
-    return params.some((p) => isPlainObject(p) && has(p.schema as OpenApiSchema | undefined, SCHEMA_FIELD_DEPTH));
+    return params.some((p) => isPlainObject(p) && has(p.schema as OpenApiSchema | undefined));
   };
   // Operations and webhooks are shaped identically (path items), so both feed
   // the same scan — a union anywhere in a parameter, request body, or response
@@ -59,15 +61,15 @@ export function docNeedsRawDoc(doc: OpenApiDocument): boolean {
       const op = item[method] as OpenApiOperation | undefined;
       if (!op || typeof op !== "object") continue;
       if (paramsHaveUnion(op.parameters)) return true;
-      if (has(primaryMediaSchema(op.requestBody?.content), SCHEMA_FIELD_DEPTH)) return true;
+      if (has(primaryMediaSchema(op.requestBody?.content))) return true;
       for (const response of Object.values(op.responses ?? {})) {
-        if (has(primaryMediaSchema(response?.content), SCHEMA_FIELD_DEPTH)) return true;
+        if (has(primaryMediaSchema(response?.content))) return true;
       }
     }
     return false;
   };
   for (const schema of Object.values(doc.components?.schemas ?? {})) {
-    if (has(schema, SCHEMA_FIELD_DEPTH)) return true;
+    if (has(schema)) return true;
   }
   for (const item of Object.values(doc.paths ?? {})) {
     if (itemHasUnion(item)) return true;
@@ -180,17 +182,59 @@ export class SchemaResolver {
    * A field/body/response union, preferring the RAW schema so branch `$ref`s
    * become named, linked variants; falling back to the dereferenced shape (and
    * its array items) so an unmapped union still renders — unlinked, never empty.
+   * With `base`, each inline branch that `anonymousBranches` mints under it gets
+   * that node's coordinate, so the branch opens in place.
    */
   unionPreferRaw(
     raw: OpenApiSchema | undefined,
     deref: OpenApiSchema | undefined,
     derefItems: OpenApiSchema | undefined,
+    base?: Coordinate,
   ): UnionShape | undefined {
-    return (
+    const shape =
       this.rawUnionOf(raw) ??
       this.unionOf(deref) ??
-      (derefItems ? this.unionOf(derefItems) : undefined)
-    );
+      (derefItems ? this.unionOf(derefItems) : undefined);
+    if (shape && base !== undefined) {
+      for (const { index } of this.anonymousBranches(raw, deref, derefItems)) {
+        shape.variants[index]!.coordinate = joinPath(base, String(index + 1));
+      }
+    }
+    return shape;
+  }
+
+  /**
+   * The branches of a union that have no `$ref` yet structure of their own —
+   * properties, or a union — each paired with its raw counterpart by position.
+   * The walker mints one `variant` node per entry at `<base>.<1-based
+   * position>`, so a position that is also a property name is left out rather
+   * than collide with that field. Only the raw doc can tell an inline branch
+   * from a dereferenced `$ref`, so without it (or out of step with it) nothing
+   * qualifies and the branches stay labels.
+   */
+  anonymousBranches(
+    raw: OpenApiSchema | undefined,
+    deref: OpenApiSchema | undefined,
+    derefItems: OpenApiSchema | undefined,
+  ): AnonymousBranch[] {
+    const container = deref && branchesOf(deref) ? deref : derefItems;
+    const branches = container ? branchesOf(container) : undefined;
+    if (!container || !branches) return [];
+    const eff = this.rawEffective(raw);
+    const rawBranches = eff ? branchesOf(this.rawFold(eff)) : undefined;
+    if (!rawBranches || rawBranches.length !== branches.length) return [];
+    const { properties } = collectObjectShape(container);
+    const out: AnonymousBranch[] = [];
+    branches.forEach((schema, index) => {
+      const rawBranch = rawBranches[index]!;
+      if (typeof rawBranch.$ref === "string") return;
+      if (Object.hasOwn(properties, String(index + 1))) return;
+      const folded = foldAllOf(schema);
+      const shape = itemsOf(folded) ?? folded;
+      if (!hasProperties(foldAllOf(shape)) && !branchesOf(shape)) return;
+      out.push({ index, schema, raw: rawBranch });
+    });
+    return out;
   }
 
   /** The union of a raw schema, resolving `$ref`s (top-level, array items, and
@@ -296,8 +340,8 @@ export class SchemaResolver {
   private unionOf(schema: OpenApiSchema | undefined): UnionShape | undefined {
     if (!schema) return undefined;
     const folded = foldAllOf(schema);
-    const branches = folded.oneOf ?? folded.anyOf;
-    if (!Array.isArray(branches) || branches.length === 0) return undefined;
+    const branches = branchesOf(folded);
+    if (!branches) return undefined;
     const shape: UnionShape = {
       kind: folded.oneOf ? "oneOf" : "anyOf",
       variants: branches.map((b, i) => this.resolveVariant(b, i)),
@@ -331,11 +375,21 @@ export class SchemaResolver {
       // `components.schemas`) never triggers the raw parse, but the target
       // component is still a page — so a discriminator mapping must resolve
       // regardless of whether `rawDoc` was built.
-      return this.knownSchema(name)
-        ? { label: name, coordinate: schemaCoordinate(name) }
-        : { label: name };
+      const out: VariantRef = { label: name, name };
+      const title = this.schemaTitle(name);
+      if (title) out.title = title;
+      if (this.knownSchema(name)) out.coordinate = schemaCoordinate(name);
+      return out;
     }
     return { label: this.anonymousBranchLabel(branch, index) };
+  }
+
+  /** A component schema's own `title`, when it declares a non-empty one — the
+   *  name the spec gives readers, over the key it gives tooling. */
+  private schemaTitle(name: string): string | undefined {
+    const schema = this.rawSchemas[name] ?? (this.docSchemas?.[name] as OpenApiSchema | undefined);
+    const title = typeof schema?.title === "string" ? schema.title.trim() : "";
+    return title || undefined;
   }
 
   /**
@@ -381,6 +435,13 @@ export class SchemaResolver {
       | undefined;
     return Boolean(schemas && name in schemas);
   }
+}
+
+/** One inline union branch the walker mints, with its raw counterpart when the raw doc has one. */
+export interface AnonymousBranch {
+  index: number;
+  schema: OpenApiSchema;
+  raw: OpenApiSchema;
 }
 
 /** The JSON type of a schema's `enum`/`const` literals (`string`, `integer`, …),

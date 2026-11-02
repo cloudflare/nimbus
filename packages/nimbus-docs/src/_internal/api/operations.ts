@@ -21,7 +21,6 @@ import {
 import { resolveOperationRoute, routeSlugFault } from "./route-policy.js";
 import {
   HTTP_METHODS,
-  SCHEMA_FIELD_DEPTH,
   type HttpMethod,
   type OpenApiMediaType,
   type OpenApiOperation,
@@ -43,7 +42,7 @@ import {
   resolveExampleValue,
   resolveNamedExampleValues,
 } from "./samples.js";
-import { addField, extensionValues, walkFields, type FieldRole } from "./field-walk.js";
+import { addField, extensionValues, walkFields, warnFieldCeiling, type FieldRole } from "./field-walk.js";
 import {
   asString,
   constraintsOf,
@@ -57,15 +56,28 @@ import {
 import type { ParseContext } from "./parse-context.js";
 
 export function parseOperations(ctx: ParseContext): void {
+  const operations: [order: number, args: [HttpMethod, string, OpenApiOperation, OpenApiParameter[]]][] = [];
   for (const [path, item] of Object.entries(ctx.doc.paths ?? {})) {
     if (item === null || typeof item !== "object") continue;
     const sharedParams = Array.isArray(item.parameters) ? item.parameters : [];
     for (const method of HTTP_METHODS) {
       const op = item[method];
       if (!op || typeof op !== "object") continue;
-      addOperation(ctx, method, path, op, sharedParams);
+      // Sections are minted in path order; the sort below never moves them.
+      const tag = op.tags?.[0];
+      if (typeof tag === "string") ctx.ensureSection(tag);
+      operations.push([operationOrder(op), [method, path, op, sharedParams]]);
     }
   }
+  // Mint order is list order everywhere; the sort is stable, so unordered
+  // operations keep the spec's.
+  operations.sort((a, b) => a[0] - b[0]);
+  for (const [, args] of operations) addOperation(ctx, ...args);
+}
+
+function operationOrder(op: OpenApiOperation): number {
+  const order = op["x-nimbus-order"];
+  return typeof order === "number" && Number.isFinite(order) ? order : Number.MAX_SAFE_INTEGER;
 }
 
 function addOperation(
@@ -285,7 +297,7 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
   const bodySchema = primaryEntry?.media.schema;
   const rawBodySchema = ctx.resolver.rawContentSchema(rawOp?.requestBody);
   const bodyUnion = bodySchema
-    ? ctx.resolver.unionPreferRaw(rawBodySchema, bodySchema, itemsOf(bodySchema))
+    ? ctx.resolver.unionPreferRaw(rawBodySchema, bodySchema, itemsOf(bodySchema), coord)
     : undefined;
   const bodyFieldPaths: string[] = [];
   if (bodySchema) {
@@ -337,7 +349,7 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
       facts.example = { mediaType: respEntry.mediaType, value: respExample };
     }
     const respUnion = respSchema
-      ? ctx.resolver.unionPreferRaw(rawRespSchema, respSchema, itemsOf(respSchema))
+      ? ctx.resolver.unionPreferRaw(rawRespSchema, respSchema, itemsOf(respSchema), responseFieldCoordinate(coord, status, ""))
       : undefined;
     if (respUnion) facts.union = respUnion;
     if (respEntry) facts.mediaType = respEntry.mediaType;
@@ -345,7 +357,7 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
     responses.push(respCoord);
     const respFieldPaths: string[] = [];
     if (respSchema) {
-      walkFields(ctx.resolver, respSchema, SCHEMA_FIELD_DEPTH, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField) => {
+      if (walkFields(ctx.resolver, respSchema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind) => {
         respFieldPaths.push(fieldPath);
         const fieldCoord = responseFieldCoordinate(coord, status, fieldPath);
         // A nested response field parents to its container field; a top-level
@@ -353,8 +365,8 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
         const parent = parentPath
           ? responseFieldCoordinate(coord, status, parentPath)
           : respCoord;
-        addField(ctx, fieldCoord, parent, fieldSchema, required, "field", respSource, rawField);
-      }, rawRespSchema, "response");
+        addField(ctx, fieldCoord, parent, fieldSchema, required, kind, respSource, rawField);
+      }, rawRespSchema, "response")) warnFieldCeiling(ctx.registry, respCoord, respSource);
     }
     const extraMedia = respEntries.slice(1);
     const extraTokens = mediaTypeTokens(
@@ -492,7 +504,7 @@ function addBodyFields(
   rawSchema?: OpenApiSchema,
 ): Coordinate[] {
   const coords: Coordinate[] = [];
-  walkFields(ctx.resolver, schema, SCHEMA_FIELD_DEPTH, new Set(), (fieldPath, fieldSchema, required, topLevelName, parentPath, rawField) => {
+  if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, topLevelName, parentPath, rawField, kind) => {
     const coord = bodyFieldCoordinate(opCoord, fieldPath);
     // A nested body field parents to its container field; a top-level one
     // parents to the operation. Nesting is minted here because coordinates are
@@ -503,9 +515,9 @@ function addBodyFields(
     if (topLevelName && isShadowingBodyProperty(topLevelName)) {
       ctx.registry.warnShadowing(coord, topLevelName, sourceBase);
     }
-    addField(ctx, coord, parent, fieldSchema, required, "field", `${sourceBase}/requestBody`, rawField);
+    addField(ctx, coord, parent, fieldSchema, required, kind, `${sourceBase}/requestBody`, rawField);
     coords.push(coord);
-  }, rawSchema, role);
+  }, rawSchema, role)) warnFieldCeiling(ctx.registry, opCoord, sourceBase);
   return coords;
 }
 
@@ -526,7 +538,7 @@ function addMediaBody(
   const rawSchema = ctx.resolver.rawMediaSchema(rawRequestBody, entry.mediaType);
   const facts: RequestBodyFacts = { kind: "requestBody", mediaType: entry.mediaType };
   const union = schema
-    ? ctx.resolver.unionPreferRaw(rawSchema, schema, itemsOf(schema))
+    ? ctx.resolver.unionPreferRaw(rawSchema, schema, itemsOf(schema), mediaCoord)
     : undefined;
   if (union) facts.union = union;
   const example = resolveExampleValue(mediaExample(entry), role, ctx.sampleTools);
@@ -534,11 +546,11 @@ function addMediaBody(
   ctx.node(mediaCoord, "requestBody", opCoord, facts, source);
 
   if (schema) {
-    walkFields(ctx.resolver, schema, SCHEMA_FIELD_DEPTH, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField) => {
+    if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind) => {
       const coord = bodyMediaFieldCoordinate(opCoord, token, fieldPath);
       const parent = parentPath ? bodyMediaFieldCoordinate(opCoord, token, parentPath) : mediaCoord;
-      addField(ctx, coord, parent, fieldSchema, required, "field", source, rawField);
-    }, rawSchema, role);
+      addField(ctx, coord, parent, fieldSchema, required, kind, source, rawField);
+    }, rawSchema, role)) warnFieldCeiling(ctx.registry, mediaCoord, source);
   }
 }
 
@@ -558,7 +570,7 @@ function addResponseMedia(
   const rawSchema = ctx.resolver.rawMediaSchema(rawResponse, entry.mediaType);
   const facts: ResponseMediaFacts = { kind: "responseMedia", mediaType: entry.mediaType };
   const union = schema
-    ? ctx.resolver.unionPreferRaw(rawSchema, schema, itemsOf(schema))
+    ? ctx.resolver.unionPreferRaw(rawSchema, schema, itemsOf(schema), mediaCoord)
     : undefined;
   if (union) facts.union = union;
   const example = resolveExampleValue(mediaExample(entry), "response", ctx.sampleTools);
@@ -566,12 +578,12 @@ function addResponseMedia(
   ctx.node(mediaCoord, "responseMedia", respCoord, facts, source);
 
   if (schema) {
-    walkFields(ctx.resolver, schema, SCHEMA_FIELD_DEPTH, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField) => {
+    if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind) => {
       const coord = responseMediaFieldCoordinate(opCoord, status, token, fieldPath);
       const parent = parentPath
         ? responseMediaFieldCoordinate(opCoord, status, token, parentPath)
         : mediaCoord;
-      addField(ctx, coord, parent, fieldSchema, required, "field", source, rawField);
-    }, rawSchema, "response");
+      addField(ctx, coord, parent, fieldSchema, required, kind, source, rawField);
+    }, rawSchema, "response")) warnFieldCeiling(ctx.registry, mediaCoord, source);
   }
 }

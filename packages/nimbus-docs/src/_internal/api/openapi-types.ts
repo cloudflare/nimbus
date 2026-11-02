@@ -73,9 +73,6 @@ export const HTTP_METHODS = [
 
 export type HttpMethod = (typeof HTTP_METHODS)[number];
 
-/** How deep the schema walk descends before linking out. */
-export const SCHEMA_FIELD_DEPTH = 6;
-
 export type OpenApiPathItem = {
   parameters?: OpenApiParameter[];
 } & Partial<Record<HttpMethod, OpenApiOperation>>;
@@ -93,6 +90,9 @@ export interface OpenApiOperation {
   /** The `x-codeSamples` vendor extension; spec-authored samples win over derived. */
   "x-codeSamples"?: unknown;
   "x-code-samples"?: unknown;
+  /** Nimbus's own: the operation's place among its section's operations. Lower
+   *  comes first; operations without it follow, in the spec's order. */
+  "x-nimbus-order"?: number;
 }
 
 export interface OpenApiParameter {
