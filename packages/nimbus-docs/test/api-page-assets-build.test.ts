@@ -586,7 +586,7 @@ test(
 );
 
 test(
-  "actual Workers adapter: workerd dev serves staged page and agent assets",
+  "actual Workers adapter: workerd dev serves staged page and agent assets under a base",
   {
     skip: !adapterRoot || process.env.NIMBUS_TEST_WORKER_ASSETS !== "1",
     timeout: 120_000,
@@ -602,16 +602,17 @@ test(
     });
     let server: Awaited<ReturnType<typeof dev>> | undefined;
     t.after(() => server?.stop());
-    const { root, options } = await fixture(t, true, {}, true);
+    const { root, options } = await fixture(t, true, { base: "/docs" }, true);
     server = await dev({
       ...options,
       server: { host: "127.0.0.1", port: 0 },
     } as never);
     const request = (pathname: string) =>
-      fetch(`http://127.0.0.1:${server!.address.port}${pathname}`, {
-        redirect: "manual",
-      });
-    await assertRequests(request);
+      fetch(
+        `http://127.0.0.1:${server!.address.port}${pathname.startsWith("/docs/") ? pathname : `/docs${pathname}`}`,
+        { redirect: "manual" },
+      );
+    await assertRequests(request, "/docs");
     const edited = spec(true).replace(
       "Old create",
       "Updated historical create",
@@ -620,11 +621,7 @@ test(
     let html = "";
     const deadline = Date.now() + 15_000;
     while (Date.now() < deadline) {
-      html = await (
-        await fetch(
-          `http://127.0.0.1:${server!.address.port}/api/make-pet/?version=v1`,
-        )
-      ).text();
+      html = await (await request("/api/make-pet/?version=v1")).text();
       if (html.includes("Updated historical create")) break;
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
