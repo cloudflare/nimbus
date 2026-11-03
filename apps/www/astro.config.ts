@@ -1,8 +1,10 @@
 import { defineConfig } from "astro/config";
+import cloudflare from "@astrojs/cloudflare";
 import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 import nimbus, { defineConfig as defineNimbusConfig } from "@cloudflare/nimbus-docs";
 import { tableScroll } from "@cloudflare/nimbus-docs/markdown";
+import { showcaseMarkdown } from "./src/lib/showcase-markdown";
 
 const nimbusConfig = defineNimbusConfig({
   site: "https://nimbus-docs.com",
@@ -11,6 +13,10 @@ const nimbusConfig = defineNimbusConfig({
   locale: "en",
   github: "https://github.com/cloudflare/nimbus",
   socialImageAlt: "Nimbus documentation preview",
+  // Pages render on request so each answers `Accept: text/markdown` at its
+  // own URL; the MCP server needs the Worker anyway.
+  rendering: { collections: { docs: "request", components: "request" } },
+  agents: { mcp: true },
   editPattern: "https://github.com/cloudflare/nimbus/edit/main/apps/www/{path}",
   // The sidebar follows the content tree: each top-level folder's index.mdx
   // names its group and its place (sidebar.group, sidebar.order).
@@ -48,6 +54,12 @@ const moved = {
   ),
 };
 
+// Where an agent or a reader looks for who runs the site.
+const about = {
+  "/about": "/why-nimbus",
+  "/contact": "https://github.com/cloudflare/nimbus/discussions",
+};
+
 // `/` is src/home/HomePage.astro, a route of its own so its styles stay off the
 // docs pages.
 const homepage = {
@@ -60,10 +72,14 @@ const homepage = {
 };
 
 export default defineConfig({
-  output: "static",
-  redirects: Object.fromEntries(Object.entries(moved).map(([from, to]) => [from, { status: 301, destination: to }])),
-  integrations: [homepage, react(), nimbus(nimbusConfig, { markdown: { hastPlugins: [tableScroll()] } })],
+  output: "server",
+  adapter: cloudflare({ prerenderEnvironment: "node" }),
+  redirects: Object.fromEntries(
+    Object.entries({ ...moved, ...about }).map(([from, to]) => [from, { status: 301, destination: to }]),
+  ),
+  integrations: [homepage, react(), nimbus(nimbusConfig, { markdown: { hastPlugins: [tableScroll()], componentMap: showcaseMarkdown } })],
   vite: {
+    define: { "import.meta.env.WWW_NOINDEX": JSON.stringify(process.env.WWW_NOINDEX === "1") },
     // Tailwind v4 via its Vite plugin (replaces the PostCSS plugin, which
     // doesn't build under Astro 7's Vite 8 bundler).
     plugins: [tailwindcss()],

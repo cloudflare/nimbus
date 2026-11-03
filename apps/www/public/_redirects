@@ -67,3 +67,5 @@
 /styling/banners/ /reference/frontmatter#banner 301
 /styling/banners/index.md /reference/frontmatter/index.md 301
 /styling/banners/index.mdx /reference/frontmatter/index.mdx 301
+/about/ /why-nimbus 301
+/contact/ https://github.com/cloudflare/nimbus/discussions 301

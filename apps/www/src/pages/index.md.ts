@@ -1,0 +1,93 @@
+/**
+ * /index.md: the homepage's Markdown version, and what `/` answers when a
+ * request prefers Markdown. Section by section it says what HomePage shows,
+ * from the same copy where the page has it in a module.
+ */
+import type { APIRoute } from "astro";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
+import { cmd, hero, sections } from "@/home/variants/copy";
+import { description, faq, workflows } from "@/home/www/content";
+
+export const prerender = true;
+
+export const GET: APIRoute = ({ site }) => {
+  const url = (path: string) => new URL(withBase(path, import.meta.env.BASE_URL), site).href;
+  const body = [
+    "---",
+    `title: ${JSON.stringify(`${hero.line1}: ${hero.line2.toLowerCase()}`)}`,
+    `description: ${JSON.stringify(description)}`,
+    "---",
+    "",
+    "> Documentation Index",
+    `> Fetch the complete documentation index at: ${url("/llms.txt")}`,
+    "> Use this file to discover all available pages before exploring further.",
+    "",
+    `# ${hero.line1}`,
+    "",
+    `${hero.line2}. Write with your team. And your agents. Every page up to your standard.`,
+    "",
+    "```sh",
+    cmd,
+    "```",
+    "",
+    "You write a page once. Nimbus checks it (links resolve, components valid, headings in order, code blocks labelled), holds it for review until someone signs off, and ships it to people and agents: the page, its Markdown version, a line in `/llms.txt`, a share card and a sitemap URL.",
+    "",
+    "## Write with your team. And your agents.",
+    "",
+    "Every page up to your standard. Write in your editor, your repo, or the tools you already use. Or hand the page to an agent. Every page meets the same standard.",
+    "",
+    ...workflows.flatMap((w) => [`### ${w.label}: ${w.title}`, "", ...w.items.map((item) => `- ${item}`), ""]),
+    "### Every author follows the same rules.",
+    "",
+    `\`nimbus-docs lint\` holds an agent's draft to your writing rules, and \`--fix\` makes the fixes. See [Linting](${url("/writing/linting")}).`,
+    "",
+    "## Make it look like your product.",
+    "",
+    `Every file is yours to change. ${sections.own.body}`,
+    "",
+    "## Everything a docs site needs.",
+    "",
+    "Built in, or one command away.",
+    "",
+    `- **AI search:** ask the docs, get an answer with its source.`,
+    `- **MCP server:** your docs as a tool any agent can call, at ${url("/mcp")}.`,
+    `- **Features as recipes:** your agent follows the recipe, and the code lands in your repo, written your way.`,
+    `- **Content loaders:** write where your team already writes: the repository, Notion or Google Docs.`,
+    `- **API reference:** generated from your OpenAPI spec, with Try it on every endpoint.`,
+    "",
+    `## ${sections.extend.h1}`,
+    "",
+    "Components land as files. Features land as recipes. The registry installs in two modes. Components copy into your repo as source. Features arrive as a recipe that an agent applies to your site.",
+    "",
+    "```sh",
+    "npx @cloudflare/nimbus-docs add accordion",
+    "npx @cloudflare/nimbus-docs add changelog --print",
+    "```",
+    "",
+    `Browse them at [Components](${url("/components")}).`,
+    "",
+    "## Questions",
+    "",
+    ...faq.flatMap(([q, a]) => [`### ${q}`, "", a, ""]),
+    "## Your docs, five minutes from now.",
+    "",
+    "Paste this in your terminal. A few questions later, the site is in your repo.",
+    "",
+    "```sh",
+    cmd,
+    "```",
+    "",
+    "## Links",
+    "",
+    `- [Get started](${url("/quickstart")})`,
+    `- [Components](${url("/components")})`,
+    `- [CLI](${url("/cli")})`,
+    `- [Philosophy](${url("/why-nimbus")})`,
+    `- [Docs for agents](${url("/ai/docs-for-agents")})`,
+    `- [llms.txt](${url("/llms.txt")})`,
+    "- [GitHub](https://github.com/cloudflare/nimbus)",
+    "- [npm](https://www.npmjs.com/package/@cloudflare/nimbus-docs)",
+    "",
+  ].join("\n");
+  return new Response(body, { headers: { "Content-Type": "text/markdown; charset=utf-8" } });
+};

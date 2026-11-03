@@ -1,36 +1,31 @@
 ---
 /**
- * /components/[slug] — per-component showcase.
+ * /components and /components/<slug>, rendered on request.
  *
- * Reads from the `components` content collection. Each entry's MDX body
- * supplies the Preview + Examples sections (via the `<Showcase>` and
- * `<Example>` wrappers); the route owns Installation + API reference
- * because they're driven by `manifests.ts` and the entry's frontmatter
- * `props` array, not by hand-authored prose.
+ * Reads from the `components` content collection. `index.mdx` is the
+ * landing grid. Each component entry's MDX body supplies the Preview +
+ * Examples sections (via the `<Showcase>` and `<Example>` wrappers); the
+ * route owns Installation + API reference because they're driven by
+ * `manifests.ts` and the entry's frontmatter `props` array, not by
+ * hand-authored prose.
  */
-import { getCollection, getEntry, render } from "astro:content";
+import { getCollection } from "astro:content";
 import DocsLayout from "@/layouts/DocsLayout.astro";
+import ComponentGrid from "@/components/showcase/ComponentGrid.astro";
 import PropTable from "@/components/showcase/PropTable.astro";
 import { PackageManagers } from "@/components/ui/package-managers";
 import { components } from "../../components";
 import { Code } from "@/components/ui/code";
 import { MANIFESTS } from "@/../registry/manifests";
 import { STARTER_MANIFEST } from "../../../../../packages/nimbus-starter-source/starter.manifest.mjs";
-import { getSidebar } from "@cloudflare/nimbus-docs";
+import { getCollectionPage, getSidebar } from "@cloudflare/nimbus-docs/runtime";
 import type { TOCItem } from "@cloudflare/nimbus-docs/types";
 
-export const prerender = true;
-
-export async function getStaticPaths() {
-  const entries = await getCollection("components");
-  return entries.map((e) => ({ params: { slug: e.id } }));
-}
-
-const { slug } = Astro.params;
-if (!slug) return new Response("Not found", { status: 404 });
-
-const entry = await getEntry("components", slug);
-if (!entry) return new Response("Not found", { status: 404 });
+const page = await getCollectionPage(Astro, "components");
+if (page instanceof Response) return page;
+const { entry, markdownUrl } = page;
+const slug = entry.id;
+const isIndex = slug === "index";
 
 const manifest = MANIFESTS[slug as keyof typeof MANIFESTS];
 const isBuiltin = !manifest || manifest.type !== "registry:ui";
@@ -42,17 +37,17 @@ const installState = isBuiltin ? "builtin" : registryOnly ? "install" : "include
 const { tagline, props } = entry.data;
 const hasProps = props.length > 0;
 
-const sidebar = await getSidebar(`/components/${slug}`);
+const sidebar = await getSidebar(isIndex ? "/components" : `/components/${slug}`);
 
 // Prev/next over the alphabetical list of registry:ui components in the
 // collection. The components grid + sidebar already sort by manifest
 // title; mirror that ordering here so the footer matches.
-const allEntries = await getCollection("components");
-  const ordered = allEntries
-    .map((e) => {
-      const m = MANIFESTS[e.id as keyof typeof MANIFESTS];
-      return { id: e.id, label: m?.type === "registry:ui" ? m.title : e.data.title };
-    })
+const allEntries = (await getCollection("components")).filter((e) => e.id !== "index");
+const ordered = allEntries
+  .map((e) => {
+    const m = MANIFESTS[e.id as keyof typeof MANIFESTS];
+    return { id: e.id, label: m?.type === "registry:ui" ? m.title : e.data.title };
+  })
   .sort((a, b) => a.label.localeCompare(b.label));
 const currentIndex = ordered.findIndex((e) => e.id === slug);
 const prevEntry = currentIndex > 0 ? ordered[currentIndex - 1] : undefined;
@@ -62,7 +57,7 @@ const prevNext = {
   next: nextEntry ? { label: nextEntry.label, href: `/components/${nextEntry.id}` } : undefined,
 };
 
-const { Content, headings: bodyHeadings } = await render(entry);
+const { Content, headings: bodyHeadings } = page;
 
 const headings: TOCItem[] = [
   { depth: 2, text: "Installation", slug: "installation" },
@@ -75,7 +70,6 @@ const headings: TOCItem[] = [
 ];
 
 const name = manifest?.type === "registry:ui" ? manifest.title : entry.data.title;
-const markdownUrl = `/components/${slug}/index.md`;
 
 const breadcrumbs = [
   { label: "Home", href: "/" },
@@ -84,6 +78,22 @@ const breadcrumbs = [
 ];
 ---
 
+{isIndex ? (
+<DocsLayout
+  title={entry.data.title}
+  description={tagline}
+  markdownUrl={markdownUrl}
+  sidebar={sidebar}
+  headings={false}
+  breadcrumbs={[]}
+  prevNext={{ prev: undefined, next: undefined }}
+  collection="components"
+  entryId={slug}
+>
+  <h1 slot="page-title" class="sr-only">{entry.data.title}</h1>
+  <ComponentGrid />
+</DocsLayout>
+) : (
 <DocsLayout
   title={name}
   description={tagline}
@@ -125,6 +135,7 @@ const breadcrumbs = [
     </>
   )}
 </DocsLayout>
+)}
 
 <style is:global>
   /* Preview + Code pair: the code joins the stage above it as one box. */
