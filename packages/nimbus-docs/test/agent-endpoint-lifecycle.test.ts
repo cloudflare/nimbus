@@ -174,10 +174,10 @@ export async function GET({ props, request }) {
     path.join(root, "dist/guide/index.md"),
     "utf8",
   );
-  assert.match(markdown, /\[Guide\]\(\/docs\/guide\)/);
+  assert.match(markdown, /\[Guide\]\(https:\/\/example\.test\/docs\/guide\)/);
   assert.match(markdown, /\*\*Cloud\*\*/);
   assert.match(markdown, /## Shared/);
-  assert.match(markdown, /\[Root\]\(\/docs\/\)/);
+  assert.match(markdown, /\[Root\]\(https:\/\/example\.test\/docs\/\)/);
   assert.doesNotMatch(markdown, /<Render/);
   assert.match(
     await readFile(path.join(root, "dist/nested/index.md"), "utf8"),
@@ -197,7 +197,7 @@ export async function GET({ props, request }) {
   );
   assert.match(llmsFull, /# Guide/);
   assert.match(llmsFull, /## Shared/);
-  assert.match(llmsFull, /\[Root\]\(\/docs\/\)/);
+  assert.match(llmsFull, /\[Root\]\(https:\/\/example\.test\/docs\/\)/);
   assert.doesNotMatch(llmsFull, /<Render/);
   assert.match(
     await readFile(

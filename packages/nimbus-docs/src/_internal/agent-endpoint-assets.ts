@@ -55,6 +55,7 @@ import {
 import { orderPageCollections } from "./page-collections.js";
 import { registerAgentEndpointAssetReader } from "./agent-endpoint-asset-reader.js";
 import {
+  absoluteMarkdownLinks,
   renderEntryAsMarkdown,
 } from "./transform.js";
 import { formatLabel } from "./sidebar.js";
@@ -1978,13 +1979,16 @@ export async function bakeAgentEndpointAssets(
       getPartial,
       resolvePartialId: options.partialResolver?.resolve,
     });
-    const markdown = renderEntryAsMarkdown(
-      { body: expanded, filePath: entry.filePath },
-      {
-        citationIndex: basedCitationIndex,
-        componentMap: renderers,
-        base,
-      },
+    const markdown = absoluteMarkdownLinks(
+      renderEntryAsMarkdown(
+        { body: expanded, filePath: entry.filePath },
+        {
+          citationIndex: basedCitationIndex,
+          componentMap: renderers,
+          base,
+        },
+      ),
+      options.site,
     );
     const page = preparedLlmsPage(entry, markdown, options);
     llmsRoutePages.push(page);
@@ -2090,6 +2094,7 @@ export async function bakeAgentEndpointAssets(
         `nimbus-docs: API entry "${entry.id}" in collection "${entry.collection}" is missing its prepared page data — rebuild the apiCollection() index.`,
       );
     }
+    markdown = absoluteMarkdownLinks(markdown, options.site);
     if (isDiscoverable(entry)) {
       preparedLlmsPages.push(preparedLlmsPage(entry, markdown, options));
     }

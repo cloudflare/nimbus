@@ -64,7 +64,7 @@ test("a plain Markdown docs folder builds with heading titles, page links and si
     );
 
     const twin = await site.read("dist/sdk/1-promise/index.md");
-    assert.match(twin, /\[the options\]\(\/sdk\/2-options\/#signal\)/);
+    assert.match(twin, /\[the options\]\(https:\/\/docs\.example\.test\/sdk\/2-options\/#signal\)/);
     assert.match(await site.read("dist/sdk/guides/streams/index.html"), /href="\/sdk\/2-options\/"/);
     // Lint reads MDX, and says how many Markdown pages that leaves out.
     const { spawnSync } = await import("node:child_process");
@@ -142,7 +142,7 @@ test("a source collection's links follow its route when it moves, on a warm cach
     await site.write("src/pages/integrations/dbt/[...slug].astro", movedRoute);
     await run();
     assert.deepEqual(await links("/integrations/dbt/"), ["/integrations/dbt/2-options/#signal"]);
-    assert.match(await site.read("dist/integrations/dbt/1-promise/index.md"), /\[the options\]\(\/integrations\/dbt\/2-options\/#signal\)/);
+    assert.match(await site.read("dist/integrations/dbt/1-promise/index.md"), /\[the options\]\(https:\/\/docs\.example\.test\/integrations\/dbt\/2-options\/#signal\)/);
     const { existsSync } = await import("node:fs");
     assert.ok(!existsSync(path.join(site.root, "dist/sdk")));
   } finally {

@@ -19,6 +19,8 @@ Every Nimbus site publishes a plain-text copy of itself for agents and other too
 | `/llms-full.txt` | Every current page in one Markdown document. Over 25 MiB, it becomes an index of one `llms-full.txt` per section. |
 | `/<version>/llms.txt` | An index for each older docs version, which the site index leaves out. |
 
+Links in a Markdown version are absolute (`/writing/openapi` becomes `https://docs.example.com/writing/openapi`), so they still work when an agent reads the file away from the site. `/llms.txt` quotes the site's `description` as a `> ` summary, and each section's `llms.txt` quotes its index page's `description`.
+
 On a versioned site, every Markdown version's frontmatter has a `version:` key, so agents can pin a version. Every page's head also carries JSON-LD structured data. Pages with `draft: true` or `noindex: true` are left out of the indexes; see [Docs for agents](/ai/docs-for-agents#how-pages-are-indexed) for the full rules.
 
 ## Add your own frontmatter
