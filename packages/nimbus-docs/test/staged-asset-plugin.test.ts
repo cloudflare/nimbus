@@ -114,3 +114,54 @@ test("prerender selects the actual environment: workerd binding or build-time No
   assert.match(node, /\.astro/);
   assert.ok(!node.includes("cloudflare:workers"));
 });
+
+test("dev middleware serves staged assets after Astro strips the base", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "nimbus-dev-"));
+  try {
+    await mkdir(path.join(root, ".astro/nimbus/pages"), { recursive: true });
+    await writeFile(
+      path.join(root, ".astro/nimbus/pages/record-aa.json"),
+      '{"record":true}',
+    );
+    const instance = stagedAssetPlugin({
+      root,
+      base: "/base/",
+      adapterName: () => "@astrojs/cloudflare",
+      clientDirectory: () => path.join(root, "client"),
+      serverDirectory: () => path.join(root, "server"),
+      isDev: () => true,
+    });
+    let middleware: Function | undefined;
+    (instance.configureServer as Function)({
+      middlewares: { use: (fn: Function) => (middleware = fn) },
+    });
+    const serve = (request: { url: string; originalUrl?: string }) =>
+      new Promise<string>((resolve) =>
+        middleware!(
+          request,
+          { setHeader() {}, end: (body: Buffer) => resolve(String(body)) },
+          () => resolve("next"),
+        ),
+      );
+    assert.equal(
+      await serve({
+        url: "/_nimbus/pages/record-aa.json",
+        originalUrl: "/base/_nimbus/pages/record-aa.json",
+      }),
+      '{"record":true}',
+    );
+    assert.equal(
+      await serve({ url: "/base/_nimbus/pages/record-aa.json" }),
+      '{"record":true}',
+    );
+    assert.equal(
+      await serve({
+        url: "/_nimbus/pages/record-aa.json",
+        originalUrl: "/_nimbus/pages/record-aa.json",
+      }),
+      "next",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
