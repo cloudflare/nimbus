@@ -92,6 +92,37 @@ async function publishedMarkdown(context: APIContext, pathname: string): Promise
   }
 }
 
+/**
+ * A missing page: an HTML 404, or a page helper's empty one (untyped or
+ * `text/plain`), which Astro replaces with the 404 page. An endpoint's own
+ * 404, such as JSON, stays as it is.
+ */
+function isMissingPage(response: Response): boolean {
+  if (response.status !== 404) return false;
+  const type = response.headers.get("Content-Type");
+  if (type?.includes("text/html")) return true;
+  return response.body === null && (!type || type.startsWith("text/plain"));
+}
+
+/** A request-rendered 404 an agent can read: where to look instead. */
+function notFoundMarkdown(context: APIContext, response: Response): Response {
+  const absolute = (pathname: string) => new URL(withBase(pathname, options.base), options.site).href;
+  const body = [
+    "# Not found",
+    "",
+    `There is no page at \`${context.url.pathname}\`.`,
+    "",
+    ...(capabilities.llmsUrl ? [`- Documentation index: ${capabilities.llmsUrl}`] : []),
+    `- Sitemap: ${absolute("/sitemap-index.xml")}`,
+    "",
+  ].join("\n");
+  const headers = new Headers(response.headers);
+  for (const name of ["Content-Length", "Content-Encoding", "ETag", "Last-Modified"]) headers.delete(name);
+  headers.set("Content-Type", "text/markdown; charset=utf-8");
+  varyOnAccept(headers);
+  return new Response(context.request.method === "HEAD" ? null : body, { status: 404, statusText: response.statusText, headers });
+}
+
 export const onRequest: MiddlewareHandler = async (context, next) => {
   if (!["GET", "HEAD"].includes(context.request.method)) return next();
   // Static builds copy the site's emitted llms.txt after prerendering. In dev
@@ -107,6 +138,12 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
     } catch {}
   }
   const response = await next();
+  if (options.output === "server" && isMissingPage(response)) {
+    // Both forms vary on Accept, so a cache never serves one for the other.
+    return prefersMarkdown(context.request.headers.get("Accept"))
+      ? notFoundMarkdown(context, response)
+      : withHeaders(response, varyOnAccept);
+  }
   if (response.status !== 200) return response;
   const atHome = isHome(context.url.pathname);
   // Only a request-rendered page on server output negotiates: a static host
