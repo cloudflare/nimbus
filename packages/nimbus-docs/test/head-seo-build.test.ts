@@ -29,7 +29,7 @@ export const getStaticPaths = getDocsStaticPaths;
 const { entry, Content } = await getDocsPageProps(Astro);
 const lastUpdated = entry.data.lastUpdated ?? (await getLastUpdated(entry));
 ---
-<html><head><NimbusHead title={entry.data.title} description={entry.data.description} socialImage={entry.data.socialImage} lastUpdated={lastUpdated} collection={entry.collection} entryId={entry.id} /></head><body><Content /></body></html>
+<html><head><NimbusHead title={entry.data.title} description={entry.data.description} socialImage={entry.data.socialImage} lastUpdated={lastUpdated} head={entry.data.head} collection={entry.collection} entryId={entry.id} /></head><body><Content /></body></html>
 `;
 
 const NOT_FOUND_ROUTE = `---
@@ -68,6 +68,14 @@ export const collections = { docs: defineCollection(docsCollection()) };
   await write("src/content/docs/remote.mdx", "---\ntitle: Remote\nsocialImage: https://cdn.example/card.png\n---\nRemote.\n");
   await write("src/content/docs/unsized.mdx", "---\ntitle: Unsized\nsocialImage: /img/wide.png\n---\nNo size known.\n");
   await write("src/content/docs/hero.mdx", "---\ntitle: Hero\nsocialImage: /og/hero.png\n---\nA file of our own under og/.\n");
+  await write(
+    "src/content/docs/mirror.mdx",
+    "---\ntitle: Mirror\nhead:\n  - tag: link\n    attrs: { rel: canonical, href: https://origin.example/mirror }\n---\nPublished elsewhere first.\n",
+  );
+  await write(
+    "src/content/docs/moved.mdx",
+    "---\ntitle: Moved\nhead:\n  - tag: link\n    attrs: { rel: canonical, href: /guides/setup/ }\n---\nNow lives under guides.\n",
+  );
 }
 
 function git(cwd: string, args: string[], date?: string) {
@@ -93,6 +101,8 @@ const ogWidth = (html: string) => tag(html, /<meta property="og:image:width" con
 const ogHeight = (html: string) => tag(html, /<meta property="og:image:height" content="([^"]*)"/);
 const ogImage = (html: string) => tag(html, /<meta property="og:image" content="([^"]*)"/);
 const title = (html: string) => tag(html, /<title>([^<]*)<\/title>/);
+const ogUrl = (html: string) => tag(html, /<meta property="og:url" content="([^"]*)"/);
+const canonicals = (html: string) => [...html.matchAll(/<link rel="canonical" href="([^"]*)"/g)].map((m) => m[1]);
 const lastmodOf = (sitemap: string, url: string) =>
   sitemap.match(new RegExp(`<url><loc>${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</loc>(?:<lastmod>([^<]*)</lastmod>)?`))?.[1];
 
@@ -168,6 +178,19 @@ test("head and sitemap: measured og:image sizes, 404 noindex, lastmod, /sitemap.
     assert.doesNotMatch(jsonLd, /</);
     assert.equal(JSON.parse(jsonLd).description, "a </script><script>window.injected = 1</script> b");
 
+    // an authored canonical is the page's only one; og:url and the structured data follow it
+    const mirror = await dist("mirror/index.html");
+    assert.deepEqual(canonicals(mirror), ["https://origin.example/mirror"]);
+    assert.equal(ogUrl(mirror), "https://origin.example/mirror");
+    assert.equal(JSON.parse(/<script type="application\/ld\+json">(.*?)<\/script>/s.exec(mirror)![1]!).url, "https://origin.example/mirror");
+    // a site path resolves against the site
+    const moved = await dist("moved/index.html");
+    assert.deepEqual(canonicals(moved), ["https://example.test/guides/setup/"]);
+    assert.equal(ogUrl(moved), "https://example.test/guides/setup/");
+    // pages without one keep their own URL
+    assert.deepEqual(canonicals(home), ["https://example.test/"]);
+    assert.equal(ogUrl(home), "https://example.test/");
+
     // 404: one site name in the title, noindex, canonical untouched
     const notFound = await dist("404.html");
     assert.equal(title(notFound), "Page not found | Example");
@@ -218,6 +241,10 @@ test("head and sitemap under a base path: auto-detected opengraph.png, own sitem
     assert.equal(lastmodOf(sitemap, "https://example.test/docs/guides/setup/"), "2023-06-02T11:00:00.000Z");
     assert.equal(lastmodOf(sitemap, "https://example.test/docs/pricing/"), "2024-01-15T00:00:00.000Z");
     assert.equal(await dist("sitemap.xml"), "<custom/>");
+    // an authored site path gets the base once
+    const moved = await dist("moved/index.html");
+    assert.deepEqual(canonicals(moved), ["https://example.test/docs/guides/setup/"]);
+    assert.equal(ogUrl(moved), "https://example.test/docs/guides/setup/");
   });
 });
 

@@ -1388,16 +1388,27 @@ async function resolveProseRoute<C extends string>(
  * filtered in production. Each path passes `{ entry }` as props so the
  * page component can access it via `getDocsPageProps(Astro)`.
  *
- * A `cacheKey` derived from the entry's `digest` is included on each path
- * so Astro's experimental incremental build cache can skip re-rendering
- * unchanged pages. This is a no-op when `experimental.incrementalBuild` is
- * not enabled in `astro.config.ts`.
+ * Each path carries a `cacheKey` for Astro's experimental incremental build:
+ * the entry's `digest` plus a digest of the collection's navigation tree,
+ * which the sidebar, breadcrumbs and prev/next links are drawn from, so a
+ * sibling's rename rebuilds the pages that show it. An entry without a
+ * `digest` gets no key and is rendered every build. This is a no-op when
+ * `experimental.incrementalBuild` is not enabled in `astro.config.ts`.
  *
  * Usage:
  *
  *   // src/pages/[...slug].astro
  *   export const prerender = true;
  *   export const getStaticPaths = getDocsStaticPaths;
+ *
+ * A route that draws from other inputs appends its own digest, keeping an
+ * undefined key undefined:
+ *
+ *   export const getStaticPaths: GetStaticPaths = async (options) =>
+ *     (await getDocsStaticPaths(options)).map((path) => ({
+ *       ...path,
+ *       cacheKey: path.cacheKey && `${path.cacheKey}:${myDigest}`,
+ *     }));
  *
  * The entry's `id` is the slug, with a trailing `index` dropped. So
  * `docs/index.mdx` → `/`, `docs/guides/index.mdx` → `/guides`, and
@@ -1409,13 +1420,20 @@ export const getDocsStaticPaths: GetStaticPaths = async () => {
   // collections require their own `pages/<name>/[...slug].astro` with
   // a one-line `getCollection("<name>")`-based getStaticPaths.
   await assertPageCollection(PRIMARY_COLLECTION);
-  const entries = await getVisibleEntries(["docs"]);
+  return collectionPaths(PRIMARY_COLLECTION, await getVisibleEntries(["docs"]));
+};
+
+async function collectionPaths(collection: string, entries: Awaited<ReturnType<typeof getVisibleEntries>>) {
+  const tree = await buildStructuralTree(collection);
+  const bytes = new TextEncoder().encode(JSON.stringify(tree));
+  const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  const nav = Array.from(hash.subarray(0, 8), (b) => b.toString(16).padStart(2, "0")).join("");
   return entries.map((entry) => ({
     params: { slug: entryRouteKey(entry.id) },
     props: { entry },
-    cacheKey: String(entry.digest),
+    cacheKey: entry.digest == null ? undefined : `${entry.digest}:${nav}`,
   }));
-};
+}
 
 /**
  * Read the current entry from `Astro.props`, render it, and return the
@@ -1500,10 +1518,8 @@ export async function getRouteFlags(entry: {
  * filtered in production (same rule as `getDocsStaticPaths`). Each path
  * passes `{ entry }` as props for `getCollectionPageProps()`.
  *
- * A `cacheKey` derived from the entry's `digest` is included on each path
- * so Astro's experimental incremental build cache can skip re-rendering
- * unchanged pages. This is a no-op when `experimental.incrementalBuild` is
- * not enabled in `astro.config.ts`.
+ * Each path carries a `cacheKey` for Astro's experimental incremental build,
+ * built as in {@link getDocsStaticPaths}.
  *
  * Usage:
  *
@@ -1520,12 +1536,7 @@ export function getCollectionStaticPaths(collection: import("astro:content").Col
   return async (options) => {
     await assertRouteServesCollection(collection, options?.routePattern);
     await assertPageCollection(collection);
-    const entries = await getVisibleEntries([collection]);
-    return entries.map((entry) => ({
-      params: { slug: entryRouteKey(entry.id) },
-      props: { entry },
-      cacheKey: String(entry.digest),
-    }));
+    return collectionPaths(collection, await getVisibleEntries([collection]));
   };
 }
 

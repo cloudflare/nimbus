@@ -24,6 +24,9 @@
  *
  * SEO/OG fixes ship via framework version bump, not by every user
  * re-doing their head tags.
+ *
+ * A `<link rel="canonical">` in `head` (the site's or the page's) replaces
+ * the computed canonical; `og:url` and the structured data follow it.
  */
 
 import { build, trailingSlash } from "astro:config/client";
@@ -101,6 +104,14 @@ const hasSite = !!Astro.site;
 
 const baseUrl = import.meta.env.BASE_URL;
 
+// Per-HTML last-element-wins semantics: page extras come after config
+// extras so per-page overrides win for any duplicated single-value tag.
+const mergedHead = [...(config.head ?? []), ...pageHead];
+const isCanonicalLink = (element: HeadElement) =>
+  element.tag === "link" && element.attrs?.rel === "canonical" && !!element.attrs.href;
+const authoredCanonical = mergedHead.filter(isCanonicalLink).at(-1)?.attrs?.href;
+const headExtras = mergedHead.filter((element) => !isCanonicalLink(element));
+
 // Cross-version alternates and canonical override. When the page is part
 // of a versioned-docs class with a current-version sibling that isn't
 // `self`, `record.canonical` points to it — we emit that URL as the
@@ -176,9 +187,10 @@ const llmsIndexUrl =
 const appendsSlash = trailingSlash === "always" || (trailingSlash === "ignore" && build.format === "directory");
 const barePath = Astro.url.pathname.replace(/(?:\/index)?\.html$/, "").replace(/\/+$/, "");
 const pagePath = barePath === "" ? "/" : appendsSlash ? `${barePath}/` : barePath;
+const canonicalPath = authoredCanonical ?? versionCanonicalPath;
 const canonical = Astro.site
-  ? versionCanonicalPath
-    ? new URL(withBase(versionCanonicalPath, baseUrl), Astro.site).href
+  ? canonicalPath
+    ? new URL(withBase(canonicalPath, baseUrl), Astro.site).href
     : isNonDefaultQueryVersion
       ? null
       : new URL(pagePath, Astro.site).href
@@ -252,9 +264,6 @@ const structuredData = canonical
     })
   : null;
 
-// Per-HTML last-element-wins semantics: page extras come after config
-// extras so per-page overrides win for any duplicated single-value tag.
-const mergedHead = [...(config.head ?? []), ...pageHead];
 // A partial build without the root collection writes the stylesheet under
 // its prefix, where its own Worker serves it.
 const shikiCssHref = withBase(
@@ -314,7 +323,7 @@ const shikiCssHref = withBase(
 
 {structuredData && <script type="application/ld+json" set:html={structuredData.replaceAll("<", "\\u003c")} />}
 
-{mergedHead.map(({ tag: Tag, attrs = {}, content }) =>
+{headExtras.map(({ tag: Tag, attrs = {}, content }) =>
   content
     ? <Tag {...attrs} set:html={content} />
     : <Tag {...attrs} />

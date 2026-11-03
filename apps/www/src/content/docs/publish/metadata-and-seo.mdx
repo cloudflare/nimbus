@@ -91,3 +91,5 @@ Valid tags: `meta`, `link`, `script`, `style`, `title`, `noscript`, `base`. To e
 ## Canonical URLs
 
 On versioned sites, Nimbus emits `<link rel="canonical">` pointing older versions at the current one, plus `<link rel="alternate">` between siblings — driven by `previousSlug`.
+
+To point a page's canonical somewhere else, add a canonical link to its `head`, as in the example above. It replaces the one Nimbus emits, and `og:url` and the structured data follow it. An absolute URL is used as written; a site path, written without `base`, is resolved against `site` the way `socialImage` is.

@@ -22,7 +22,9 @@ export interface AgentSiteOptions {
   server?: boolean;
   /** The test adapter's name; generated API pages render on request only under `@astrojs/cloudflare`. */
   adapterName?: string;
-  logLevel?: "silent" | "warn";
+  logLevel?: "silent" | "warn" | "info";
+  /** Astro `experimental` flags. */
+  experimental?: Record<string, unknown>;
   versions?: { current: string; others: string[] };
   api?: unknown[];
   rendering?: unknown;
@@ -138,6 +140,7 @@ export function agentSites() {
         prerenderConflictBehavior: options.conflict ?? "error",
         ...(adapter ? { output: "server" as const, adapter } : {}),
         logLevel: options.logLevel ?? "silent",
+        ...(options.experimental ? { experimental: options.experimental } : {}),
         integrations: [
           nimbus(
             {
