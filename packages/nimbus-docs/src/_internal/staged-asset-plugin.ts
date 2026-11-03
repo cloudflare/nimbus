@@ -50,8 +50,10 @@ export function stagedAssetPlugin(options: StagedAssetPluginOptions): Plugin {
       instance.middlewares.use(async (request, response, next) => {
         let pathname: string;
         try {
-          pathname = new URL(request.url ?? "/", "http://nimbus.invalid")
-            .pathname;
+          pathname = new URL(
+            request.originalUrl ?? request.url ?? "/",
+            "http://nimbus.invalid",
+          ).pathname;
         } catch {
           return next();
         }
