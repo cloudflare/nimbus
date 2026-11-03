@@ -304,7 +304,8 @@ jobs:
               exit 1
             fi
           done
-          pnpm exec wrangler deploy
+          # The build writes the Worker's config next to its code.
+          pnpm exec wrangler deploy --config dist/server/wrangler.json
           curl --fail --show-error --silent --retry 5 --retry-delay 3 \
             https://nimbus-docs.com/registry/registry.json | jq -e \
             --arg version "$(jq -r .version ../../packages/nimbus-docs/package.json)" \
