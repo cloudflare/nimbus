@@ -177,7 +177,7 @@ test("dependency checks see escaped JSON keys, YAML aliases and token collisions
   );
   assert.match(
     externalReferenceReason(
-      '{"\\u0024ref":"https://example.test/spec.json#/Cat"}',
+      '{"\\u0024ref":"./spec.json#/Cat"}',
     )!,
     /external reference/,
   );
@@ -204,6 +204,38 @@ test("dependency checks see escaped JSON keys, YAML aliases and token collisions
     /reserved/,
   );
 });
+
+test("URL references don't count as external; file references do", () => {
+  const reason = (ref: string) => externalReferenceReason(JSON.stringify({ $ref: ref }));
+  for (const ref of ["https://example.test/scim/User", "HTTP://example.test/a.json#/Cat"])
+    assert.equal(reason(ref), undefined, ref);
+  for (const ref of ["./cat.yaml", "cat.yaml#/Cat", "/schemas/cat.json", "file:///schemas/cat.json"])
+    assert.match(reason(ref)!, /external reference/, ref);
+  assert.equal(
+    externalReferenceReason(
+      JSON.stringify({ a: { $ref: "https://example.test/a.json" }, b: { $ref: "./b.yaml" } }),
+    ),
+    "external reference ./b.yaml",
+  );
+});
+
+test("URL references keep every version reusable and are never fetched", async (t) =>
+  temporary(async (root) => {
+    const fetch = t.mock.method(globalThis, "fetch", () => {
+      throw new Error("fetched");
+    });
+    const withUrls = {
+      ...spec(),
+      components: {
+        schemas: { Remote: { $ref: "https://example.test/schemas.json#/Remote" } },
+        examples: { user: { value: { $ref: "https://example.test/scim/User" } } },
+      },
+    };
+    await prepareApiAssetFamily(root, family(withUrls));
+    const second = await prepareApiAssetFamily(root, family(withUrls));
+    assert.ok(second.versions.every(({ prepared }) => prepared.reused));
+    assert.equal(fetch.mock.callCount(), 0);
+  }));
 
 test("a catalog cannot redirect a record hash into a different valid pack", async () =>
   temporary(async (root) => {

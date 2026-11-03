@@ -15,6 +15,7 @@ import { constants } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
+import { isHttpUrl } from "@scalar/json-magic/helpers/is-http-url";
 import { fileURLToPath } from "node:url";
 import {
   PageAssetWriter,
@@ -195,7 +196,8 @@ export function clearApiPageAssetManifest(root: URL | string): void {
 
 /** Root and dependency bytes, not timestamps, decide whether preparation is reusable.
  * The current parser's external-reference resolution has no reliable dependency
- * report. Such inputs are deliberately never reused until that seam exists. */
+ * report. Such inputs are deliberately never reused until that seam exists.
+ * URL references are ignored: neither preparation nor bundling fetches them. */
 export function externalReferenceReason(raw: string): string | undefined {
   // Only run on a cache miss. JSON/YAML syntax, escapes and aliases must not
   // hide a dependency or turn authored text into a generated-link token.
@@ -216,7 +218,7 @@ export function externalReferenceReason(raw: string): string | undefined {
     seen.add(node);
     for (const [key, item] of Object.entries(node)) {
       visit(key);
-      if (key === "$ref" && typeof item === "string" && !item.startsWith("#"))
+      if (key === "$ref" && typeof item === "string" && !item.startsWith("#") && !isHttpUrl(item))
         reason ??= `external reference ${item}`;
       visit(item);
     }
