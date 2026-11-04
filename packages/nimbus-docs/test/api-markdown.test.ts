@@ -392,13 +392,13 @@ describe("api markdown emitter", () => {
       spec: {
         openapi: "3.1.0",
         info: { title: "G", version: "1" },
-        "x-tagGroups": [{ name: "<Widgets> *new*", tags: ["w"] }],
+        "x-tagGroups": [{ name: "<Widgets> *new* #", tags: ["w"] }],
         tags: [{ name: "w" }],
         paths: { "/w": { get: { operationId: "list", tags: ["w"], responses: { "200": { description: "ok" } } } } },
       },
     });
     const md = renderApiPageMarkdown(getApiPageProps(model, "g"));
-    assert.match(md, /^## \\<Widgets\\> \\\*new\\\*$/m, "escaped, so it renders as the page shows it");
+    assert.match(md, /^## \\<Widgets\\> \\\*new\\\* \\#$/m, "escaped, so it renders as the page shows it");
   });
 
   test("an operation gives its full request URL, as its endpoint card does", () => {

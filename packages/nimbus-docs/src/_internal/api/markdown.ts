@@ -106,7 +106,7 @@ function safeBlock(text: string): string {
  *  otherwise read `<string>` as an HTML tag and drop it, so Markdown's inline
  *  punctuation is escaped. */
 function plainText(text: string): string {
-  return inlineText(text).replace(/[\\<>[\]*_`]/g, "\\$&");
+  return inlineText(text).replace(/[\\<>[\]*_`#]/g, "\\$&");
 }
 
 /** A field's type, worded as the page words it: `array of X`, `map of X`. */
