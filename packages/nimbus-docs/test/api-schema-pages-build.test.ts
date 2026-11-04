@@ -107,10 +107,6 @@ export const collections = {
     "src/pages/llms-full.txt.ts",
     `import { llmsFullRoute } from ${moduleUrl("../src/agent-endpoints.ts")};\nexport const prerender = true;\nexport const { GET } = llmsFullRoute();`,
   );
-  await write(
-    "src/pages/nimbus-api/coordinates.json.ts",
-    `import { getCoordinatesManifest } from ${moduleUrl("../src/runtime.ts")};\nexport const prerender = true;\nexport async function GET() { return new Response(JSON.stringify(await getCoordinatesManifest())); }`,
-  );
   let adapter: AstroIntegration | undefined;
   if (request) {
     await write(

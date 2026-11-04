@@ -216,7 +216,8 @@ export interface RenderingConfig {
 
 /**
  * The published coordinate manifest — the cross-repo citation-index contract a
- * Nimbus site serves at `/nimbus-api/coordinates.json` and a consumer folds in
+ * Nimbus site serves at `/nimbus-api/coordinates.json` (Nimbus serves the route;
+ * a project file at that path overrides it) and a consumer folds in
  * via {@link NimbusConfig.apiReferences}. Bump `version` only on a breaking read
  * change.
  */

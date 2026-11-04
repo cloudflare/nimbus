@@ -242,6 +242,7 @@ import {
   normalizeSourceRouteEntrypoint,
   STARTER_ROUTE_INVENTORY,
 } from "./_internal/route-ownership.js";
+import { COORDINATES_PATH, coordinatesRouteOwner, isCoordinatesOwnerPath } from "./_internal/coordinates-route.js";
 import type { RequestRouteInventoryEntry } from "./_internal/request-route-url.js";
 import { safeDecode, setLinkPolicy, stripBase, toRouteKey, withBase } from "./_internal/url.js";
 import { OG_CARD } from "./_internal/page-urls.js";
@@ -646,6 +647,10 @@ export function nimbus(
   // What that map was resolved from, so the dev server can tell when a route
   // file change moves a collection.
   let mountStampForSetup = "";
+  // What serves `/nimbus-api/coordinates.json`: the project's own file or
+  // redirect, when one exists; otherwise Nimbus injects the route.
+  let coordinatesOwnerForSetup: string | undefined;
+  let coordinatesRouteInjected = false;
   let collectionRoutesTimer: ReturnType<typeof setTimeout> | undefined;
   const decideMounts = (found: readonly FoundRoute[]) => decideCollectionMounts(found, versionMounts());
   // Written by the dev server when a route file change moves a collection;
@@ -1180,7 +1185,16 @@ export function nimbus(
             `${mountDecision.errors.map((error) => error.message).join("\n\n")}\n\nSee ${COLLECTION_URLS_DOCS}.`,
           );
         mountContextForBuild = { versions: versionMounts(), routes: mountDecision.mounts };
-        mountStampForSetup = mountDecisionStamp(mountDecision);
+        // Adding or removing the coordinates manifest's owner hands the route
+        // between the project and Nimbus, so it restarts setup too.
+        mountStampForSetup = `${mountDecisionStamp(mountDecision)}\0${
+          coordinatesRouteOwner({
+            srcDir,
+            publicDir: astroConfig.publicDir ? fileURLToPath(astroConfig.publicDir) : path.join(projectRoot, "public"),
+            projectRoot,
+            redirects: astroConfig.redirects as Record<string, unknown> | undefined,
+          }) ?? ""
+        }`;
         const routeWarnings: MountWarning[] = [...mountDecision.warnings, ...unreadRouteWarnings(routeScan.unread)];
         setMountContext(astroConfig.root, mountContextForBuild);
         // `NIMBUS_BUILD_ONLY`: build one collection or a set. Only a build
@@ -2357,6 +2371,28 @@ export function nimbus(
             rendering: "build",
           });
         }
+        // The coordinate manifest, on every site, unless the project serves
+        // the path itself (an older starter's route file, a public file, a
+        // redirect), whose owner then wins. A non-root slice drops root
+        // artifacts, so it doesn't build it.
+        coordinatesOwnerForSetup = coordinatesRouteOwner({
+          srcDir,
+          publicDir,
+          projectRoot,
+          redirects: astroConfig.redirects as Record<string, unknown> | undefined,
+        });
+        coordinatesRouteInjected =
+          !coordinatesOwnerForSetup && (!sliceLayoutForBuild || sliceLayoutForBuild.root);
+        if (coordinatesRouteInjected) {
+          const entrypoint = new URL(`./_internal/coordinates-manifest-route.${extension}`, import.meta.url);
+          injectRoute({ pattern: COORDINATES_PATH, entrypoint, prerender: true });
+          managedRoutesForBuild.push({
+            pattern: COORDINATES_PATH,
+            entrypoint: normalizeRouteEntrypoint(projectRoot, entrypoint.href)!,
+            owner: "infrastructure",
+            rendering: "build",
+          });
+        }
         if (config.agents?.mcp) {
           // Pages and content entries are checked after content sync (`runPostSyncPageChecks`).
           for (const [pattern, name] of [
@@ -3263,7 +3299,13 @@ export function nimbus(
           // Vite swaps in a new watcher on restart; this server is gone.
           if (server.watcher !== watcher) return;
           const decision = decideMounts(findCollectionRoutes(srcDirForBuild, projectRootForBuild).found);
-          const stamp = mountDecisionStamp(decision);
+          const owner = coordinatesRouteOwner({
+            srcDir: srcDirForBuild,
+            publicDir: publicDirForBuild,
+            projectRoot: projectRootForBuild,
+            redirects: redirectsForBuild,
+          });
+          const stamp = `${mountDecisionStamp(decision)}\0${owner ?? ""}`;
           if (stamp === lastStamp) return;
           lastStamp = stamp;
           if (decision.errors.length === 0) {
@@ -3278,6 +3320,12 @@ export function nimbus(
           fs.writeFileSync(sentinel, `${stamp}\n`);
         };
         const onPagesChange = (file: string) => {
+          if (isCoordinatesOwnerPath(file, srcDirForBuild, publicDirForBuild)) {
+            clearTimeout(collectionRoutesTimer);
+            collectionRoutesTimer = setTimeout(recheckCollectionRoutes, 200);
+            collectionRoutesTimer.unref?.();
+            return;
+          }
           const relative = path.relative(pagesDir, file);
           if (relative.startsWith("..") || path.isAbsolute(relative) || !relative.endsWith(".astro")) return;
           const last = routeSegments(relative).at(-1);
@@ -3581,6 +3629,28 @@ export function nimbus(
         );
       },
       "astro:routes:resolved": ({ routes, logger }) => {
+        // Nimbus serves the manifest only when it found no owner at setup; an
+        // owner it couldn't see (a page extension another integration added)
+        // would collide with it.
+        if (coordinatesRouteInjected) {
+          const owner = routes.find(
+            (route) => route.origin === "project" && route.pattern.replace(/\/+$/, "") === COORDINATES_PATH,
+          );
+          // An owner setup can see is one the dev server just gained; its
+          // restart hands the path over.
+          const visible =
+            owner &&
+            coordinatesRouteOwner({
+              srcDir: srcDirForBuild,
+              publicDir: publicDirForBuild,
+              projectRoot: projectRootForBuild,
+              redirects: redirectsForBuild,
+            });
+          if (owner && !visible)
+            throw authorError(
+              `${owner.entrypoint} and Nimbus both serve ${COORDINATES_PATH}. Nimbus serves it itself now, so delete your file, or rename it to a \`.ts\` endpoint (\`src/pages/nimbus-api/coordinates.json.ts\`) to keep serving your own.`,
+            );
+        }
         // A route file deleted or renamed in dev no longer has a mismatch.
         const entrypoints = new Set(routes.map((route) => route.entrypoint));
         for (const file of routeFileMismatches.keys()) if (!entrypoints.has(file)) routeFileMismatches.delete(file);
