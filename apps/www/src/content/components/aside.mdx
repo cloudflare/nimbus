@@ -17,6 +17,12 @@ props:
 import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";
 import { Aside } from "@/components/ui/aside";
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+import ComponentProps from "@/components/showcase/ComponentProps.astro";
+
+## Installation
+
+<ComponentInstall slug="aside" />
 
 ## Preview
 
@@ -95,3 +101,9 @@ Each version gets its own sidebar.`}>
     </p>
   </div>
 </Example>
+
+## API reference
+
+Every prop the component accepts, sourced from a single declaration.
+
+<ComponentProps slug="aside" />

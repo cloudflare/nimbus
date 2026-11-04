@@ -25,6 +25,12 @@ props:
 import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";
 import { Button } from "@/components/ui/button";
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+import ComponentProps from "@/components/showcase/ComponentProps.astro";
+
+## Installation
+
+<ComponentInstall slug="button" />
 
 ## Preview
 
@@ -105,3 +111,9 @@ Use `shape="square"` or `shape="circle"` for icon-only buttons, and always pass 
     <Button variant="primary" loading>Saving…</Button>
   </div>
 </Example>
+
+## API reference
+
+Every prop the component accepts, sourced from a single declaration.
+
+<ComponentProps slug="button" />

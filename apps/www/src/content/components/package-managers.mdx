@@ -22,6 +22,12 @@ props:
 import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";
 import { PackageManagers } from "@/components/ui/package-managers";
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+import ComponentProps from "@/components/showcase/ComponentProps.astro";
+
+## Installation
+
+<ComponentInstall slug="package-managers" />
 
 ## Preview
 
@@ -68,3 +74,9 @@ Use type="dlx" to invoke a CLI without installing — useful for scaffolders. Ya
     />
   </div>
 </Example>
+
+## API reference
+
+Every prop the component accepts, sourced from a single declaration.
+
+<ComponentProps slug="package-managers" />

@@ -1,0 +1,21 @@
+---
+/**
+ * Every component, by name, with its tagline. `/components` shows the gallery
+ * instead; this is what its Markdown, search and MCP read (the Markdown comes
+ * from `src/lib/showcase-markdown.ts`).
+ */
+import { getCollection } from "astro:content";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
+import { componentName } from "@/lib/component-install";
+
+const entries = (await getCollection("components"))
+  .filter((entry) => entry.id !== "index")
+  .map((entry) => ({ id: entry.id, name: componentName(entry.id, entry.data.title), tagline: entry.data.tagline }))
+  .sort((a, b) => a.name.localeCompare(b.name));
+---
+
+<ul>
+  {entries.map((entry) => (
+    <li><a href={withBase(`/components/${entry.id}/`, import.meta.env.BASE_URL)}>{entry.name}</a> — {entry.tagline}</li>
+  ))}
+</ul>

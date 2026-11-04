@@ -3,23 +3,17 @@
  * /components and /components/<slug>, rendered on request.
  *
  * Reads from the `components` content collection. `index.mdx` is the
- * landing grid. Each component entry's MDX body supplies the Preview +
- * Examples sections (via the `<Showcase>` and `<Example>` wrappers); the
- * route owns Installation + API reference because they're driven by
- * `manifests.ts` and the entry's frontmatter `props` array, not by
- * hand-authored prose.
+ * landing grid. Each component's MDX is the whole page: Installation
+ * (`<ComponentInstall>`), Preview and Examples (`<Showcase>`, `<Example>`) and
+ * the API reference (`<ComponentProps>`), so its Markdown, MCP and search read
+ * the same content.
  */
 import { getCollection } from "astro:content";
 import DocsLayout from "@/layouts/DocsLayout.astro";
 import ComponentGrid from "@/components/showcase/ComponentGrid.astro";
-import PropTable from "@/components/showcase/PropTable.astro";
-import { PackageManagers } from "@/components/ui/package-managers";
 import { components } from "../../components";
-import { Code } from "@/components/ui/code";
-import { MANIFESTS } from "@/../registry/manifests";
-import { STARTER_MANIFEST } from "../../../../../packages/nimbus-starter-source/starter.manifest.mjs";
+import { componentName } from "@/lib/component-install";
 import { getCollectionPage, getSidebar } from "@cloudflare/nimbus-docs/runtime";
-import type { TOCItem } from "@cloudflare/nimbus-docs/types";
 
 const page = await getCollectionPage(Astro, "components");
 if (page instanceof Response) return page;
@@ -27,15 +21,7 @@ const { entry, markdownUrl } = page;
 const slug = entry.id;
 const isIndex = slug === "index";
 
-const manifest = MANIFESTS[slug as keyof typeof MANIFESTS];
-const isBuiltin = !manifest || manifest.type !== "registry:ui";
-// Where the component comes from: the package itself, the starter every new
-// site ships, or the registry, installed with `nimbus-docs add`.
-const registryOnly = (STARTER_MANIFEST.registryOnlyComponents as readonly string[]).includes(slug);
-const installState = isBuiltin ? "builtin" : registryOnly ? "install" : "included";
-
-const { tagline, props } = entry.data;
-const hasProps = props.length > 0;
+const { tagline } = entry.data;
 
 const sidebar = await getSidebar(isIndex ? "/components" : `/components/${slug}`);
 
@@ -44,10 +30,7 @@ const sidebar = await getSidebar(isIndex ? "/components" : `/components/${slug}`
 // title; mirror that ordering here so the footer matches.
 const allEntries = (await getCollection("components")).filter((e) => e.id !== "index");
 const ordered = allEntries
-  .map((e) => {
-    const m = MANIFESTS[e.id as keyof typeof MANIFESTS];
-    return { id: e.id, label: m?.type === "registry:ui" ? m.title : e.data.title };
-  })
+  .map((e) => ({ id: e.id, label: componentName(e.id, e.data.title) }))
   .sort((a, b) => a.label.localeCompare(b.label));
 const currentIndex = ordered.findIndex((e) => e.id === slug);
 const prevEntry = currentIndex > 0 ? ordered[currentIndex - 1] : undefined;
@@ -58,18 +41,11 @@ const prevNext = {
 };
 
 const { Content, headings: bodyHeadings } = page;
+const headings = bodyHeadings
+  .filter((h) => h.depth === 2 || h.depth === 3)
+  .map((h) => ({ depth: h.depth as 2 | 3, text: h.text, slug: h.slug }));
 
-const headings: TOCItem[] = [
-  { depth: 2, text: "Installation", slug: "installation" },
-  ...bodyHeadings
-    .filter((h) => h.depth === 2 || h.depth === 3)
-    .map((h) => ({ depth: h.depth as 2 | 3, text: h.text, slug: h.slug })),
-  ...(hasProps
-    ? [{ depth: 2 as const, text: "API reference", slug: "api-reference" }]
-    : []),
-];
-
-const name = manifest?.type === "registry:ui" ? manifest.title : entry.data.title;
+const name = componentName(slug, entry.data.title);
 
 const breadcrumbs = [
   { label: "Home", href: "/" },
@@ -105,35 +81,7 @@ const breadcrumbs = [
   collection="components"
   entryId={slug}
 >
-  <h2 id="installation">Installation</h2>
-  {installState === "builtin" && (
-    <>
-      <p><strong>Built into nimbus-docs.</strong> Import it from the package.</p>
-      <Code code={`import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";`} lang="ts" />
-    </>
-  )}
-  {installState === "included" && (
-    <>
-      <p><strong>Included in the starter.</strong> Every new site has it in <code>src/components/ui/{slug}/</code>. Import it where you need it, or register it in <code>src/components.ts</code> to use it on every page. If your site predates it, install it:</p>
-      <PackageManagers pkg="@cloudflare/nimbus-docs" type="exec" args={`add ${slug}`} />
-    </>
-  )}
-  {installState === "install" && (
-    <>
-      <p><strong>Install with <code>nimbus-docs add {slug}</code>.</strong> It lands in <code>src/components/ui/{slug}/</code>, yours to edit.</p>
-      <PackageManagers pkg="@cloudflare/nimbus-docs" type="exec" args={`add ${slug}`} />
-    </>
-  )}
-
   <Content components={components} />
-
-  {hasProps && (
-    <>
-      <h2 id="api-reference">API reference</h2>
-      <p>Every prop the component accepts, sourced from a single declaration.</p>
-      <PropTable props={props} />
-    </>
-  )}
 </DocsLayout>
 )}
 

@@ -9,6 +9,12 @@ props:
 ---
 import Showcase from "@/components/showcase/Showcase.astro";
 import { TOC } from "@/components/ui/toc";
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+import ComponentProps from "@/components/showcase/ComponentProps.astro";
+
+## Installation
+
+<ComponentInstall slug="toc" />
 
 ## Preview
 
@@ -35,3 +41,9 @@ import { TOC } from "@/components/ui/toc";
 ### Nested headings
 
 A third-level heading sits under its section, indented, as this one does in the preview.
+
+## API reference
+
+Every prop the component accepts, sourced from a single declaration.
+
+<ComponentProps slug="toc" />

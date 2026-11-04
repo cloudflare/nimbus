@@ -1,8 +1,14 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { getTabs } from "@cloudflare/nimbus-docs/lib/pkgm";
 import type { GeneratedMarkdownComponentTransform } from "@cloudflare/nimbus-docs/types";
+import { parse } from "yaml";
+import { componentName, installState } from "./component-install";
 
 /**
- * Markdown for the component pages' `<Showcase>` and `<Example>`: the
- * rendered preview, then the source the page shows under it.
+ * Markdown for the component pages' own MDX components, so the page, its
+ * `.md`, MCP, `llms-full.txt` and search all read the same content:
+ * `<Showcase>`/`<Example>` (the preview, then the source the page shows under
+ * it), `<ComponentInstall>`, `<ComponentProps>` and `<ComponentList>`.
  */
 
 const ESCAPES: Record<string, string> = { n: "\n", t: "\t", r: "\r", b: "\b", f: "\f", v: "\v", "0": "\0" };
@@ -54,4 +60,88 @@ const showcase: GeneratedMarkdownComponentTransform = {
   },
 };
 
-export const showcaseMarkdown = { Showcase: showcase, Example: showcase };
+interface ComponentFrontmatter {
+  title: string;
+  tagline: string;
+  props?: Array<{ name: string; type: string; defaultValue?: string; required?: boolean; description?: string }>;
+}
+
+const COMPONENTS = new URL("../content/components/", import.meta.url);
+
+/** A component entry's frontmatter, read from its MDX file at build time. */
+function frontmatterOf(slug: string): ComponentFrontmatter {
+  const source = readFileSync(new URL(`${slug}.mdx`, COMPONENTS), "utf8");
+  const block = /^---\r?\n([\s\S]*?)\r?\n---/.exec(source);
+  if (!block) throw new Error(`src/content/components/${slug}.mdx has no frontmatter`);
+  // `merge: true` reads `<<:` keys as Astro's frontmatter parser does.
+  const data = parse(block[1]!, { merge: true }) as ComponentFrontmatter;
+  for (const prop of data.props ?? []) {
+    if (typeof prop?.name !== "string" || typeof prop.type !== "string") {
+      throw new Error(`src/content/components/${slug}.mdx: every prop needs a string name and type`);
+    }
+  }
+  return data;
+}
+
+const slugOf = (attrs: Record<string, string | boolean>, name: string) => {
+  const slug = attrs.slug;
+  if (typeof slug !== "string" || !/^[a-z0-9-]+$/.test(slug)) throw new Error(`<${name}> needs a slug="…" naming a component`);
+  return slug;
+};
+
+const cell = (text: string) => text.replace(/\|/g, "\\|").replace(/\n+/g, " ");
+
+const install: GeneratedMarkdownComponentTransform = {
+  revision: "component-install-v1",
+  render: ({ attrs }) => {
+    const slug = slugOf(attrs, "ComponentInstall");
+    const commands = fence(getTabs("exec", "@cloudflare/nimbus-docs", { args: `add ${slug}` }).map((tab) => tab.cmd).join("\n"), "sh");
+    switch (installState(slug)) {
+      case "builtin":
+        return `**Built into nimbus-docs.** Import it from the package.\n\n${fence('import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";', "ts")}`;
+      case "included":
+        return `**Included in the starter.** Every new site has it in \`src/components/ui/${slug}/\`. Import it where you need it, or register it in \`src/components.ts\` to use it on every page. If your site predates it, install it:\n\n${commands}`;
+      case "install":
+        return `**Install with \`nimbus-docs add ${slug}\`.** It lands in \`src/components/ui/${slug}/\`, yours to edit.\n\n${commands}`;
+    }
+  },
+};
+
+const props: GeneratedMarkdownComponentTransform = {
+  revision: "component-props-v1",
+  render: ({ attrs }) => {
+    const rows = frontmatterOf(slugOf(attrs, "ComponentProps")).props ?? [];
+    return [
+      "| Prop | Type | Default | Description |",
+      "| --- | --- | --- | --- |",
+      ...rows.map(
+        (p) =>
+          `| \`${cell(p.name)}\`${p.required ? " (required)" : ""} | \`${cell(p.type)}\` | ${p.defaultValue ? `\`${cell(p.defaultValue)}\`` : ""} | ${cell(p.description ?? "")} |`,
+      ),
+    ].join("\n");
+  },
+};
+
+/** `/components`: its page is a gallery; its Markdown lists every component. */
+const list: GeneratedMarkdownComponentTransform = {
+  revision: "component-list-v1",
+  render: ({ base }) =>
+    readdirSync(COMPONENTS)
+      .filter((file) => file.endsWith(".mdx") && file !== "index.mdx")
+      .map((file) => {
+        const slug = file.slice(0, -".mdx".length);
+        const data = frontmatterOf(slug);
+        return { slug, name: componentName(slug, data.title), tagline: data.tagline };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(({ slug, name, tagline }) => `- [${name}](${base.replace(/\/$/, "")}/components/${slug}/) — ${tagline}`)
+      .join("\n"),
+};
+
+export const showcaseMarkdown = {
+  Showcase: showcase,
+  Example: showcase,
+  ComponentInstall: install,
+  ComponentProps: props,
+  ComponentList: list,
+};

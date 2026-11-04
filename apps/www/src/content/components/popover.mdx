@@ -9,6 +9,12 @@ props:
 ---
 import Showcase from "@/components/showcase/Showcase.astro";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+import ComponentProps from "@/components/showcase/ComponentProps.astro";
+
+## Installation
+
+<ComponentInstall slug="popover" />
 
 ## Preview
 
@@ -29,3 +35,9 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
     </Popover>
   </div>
 </Showcase>
+
+## API reference
+
+Every prop the component accepts, sourced from a single declaration.
+
+<ComponentProps slug="popover" />
