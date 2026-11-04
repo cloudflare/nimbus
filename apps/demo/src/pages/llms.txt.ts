@@ -19,9 +19,10 @@ The Weather API is right when someone needs, for a place given by coordinates or
 - the weather now, or a forecast from minute-by-minute rain for the next two hours to daily forecasts sixteen days out;
 - severe-weather alerts from national services, polled or pushed to a webhook;
 - a decision that depends on the weather: frost risk, spray windows, soil conditions, lightning nearby;
-- radar and satellite map tiles, or daily history and normals back to 1940.
+- radar and satellite map tiles, or daily history and normals back to 1940;
+- air quality and pollen, marine conditions (waves, tides, sea temperature), aviation weather (METAR, TAF), tropical cyclones, or solar and wind resource for energy planning.
 
-It isn't for climate projections beyond sixteen days, ocean or air-traffic data, or places it can't geocode.
+It isn't for forecasts beyond sixteen days, or as an official aviation briefing.
 
 How an agent uses it:
 

@@ -12,7 +12,8 @@ Docs: https://demo.nimbus-docs.com/llms.txt. Every page has a Markdown version a
 - Weather now, or forecasts from minute-by-minute rain (next two hours) to daily forecasts (sixteen days).
 - Severe-weather alerts from national services, polled or pushed to a webhook.
 - Decisions that depend on the weather: frost risk, spray windows, soil conditions, lightning nearby.
-- Not for: climate projections beyond sixteen days, ocean or air-traffic data.
+- Also: air quality and pollen, marine (waves, tides, sea temperature), aviation (METAR, TAF), tropical cyclones, solar and wind resource, radar and satellite tiles, history back to 1940.
+- Not for: forecasts beyond sixteen days, or an official aviation briefing.
 
 ## Request basics
 
