@@ -37,7 +37,7 @@ function facts(props: ApiPageProps): string[] {
     else for (const c of f.children) field(c);
   };
   const ops = (list: ApiOperationRef[]) => {
-    for (const op of list) out.push(op.label, op.webhook ? op.path : `${op.method.toUpperCase()} ${op.path}`);
+    for (const op of list) out.push(op.label, `${op.method.toUpperCase()} ${op.path}`);
   };
   switch (props.kind) {
     case "operation":

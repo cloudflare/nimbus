@@ -102,24 +102,25 @@ function safeBlock(text: string): string {
     .join("\n");
 }
 
-/** A type as prose: `array<string>` would otherwise read `<string>` as an
- *  HTML tag and drop it, so Markdown's punctuation is escaped. */
-function plainType(type: string): string {
-  return inlineText(type).replace(/[\\<>[\]*_`]/g, "\\$&");
+/** Spec text spliced into a line as literal text: `array<string>` would
+ *  otherwise read `<string>` as an HTML tag and drop it, so Markdown's inline
+ *  punctuation is escaped. */
+function plainText(text: string): string {
+  return inlineText(text).replace(/[\\<>[\]*_`]/g, "\\$&");
 }
 
 /** A field's type, worded as the page words it: `array of X`, `map of X`. */
 function typeLabel(field: ApiFieldView, base?: string): string {
   const shape = field.typeShape;
   if (shape && !field.union) {
-    const inner = field.typeRef ? link(shape.inner, field.typeRef.href, base) : plainType(shape.inner || "any");
+    const inner = field.typeRef ? link(shape.inner, field.typeRef.href, base) : plainText(shape.inner || "any");
     return `${shape.kind} of ${inner}`;
   }
   if (field.typeRef) return link(field.type, field.typeRef.href, base);
   if (field.typeRefs && field.typeRefs.length > 0) {
     return field.typeRefs.map((r) => link(r.label, r.href, base)).join(" | ");
   }
-  return plainType(field.type);
+  return plainText(field.type);
 }
 
 /** The shared "enum + constraints + default + example" summary, structural so
@@ -373,7 +374,7 @@ function renderResponseHeaders(response: ApiResponseView, out: string[], base?: 
 /** An operation as a list row shows it: its name, then its method and path. */
 function operationLine(op: ApiOperationRef, base?: string): string {
   let line = `- ${link(op.label, op.href, base)}`;
-  if (op.path) line += ` — ${inlineCode(op.webhook ? op.path : `${op.method.toUpperCase()} ${op.path}`)}`;
+  if (op.path) line += ` — ${inlineCode(`${op.method.toUpperCase()} ${op.path}`)}`;
   if (op.webhook) line += " (webhook)";
   if (op.deprecated) line += " (deprecated)";
   return line;
@@ -400,7 +401,7 @@ function renderIndex(index: ApiRootIndex, out: string[], base?: string): void {
   for (const group of index.groups) {
     const label = group.label ?? (grouped ? "More" : null);
     if (label) {
-      out.push(`## ${group.ref ? link(label, group.ref.href, base) : inlineText(label)}`, "");
+      out.push(`## ${group.ref ? link(label, group.ref.href, base) : plainText(label)}`, "");
     }
     renderOperations(group.operations, out, base);
     for (const s of group.sections) section(s, label ? 3 : 2);

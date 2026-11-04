@@ -385,6 +385,22 @@ describe("api markdown emitter", () => {
     assert.match(md, /- maximum: `500` · minimum: `1` · default: `50`$/m, "constraints then default, as the field row");
   });
 
+  test("an unlinked tag-group name is literal text, never HTML", async () => {
+    const model = await buildApiModel({
+      schemaPages: true,
+      collection: "g",
+      spec: {
+        openapi: "3.1.0",
+        info: { title: "G", version: "1" },
+        "x-tagGroups": [{ name: "<Widgets> *new*", tags: ["w"] }],
+        tags: [{ name: "w" }],
+        paths: { "/w": { get: { operationId: "list", tags: ["w"], responses: { "200": { description: "ok" } } } } },
+      },
+    });
+    const md = renderApiPageMarkdown(getApiPageProps(model, "g"));
+    assert.match(md, /^## \\<Widgets\\> \\\*new\\\*$/m, "escaped, so it renders as the page shows it");
+  });
+
   test("an operation gives its full request URL, as its endpoint card does", () => {
     const md = renderApiPageMarkdown(operation({ method: "patch", path: "/members/{id}", server: "https://api.example.com/v2?tenant=a" }));
     assert.match(md, /^URL: `https:\/\/api\.example\.com\/v2\/members\/\{id\}\?tenant=a`$/m);
@@ -399,7 +415,7 @@ describe("api markdown emitter", () => {
 
     const root = renderApiPageMarkdown(getApiPageProps(smallco, "smallco"));
     assert.match(root, /^## \[charges\]\(\/smallco\/tags\/charges\/\)\n\nCreate and inspect charges\.\n\n- \[List charges\]\(\/smallco\/charges\/list\/\) — `GET \/charges`$/m, "a section: link, description, endpoints");
-    assert.match(root, /^## Webhooks\n\n- \[.+\]\(\/smallco\/webhooks\/payment\.succeeded\/\) — `payment\.succeeded` \(webhook\)$/m);
+    assert.match(root, /^## Webhooks\n\n- \[.+\]\(\/smallco\/webhooks\/payment\.succeeded\/\) — `POST payment\.succeeded` \(webhook\)$/m, "a webhook keeps its method, as the list shows it");
     assert.doesNotMatch(root, /## Sections/, "the endpoint list replaces the bare section links");
   });
 
