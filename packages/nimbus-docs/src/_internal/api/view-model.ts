@@ -368,6 +368,9 @@ function variantLink(view: ModelView, v: VariantRef): ApiVariant {
   const out: ApiVariant = { label: v.label };
   if (v.name) out.name = v.name;
   if (v.title) out.title = v.title;
+  const enumValues = jsonArrayOrOmit(v.enum);
+  if (enumValues) out.enum = enumValues;
+  if (v.description) out.description = v.description;
   if (resolved && view.hasPage(resolved)) out.href = view.href(resolved);
   return out;
 }
@@ -418,14 +421,17 @@ function unionView(
   seen: ReadonlySet<Coordinate> = new Set(),
   openNamed = inlineFields,
 ): ApiUnionView {
-  // When a discriminator mapping is present the explorer iterates it exclusively
-  // (its variants are the named, linkable ones), so the raw `variants` stay label
-  // and link only — opening them too would just double the payload.
-  const hasMapping = Boolean(shape.mapping && shape.mapping.length > 0);
+  // With a discriminator mapping the explorer lists the mapped branches from
+  // `mapping`, then the branches no mapping value selects. A mapped branch is
+  // opened once, under `mapping`; its entry in `variants` stays a label and link.
+  const mapped = new Set((shape.mapping ?? []).map((m) => m.variant.name).filter(Boolean));
+  const hasMapping = mapped.size > 0;
   const out: ApiUnionView = {
     kind: shape.kind,
     variants: shape.variants.map((v) =>
-      hasMapping ? variantLink(view, v) : variantView(view, v, inlineFields, seen, openNamed),
+      hasMapping && v.name && mapped.has(v.name)
+        ? variantLink(view, v)
+        : variantView(view, v, inlineFields, seen, openNamed),
     ),
   };
   if (shape.discriminator) out.discriminator = shape.discriminator;
@@ -515,6 +521,7 @@ function fieldView(
   if (f.typeRef?.coordinate && view.hasPage(f.typeRef.coordinate)) {
     out.typeRef = { label: f.typeRef.label, href: view.href(f.typeRef.coordinate) };
   }
+  if (f.typeRef && !f.type.startsWith("map<")) out.typeName = f.typeRef.label;
   const extensions = extensionsView(f.extensions);
   if (extensions) out.extensions = extensions;
 

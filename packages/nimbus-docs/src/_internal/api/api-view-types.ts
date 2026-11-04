@@ -78,6 +78,10 @@ export interface ApiFieldView {
   type: string;
   typeShape?: ApiTypeShape;
   typeRef?: ApiRef;
+  /** The named schema a field is typed as, with or without a page: set for a
+   *  field typed as a named union, and where the list stops at a repeat. The
+   *  link, when there is one, is `typeRef`. */
+  typeName?: string;
   typeRefs?: ApiRef[];
   required: boolean;
   deprecated?: boolean;
@@ -288,10 +292,14 @@ export interface ApiVariant {
   label: string;
   /** The component schema's key, present only for a named branch. */
   name?: string;
-  /** The component schema's `title`, when it declares one; a component shows
-   *  `title ?? label` to read the spec's own name for the branch. */
+  /** The branch's `title` (a component's, or an inline branch's own); a
+   *  component shows `title ?? label` to read the spec's own name for it. */
   title?: string;
   href?: string;
+  /** An inline scalar branch's literals, as a scalar property's `enum`. */
+  enum?: JsonValue[];
+  /** An inline scalar branch's description. */
+  description?: string;
   /**
    * The variant's own properties, inlined so a field union renders an in-place
    * explorer instead of only a link. Present for an inline object branch

@@ -100,6 +100,11 @@ function safeBlock(text: string): string {
 }
 
 function typeLabel(field: ApiFieldView, base?: string): string {
+  // A named union, or a list stopping at a repeat, reads as its schema's name.
+  if (field.typeName) {
+    const name = field.type.startsWith("array<") ? `array<${field.typeName}>` : field.typeName;
+    return field.typeRef ? link(name, field.typeRef.href, base) : inlineText(name);
+  }
   if (field.typeRef) return link(field.type, field.typeRef.href, base);
   if (field.typeRefs && field.typeRefs.length > 0) {
     return field.typeRefs.map((r) => link(r.label, r.href, base)).join(" | ");
@@ -192,12 +197,15 @@ function variantLabel(v: { label: string; href?: string }, base?: string): strin
  *  fields, which have no other home. A named branch stays a label, union or not,
  *  so a twin's size does not follow `schemaPages`. */
 function opens(v: ApiVariant): boolean {
-  return !v.name && Boolean(v.union || v.fields);
+  return !v.name && Boolean(v.union || v.fields || v.enum || v.description);
 }
 
 function renderVariant(v: ApiVariant, depth: number, out: string[], base?: string): void {
   const pad = "  ".repeat(depth);
-  out.push(`${pad}- ${variantLabel(v, base)}`);
+  let head = `${pad}- ${variantLabel(v, base)}`;
+  if (v.enum && v.enum.length > 0) head += `: one of ${v.enum.map(code).join(", ")}`;
+  if (v.description) head += ` — ${inlineText(v.description)}`;
+  out.push(head);
   if (v.name) return;
   if (v.union) {
     out.push(`${pad}  - ${v.union.kind === "oneOf" ? "one of" : "any of"}:`);

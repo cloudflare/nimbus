@@ -214,9 +214,12 @@ export interface VariantRef {
   label: string;
   /** The component schema's key, present only for a named branch. */
   name?: string;
-  /** The component schema's `title`, when it declares one. */
+  /** The branch's `title` (a component's, or an inline branch's own). */
   title?: string;
   coordinate?: Coordinate;
+  /** An inline scalar branch's literals and description. */
+  enum?: unknown[];
+  description?: string;
 }
 
 export interface UnionShape {

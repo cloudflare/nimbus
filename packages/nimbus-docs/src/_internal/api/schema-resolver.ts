@@ -28,9 +28,20 @@ import {
  * Short-circuits on the first hit; a spec with neither skips the second parse. */
 export function docNeedsRawDoc(doc: OpenApiDocument): boolean {
   const seen = new WeakSet<object>();
+  // A schema met again on its own path is a cycle: the field list stops there
+  // and names the schema, which only the raw doc still knows.
+  const path = new Set<object>();
   const has = (schema: OpenApiSchema | undefined): boolean => {
-    if (!schema || typeof schema !== "object" || seen.has(schema)) return false;
+    if (!schema || typeof schema !== "object") return false;
+    if (path.has(schema)) return true;
+    if (seen.has(schema)) return false;
     seen.add(schema);
+    path.add(schema);
+    const found = scan(schema);
+    path.delete(schema);
+    return found;
+  };
+  const scan = (schema: OpenApiSchema): boolean => {
     const folded = foldAllOf(schema);
     if (Array.isArray(folded.oneOf) || Array.isArray(folded.anyOf)) return true;
     if (folded.items && has(folded.items)) return true;
@@ -101,6 +112,15 @@ export class SchemaResolver {
     if (!value) return undefined;
     const variant = this.resolveVariant(value);
     return variant.coordinate ? variant : undefined;
+  }
+
+  /** The named component a raw field schema (or its array items) points at
+   *  directly, for showing the schema's name; `undefined` for an inline one. */
+  namedRef(rawSchema: OpenApiSchema | undefined): VariantRef | undefined {
+    const direct =
+      rawSchema?.type === "array" && rawSchema.items ? rawSchema.items : rawSchema;
+    const ref = typeof direct?.$ref === "string" ? direct.$ref : undefined;
+    return ref?.startsWith("#/components/schemas/") ? this.resolveVariant({ $ref: ref }) : undefined;
   }
 
   /** Follow a raw `$ref`-alias chain (`Foo: { $ref: Bar }`) to its target. */
@@ -381,7 +401,19 @@ export class SchemaResolver {
       if (this.knownSchema(name)) out.coordinate = schemaCoordinate(name);
       return out;
     }
-    return { label: this.anonymousBranchLabel(branch, index) };
+    const folded = this.foldBranch(branch);
+    const out: VariantRef = { label: this.anonymousBranchLabel(branch, index, folded) };
+    const title = typeof branch.title === "string" ? branch.title.trim() : "";
+    if (title) out.title = title;
+    // An inline scalar branch keeps what a scalar property shows: its literals
+    // and description.
+    if (!branchesOf(folded) && !hasProperties(folded)) {
+      if (Array.isArray(folded.enum) && folded.enum.length > 0) out.enum = folded.enum;
+      if (typeof folded.description === "string" && folded.description.trim()) {
+        out.description = folded.description.trim();
+      }
+    }
+    return out;
   }
 
   /** A component schema's own `title`, when it declares a non-empty one — the
@@ -401,10 +433,11 @@ export class SchemaResolver {
    * stays the honest answer for an untyped *field*, but a branch always has its
    * position to fall back on.
    */
-  private anonymousBranchLabel(branch: OpenApiSchema, index: number): string {
+  private anonymousBranchLabel(branch: OpenApiSchema, index: number, folded: OpenApiSchema): string {
     const title = typeof branch.title === "string" ? branch.title.trim() : "";
     if (title) return title;
-    const folded = this.foldBranch(branch);
+    // A nested union's kind word (`one of`) isn't a name: number it instead.
+    if (branchesOf(folded)) return `Option ${index + 1}`;
     const type = typeLabel(folded);
     if (type !== "unknown") return type;
     return literalType(folded) ?? `Option ${index + 1}`;

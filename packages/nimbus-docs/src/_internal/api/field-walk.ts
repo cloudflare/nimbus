@@ -99,6 +99,8 @@ export type FieldVisitor = (
   parentPath: string | undefined,
   rawSchema: OpenApiSchema | undefined,
   kind: "field" | "variant",
+  /** The field's schema is already on the walk's path: the list stops here. */
+  repeat?: boolean,
 ) => void;
 
 function walkFieldsInner(
@@ -132,8 +134,9 @@ function walkFieldsInner(
     const fieldPath = prefix ? `${prefix}.${name}` : name;
     const rawProp = rawProps[name];
     if (--budget.left < 0) break;
-    visit(fieldPath, propSchema, required.has(name), topLevel ? name : undefined, prefix || undefined, rawProp, "field");
-    if (hasStructure(propSchema)) {
+    const structured = hasStructure(propSchema);
+    visit(fieldPath, propSchema, required.has(name), topLevel ? name : undefined, prefix || undefined, rawProp, "field", structured && seen.has(propSchema));
+    if (structured) {
       walkFieldsInner(resolver, propSchema, rawProp, fieldPath, seen, visit, false, role, budget);
     }
   }
@@ -183,6 +186,7 @@ export function addField(
   kind: "field" | "variant",
   source?: string,
   rawSchema?: OpenApiSchema,
+  repeat = false,
 ): void {
   sink.registry.register(coord, kind, { source });
   // Fold `allOf` before reading leaf facts, mirroring the scalar-schema path
@@ -218,6 +222,14 @@ export function addField(
   };
   if (union) facts.union = union;
   if (mapRef) facts.typeRef = mapRef;
+  // A field typed as a named union, or one where the walk stops at a repeat,
+  // carries the schema's name so readers can tell which schema it is.
+  // A `$ref` to a schema that is itself an array (however composed) names the
+  // whole array, and would read as one array too many (`array<Groups>`).
+  else if ((union || repeat) && !(typeof rawSchema?.$ref === "string" && folded.type === "array")) {
+    const named = sink.resolver.namedRef(rawSchema);
+    if (named) facts.typeRef = named;
+  }
   // The folded schema puts a property's own value over its `$ref` target's.
   const extensions = extensionValues(sink.extensions, folded);
   if (extensions) facts.extensions = extensions;
