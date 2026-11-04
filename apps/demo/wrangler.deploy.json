@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nimbus-demo-weather",
+  "compatibility_date": "2026-10-09",
+  "compatibility_flags": ["nodejs_compat"],
+  "routes": [{ "pattern": "demo.nimbus-docs.com", "custom_domain": true }],
+  "preview_urls": false,
+  "main": "entry.mjs",
+  "no_bundle": true,
+  "rules": [{ "type": "ESModule", "globs": ["**/*.js", "**/*.mjs"] }],
+  "assets": { "binding": "ASSETS", "directory": "../client" },
+  "kv_namespaces": [{ "binding": "SESSION" }],
+  "images": { "binding": "IMAGES" },
+  "previews": {
+    "kv_namespaces": [{ "binding": "SESSION" }],
+    "images": { "binding": "IMAGES" }
+  },
+  "upload_source_maps": true
+}
