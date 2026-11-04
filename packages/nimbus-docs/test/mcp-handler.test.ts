@@ -256,6 +256,10 @@ test("the 2026-07-28 protocol discovers the server and calls a tool with its hea
     await handler.fetch(modern("tools/call", { name: "get_page", arguments: { url: "/guide/" } }, "get_page")),
   );
   assert.equal((toolText(page) as { url: string }).url, `${SITE}/guide/`);
+  const tools = await readRpcResponse(await handler.fetch(modern("tools/list", {})));
+  assert.deepEqual((tools.result as { tools: Array<{ name: string }> }).tools.map((tool) => tool.name), ["get_page", "list_pages"]);
+  const list = await readRpcResponse(await handler.fetch(modern("tools/call", { name: "list_pages", arguments: {} }, "list_pages")));
+  assert.ok((toolText(list) as { pages: unknown[] }).pages.length > 0);
 });
 
 test("every request is answered with one JSON body, never a stream; a notification is 202 with no body", async () => {
@@ -456,4 +460,47 @@ test("schema-invalid arguments are the SDK's tool error, and a body over 64 KB i
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping", params: { pad: "x".repeat(MCP_MAX_REQUEST_BODY_BYTES) } }),
   });
   assert.equal((await handler.fetch(big)).status, 413);
+});
+
+test("a JSON-RPC batch is refused before any work; single messages and malformed JSON are unchanged", async () => {
+  let reads = 0;
+  const handler = createDocsMcpHandler({
+    identity: identity(),
+    base: "/",
+    source: {
+      readIndex: async () => (reads++, INDEX),
+      readPage: async () => (reads++, "# Page"),
+    },
+  });
+  const call = { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "get_page", arguments: { url: "/guide/" } } };
+  const note = { jsonrpc: "2.0", method: "notifications/initialized" };
+  const modern = { ...call, params: { ...call.params, _meta: MODERN_META } };
+  const post = (body: string, headers: Record<string, string> = {}) =>
+    new Request(URL_, {
+      method: "POST",
+      body,
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", ...headers },
+    });
+  for (const [label, batch, headers] of [
+    ["empty", [], {}],
+    ["single", [call], {}],
+    ["notifications", [note, note], {}],
+    ["mixed", [call, note, { ...call, id: 2, method: "tools/list", params: {} }], {}],
+    ["modern", [modern], { "MCP-Protocol-Version": "2026-07-28", "Mcp-Method": "tools/call", "Mcp-Name": "get_page" }],
+  ] as const) {
+    const response = await handler.fetch(post(JSON.stringify(batch), headers));
+    assert.equal(response.status, 400, label);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), "*", label);
+    assert.deepEqual(await response.json(), {
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32600, message: "Batch requests are not supported; send one JSON-RPC message per request." },
+    }, label);
+  }
+  assert.equal(reads, 0);
+  const single = await readRpcResponse(await handler.fetch(rpcRequest(URL_, "tools/call", call.params)));
+  assert.equal((toolText(single) as { url: string }).url, `${SITE}/guide/`);
+  // Malformed JSON is still the transport's parse error.
+  const malformed = await (await handler.fetch(post("[{"))).json();
+  assert.equal((malformed as { error: { code: number } }).error.code, -32700);
 });

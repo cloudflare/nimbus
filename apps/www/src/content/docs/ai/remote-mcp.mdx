@@ -53,7 +53,7 @@ The URLs the server returns, and the Copy MCP URL action, use `site`, not the lo
 
 | Path | What it is |
 | --- | --- |
-| `/mcp` | The server. `POST` a JSON-RPC message; each answer is one `application/json` body, and a notification gets `202`; `GET` and `DELETE` answer `405`, since the server is stateless and keeps no sessions. A `POST` whose `Content-Type` isn't `application/json`, or a `DELETE` without a `Content-Type`, from anywhere but the site's own `Origin` gets Astro's origin-check `403` instead. `OPTIONS` answers the browser preflight. |
+| `/mcp` | The server. `POST` one JSON-RPC message per request (a batch array gets `400`); each answer is one `application/json` body, and a notification gets `202`; `GET` and `DELETE` answer `405`, since the server is stateless and keeps no sessions. A `POST` whose `Content-Type` isn't `application/json`, or a `DELETE` without a `Content-Type`, from anywhere but the site's own `Origin` gets Astro's origin-check `403` instead. `OPTIONS` answers the browser preflight. |
 | `/mcp/server-card` | The [Server Card](https://github.com/modelcontextprotocol/ext-server-card): the server's name, the installed Nimbus version, a description and the endpoint URL, served on request as `application/mcp-server-card+json` with `Access-Control-Allow-Origin: *`, cacheable for five minutes (`Cache-Control: public, max-age=300, s-maxage=300`). |
 
 The card is listed in `/.well-known/ai-catalog.json` (unless `agents.discovery` is `false`), and `llms.txt` names the endpoint, so agents that start from either find the server. The server's name is the site's hostname reversed plus `/docs`: `docs.example.com` becomes `com.example.docs/docs`. A site on `localhost` or an IP address is `local.nimbus/docs`.
