@@ -54,6 +54,7 @@
     "@cloudflare/nimbus-docs": "workspace:*",
     "@types/mri": "^1.1.4",
     "@types/node": "^22.20.5",
+    "jsdom": "^29.1.1",
     "tsdown": "^0.20.3",
     "tsx": "^4.22.3"
   }

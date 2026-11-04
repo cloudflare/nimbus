@@ -269,6 +269,9 @@ importers:
       '@types/node':
         specifier: ^22.20.5
         version: 22.20.5
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1
       tsdown:
         specifier: ^0.20.3
         version: 0.20.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)

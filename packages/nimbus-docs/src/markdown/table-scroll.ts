@@ -8,6 +8,8 @@
  *
  * Only class-less tables are wrapped, matching the prose stylesheet's
  * `table:not([class])`; the wrapper is a `<div>` so that selector still hits.
+ * The wrapper is a Tab stop so keyboard users can scroll it; Safari doesn't
+ * make scrolling boxes focusable on its own.
  */
 import type { HastElement, HastPluginDefinition } from "./types";
 import { classNames } from "./types";
@@ -32,7 +34,7 @@ export function tableScroll(
         return {
           type: "element",
           tagName: "div",
-          properties: { className: [wrapperClass] },
+          properties: { className: [wrapperClass], tabIndex: 0 },
           children: [
             {
               type: "element",
