@@ -522,6 +522,7 @@ function fieldView(
     out.typeRef = { label: f.typeRef.label, href: view.href(f.typeRef.coordinate) };
   }
   if (f.typeRef && !f.type.startsWith("map<")) out.typeName = f.typeRef.label;
+  if (f.namedArray && out.typeName) out.namedArray = true;
   const extensions = extensionsView(f.extensions);
   if (extensions) out.extensions = extensions;
 

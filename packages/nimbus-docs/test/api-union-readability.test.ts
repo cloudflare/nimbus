@@ -99,10 +99,24 @@ describe("union branches", () => {
     assert.doesNotMatch(renderApiPageMarkdown(p), /- `(one|any) of`\n/);
   });
 
-  test("an inline branch keeps its title", async () => {
+  test("an inline branch keeps its title, numbered when branches share it", async () => {
     const p = await page(true);
-    assert.deepEqual(field(p, "titled").union!.variants.map((v) => v.title), ["Payment", "Payment"]);
+    const titled = field(p, "titled").union!.variants;
+    assert.deepEqual(titled.map((v) => v.title), ["Payment 1", "Payment 2"]);
+    assert.deepEqual(titled.map((v) => v.label), ["Payment 1", "Payment 2"]);
+    assert.match(renderApiPageMarkdown(p), /- `Payment 1`\n[\s\S]*- `Payment 2`\n/);
     assert.deepEqual(field(p, "plain").union!.variants.map((v) => v.title), [undefined, undefined]);
+  });
+
+  test("named branches that share a title are numbered, in the mapping too", async () => {
+    const shared = SPEC.replace(
+      "Cat: { type: object,",
+      "Cat: { title: Animal, type: object,",
+    ).replace("Dog: { type: object,", "Dog: { title: Animal, type: object,");
+    const model = await buildApiModel({ collection: "api", label: "spec.yaml", spec: shared, schemaPages: true });
+    const union = field(getApiPageProps(model, "createGroup") as ApiOperationPage, "pet").union!;
+    assert.deepEqual(union.variants.map((v) => v.title), ["Animal 1", "Animal 2", undefined]);
+    assert.deepEqual(union.mapping!.map((m) => m.variant.title), ["Animal 1", "Animal 2"]);
   });
 
   test("an inline scalar branch keeps its literals and description", async () => {
@@ -212,11 +226,20 @@ components:
     });
   }
 
-  test("a field that is a named array schema isn't named as one more array", async () => {
-    const model = await buildApiModel({ collection: "api", label: "spec.yaml", spec: recursive, schemaPages: true });
-    const p = getApiPageProps(model, "createNode") as ApiOperationPage;
-    assert.equal(field(p, "groups").typeName, undefined);
-    assert.equal(field(p, "composed").typeName, undefined);
-    assert.doesNotMatch(renderApiPageMarkdown(p), /array<(Composed)?Groups>/);
-  });
+  for (const schemaPages of [true, false]) {
+    test(`a field that is a named array schema reads as its name (schema pages ${schemaPages ? "on" : "off"})`, async () => {
+      const model = await buildApiModel({ collection: "api", label: "spec.yaml", spec: recursive, schemaPages });
+      const p = getApiPageProps(model, "createNode") as ApiOperationPage;
+      for (const [name, typeName] of [["groups", "Groups"], ["composed", "ComposedGroups"]] as const) {
+        const f = field(p, name);
+        assert.equal(f.typeName, typeName);
+        assert.equal(f.namedArray, true);
+        assert.equal(Boolean(f.typeRef?.href), schemaPages);
+        assert.ok(f.union, `${name} keeps its branches`);
+      }
+      const md = renderApiPageMarkdown(p);
+      assert.doesNotMatch(md, /array<(Composed)?Groups>/);
+      assert.match(md, schemaPages ? /`groups` \([^)]*\[Groups\]\(/ : /`groups` \([^)]*; Groups, optional\)/);
+    });
+  }
 });

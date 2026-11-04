@@ -89,7 +89,9 @@ export function typeTokens(field: ApiFieldView): TypeToken[] {
     ];
   }
 
-  const prefix: TypeToken[] = shape?.kind === "array" ? [{ text: "array of", cls: MUTED_CLS }] : [];
+  // A named array schema's name already says it's an array.
+  const prefix: TypeToken[] =
+    shape?.kind === "array" && !field.namedArray ? [{ text: "array of", cls: MUTED_CLS }] : [];
 
   // A union shows only its schema's name, when it has one: the { n variants }
   // toggle gives the count and the open list names each variant.

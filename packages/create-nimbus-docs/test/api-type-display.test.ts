@@ -33,3 +33,12 @@ test("a named union field shows its name, as a link only with a page", () => {
   assert.deepEqual(linked.map((t) => [t.text, t.href]), [["Group", "/api/schemas/group/"]]);
   assert.deepEqual(typeTokens(field({ union })), []);
 });
+
+test("a named array schema shows its name alone; an array of a named union says array of", () => {
+  const union: ApiUnionView = { kind: "oneOf", variants: [{ label: "object" }, { label: "string" }] };
+  const array = { type: "array<one of>", typeShape: { kind: "array", inner: "one of" } } as const;
+  const whole = typeTokens(field({ ...array, union, typeName: "Groups", namedArray: true }));
+  assert.deepEqual(whole.map((t) => t.text), ["Groups"]);
+  const items = typeTokens(field({ ...array, union, typeName: "Group" }));
+  assert.deepEqual(items.map((t) => t.text), ["array of", "Group"]);
+});

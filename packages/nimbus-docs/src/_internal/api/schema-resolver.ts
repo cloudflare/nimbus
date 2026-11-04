@@ -19,6 +19,24 @@ import {
   typeLabel,
 } from "./schema-algebra.js";
 
+/** Number branches that share a title (`Destination 1`, `Destination 2`): the
+ *  same name twice can't tell them apart. An inline branch labelled by its
+ *  title takes the number too. */
+function numberSharedTitles(variants: VariantRef[]): void {
+  const counts = new Map<string, number>();
+  for (const v of variants) if (v.title) counts.set(v.title, (counts.get(v.title) ?? 0) + 1);
+  if (![...counts.values()].some((n) => n > 1)) return;
+  const nth = new Map<string, number>();
+  for (const v of variants) {
+    const title = v.title;
+    if (!title || (counts.get(title) ?? 0) < 2) continue;
+    const n = (nth.get(title) ?? 0) + 1;
+    nth.set(title, n);
+    v.title = `${title} ${n}`;
+    if (v.label === title) v.label = v.title;
+  }
+}
+
 /** Would the raw (ref-preserving) doc recover any name the dereferenced walk
  * loses? — a bounded, cycle-safe scan of the dereferenced doc (component schemas
  * AND operation bodies/responses, including nested properties) that gates the
@@ -366,6 +384,7 @@ export class SchemaResolver {
       kind: folded.oneOf ? "oneOf" : "anyOf",
       variants: branches.map((b, i) => this.resolveVariant(b, i)),
     };
+    numberSharedTitles(shape.variants);
     // A `mapping` is meaningless (and invalid OpenAPI) without a `propertyName`;
     // gate its capture on the name so the view-model never carries a mapping the
     // generated Markdown — which renders it under the discriminator — would drop.
@@ -378,6 +397,11 @@ export class SchemaResolver {
           value,
           variant: this.resolveVariant({ $ref: ref }),
         }));
+        // A mapped branch reads as it does in `variants`, numbered title included.
+        for (const m of shape.mapping) {
+          const twin = shape.variants.find((v) => v.name && v.name === m.variant.name);
+          if (twin?.title) m.variant.title = twin.title;
+        }
       }
     }
     return shape;

@@ -199,6 +199,8 @@ export interface FieldFacts {
    * page. Absent for a scalar-valued map (`map<string>`) or a free-form object.
    */
   typeRef?: VariantRef;
+  /** `typeRef` names the whole field: a `$ref` to a named array schema. */
+  namedArray?: boolean;
   /** The configured `x-*` fields the field declares, values unchanged. */
   extensions?: Record<string, unknown>;
 }

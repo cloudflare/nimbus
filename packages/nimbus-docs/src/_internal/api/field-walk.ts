@@ -224,11 +224,14 @@ export function addField(
   if (mapRef) facts.typeRef = mapRef;
   // A field typed as a named union, or one where the walk stops at a repeat,
   // carries the schema's name so readers can tell which schema it is.
-  // A `$ref` to a schema that is itself an array (however composed) names the
-  // whole array, and would read as one array too many (`array<Groups>`).
-  else if ((union || repeat) && !(typeof rawSchema?.$ref === "string" && folded.type === "array")) {
+  else if (union || repeat) {
     const named = sink.resolver.namedRef(rawSchema);
-    if (named) facts.typeRef = named;
+    if (named) {
+      facts.typeRef = named;
+      // A `$ref` to a schema that is itself an array (however composed) names
+      // the whole array, not its items.
+      if (typeof rawSchema?.$ref === "string" && folded.type === "array") facts.namedArray = true;
+    }
   }
   // The folded schema puts a property's own value over its `$ref` target's.
   const extensions = extensionValues(sink.extensions, folded);

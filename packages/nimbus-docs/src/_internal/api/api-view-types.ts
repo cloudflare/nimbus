@@ -82,6 +82,9 @@ export interface ApiFieldView {
    *  field typed as a named union, and where the list stops at a repeat. The
    *  link, when there is one, is `typeRef`. */
   typeName?: string;
+  /** `typeName` names the whole field, a named array schema, not its items:
+   *  show it alone, not as `array<typeName>`. */
+  namedArray?: boolean;
   typeRefs?: ApiRef[];
   required: boolean;
   deprecated?: boolean;
