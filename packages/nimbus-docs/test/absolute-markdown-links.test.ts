@@ -52,6 +52,7 @@ test("the origin goes before each destination as written: escapes, entities, tit
     ["> ![multi\n> line](/img.png)", "> ![multi\n> line](https://example.test/img.png)"],
     ["> [a](\n> /wrapped)", "> [a](\n> https://example.test/wrapped)"],
     ["> [ref]:\n> /def\n\n[ref]", "> [ref]:\n> https://example.test/def\n\n[ref]"],
+    ["> - item\n>\n>     > [multi\n>     > line](/x)", "> - item\n>\n>     > [multi\n>     > line](https://example.test/x)"],
     ["[a](\r\n/crlf)", "[a](\r\nhttps://example.test/crlf)"],
     ["[a]:\r\n /def\r\n\r\n[a]", "[a]:\r\n https://example.test/def\r\n\r\n[a]"],
   ];

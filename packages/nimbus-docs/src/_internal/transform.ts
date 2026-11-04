@@ -785,7 +785,8 @@ const PROBE = "https://nimbus.invalid";
  * one where an origin placed there becomes part of the URL, so a `](` in a
  * label, alt text, code span or title is never the one rewritten. The node's
  * own text is tried first; a node that needs its context (a link wrapped
- * inside a blockquote) is tried in the whole document.
+ * inside a blockquote) is tried from the start of its line, with the
+ * container markers that line carries, and then in the whole document.
  */
 function destinationStart(
   markdown: string,
@@ -796,10 +797,15 @@ function destinationStart(
   parse: (source: string) => MdNode,
 ): number | undefined {
   const text = markdown.slice(start, end);
-  const confirms = (source: string, at: number) => {
+  // The node from the start of its line, so a blockquote's or list's
+  // markers come with it; the slice stays the size of the node.
+  const lineStart = markdown.lastIndexOf("\n", start - 1) + 1;
+  const context = markdown.slice(lineStart, end);
+  // `source` holds the node at `offset`; the probe goes in at `at` within it.
+  const confirms = (source: string, offset: number, at: number) => {
     let found = false;
     walk(parse(source.slice(0, at) + PROBE + source.slice(at)), (node) => {
-      if (node.type === type && node.position?.start.offset === (source === text ? 0 : start) && node.url === PROBE + url) found = true;
+      if (node.type === type && node.position?.start.offset === offset && node.url === PROBE + url) found = true;
     });
     return found;
   };
@@ -811,8 +817,12 @@ function destinationStart(
     if (text[at] === "<") at++;
     candidates.push(at);
   }
-  for (const at of candidates) if (confirms(text, at)) return start + at;
-  for (const at of candidates) if (confirms(markdown, start + at)) return start + at;
+  for (const at of candidates) if (confirms(text, 0, at)) return start + at;
+  const offset = start - lineStart;
+  for (const at of candidates) if (confirms(context, offset, offset + at)) return start + at;
+  // Containers opened on earlier lines (a list inside a blockquote): the whole
+  // document, which only such nesting needs.
+  for (const at of candidates) if (confirms(markdown, start, start + at)) return start + at;
   return undefined;
 }
 
