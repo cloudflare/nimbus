@@ -42,8 +42,9 @@ const entries =
                 <span class="fl-count-brace" aria-hidden="true">{"{"}</span><span class="fl-count-text">{variant.union ? countLabel(variant.union.variants.length, "variant") : countLabel(variant.fields!.length, "property")}</span><span class="fl-count-brace" aria-hidden="true">{"}"}</span>
               </button>
             </div>
+            {/* The branch's name above is the same link; Markdown has only that one. */}
             {variant.href && (
-              <div class="fl-desc">
+              <div class="fl-desc" data-markdown-ignore>
                 <a href={withBase(variant.href, import.meta.env.BASE_URL)}>View {heading} schema →</a>
               </div>
             )}
