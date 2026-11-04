@@ -95,12 +95,13 @@ test("publishTarball distinguishes a reconciled failure from a successful publis
       events.push("publish");
       return { status: 1 };
     },
-    integrity: () => "sha512-expected",
+    expectedIntegrity: "sha512-expected",
     wait: async (name, version, options) => {
       events.push("visible");
       assert.equal(name, "pkg");
       assert.equal(version, "1.2.3");
-      assert.equal(options.expectedIntegrity, undefined);
+      // A version that landed despite the failure must still be the candidate.
+      assert.equal(options.expectedIntegrity, "sha512-expected");
     },
   });
   assert.deepEqual(events, ["publish", "visible"]);
@@ -108,7 +109,7 @@ test("publishTarball distinguishes a reconciled failure from a successful publis
 
   const successful = await publishTarball("/pkg", { name: "pkg", version: "1.2.3" }, "/pkg.tgz", {
     spawn: () => ({ status: 0 }),
-    integrity: () => "sha512-expected",
+    expectedIntegrity: "sha512-expected",
     wait: async (name, version, options) => {
       assert.equal(name, "pkg");
       assert.equal(version, "1.2.3");
