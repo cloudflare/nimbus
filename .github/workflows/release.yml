@@ -13,8 +13,57 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 permissions: {}
 
 jobs:
+  # Packs the release candidate and verifies the templates against it. The
+  # verification installs the templates the way a user does, without a
+  # lockfile, so it runs the newest in-range npm packages and their install
+  # scripts; this job therefore holds no credentials and restores no cache.
+  # The Pack step's outputs fix each tarball's integrity and the templates
+  # digest before any of that runs, and the release job publishes only bytes
+  # that match them. Runs on every push, so it doesn't re-derive changesets'
+  # version-or-publish decision.
+  verify-release:
+    name: Verify release
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      nimbus_integrity: ${{ steps.pack.outputs.nimbus_integrity }}
+      cli_integrity: ${{ steps.pack.outputs.cli_integrity }}
+      templates_digest: ${{ steps.pack.outputs.templates_digest }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+
+      - name: Pack
+        id: pack
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm upgrades:check
+          pnpm --filter ./packages/nimbus-docs --filter ./packages/create-nimbus-docs build
+          node scripts/release.mjs pack --out "$RUNNER_TEMP/candidate"
+
+      - name: Verify
+        run: node scripts/release.mjs verify --from "$RUNNER_TEMP/candidate"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-candidate
+          path: ${{ runner.temp }}/candidate/*.tgz
+          if-no-files-found: error
+          retention-days: 7 # a rerun after this needs a new push
+
   release:
     name: Release
+    needs: verify-release
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -52,10 +101,10 @@ jobs:
       # single source of truth (pinning both can error on action-setup v4).
       - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
 
+      # No cache: a store another job wrote could put its code in this one.
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
-          cache: pnpm
           registry-url: https://registry.npmjs.org
 
       # 0.x major-release guard: a stray `major` changeset must not publish
@@ -64,19 +113,21 @@ jobs:
       - name: Guard against an unattended 1.0.0
         run: node scripts/check-no-major.mjs
 
-      - run: pnpm install --frozen-lockfile
+      # Only the locked release toolchain runs here (changesets, semver, tsx),
+      # with install scripts off. Packing, building and template verification
+      # happened in verify-release.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - run: pnpm upgrades:check
-
-      # Build only what gets published. The root `build` also builds the private
-      # @nimbus/www site + starter source; a failure there must not block the npm
-      # release. release.mjs re-verifies the templates against the packed bits.
-      - run: pnpm --filter ./packages/nimbus-docs --filter ./packages/create-nimbus-docs build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-candidate
+          path: ${{ runner.temp }}/candidate
 
       # Normal path. On a push with pending changesets, opens/updates the
       # "chore: bump package versions" PR (branch `changeset-release/*`). When
       # that PR is merged (no changesets remain), the
-      # `publish` command runs release.mjs, which: pack + verify both artifacts →
+      # `publish` command runs release.mjs, which: checks the candidate's bytes
+      # and the regenerated templates against verify-release's digests →
       # preflight npm latest/exact state and existing package tags → sync +
       # tag the orphan `templates` branch as `templates-v<ver>` (BEFORE a new
       # CLI publish) → publish nimbus-docs before the CLI → changeset tag →
@@ -111,7 +162,7 @@ jobs:
         uses: changesets/action@3841a0683d3cfa6dae0f9bb335290003010fe3f0 # v1.9.0
         with:
           version: pnpm changeset:version
-          publish: node scripts/release.mjs publish
+          publish: node scripts/release.mjs publish --from ${{ runner.temp }}/candidate
           createGithubReleases: false # reconcile them after the published output is recorded
           commit: "chore: bump package versions"
           title: "chore: bump package versions"
@@ -119,6 +170,9 @@ jobs:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           NPM_CONFIG_PROVENANCE: "true"
+          RELEASE_NIMBUS_INTEGRITY: ${{ needs.verify-release.outputs.nimbus_integrity }}
+          RELEASE_CLI_INTEGRITY: ${{ needs.verify-release.outputs.cli_integrity }}
+          RELEASE_TEMPLATES_DIGEST: ${{ needs.verify-release.outputs.templates_digest }}
 
       - name: Push published package tags
         if: ${{ !cancelled() && steps.publish.outputs.published == 'true' }}
@@ -260,14 +314,15 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   # The weather demo builds against the framework at the same release commit,
-  # so it never shows a Nimbus older than the one on npm.
-  deploy-demo-weather:
-    name: Deploy the weather demo
+  # so it never shows a Nimbus older than the one on npm. The build runs here,
+  # without credentials; the deploy job uses the checked-in
+  # apps/demo/wrangler.deploy.json, never the config the build wrote.
+  build-demo-weather:
+    name: Build the weather demo
     needs: [build-www, deploy-www]
     if: ${{ !cancelled() && needs.deploy-www.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: cloudflare
     permissions:
       contents: read
     steps:
@@ -275,6 +330,17 @@ jobs:
         with:
           ref: ${{ needs.build-www.outputs.sha }}
           persist-credentials: false
+
+      # A redeploy can check out a release from before the demo had a checked-in
+      # deploy config; this run's own copies stand in for files it lacks.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          path: .release-tools
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/deploy-config-drift.mjs
+            apps/demo/wrangler.deploy.json
 
       - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
 
@@ -287,6 +353,80 @@ jobs:
 
       - name: Build
         run: pnpm --filter "@nimbus/demo-weather..." build
+
+      # Tells a maintainer when an adapter upgrade changes what the deploy
+      # config must say.
+      - name: Compare the deploy config
+        run: |
+          for file in scripts/deploy-config-drift.mjs apps/demo/wrangler.deploy.json; do
+            [ -f "$file" ] || cp ".release-tools/$file" "$file"
+          done
+          node scripts/deploy-config-drift.mjs apps/demo/dist/server/wrangler.json apps/demo/wrangler.deploy.json
+
+      - run: rm apps/demo/dist/server/wrangler.json
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: released-demo-dist
+          path: apps/demo/dist
+          if-no-files-found: error
+          include-hidden-files: true
+          overwrite: true
+          retention-days: 7
+
+  deploy-demo-weather:
+    name: Deploy the weather demo
+    needs: [build-www, build-demo-weather]
+    if: ${{ !cancelled() && needs.build-demo-weather.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ needs.build-www.outputs.sha }}
+          persist-credentials: false
+
+      # A redeploy can check out a release from before the demo had a checked-in
+      # deploy config; this run's own copies stand in for files it lacks.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          path: .release-tools
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/deploy-config-drift.mjs
+            apps/demo/wrangler.deploy.json
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+
+      - name: Install Wrangler
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: released-demo-dist
+          path: apps/demo/dist
+
+      # The checked-in config sits where the build's would, so `main` and
+      # `assets.directory` resolve inside the download. Everything else in the
+      # server output that isn't a module, a Wasm module or a source map goes
+      # first: a tsconfig.json or .env there would configure the deploy.
+      - name: Use the checked-in deploy config
+        working-directory: apps/demo
+        run: |
+          rm -rf .wrangler
+          find dist/server -mindepth 1 \( -type l -o -type f ! -name '*.mjs' ! -name '*.js' ! -name '*.wasm' ! -name '*.map' \) -delete
+          find dist/server -mindepth 1 -type d -empty -delete
+          config=wrangler.deploy.json
+          [ -f "$config" ] || config=../../.release-tools/apps/demo/wrangler.deploy.json
+          cp "$config" dist/server/wrangler.json
 
       - name: Deploy
         working-directory: apps/demo
@@ -301,7 +441,7 @@ jobs:
               exit 1
             fi
           done
-          pnpm exec wrangler deploy
+          pnpm exec wrangler deploy --config dist/server/wrangler.json --tsconfig "$PWD/tsconfig.json"
           curl --fail --show-error --silent --retry 5 --retry-delay 3 -o /dev/null https://demo.nimbus-docs.com/
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

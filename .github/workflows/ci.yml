@@ -159,6 +159,9 @@ jobs:
       - run: pnpm --filter @nimbus/demo-weather check
 
       - run: pnpm --filter @nimbus/demo-weather build
+      # The release deploys the demo with this checked-in config, not the one
+      # the build writes; an adapter change that moves them apart fails here.
+      - run: node scripts/deploy-config-drift.mjs apps/demo/dist/server/wrangler.json apps/demo/wrangler.deploy.json
 
   windows-child-process:
     name: Windows child process
