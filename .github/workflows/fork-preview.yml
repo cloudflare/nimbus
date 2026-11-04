@@ -102,6 +102,11 @@ jobs:
           if [ -f apps/www/public/_redirects ]; then
             cp apps/www/public/_redirects apps/www/dist/_redirects
           fi
+          # A static build has no Worker to serve the moved pages' `/old/`
+          # forms, so main's map adds them as rules.
+          if [ -f apps/www/redirects.json ]; then
+            jq -r 'to_entries[] | "\(.key)/ \(.value) 301"' apps/www/redirects.json >> apps/www/dist/_redirects
+          fi
           find apps/www/dist -name '.assetsignore' -delete
           printf '%s\n' "$SHA" > apps/www/dist/_nimbus-preview-sha.txt
           printf '/*\n  X-Robots-Tag: noindex\n' > apps/www/dist/_headers
