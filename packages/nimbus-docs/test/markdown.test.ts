@@ -6,7 +6,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import { satteri } from "@astrojs/markdown-satteri";
-import { externalLinks, titleFigure, renderMarkdown } from "../src/markdown/index.ts";
+import { externalLinks, titleFigure, tableScroll, renderMarkdown } from "../src/markdown/index.ts";
 
 async function renderWith(
   md: string,
@@ -145,6 +145,16 @@ describe("titleFigure() export", () => {
       hastPlugins: [titleFigure({ figureClass: "nb-fig" })],
     });
     assert.match(html, /<figure class="nb-fig">/);
+  });
+});
+
+describe("tableScroll() export", () => {
+  test("wraps a table in a scroll box that is a Tab stop, with no role or label", async () => {
+    const html = await renderWith("| a | b |\n| - | - |\n| 1 | 2 |", {
+      hastPlugins: [tableScroll()],
+    });
+    assert.match(html, /<div class="nb-table-scroll" tabindex="0"><table>/);
+    assert.ok(!/role=|aria-label=/.test(html));
   });
 });
 
