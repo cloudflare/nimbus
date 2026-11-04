@@ -310,11 +310,12 @@ test("bakes expanded source and transformed Markdown endpoint assets determinist
     id: "guide",
     surface: "markdown",
   });
-  assert.match(markdown.body, /\[Catalog\]\(\/docs:\/docs\/catalog\)/);
+  // Root-relative links are absolute in Markdown, so they resolve wherever it's read.
+  assert.match(markdown.body, /\[Catalog\]\(https:\/\/example\.test\/docs:\/docs\/catalog\)/);
   assert.equal(markdown.mediaType, "text/markdown; charset=utf-8");
-  assert.match(markdown.body, /\[Nested\]\(\/nested\)/);
+  assert.match(markdown.body, /\[Nested\]\(https:\/\/example\.test\/nested\)/);
   assert.doesNotMatch(markdown.body, /wrong/);
-  assert.match(markdown.body, /\[API\]\(\/docs\/api\/list\/\)/);
+  assert.match(markdown.body, /\[API\]\(https:\/\/example\.test\/docs\/api\/list\/\)/);
   assert.match(
     markdown.body,
     /image: "https:\/\/example\.test\/docs\/og\.png"/,
@@ -324,7 +325,7 @@ test("bakes expanded source and transformed Markdown endpoint assets determinist
     /Source: https:\/\/example\.test\/docs\/guide\/index\.mdx/,
   );
   assert.doesNotMatch(markdown.body, /__nimbusMarkdown/);
-  assert.match(markdown.content, /\[Catalog\]\(\/docs:\/docs\/catalog\)/);
+  assert.match(markdown.content, /\[Catalog\]\(https:\/\/example\.test\/docs:\/docs\/catalog\)/);
   assert.doesNotMatch(markdown.content, /Documentation Index|Source:|^---/m);
 
   const manifest = await readFile(
@@ -340,7 +341,7 @@ test("a section takes its index page's sidebar group label, then its title", asy
     {
       id: "guide",
       body: "Overview",
-      data: { title: "Guides overview", sidebar: { group: { label: "Guides" } } },
+      data: { title: "Guides overview", description: "How to do things.", sidebar: { group: { label: "Guides" } } },
     },
     { id: "guide/a", body: "Guide A", data: { title: "Guide A" } },
     { id: "ref", body: "Reference", data: { title: "Reference home" } },
@@ -352,6 +353,11 @@ test("a section takes its index page's sidebar group label, then its title", asy
   const index = await readLlmsEndpointPayload(projectRoot, { scope: "site", surface: "index" });
   assert.match(index.body, /\[Guides\]\(https:\/\/example\.test\/docs\/guide\/llms\.txt\)/);
   assert.match(index.body, /\[Reference home\]\(https:\/\/example\.test\/docs\/ref\/llms\.txt\)/);
+  // A section's summary is its index page's description, when it has one.
+  const guide = await readLlmsEndpointPayload(projectRoot, { scope: "section", surface: "index", section: "guide" });
+  assert.match(guide.body, /^# Guides\n\n> How to do things\.\n\n## Pages\n/);
+  const ref = await readLlmsEndpointPayload(projectRoot, { scope: "section", surface: "index", section: "ref" });
+  assert.match(ref.body, /^# Reference home\n\n## Pages\n/);
 });
 
 test("bakes site and section llms.txt endpoint assets from public discoverable prose and API pages", async () => {
@@ -451,6 +457,7 @@ test("bakes site and section llms.txt endpoint assets from public discoverable p
     /\[API\]\(https:\/\/example\.test\/docs\/api\/llms\.txt\)/,
   );
   assert.doesNotMatch(index.body, /v1|Hidden/);
+  assert.match(index.body, /^# Test\n\n> Test docs\n\n/);
 
   const guide = await readLlmsEndpointPayload(projectRoot, {
     scope: "section",
@@ -470,7 +477,7 @@ test("bakes site and section llms.txt endpoint assets from public discoverable p
   assert.match(full.body, /# Guide A/);
   assert.match(full.body, /\*\*Guide B\*\*/);
   assert.match(full.body, /# API[\s\S]*API reference/);
-  assert.match(full.body, /\[Users\]\(\/docs\/api\/tags\/users\)/);
+  assert.match(full.body, /\[Users\]\(https:\/\/example\.test\/docs\/api\/tags\/users\)/);
   assert.match(full.body, /# Post/);
   assert.doesNotMatch(full.body, /# Old|# Hidden|Secret API/);
 

@@ -513,8 +513,8 @@ test("a slice writes its site-wide files under its prefix, and the root slice kn
     }
     // The image is published under the prefix too, where the zone routes it.
     const image = /!\[Pixel\]\(([^)]+)\)/.exec(await site.read(`dist/docs-es/${imagePage.slug}/index.md`))?.[1];
-    assert.match(image ?? "", /^\/docs-es\/_nimbus\/md\/[a-z0-9]+\/pixel\.svg$/);
-    assert.ok(esFiles.includes(image!), image);
+    assert.match(image ?? "", /^https:\/\/docs\.example\.test\/docs-es\/_nimbus\/md\/[a-z0-9]+\/pixel\.svg$/);
+    assert.ok(esFiles.includes(new URL(image!).pathname), image);
     // Its sitemap index lists its own file under the prefix, and its sitemap
     // never lists the root.
     assert.deepEqual(await sitemapUrls("dist/docs-es/sitemap-index.xml"), [

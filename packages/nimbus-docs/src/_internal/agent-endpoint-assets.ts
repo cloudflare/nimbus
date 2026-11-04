@@ -55,6 +55,7 @@ import {
 import { orderPageCollections } from "./page-collections.js";
 import { registerAgentEndpointAssetReader } from "./agent-endpoint-asset-reader.js";
 import {
+  absoluteMarkdownLinks,
   renderEntryAsMarkdown,
 } from "./transform.js";
 import { formatLabel } from "./sidebar.js";
@@ -983,9 +984,14 @@ function flattenLlmsGroups(groups: readonly PreparedLlmsGroup[]): PreparedLlmsGr
   return groups.flatMap((group) => [group, ...flattenLlmsGroups(group.children)]);
 }
 
+/** A section's index page: the member whose path ends at the section. */
+function groupIndex(slug: string, members: readonly PreparedLlmsPage[]): PreparedLlmsPage | undefined {
+  return members.find((page) => page.markdownUrl === `/${slug}/index.md`);
+}
+
 /** A section's name, as the sidebar names it: the index page's group label or title, else the formatted slug. */
 function groupLabel(slug: string, members: readonly PreparedLlmsPage[]): string {
-  const index = members.find((page) => page.markdownUrl === `/${slug}/index.md`);
+  const index = groupIndex(slug, members);
   return index?.groupLabel ?? index?.title ?? formatLabel(slug.split("/").at(-1)!);
 }
 
@@ -1025,7 +1031,7 @@ function siteIndexAsset(
   return [
     `# ${options.title}`,
     "",
-    options.description ?? "Documentation index for AI agents.",
+    blockquote(options.description ?? "Documentation index for AI agents."),
     "",
     ...(options.fullDocument === false
       ? []
@@ -1110,7 +1116,17 @@ function sectionIndexAsset(
           "",
         ]
       : [];
-  return [`# ${group.label}`, "", ...pages, ...sections].join("\n");
+  const description = groupIndex(group.slug, group.members)?.description;
+  return [`# ${group.label}`, "", ...(description ? [blockquote(description), ""] : []), ...pages, ...sections].join("\n");
+}
+
+/** A `> ` summary, one marker per line. */
+function blockquote(text: string): string {
+  return text
+    .trim()
+    .split(/\r?\n/u)
+    .map((line) => (line.trim() ? `> ${line.trim()}` : ">"))
+    .join("\n");
 }
 
 function llmsFullBlock(page: PreparedLlmsPage): LlmsFullBlock {
@@ -1963,13 +1979,16 @@ export async function bakeAgentEndpointAssets(
       getPartial,
       resolvePartialId: options.partialResolver?.resolve,
     });
-    const markdown = renderEntryAsMarkdown(
-      { body: expanded, filePath: entry.filePath },
-      {
-        citationIndex: basedCitationIndex,
-        componentMap: renderers,
-        base,
-      },
+    const markdown = absoluteMarkdownLinks(
+      renderEntryAsMarkdown(
+        { body: expanded, filePath: entry.filePath },
+        {
+          citationIndex: basedCitationIndex,
+          componentMap: renderers,
+          base,
+        },
+      ),
+      options.site,
     );
     const page = preparedLlmsPage(entry, markdown, options);
     llmsRoutePages.push(page);
@@ -2075,6 +2094,7 @@ export async function bakeAgentEndpointAssets(
         `nimbus-docs: API entry "${entry.id}" in collection "${entry.collection}" is missing its prepared page data — rebuild the apiCollection() index.`,
       );
     }
+    markdown = absoluteMarkdownLinks(markdown, options.site);
     if (isDiscoverable(entry)) {
       preparedLlmsPages.push(preparedLlmsPage(entry, markdown, options));
     }
