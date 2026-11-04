@@ -84,3 +84,40 @@ test("a built route with different sizes in its two helpers fails the build", as
     /homeChunkSize is unset in getApiStaticPaths\("api"\) but 2 in getApiRoute\. Pass API_HOME_CHUNK_SIZE to both/,
   );
 });
+
+// What the starter's layout builds its table of contents from: each part's
+// headings, and `anchorParts` to link a heading to the part that holds it.
+const tocRoute = `---
+import { getApiRoute, getApiStaticPaths } from ${runtime};
+export const prerender = true;
+export const getStaticPaths = getApiStaticPaths("api", { homeChunkSize: 2 });
+const result = await getApiRoute(Astro, { homeChunkSize: 2 });
+if (result instanceof Response) return result;
+const home = result.home;
+const ids = home
+  ? [
+      ...home.part.groups.flatMap((g) => [...(g.label && !g.continued ? [g.anchor] : []), ...g.sections.map((s) => s.anchor)]),
+      ...(home.part.operations ? [home.part.operations.anchor] : []),
+      ...(home.part.webhooks ? [home.part.webhooks.anchor] : []),
+    ]
+  : [];
+const links = home && home.part.number === 1
+  ? Object.entries(home.anchorParts).map(([anchor, n]) => (n > 1 ? home.parts[n - 1].href : "") + "#" + anchor)
+  : [];
+---
+{ids.map((id) => <h2 id={id}>{id}</h2>)}
+{links.map((href) => <a data-toc href={href}>{href}</a>)}
+`;
+
+test("every heading the home lists links to the part that holds it", async () => {
+  const site = await sites.buildSite(files(tocRoute), options);
+  const read = (href: string) => readFile(path.join(site.root, "dist", href, "index.html"), "utf8");
+  const home = await read("/api/");
+  const links = [...home.matchAll(/<a data-toc href="([^"]+)"/g)].map((m) => m[1]!);
+  assert.ok(links.some((href) => !href.startsWith("#")), "some heading lives in a later part");
+  for (const href of links) {
+    const [page, id] = href.split("#") as [string, string];
+    const html = page ? await read(page) : home;
+    assert.match(html, new RegExp(`id="${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`), href);
+  }
+});

@@ -976,6 +976,8 @@ export interface TOCItem {
   depth: number;
   text: string;
   slug: string;
+  /** Where the link goes, when the heading isn't on this page (`#slug` otherwise). */
+  href?: string;
 }
 
 export interface Breadcrumb {

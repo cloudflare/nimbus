@@ -54,9 +54,15 @@ const currentSiblingHref = withBase(currentSiblingUrl ?? "/", import.meta.env.BA
 // The rail column is reserved ONLY when it has content — a request sample or a
 // response example (mirrors ApiCodeRail's own gate). A bodyless GET with no
 // samples otherwise pins an empty sticky column at the page's right edge.
-// "On this page" for the API home: its tag groups and their sections. A link
-// to a part that hasn't loaded yet loads the list up to it.
-const tocHeadings: TOCItem[] =
+// "On this page" for the API home: its tag groups and their sections. A
+// heading in a later part links to that part's page, so the link works without
+// script; with script, the home loads the list up to it in place.
+const partHref = (slug: string): string | undefined => {
+  const number = home?.anchorParts[slug];
+  const part = number && number > 1 ? home!.parts[number - 1] : undefined;
+  return part ? `${withBase(part.href, import.meta.env.BASE_URL)}#${slug}` : undefined;
+};
+const homeHeadings: TOCItem[] =
   page.kind === "api" && !homePart
     ? [
         ...page.index.groups.flatMap((group) => [
@@ -67,6 +73,10 @@ const tocHeadings: TOCItem[] =
         ...(page.index.webhooks.length > 0 ? [{ depth: 2, text: "Webhooks", slug: "webhooks" }] : []),
       ]
     : [];
+const tocHeadings: TOCItem[] = homeHeadings.map((h) => {
+  const href = partHref(h.slug);
+  return href ? { ...h, href } : h;
+});
 
 const hasRail =
   page.kind === "operation" &&
