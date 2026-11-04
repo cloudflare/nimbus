@@ -9,6 +9,7 @@ import { test } from "node:test";
 import { build, type AstroIntegration } from "astro";
 import { discoveryFixture as fixture } from "./fixtures/agent-discovery-site.js";
 import { runChecks } from "../src/check/run.ts";
+import { coordinatesRouteOwner } from "../src/_internal/coordinates-route.ts";
 import { TEST_TMP } from "./fixtures/temp-root.js";
 
 const runtime = JSON.stringify(pathToFileURL(path.resolve(import.meta.dirname, "../src/runtime.ts")).href);
@@ -75,6 +76,29 @@ test("each kind of owner keeps the path, and Nimbus doesn't serve it", async () 
     } finally {
       await rm(site.root, { recursive: true, force: true });
     }
+  }
+});
+
+test("a file whose name differs only by case doesn't own the path", () => {
+  const root = mkdtempSync(path.join(TEST_TMP, "nimbus-coordinates-case-"));
+  try {
+    const at = (file: string) => {
+      mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+      writeFileSync(path.join(root, file), "x");
+    };
+    const owner = () =>
+      coordinatesRouteOwner({ srcDir: path.join(root, "src"), publicDir: path.join(root, "public"), projectRoot: root });
+    at("src/pages/nimbus-api/Coordinates.json.ts");
+    at("public/nimbus-api/COORDINATES.json");
+    assert.equal(owner(), undefined, "Astro and hosts match names by case");
+    at("src/pages/nimbus-api/coordinates.json.TS");
+    assert.equal(owner(), undefined, "extensions too");
+    // Remove the miscased file first: a case-insensitive disk would reuse its name.
+    rmSync(path.join(root, "public/nimbus-api/COORDINATES.json"));
+    at("public/nimbus-api/coordinates.json");
+    assert.equal(owner(), "public/nimbus-api/coordinates.json");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
