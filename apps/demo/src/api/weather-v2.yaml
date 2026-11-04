@@ -153,6 +153,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /locations/reverse:
     get:
       operationId: reverseGeocode
@@ -196,6 +198,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /locations/{location_id}:
     get:
       operationId: getLocation
@@ -225,6 +229,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /locations/{location_id}/nearby-stations:
     get:
       operationId: listNearbyStations
@@ -311,6 +317,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /timezones/{timezone}:
     get:
       operationId: getTimezone
@@ -359,6 +367,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /forecasts/daily:
     get:
       operationId: getDailyForecast
@@ -453,6 +463,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /forecasts/hourly:
     get:
       operationId: getHourlyForecast
@@ -546,6 +558,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /forecasts/minutely:
     get:
       operationId: getMinutelyPrecipitation
@@ -626,6 +640,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /forecasts/batch:
     post:
       operationId: batchForecasts
@@ -715,6 +731,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /forecasts/discussion:
     get:
       operationId: getForecastDiscussion
@@ -764,6 +782,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /stations/{station_id}/observations/latest:
     get:
       operationId: getLatestObservation
@@ -805,6 +825,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /stations/{station_id}/observations:
     get:
       operationId: listObservations
@@ -917,6 +939,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /observations/{observation_id}:
     get:
       operationId: getObservation
@@ -958,6 +982,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /observations/nearest:
     get:
       operationId: getNearestObservation
@@ -1013,6 +1039,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /observations/metar/{icao}:
     get:
       operationId: getRawMetar
@@ -1045,6 +1073,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /observations/conditions:
     get:
       operationId: listConditionCodes
@@ -1106,6 +1136,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /stations:
     get:
       operationId: listStations
@@ -1204,6 +1236,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
     post:
       operationId: createStation
       summary: Register a private station
@@ -1231,6 +1265,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /stations/{station_id}:
     get:
       operationId: getStation
@@ -1260,6 +1296,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
     patch:
       operationId: updateStation
       summary: Update a private station
@@ -1294,6 +1332,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
     delete:
       operationId: deleteStation
       summary: Retire a private station
@@ -1319,6 +1359,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /stations/{station_id}/readings:
     post:
       operationId: submitReadings
@@ -1400,6 +1442,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
     get:
       operationId: listReadings
       summary: List submitted readings
@@ -1476,6 +1520,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /stations/{station_id}/sensors:
     get:
       operationId: listSensors
@@ -1507,6 +1553,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
     post:
       operationId: addSensor
       summary: Add a sensor
@@ -1556,6 +1604,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /stations/{station_id}/sensors/{sensor_id}/calibrations:
     post:
       operationId: recordCalibration
@@ -1616,6 +1666,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /stations/{station_id}/maintenance:
     get:
       operationId: listMaintenanceWindows
@@ -1647,6 +1699,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
     post:
       operationId: scheduleMaintenance
       summary: Schedule maintenance
@@ -1700,6 +1754,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /stations/{station_id}/health:
     get:
       operationId: getStationHealth
@@ -1755,6 +1811,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /alerts:
     get:
       operationId: listActiveAlerts
@@ -1850,6 +1908,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /alerts/{alert_id}:
     get:
       operationId: getAlert
@@ -1879,6 +1939,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /alerts/point:
     get:
       operationId: listAlertsForPoint
@@ -1923,6 +1985,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /alerts/zones:
     get:
       operationId: listZones
@@ -2010,6 +2074,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /alerts/zones/{zone_id}:
     get:
       operationId: getZone
@@ -2039,6 +2105,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /alerts/history:
     get:
       operationId: listPastAlerts
@@ -2127,6 +2195,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /alerts/subscriptions:
     get:
       operationId: listSubscriptions
@@ -2188,6 +2258,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
     post:
       operationId: createSubscription
       summary: Subscribe to alerts
@@ -2249,6 +2321,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /alerts/subscriptions/{subscription_id}:
     get:
       operationId: getSubscription
@@ -2278,6 +2352,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
     patch:
       operationId: updateSubscription
       summary: Update a subscription
@@ -2326,6 +2402,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
     delete:
       operationId: deleteSubscription
       summary: Delete a subscription
@@ -2350,6 +2428,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /alerts/subscriptions/{subscription_id}/test:
     post:
       operationId: sendTestEvent
@@ -2385,6 +2465,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /alerts/subscriptions/{subscription_id}/deliveries:
     get:
       operationId: listDeliveries
@@ -2482,6 +2564,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /alerts/subscriptions/{subscription_id}/deliveries/{delivery_id}/retry:
     post:
       operationId: retryDelivery
@@ -2514,6 +2598,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /tiles/{layer}/{z}/{x}/{y}.png:
     get:
       operationId: getTile
@@ -2575,6 +2661,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /tiles/{layer}/{z}/{x}/{y}@2x.png:
     get:
       operationId: getRetinaTile
@@ -2627,6 +2715,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /layers:
     get:
       operationId: listLayers
@@ -2650,6 +2740,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /layers/{layer}/frames:
     get:
       operationId: listFrames
@@ -2695,6 +2787,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /maps/static:
     get:
       operationId: renderStaticMap
@@ -2779,6 +2873,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /maps/animation:
     get:
       operationId: renderAnimation
@@ -2819,6 +2915,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /history/daily:
     get:
       operationId: getDailyHistory
@@ -2899,6 +2997,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /history/hourly:
     get:
       operationId: getHourlyHistory
@@ -2979,6 +3079,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /climate/normals:
     get:
       operationId: getClimateNormals
@@ -3060,6 +3162,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /climate/records:
     get:
       operationId: getClimateRecords
@@ -3140,6 +3244,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /climate/degree-days:
     get:
       operationId: getDegreeDays
@@ -3237,6 +3343,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /exports:
     post:
       operationId: createExport
@@ -3325,6 +3433,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
     get:
       operationId: listExports
       summary: List exports
@@ -3385,6 +3495,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /exports/{export_id}:
     get:
       operationId: getExport
@@ -3414,6 +3526,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
     delete:
       operationId: cancelExport
       summary: Cancel an export
@@ -3442,6 +3556,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /exports/{export_id}/download:
     get:
       operationId: downloadExport
@@ -3476,6 +3592,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /air-quality/current:
     get:
       operationId: getCurrentAirQuality
@@ -3531,6 +3649,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /air-quality/forecast:
     get:
       operationId: getAirQualityForecast
@@ -3602,6 +3722,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /air-quality/pollen:
     get:
       operationId: getPollen
@@ -3690,6 +3812,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /air-quality/monitors:
     get:
       operationId: listAirMonitors
@@ -3772,6 +3896,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /marine/forecast:
     get:
       operationId: getMarineForecast
@@ -3855,6 +3981,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /marine/tides:
     get:
       operationId: getTidePredictions
@@ -3914,6 +4042,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /marine/tide-stations:
     get:
       operationId: listTideStations
@@ -3994,6 +4124,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /marine/buoys/{buoy_id}/observations:
     get:
       operationId: listBuoyObservations
@@ -4076,6 +4208,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /aviation/airports/{icao}/metar:
     get:
       operationId: getDecodedMetar
@@ -4136,6 +4270,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /aviation/airports/{icao}/taf:
     get:
       operationId: getTaf
@@ -4204,6 +4340,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /aviation/sigmets:
     get:
       operationId: listSigmets
@@ -4278,6 +4416,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /aviation/pireps:
     get:
       operationId: listPireps
@@ -4345,6 +4485,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /tropical/storms:
     get:
       operationId: listActiveStorms
@@ -4377,6 +4519,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /tropical/storms/{storm_id}:
     get:
       operationId: getStorm
@@ -4406,6 +4550,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /tropical/storms/{storm_id}/track:
     get:
       operationId: getStormTrack
@@ -4469,6 +4615,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /tropical/storms/{storm_id}/cone:
     get:
       operationId: getForecastCone
@@ -4507,6 +4655,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /tropical/seasons/{year}:
     get:
       operationId: getSeasonSummary
@@ -4561,6 +4711,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /lightning/strikes:
     get:
       operationId: listStrikes
@@ -4659,6 +4811,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /lightning/proximity:
     get:
       operationId: getLightningProximity
@@ -4751,6 +4905,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /lightning/density:
     get:
       operationId: getStrikeDensity
@@ -4803,6 +4959,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /agriculture/soil:
     get:
       operationId: getSoilConditions
@@ -4876,6 +5034,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /agriculture/growing-degree-days:
     get:
       operationId: getGrowingDegreeDays
@@ -4975,6 +5135,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /agriculture/frost-risk:
     get:
       operationId: getFrostRisk
@@ -5046,6 +5208,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /agriculture/evapotranspiration:
     get:
       operationId: getEvapotranspiration
@@ -5113,6 +5277,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /agriculture/spray-windows:
     get:
       operationId: getSprayWindows
@@ -5199,6 +5365,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /energy/solar:
     get:
       operationId: getSolarForecast
@@ -5296,6 +5464,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /energy/wind:
     get:
       operationId: getWindPowerForecast
@@ -5379,6 +5549,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /energy/demand-drivers:
     get:
       operationId: getDemandDrivers
@@ -5458,6 +5630,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /account/keys:
     get:
       operationId: listApiKeys
@@ -5519,6 +5693,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security:
         - oauth2:
             - account
@@ -5573,6 +5749,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security:
         - oauth2:
             - account
@@ -5602,6 +5780,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security:
         - oauth2:
             - account
@@ -5647,6 +5827,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security:
         - oauth2:
             - account
@@ -5734,6 +5916,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security:
         - oauth2:
             - account
@@ -5773,6 +5957,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security:
         - oauth2:
             - account
@@ -5820,6 +6006,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security:
         - oauth2:
             - account
@@ -5884,6 +6072,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security:
         - oauth2:
             - account
@@ -5931,6 +6121,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security:
         - oauth2:
             - account
@@ -5982,6 +6174,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security:
         - oauth2:
             - account
@@ -6009,6 +6203,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security:
         - oauth2:
             - account
@@ -6116,6 +6312,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security:
         - oauth2:
             - account
@@ -6168,6 +6366,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security: []
   /ping:
     get:
@@ -6197,6 +6397,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security: []
       x-successor: getServiceStatus
 webhooks:
@@ -7702,6 +7904,7 @@ components:
           example: wx_live_9bR4Tq0sXk1mZp8vYw2c
     Member:
       type: object
+      description: A person in your organization's account.
       required:
         - id
         - email
@@ -7709,15 +7912,15 @@ components:
       properties:
         id:
           type: string
-          description: ""
+          description: Member id.
           example: usr_2Hc8
         email:
           type: string
-          description: ""
+          description: The address the invitation went to, and the member signs in with.
           example: ingrid@example.com
         role:
           type: string
-          description: ""
+          description: The member's role in the organization.
           enum:
             - owner
             - admin
@@ -7727,7 +7930,7 @@ components:
           example: developer
         joined_at:
           type: string
-          description: ""
+          description: When the member accepted the invitation (UTC). Absent while it's pending.
           example: 2025-04-02T08:30:00Z
           format: date-time
   responses:
@@ -7766,6 +7969,12 @@ components:
           schema:
             type: integer
             example: 0
+    "500":
+      description: Something failed on our side. Retry with backoff, and quote `request_id` if you contact support.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   securitySchemes:
     bearer:
       type: http
