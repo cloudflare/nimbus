@@ -242,7 +242,7 @@ import {
   normalizeSourceRouteEntrypoint,
   STARTER_ROUTE_INVENTORY,
 } from "./_internal/route-ownership.js";
-import { COORDINATES_PATH, coordinatesOwnerDirs, coordinatesRouteOwner, isCoordinatesOwnerPath } from "./_internal/coordinates-route.js";
+import { COORDINATES_PATH, coordinatesRouteOwner, isCoordinatesOwnerPath } from "./_internal/coordinates-route.js";
 import type { RequestRouteInventoryEntry } from "./_internal/request-route-url.js";
 import { safeDecode, setLinkPolicy, stripBase, toRouteKey, withBase } from "./_internal/url.js";
 import { OG_CARD } from "./_internal/page-urls.js";
@@ -3334,10 +3334,6 @@ export function nimbus(
           collectionRoutesTimer = setTimeout(recheckCollectionRoutes, 200);
           collectionRoutesTimer.unref?.();
         };
-        // Watch the folders an owner of the coordinate manifest would land
-        // in, even before they exist (chokidar waits for them), so a
-        // publicDir outside the project root hands over too.
-        watcher.add?.(coordinatesOwnerDirs(srcDirForBuild, publicDirForBuild));
         watcher.on("add", onPagesChange);
         watcher.on("change", onPagesChange);
         watcher.on("unlink", onPagesChange);
