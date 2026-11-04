@@ -935,7 +935,8 @@ test("omitted rendering policy builds every route Nimbus manages, collections in
 
   assert.equal(docs.prerender, true);
   assert.equal(blog.prerender, true);
-  assert.equal(integration.injectedRoutes.length, 3);
+  // Three infrastructure routes, and the coordinate manifest.
+  assert.equal(integration.injectedRoutes.length, 4);
 
   integration.configDone({
     injectTypes: () => new URL("file:///noop"),

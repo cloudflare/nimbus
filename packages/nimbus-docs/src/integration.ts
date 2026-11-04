@@ -3337,7 +3337,7 @@ export function nimbus(
         // Watch the folders an owner of the coordinate manifest would land
         // in, even before they exist (chokidar waits for them), so a
         // publicDir outside the project root hands over too.
-        watcher.add(coordinatesOwnerDirs(srcDirForBuild, publicDirForBuild));
+        watcher.add?.(coordinatesOwnerDirs(srcDirForBuild, publicDirForBuild));
         watcher.on("add", onPagesChange);
         watcher.on("change", onPagesChange);
         watcher.on("unlink", onPagesChange);
@@ -3638,7 +3638,10 @@ export function nimbus(
         // would collide with it.
         if (coordinatesRouteInjected) {
           const owner = routes.find(
-            (route) => route.origin === "project" && route.pattern.replace(/\/+$/, "") === COORDINATES_PATH,
+            (route) =>
+              route.origin === "project" &&
+              route.pattern.replace(/\/+$/, "") === COORDINATES_PATH &&
+              !route.entrypoint.includes("_internal/coordinates-manifest-route."),
           );
           // An owner setup can see is one the dev server just gained; its
           // restart hands the path over.
