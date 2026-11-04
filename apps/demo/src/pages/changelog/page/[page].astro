@@ -1,23 +1,17 @@
 ---
-// Pages 2 and up; page 1 is /changelog/.
-import type { GetStaticPaths } from "astro";
+// Pages 2 and up; page 1 is /changelog/. Renders on request so each page
+// answers `Accept: text/markdown` at its URL.
 import ChangelogPage from "@/components/changelog/ChangelogPage.astro";
-import { changelogPage, getReleaseIndex, type ChangelogPageData } from "@/components/changelog/changelog";
+import { changelogPage, getReleaseIndex } from "@/components/changelog/changelog";
+import { prefersMarkdown } from "@/lib/accept";
+import { listMarkdown, listMarkdownHref, markdownResponse } from "@/lib/changelog-markdown";
 
-export const prerender = true;
-export const getStaticPaths = (async () => {
-  const index = await getReleaseIndex();
-  return index.pages.slice(1).map((_, i) => ({
-    params: { page: String(i + 2) },
-    props: { data: changelogPage(index, i + 2) },
-  }));
-}) satisfies GetStaticPaths;
-
-interface Props {
-  data: ChangelogPageData;
-}
-
-const { data } = Astro.props;
+const index = await getReleaseIndex();
+const page = Number(Astro.params.page);
+if (!Number.isInteger(page) || page < 2 || page > index.pages.length) return new Response(null, { status: 404 });
+if (prefersMarkdown(Astro.request.headers.get("Accept"))) return markdownResponse((await listMarkdown(Astro.site, Astro.request, index, page))!);
+Astro.response.headers.set("Vary", "Accept");
+const data = changelogPage(index, page);
 ---
 
-<ChangelogPage data={data} />
+<ChangelogPage data={data} markdownUrl={listMarkdownHref(page)} />

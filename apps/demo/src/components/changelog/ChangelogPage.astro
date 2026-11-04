@@ -10,9 +10,11 @@ import type { TOCItem } from "@cloudflare/nimbus-docs/types";
 
 interface Props {
   data: ChangelogPageData;
+  /** The page's Markdown version. */
+  markdownUrl?: string;
 }
 
-const { data } = Astro.props;
+const { data, markdownUrl } = Astro.props;
 const { page } = data;
 const headings: TOCItem[] = data.years.flatMap((group) => [
   { depth: 2, text: String(group.year), slug: group.anchor },
@@ -33,6 +35,7 @@ const rss = withBase("/changelog/rss.xml", import.meta.env.BASE_URL);
   prevNext={prevNext}
   breadcrumbs={page === 1 ? [] : [{ label: CHANGELOG_TITLE, href: "/changelog/" }, { label: `Page ${page}` }]}
   socialImage="/og/changelog.png"
+  markdownUrl={markdownUrl}
   head={[{ tag: "link", attrs: { rel: "alternate", type: "application/rss+xml", title: `${config.title} ${CHANGELOG_TITLE}`, href: rss } }]}
 >
   <ChangelogFeed years={data.years} />

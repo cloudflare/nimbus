@@ -10,6 +10,7 @@
     "preview": "wrangler dev",
     "check": "astro check",
     "deploy": "wrangler deploy",
+    "build:workers": "DEMO_NOINDEX=1 pnpm --filter \"@nimbus/demo-weather...\" build && printf '\\n/*\\n  X-Robots-Tag: noindex\\n' >> dist/client/_headers",
     "generate-spec": "tsx spec/generate.ts",
     "screenshots": "node scripts/screenshots.mjs"
   },
@@ -21,6 +22,7 @@
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@iconify-json/ph": "^1.2.0",
+    "@modelcontextprotocol/server": "^2.3.0",
     "@readme/httpsnippet": "11.4.0",
     "@resvg/resvg-js": "^2.6.2",
     "@scalar/openapi-parser": "0.28.12",
