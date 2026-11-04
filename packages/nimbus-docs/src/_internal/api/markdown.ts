@@ -14,7 +14,10 @@ import type {
   ApiConstraint,
   ApiExampleView,
   ApiFieldView,
+  ApiIndexSection,
+  ApiOperationRef,
   ApiPageProps,
+  ApiRootIndex,
   ApiRef,
   ApiResponseView,
   ApiScalarView,
@@ -78,7 +81,7 @@ function link(label: string, href: string, base?: string): string {
   // brackets (break the label span), and backticks (an odd count opens a code
   // span whose precedence swallows the trailing `](href)`).
   const target = base ? withBase(href, base) : href;
-  return `[${inlineText(label).replace(/[\\`[\]]/g, "\\$&")}](${safeHref(target)})`;
+  return `[${inlineText(label).replace(/[\\`[\]<]/g, "\\$&")}](${safeHref(target)})`;
 }
 
 /** Neutralize block prose so spec CommonMark can't forge document structure:
@@ -99,16 +102,30 @@ function safeBlock(text: string): string {
     .join("\n");
 }
 
+/** A type as prose: `array<string>` would otherwise read `<string>` as an
+ *  HTML tag and drop it, so Markdown's punctuation is escaped. */
+function plainType(type: string): string {
+  return inlineText(type).replace(/[\\<>[\]*_`]/g, "\\$&");
+}
+
+/** A field's type, worded as the page words it: `array of X`, `map of X`. */
 function typeLabel(field: ApiFieldView, base?: string): string {
+  const shape = field.typeShape;
+  if (shape && !field.union) {
+    const inner = field.typeRef ? link(shape.inner, field.typeRef.href, base) : plainType(shape.inner || "any");
+    return `${shape.kind} of ${inner}`;
+  }
   if (field.typeRef) return link(field.type, field.typeRef.href, base);
   if (field.typeRefs && field.typeRefs.length > 0) {
     return field.typeRefs.map((r) => link(r.label, r.href, base)).join(" | ");
   }
-  return inlineText(field.type);
+  return plainType(field.type);
 }
 
-/** The shared "constraints + enum + default + example" summary, structural so
- *  both a field row and a scalar-schema page render it identically. */
+/** The shared "enum + constraints + default + example" summary, structural so
+ *  both a field row and a scalar-schema page render it identically. Constraints
+ *  and default read as the page's field row reads them (`maximum: 500 ·
+ *  minimum: 1 · default: 50`). */
 function detailParts(d: {
   constraints?: ApiConstraint;
   enum?: JsonValue[];
@@ -116,20 +133,20 @@ function detailParts(d: {
   example?: JsonValue;
 }): string[] {
   const parts: string[] = [];
-  const c = d.constraints;
-  if (c) {
-    if (c.format) parts.push(`format ${inlineCode(c.format)}`);
-    if (c.minimum !== undefined) parts.push(`min ${c.minimum}`);
-    if (c.maximum !== undefined) parts.push(`max ${c.maximum}`);
-    if (c.minLength !== undefined) parts.push(`minLength ${c.minLength}`);
-    if (c.maxLength !== undefined) parts.push(`maxLength ${c.maxLength}`);
-    if (c.pattern) parts.push(`pattern ${inlineCode(c.pattern)}`);
-  }
   if (d.enum && d.enum.length > 0) {
     parts.push(`one of ${d.enum.map(code).join(", ")}`);
   }
-  if (d.default !== undefined) parts.push(`default ${code(d.default)}`);
-  if (d.example !== undefined) parts.push(`example ${code(d.example)}`);
+  const c = d.constraints;
+  if (c) {
+    if (c.format) parts.push(`format: ${inlineCode(c.format)}`);
+    if (c.maximum !== undefined) parts.push(`maximum: ${inlineCode(String(c.maximum))}`);
+    if (c.minimum !== undefined) parts.push(`minimum: ${inlineCode(String(c.minimum))}`);
+    if (c.maxLength !== undefined) parts.push(`maxLength: ${inlineCode(String(c.maxLength))}`);
+    if (c.minLength !== undefined) parts.push(`minLength: ${inlineCode(String(c.minLength))}`);
+    if (c.pattern) parts.push(`pattern: ${inlineCode(c.pattern)}`);
+  }
+  if (d.default !== undefined) parts.push(`default: ${code(d.default)}`);
+  if (d.example !== undefined) parts.push(`example: ${code(d.example)}`);
   return parts;
 }
 
@@ -148,15 +165,16 @@ function renderField(field: ApiFieldView, depth: number, out: string[], base?: s
   out.push(head);
 
   const detail = detailParts(field);
-  if (detail.length > 0) out.push(`${pad}  - ${detail.join("; ")}`);
+  if (detail.length > 0) out.push(`${pad}  - ${detail.join(" · ")}`);
 
   if (field.union) {
-    const label = field.union.kind === "oneOf" ? "one of" : "any of";
-    if (field.union.variants.some(opens)) {
+    const label = unionLabel(field.union).toLowerCase();
+    const entries = unionEntries(field.union);
+    if (entries.some((e) => opens(e.variant))) {
       out.push(`${pad}  - ${label}:`);
-      for (const v of field.union.variants) renderVariant(v, depth + 2, out, base);
+      for (const e of entries) renderVariant(e, depth + 2, out, base);
     } else {
-      out.push(`${pad}  - ${label}: ${field.union.variants.map((v) => variantLabel(v, base)).join(", ")}`);
+      out.push(`${pad}  - ${label}: ${entries.map((e) => entryLabel(e, base)).join(", ")}`);
     }
     if (field.union.discriminator) {
       out.push(`${pad}  - discriminator: ${inlineCode(field.union.discriminator)}`);
@@ -181,43 +199,66 @@ function renderScalar(scalar: ApiScalarView, out: string[]): void {
   if (scalar.nullable) flags.push("nullable");
   out.push(`Type: ${flags.join(", ")}`, "");
   const detail = detailParts(scalar);
-  if (detail.length > 0) out.push(`- ${detail.join("; ")}`, "");
+  if (detail.length > 0) out.push(`- ${detail.join(" · ")}`, "");
 }
 
 function variantLabel(v: { label: string; href?: string }, base?: string): string {
   return v.href ? link(v.label, v.href, base) : inlineCode(v.label);
 }
 
-/** An inline branch with something beneath its label: its own union or its
- *  fields, which have no other home. A named branch stays a label, union or not,
- *  so a twin's size does not follow `schemaPages`. */
-function opens(v: ApiVariant): boolean {
-  return !v.name && Boolean(v.union || v.fields);
+/** The union's heading, worded as the page's union explorer words it. */
+function unionLabel(union: ApiUnionView): string {
+  return union.kind === "oneOf" ? "One of the following" : "Any of the following";
 }
 
-function renderVariant(v: ApiVariant, depth: number, out: string[], base?: string): void {
+interface UnionEntry {
+  variant: ApiVariant;
+  /** The discriminator value that selects this branch. */
+  value?: string;
+}
+
+/** A union's branches as the page lists them: the discriminator mapping when
+ *  there is one (its variants carry the fields), else the variants. A variant
+ *  the mapping leaves out still gets its label, so no branch goes unnamed. */
+function unionEntries(union: ApiUnionView): UnionEntry[] {
+  const mapping = union.mapping ?? [];
+  if (mapping.length === 0) return union.variants.map((variant) => ({ variant }));
+  const mapped = new Set(mapping.map((m) => m.variant.href ?? m.variant.label));
+  return [
+    ...mapping.map((m) => ({ variant: m.variant, value: m.value })),
+    ...union.variants.filter((v) => !mapped.has(v.href ?? v.label)).map((variant) => ({ variant })),
+  ];
+}
+
+function entryLabel(e: UnionEntry, base?: string): string {
+  const label = variantLabel(e.variant, base);
+  return e.value === undefined ? label : `${label} (${inlineCode(e.value)})`;
+}
+
+/** A branch with something beneath its label: its own union, or the fields
+ *  the view model previews for it. Named or inline, it prints what the page
+ *  shows; the view model bounds the preview and stops at a repeat. */
+function opens(v: ApiVariant): boolean {
+  return Boolean(v.union || (v.fields && v.fields.length > 0));
+}
+
+function renderVariant(e: UnionEntry, depth: number, out: string[], base?: string): void {
   const pad = "  ".repeat(depth);
-  out.push(`${pad}- ${variantLabel(v, base)}`);
-  if (v.name) return;
+  const v = e.variant;
+  out.push(`${pad}- ${entryLabel(e, base)}`);
   if (v.union) {
-    out.push(`${pad}  - ${v.union.kind === "oneOf" ? "one of" : "any of"}:`);
-    for (const inner of v.union.variants) renderVariant(inner, depth + 2, out, base);
+    out.push(`${pad}  - ${unionLabel(v.union).toLowerCase()}:`);
+    for (const inner of unionEntries(v.union)) renderVariant(inner, depth + 2, out, base);
   } else if (v.fields) {
     for (const f of v.fields) renderField(f, depth + 1, out, base);
   }
 }
 
 function renderUnion(union: ApiUnionView, out: string[], base?: string): void {
-  out.push(union.kind === "oneOf" ? "One of:" : "Any of:", "");
-  for (const v of union.variants) renderVariant(v, 0, out, base);
+  out.push(`${unionLabel(union)}:`, "");
+  for (const e of unionEntries(union)) renderVariant(e, 0, out, base);
   out.push("");
-  if (union.discriminator) {
-    out.push(`Discriminator: ${inlineCode(union.discriminator)}`, "");
-    for (const m of union.mapping ?? []) {
-      out.push(`- ${inlineCode(m.value)} → ${variantLabel(m.variant, base)}`);
-    }
-    if (union.mapping && union.mapping.length > 0) out.push("");
-  }
+  if (union.discriminator) out.push(`Discriminator: ${inlineCode(union.discriminator)}`, "");
 }
 
 function renderFieldSection(
@@ -329,6 +370,59 @@ function renderResponseHeaders(response: ApiResponseView, out: string[], base?: 
   }
 }
 
+/** An operation as a list row shows it: its name, then its method and path. */
+function operationLine(op: ApiOperationRef, base?: string): string {
+  let line = `- ${link(op.label, op.href, base)}`;
+  if (op.path) line += ` — ${inlineCode(op.webhook ? op.path : `${op.method.toUpperCase()} ${op.path}`)}`;
+  if (op.webhook) line += " (webhook)";
+  if (op.deprecated) line += " (deprecated)";
+  return line;
+}
+
+function renderOperations(operations: ApiOperationRef[], out: string[], base?: string): void {
+  for (const op of operations) out.push(operationLine(op, base));
+  if (operations.length > 0) out.push("");
+}
+
+/** The API home's whole list, as its parts show it together: each tag group a
+ *  heading, each section its link, description and endpoints, then untagged
+ *  endpoints and webhooks. Later parts of a paginated home have no Markdown
+ *  version, so this one lists everything. */
+function renderIndex(index: ApiRootIndex, out: string[], base?: string): void {
+  const grouped = index.groups.some((g) => g.label !== null);
+  const heading = (level: number) => "#".repeat(Math.min(6, level));
+  const section = (s: ApiIndexSection, level: number) => {
+    out.push(`${heading(level)} ${link(s.ref.label, s.ref.href, base)}`, "");
+    if (s.description) out.push(safeBlock(s.description), "");
+    renderOperations(s.operations, out, base);
+    for (const child of s.sections) section(child, level + 1);
+  };
+  for (const group of index.groups) {
+    const label = group.label ?? (grouped ? "More" : null);
+    if (label) {
+      out.push(`## ${group.ref ? link(label, group.ref.href, base) : inlineText(label)}`, "");
+    }
+    renderOperations(group.operations, out, base);
+    for (const s of group.sections) section(s, label ? 3 : 2);
+  }
+  if (index.operations.length > 0) {
+    out.push("## Other endpoints", "");
+    renderOperations(index.operations, out, base);
+  }
+  if (index.webhooks.length > 0) {
+    out.push("## Webhooks", "");
+    renderOperations(index.webhooks, out, base);
+  }
+}
+
+function indexIsEmpty(index: ApiRootIndex): boolean {
+  return (
+    index.operations.length === 0 &&
+    index.webhooks.length === 0 &&
+    index.groups.every((g) => g.operations.length === 0 && g.sections.length === 0)
+  );
+}
+
 function renderRefs(title: string, refs: ApiRef[], out: string[], base?: string): void {
   if (refs.length === 0) return;
   out.push(`## ${title}`, "");
@@ -363,6 +457,13 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
   switch (props.kind) {
     case "operation": {
       out.push(inlineCode(`${props.method.toUpperCase()} ${props.path}`), "");
+      // The full request URL, as the page's endpoint card shows it: a server's
+      // query or fragment goes after the path.
+      if (props.server && !props.isWebhook) {
+        const at = props.server.search(/[?#]/);
+        const server = at < 0 ? props.server : props.server.slice(0, at).replace(/\/+$/, "");
+        out.push(`URL: ${inlineCode(`${server}${props.path}${at < 0 ? "" : props.server.slice(at)}`)}`, "");
+      }
       if (props.isWebhook) out.push("_Webhook._", "");
       if (props.description) out.push(safeBlock(props.description), "");
       renderAuth(props.auth, out);
@@ -431,7 +532,10 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
     }
     case "section": {
       if (props.description) out.push(safeBlock(props.description), "");
-      if (props.operations.length > 0) renderRefs("Operations", props.operations, out, base);
+      if (props.operations.length > 0) {
+        out.push("## Operations", "");
+        renderOperations(props.operations, out, base);
+      }
       if (props.sections) renderRefs("Sections", props.sections, out, base);
       if (props.operations.length === 0 && !props.sections && !props.description) {
         out.push("_No operations._", "");
@@ -446,7 +550,8 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
         for (const server of props.servers) out.push(`- ${inlineCode(server)}`);
         out.push("");
       }
-      if (props.sections.length > 0) renderRefs("Sections", props.sections, out, base);
+      if (props.index && !indexIsEmpty(props.index)) renderIndex(props.index, out, base);
+      else if (props.sections.length > 0) renderRefs("Sections", props.sections, out, base);
       else if (!props.description && props.servers.length === 0) {
         out.push("_No sections documented._", "");
       }
