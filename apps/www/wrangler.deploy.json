@@ -8,11 +8,9 @@
   "no_bundle": true,
   "rules": [{ "type": "ESModule", "globs": ["**/*.js", "**/*.mjs"] }],
   "assets": { "binding": "ASSETS", "directory": "../client", "not_found_handling": "none" },
-  "kv_namespaces": [{ "binding": "SESSION" }],
   "images": { "binding": "IMAGES" },
   "previews": {
-    "kv_namespaces": [{ "binding": "SESSION" }],
-    "images": { "binding": "IMAGES" }
+      "images": { "binding": "IMAGES" }
   },
   "upload_source_maps": true,
   "observability": {

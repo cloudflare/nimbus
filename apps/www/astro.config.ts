@@ -48,6 +48,9 @@ const homepage = {
 export default defineConfig({
   output: "server",
   adapter: cloudflare({ prerenderEnvironment: "node" }),
+  // No Astro sessions, so the adapter adds no SESSION KV binding (preview
+  // deployments can't create a KV namespace).
+  session: false,
   // redirects.json: pages that moved, plus /about and /contact. Astro serves
   // each with and without a trailing slash; public/_redirects adds the
   // Markdown versions. Static fork previews read the file for the slash forms.
