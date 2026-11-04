@@ -1,6 +1,7 @@
 /** One module wraps the SDK so a swap stays away from the route and tests. */
 import {
   McpServer,
+  SUPPORTED_PROTOCOL_VERSIONS,
   WebStandardStreamableHTTPServerTransport,
   createMcpHandler,
   fromJsonSchema,
@@ -287,6 +288,13 @@ async function readBody(request: Request): Promise<Blob | null> {
   return size > MCP_MAX_REQUEST_BODY_BYTES ? null : new Blob(chunks);
 }
 
+/**
+ * 2025-03-26 is the one MCP revision that requires JSON-RPC batches, which
+ * this server refuses, so it never agrees to it: a client asking for it is
+ * offered the newest revision instead.
+ */
+const PROTOCOL_VERSIONS = SUPPORTED_PROTOCOL_VERSIONS.filter((version) => version !== "2025-03-26");
+
 /** Whether the body is a JSON array. Anything that isn't JSON is left to the transport. */
 async function isBatch(body: Blob): Promise<boolean> {
   try {
@@ -324,6 +332,7 @@ export function createDocsMcpHandler(options: DocsMcpHandlerOptions): DocsMcpHan
         capabilities: { tools: { listChanged: false } },
         instructions: identity.instructions,
         jsonSchemaValidator: validator,
+        supportedProtocolVersions: PROTOCOL_VERSIONS,
       },
     );
     const readIndex = () => source.readIndex(request);

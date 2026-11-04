@@ -504,3 +504,15 @@ test("a JSON-RPC batch is refused before any work; single messages and malformed
   const malformed = await (await handler.fetch(post("[{"))).json();
   assert.equal((malformed as { error: { code: number } }).error.code, -32700);
 });
+
+test("a client asking for 2025-03-26, the revision that requires batches, is offered a newer one", async () => {
+  const handler = handlerFor(INDEX);
+  const response = await readRpcResponse(
+    await handler.fetch(rpcRequest(URL_, "initialize", { ...INITIALIZE_PARAMS, protocolVersion: "2025-03-26" })),
+  );
+  const offered = (response.result as { protocolVersion: string }).protocolVersion;
+  assert.notEqual(offered, "2025-03-26");
+  assert.match(offered, /^\d{4}-\d{2}-\d{2}$/);
+  const kept = await readRpcResponse(await handler.fetch(rpcRequest(URL_, "initialize", INITIALIZE_PARAMS)));
+  assert.equal((kept.result as { protocolVersion: string }).protocolVersion, INITIALIZE_PARAMS.protocolVersion);
+});
