@@ -116,6 +116,9 @@ test("on server output a missing page answers Markdown with its 404 when Markdow
     assert.match(body, /^# Not found\n\nThere is no page at `\/docs\/nowhere\/`\./);
     assert.match(body, /https:\/\/example\.test\/docs\/llms\.txt/);
     assert.match(body, /https:\/\/example\.test\/docs\/sitemap-index\.xml/);
+    const head = await fetch(`${origin}/docs/nowhere/`, { method: "HEAD", headers: { Accept: "text/markdown" } });
+    assert.equal(head.status, 404);
+    assert.match(head.headers.get("Content-Type") ?? "", /text\/markdown/);
     const html = await fetch(`${origin}/docs/nowhere/`);
     assert.equal(html.status, 404);
     assert.match(await html.text(), /Not here/);

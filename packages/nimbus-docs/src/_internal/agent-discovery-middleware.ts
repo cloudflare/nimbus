@@ -120,7 +120,9 @@ function notFoundMarkdown(context: APIContext, response: Response): Response {
   for (const name of ["Content-Length", "Content-Encoding", "ETag", "Last-Modified"]) headers.delete(name);
   headers.set("Content-Type", "text/markdown; charset=utf-8");
   varyOnAccept(headers);
-  return new Response(context.request.method === "HEAD" ? null : body, { status: 404, statusText: response.statusText, headers });
+  // A body for HEAD too: Astro replaces a bodiless 404 with the HTML 404 page,
+  // and the server sends no body for HEAD anyway.
+  return new Response(body, { status: 404, statusText: response.statusText, headers });
 }
 
 export const onRequest: MiddlewareHandler = async (context, next) => {
