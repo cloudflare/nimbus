@@ -40,6 +40,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Fork Previews serve static files only, so build www's static form.
+      - run: pnpm --filter nimbus-docs build
+      - run: node scripts/www-static.mjs
       - run: pnpm --filter @nimbus/www run predeploy
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

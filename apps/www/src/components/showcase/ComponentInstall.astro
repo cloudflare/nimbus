@@ -1,0 +1,35 @@
+---
+/**
+ * A component page's Installation section, under the `## Installation`
+ * heading in its MDX. The Markdown version comes from `src/lib/showcase-markdown.ts`.
+ */
+import { Code } from "@/components/ui/code";
+import { PackageManagers } from "@/components/ui/package-managers";
+import { installState } from "@/lib/component-install";
+
+interface Props {
+  slug: string;
+}
+
+const { slug } = Astro.props;
+const state = installState(slug);
+---
+
+{state === "builtin" && (
+  <>
+    <p><strong>Built into nimbus-docs.</strong> Import it from the package.</p>
+    <Code code={`import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";`} lang="ts" />
+  </>
+)}
+{state === "included" && (
+  <>
+    <p><strong>Included in the starter.</strong> Every new site has it in <code>src/components/ui/{slug}/</code>. Import it where you need it, or register it in <code>src/components.ts</code> to use it on every page. If your site predates it, install it:</p>
+    <PackageManagers pkg="@cloudflare/nimbus-docs" type="exec" args={`add ${slug}`} />
+  </>
+)}
+{state === "install" && (
+  <>
+    <p><strong>Install with <code>nimbus-docs add {slug}</code>.</strong> It lands in <code>src/components/ui/{slug}/</code>, yours to edit.</p>
+    <PackageManagers pkg="@cloudflare/nimbus-docs" type="exec" args={`add ${slug}`} />
+  </>
+)}

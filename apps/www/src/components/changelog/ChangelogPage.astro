@@ -29,6 +29,7 @@ const rss = withBase("/changelog/rss.xml", import.meta.env.BASE_URL);
 <DocsLayout
   title={page === 1 ? CHANGELOG_TITLE : `${CHANGELOG_TITLE}, page ${page}`}
   description={page === 1 ? CHANGELOG_DESCRIPTION : `Releases ${data.range}.`}
+  markdownUrl={page === 1 ? "/changelog/index.md" : undefined}
   sidebar={false}
   headings={headings}
   prevNext={prevNext}

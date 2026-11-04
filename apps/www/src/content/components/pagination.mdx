@@ -21,6 +21,12 @@ props:
 import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";
 import { Pagination } from "@/components/ui/pagination";
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+import ComponentProps from "@/components/showcase/ComponentProps.astro";
+
+## Installation
+
+<ComponentInstall slug="pagination" />
 
 ## Preview
 
@@ -59,3 +65,9 @@ Omit `prev` to indicate the start of a section.
     />
   </div>
 </Example>
+
+## API reference
+
+Every prop the component accepts, sourced from a single declaration.
+
+<ComponentProps slug="pagination" />

@@ -254,6 +254,17 @@ jobs:
 
       - run: pnpm --filter @nimbus/www run predeploy
 
+      # The deploy uses the checked-in apps/www/wrangler.deploy.json, never the
+      # config the build wrote; this tells a maintainer when an adapter upgrade
+      # changes what it must say. A release from before www ran as a Worker
+      # has no server output.
+      - name: Compare the deploy config
+        run: |
+          if [ -f apps/www/dist/server/wrangler.json ]; then
+            node scripts/deploy-config-drift.mjs apps/www/dist/server/wrangler.json apps/www/wrangler.deploy.json
+            rm apps/www/dist/server/wrangler.json
+          fi
+
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: released-www-dist
@@ -304,7 +315,21 @@ jobs:
               exit 1
             fi
           done
-          pnpm exec wrangler deploy
+          if [ -d dist/server ]; then
+            # The checked-in config sits where the build's would, so `main` and
+            # `assets.directory` resolve inside the download. Everything else in
+            # the server output that isn't a module, a Wasm module or a source
+            # map goes first: a tsconfig.json or .env there would configure the
+            # deploy.
+            rm -rf .wrangler
+            find dist/server -mindepth 1 \( -type l -o -type f ! -name '*.mjs' ! -name '*.js' ! -name '*.wasm' ! -name '*.map' \) -delete
+            find dist/server -mindepth 1 -type d -empty -delete
+            cp wrangler.deploy.json dist/server/wrangler.json
+            pnpm exec wrangler deploy --config dist/server/wrangler.json --tsconfig "$PWD/tsconfig.json"
+          else
+            # A release from before www ran as a Worker: static files only.
+            pnpm exec wrangler deploy
+          fi
           curl --fail --show-error --silent --retry 5 --retry-delay 3 \
             https://nimbus-docs.com/registry/registry.json | jq -e \
             --arg version "$(jq -r .version ../../packages/nimbus-docs/package.json)" \

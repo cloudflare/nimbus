@@ -12,6 +12,12 @@ props:
 ---
 import Showcase from "@/components/showcase/Showcase.astro";
 import { Sidebar } from "@/components/ui/sidebar";
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+import ComponentProps from "@/components/showcase/ComponentProps.astro";
+
+## Installation
+
+<ComponentInstall slug="sidebar" />
 
 ## Preview
 
@@ -52,3 +58,9 @@ import { Sidebar } from "@/components/ui/sidebar";
     />
   </div>
 </Showcase>
+
+## API reference
+
+Every prop the component accepts, sourced from a single declaration.
+
+<ComponentProps slug="sidebar" />

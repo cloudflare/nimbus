@@ -29,3 +29,5 @@ apps/www/public/registry/
 
 # The changelog recipe build test's fixture, removed when it finishes.
 packages/nimbus-starter-source/.changelog-recipe-*/
+
+.wrangler

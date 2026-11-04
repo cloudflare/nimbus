@@ -10,6 +10,12 @@ import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";
 import { Code } from "@/components/ui/code";
 import { CodeGroup } from "@/components/ui/code-group";
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+import ComponentProps from "@/components/showcase/ComponentProps.astro";
+
+## Installation
+
+<ComponentInstall slug="code-group" />
 
 export const tsLoad = `function load(id: string) {
   return fetch(\`/api/\${id}\`);
@@ -91,3 +97,9 @@ Each tab can carry its own filename via the `title="…"` meta.
     </CodeGroup>
   </div>
 </Example>
+
+## API reference
+
+Every prop the component accepts, sourced from a single declaration.
+
+<ComponentProps slug="code-group" />

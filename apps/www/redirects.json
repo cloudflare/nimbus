@@ -1,0 +1,23 @@
+{
+  "/get-started": "/quickstart",
+  "/installation": "/quickstart",
+  "/philosophy": "/why-nimbus",
+  "/partial-builds": "/publish/partial-builds",
+  "/adding-components": "/styling/add-components",
+  "/ai/metadata-and-seo": "/publish/metadata-and-seo",
+  "/writing/frontmatter": "/reference/frontmatter",
+  "/configuration": "/reference/configuration",
+  "/writing/api-reference": "/api-reference/openapi/setup",
+  "/writing/recipes": "/style-guide",
+  "/writing/recipes/overview": "/style-guide/overview",
+  "/writing/recipes/quickstart": "/style-guide/quickstart",
+  "/writing/recipes/tutorial": "/style-guide/tutorial",
+  "/writing/recipes/how-to": "/style-guide/how-to",
+  "/writing/recipes/concept": "/style-guide/concept",
+  "/writing/recipes/reference": "/style-guide/reference",
+  "/writing/recipes/example": "/style-guide/example",
+  "/writing/recipes/troubleshooting": "/style-guide/troubleshooting",
+  "/writing/recipes/changelog": "/style-guide/changelog",
+  "/about": "/why-nimbus",
+  "/contact": "https://github.com/cloudflare/nimbus/discussions"
+}

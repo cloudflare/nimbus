@@ -1,0 +1,13 @@
+// Fork PR Previews only: the static form of the site (scripts/www-static.mjs)
+// as plain assets, no Worker code. Production uses wrangler.jsonc.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nimbus-docs",
+  "compatibility_date": "2026-05-29",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page",
+  },
+  "previews": {},
+  "preview_urls": false,
+}

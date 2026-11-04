@@ -90,8 +90,8 @@ jobs:
 
       - name: Stage the fork's files
         run: |
-          if find "$SRC" -name '_worker.js' -print -quit | grep -q .; then
-            echo '::error::The fork build emitted _worker.js. Fork Previews serve static assets only.'
+          if [ -e "$SRC/server" ] || find "$SRC" -name '_worker.js' -print -quit | grep -q .; then
+            echo '::error::The fork build emitted server code. Fork Previews serve static assets only.'
             exit 1
           fi
           rm -rf apps/www/dist
@@ -101,6 +101,11 @@ jobs:
           rm -f apps/www/dist/_redirects
           if [ -f apps/www/public/_redirects ]; then
             cp apps/www/public/_redirects apps/www/dist/_redirects
+          fi
+          # A static build has no Worker to serve the moved pages' `/old/`
+          # forms, so main's map adds them as rules.
+          if [ -f apps/www/redirects.json ]; then
+            jq -r 'to_entries[] | "\(.key)/ \(.value) 301"' apps/www/redirects.json >> apps/www/dist/_redirects
           fi
           find apps/www/dist -name '.assetsignore' -delete
           printf '%s\n' "$SHA" > apps/www/dist/_nimbus-preview-sha.txt
@@ -115,7 +120,7 @@ jobs:
           set -o pipefail
           out=$(env -u GITHUB_SHA COMMIT_SHA="$SHA" pnpm exec wrangler preview \
             --name "fork-$PR" --tag "${SHA:0:7}" --message "Fork PR #$PR at $SHA" \
-            --ignore-base-config --json)
+            --config wrangler.static.jsonc --ignore-base-config --json)
           url="https://fork-$PR.nimbus-docs.com"
           if ! sed -n '/^{/,$p' <<< "$out" | jq -e --arg url "$url" '.preview.urls | index($url)' > /dev/null; then
             echo "::error::Wrangler didn't report $url: $(sed -n '/^{/,$p' <<< "$out" | jq -c '.preview.urls')"

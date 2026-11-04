@@ -4,6 +4,9 @@ import { renderDocsOgCard } from "./_renderer";
 
 type OgProps = { section: string; title: string };
 
+// Prerender every card as a static asset: image generation needs Node.
+export const prerender = true;
+
 export const getStaticPaths: GetStaticPaths = async () => {
   const entries = await getCollection("docs", (e) => !e.data.draft);
   // A page's section names its top-level folder the way the site does

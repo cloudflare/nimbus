@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nimbus-docs",
+  "compatibility_date": "2026-05-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "preview_urls": false,
+  "main": "entry.mjs",
+  "no_bundle": true,
+  "rules": [{ "type": "ESModule", "globs": ["**/*.js", "**/*.mjs"] }],
+  "assets": { "binding": "ASSETS", "directory": "../client", "not_found_handling": "none" },
+  "images": { "binding": "IMAGES" },
+  "previews": {
+      "images": { "binding": "IMAGES" }
+  },
+  "upload_source_maps": true,
+  "observability": {
+    "enabled": false,
+    "head_sampling_rate": 1,
+    "logs": { "enabled": true, "head_sampling_rate": 1, "persist": true, "invocation_logs": true },
+    "traces": { "enabled": false, "persist": true, "head_sampling_rate": 1 }
+  }
+}

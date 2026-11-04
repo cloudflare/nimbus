@@ -17,6 +17,12 @@ props:
 import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";
 import { Banner } from "@/components/ui/banner";
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+import ComponentProps from "@/components/showcase/ComponentProps.astro";
+
+## Installation
+
+<ComponentInstall slug="banner" />
 
 ## Preview
 
@@ -45,3 +51,9 @@ Set `dismissible` to add a close button. The dismissal persists across page load
     />
   </div>
 </Example>
+
+## API reference
+
+Every prop the component accepts, sourced from a single declaration.
+
+<ComponentProps slug="banner" />

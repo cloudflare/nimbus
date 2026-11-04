@@ -1,0 +1,18 @@
+---
+/**
+ * A component page's props table, under the `## API reference` heading in its
+ * MDX, from the entry's `props` frontmatter. The Markdown version comes from
+ * `src/lib/showcase-markdown.ts`.
+ */
+import { getEntry } from "astro:content";
+import PropTable from "./PropTable.astro";
+
+interface Props {
+  slug: string;
+}
+
+const entry = await getEntry("components", Astro.props.slug);
+if (!entry) throw new Error(`<ComponentProps slug="${Astro.props.slug}"> names no component entry.`);
+---
+
+<PropTable props={entry.data.props} />

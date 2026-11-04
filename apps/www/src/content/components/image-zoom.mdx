@@ -3,6 +3,12 @@ title: Image zoom
 tagline: "Content images open at full size in one native <dialog>, with keyboard and screen-reader support."
 ---
 
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+
+## Installation
+
+<ComponentInstall slug="image-zoom" />
+
 New sites render `<ImageZoom />` once in `src/layouts/DocsLayout.astro`. Every content image that would show at least 1.2× bigger becomes a button that opens it at up to 95% of the viewport.
 
 Images already about as big as they can get, such as a screenshot on a phone, stay plain. Resizing the window adds or removes the button.

@@ -18,6 +18,12 @@ props:
 import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";
 import { Frame } from "@/components/ui/frame";
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+import ComponentProps from "@/components/showcase/ComponentProps.astro";
+
+## Installation
+
+<ComponentInstall slug="frame" />
 
 ## Preview
 
@@ -69,3 +75,9 @@ Lock the frame to a fixed ratio. Common choices: 16/9 (video), 4/3 (classic), 1/
     </Frame>
   </div>
 </Example>
+
+## API reference
+
+Every prop the component accepts, sourced from a single declaration.
+
+<ComponentProps slug="frame" />
