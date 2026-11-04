@@ -1,14 +1,10 @@
 ---
 import ChangelogPage from "@/components/changelog/ChangelogPage.astro";
 import { changelogPage, getReleaseIndex } from "@/components/changelog/changelog";
-import { prefersMarkdown } from "@/lib/accept";
-import { listMarkdown, listMarkdownHref, markdownResponse } from "@/lib/changelog-markdown";
 
-// Renders on request so the page answers `Accept: text/markdown` at its URL.
-const index = await getReleaseIndex();
-if (prefersMarkdown(Astro.request.headers.get("Accept"))) return markdownResponse((await listMarkdown(Astro.site, Astro.request, index, 1))!);
-Astro.response.headers.set("Vary", "Accept");
-const data = changelogPage(index, 1);
+export const prerender = true;
+
+const data = changelogPage(await getReleaseIndex(), 1);
 ---
 
-<ChangelogPage data={data} markdownUrl={listMarkdownHref(1)} />
+<ChangelogPage data={data} />

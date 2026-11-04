@@ -11,8 +11,8 @@ import {
 } from "@/components/changelog/changelog";
 
 /**
- * A changelog list page's Markdown version, at `<page>/index.md` and at the
- * page's own URL for `Accept: text/markdown`: what the page shows, each
+ * A changelog list page's Markdown version, at `<page>/index.md` (the
+ * recipe's list pages are prerendered, so they don't negotiate): what the page shows, each
  * release in full (its own published Markdown, links already absolute), then
  * where the other pages are.
  */
@@ -32,7 +32,7 @@ function demoteHeadings(markdown: string): string {
     .join("\n");
 }
 
-export const listMarkdownHref = (page: number) => `${pageHref(page)}index.md`;
+const listMarkdownHref = (page: number) => `${pageHref(page)}index.md`;
 
 export async function listMarkdown(
   site: URL | undefined,
