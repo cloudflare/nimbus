@@ -76,8 +76,8 @@ function frontmatterOf(slug: string): ComponentFrontmatter {
   // `merge: true` reads `<<:` keys as Astro's frontmatter parser does.
   const data = parse(block[1]!, { merge: true }) as ComponentFrontmatter;
   for (const prop of data.props ?? []) {
-    if (typeof prop?.name !== "string" || typeof prop.type !== "string") {
-      throw new Error(`src/content/components/${slug}.mdx: every prop needs a string name and type`);
+    if (typeof prop?.name !== "string" || typeof prop.type !== "string" || !prop.name || !prop.type) {
+      throw new Error(`src/content/components/${slug}.mdx: every prop needs a name and a type`);
     }
   }
   return data;
@@ -89,7 +89,20 @@ const slugOf = (attrs: Record<string, string | boolean>, name: string) => {
   return slug;
 };
 
-const cell = (text: string) => text.replace(/\|/g, "\\|").replace(/\n+/g, " ");
+/** On one line: GFM ends a line at LF, CR or CRLF. */
+const oneLine = (text: string) => text.replace(/\s*(?:\r\n|\r|\n)\s*/g, " ");
+
+/**
+ * A code span: the fence outlasts any backtick run inside, and a space pads a
+ * value that starts or ends with a backtick or a space, so the span reads back
+ * exactly. Outside a table, nothing else needs escaping.
+ */
+const code = (text: string) => {
+  const value = oneLine(text);
+  const marks = "`".repeat(Math.max(0, ...[...value.matchAll(/`+/g)].map((run) => run[0].length)) + 1);
+  const pad = /^[` ]|[` ]$/.test(value) && /[^ ]/.test(value) ? " " : "";
+  return `${marks}${pad}${value}${pad}${marks}`;
+};
 
 const install: GeneratedMarkdownComponentTransform = {
   revision: "component-install-v1",
@@ -108,17 +121,18 @@ const install: GeneratedMarkdownComponentTransform = {
 };
 
 const props: GeneratedMarkdownComponentTransform = {
-  revision: "component-props-v1",
+  revision: "component-props-v2",
   render: ({ attrs }) => {
+    // A list rather than a table: types are full of pipes, which a table cell
+    // would have to escape.
     const rows = frontmatterOf(slugOf(attrs, "ComponentProps")).props ?? [];
-    return [
-      "| Prop | Type | Default | Description |",
-      "| --- | --- | --- | --- |",
-      ...rows.map(
-        (p) =>
-          `| \`${cell(p.name)}\`${p.required ? " (required)" : ""} | \`${cell(p.type)}\` | ${p.defaultValue ? `\`${cell(p.defaultValue)}\`` : ""} | ${cell(p.description ?? "")} |`,
-      ),
-    ].join("\n");
+    return rows
+      .map((p) => {
+        const meta = [code(p.type), ...(p.defaultValue ? [`default ${code(p.defaultValue)}`] : [])].join(", ");
+        const description = p.description ? ` — ${oneLine(p.description)}` : "";
+        return `- ${code(p.name)}${p.required ? " (required)" : ""}: ${meta}${description}`;
+      })
+      .join("\n");
   },
 };
 
