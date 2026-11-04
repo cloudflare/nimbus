@@ -239,7 +239,7 @@ components:
       }
       const md = renderApiPageMarkdown(p);
       assert.doesNotMatch(md, /array<(Composed)?Groups>/);
-      assert.match(md, schemaPages ? /`groups` \([^)]*\[Groups\]\(/ : /`groups` \([^)]*; Groups, optional\)/);
+      assert.match(md, schemaPages ? /`groups` \(`[^`]*`; \[Groups\]\([^)]*\) \(array\), optional\)/ : /`groups` \(`[^`]*`; Groups \(array\), optional\)/);
     });
   }
 });

@@ -83,7 +83,7 @@ export interface ApiFieldView {
    *  link, when there is one, is `typeRef`. */
   typeName?: string;
   /** `typeName` names the whole field, a named array schema, not its items:
-   *  show it alone, not as `array<typeName>`. */
+   *  show it as `typeName (array)`, not `array<typeName>`. */
   namedArray?: boolean;
   typeRefs?: ApiRef[];
   required: boolean;

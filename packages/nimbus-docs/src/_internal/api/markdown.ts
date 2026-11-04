@@ -102,8 +102,12 @@ function safeBlock(text: string): string {
 function typeLabel(field: ApiFieldView, base?: string): string {
   // A named union, or a list stopping at a repeat, reads as its schema's name.
   if (field.typeName) {
-    const name =
-      field.type.startsWith("array<") && !field.namedArray ? `array<${field.typeName}>` : field.typeName;
+    // A named array schema keeps its name and says it's an array.
+    if (field.namedArray) {
+      const name = field.typeRef ? link(field.typeName, field.typeRef.href, base) : inlineText(field.typeName);
+      return `${name} (array)`;
+    }
+    const name = field.type.startsWith("array<") ? `array<${field.typeName}>` : field.typeName;
     return field.typeRef ? link(name, field.typeRef.href, base) : inlineText(name);
   }
   if (field.typeRef) return link(field.type, field.typeRef.href, base);
