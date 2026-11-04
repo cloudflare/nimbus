@@ -19,7 +19,7 @@
     "@resvg/resvg-js": "^2.6.2",
     "astro": "7.3.3",
     "clsx": "^2.1.1",
-    "satori": "^0.26.0",
+    "satori": "^0.33.5",
     "sharp": "^0.35.4",
     "tailwind-merge": "^3.5.0"
   },
