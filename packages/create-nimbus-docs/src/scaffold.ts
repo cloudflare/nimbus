@@ -22,7 +22,7 @@ import {
   writeServerWrangler,
 } from "./transformers/adapter.js";
 import { updatePackageJson } from "./transformers/package.js";
-import { applySite, type SiteChoice, type SiteResult } from "./transformers/site.js";
+import { applySite, nameSiteFromSpec, type SiteChoice, type SiteResult } from "./transformers/site.js";
 import type { SiteRecord } from "@cloudflare/nimbus-docs/site-parts";
 
 // Injected by tsdown at build time (see tsdown.config.ts). The scaffolder
@@ -289,6 +289,9 @@ export async function scaffold(
     startProgress("Configuring project…");
     const parts = applySite(target, options.site ?? { template: "docs", api: false }, preview?.registry ?? DEFAULT_REGISTRY_URL);
     site = parts.site;
+    if (site?.template === "api" && site.api && !nameSiteFromSpec(target, site.api.spec)) {
+      p.log.warn("Couldn't find the site's title in its Astro config, so it's still \"Nimbus\": set `title` there.");
+    }
     normalizePackageManagerFiles(target, packageManager);
     if (options.output === "server") {
       await applyAdapter(target, options.adapter, { docs: options.site?.template !== "api" });

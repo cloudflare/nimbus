@@ -78,9 +78,11 @@ export function walkFields(
  *  page is under 1,000 fields); the backstop for a wide, deep, shared graph. */
 export const FIELD_WALK_CEILING = 25_000;
 
-export function warnFieldCeiling(registry: CoordinateRegistry, coordinate: Coordinate, source?: string): void {
+/** `list` names the cut list for readers: `request body`, `200 response`,
+ *  `schema Pet`, with its media type when there are several. */
+export function warnFieldCeiling(registry: CoordinateRegistry, coordinate: Coordinate, source: string | undefined, list: string): void {
   registry.addWarning(
-    `Field list stopped at ${FIELD_WALK_CEILING.toLocaleString("en-US")} fields: the schema nests or shares more fields than one list documents`,
+    `Field list stopped at ${FIELD_WALK_CEILING.toLocaleString("en-US")} fields in the ${list}: the schema nests or shares more fields than one list documents`,
     coordinate,
     source,
     "field-walk-ceiling",
