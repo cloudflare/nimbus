@@ -29,6 +29,7 @@ import {
   appendFileSync,
   copyFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -450,13 +451,22 @@ export function checkCandidate(dir, env, { generate = generateInto } = {}) {
     expected[key] = value;
   }
   const { cli, nimbus } = releasePackages();
-  const { nimbusTarball, cliTarball } = candidateTarballs(dir, { nimbus, cli });
-  for (const [pkg, tarball, integrity] of [
-    [nimbus, nimbusTarball, expected.nimbus],
-    [cli, cliTarball, expected.cli],
+  // Match tarballs to the expected integrities before opening any of them.
+  const tarballs = readdirSync(dir).filter((file) => file.endsWith(".tgz")).map((file) => join(dir, file));
+  if (tarballs.length !== 2) throw new Error(`expected two tarballs in ${dir}, found ${tarballs.length}`);
+  for (const file of tarballs) if (!lstatSync(file).isFile()) throw new Error(`${basename(file)} is not a regular file`);
+  const integrities = new Map(tarballs.map((file) => [file, tarballIntegrity(file)]));
+  const withIntegrity = (integrity) => {
+    const file = tarballs.find((candidate) => integrities.get(candidate) === integrity);
+    if (!file) throw new Error(`no tarball in ${dir} has integrity ${integrity}`);
+    return file;
+  };
+  const nimbusTarball = withIntegrity(expected.nimbus);
+  const cliTarball = withIntegrity(expected.cli);
+  for (const [pkg, tarball] of [
+    [nimbus, nimbusTarball],
+    [cli, cliTarball],
   ]) {
-    const actual = tarballIntegrity(tarball);
-    if (actual !== integrity) throw new Error(`${basename(tarball)} has integrity ${actual}, expected ${integrity}`);
     const packed = readPackedPackage(tarball);
     if (packed.name !== pkg.name || packed.version !== pkg.version) {
       throw new Error(`${basename(tarball)} contains ${packed.name}@${packed.version}, expected ${pkg.name}@${pkg.version}`);

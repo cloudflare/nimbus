@@ -92,7 +92,7 @@ test("a candidate that matches its digests passes; any changed byte, template or
   const bytes = readFileSync(tampered.files.cli);
   bytes[bytes.length - 1] ^= 1;
   writeFileSync(tampered.files.cli, bytes);
-  assert.throws(() => checkCandidate(tampered.out, tampered.env, { generate: tampered.generate }), /has integrity .*, expected/);
+  assert.throws(() => checkCandidate(tampered.out, tampered.env, { generate: tampered.generate }), /no tarball in .* has integrity/);
 
   const edited = candidate(t);
   writeFileSync(join(edited.generated, "template", "src", "index.md"), "# Changed\n");
