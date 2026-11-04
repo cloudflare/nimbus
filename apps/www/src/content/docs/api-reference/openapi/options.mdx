@@ -68,7 +68,7 @@ For a collection named `api`, the reference integrates with these routes when th
 | `/api/<page-slug>/index.md` | Clean Markdown version. |
 | `/api/llms.txt` | API-only `llms.txt` index. |
 | `/llms.txt` and `/llms-full.txt` | Site-wide page index and full Markdown documentation. |
-| `/nimbus-api/coordinates.json` | Public coordinate-to-URL manifest. |
+| `/nimbus-api/coordinates.json` | Public coordinate-to-URL manifest, served by Nimbus on every site (empty without `api`). See [Cite an API hosted elsewhere](/api-reference/citations#cite-an-api-hosted-elsewhere). |
 | `/api/index/<n>/` | The [API home](/api-reference/large-apis#the-api-home)'s later parts (`noindex`). |
 | `/api/openapi.json` | The published spec; other versions at `/api/<version>/openapi.json`. See [Published spec](#published-spec). |
 | `/.well-known/api-catalog` and `/.well-known/ard.json` | The site's API catalog and discovery manifest, listing each visible version. |
