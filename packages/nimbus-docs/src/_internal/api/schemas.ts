@@ -26,12 +26,12 @@ export function parseSchemas(ctx: ParseContext): void {
     const fieldCoords: Coordinate[] = [];
     let ownFields = false;
     const rawSchema = ctx.resolver.rawAlias(name);
-    if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind) => {
+    if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind, repeat) => {
       const fieldCoord = schemaFieldCoordinate(coord, fieldPath);
       // A nested schema field parents to its container field; a top-level one
       // parents to the schema node.
       const parent = parentPath ? schemaFieldCoordinate(coord, parentPath) : coord;
-      addField(ctx, fieldCoord, parent, fieldSchema, required, kind, pointer("components", "schemas", name), rawField);
+      addField(ctx, fieldCoord, parent, fieldSchema, required, kind, pointer("components", "schemas", name), rawField, repeat);
       if (kind === "field") {
         fieldCoords.push(fieldCoord);
         if (!parentPath) ownFields = true;

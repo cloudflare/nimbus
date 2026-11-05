@@ -385,7 +385,7 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
     responses.push(respCoord);
     const respFieldPaths: string[] = [];
     if (respSchema) {
-      if (walkFields(ctx.resolver, respSchema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind) => {
+      if (walkFields(ctx.resolver, respSchema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind, repeat) => {
         respFieldPaths.push(fieldPath);
         const fieldCoord = responseFieldCoordinate(coord, status, fieldPath);
         // A nested response field parents to its container field; a top-level
@@ -393,7 +393,7 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
         const parent = parentPath
           ? responseFieldCoordinate(coord, status, parentPath)
           : respCoord;
-        addField(ctx, fieldCoord, parent, fieldSchema, required, kind, respSource, rawField);
+        addField(ctx, fieldCoord, parent, fieldSchema, required, kind, respSource, rawField, repeat);
       }, rawRespSchema, "response")) warnFieldCeiling(ctx.registry, respCoord, respSource, `${status} response`);
     }
     const extraMedia = respEntries.slice(1);
@@ -546,7 +546,7 @@ function addBodyFields(
   rawSchema?: OpenApiSchema,
 ): Coordinate[] {
   const coords: Coordinate[] = [];
-  if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, topLevelName, parentPath, rawField, kind) => {
+  if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, topLevelName, parentPath, rawField, kind, repeat) => {
     const coord = bodyFieldCoordinate(opCoord, fieldPath);
     // A nested body field parents to its container field; a top-level one
     // parents to the operation. Nesting is minted here because coordinates are
@@ -557,7 +557,7 @@ function addBodyFields(
     if (topLevelName && isShadowingBodyProperty(topLevelName)) {
       ctx.registry.warnShadowing(coord, topLevelName, sourceBase);
     }
-    addField(ctx, coord, parent, fieldSchema, required, kind, `${sourceBase}/requestBody`, rawField);
+    addField(ctx, coord, parent, fieldSchema, required, kind, `${sourceBase}/requestBody`, rawField, repeat);
     coords.push(coord);
   }, rawSchema, role)) warnFieldCeiling(ctx.registry, opCoord, pointerAt(sourceBase, "requestBody"), "request body");
   return coords;
@@ -588,10 +588,10 @@ function addMediaBody(
   ctx.node(mediaCoord, "requestBody", opCoord, facts, source);
 
   if (schema) {
-    if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind) => {
+    if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind, repeat) => {
       const coord = bodyMediaFieldCoordinate(opCoord, token, fieldPath);
       const parent = parentPath ? bodyMediaFieldCoordinate(opCoord, token, parentPath) : mediaCoord;
-      addField(ctx, coord, parent, fieldSchema, required, kind, source, rawField);
+      addField(ctx, coord, parent, fieldSchema, required, kind, source, rawField, repeat);
     }, rawSchema, role)) warnFieldCeiling(ctx.registry, mediaCoord, source, `request body (${entry.mediaType})`);
   }
 }
@@ -620,12 +620,12 @@ function addResponseMedia(
   ctx.node(mediaCoord, "responseMedia", respCoord, facts, source);
 
   if (schema) {
-    if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind) => {
+    if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind, repeat) => {
       const coord = responseMediaFieldCoordinate(opCoord, status, token, fieldPath);
       const parent = parentPath
         ? responseMediaFieldCoordinate(opCoord, status, token, parentPath)
         : mediaCoord;
-      addField(ctx, coord, parent, fieldSchema, required, kind, source, rawField);
+      addField(ctx, coord, parent, fieldSchema, required, kind, source, rawField, repeat);
     }, rawSchema, "response")) warnFieldCeiling(ctx.registry, mediaCoord, source, `${status} response (${entry.mediaType})`);
   }
 }
