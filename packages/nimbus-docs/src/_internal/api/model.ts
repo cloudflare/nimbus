@@ -199,6 +199,8 @@ export interface FieldFacts {
    * page. Absent for a scalar-valued map (`map<string>`) or a free-form object.
    */
   typeRef?: VariantRef;
+  /** `typeRef` names the whole field: a `$ref` to a named array schema. */
+  namedArray?: boolean;
   /** The configured `x-*` fields the field declares, values unchanged. */
   extensions?: Record<string, unknown>;
 }
@@ -214,9 +216,12 @@ export interface VariantRef {
   label: string;
   /** The component schema's key, present only for a named branch. */
   name?: string;
-  /** The component schema's `title`, when it declares one. */
+  /** The branch's `title` (a component's, or an inline branch's own). */
   title?: string;
   coordinate?: Coordinate;
+  /** An inline scalar branch's literals and description. */
+  enum?: unknown[];
+  description?: string;
 }
 
 export interface UnionShape {
