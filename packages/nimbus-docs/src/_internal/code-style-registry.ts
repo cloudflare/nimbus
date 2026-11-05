@@ -83,7 +83,51 @@ export function getCodeStyleCSS(): string {
   return [...rules].sort().join("\n");
 }
 
+// Highlighted HTML carries token classes whose CSS lives in the registry
+// above, so a memo of it is only valid while the registry is: clearing one
+// clears the other. Shared across bundled copies of this module like the
+// registry itself.
+const HIGHLIGHTS = Symbol.for("@cloudflare/nimbus-docs/highlighted-code");
+type HighlightMemo = {
+  entries: Map<string, { html: Promise<string>; bytes: number }>;
+  bytes: number;
+};
+const highlightHost = globalThis as typeof globalThis & {
+  [HIGHLIGHTS]?: HighlightMemo;
+};
+const highlights = (highlightHost[HIGHLIGHTS] ??= { entries: new Map(), bytes: 0 });
+const HIGHLIGHT_MEMO_BYTES = 64 * 1024 * 1024;
+
+/** Highlight each distinct `key` once while the registry holds its styles. */
+export function highlightOnce(
+  key: string,
+  highlight: () => Promise<string>,
+): Promise<string> {
+  const hit = highlights.entries.get(key);
+  if (hit) return hit.html;
+  const entry = { html: highlight(), bytes: 0 };
+  highlights.entries.set(key, entry);
+  entry.html.then(
+    (html) => {
+      if (highlights.entries.get(key) !== entry) return;
+      entry.bytes = key.length + html.length;
+      highlights.bytes += entry.bytes;
+      for (const [oldest, { bytes }] of highlights.entries) {
+        if (highlights.bytes <= HIGHLIGHT_MEMO_BYTES) break;
+        highlights.entries.delete(oldest);
+        highlights.bytes -= bytes;
+      }
+    },
+    () => {
+      if (highlights.entries.get(key) === entry) highlights.entries.delete(key);
+    },
+  );
+  return entry.html;
+}
+
 export function clearCodeStyleRegistry(): void {
   styleToClass.clearRegistry();
   restoredStyles.clear();
+  highlights.entries.clear();
+  highlights.bytes = 0;
 }

@@ -5,6 +5,7 @@ import { projectMountContext } from "./project-mount-context.js";
 import { usesPageAssets } from "./page-assets-config.js";
 
 import { defaultCodeTransformers } from "./code-transformers.js";
+import { highlightOnce } from "./code-style-registry.js";
 import type {
   ApiModel,
   ApiNav,
@@ -159,13 +160,17 @@ export function resetApiCodePreparationMetrics(): void {
   codeHighlightCalls = 0;
 }
 
-async function highlight(code: string, lang: string): Promise<string> {
-  codeHighlightCalls++;
-  return codeToHtml(code, {
-    lang,
-    themes: { light: "github-light", dark: "github-dark" },
-    defaultColor: false,
-    transformers: defaultCodeTransformers({ classTokens: true }),
+// Keyed by language and code alone: the themes and transformers below are
+// fixed. Anything that makes them vary has to join the key.
+function highlight(code: string, lang: string): Promise<string> {
+  return highlightOnce(`${lang}\0${code}`, () => {
+    codeHighlightCalls++;
+    return codeToHtml(code, {
+      lang,
+      themes: { light: "github-light", dark: "github-dark" },
+      defaultColor: false,
+      transformers: defaultCodeTransformers({ classTokens: true }),
+    });
   });
 }
 
