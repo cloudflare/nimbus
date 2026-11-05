@@ -1,16 +1,9 @@
 ---
-import type { GetStaticPaths } from "astro";
 import DocsLayout from "@/layouts/DocsLayout.astro";
-import { getCollectionStaticPaths, getCollectionPage } from "@cloudflare/nimbus-docs/runtime";
+import { getCollectionPage } from "@cloudflare/nimbus-docs/runtime";
 import { components } from "@/components";
 import { CHANGELOG_TITLE, dateLabel, getReleaseIndex, releaseHref, releaseLabel, releaseNeighbours, type Release } from "@/components/changelog/changelog";
 import { Pagination } from "@/components/ui/pagination";
-
-export const prerender = true;
-export const getStaticPaths: GetStaticPaths = async (options) =>
-  (await getCollectionStaticPaths("changelog")(options)).filter(
-    (path) => path.params.slug,
-  );
 
 const page = await getCollectionPage(Astro, "changelog");
 if (page instanceof Response) return page;
