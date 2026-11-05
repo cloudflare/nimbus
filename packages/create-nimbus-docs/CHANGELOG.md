@@ -1,5 +1,15 @@
 # @cloudflare/create-nimbus-docs
 
+## 0.8.3
+
+### Patch Changes
+
+- [#332](https://github.com/cloudflare/nimbus/pull/332) [`b80ac5b`](https://github.com/cloudflare/nimbus/commit/b80ac5ba304e2deb5d2b36801de18e4abcd87d62) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - `--template api` names the site after its spec: `title` and `description` come from the spec's `info`.
+
+- [#330](https://github.com/cloudflare/nimbus/pull/330) [`549917d`](https://github.com/cloudflare/nimbus/commit/549917dbaeed638143365f2e6ffd564b089f3ccd) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - The API field explorer drops the `object or object` tooltip, lists every branch of a discriminator union, shows a scalar branch's literals, names a field's schema (a named array schema as `Name (array)`), and opens a union of unions to its first fields.
+
+- [#325](https://github.com/cloudflare/nimbus/pull/325) [`35c2a86`](https://github.com/cloudflare/nimbus/commit/35c2a86ef6b85f24b943e59b62f755bb473ef8a1) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Typing in or clearing the search box cancels a search still in flight, so its results never replace what you typed since.
+
 ## 0.8.2
 
 ### Patch Changes

@@ -1,5 +1,35 @@
 # @cloudflare/nimbus-docs
 
+## 0.19.3
+
+### Patch Changes
+
+- [#318](https://github.com/cloudflare/nimbus/pull/318) [`728075d`](https://github.com/cloudflare/nimbus/commit/728075d68545c5012d19ddd694c072d68dac0899) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - A `$ref` to an `http(s)` URL, such as one inside an example value, no longer stops an API's prepared pages from being reused between builds. Nimbus never fetches these URLs. References to other local files still prepare the API on every build.
+
+- [#330](https://github.com/cloudflare/nimbus/pull/330) [`549917d`](https://github.com/cloudflare/nimbus/commit/549917dbaeed638143365f2e6ffd564b089f3ccd) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - API pages and their Markdown read union branches more clearly:
+
+  - An untitled branch that is itself a union is labelled `Option N`.
+  - Branches that share a title are numbered (`Destination 1`, `Destination 2`).
+  - An inline scalar branch shows its literals and description.
+  - A discriminator union lists the branches no mapping value selects.
+  - A field typed as a named union or a named array schema, or where a self-reference stops, shows the schema's name (linked when it has a page).
+
+- [#332](https://github.com/cloudflare/nimbus/pull/332) [`b80ac5b`](https://github.com/cloudflare/nimbus/commit/b80ac5ba304e2deb5d2b36801de18e4abcd87d62) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - An `x-nimbus-order` Nimbus ignores now warns: one that isn't a number, or one anywhere but a path operation.
+  - API warnings and errors point at their place in the spec with JSON pointers that resolve (`#/paths/~1pets/get`).
+  - Each field list cut at the 25,000-field ceiling gets its own warning, naming the list.
+
+- [#317](https://github.com/cloudflare/nimbus/pull/317) [`ca6ec50`](https://github.com/cloudflare/nimbus/commit/ca6ec5044a84a1180da7adda354f4fff8fa3c555) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - `astro dev` with the Cloudflare adapter and a `base` serves `bundle: false` API pages and agent endpoint files, instead of failing with "build output file … returned 404".
+
+- [#320](https://github.com/cloudflare/nimbus/pull/320) [`d9337b7`](https://github.com/cloudflare/nimbus/commit/d9337b7f09687c05fb1da5ffaad2e418f18e49f5) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - `/llms.txt` gives the site description as a `> ` summary, and each section `llms.txt` quotes its index page's description the same way.
+
+- [#320](https://github.com/cloudflare/nimbus/pull/320) [`d9337b7`](https://github.com/cloudflare/nimbus/commit/d9337b7f09687c05fb1da5ffaad2e418f18e49f5) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Root-relative links and images in Markdown versions and `llms-full.txt` are absolute URLs on `site`, so they resolve when the file is read away from the site.
+
+- [#320](https://github.com/cloudflare/nimbus/pull/320) [`d9337b7`](https://github.com/cloudflare/nimbus/commit/d9337b7f09687c05fb1da5ffaad2e418f18e49f5) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - A request-rendered route that finds no page, such as the starter's docs catch-all, answers a request with `Accept: text/markdown` with a `404` and a short Markdown body linking `/llms.txt` and the sitemap.
+
+- [#324](https://github.com/cloudflare/nimbus/pull/324) [`32949c6`](https://github.com/cloudflare/nimbus/commit/32949c69b0e0bd9159814c0bebf864f403e7d33f) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - The remote MCP server refuses a JSON-RPC batch with one `400` error instead of running up to 100 calls; send one message per request.
+
+- [#325](https://github.com/cloudflare/nimbus/pull/325) [`35c2a86`](https://github.com/cloudflare/nimbus/commit/35c2a86ef6b85f24b943e59b62f755bb473ef8a1) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - A Markdown table's scroll box is a Tab stop in every browser, so keyboard users can scroll a wide table in Safari too.
+
 ## 0.19.2
 
 ### Patch Changes
