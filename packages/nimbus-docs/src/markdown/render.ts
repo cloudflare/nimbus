@@ -3,6 +3,12 @@ import { defaultSchema, sanitize } from "hast-util-sanitize";
 import { toHtml } from "hast-util-to-html";
 import { markdownToHtml } from "satteri";
 
+// API pages repeat the same descriptions across many fields and operations,
+// and rendering is pure, so each distinct source renders once per process.
+const rendered = new Map<string, string>();
+let renderedBytes = 0;
+const RENDERED_MEMO_BYTES = 16 * 1024 * 1024;
+
 /**
  * Render a CommonMark string to a SANITIZED HTML fragment.
  *
@@ -24,12 +30,6 @@ import { markdownToHtml } from "satteri";
  * Resilient by contract: empty/whitespace input yields `""`, and a renderer
  * failure degrades to the escaped source text rather than aborting the build.
  */
-// API pages repeat the same descriptions across many fields and operations,
-// and rendering is pure, so each distinct source renders once per process.
-const rendered = new Map<string, string>();
-let renderedBytes = 0;
-const RENDERED_MEMO_BYTES = 16 * 1024 * 1024;
-
 export function renderMarkdown(source: string | undefined | null): string {
   if (!source) return "";
   const trimmed = source.trim();

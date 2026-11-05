@@ -160,6 +160,8 @@ export function resetApiCodePreparationMetrics(): void {
   codeHighlightCalls = 0;
 }
 
+// Keyed by language and code alone: the themes and transformers below are
+// fixed. Anything that makes them vary has to join the key.
 function highlight(code: string, lang: string): Promise<string> {
   return highlightOnce(`${lang}\0${code}`, () => {
     codeHighlightCalls++;
