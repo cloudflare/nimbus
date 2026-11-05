@@ -24,10 +24,30 @@ import { markdownToHtml } from "satteri";
  * Resilient by contract: empty/whitespace input yields `""`, and a renderer
  * failure degrades to the escaped source text rather than aborting the build.
  */
+// API pages repeat the same descriptions across many fields and operations,
+// and rendering is pure, so each distinct source renders once per process.
+const rendered = new Map<string, string>();
+let renderedBytes = 0;
+const RENDERED_MEMO_BYTES = 16 * 1024 * 1024;
+
 export function renderMarkdown(source: string | undefined | null): string {
   if (!source) return "";
   const trimmed = source.trim();
   if (!trimmed) return "";
+  const hit = rendered.get(trimmed);
+  if (hit !== undefined) return hit;
+  const html = render(trimmed);
+  rendered.set(trimmed, html);
+  renderedBytes += trimmed.length + html.length;
+  for (const [oldest, value] of rendered) {
+    if (renderedBytes <= RENDERED_MEMO_BYTES) break;
+    rendered.delete(oldest);
+    renderedBytes -= oldest.length + value.length;
+  }
+  return html;
+}
+
+function render(trimmed: string): string {
   try {
     const raw = markdownToHtml(trimmed).html;
     const tree = fromHtml(raw, { fragment: true, verbose: true });
