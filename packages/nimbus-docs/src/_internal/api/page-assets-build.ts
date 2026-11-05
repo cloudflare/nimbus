@@ -10,6 +10,7 @@ import {
   rm,
   mkdir,
   copyFile,
+  stat,
 } from "node:fs/promises";
 import { constants } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
@@ -60,8 +61,13 @@ import type { ApiPageProps } from "./api-view-types.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import {
   getCodeStyleCSSFor,
+  highlightsComputed,
+  highlightsLoaded,
+  loadHighlights,
   restoreCodeStyleCSS,
+  savedHighlights,
   setTokenClassSink,
+  type SavedHighlight,
 } from "../code-style-registry.js";
 import { resolveApiAssetLinks } from "./page-assets-links.js";
 import { linkPolicy } from "../url.js";
@@ -426,6 +432,136 @@ async function readVersionCache(filename: string): Promise<unknown> {
   return JSON.parse(body);
 }
 
+// Highlighted code from earlier builds, so a release that changes a few pages
+// highlights only those. Read once, at the first version that has to be
+// prepared; written once after a successful build, if it highlighted more.
+const SAVED_HIGHLIGHT_BYTES = 64 * 1024 * 1024;
+const SAVED_HIGHLIGHTS = Symbol.for("@cloudflare/nimbus-docs/saved-highlights");
+const savedHighlightHost = globalThis as typeof globalThis & {
+  [SAVED_HIGHLIGHTS]?: {
+    loading: Map<string, Promise<void>>;
+    /** The environment each file was read under, and the highlight count then. */
+    baseline: Map<string, { environment: string; computed: number }>;
+  };
+};
+// Shared on globalThis: two copies of this module load in one process.
+const savedHighlightState = (savedHighlightHost[SAVED_HIGHLIGHTS] ??= {
+  loading: new Map(),
+  baseline: new Map(),
+});
+const highlightsFile = (cacheDirectory: string) =>
+  path.join(cacheDirectory, "highlights.json");
+
+async function loadSavedHighlights(
+  cacheDirectory: string,
+  environment: string,
+): Promise<void> {
+  const filename = highlightsFile(cacheDirectory);
+  if (highlightsLoaded(filename)) return;
+  const pending = savedHighlightState.loading.get(filename);
+  if (pending) return pending;
+  // Anything highlighted from here on is new to the file.
+  savedHighlightState.baseline.set(filename, {
+    environment,
+    computed: highlightsComputed(),
+  });
+  const load = readSavedHighlights(filename, environment)
+    .then((saved) => loadHighlights(filename, saved))
+    .finally(() => savedHighlightState.loading.delete(filename));
+  savedHighlightState.loading.set(filename, load);
+  return load;
+}
+
+async function readSavedHighlights(
+  filename: string,
+  environment: string,
+): Promise<SavedHighlight[]> {
+  try {
+    if ((await stat(filename)).size > SAVED_HIGHLIGHT_BYTES) return [];
+    const value = (await readVersionCache(filename)) as {
+      environment?: unknown;
+      rules?: unknown;
+      entries?: unknown;
+    };
+    const { rules, entries } = value;
+    if (
+      value.environment !== environment ||
+      !Array.isArray(rules) ||
+      !rules.every(
+        (rule) =>
+          typeof rule === "string" &&
+          /^\.nb-shiki-[^\s{}]+\s*\{[^{}]*\}$/.test(rule),
+      ) ||
+      !Array.isArray(entries)
+    )
+      return [];
+    const saved: SavedHighlight[] = [];
+    for (const entry of entries) {
+      if (!Array.isArray(entry) || entry.length !== 3) return [];
+      const [key, html, indexes] = entry as unknown[];
+      if (
+        typeof key !== "string" ||
+        typeof html !== "string" ||
+        !Array.isArray(indexes) ||
+        !indexes.every((i) => Number.isInteger(i) && i >= 0 && i < rules.length)
+      )
+        return [];
+      const own = (indexes as number[]).map((i) => rules[i] as string);
+      saved.push([
+        key,
+        html,
+        own.map((rule) => rule.slice(1, rule.search(/[\s{]/))),
+        own.join("\n"),
+      ]);
+    }
+    return saved;
+  } catch {
+    /* A missing or damaged file is a miss: highlight from source. */
+    return [];
+  }
+}
+
+function encodeSavedHighlights(
+  environment: string,
+  entries: readonly SavedHighlight[],
+): string {
+  const rules: string[] = [];
+  const index = new Map<string, number>();
+  const rows = entries.map(([key, html, , css]) => [
+    key,
+    html,
+    css
+      .split("\n")
+      .filter(Boolean)
+      .map((rule) => {
+        let at = index.get(rule);
+        if (at === undefined) index.set(rule, (at = rules.push(rule) - 1));
+        return at;
+      }),
+  ]);
+  const body = JSON.stringify({ environment, rules, entries: rows });
+  return `${pageAssetDigest(body)}\n${body}`;
+}
+
+async function saveHighlights(cacheDirectory: string): Promise<void> {
+  const filename = highlightsFile(cacheDirectory);
+  const baseline = savedHighlightState.baseline.get(filename);
+  if (!baseline || !highlightsLoaded(filename)) return;
+  if (highlightsComputed() === baseline.computed) return;
+  let { entries } = savedHighlights();
+  let bytes = encodeSavedHighlights(baseline.environment, entries);
+  // Over budget: drop the oldest tenth and measure the real file again.
+  while (Buffer.byteLength(bytes) > SAVED_HIGHLIGHT_BYTES && entries.length) {
+    entries = entries.slice(Math.max(1, Math.floor(entries.length / 10)));
+    bytes = encodeSavedHighlights(baseline.environment, entries);
+  }
+  await writeAtomic(filename, bytes);
+  savedHighlightState.baseline.set(filename, {
+    environment: baseline.environment,
+    computed: highlightsComputed(),
+  });
+}
+
 export async function prepareApiAssetVersion(
   target: ResolvedApiVersion,
   root: string,
@@ -538,6 +674,7 @@ export async function prepareApiAssetVersion(
       /* Rebuild missing or corrupt cache entries from source. */
     }
   }
+  await loadSavedHighlights(writer.cacheDirectory, environment);
   const bypass = externalReferenceReason(raw);
   const warnKey = `${preparedMarkdownRootKey(root)}\0${target.family}`;
   if (bypass && !externalReferenceWarnings.has(warnKey)) {
@@ -1048,6 +1185,7 @@ export async function pruneApiPageAssetCache(
   );
   const files = new Set(await apiPageAssetDeploymentFiles(root));
   const cache = path.join(rootPath, ".nimbus/cache/page-assets");
+  await saveHighlights(cache);
   const citationHashes = new Set<string>();
   for (const input of inputs) {
     try {

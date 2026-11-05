@@ -134,42 +134,67 @@ export function setTokenClassSink(sink: TokenClassSink): void {
 // registry itself.
 const HIGHLIGHTS = Symbol.for("@cloudflare/nimbus-docs/highlighted-code");
 type Highlighted = { html: string; classes: string[] };
-type HighlightMemo = {
-  entries: Map<string, { result: Promise<Highlighted>; bytes: number }>;
+type HighlightEntry = {
+  result: Promise<Highlighted>;
+  settled?: Highlighted;
   bytes: number;
+  /** CSS for a highlight saved by an earlier build, restored on first use. */
+  rules?: string;
+};
+type HighlightMemo = {
+  entries: Map<string, HighlightEntry>;
+  bytes: number;
+  /** Saved highlight files already read since the registry was cleared. */
+  loaded: Set<string>;
+  /** Highlights computed in this process, so a save can tell if anything is new.
+   * Never reset, so a count from before a registry clear never matches. */
+  computed: number;
 };
 const highlightHost = globalThis as typeof globalThis & {
   [HIGHLIGHTS]?: HighlightMemo;
 };
-const highlights = (highlightHost[HIGHLIGHTS] ??= { entries: new Map(), bytes: 0 });
+const highlights = (highlightHost[HIGHLIGHTS] ??= {
+  entries: new Map(),
+  bytes: 0,
+  loaded: new Set(),
+  computed: 0,
+});
 const HIGHLIGHT_MEMO_BYTES = 64 * 1024 * 1024;
+
+function remember(key: string, entry: HighlightEntry, html: string): void {
+  entry.bytes = key.length + html.length;
+  highlights.bytes += entry.bytes;
+  for (const [oldest, { bytes }] of highlights.entries) {
+    if (highlights.bytes <= HIGHLIGHT_MEMO_BYTES) break;
+    highlights.entries.delete(oldest);
+    highlights.bytes -= bytes;
+  }
+}
 
 /** Highlight each distinct `key` once while the registry holds its styles. */
 export function highlightOnce(
   key: string,
   highlight: () => Promise<Highlighted>,
 ): Promise<string> {
-  let entry: { result: Promise<Highlighted>; bytes: number } | undefined =
-    highlights.entries.get(key);
+  let entry = highlights.entries.get(key);
   if (!entry) {
-    const created = { result: highlight(), bytes: 0 };
+    const created: HighlightEntry = { result: highlight(), bytes: 0 };
     entry = created;
     highlights.entries.set(key, created);
     created.result.then(
-      ({ html }) => {
+      (value) => {
         if (highlights.entries.get(key) !== created) return;
-        created.bytes = key.length + html.length;
-        highlights.bytes += created.bytes;
-        for (const [oldest, { bytes }] of highlights.entries) {
-          if (highlights.bytes <= HIGHLIGHT_MEMO_BYTES) break;
-          highlights.entries.delete(oldest);
-          highlights.bytes -= bytes;
-        }
+        created.settled = value;
+        highlights.computed++;
+        remember(key, created, value.html);
       },
       () => {
         if (highlights.entries.get(key) === created) highlights.entries.delete(key);
       },
     );
+  } else if (entry.rules !== undefined) {
+    restoreCodeStyleCSS(entry.rules);
+    entry.rules = undefined;
   }
   // Reported in each caller's own continuation: concurrent versions can
   // share one in-flight highlight, and each needs the classes.
@@ -179,9 +204,52 @@ export function highlightOnce(
   });
 }
 
+export type SavedHighlight = [key: string, html: string, classes: string[], rules: string];
+
+/** How many highlights this process has computed, never reset. */
+export function highlightsComputed(): number {
+  return highlights.computed;
+}
+
+export function highlightsLoaded(source: string): boolean {
+  return highlights.loaded.has(source);
+}
+
+/** Add highlights an earlier build saved; ones already in memory are kept. */
+export function loadHighlights(
+  source: string,
+  saved: Iterable<SavedHighlight>,
+): void {
+  highlights.loaded.add(source);
+  for (const [key, html, classes, rules] of saved) {
+    if (highlights.entries.has(key)) continue;
+    const settled = { html, classes };
+    const entry: HighlightEntry = { result: Promise.resolve(settled), settled, bytes: 0, rules };
+    highlights.entries.set(key, entry);
+    remember(key, entry, html);
+  }
+}
+
+/** Every finished highlight, oldest first, with the CSS its classes need. */
+export function savedHighlights(): { computed: number; entries: SavedHighlight[] } {
+  const rules = new Map<string, string>();
+  for (const rule of getCodeStyleCSS().split("\n"))
+    if (rule) rules.set(rule.slice(1, rule.search(/[\s{]/)), rule);
+  const entries: SavedHighlight[] = [];
+  for (const [key, entry] of highlights.entries) {
+    if (!entry.settled) continue;
+    const { html, classes } = entry.settled;
+    const css =
+      entry.rules ?? classes.map((name: string) => rules.get(name) ?? "").filter(Boolean).join("\n");
+    entries.push([key, html, classes, css]);
+  }
+  return { computed: highlights.computed, entries };
+}
+
 export function clearCodeStyleRegistry(): void {
   styleToClass.clearRegistry();
   restoredStyles.clear();
   highlights.entries.clear();
   highlights.bytes = 0;
+  highlights.loaded.clear();
 }
