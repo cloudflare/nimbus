@@ -418,9 +418,14 @@ export class CoordinateRegistry {
    *  collision diagnostics that must state how each side was routed. */
   private readonly slugProvenance = new Map<Coordinate, string>();
   private readonly diagnostics: Diagnostic[] = [];
+  /** Maps a source to where it is in the spec as written; identity by default.
+   *  Applied only to what readers see (diagnostics and their messages), since
+   *  resolving every registration's pointer would cost a lookup per node. */
+  private readonly written: (source: string | undefined) => string | undefined;
 
-  constructor(collection: string) {
+  constructor(collection: string, written?: (source: string | undefined) => string | undefined) {
     this.collection = collection;
+    this.written = written ?? ((source) => source);
     if (!isCollectionName(collection)) {
       this.diagnostics.push({
         level: "error",
@@ -484,8 +489,10 @@ export class CoordinateRegistry {
     const existing = this.byCoordinate.get(coordinate);
     if (existing) {
       const incoming = { source, synthesized };
-      const hint = synthesizedFixHint([existing, incoming]);
-      const knownOwners = [existing.source, source].filter((s): s is string => !!s);
+      const hint = synthesizedFixHint(
+        [existing, incoming].map((reg) => ({ ...reg, source: this.written(reg.source) })),
+      );
+      const knownOwners = [existing.source, source].map(this.written).filter((s): s is string => !!s);
       const owners = knownOwners.length ? ` (registered at ${knownOwners.join(" and ")})` : "";
       const pointer =
         (existing.synthesized ? existing.source : undefined) ??
@@ -545,7 +552,7 @@ export class CoordinateRegistry {
     if (prior !== undefined && prior !== coordinate) {
       const priorReg = this.byCoordinate.get(prior);
       const currReg = this.byCoordinate.get(coordinate);
-      const at = (reg?: Registration) => (reg?.source ? ` (${reg.source})` : "");
+      const at = (reg?: Registration) => (reg?.source ? ` (${this.written(reg.source)})` : "");
       const via = (c: Coordinate) => {
         const p = this.slugProvenance.get(c);
         return p ? ` [resolved via ${p}]` : "";
@@ -569,7 +576,9 @@ export class CoordinateRegistry {
           `route slug "${slug || "(index)"}". ` +
           advice +
           tagAdvice +
-          synthesizedFixHint([priorReg ?? {}, currReg ?? {}]),
+          synthesizedFixHint(
+            [priorReg, currReg].map((reg) => ({ ...reg, source: this.written(reg?.source) })),
+          ),
         coordinate,
         currReg?.source ?? source,
       );
@@ -615,10 +624,10 @@ export class CoordinateRegistry {
   }
 
   private error(message: string, coordinate?: Coordinate, source?: string, code?: string): void {
-    this.diagnostics.push({ level: "error", message, coordinate, source, code });
+    this.diagnostics.push({ level: "error", message, coordinate, source: this.written(source), code });
   }
 
   private warn(message: string, coordinate?: Coordinate, source?: string, code?: string): void {
-    this.diagnostics.push({ level: "warning", message, coordinate, source, code });
+    this.diagnostics.push({ level: "warning", message, coordinate, source: this.written(source), code });
   }
 }

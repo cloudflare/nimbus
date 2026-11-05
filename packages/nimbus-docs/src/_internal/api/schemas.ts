@@ -3,6 +3,7 @@ import {
   schemaCoordinate,
   schemaFieldCoordinate,
 } from "./coordinates.js";
+import { pointer } from "./pointer.js";
 import {
   asString,
   constraintsOf,
@@ -19,7 +20,7 @@ export function parseSchemas(ctx: ParseContext): void {
   for (const [name, schema] of Object.entries(ctx.doc.components?.schemas ?? {})) {
     const coord = schemaCoordinate(name);
     ctx.registry.register(coord, "schema", {
-      source: `#/components/schemas/${name}`,
+      source: pointer("components", "schemas", name),
       isUserIdentity: true,
     });
     const fieldCoords: Coordinate[] = [];
@@ -30,12 +31,12 @@ export function parseSchemas(ctx: ParseContext): void {
       // A nested schema field parents to its container field; a top-level one
       // parents to the schema node.
       const parent = parentPath ? schemaFieldCoordinate(coord, parentPath) : coord;
-      addField(ctx, fieldCoord, parent, fieldSchema, required, kind, `#/components/schemas/${name}`, rawField, repeat);
+      addField(ctx, fieldCoord, parent, fieldSchema, required, kind, pointer("components", "schemas", name), rawField, repeat);
       if (kind === "field") {
         fieldCoords.push(fieldCoord);
         if (!parentPath) ownFields = true;
       }
-    }, rawSchema)) warnFieldCeiling(ctx.registry, coord, `#/components/schemas/${name}`);
+    }, rawSchema)) warnFieldCeiling(ctx.registry, coord, pointer("components", "schemas", name), `schema ${name}`);
     const facts: SchemaFacts = {
       kind: "schema",
       name,
@@ -87,7 +88,7 @@ export function parseSchemas(ctx: ParseContext): void {
         facts.scalar = scalar;
       }
     }
-    ctx.node(coord, "schema", apiCoordinate(ctx.collection), facts, `#/components/schemas/${name}`);
+    ctx.node(coord, "schema", apiCoordinate(ctx.collection), facts, pointer("components", "schemas", name));
     const slug = `schemas/${name}`;
     if (ctx.schemaPages) {
       ctx.page(coord, slug);
