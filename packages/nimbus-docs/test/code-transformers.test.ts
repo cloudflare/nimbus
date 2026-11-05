@@ -19,7 +19,9 @@ import {
 import {
   clearCodeStyleRegistry,
   getCodeStyleCSS,
+  getCodeStyleCSSFor,
   highlightOnce,
+  tokenClassCollector,
   shouldClassShikiTokens,
 } from "../src/_internal/code-style-registry.ts";
 
@@ -230,14 +232,19 @@ test("a highlighted block is reused only while its token CSS is registered", asy
   clearCodeStyleRegistry();
   let calls = 0;
   const highlight = () =>
-    highlightOnce("ts\0const value = 1;", () => {
+    highlightOnce("ts\0const value = 1;", async () => {
       calls++;
-      return codeToHtml("const value = 1;", {
+      const classes = new Set<string>();
+      const html = await codeToHtml("const value = 1;", {
         lang: "ts",
         themes: { light: "github-light", dark: "github-dark" },
         defaultColor: false,
-        transformers: defaultCodeTransformers({ classTokens: true }),
+        transformers: [
+          ...defaultCodeTransformers({ classTokens: true }),
+          tokenClassCollector(classes),
+        ],
       });
+      return { html, classes: [...classes] };
     });
   const [first, concurrent] = await Promise.all([highlight(), highlight()]);
   assert.equal(await highlight(), first);
@@ -247,6 +254,29 @@ test("a highlighted block is reused only while its token CSS is registered", asy
   assert.equal(await highlight(), first);
   assert.equal(calls, 2);
   assert.notEqual(getCodeStyleCSS(), "");
+});
+
+test("the token class collector reports the classes on elements, not in the text", async () => {
+  clearCodeStyleRegistry();
+  const classes = new Set<string>();
+  const html = await codeToHtml('const label = "nb-shiki-not-a-class";', {
+    lang: "ts",
+    themes: { light: "github-light", dark: "github-dark" },
+    defaultColor: false,
+    transformers: [
+      ...defaultCodeTransformers({ classTokens: true }),
+      tokenClassCollector(classes),
+    ],
+  });
+  const onElements = new Set(
+    [...html.matchAll(/class="([^"]*)"/g)].flatMap((m) =>
+      m[1]!.split(" ").filter((name) => name.startsWith("nb-shiki-")),
+    ),
+  );
+  assert.ok(onElements.size > 0);
+  assert.deepEqual([...classes].sort(), [...onElements].sort());
+  assert.ok(!classes.has("nb-shiki-not-a-class"));
+  assert.equal(getCodeStyleCSSFor(classes), getCodeStyleCSS());
 });
 
 test("defaultCodeTransformers without classTokens preserves inline styles", async () => {

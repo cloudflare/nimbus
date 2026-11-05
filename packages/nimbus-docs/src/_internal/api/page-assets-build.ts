@@ -57,15 +57,32 @@ import { prepareApiPageCode } from "../api-loader.js";
 import { collectApiCitationSummary } from "./citation-index.js";
 import type { ResolvedApiVersion } from "./resolve-versions.js";
 import type { ApiPageProps } from "./api-view-types.js";
+import { AsyncLocalStorage } from "node:async_hooks";
 import {
-  getCodeStyleCSS,
+  getCodeStyleCSSFor,
   restoreCodeStyleCSS,
+  setTokenClassSink,
 } from "../code-style-registry.js";
 import { resolveApiAssetLinks } from "./page-assets-links.js";
 import { linkPolicy } from "../url.js";
 
 /** Bump when preparation semantics change without a package version change. */
-export const API_PAGE_PREPARATION_REVISION = 1;
+export const API_PAGE_PREPARATION_REVISION = 2;
+// The token classes the version being prepared uses, so its cache saves only
+// those styles. Shared on globalThis: two copies of this module load in one
+// process, and either may install the sink.
+const VERSION_TOKEN_CLASSES = Symbol.for(
+  "@cloudflare/nimbus-docs/version-token-classes",
+);
+const tokenClassHost = globalThis as typeof globalThis & {
+  [VERSION_TOKEN_CLASSES]?: AsyncLocalStorage<Set<string>>;
+};
+const versionTokenClasses = (tokenClassHost[VERSION_TOKEN_CLASSES] ??=
+  new AsyncLocalStorage<Set<string>>());
+setTokenClassSink((classes) => {
+  const used = versionTokenClasses.getStore();
+  if (used) for (const name of classes) used.add(name);
+});
 const verifiedCitationSummaries = new WeakMap<PageAssetWriter, Set<string>>();
 // Versions whose inputs can't be fully hashed (external references) never
 // reach the persistent cache. Within one `astro build` their inputs can't
@@ -87,10 +104,14 @@ const externalReferenceWarnings = new Set<string>();
 const buildPreparations: Map<string, PreparedApiAssetVersion> =
   (preparationGlobals[BUILD_PREPARATIONS] ??= new Map());
 const rebuildReasons = (preparationGlobals[REBUILD_REASONS] ??= new Map());
-const preparedRecordMemos = new WeakMap<PageAssetWriter, Map<string, string>>();
+const preparedRecordMemos = new WeakMap<
+  PageAssetWriter,
+  Map<string, { hash: string; classes: string[] }>
+>();
 const PREPARED_RECORD_MEMO_BYTES = 8 * 1024 * 1024;
-// Two 64-character digests, UTF-16 strings plus conservative Map-entry overhead.
-const PREPARED_RECORD_MEMO_ENTRY_BYTES = 64 * 4 + 96;
+// Two 64-character digests, UTF-16 strings plus conservative Map-entry overhead,
+// and a few token-class names.
+const PREPARED_RECORD_MEMO_ENTRY_BYTES = 64 * 4 + 96 + 256;
 const preparationMetrics = {
   modelPreparations: 0,
   pageProjections: 0,
@@ -537,6 +558,8 @@ export async function prepareApiAssetVersion(
     const hashes: string[] = [];
     const ids = new Set<string>();
     const slugs = new Set<string>();
+    const usedTokenClasses = new Set<string>();
+    await versionTokenClasses.run(usedTokenClasses, async () => {
     for (const page of pages) {
       if (ids.has(page.coordinate) || slugs.has(page.slug))
         throw new Error(
@@ -550,17 +573,25 @@ export async function prepareApiAssetVersion(
         `${environment}\0${JSON.stringify(pageProps)}`,
       );
       const recordMemo =
-        preparedRecordMemos.get(writer) ?? new Map<string, string>();
+        preparedRecordMemos.get(writer) ??
+        new Map<string, { hash: string; classes: string[] }>();
       preparedRecordMemos.set(writer, recordMemo);
-      let recordHash = recordMemo.get(projectedHash);
-      if (recordHash) {
+      let memo = recordMemo.get(projectedHash);
+      if (memo) {
         preparationMetrics.preparedRecordCacheHits++;
         recordMemo.delete(projectedHash);
+        for (const name of memo.classes) usedTokenClasses.add(name);
       } else {
         preparationMetrics.pagePreparations++;
-        recordHash = await writer.add(await prepareApiPageCode(pageProps));
+        const pageClasses = new Set<string>();
+        const prepared = await versionTokenClasses.run(pageClasses, () =>
+          prepareApiPageCode(pageProps),
+        );
+        for (const name of pageClasses) usedTokenClasses.add(name);
+        memo = { hash: await writer.add(prepared), classes: [...pageClasses] };
       }
-      recordMemo.set(projectedHash, recordHash);
+      recordMemo.set(projectedHash, memo);
+      const recordHash = memo.hash;
       while (
         recordMemo.size * PREPARED_RECORD_MEMO_ENTRY_BYTES >
         PREPARED_RECORD_MEMO_BYTES
@@ -577,6 +608,7 @@ export async function prepareApiAssetVersion(
         location: { filename: "" },
       });
     }
+    });
     await writer.finishVersion();
     rows.forEach((row, i) => {
       row.location = writer.location(hashes[i]!);
@@ -600,7 +632,7 @@ export async function prepareApiAssetVersion(
       inputHash,
       rows,
       rowsHash: pageAssetDigest(JSON.stringify(rows)),
-      codeStyleCSS: getCodeStyleCSS(),
+      codeStyleCSS: getCodeStyleCSSFor(usedTokenClasses),
       citationSummaryPath,
       citationSummaryHash,
       nav: prepareApiNav(getApiNav(model)),
