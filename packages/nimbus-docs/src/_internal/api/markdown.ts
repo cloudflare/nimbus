@@ -15,7 +15,10 @@ import type {
   ApiConstraint,
   ApiExampleView,
   ApiFieldView,
+  ApiIndexSection,
+  ApiOperationRef,
   ApiPageProps,
+  ApiRootIndex,
   ApiRef,
   ApiResponseView,
   ApiScalarView,
@@ -80,7 +83,7 @@ function link(label: string, href: string, base?: string): string {
   // brackets (break the label span), and backticks (an odd count opens a code
   // span whose precedence swallows the trailing `](href)`).
   const target = base ? withBase(href, base) : href;
-  return `[${inlineText(label).replace(/[\\`[\]]/g, "\\$&")}](${safeHref(target)})`;
+  return `[${inlineText(label).replace(/[\\`[\]<]/g, "\\$&")}](${safeHref(target)})`;
 }
 
 // A line that could open a heading, setext underline, thematic break, list or
@@ -228,26 +231,38 @@ function unclosedFence(src: string, last: MdNode | undefined): string | undefine
   return closed ? undefined : marker;
 }
 
+/** Spec text spliced into a line as literal text: `array<string>` would
+ *  otherwise read `<string>` as an HTML tag and drop it, so Markdown's inline
+ *  punctuation is escaped. */
+function plainText(text: string): string {
+  return inlineText(text).replace(/[\\<>[\]*_`#]/g, "\\$&");
+}
+
+/** A field's type, worded as the page words it: a named schema by its name
+ *  (`array of Name`, or `Name (array)` for a named array schema), else
+ *  `array of X`, `map of X`. */
 function typeLabel(field: ApiFieldView, base?: string): string {
-  // A named union, or a list stopping at a repeat, reads as its schema's name.
+  const shape = field.typeShape;
   if (field.typeName) {
-    // A named array schema keeps its name and says it's an array.
-    if (field.namedArray) {
-      const name = field.typeRef ? link(field.typeName, field.typeRef.href, base) : inlineText(field.typeName);
-      return `${name} (array)`;
-    }
-    const name = field.type.startsWith("array<") ? `array<${field.typeName}>` : field.typeName;
-    return field.typeRef ? link(name, field.typeRef.href, base) : inlineText(name);
+    const name = field.typeRef ? link(field.typeName, field.typeRef.href, base) : plainText(field.typeName);
+    if (field.namedArray) return `${name} (array)`;
+    return shape?.kind === "array" ? `array of ${name}` : name;
+  }
+  if (shape && !field.union) {
+    const inner = field.typeRef ? link(shape.inner, field.typeRef.href, base) : plainText(shape.inner || "any");
+    return `${shape.kind} of ${inner}`;
   }
   if (field.typeRef) return link(field.type, field.typeRef.href, base);
   if (field.typeRefs && field.typeRefs.length > 0) {
     return field.typeRefs.map((r) => link(r.label, r.href, base)).join(" | ");
   }
-  return inlineText(field.type);
+  return plainText(field.type);
 }
 
-/** The shared "constraints + enum + default + example" summary, structural so
- *  both a field row and a scalar-schema page render it identically. */
+/** The shared "enum + constraints + default + example" summary, structural so
+ *  both a field row and a scalar-schema page render it identically. Constraints
+ *  and default read as the page's field row reads them (`maximum: 500 ·
+ *  minimum: 1 · default: 50`). */
 function detailParts(d: {
   constraints?: ApiConstraint;
   enum?: JsonValue[];
@@ -255,20 +270,20 @@ function detailParts(d: {
   example?: JsonValue;
 }): string[] {
   const parts: string[] = [];
-  const c = d.constraints;
-  if (c) {
-    if (c.format) parts.push(`format ${inlineCode(c.format)}`);
-    if (c.minimum !== undefined) parts.push(`min ${c.minimum}`);
-    if (c.maximum !== undefined) parts.push(`max ${c.maximum}`);
-    if (c.minLength !== undefined) parts.push(`minLength ${c.minLength}`);
-    if (c.maxLength !== undefined) parts.push(`maxLength ${c.maxLength}`);
-    if (c.pattern) parts.push(`pattern ${inlineCode(c.pattern)}`);
-  }
   if (d.enum && d.enum.length > 0) {
     parts.push(`one of ${d.enum.map(code).join(", ")}`);
   }
-  if (d.default !== undefined) parts.push(`default ${code(d.default)}`);
-  if (d.example !== undefined) parts.push(`example ${code(d.example)}`);
+  const c = d.constraints;
+  if (c) {
+    if (c.format) parts.push(`format: ${inlineCode(c.format)}`);
+    if (c.maximum !== undefined) parts.push(`maximum: ${inlineCode(String(c.maximum))}`);
+    if (c.minimum !== undefined) parts.push(`minimum: ${inlineCode(String(c.minimum))}`);
+    if (c.maxLength !== undefined) parts.push(`maxLength: ${inlineCode(String(c.maxLength))}`);
+    if (c.minLength !== undefined) parts.push(`minLength: ${inlineCode(String(c.minLength))}`);
+    if (c.pattern) parts.push(`pattern: ${inlineCode(c.pattern)}`);
+  }
+  if (d.default !== undefined) parts.push(`default: ${code(d.default)}`);
+  if (d.example !== undefined) parts.push(`example: ${code(d.example)}`);
   return parts;
 }
 
@@ -287,15 +302,14 @@ function renderField(field: ApiFieldView, depth: number, out: string[], base?: s
   out.push(head);
 
   const detail = detailParts(field);
-  if (detail.length > 0) out.push(`${pad}  - ${detail.join("; ")}`);
+  if (detail.length > 0) out.push(`${pad}  - ${detail.join(" · ")}`);
 
   if (field.union) {
-    const label = field.union.kind === "oneOf" ? "one of" : "any of";
-    if (field.union.variants.some(opens)) {
-      out.push(`${pad}  - ${label}:`);
-      for (const v of field.union.variants) renderVariant(v, depth + 2, out, base);
+    const entries = unionEntries(field.union);
+    if (entries.some((e) => opens(e.variant))) {
+      renderBranches(field.union, entries, depth + 1, out, base);
     } else {
-      out.push(`${pad}  - ${label}: ${field.union.variants.map((v) => variantLabel(v, base)).join(", ")}`);
+      out.push(`${pad}  - ${unionLabel(field.union).toLowerCase()}: ${entries.map((e) => entryLabel(e, base)).join(", ")}`);
     }
     if (field.union.discriminator) {
       out.push(`${pad}  - discriminator: ${inlineCode(field.union.discriminator)}`);
@@ -320,46 +334,206 @@ function renderScalar(scalar: ApiScalarView, out: string[]): void {
   if (scalar.nullable) flags.push("nullable");
   out.push(`Type: ${flags.join(", ")}`, "");
   const detail = detailParts(scalar);
-  if (detail.length > 0) out.push(`- ${detail.join("; ")}`, "");
+  if (detail.length > 0) out.push(`- ${detail.join(" · ")}`, "");
 }
 
 function variantLabel(v: { label: string; href?: string }, base?: string): string {
   return v.href ? link(v.label, v.href, base) : inlineCode(v.label);
 }
 
-/** An inline branch with something beneath its label: its own union or its
- *  fields, which have no other home. A named branch stays a label, union or not,
- *  so a twin's size does not follow `schemaPages`. */
-function opens(v: ApiVariant): boolean {
-  return !v.name && Boolean(v.union || v.fields || v.enum || v.description);
+/** The union's heading, worded as the page's union explorer words it. */
+function unionLabel(union: ApiUnionView): string {
+  return union.kind === "oneOf" ? "One of the following" : "Any of the following";
 }
 
-function renderVariant(v: ApiVariant, depth: number, out: string[], base?: string): void {
+interface UnionEntry {
+  variant: ApiVariant;
+  /** The discriminator value that selects this branch. */
+  value?: string;
+}
+
+/** A union's branches as the page lists them: the discriminator mapping when
+ *  there is one (its variants carry the fields), else the variants. A variant
+ *  the mapping leaves out still gets its label, so no branch goes unnamed. */
+function unionEntries(union: ApiUnionView): UnionEntry[] {
+  const mapping = union.mapping ?? [];
+  if (mapping.length === 0) return union.variants.map((variant) => ({ variant }));
+  // By schema name, as the page matches them (type-display.ts): an unnamed
+  // branch is never a mapped one, even when its label (`object`) matches.
+  const mapped = new Set(mapping.map((m) => m.variant.name));
+  return [
+    ...mapping.map((m) => ({ variant: m.variant, value: m.value })),
+    ...union.variants.filter((v) => !v.name || !mapped.has(v.name)).map((variant) => ({ variant })),
+  ];
+}
+
+function entryLabel(e: UnionEntry, base?: string): string {
+  const label = variantLabel(e.variant, base);
+  return e.value === undefined ? label : `${label} (${inlineCode(e.value)})`;
+}
+
+/** A branch with something beneath its label: its own union, or the fields
+ *  the view model previews for it. Named or inline, it prints what the page
+ *  shows; the view model bounds the preview and stops at a repeat. */
+function opens(v: ApiVariant): boolean {
+  return Boolean(v.union || (v.fields && v.fields.length > 0) || (v.enum && v.enum.length > 0) || v.description);
+}
+
+function renderVariant(
+  e: UnionEntry,
+  depth: number,
+  out: string[],
+  base?: string,
+  own?: { fields: ApiFieldView[]; prefix?: string },
+): void {
   const pad = "  ".repeat(depth);
-  let head = `${pad}- ${variantLabel(v, base)}`;
+  const v = e.variant;
+  let head = `${pad}- ${entryLabel(e, base)}`;
+  // When the shared fields cite this option as `<option>`, say what that is
+  // wherever it isn't the label already (an inline branch's).
+  if (own?.prefix && own.prefix !== v.label) head += ` (${inlineCode(own.prefix)})`;
   if (v.enum && v.enum.length > 0) head += `: one of ${v.enum.map(code).join(", ")}`;
   if (v.description) head += ` — ${inlineText(v.description)}`;
   out.push(head);
-  if (v.name) return;
   if (v.union) {
-    out.push(`${pad}  - ${v.union.kind === "oneOf" ? "one of" : "any of"}:`);
-    for (const inner of v.union.variants) renderVariant(inner, depth + 2, out, base);
-  } else if (v.fields) {
-    for (const f of v.fields) renderField(f, depth + 1, out, base);
+    renderBranches(v.union, unionEntries(v.union), depth + 1, out, base);
+  } else {
+    for (const f of own?.fields ?? v.fields ?? []) renderField(f, depth + 1, out, base);
   }
 }
 
-function renderUnion(union: ApiUnionView, out: string[], base?: string): void {
-  out.push(union.kind === "oneOf" ? "One of:" : "Any of:", "");
-  for (const v of union.variants) renderVariant(v, 0, out, base);
-  out.push("");
-  if (union.discriminator) {
-    out.push(`Discriminator: ${inlineCode(union.discriminator)}`, "");
-    for (const m of union.mapping ?? []) {
-      out.push(`- ${inlineCode(m.value)} → ${variantLabel(m.variant, base)}`);
-    }
-    if (union.mapping && union.mapping.length > 0) out.push("");
+/** A union's branches, `depth` levels in. Fields every branch has, identical
+ *  but for their coordinates, print once first, so a union of twenty record
+ *  types that share six fields doesn't repeat them twenty times; each branch
+ *  then lists only what it adds. */
+function renderBranches(union: ApiUnionView, entries: UnionEntry[], depth: number, out: string[], base?: string): void {
+  const pad = "  ".repeat(depth);
+  const label = unionLabel(union).toLowerCase();
+  const factored = factorUnion(entries);
+  if (!factored) {
+    out.push(`${pad}- ${label}:`);
+    for (const e of entries) renderVariant(e, depth + 1, out, base);
+    return;
   }
+  out.push(`${pad}- every option has:`);
+  for (const f of factored.shared) renderField(f, depth + 1, out, base);
+  out.push(`${pad}- ${label}, each adding:`);
+  entries.forEach((e, i) => renderVariant(e, depth + 1, out, base, { fields: factored.own[i]!, prefix: factored.prefixes?.[i] }));
+}
+
+function renderUnion(union: ApiUnionView, out: string[], base?: string): void {
+  const entries = unionEntries(union);
+  const factored = factorUnion(entries);
+  if (factored) {
+    out.push("Every option has:", "");
+    for (const f of factored.shared) renderField(f, 0, out, base);
+    out.push("", `${unionLabel(union)}, each adding:`, "");
+    entries.forEach((e, i) => renderVariant(e, 0, out, base, { fields: factored.own[i]!, prefix: factored.prefixes?.[i] }));
+  } else {
+    out.push(`${unionLabel(union)}:`, "");
+    for (const e of entries) renderVariant(e, 0, out, base);
+  }
+  out.push("");
+  if (union.discriminator) out.push(`Discriminator: ${inlineCode(union.discriminator)}`, "");
+}
+
+/** The placeholder shared fields cite their coordinates under. */
+const OPTION = "<option>";
+
+/** View-model keys that hold the spec's own JSON: compared and copied as
+ *  written, so an authored `{ "anchor": … }` example isn't read as metadata. */
+const AUTHORED = new Set(["default", "enum", "example", "extensions", "value"]);
+
+const literal = (a: unknown, b: unknown): boolean => a === b || JSON.stringify(a) === JSON.stringify(b);
+
+/** A branch's coordinate prefix: what each of its top-level fields' coordinates
+ *  starts with, before `.name`. Undefined when they don't agree. */
+function branchPrefix(fields: ApiFieldView[]): string | undefined {
+  let prefix: string | undefined;
+  for (const f of fields) {
+    const tail = `.${f.name}`;
+    if (!f.name || !f.coordinate.endsWith(tail)) return undefined;
+    const p = f.coordinate.slice(0, -tail.length);
+    if (prefix !== undefined && p !== prefix) return undefined;
+    prefix = p;
+  }
+  return prefix;
+}
+
+/** `value` with every coordinate under `prefix` re-rooted at `root`, and
+ *  anchors (derived from coordinates) dropped: how a shared field cites itself. */
+function rerooted(value: unknown, prefix: string, root: string): unknown {
+  if (Array.isArray(value)) return value.map((v) => rerooted(v, prefix, root));
+  if (!value || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (k === "anchor") continue;
+    if (AUTHORED.has(k)) out[k] = v;
+    else out[k] = k === "coordinate" && typeof v === "string" && v.startsWith(`${prefix}.`) ? `${root}${v.slice(prefix.length)}` : rerooted(v, prefix, root);
+  }
+  return out;
+}
+
+/** Whether `a` (under coordinate prefix `pa`) and `b` (under `pb`) are the
+ *  same field: equal in everything, with coordinates equal once their prefixes
+ *  are set aside and anchors (derived from coordinates) ignored. Compared in
+ *  place, stopping at the first difference, so it allocates nothing. */
+function sameBelow(a: unknown, pa: string, b: unknown, pb: string): boolean {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    const bb = b as unknown[];
+    return a.length === bb.length && a.every((v, i) => sameBelow(v, pa, bb[i], pb));
+  }
+  const ao = a as Record<string, unknown>;
+  const bo = b as Record<string, unknown>;
+  const keys = Object.keys(ao).filter((k) => k !== "anchor");
+  if (keys.length !== Object.keys(bo).filter((k) => k !== "anchor").length) return false;
+  for (const k of keys) {
+    if (!(k in bo)) return false;
+    const x = ao[k];
+    const y = bo[k];
+    if (AUTHORED.has(k)) {
+      if (!literal(x, y)) return false;
+    } else if (k === "coordinate" && typeof x === "string" && typeof y === "string") {
+      if (!x.startsWith(`${pa}.`) || !y.startsWith(`${pb}.`) || x.slice(pa.length) !== y.slice(pb.length)) return false;
+    } else if (!sameBelow(x, pa, y, pb)) return false;
+  }
+  return true;
+}
+
+/** Fields every branch has, identical in everything but their coordinates;
+ *  each branch's remaining fields; and the prefix each branch's coordinates
+ *  start with, when shared fields cite `<option>`. Undefined when nothing is
+ *  shared, or a branch has no field preview to compare. */
+function factorUnion(
+  entries: UnionEntry[],
+): { shared: ApiFieldView[]; own: ApiFieldView[][]; prefixes?: string[] } | undefined {
+  if (entries.length < 2) return undefined;
+  const lists = entries.map((e) => (e.variant.union ? undefined : e.variant.fields));
+  if (lists.some((l) => !l || l.length === 0)) return undefined;
+  const fields = lists as ApiFieldView[][];
+  // Most unions share no field names at all: settle that before comparing
+  // anything deeper, so they cost a set lookup per field.
+  const byName = fields.map((list) => new Map(list.map((f) => [f.name, f])));
+  const candidates = fields[0]!.filter((f) => byName.every((m) => m.has(f.name)));
+  if (candidates.length === 0) return undefined;
+  const prefixes = fields.map(branchPrefix);
+  if (prefixes.some((p) => p === undefined)) return undefined;
+  const roots = prefixes as string[];
+  const shared = candidates.filter((f) =>
+    byName.every((m, i) => i === 0 || sameBelow(f, roots[0]!, m.get(f.name)!, roots[i]!)),
+  );
+  if (shared.length === 0) return undefined;
+  const names = new Set(shared.map((f) => f.name));
+  // Branches whose coordinates already agree need no placeholder.
+  const cite = new Set(roots).size > 1;
+  return {
+    shared: cite ? shared.map((f) => rerooted(f, roots[0]!, OPTION) as ApiFieldView) : shared,
+    own: fields.map((list) => list.filter((f) => !names.has(f.name))),
+    ...(cite ? { prefixes: roots } : {}),
+  };
 }
 
 function renderFieldSection(
@@ -471,6 +645,92 @@ function renderResponseHeaders(response: ApiResponseView, out: string[], base?: 
   }
 }
 
+/** An operation as a list row shows it: its name, then its method and path. */
+function operationLine(op: ApiOperationRef, base?: string): string {
+  let line = `- ${link(op.label, op.href, base)}`;
+  if (op.path) line += ` — ${inlineCode(`${op.method.toUpperCase()} ${op.path}`)}`;
+  if (op.webhook) line += " (webhook)";
+  if (op.deprecated) line += " (deprecated)";
+  return line;
+}
+
+function renderOperations(operations: ApiOperationRef[], out: string[], base?: string): void {
+  for (const op of operations) out.push(operationLine(op, base));
+  if (operations.length > 0) out.push("");
+}
+
+/** Above this many endpoints the home's Markdown lists its sections, each with
+ *  its endpoint count, instead of every endpoint: the size at which the
+ *  starter's home splits into parts (`API_HOME_CHUNK_SIZE`). Each section's
+ *  page, and `llms.txt`, still list its endpoints. */
+const HOME_MARKDOWN_ENDPOINTS = 150;
+
+function sectionEndpoints(s: ApiIndexSection): number {
+  return s.operations.length + s.sections.reduce((n, child) => n + sectionEndpoints(child), 0);
+}
+
+function indexEndpoints(index: ApiRootIndex): number {
+  return (
+    index.operations.length +
+    index.webhooks.length +
+    index.groups.reduce((n, g) => n + g.operations.length + g.sections.reduce((m, s) => m + sectionEndpoints(s), 0), 0)
+  );
+}
+
+/** The API home's list, as its parts show it together: each tag group a
+ *  heading, each section its link, description and endpoints, then untagged
+ *  endpoints and webhooks. Later parts of a paginated home have no Markdown
+ *  version. A large API's home gives each section's own endpoint count instead
+ *  of its endpoints (subsections keep their headings), so its Markdown stays
+ *  readable in one go; untagged endpoints
+ *  and webhooks are still listed, as they have no page of their own. */
+function renderIndex(index: ApiRootIndex, out: string[], base?: string): void {
+  const grouped = index.groups.some((g) => g.label !== null);
+  const summary = indexEndpoints(index) > HOME_MARKDOWN_ENDPOINTS;
+  const heading = (level: number) => "#".repeat(Math.min(6, level));
+  const count = (n: number) => (n === 1 ? "1 endpoint" : `${n} endpoints`);
+  const section = (s: ApiIndexSection, level: number) => {
+    out.push(`${heading(level)} ${link(s.ref.label, s.ref.href, base)}`, "");
+    if (s.description) out.push(safeBlock(s.description, level), "");
+    if (summary) {
+      if (s.operations.length > 0) out.push(count(s.operations.length), "");
+    } else {
+      renderOperations(s.operations, out, base);
+    }
+    for (const child of s.sections) section(child, level + 1);
+  };
+  for (const group of index.groups) {
+    const label = group.label ?? (grouped ? "More" : null);
+    if (label) {
+      out.push(`## ${group.ref ? link(label, group.ref.href, base) : plainText(label)}`, "");
+    }
+    // A group with a page of its own gets a count, like a section; one without
+    // keeps its endpoints, which nothing else lists.
+    if (summary && group.ref) {
+      if (group.operations.length > 0) out.push(count(group.operations.length), "");
+    } else {
+      renderOperations(group.operations, out, base);
+    }
+    for (const s of group.sections) section(s, label ? 3 : 2);
+  }
+  if (index.operations.length > 0) {
+    out.push("## Other endpoints", "");
+    renderOperations(index.operations, out, base);
+  }
+  if (index.webhooks.length > 0) {
+    out.push("## Webhooks", "");
+    renderOperations(index.webhooks, out, base);
+  }
+}
+
+function indexIsEmpty(index: ApiRootIndex): boolean {
+  return (
+    index.operations.length === 0 &&
+    index.webhooks.length === 0 &&
+    index.groups.every((g) => g.operations.length === 0 && g.sections.length === 0)
+  );
+}
+
 function renderRefs(title: string, refs: ApiRef[], out: string[], base?: string): void {
   if (refs.length === 0) return;
   out.push(`## ${title}`, "");
@@ -505,6 +765,13 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
   switch (props.kind) {
     case "operation": {
       out.push(inlineCode(`${props.method.toUpperCase()} ${props.path}`), "");
+      // The full request URL, as the page's endpoint card shows it: a server's
+      // query or fragment goes after the path.
+      if (props.server && !props.isWebhook) {
+        const at = props.server.search(/[?#]/);
+        const server = at < 0 ? props.server : props.server.slice(0, at).replace(/\/+$/, "");
+        out.push(`URL: ${inlineCode(`${server}${props.path}${at < 0 ? "" : props.server.slice(at)}`)}`, "");
+      }
       if (props.isWebhook) out.push("_Webhook._", "");
       if (props.description) out.push(safeBlock(props.description, 1), "");
       renderAuth(props.auth, out);
@@ -573,7 +840,10 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
     }
     case "section": {
       if (props.description) out.push(safeBlock(props.description, 1), "");
-      if (props.operations.length > 0) renderRefs("Operations", props.operations, out, base);
+      if (props.operations.length > 0) {
+        out.push("## Operations", "");
+        renderOperations(props.operations, out, base);
+      }
       if (props.sections) renderRefs("Sections", props.sections, out, base);
       if (props.operations.length === 0 && !props.sections && !props.description) {
         out.push("_No operations._", "");
@@ -588,7 +858,8 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
         for (const server of props.servers) out.push(`- ${inlineCode(server)}`);
         out.push("");
       }
-      if (props.sections.length > 0) renderRefs("Sections", props.sections, out, base);
+      if (props.index && !indexIsEmpty(props.index)) renderIndex(props.index, out, base);
+      else if (props.sections.length > 0) renderRefs("Sections", props.sections, out, base);
       else if (!props.description && props.servers.length === 0) {
         out.push("_No sections documented._", "");
       }

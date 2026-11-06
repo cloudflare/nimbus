@@ -381,17 +381,21 @@ function variantView(
   inlineFields = false,
   seen: ReadonlySet<Coordinate> = new Set(),
   openNamed = inlineFields,
+  linkPaged = false,
 ): ApiVariant {
   const out = variantLink(view, v);
   const resolved = v.coordinate && view.node(v.coordinate) ? v.coordinate : undefined;
   if (!resolved || seen.has(resolved)) return out;
+  // A named schema with its own page is shown there: here it links.
+  if (linkPaged && v.name && view.hasPage(resolved)) return out;
   const facts = view.node(resolved)!.facts;
   const nested = facts.kind === "schema" || facts.kind === "variant" ? facts.union : undefined;
   if (nested) {
     // A named union opens one level and its own named unions stay labels:
     // named schemas form a DAG, and opening every one per path is exponential.
     if (openNamed || !v.name) {
-      out.union = unionView(view, nested, inlineFields, new Set([...seen, resolved]), openNamed && !v.name);
+      // Inside a named option's preview, named schemas with pages link.
+      out.union = unionView(view, nested, inlineFields, new Set([...seen, resolved]), openNamed && !v.name, linkPaged || Boolean(v.name));
     }
   } else if (inlineFields || facts.kind === "variant") {
     // `seen` is the path of branches above; a repeat stays a label. The preview
@@ -401,6 +405,12 @@ function variantView(
   }
   if (v.name) unanchorVariant(out);
   return out;
+}
+
+/** How many distinct named schemas a union chooses between, mapped ones included. */
+function namedAlternatives(shape: UnionShape): number {
+  const names = [...shape.variants, ...(shape.mapping ?? []).map((m) => m.variant)].map((v) => v.name);
+  return new Set(names.filter(Boolean)).size;
 }
 
 function unanchorVariant(v: ApiVariant): void {
@@ -420,6 +430,7 @@ function unionView(
   inlineFields = false,
   seen: ReadonlySet<Coordinate> = new Set(),
   openNamed = inlineFields,
+  linkPaged = false,
 ): ApiUnionView {
   // With a discriminator mapping the explorer lists the mapped branches from
   // `mapping`, then the branches no mapping value selects. A mapped branch is
@@ -431,14 +442,14 @@ function unionView(
     variants: shape.variants.map((v) =>
       hasMapping && v.name && mapped.has(v.name)
         ? variantLink(view, v)
-        : variantView(view, v, inlineFields, seen, openNamed),
+        : variantView(view, v, inlineFields, seen, openNamed, linkPaged),
     ),
   };
   if (shape.discriminator) out.discriminator = shape.discriminator;
   if (shape.mapping && shape.mapping.length > 0) {
     out.mapping = shape.mapping.map((m) => ({
       value: m.value,
-      variant: variantView(view, m.variant, inlineFields, seen),
+      variant: variantView(view, m.variant, inlineFields, seen, inlineFields, linkPaged),
     }));
   }
   return out;
@@ -481,13 +492,14 @@ function fieldView(
   node: Node,
   allowInline = true,
   seen: ReadonlySet<Coordinate> = new Set(),
+  nested = false,
 ): ApiFieldView {
   const f = node.facts as FieldFacts | ParameterFacts;
   const childNodes = view
     .childrenOf(node.id)
     .filter((n) => n.kind === "field");
   const ordered = requiredFirst(childNodes);
-  const bounded = boundFields(ordered.map((child) => fieldView(view, child, allowInline, seen)));
+  const bounded = boundFields(ordered.map((child) => fieldView(view, child, allowInline, seen, true)));
 
   const out: ApiFieldView = {
     coordinate: node.id,
@@ -517,7 +529,11 @@ function fieldView(
     out.description = description;
     out.descriptionHtml = renderMarkdown(description);
   }
-  if (f.union) out.union = unionView(view, f.union, allowInline, seen);
+  // A named schema with its own page is previewed only where a page's own field
+  // chooses between several (an A, MX or CNAME record); elsewhere, such as an
+  // "id or the whole object" field, it links to its page. Without a page, a
+  // preview is the only place its fields appear, so it always previews.
+  if (f.union) out.union = unionView(view, f.union, allowInline, seen, allowInline, nested || namedAlternatives(f.union) < 2);
   if (f.typeRef?.coordinate && view.hasPage(f.typeRef.coordinate)) {
     out.typeRef = { label: f.typeRef.label, href: view.href(f.typeRef.coordinate) };
   }

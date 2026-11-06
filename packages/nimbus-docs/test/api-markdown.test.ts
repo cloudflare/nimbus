@@ -166,15 +166,15 @@ describe("api markdown emitter", () => {
     const md = renderApiPageMarkdown(props);
     assert.match(md, /Type: `string`/);
     assert.match(md, /one of `"usd"`/);
-    assert.match(md, /minLength 3/);
-    assert.match(md, /pattern `\^\[a-z\]\{3\}\$`/);
+    assert.match(md, /minLength: `3`/, "worded as the page's field row");
+    assert.match(md, /pattern: `\^\[a-z\]\{3\}\$`/);
     assert.doesNotMatch(md, /No fields documented/);
   });
 
-  test("top-level union renders 'One of:' with a link per named variant, never 'no fields'", () => {
+  test("top-level union renders 'One of the following:' with a link per named variant, never 'no fields'", () => {
     const props = getApiPageProps(smallco, "EitherAccount") as ApiSchemaPage;
     const md = renderApiPageMarkdown(props);
-    assert.match(md, /^One of:$/m);
+    assert.match(md, /^One of the following:$/m, "worded as the page's union explorer");
     assert.match(md, /- \[Card\]\(\/smallco\/schemas\/Card\/\)/);
     assert.match(md, /- \[BankAccount\]\(\/smallco\/schemas\/BankAccount\/\)/);
     assert.doesNotMatch(md, /No fields documented/);
@@ -183,12 +183,12 @@ describe("api markdown emitter", () => {
   test("mixed union renders a link for the named branch and inline code for the anonymous one", () => {
     const props = getApiPageProps(smallco, "Mixed") as ApiSchemaPage;
     const md = renderApiPageMarkdown(props);
-    assert.match(md, /^Any of:$/m);
+    assert.match(md, /^Any of the following:$/m);
     assert.match(md, /- \[Card\]\(\/smallco\/schemas\/Card\/\)/);
     assert.match(md, /- `string`/);
   });
 
-  test("discriminated union renders the value→variant mapping", async () => {
+  test("a discriminated union lists its mapped branches with their values and fields, then any unmapped branch", async () => {
     const model = await buildApiModel({
       schemaPages: true,
       collection: "disc",
@@ -200,8 +200,9 @@ describe("api markdown emitter", () => {
           schemas: {
             A: { type: "object", properties: { k: { type: "string" } } },
             B: { type: "object", properties: { k: { type: "string" } } },
+            C: { type: "object", properties: { k: { type: "string" } } },
             U: {
-              oneOf: [{ $ref: "#/components/schemas/A" }, { $ref: "#/components/schemas/B" }],
+              oneOf: [{ $ref: "#/components/schemas/A" }, { $ref: "#/components/schemas/B" }, { $ref: "#/components/schemas/C" }],
               discriminator: {
                 propertyName: "k",
                 mapping: { a: "#/components/schemas/A", b: "#/components/schemas/B" },
@@ -213,11 +214,45 @@ describe("api markdown emitter", () => {
     });
     const md = renderApiPageMarkdown(getApiPageProps(model, "U"));
     assert.match(md, /Discriminator: `k`/);
-    assert.match(md, /- `a` → \[A\]\(\/disc\/schemas\/A\/\)/);
-    assert.match(md, /- `b` → \[B\]\(\/disc\/schemas\/B\/\)/);
+    assert.match(md, /^- \[A\]\(\/disc\/schemas\/A\/\) \(`a`\)$/m);
+    assert.match(md, /^- \[B\]\(\/disc\/schemas\/B\/\) \(`b`\)$/m);
+    assert.match(md, /^- \[C\]\(\/disc\/schemas\/C\/\)$/m, "an unmapped branch is still named");
+
+    // On an operation, a mapping variant carries the preview the page shows.
+    const op = await buildApiModel({
+      schemaPages: true,
+      collection: "disc",
+      spec: {
+        openapi: "3.0.0",
+        info: { title: "D", version: "1" },
+        paths: {
+          "/u": {
+            post: {
+              operationId: "send",
+              requestBody: { content: { "application/json": { schema: { $ref: "#/components/schemas/U" } } } },
+              responses: { "200": { description: "ok" } },
+            },
+          },
+        },
+        components: {
+          schemas: {
+            A: { type: "object", properties: { k: { type: "string" }, amount: { type: "integer" } } },
+            B: { type: "object", properties: { k: { type: "string" }, iban: { type: "string" } } },
+            U: {
+              oneOf: [{ $ref: "#/components/schemas/A" }, { $ref: "#/components/schemas/B" }],
+              discriminator: { propertyName: "k", mapping: { a: "#/components/schemas/A", b: "#/components/schemas/B" } },
+            },
+          },
+        },
+      },
+    });
+    const sent = renderApiPageMarkdown(getApiPageProps(op, "send"));
+    assert.match(sent, /^- \[A\]\(\/disc\/schemas\/A\/\) \(`a`\)\n(?:  - .*\n)*  - `amount`/m, "A's fields under its mapping entry");
+    assert.match(sent, /^- \[B\]\(\/disc\/schemas\/B\/\) \(`b`\)\n(?:  - .*\n)*  - `iban`/m, "B's fields under its mapping entry");
+    assert.equal(sent.match(/`iban`/g)?.length, 1, "each branch prints once");
   });
 
-  test("a nested union prints its branches as a nested list; a named branch stays a link, union or not", async () => {
+  test("a nested union prints its branches as a nested list; a named branch with its own page links to it", async () => {
     const model = await buildApiModel({
       schemaPages: true,
       collection: "nest",
@@ -264,13 +299,18 @@ describe("api markdown emitter", () => {
       },
     });
     const md = renderApiPageMarkdown(getApiPageProps(model, "create"));
-    assert.match(md, /^Any of:\n\n- \[Group\]\(\/nest\/schemas\/Group\/\)\n\n/m, "a named branch stays a link even when it is itself a union");
-    assert.doesNotMatch(md, /Group\.3\.z/, "a named branch's inline branches belong to its own page");
+    assert.match(
+      md,
+      /^Any of the following:\n\n- \[Group\]\(\/nest\/schemas\/Group\/\)\n  - one of the following:\n    - \[A\]\(\/nest\/schemas\/A\/\)\n    - `string`/m,
+      "a named union opens one level, and its named branch links to its own page",
+    );
+    assert.doesNotMatch(md, /`content` \(`A\.content`/, "A's fields are on A's page, not repeated here");
     const field = renderApiPageMarkdown(getApiPageProps(model, "createField"));
-    assert.match(field, /^- `source` \(.*\)\n  - any of:\n    - \[Group\]\(\/nest\/schemas\/Group\/\)\n    - `object`\n      - `x` \(`createField\.source\.2\.x`/m, "beside each other: the named branch stays a link, the inline one opens");
+    assert.match(field, /^- `source` \(.*\)\n  - any of the following:\n    - \[Group\]\(\/nest\/schemas\/Group\/\)\n/m, "the field's named branch keeps its link");
+    assert.match(field, /    - `object`\n      - `x` \(`createField\.source\.2\.x`/m, "the inline branch opens beside it");
     const group = renderApiPageMarkdown(getApiPageProps(model, "Group"));
-    assert.match(group, /^One of:\n\n- \[A\]\(\/nest\/schemas\/A\/\)\n- `string`\n- `Inline`\n  - `z` \(`Group\.3\.z`/m, "the schema page prints its nested list and inline fields");
-    assert.doesNotMatch(group, /`content` \(/, "a named branch's fields stay on its page");
+    assert.match(group, /^One of the following:\n\n- \[A\]\(\/nest\/schemas\/A\/\)\n- `string`\n- `Inline`\n  - `z` \(`Group\.3\.z`/m, "the schema page prints its nested list and inline fields");
+    assert.doesNotMatch(group, /`content` \(/, "a schema page's named branch links out, as its page does");
   });
 
   test("a union field renders its variants XOR its children — no hidden coordinates leak", () => {
@@ -286,7 +326,7 @@ describe("api markdown emitter", () => {
         }),
       ]),
     );
-    assert.match(md, /one of: `Card`, `Bank`/);
+    assert.match(md, /one of the following: `Card`, `Bank`/);
     assert.doesNotMatch(md, /c\.source\.leak/);
   });
 
@@ -330,16 +370,54 @@ describe("api markdown emitter", () => {
       md = renderApiPageMarkdown(getApiPageProps(model, "Weird"));
     });
     assert.match(md, /Type: `unknown`/);
-    assert.match(md, /minLength 1/);
+    assert.match(md, /minLength: `1`/);
   });
 
-  test("section + root pages emit ref links", () => {
+  test("types read as the page reads them, and a nested type's brackets survive Markdown", () => {
+    const md = renderApiPageMarkdown(
+      schema([
+        field({ name: "coords", type: "array<array<array<number>>>", typeShape: { kind: "array", inner: "array<array<number>>" } }),
+        field({ name: "tags", type: "map<string>", typeShape: { kind: "map", inner: "string" } }),
+        field({ name: "limit", type: "integer", constraints: { minimum: 1, maximum: 500 }, default: 50 }),
+      ]),
+    );
+    assert.match(md, /; array of array\\<array\\<number\\>\\>, optional\)/, "escaped, so `<number>` is not read as an HTML tag");
+    assert.match(md, /; map of string, optional\)/);
+    assert.match(md, /- maximum: `500` · minimum: `1` · default: `50`$/m, "constraints then default, as the field row");
+  });
+
+  test("an unlinked tag-group name is literal text, never HTML", async () => {
+    const model = await buildApiModel({
+      schemaPages: true,
+      collection: "g",
+      spec: {
+        openapi: "3.1.0",
+        info: { title: "G", version: "1" },
+        "x-tagGroups": [{ name: "<Widgets> *new* #", tags: ["w"] }],
+        tags: [{ name: "w" }],
+        paths: { "/w": { get: { operationId: "list", tags: ["w"], responses: { "200": { description: "ok" } } } } },
+      },
+    });
+    const md = renderApiPageMarkdown(getApiPageProps(model, "g"));
+    assert.match(md, /^## \\<Widgets\\> \\\*new\\\* \\#$/m, "escaped, so it renders as the page shows it");
+  });
+
+  test("an operation gives its full request URL, as its endpoint card does", () => {
+    const md = renderApiPageMarkdown(operation({ method: "patch", path: "/members/{id}", server: "https://api.example.com/v2?tenant=a" }));
+    assert.match(md, /^URL: `https:\/\/api\.example\.com\/v2\/members\/\{id\}\?tenant=a`$/m);
+    const webhook = renderApiPageMarkdown(operation({ method: "post", path: "alertIssued", server: "https://api.example.com", isWebhook: true }));
+    assert.doesNotMatch(webhook, /^URL:/m, "a webhook is delivered, not called");
+  });
+
+  test("section pages list each operation's method and path; the home lists every endpoint and webhook", () => {
     const section = renderApiPageMarkdown(getApiPageProps(smallco, "tags.charges"));
     assert.match(section, /## Operations/);
-    assert.match(section, /- \[.+\]\(.+\)/);
+    assert.match(section, /^- \[List charges\]\(\/smallco\/charges\/list\/\) — `GET \/charges`$/m);
 
     const root = renderApiPageMarkdown(getApiPageProps(smallco, "smallco"));
-    assert.match(root, /## Sections/);
+    assert.match(root, /^## \[charges\]\(\/smallco\/tags\/charges\/\)\n\nCreate and inspect charges\.\n\n- \[List charges\]\(\/smallco\/charges\/list\/\) — `GET \/charges`$/m, "a section: link, description, endpoints");
+    assert.match(root, /^## Webhooks\n\n- \[.+\]\(\/smallco\/webhooks\/payment\.succeeded\/\) — `POST payment\.succeeded` \(webhook\)$/m, "a webhook keeps its method, as the list shows it");
+    assert.doesNotMatch(root, /## Sections/, "the endpoint list replaces the bare section links");
   });
 
   test("deprecation banner links the successor", () => {
