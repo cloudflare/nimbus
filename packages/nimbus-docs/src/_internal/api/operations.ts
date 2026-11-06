@@ -483,6 +483,19 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
   return facts;
 }
 
+/** A parameter's example for its row, in order: its own `example`; the first
+ *  `examples` entry with an inline `value` (an `externalValue` is never
+ *  fetched); its schema's `example`, then the first of its schema's
+ *  `examples` (OAS 3.1). Falsy values, `null` included, count. */
+function parameterExample(param: OpenApiParameter): unknown {
+  if (param.example !== undefined) return param.example;
+  for (const entry of Object.values(param.examples ?? {})) {
+    if (entry && typeof entry === "object" && "value" in entry && entry.value !== undefined) return entry.value;
+  }
+  if (param.schema?.example !== undefined) return param.schema.example;
+  return Array.isArray(param.schema?.examples) ? param.schema.examples[0] : undefined;
+}
+
 /** Where a parameter is declared: its index in the operation's list, or in the
  *  path item's shared list when the operation doesn't override it. */
 function parameterSource(
@@ -520,7 +533,7 @@ function addParameter(
     constraints: constraintsOf(param.schema),
     default: param.schema?.default,
     enum: param.schema?.enum,
-    example: param.schema?.example,
+    example: parameterExample(param),
   };
   const union = param.schema
     ? ctx.resolver.unionPreferRaw(
