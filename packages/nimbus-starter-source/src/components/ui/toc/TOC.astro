@@ -59,7 +59,8 @@ const { headings, class: className, ...attrs } = Astro.props;
                 </svg>
               )}
               <a
-                href={`#${h.slug}`}
+                href={h.href ?? `#${h.slug}`}
+                data-astro-reload={h.href ? "" : undefined}
                 data-nb-toc-link
                 data-nb-slug={h.slug}
                 class="grid grid-cols-1 border-s-2 border-border ps-5 py-1.5 text-[0.8125rem] leading-5 text-muted-foreground no-underline transition-colors duration-150 hover:border-foreground/20 hover:text-foreground aria-[current=true]:font-medium aria-[current=true]:text-foreground"

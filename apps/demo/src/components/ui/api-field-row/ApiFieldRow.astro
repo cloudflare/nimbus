@@ -9,9 +9,11 @@ interface Props {
   field: ApiFieldView;
   depth?: number;
   anchored?: boolean;
+  /** Show the field's example: set on parameter rows. */
+  showExample?: boolean;
 }
 
-const { field, depth = 0, anchored = true } = Astro.props;
+const { field, depth = 0, anchored = true, showExample = false } = Astro.props;
 
 const AUTO_OPEN_DEPTH = 1;
 const expandable = isExpandable(field);
@@ -20,11 +22,13 @@ const toks = typeTokens(field);
 const constraints = constraintPairs(field.constraints);
 const omitted = field.childCount - field.children.length;
 const detail = (v: unknown): string => JSON.stringify(v);
-// Constraints and default share one line, in that order. Field examples are not
-// shown: the code rail's request and response examples already carry them.
+// Constraints, default and example share one line, in that order. Body field
+// examples aren't shown: the code rail's request and response examples carry
+// them. Parameter rows show theirs, since samples leave optional ones out.
 const meta = [
   ...constraints,
   ...(field.default !== undefined ? [{ name: "default", value: detail(field.default) }] : []),
+  ...(showExample && field.example !== undefined ? [{ name: "example", value: detail(field.example) }] : []),
 ];
 
 const linkSvg = `<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;

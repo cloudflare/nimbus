@@ -240,9 +240,28 @@ export interface ApiHome {
   parts: ApiHomePartLink[];
   /** Endpoints across every part. */
   total: number;
+  /** The part each heading of the list is in (its first piece, for one that
+   *  continues): group, section, `endpoints` and `webhooks` anchors. */
+  anchorParts: Record<string, number>;
   /** Every page of the version (`title`, `method`, `path`, `url`), for the
    *  filter. Root-relative, without the site base. */
   listHref?: string;
+}
+
+function anchorParts(chunks: ApiIndexChunk[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  const first = (anchor: string, number: number) => {
+    if (!(anchor in out)) out[anchor] = number;
+  };
+  for (const chunk of chunks) {
+    for (const group of chunk.groups) {
+      if (group.label && !group.continued) first(group.anchor, chunk.number);
+      for (const section of group.sections) if (!section.continued) first(section.anchor, chunk.number);
+    }
+    if (chunk.operations && !chunk.operations.continued) first(chunk.operations.anchor, chunk.number);
+    if (chunk.webhooks && !chunk.webhooks.continued) first(chunk.webhooks.anchor, chunk.number);
+  }
+  return out;
 }
 
 /** The home's view for part `number`, or `null` when the list has no such part.
@@ -263,6 +282,7 @@ export function apiHome(
       href: apiHomePartHref(options.homeHref, number),
     })),
     total: chunks.at(-1)!.end,
+    anchorParts: anchorParts(chunks),
     ...(options.listHref ? { listHref: options.listHref } : {}),
   };
 }

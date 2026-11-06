@@ -12,6 +12,7 @@
  */
 
 export { mount } from "./mount";
+export { homePartTarget } from "./home-parts";
 export { initDocumentationWebMcp } from "./webmcp";
 export type { DocumentationWebMcpOptions } from "./webmcp";
 export { initNavSidebar } from "./nav-sidebar";

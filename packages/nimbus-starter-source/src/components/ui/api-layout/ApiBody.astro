@@ -138,7 +138,7 @@ const deprecationHtml = page.deprecated
       )}
 
       {page.parameters.map((group) => (
-        <ApiFieldList as="h2" title={group.label} fields={group.fields} anchor={group.anchor} truncated={group.truncated} />
+        <ApiFieldList as="h2" title={group.label} fields={group.fields} anchor={group.anchor} truncated={group.truncated} examples />
       ))}
 
       {page.bodyUnion ? (
