@@ -252,7 +252,7 @@ describe("api markdown emitter", () => {
     assert.equal(sent.match(/`iban`/g)?.length, 1, "each branch prints once");
   });
 
-  test("a nested union prints its branches as a nested list; a named branch prints the preview its page shows", async () => {
+  test("a nested union prints its branches as a nested list; a named branch with its own page links to it", async () => {
     const model = await buildApiModel({
       schemaPages: true,
       collection: "nest",
@@ -301,9 +301,10 @@ describe("api markdown emitter", () => {
     const md = renderApiPageMarkdown(getApiPageProps(model, "create"));
     assert.match(
       md,
-      /^Any of the following:\n\n- \[Group\]\(\/nest\/schemas\/Group\/\)\n  - one of the following:\n    - \[A\]\(\/nest\/schemas\/A\/\)\n      - `content` \(`A\.content`/m,
-      "a named union opens one level, and its named branch previews its fields, as the page does",
+      /^Any of the following:\n\n- \[Group\]\(\/nest\/schemas\/Group\/\)\n  - one of the following:\n    - \[A\]\(\/nest\/schemas\/A\/\)\n    - `string`/m,
+      "a named union opens one level, and its named branch links to its own page",
     );
+    assert.doesNotMatch(md, /`content` \(`A\.content`/, "A's fields are on A's page, not repeated here");
     const field = renderApiPageMarkdown(getApiPageProps(model, "createField"));
     assert.match(field, /^- `source` \(.*\)\n  - any of the following:\n    - \[Group\]\(\/nest\/schemas\/Group\/\)\n/m, "the field's named branch keeps its link");
     assert.match(field, /    - `object`\n      - `x` \(`createField\.source\.2\.x`/m, "the inline branch opens beside it");
