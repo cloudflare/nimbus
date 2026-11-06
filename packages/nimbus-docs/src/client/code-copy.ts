@@ -33,7 +33,7 @@ function initCodeCopy(pre: HTMLElement): () => void {
   // `data-cg-row` catches them after reparenting.
   if (pre.closest("[data-cg-panels-raw], [data-cg-row]")) return () => {};
 
-  // Append the button to the figure wrapper, not the pre. The pre has
+  // Put the button in the figure wrapper, not the pre. The pre has
   // `overflow-x: auto`, and absolutely-positioned children of overflow:auto
   // containers slide along with horizontal scroll on iOS Safari. The figure
   // is the non-scrolling wrapper emitted by titleAndLangTransformer.
@@ -79,7 +79,9 @@ function initCodeCopy(pre: HTMLElement): () => void {
   // `position: relative` via CSS, so the assignment is idempotent; set it
   // unconditionally to keep the appends batched into a single recalc.
   host.style.position = "relative";
-  host.appendChild(btn);
+  // First in the host, so Tab reaches the button before the code it copies;
+  // it is absolutely positioned, so the order doesn't change how it looks.
+  host.prepend(btn);
 
   return () => {
     if (resetTimer) window.clearTimeout(resetTimer);

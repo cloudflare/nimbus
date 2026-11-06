@@ -34,6 +34,7 @@ import {
   llmsFullBlockBytes,
   llmsFullHeaderBytes,
   llmsFullUrl,
+  apiLlmsFullBlock,
   type LlmsFullBlock,
   type LlmsFullHeader,
 } from "./llms-full.js";
@@ -638,20 +639,30 @@ function markdownFieldLines(
   return lines;
 }
 
+function entryDescription(
+  entry: Pick<PreparedMarkdownEntry, "data">,
+): string | undefined {
+  return typeof entry.data.description === "string" &&
+    entry.data.description.length > 0
+    ? entry.data.description
+    : undefined;
+}
+
+// API titles come from spec summaries, which can span lines; a line break in a
+// `# title` would start a new heading.
+function oneLine(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
 function frontmatter(
   entry: Pick<PreparedMarkdownEntry, "collection" | "id" | "data">,
   options: BakeAgentEndpointAssetsOptions,
-  fields: readonly string[] = [],
+  { fields = [], description }: { fields?: readonly string[]; description?: string } = {},
 ): string[] {
   const title =
     typeof entry.data.title === "string" && entry.data.title.length > 0
       ? entry.data.title
       : entry.id;
-  const description =
-    typeof entry.data.description === "string" &&
-    entry.data.description.length > 0
-      ? entry.data.description
-      : undefined;
   const image =
     typeof entry.data.socialImage === "string" &&
     entry.data.socialImage.length > 0
@@ -699,7 +710,7 @@ function markdownAsset(
       : entry.id;
   const urls = preparedMarkdownUrls(entry, options);
   const prefix = [
-    ...frontmatter(entry, options, fields),
+    ...frontmatter(entry, options, { fields, description: entryDescription(entry) }),
     "",
     "> Documentation Index",
     `> Fetch the complete documentation index at: ${absoluteUrl(options.site, options.base, "/llms.txt")}`,
@@ -718,9 +729,8 @@ function markdownAsset(
   return envelopedAsset(`${prefix}\n`, markdown, `\n${suffix}`);
 }
 
-// API pages have no authored source: no `# title` (the emitter renders the
-// page heading) and `Source:` points at the Markdown URL itself. Byte-identical
-// to the `api-reference` recipe's former route.
+// API pages have no authored source, so `Source:` points at the Markdown URL
+// itself. The description is left out of the frontmatter: the body prints it.
 function apiMarkdownAsset(
   entry: LlmsEndpointApiEntry,
   markdown: string,
@@ -733,6 +743,8 @@ function apiMarkdownAsset(
     "> Documentation Index",
     `> Fetch the complete documentation index at: ${absoluteUrl(options.site, options.base, "/llms.txt")}`,
     "> Use this file to discover all available pages before exploring further.",
+    "",
+    `# ${oneLine(typeof entry.data.title === "string" && entry.data.title.length > 0 ? entry.data.title : entry.id)}`,
     "",
   ].join("\n");
   const suffix = [
@@ -750,7 +762,7 @@ function sourceAsset(
   fields: readonly string[],
 ): MarkdownEndpointPayloadBody {
   return envelopedAsset(
-    `${[...frontmatter(entry, options, fields), ""].join("\n")}\n`,
+    `${[...frontmatter(entry, options, { fields, description: entryDescription(entry) }), ""].join("\n")}\n`,
     expanded,
   );
 }
@@ -765,6 +777,9 @@ interface PreparedLlmsPage {
   markdown: string;
   /** `sidebar.group.label` on a group's index page. */
   groupLabel?: string;
+  /** An API page: its `llms-full.txt` block has a one-line title and no
+   * description, which its Markdown already prints. */
+  api?: boolean;
 }
 
 /**
@@ -785,6 +800,7 @@ function preparedLlmsPage(
   entry: Pick<PreparedMarkdownEntry, "collection" | "id" | "data">,
   markdown: string,
   options: BakeAgentEndpointAssetsOptions,
+  api = false,
 ): PreparedLlmsPage {
   const route = entryRouteUrl(
     collectionMountPrefix(entry.collection, mountContext(options)),
@@ -797,15 +813,12 @@ function preparedLlmsPage(
       typeof entry.data.title === "string" && entry.data.title.length > 0
         ? entry.data.title
         : entry.id,
-    description:
-      typeof entry.data.description === "string" &&
-      entry.data.description.length > 0
-        ? entry.data.description
-        : undefined,
+    description: entryDescription(entry),
     url: toDocumentHref(route),
     markdownUrl: route === "/" ? "/index.md" : `${route}/index.md`,
     markdown,
     groupLabel: sidebarGroupLabel(entry.data),
+    ...(api ? { api } : {}),
   };
 }
 
@@ -1130,13 +1143,14 @@ function blockquote(text: string): string {
 }
 
 function llmsFullBlock(page: PreparedLlmsPage): LlmsFullBlock {
-  return {
+  const block = {
     title: page.title,
     description: page.description,
     url: page.url,
     markdownUrl: page.markdownUrl,
     markdown: page.markdown,
   };
+  return page.api ? apiLlmsFullBlock(block) : block;
 }
 
 const utf8 = new TextEncoder();
@@ -2096,7 +2110,7 @@ export async function bakeAgentEndpointAssets(
     }
     markdown = absoluteMarkdownLinks(markdown, options.site);
     if (isDiscoverable(entry)) {
-      preparedLlmsPages.push(preparedLlmsPage(entry, markdown, options));
+      preparedLlmsPages.push(preparedLlmsPage(entry, markdown, options, true));
     }
     const url = preparedMarkdownUrls(entry, options).markdown;
     const { body, contentStart, contentEnd } = apiMarkdownAsset(

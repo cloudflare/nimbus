@@ -26,13 +26,11 @@ implement it and try our best to attribute it to you.
 
 ## Pull requests
 
-Start with an issue or a discussion, not a PR. If we decide to take your bug or
-feature forward, a maintainer approves you right there in the thread — from then
-on your pull requests stay open and go through normal review. Until then, PRs
-from outside the team are closed automatically and pointed back here.
+Pull requests are welcome. For anything bigger than a small fix, start with an
+issue or a discussion so we can agree on what to build before you build it. A
+drive-by AI-generated PR is cheap to write and expensive to review.
 
-A drive-by AI-generated PR is cheap to write and expensive to review. Deciding
-what to build, and how, is the part we'd rather do with you up front.
+CI on a pull request from a fork waits for a maintainer to approve the run.
 
 ## For maintainers
 

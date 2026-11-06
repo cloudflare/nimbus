@@ -74,7 +74,7 @@ import {
   renderEntryAsMarkdown,
   type RenderEntryAsMarkdownOptions,
 } from "./_internal/transform.js";
-import { buildLlmsFullMarkdown } from "./_internal/llms-full.js";
+import { apiLlmsFullBlock, buildLlmsFullMarkdown } from "./_internal/llms-full.js";
 import { isDiscoverable } from "./_internal/discoverability.js";
 import {
   assembleBreadcrumbs,
@@ -670,14 +670,18 @@ export async function renderLlmsFullMarkdown(options?: {
         !versionSlugs.has(resolveCollectionSlug(item.collection, versions))),
   );
 
+  const apiCollections = new Set(await loadApiCollections());
   const blocks = await Promise.all(
-    included.map(async (item) => ({
-      title: item.title,
-      description: item.description,
-      url: item.url,
-      markdownUrl: item.markdownUrl,
-      markdown: await renderIndexedEntryMarkdown(item, { base: options?.base }),
-    })),
+    included.map(async (item) => {
+      const block = {
+        title: item.title,
+        description: item.description,
+        url: item.url,
+        markdownUrl: item.markdownUrl,
+        markdown: await renderIndexedEntryMarkdown(item, { base: options?.base }),
+      };
+      return apiCollections.has(item.collection) ? apiLlmsFullBlock(block) : block;
+    }),
   );
 
   return buildLlmsFullMarkdown(blocks, {
