@@ -19,13 +19,13 @@
     "site-parts:check": "node scripts/site-parts-check.mjs",
     "templates:sync": "node scripts/sync-templates-repo.mjs",
     "upgrades:check": "node scripts/upgrade-manifest.mjs",
-    "test:upgrades": "node --test scripts/upgrade-manifest.test.mjs scripts/sync-reviewed-baselines.test.mjs scripts/freshness-guard.test.mjs scripts/changeset-version.test.mjs",
+    "test:upgrades": "node --test scripts/upgrade-manifest.test.mjs scripts/sync-reviewed-baselines.test.mjs scripts/freshness-guard.test.mjs",
     "local": "node scripts/local.mjs",
     "local:auto": "node scripts/local.mjs --auto",
     "local:reset": "node scripts/local.mjs --auto --reset",
     "local:add": "node scripts/local-add.mjs",
     "changeset": "changeset",
-    "changeset:version": "node scripts/changeset-version.mjs && node scripts/sync-reviewed-baselines.mjs && pnpm --filter @nimbus/www generate-registry",
+    "changeset:version": "changeset version && node scripts/sync-reviewed-baselines.mjs && pnpm --filter @nimbus/www generate-registry",
     "changeset:publish": "changeset publish"
   },
   "engines": {
@@ -33,8 +33,7 @@
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.7.0",
-    "@changesets/cli": "^3.0.3",
-    "@changesets/get-release-plan": "^5.0.2",
+    "@changesets/cli": "^2.31.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "1.64.1",
     "cross-spawn": "7.0.6",
