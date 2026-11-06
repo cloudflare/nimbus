@@ -7,6 +7,7 @@
       "api-catalog-published-specs",
       "api-code-sample-ids",
       "api-collections-from-config",
+      "api-parameter-examples-and-home-toc",
       "api-query-version-mode",
       "api-reference-polish",
       "api-request-path",
@@ -1075,6 +1076,24 @@
       "verify": [
         "The build passes and nimbus-docs check reports nothing for the changelog routes.",
         "/changelog/ lists releases newest first under their years, and a release's /changelog/<slug>/index.md has date and tags in its frontmatter."
+      ]
+    },
+    {
+      "id": "api-parameter-examples-and-home-toc",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-parameter-examples",
+      "summary": "Optionally show parameter examples on API rows, and make API home table of contents links reach headings in later parts.",
+      "affected": "Sites with the api-layout and api-field-row registry components.",
+      "instructions": [
+        "No action is needed: without these files, API pages behave as before.",
+        "api-layout and api-field-row are registry components, which nimbus-docs diff doesn't cover. If they are unmodified, update them with nimbus-docs add api-layout api-field-row --overwrite.",
+        "If they are customized, copy the changes from the current registry version: ApiFieldRow.astro and ApiFieldList.astro take showExample and examples props and ApiBody.astro passes examples to parameter groups; ApiLayout.astro gives later-part TOC items an href from home.anchorParts and drops headings that aren't in it; ApiHome.astro's click handler calls homePartTarget and clears an active filter first.",
+        "src/components/ui/toc/TOC.astro is a template file: if unmodified, update it with nimbus-docs diff src/components/ui/toc/TOC.astro --apply; if customized, run nimbus-docs diff src/components/ui/toc/TOC.astro and render href={h.href ?? `#${h.slug}`}, with data-astro-reload when h.href is set."
+      ],
+      "verify": [
+        "A query parameter with an example shows `example` on its row.",
+        "On an API home split into parts, a table of contents link to a heading in a later part lands on it, with and without JavaScript."
       ]
     }
   ]
