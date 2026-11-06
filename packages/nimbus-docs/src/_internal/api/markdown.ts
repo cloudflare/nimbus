@@ -526,17 +526,44 @@ function renderOperations(operations: ApiOperationRef[], out: string[], base?: s
   if (operations.length > 0) out.push("");
 }
 
-/** The API home's whole list, as its parts show it together: each tag group a
+/** Above this many endpoints the home's Markdown lists its sections, each with
+ *  its endpoint count, instead of every endpoint: the size at which the
+ *  starter's home splits into parts (`API_HOME_CHUNK_SIZE`). Each section's
+ *  page, and `llms.txt`, still list its endpoints. */
+const HOME_MARKDOWN_ENDPOINTS = 150;
+
+function sectionEndpoints(s: ApiIndexSection): number {
+  return s.operations.length + s.sections.reduce((n, child) => n + sectionEndpoints(child), 0);
+}
+
+function indexEndpoints(index: ApiRootIndex): number {
+  return (
+    index.operations.length +
+    index.webhooks.length +
+    index.groups.reduce((n, g) => n + g.operations.length + g.sections.reduce((m, s) => m + sectionEndpoints(s), 0), 0)
+  );
+}
+
+/** The API home's list, as its parts show it together: each tag group a
  *  heading, each section its link, description and endpoints, then untagged
  *  endpoints and webhooks. Later parts of a paginated home have no Markdown
- *  version, so this one lists everything. */
+ *  version. A large API's home gives each section's own endpoint count instead
+ *  of its endpoints (subsections keep their headings), so its Markdown stays
+ *  readable in one go; untagged endpoints
+ *  and webhooks are still listed, as they have no page of their own. */
 function renderIndex(index: ApiRootIndex, out: string[], base?: string): void {
   const grouped = index.groups.some((g) => g.label !== null);
+  const summary = indexEndpoints(index) > HOME_MARKDOWN_ENDPOINTS;
   const heading = (level: number) => "#".repeat(Math.min(6, level));
+  const count = (n: number) => (n === 1 ? "1 endpoint" : `${n} endpoints`);
   const section = (s: ApiIndexSection, level: number) => {
     out.push(`${heading(level)} ${link(s.ref.label, s.ref.href, base)}`, "");
     if (s.description) out.push(safeBlock(s.description, level), "");
-    renderOperations(s.operations, out, base);
+    if (summary) {
+      if (s.operations.length > 0) out.push(count(s.operations.length), "");
+    } else {
+      renderOperations(s.operations, out, base);
+    }
     for (const child of s.sections) section(child, level + 1);
   };
   for (const group of index.groups) {

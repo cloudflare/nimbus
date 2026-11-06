@@ -140,3 +140,33 @@ components:
   assert.match(md, /mappedOnly/);
   assert.match(md, /alternativeOnly/, "the unnamed branch isn't folded into the mapped one");
 });
+
+test("a large API's home lists each section with its endpoint count; a small one lists every endpoint", async () => {
+  const spec = (count: number) =>
+    JSON.stringify({
+      openapi: "3.1.0",
+      info: { title: "T", version: "1" },
+      tags: [{ name: "Pets", description: "Pets you can adopt." }, { name: "Stores" }],
+      paths: {
+        ...Object.fromEntries(
+          Array.from({ length: count }, (_, n) => [
+            `/things/${n}`,
+            { get: { operationId: `get${n}`, summary: `Get thing ${n}`, tags: [n % 2 ? "Pets" : "Stores"], responses: { "200": { description: "OK" } } } },
+          ]),
+        ),
+        "/untagged": { get: { operationId: "untagged", summary: "Untagged", responses: { "200": { description: "OK" } } } },
+      },
+    });
+  const home = async (count: number) => {
+    const model = await buildApiModel({ collection: "api", label: "spec.json", spec: spec(count) });
+    return renderApiPageMarkdown(getApiPageProps(model, "api") as never);
+  };
+  const large = await home(160);
+  assert.match(large, /\[Pets\]\([^)]*\)\n\nPets you can adopt\.\n\n80 endpoints\n/);
+  assert.match(large, /\[Stores\]\([^)]*\)\n\n80 endpoints\n/);
+  assert.doesNotMatch(large, /Get thing 7\b/, "section endpoints are on the section's own page");
+  assert.match(large, /## Other endpoints\n\n- \[Untagged\]/, "untagged endpoints have no page of their own");
+  const small = await home(10);
+  assert.match(small, /Get thing 7\b/);
+  assert.doesNotMatch(small, /\d+ endpoints\n/);
+});
