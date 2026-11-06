@@ -161,6 +161,11 @@ export function parameterCoordinate(
   return joinPath(op, location, name);
 }
 
+/** A field inside an object parameter = `<op>.<location>.<name>.<path>`. */
+export function parameterFieldCoordinate(param: Coordinate, path: string): Coordinate {
+  return joinPath(param, path);
+}
+
 /** Response = `<op>.response.<status>`. */
 export function responseCoordinate(op: Coordinate, status: string): Coordinate {
   return joinPath(op, "response", status);

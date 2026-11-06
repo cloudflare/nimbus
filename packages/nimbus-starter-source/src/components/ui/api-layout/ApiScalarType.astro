@@ -1,0 +1,31 @@
+---
+/**
+ * The type of something with no fields to list: a schema that is a string or an
+ * enum, or a request or response body that is plain text or a binary file.
+ */
+import type { ApiScalarView } from "@cloudflare/nimbus-docs/api";
+
+interface Props {
+  scalar: ApiScalarView;
+}
+
+const { scalar } = Astro.props;
+const detail = (v: unknown): string => JSON.stringify(v);
+const facts = [
+  ...(scalar.constraints?.format ? [`format ${scalar.constraints.format}`] : []),
+  ...(scalar.enum ? [`one of ${scalar.enum.map(detail).join(", ")}`] : []),
+  ...(scalar.default !== undefined ? [`default ${detail(scalar.default)}`] : []),
+  ...(scalar.example !== undefined ? [`example ${detail(scalar.example)}`] : []),
+];
+---
+
+<section>
+  <p class="text-sm">
+    <span class="text-muted-foreground">Type:</span>
+    <code class="ms-1 font-mono text-foreground">{scalar.type}</code>
+    {scalar.nullable && <span class="ms-1 text-muted-foreground">(nullable)</span>}
+  </p>
+  {facts.length > 0 && (
+    <p class="mt-1 font-mono text-xs break-words text-muted-foreground">{facts.join("; ")}</p>
+  )}
+</section>

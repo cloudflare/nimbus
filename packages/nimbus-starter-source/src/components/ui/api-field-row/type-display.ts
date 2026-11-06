@@ -151,3 +151,12 @@ export function countLabel(n: number, noun: "property" | "variant"): string {
   const plural = noun === "property" ? "properties" : "variants";
   return `${n} ${n === 1 ? noun : plural}`;
 }
+
+/** The toggle text for what a field or union option opens to: its properties,
+ *  its union's options, or both (`5 properties · 23 variants`). */
+export function contentsLabel(properties: number, union: ApiUnionView | undefined): string {
+  const parts: string[] = [];
+  if (properties > 0 || !union) parts.push(countLabel(properties, "property"));
+  if (union) parts.push(countLabel(union.variants.length, "variant"));
+  return parts.join(" · ");
+}

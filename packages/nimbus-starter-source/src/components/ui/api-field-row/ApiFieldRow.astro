@@ -1,6 +1,6 @@
 ---
 import ApiUnionExplorer from "./ApiUnionExplorer.astro";
-import { typeTokens, constraintPairs, isExpandable, countLabel, unionTitle } from "./type-display";
+import { typeTokens, constraintPairs, isExpandable, contentsLabel, unionTitle } from "./type-display";
 import type { ApiFieldView } from "@cloudflare/nimbus-docs/api";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
 import "./field-list.css";
@@ -74,7 +74,7 @@ const linkSvg = `<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a
             {field.required && <div class="fl-required">required</div>}
             {expandable && (
               <button type="button" class="fl-count" data-fl-toggle data-pagefind-ignore aria-expanded={startOpen ? "true" : "false"}>
-                <span class="fl-count-brace" aria-hidden="true">{"{"}</span><span class="fl-count-text">{field.union ? countLabel(field.union.variants.length, "variant") : countLabel(field.childCount, "property")}</span><span class="fl-count-brace" aria-hidden="true">{"}"}</span>
+                <span class="fl-count-brace" aria-hidden="true">{"{"}</span><span class="fl-count-text">{contentsLabel(field.childCount, field.union)}</span><span class="fl-count-brace" aria-hidden="true">{"}"}</span>
               </button>
             )}
           </div>
@@ -97,9 +97,8 @@ const linkSvg = `<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a
         <details class="fl-expandable" open={startOpen}>
           {/* Toggled by the { n properties } button on the signature line. */}
           <summary class="fl-expand-trigger"></summary>
-          {field.union ? (
-            <ApiUnionExplorer union={field.union} depth={depth} nested />
-          ) : (
+          {/* Fields beside a union come first; the options add to them. */}
+          {(field.children.length > 0 || field.truncated) && (
             <ul class="fl-list fl-children">
               {field.children.map((child) => (
                 <Astro.self field={child} depth={depth + 1} />
@@ -108,6 +107,9 @@ const linkSvg = `<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a
                 <li class="fl-truncated">… {omitted} more field(s) omitted</li>
               )}
             </ul>
+          )}
+          {field.union && (
+            <ApiUnionExplorer union={field.union} depth={depth} nested afterFields={field.children.length > 0} />
           )}
           <span class="fl-fold-close" aria-hidden="true" data-pagefind-ignore>{"}"}</span>
         </details>

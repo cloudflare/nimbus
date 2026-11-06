@@ -642,18 +642,18 @@ describe("field citations: a body that is BOTH an object and a union (dead-fragm
     },
   };
 
-  test("the hidden object properties are NOT indexed; the union's named variants stay citeable on their own pages", async () => {
+  test("properties beside a union are shown and citable; the union's named variants stay citeable on their own pages", async () => {
     const { index } = await buildCitationIndex([{ collection: "t", spec, schemaPages: true }], ".");
 
-    assert.equal(index.get("t:pay.base"), undefined, "request body property is not a dead fragment");
-    assert.equal(index.get("t:pay.response.200.rbase"), undefined, "response body property is not a dead fragment");
+    assert.match(index.get("t:pay.base") ?? "", /#pay\.base$/, "a request body property beside the union cites its row");
+    assert.match(index.get("t:pay.response.200.rbase") ?? "", /#pay\.response\.200\.rbase$/, "so does a response one");
 
     assert.ok(index.get("t:pay"), "the operation page is citeable");
     assert.equal(index.get("t:A.a"), "/t/schemas/A#A.a", "a variant field cites its own schema page");
     assert.equal(index.get("t:B.b"), "/t/schemas/B#B.b");
   });
 
-  test("a NESTED field that is both an object and a union hides its children too", async () => {
+  test("a NESTED field that is both an object and a union shows and cites its children too", async () => {
     const nested: Record<string, unknown> = {
       openapi: "3.1.0",
       info: { title: "Nested", version: "1.0.0" },
@@ -688,7 +688,7 @@ describe("field citations: a body that is BOTH an object and a union (dead-fragm
     };
     const { index } = await buildCitationIndex([{ collection: "t", spec: nested, schemaPages: true }], ".");
     assert.ok(index.get("t:pay.source"), "the union field itself is citeable (its row has an id)");
-    assert.equal(index.get("t:pay.source.hidden"), undefined, "the hidden sibling child is not a dead fragment");
+    assert.match(index.get("t:pay.source.hidden") ?? "", /#pay\.source\.hidden$/, "its own child beside the union cites its row");
     assert.equal(index.get("t:A.a"), "/t/schemas/A#A.a", "variant fields stay canonical on their schema pages");
   });
 });

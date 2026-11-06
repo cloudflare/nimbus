@@ -304,21 +304,29 @@ function renderField(field: ApiFieldView, depth: number, out: string[], base?: s
   const detail = detailParts(field);
   if (detail.length > 0) out.push(`${pad}  - ${detail.join(" · ")}`);
 
+  // Fields declared beside a union come first; the options add to them.
+  for (const child of field.children) renderField(child, depth + 1, out, base);
+  if (field.truncated) renderOmitted(field.childCount, field.children.length, out, `${pad}  `);
+
   if (field.union) {
     const entries = unionEntries(field.union);
+    const after = field.children.length > 0;
     if (entries.some((e) => opens(e.variant))) {
-      renderBranches(field.union, entries, depth + 1, out, base);
+      renderBranches(field.union, entries, depth + 1, out, base, after);
     } else {
-      out.push(`${pad}  - ${unionLabel(field.union).toLowerCase()}: ${entries.map((e) => entryLabel(e, base)).join(", ")}`);
+      out.push(`${pad}  - ${optionsLabel(field.union, after)}: ${entries.map((e) => entryLabel(e, base)).join(", ")}`);
     }
     if (field.union.discriminator) {
       out.push(`${pad}  - discriminator: ${inlineCode(field.union.discriminator)}`);
     }
-    return;
   }
+}
 
-  for (const child of field.children) renderField(child, depth + 1, out, base);
-  if (field.truncated) renderOmitted(field.childCount, field.children.length, out, `${pad}  `);
+/** "One of the following", lowercased; "and one of the following" after fields
+ *  the options add to. */
+function optionsLabel(union: ApiUnionView, afterFields: boolean): string {
+  const label = unionLabel(union).toLowerCase();
+  return afterFields ? `and ${label}` : label;
 }
 
 /** The "N more field(s) omitted" affordance shared by nested containers and
@@ -395,42 +403,48 @@ function renderVariant(
   if (v.enum && v.enum.length > 0) head += `: one of ${v.enum.map(code).join(", ")}`;
   if (v.description) head += ` — ${inlineText(v.description)}`;
   out.push(head);
-  if (v.union) {
-    renderBranches(v.union, unionEntries(v.union), depth + 1, out, base);
-  } else {
-    for (const f of own?.fields ?? v.fields ?? []) renderField(f, depth + 1, out, base);
-  }
+  const fields = own?.fields ?? v.fields ?? [];
+  for (const f of fields) renderField(f, depth + 1, out, base);
+  if (v.union) renderBranches(v.union, unionEntries(v.union), depth + 1, out, base, fields.length > 0);
 }
 
 /** A union's branches, `depth` levels in. Fields every branch has, identical
  *  but for their coordinates, print once first, so a union of twenty record
  *  types that share six fields doesn't repeat them twenty times; each branch
  *  then lists only what it adds. */
-function renderBranches(union: ApiUnionView, entries: UnionEntry[], depth: number, out: string[], base?: string): void {
+function renderBranches(
+  union: ApiUnionView,
+  entries: UnionEntry[],
+  depth: number,
+  out: string[],
+  base?: string,
+  afterFields = false,
+): void {
   const pad = "  ".repeat(depth);
-  const label = unionLabel(union).toLowerCase();
+  const label = optionsLabel(union, afterFields);
   const factored = factorUnion(entries);
   if (!factored) {
     out.push(`${pad}- ${label}:`);
     for (const e of entries) renderVariant(e, depth + 1, out, base);
     return;
   }
-  out.push(`${pad}- every option has:`);
+  out.push(`${pad}- ${afterFields ? "every option also has" : "every option has"}:`);
   for (const f of factored.shared) renderField(f, depth + 1, out, base);
   out.push(`${pad}- ${label}, each adding:`);
   entries.forEach((e, i) => renderVariant(e, depth + 1, out, base, { fields: factored.own[i]!, prefix: factored.prefixes?.[i] }));
 }
 
-function renderUnion(union: ApiUnionView, out: string[], base?: string): void {
+function renderUnion(union: ApiUnionView, out: string[], base?: string, afterFields = false): void {
   const entries = unionEntries(union);
   const factored = factorUnion(entries);
+  const label = afterFields ? `And ${unionLabel(union).toLowerCase()}` : unionLabel(union);
   if (factored) {
-    out.push("Every option has:", "");
+    out.push(afterFields ? "Every option also has:" : "Every option has:", "");
     for (const f of factored.shared) renderField(f, 0, out, base);
-    out.push("", `${unionLabel(union)}, each adding:`, "");
+    out.push("", `${label}, each adding:`, "");
     entries.forEach((e, i) => renderVariant(e, 0, out, base, { fields: factored.own[i]!, prefix: factored.prefixes?.[i] }));
   } else {
-    out.push(`${unionLabel(union)}:`, "");
+    out.push(`${label}:`, "");
     for (const e of entries) renderVariant(e, 0, out, base);
   }
   out.push("");
@@ -589,19 +603,24 @@ function renderExample(heading: string, example: ApiExampleView, out: string[]):
   fenced(isJson ? "json" : "text", body, out);
 }
 
-/** One media type's body: its union, else its field list (and any omission). */
+/** `application/json` and its `+json` relatives: the bodies a page needn't label. */
+function isJson(mediaType: string): boolean {
+  const type = mediaType.split(";")[0]!.trim().toLowerCase();
+  return type === "application/json" || type.endsWith("+json");
+}
+
+/** One media type's body: its fields (and any omission), then its union's
+ *  options, which add to those fields. */
 function renderMediaBody(
-  body: { fields: ApiFieldView[]; truncated?: { total: number }; union?: ApiUnionView },
+  body: { fields: ApiFieldView[]; truncated?: { total: number }; union?: ApiUnionView; scalar?: ApiScalarView },
   out: string[],
   base?: string,
 ): void {
-  if (body.union) {
-    renderUnion(body.union, out, base);
-  } else {
-    for (const field of body.fields) renderField(field, 0, out, base);
-    if (body.truncated) renderOmitted(body.truncated.total, body.fields.length, out);
-    if (body.fields.length > 0) out.push("");
-  }
+  if (body.scalar) renderScalar(body.scalar, out);
+  for (const field of body.fields) renderField(field, 0, out, base);
+  if (body.truncated) renderOmitted(body.truncated.total, body.fields.length, out);
+  if (body.fields.length > 0) out.push("");
+  if (body.union) renderUnion(body.union, out, base, body.fields.length > 0);
 }
 
 function renderResponses(responses: ApiResponseView[], out: string[], base?: string): void {
@@ -614,11 +633,14 @@ function renderResponses(responses: ApiResponseView[], out: string[], base?: str
       fields: response.fields,
       truncated: response.truncated,
       union: response.bodyUnion,
+      scalar: response.scalar,
     };
     const additional = response.additionalMedia ?? [];
     if (additional.length === 0) {
       if (response.example) renderExample("#### Example", response.example, out);
       renderResponseHeaders(response, out, base);
+      // A body that isn't JSON says what it is, even as the only one.
+      if (response.mediaType && !isJson(response.mediaType)) out.push(`#### Body (${inlineText(response.mediaType)})`, "");
       renderMediaBody(primary, out, base);
       continue;
     }
@@ -780,7 +802,7 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
       }
       const hasAdditional = (props.additionalBodies?.length ?? 0) > 0;
       const bodyHeading =
-        hasAdditional && props.bodyMediaType
+        props.bodyMediaType && (hasAdditional || !isJson(props.bodyMediaType))
           ? `Request body (${props.bodyMediaType})`
           : "Request body";
       // The Request Body Object's own facts, shared by every media type: stated
@@ -790,9 +812,9 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
         bodyMeta.push(props.bodyRequired ? "_Required._" : "_Optional._", "");
       }
       if (props.bodyDescription) bodyMeta.push(safeBlock(props.bodyDescription, 2), "");
-      if (props.bodyUnion) {
+      if (props.bodyUnion || props.bodyScalar) {
         out.push(`## ${bodyHeading}`, "", ...bodyMeta);
-        renderUnion(props.bodyUnion, out, base);
+        renderMediaBody({ fields: props.body, truncated: props.bodyTruncated, union: props.bodyUnion, scalar: props.bodyScalar }, out, base);
       } else if (bodyMeta.length > 0) {
         out.push(`## ${bodyHeading}`, "", ...bodyMeta);
         for (const field of props.body) renderField(field, 0, out, base);
@@ -830,10 +852,9 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
     case "schema": {
       if (props.description) out.push(safeBlock(props.description, 1), "");
       if (props.scalar) renderScalar(props.scalar, out);
-      if (props.union) renderUnion(props.union, out, base);
-      if (props.fields.length > 0) {
-        renderFieldSection("Fields", props.fields, out, props.truncated, base);
-      } else if (!props.description && !props.scalar && !props.union) {
+      if (props.fields.length > 0) renderFieldSection("Fields", props.fields, out, props.truncated, base);
+      if (props.union) renderUnion(props.union, out, base, props.fields.length > 0);
+      if (props.fields.length === 0 && !props.description && !props.scalar && !props.union) {
         out.push("_No fields documented._", "");
       }
       break;

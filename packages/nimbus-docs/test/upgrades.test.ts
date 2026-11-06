@@ -45,6 +45,7 @@ test("only universally skippable entries are optional", () => {
       "api-query-version-mode",
       "api-reference-polish",
       "api-request-path",
+      "api-shapes-beside-unions",
       "api-sidebar-alignment",
       "api-sidebar-filter",
       "api-version-picker",

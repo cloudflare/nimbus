@@ -20,6 +20,7 @@ import ApiEndpointCard from "./ApiEndpointCard.astro";
 import ApiHome from "./ApiHome.astro";
 import ApiOperationList from "./ApiOperationList.astro";
 import ApiHomeChunk from "./ApiHomeChunk.astro";
+import ApiScalarType from "./ApiScalarType.astro";
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { authFields } from "./auth";
 import { cn } from "@/lib/cn";
@@ -42,10 +43,12 @@ const homeNext = homeChunk && home?.parts[homeChunk.number];
 const title = homeChunk ? `${page.title}: endpoints ${homeChunk.start}–${homeChunk.end}` : page.title;
 const markdownUrl = page.markdownHref;
 
-const detail = (v: unknown): string => JSON.stringify(v);
-
-const mediaBadge = (mediaType: string): string =>
-  (mediaType.split("/").pop() ?? mediaType).toUpperCase();
+// "JSON" for a JSON body; any other names its media type as written
+// (`text/plain`, `multipart/form-data`).
+const mediaBadge = (mediaType: string): string => {
+  const type = mediaType.split(";")[0]!.trim().toLowerCase();
+  return type === "application/json" || type.endsWith("+json") ? "JSON" : mediaType;
+};
 
 const preparedCode = (example: { highlightedHtml?: string }): string => {
   if (!example.highlightedHtml) {
@@ -75,7 +78,7 @@ function statusToneClass(status: string): string {
 // the primary first, each labeled by its media type — the same shape as the
 // request's additional bodies. The primary's example stays in the code rail.
 const responseBodies = (r: ApiResponseView) => [
-  { mediaType: r.mediaType ?? "application/json", fields: r.fields, truncated: r.truncated, union: r.bodyUnion, anchor: undefined, example: undefined },
+  { mediaType: r.mediaType ?? "application/json", fields: r.fields, truncated: r.truncated, union: r.bodyUnion, scalar: r.scalar, anchor: undefined, example: undefined },
   ...(r.additionalMedia ?? []),
 ];
 
@@ -141,12 +144,12 @@ const deprecationHtml = page.deprecated
         <ApiFieldList as="h2" title={group.label} fields={group.fields} anchor={group.anchor} truncated={group.truncated} examples />
       ))}
 
-      {page.bodyUnion ? (
-        <ApiFieldList as="h2" title="Request body" badge={mediaBadge(page.bodyMediaType ?? "application/json")} required={page.bodyRequired} descriptionHtml={page.bodyDescriptionHtml} collapsible>
-          <ApiUnionExplorer union={page.bodyUnion} />
+      {page.bodyUnion || page.bodyScalar || page.body.length > 0 ? (
+        /* The body's type when it has no fields, its fields, then its union's options. */
+        <ApiFieldList as="h2" title="Request body" badge={mediaBadge(page.bodyMediaType ?? "application/json")} required={page.bodyRequired} descriptionHtml={page.bodyDescriptionHtml} fields={page.body.length > 0 ? page.body : undefined} truncated={page.bodyTruncated} collapsible={page.bodyUnion ? true : undefined}>
+          {page.bodyScalar && <ApiScalarType scalar={page.bodyScalar} />}
+          {page.bodyUnion && <ApiUnionExplorer union={page.bodyUnion} afterFields={page.body.length > 0} />}
         </ApiFieldList>
-      ) : page.body.length > 0 ? (
-        <ApiFieldList as="h2" title="Request body" badge={mediaBadge(page.bodyMediaType ?? "application/json")} required={page.bodyRequired} descriptionHtml={page.bodyDescriptionHtml} fields={page.body} truncated={page.bodyTruncated} />
       ) : page.bodyRequired !== undefined || page.bodyDescriptionHtml ? (
         <ApiFieldList as="h2" title="Request body" badge={page.bodyMediaType && mediaBadge(page.bodyMediaType)} required={page.bodyRequired} descriptionHtml={page.bodyDescriptionHtml} />
       ) : null}
@@ -200,15 +203,14 @@ const deprecationHtml = page.deprecated
         <section id={body.anchor} class="scroll-mt-24">
           <div class="mb-2 flex items-center gap-2">
             <h2 class="fl-title" aria-label={`Request body (${body.mediaType})`}>Request body</h2>
-            <span class="font-mono text-[0.6875rem] uppercase text-muted-foreground">{mediaBadge(body.mediaType)}</span>
+            <span class="font-mono text-[0.6875rem] text-muted-foreground">{mediaBadge(body.mediaType)}</span>
           </div>
-          {body.union ? (
-            <ApiFieldList collapsible>
-              <ApiUnionExplorer union={body.union} />
+          {(body.union || body.scalar || body.fields.length > 0) && (
+            <ApiFieldList fields={body.fields.length > 0 ? body.fields : undefined} truncated={body.truncated} collapsible={body.union ? true : undefined}>
+              {body.scalar && <ApiScalarType scalar={body.scalar} />}
+              {body.union && <ApiUnionExplorer union={body.union} afterFields={body.fields.length > 0} />}
             </ApiFieldList>
-          ) : body.fields.length > 0 ? (
-            <ApiFieldList fields={body.fields} truncated={body.truncated} />
-          ) : null}
+          )}
           {body.example && (
             <div class="mt-2 [&_.nb-code-figure]:my-0">
               <Fragment set:html={preparedCode(body.example)} />
@@ -259,32 +261,26 @@ const deprecationHtml = page.deprecated
                   {(r.headers?.length ?? 0) > 0 && (
                     <ApiFieldList as="h4" title="Headers" fields={r.headers ?? []} />
                   )}
-                  {r.additionalMedia ? (
-                    responseBodies(r).map((b) => (
-                      <div id={b.anchor} class="scroll-mt-24">
-                        {b.union ? (
-                          <ApiFieldList badge={mediaBadge(b.mediaType)} collapsible>
-                            <ApiUnionExplorer union={b.union} />
-                          </ApiFieldList>
-                        ) : b.fields.length > 0 ? (
-                          <ApiFieldList badge={mediaBadge(b.mediaType)} fields={b.fields} truncated={b.truncated} />
-                        ) : (
-                          <ApiFieldList badge={mediaBadge(b.mediaType)} />
-                        )}
-                        {b.example && (
-                          <div class="mt-2 [&_.nb-code-figure]:my-0">
-                            <Fragment set:html={preparedCode(b.example)} />
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  ) : r.bodyUnion ? (
-                    <ApiFieldList badge="JSON" collapsible>
-                      <ApiUnionExplorer union={r.bodyUnion} />
-                    </ApiFieldList>
-                  ) : (
-                    <ApiFieldList badge="JSON" fields={r.fields} truncated={r.truncated} />
-                  )}
+                  {/* One body per media type, the primary first, each labelled by its
+                      media type: its type when it has no fields, its fields, then
+                      its union's options. */}
+                  {responseBodies(r).map((b) => (
+                    <div id={b.anchor} class="scroll-mt-24">
+                      {b.union || b.scalar || b.fields.length > 0 ? (
+                        <ApiFieldList badge={mediaBadge(b.mediaType)} fields={b.fields.length > 0 ? b.fields : undefined} truncated={b.truncated} collapsible={b.union ? true : undefined}>
+                          {b.scalar && <ApiScalarType scalar={b.scalar} />}
+                          {b.union && <ApiUnionExplorer union={b.union} afterFields={b.fields.length > 0} />}
+                        </ApiFieldList>
+                      ) : r.additionalMedia ? (
+                        <ApiFieldList badge={mediaBadge(b.mediaType)} />
+                      ) : null}
+                      {b.example && (
+                        <div class="mt-2 [&_.nb-code-figure]:my-0">
+                          <Fragment set:html={preparedCode(b.example)} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </Response>
               );
@@ -297,32 +293,16 @@ const deprecationHtml = page.deprecated
 
   {page.kind === "schema" && (
     <>
-      {page.scalar && (
-        <section>
-          <p class="text-sm">
-            <span class="text-muted-foreground">Type:</span>
-            <code class="ms-1 font-mono text-foreground">{page.scalar.type}</code>
-            {page.scalar.nullable && <span class="ms-1 text-muted-foreground">(nullable)</span>}
-          </p>
-          {(page.scalar.enum || page.scalar.default !== undefined || page.scalar.example !== undefined) && (
-            <p class="mt-1 font-mono text-xs break-words text-muted-foreground">
-              {[
-                ...(page.scalar.enum ? [`one of ${page.scalar.enum.map(detail).join(", ")}`] : []),
-                ...(page.scalar.default !== undefined ? [`default ${detail(page.scalar.default)}`] : []),
-                ...(page.scalar.example !== undefined ? [`example ${detail(page.scalar.example)}`] : []),
-              ].join("; ")}
-            </p>
-          )}
-        </section>
-      )}
-
-      {page.union && (
-        <section class="scroll-mt-24">
-          <ApiUnionExplorer union={page.union} />
-        </section>
-      )}
+      {page.scalar && <ApiScalarType scalar={page.scalar} />}
 
       <ApiFieldList as="h2" title="Fields" fields={page.fields} truncated={page.truncated} />
+
+      {/* A schema's own fields, then its union's options, which add to them. */}
+      {page.union && (
+        <section class="scroll-mt-24">
+          <ApiUnionExplorer union={page.union} afterFields={page.fields.length > 0} />
+        </section>
+      )}
     </>
   )}
 
