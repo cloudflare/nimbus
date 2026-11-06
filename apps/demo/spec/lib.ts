@@ -195,7 +195,7 @@ const STATUS_TEXT: Record<string, string> = {
   "303": "See other",
 };
 
-const ERRORS = ["400", "401", "404", "429"];
+const ERRORS = ["400", "401", "404", "429", "500"];
 
 export function op(tag: string, spec: OpSpec): Record<string, unknown> {
   const responses: Record<string, unknown> = {};

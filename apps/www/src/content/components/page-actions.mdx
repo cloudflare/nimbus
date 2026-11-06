@@ -14,6 +14,12 @@ props:
 ---
 import Showcase from "@/components/showcase/Showcase.astro";
 import { PageActions } from "@/components/ui/page-actions";
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+import ComponentProps from "@/components/showcase/ComponentProps.astro";
+
+## Installation
+
+<ComponentInstall slug="page-actions" />
 
 ## Preview
 
@@ -22,3 +28,9 @@ import { PageActions } from "@/components/ui/page-actions";
     <PageActions markdownUrl="/components/page-actions/index.md" />
   </div>
 </Showcase>
+
+## API reference
+
+Every prop the component accepts, sourced from a single declaration.
+
+<ComponentProps slug="page-actions" />

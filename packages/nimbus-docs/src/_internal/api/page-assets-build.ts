@@ -10,11 +10,13 @@ import {
   rm,
   mkdir,
   copyFile,
+  stat,
 } from "node:fs/promises";
 import { constants } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
+import { isHttpUrl } from "@scalar/json-magic/helpers/is-http-url";
 import { fileURLToPath } from "node:url";
 import {
   PageAssetWriter,
@@ -56,15 +58,37 @@ import { prepareApiPageCode } from "../api-loader.js";
 import { collectApiCitationSummary } from "./citation-index.js";
 import type { ResolvedApiVersion } from "./resolve-versions.js";
 import type { ApiPageProps } from "./api-view-types.js";
+import { AsyncLocalStorage } from "node:async_hooks";
 import {
-  getCodeStyleCSS,
+  getCodeStyleCSSFor,
+  highlightsComputed,
+  highlightsLoaded,
+  loadHighlights,
   restoreCodeStyleCSS,
+  savedHighlights,
+  setTokenClassSink,
+  type SavedHighlight,
 } from "../code-style-registry.js";
 import { resolveApiAssetLinks } from "./page-assets-links.js";
 import { linkPolicy } from "../url.js";
 
 /** Bump when preparation semantics change without a package version change. */
-export const API_PAGE_PREPARATION_REVISION = 1;
+export const API_PAGE_PREPARATION_REVISION = 2;
+// The token classes the version being prepared uses, so its cache saves only
+// those styles. Shared on globalThis: two copies of this module load in one
+// process, and either may install the sink.
+const VERSION_TOKEN_CLASSES = Symbol.for(
+  "@cloudflare/nimbus-docs/version-token-classes",
+);
+const tokenClassHost = globalThis as typeof globalThis & {
+  [VERSION_TOKEN_CLASSES]?: AsyncLocalStorage<Set<string>>;
+};
+const versionTokenClasses = (tokenClassHost[VERSION_TOKEN_CLASSES] ??=
+  new AsyncLocalStorage<Set<string>>());
+setTokenClassSink((classes) => {
+  const used = versionTokenClasses.getStore();
+  if (used) for (const name of classes) used.add(name);
+});
 const verifiedCitationSummaries = new WeakMap<PageAssetWriter, Set<string>>();
 // Versions whose inputs can't be fully hashed (external references) never
 // reach the persistent cache. Within one `astro build` their inputs can't
@@ -86,10 +110,14 @@ const externalReferenceWarnings = new Set<string>();
 const buildPreparations: Map<string, PreparedApiAssetVersion> =
   (preparationGlobals[BUILD_PREPARATIONS] ??= new Map());
 const rebuildReasons = (preparationGlobals[REBUILD_REASONS] ??= new Map());
-const preparedRecordMemos = new WeakMap<PageAssetWriter, Map<string, string>>();
+const preparedRecordMemos = new WeakMap<
+  PageAssetWriter,
+  Map<string, { hash: string; classes: string[] }>
+>();
 const PREPARED_RECORD_MEMO_BYTES = 8 * 1024 * 1024;
-// Two 64-character digests, UTF-16 strings plus conservative Map-entry overhead.
-const PREPARED_RECORD_MEMO_ENTRY_BYTES = 64 * 4 + 96;
+// Two 64-character digests, UTF-16 strings plus conservative Map-entry overhead,
+// and a few token-class names.
+const PREPARED_RECORD_MEMO_ENTRY_BYTES = 64 * 4 + 96 + 256;
 const preparationMetrics = {
   modelPreparations: 0,
   pageProjections: 0,
@@ -195,7 +223,8 @@ export function clearApiPageAssetManifest(root: URL | string): void {
 
 /** Root and dependency bytes, not timestamps, decide whether preparation is reusable.
  * The current parser's external-reference resolution has no reliable dependency
- * report. Such inputs are deliberately never reused until that seam exists. */
+ * report. Such inputs are deliberately never reused until that seam exists.
+ * URL references are ignored: neither preparation nor bundling fetches them. */
 export function externalReferenceReason(raw: string): string | undefined {
   // Only run on a cache miss. JSON/YAML syntax, escapes and aliases must not
   // hide a dependency or turn authored text into a generated-link token.
@@ -216,7 +245,7 @@ export function externalReferenceReason(raw: string): string | undefined {
     seen.add(node);
     for (const [key, item] of Object.entries(node)) {
       visit(key);
-      if (key === "$ref" && typeof item === "string" && !item.startsWith("#"))
+      if (key === "$ref" && typeof item === "string" && !item.startsWith("#") && !isHttpUrl(item))
         reason ??= `external reference ${item}`;
       visit(item);
     }
@@ -403,6 +432,136 @@ async function readVersionCache(filename: string): Promise<unknown> {
   return JSON.parse(body);
 }
 
+// Highlighted code from earlier builds, so a release that changes a few pages
+// highlights only those. Read once, at the first version that has to be
+// prepared; written once after a successful build, if it highlighted more.
+const SAVED_HIGHLIGHT_BYTES = 64 * 1024 * 1024;
+const SAVED_HIGHLIGHTS = Symbol.for("@cloudflare/nimbus-docs/saved-highlights");
+const savedHighlightHost = globalThis as typeof globalThis & {
+  [SAVED_HIGHLIGHTS]?: {
+    loading: Map<string, Promise<void>>;
+    /** The environment each file was read under, and the highlight count then. */
+    baseline: Map<string, { environment: string; computed: number }>;
+  };
+};
+// Shared on globalThis: two copies of this module load in one process.
+const savedHighlightState = (savedHighlightHost[SAVED_HIGHLIGHTS] ??= {
+  loading: new Map(),
+  baseline: new Map(),
+});
+const highlightsFile = (cacheDirectory: string) =>
+  path.join(cacheDirectory, "highlights.json");
+
+async function loadSavedHighlights(
+  cacheDirectory: string,
+  environment: string,
+): Promise<void> {
+  const filename = highlightsFile(cacheDirectory);
+  if (highlightsLoaded(filename)) return;
+  const pending = savedHighlightState.loading.get(filename);
+  if (pending) return pending;
+  // Anything highlighted from here on is new to the file.
+  savedHighlightState.baseline.set(filename, {
+    environment,
+    computed: highlightsComputed(),
+  });
+  const load = readSavedHighlights(filename, environment)
+    .then((saved) => loadHighlights(filename, saved))
+    .finally(() => savedHighlightState.loading.delete(filename));
+  savedHighlightState.loading.set(filename, load);
+  return load;
+}
+
+async function readSavedHighlights(
+  filename: string,
+  environment: string,
+): Promise<SavedHighlight[]> {
+  try {
+    if ((await stat(filename)).size > SAVED_HIGHLIGHT_BYTES) return [];
+    const value = (await readVersionCache(filename)) as {
+      environment?: unknown;
+      rules?: unknown;
+      entries?: unknown;
+    };
+    const { rules, entries } = value;
+    if (
+      value.environment !== environment ||
+      !Array.isArray(rules) ||
+      !rules.every(
+        (rule) =>
+          typeof rule === "string" &&
+          /^\.nb-shiki-[^\s{}]+\s*\{[^{}]*\}$/.test(rule),
+      ) ||
+      !Array.isArray(entries)
+    )
+      return [];
+    const saved: SavedHighlight[] = [];
+    for (const entry of entries) {
+      if (!Array.isArray(entry) || entry.length !== 3) return [];
+      const [key, html, indexes] = entry as unknown[];
+      if (
+        typeof key !== "string" ||
+        typeof html !== "string" ||
+        !Array.isArray(indexes) ||
+        !indexes.every((i) => Number.isInteger(i) && i >= 0 && i < rules.length)
+      )
+        return [];
+      const own = (indexes as number[]).map((i) => rules[i] as string);
+      saved.push([
+        key,
+        html,
+        own.map((rule) => rule.slice(1, rule.search(/[\s{]/))),
+        own.join("\n"),
+      ]);
+    }
+    return saved;
+  } catch {
+    /* A missing or damaged file is a miss: highlight from source. */
+    return [];
+  }
+}
+
+function encodeSavedHighlights(
+  environment: string,
+  entries: readonly SavedHighlight[],
+): string {
+  const rules: string[] = [];
+  const index = new Map<string, number>();
+  const rows = entries.map(([key, html, , css]) => [
+    key,
+    html,
+    css
+      .split("\n")
+      .filter(Boolean)
+      .map((rule) => {
+        let at = index.get(rule);
+        if (at === undefined) index.set(rule, (at = rules.push(rule) - 1));
+        return at;
+      }),
+  ]);
+  const body = JSON.stringify({ environment, rules, entries: rows });
+  return `${pageAssetDigest(body)}\n${body}`;
+}
+
+async function saveHighlights(cacheDirectory: string): Promise<void> {
+  const filename = highlightsFile(cacheDirectory);
+  const baseline = savedHighlightState.baseline.get(filename);
+  if (!baseline || !highlightsLoaded(filename)) return;
+  if (highlightsComputed() === baseline.computed) return;
+  let { entries } = savedHighlights();
+  let bytes = encodeSavedHighlights(baseline.environment, entries);
+  // Over budget: drop the oldest tenth and measure the real file again.
+  while (Buffer.byteLength(bytes) > SAVED_HIGHLIGHT_BYTES && entries.length) {
+    entries = entries.slice(Math.max(1, Math.floor(entries.length / 10)));
+    bytes = encodeSavedHighlights(baseline.environment, entries);
+  }
+  await writeAtomic(filename, bytes);
+  savedHighlightState.baseline.set(filename, {
+    environment: baseline.environment,
+    computed: highlightsComputed(),
+  });
+}
+
 export async function prepareApiAssetVersion(
   target: ResolvedApiVersion,
   root: string,
@@ -515,6 +674,7 @@ export async function prepareApiAssetVersion(
       /* Rebuild missing or corrupt cache entries from source. */
     }
   }
+  await loadSavedHighlights(writer.cacheDirectory, environment);
   const bypass = externalReferenceReason(raw);
   const warnKey = `${preparedMarkdownRootKey(root)}\0${target.family}`;
   if (bypass && !externalReferenceWarnings.has(warnKey)) {
@@ -535,6 +695,8 @@ export async function prepareApiAssetVersion(
     const hashes: string[] = [];
     const ids = new Set<string>();
     const slugs = new Set<string>();
+    const usedTokenClasses = new Set<string>();
+    await versionTokenClasses.run(usedTokenClasses, async () => {
     for (const page of pages) {
       if (ids.has(page.coordinate) || slugs.has(page.slug))
         throw new Error(
@@ -548,17 +710,25 @@ export async function prepareApiAssetVersion(
         `${environment}\0${JSON.stringify(pageProps)}`,
       );
       const recordMemo =
-        preparedRecordMemos.get(writer) ?? new Map<string, string>();
+        preparedRecordMemos.get(writer) ??
+        new Map<string, { hash: string; classes: string[] }>();
       preparedRecordMemos.set(writer, recordMemo);
-      let recordHash = recordMemo.get(projectedHash);
-      if (recordHash) {
+      let memo = recordMemo.get(projectedHash);
+      if (memo) {
         preparationMetrics.preparedRecordCacheHits++;
         recordMemo.delete(projectedHash);
+        for (const name of memo.classes) usedTokenClasses.add(name);
       } else {
         preparationMetrics.pagePreparations++;
-        recordHash = await writer.add(await prepareApiPageCode(pageProps));
+        const pageClasses = new Set<string>();
+        const prepared = await versionTokenClasses.run(pageClasses, () =>
+          prepareApiPageCode(pageProps),
+        );
+        for (const name of pageClasses) usedTokenClasses.add(name);
+        memo = { hash: await writer.add(prepared), classes: [...pageClasses] };
       }
-      recordMemo.set(projectedHash, recordHash);
+      recordMemo.set(projectedHash, memo);
+      const recordHash = memo.hash;
       while (
         recordMemo.size * PREPARED_RECORD_MEMO_ENTRY_BYTES >
         PREPARED_RECORD_MEMO_BYTES
@@ -575,6 +745,7 @@ export async function prepareApiAssetVersion(
         location: { filename: "" },
       });
     }
+    });
     await writer.finishVersion();
     rows.forEach((row, i) => {
       row.location = writer.location(hashes[i]!);
@@ -598,7 +769,7 @@ export async function prepareApiAssetVersion(
       inputHash,
       rows,
       rowsHash: pageAssetDigest(JSON.stringify(rows)),
-      codeStyleCSS: getCodeStyleCSS(),
+      codeStyleCSS: getCodeStyleCSSFor(usedTokenClasses),
       citationSummaryPath,
       citationSummaryHash,
       nav: prepareApiNav(getApiNav(model)),
@@ -1014,6 +1185,7 @@ export async function pruneApiPageAssetCache(
   );
   const files = new Set(await apiPageAssetDeploymentFiles(root));
   const cache = path.join(rootPath, ".nimbus/cache/page-assets");
+  await saveHighlights(cache);
   const citationHashes = new Set<string>();
   for (const input of inputs) {
     try {

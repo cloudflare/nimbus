@@ -1,0 +1,96 @@
+---
+/**
+ * /components and /components/<slug>, rendered on request.
+ *
+ * Reads from the `components` content collection. `index.mdx` is the
+ * landing grid. Each component's MDX is the whole page: Installation
+ * (`<ComponentInstall>`), Preview and Examples (`<Showcase>`, `<Example>`) and
+ * the API reference (`<ComponentProps>`), so its Markdown, MCP and search read
+ * the same content.
+ */
+import { getCollection } from "astro:content";
+import DocsLayout from "@/layouts/DocsLayout.astro";
+import ComponentGrid from "@/components/showcase/ComponentGrid.astro";
+import { components } from "../../components";
+import { componentName } from "@/lib/component-install";
+import { getCollectionPage, getSidebar } from "@cloudflare/nimbus-docs/runtime";
+
+const page = await getCollectionPage(Astro, "components");
+if (page instanceof Response) return page;
+const { entry, markdownUrl } = page;
+const slug = entry.id;
+const isIndex = slug === "index";
+
+const { tagline } = entry.data;
+
+const sidebar = await getSidebar(isIndex ? "/components" : `/components/${slug}`);
+
+// Prev/next over the alphabetical list of registry:ui components in the
+// collection. The components grid + sidebar already sort by manifest
+// title; mirror that ordering here so the footer matches.
+const allEntries = (await getCollection("components")).filter((e) => e.id !== "index");
+const ordered = allEntries
+  .map((e) => ({ id: e.id, label: componentName(e.id, e.data.title) }))
+  .sort((a, b) => a.label.localeCompare(b.label));
+const currentIndex = ordered.findIndex((e) => e.id === slug);
+const prevEntry = currentIndex > 0 ? ordered[currentIndex - 1] : undefined;
+const nextEntry = currentIndex < ordered.length - 1 ? ordered[currentIndex + 1] : undefined;
+const prevNext = {
+  prev: prevEntry ? { label: prevEntry.label, href: `/components/${prevEntry.id}` } : undefined,
+  next: nextEntry ? { label: nextEntry.label, href: `/components/${nextEntry.id}` } : undefined,
+};
+
+const { Content, headings: bodyHeadings } = page;
+const headings = bodyHeadings
+  .filter((h) => h.depth === 2 || h.depth === 3)
+  .map((h) => ({ depth: h.depth as 2 | 3, text: h.text, slug: h.slug }));
+
+const name = componentName(slug, entry.data.title);
+
+const breadcrumbs = [
+  { label: "Home", href: "/" },
+  { label: "Components", href: "/components" },
+  { label: name, href: `/components/${slug}` },
+];
+---
+
+{isIndex ? (
+<DocsLayout
+  title={entry.data.title}
+  description={tagline}
+  markdownUrl={markdownUrl}
+  sidebar={sidebar}
+  headings={false}
+  breadcrumbs={[]}
+  prevNext={{ prev: undefined, next: undefined }}
+  collection="components"
+  entryId={slug}
+>
+  <h1 slot="page-title" class="sr-only">{entry.data.title}</h1>
+  <ComponentGrid />
+</DocsLayout>
+) : (
+<DocsLayout
+  title={name}
+  description={tagline}
+  markdownUrl={markdownUrl}
+  sidebar={sidebar}
+  headings={headings}
+  breadcrumbs={breadcrumbs}
+  prevNext={prevNext}
+  collection="components"
+  entryId={slug}
+>
+  <Content components={components} />
+</DocsLayout>
+)}
+
+<style is:global>
+  /* Preview + Code pair: the code joins the stage above it as one box. */
+  .nb-showcase-pair-code .nb-code-figure {
+    margin-top: 0;
+    border-top: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+</style>

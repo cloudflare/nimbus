@@ -87,7 +87,7 @@ test("headingAttributes reaches the page, generated Markdown and links", async (
     assert.match(html, /href="\/docs\/guide#install"/);
     const markdown = await s.read("dist/setup/index.md");
     assert.match(markdown, /## Install \{#install\}/);
-    assert.match(markdown, /\[the guide\]\(\/docs\/guide#install\) first\.$/m);
+    assert.match(markdown, /\[the guide\]\(https:\/\/example\.test\/docs\/guide#install\) first\.$/m);
     assert.doesNotMatch(markdown, /\{\/\*/);
   } finally {
     await rm(s.root, { recursive: true, force: true });

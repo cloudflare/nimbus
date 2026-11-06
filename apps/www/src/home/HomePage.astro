@@ -8,9 +8,9 @@ import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import WwwBody from "./www/WwwBody.astro";
 import WebMCP from "@/components/WebMCP.astro";
+import { description } from "./www/content";
 
 const title = "Nimbus · The authoring tool for docs";
-const description = "The authoring tool for docs. Write with your team and your agents, held to your standard, on a site you can customise completely.";
 const canonical = new URL("/", Astro.site).href;
 // The site card from `src/pages/og.png.ts`.
 const socialImage = new URL("/og.png", Astro.site).href;
@@ -36,6 +36,7 @@ const jsonLd = JSON.stringify({
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <meta name="is-agentic-site-type" content="content" />
     <link rel="canonical" href={canonical} />
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />

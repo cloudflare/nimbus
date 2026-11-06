@@ -134,6 +134,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm --filter "@nimbus/www..." build
+      # Cloudflare rejects a _redirects file with two rules for one path, and
+      # Astro writes the config's redirects into it beside public/_redirects.
+      - name: One _redirects rule per path
+        run: |
+          dups=$(awk 'NF && $1 !~ /^#/ { print $1 }' apps/www/dist/client/_redirects | sort | uniq -d)
+          if [ -n "$dups" ]; then
+            echo "::error::apps/www/dist/client/_redirects has more than one rule for: $dups"
+            exit 1
+          fi
 
   # The weather demo is deployed with each release; check and build it on
   # every PR so a framework or starter change that breaks it fails here.
@@ -159,6 +168,9 @@ jobs:
       - run: pnpm --filter @nimbus/demo-weather check
 
       - run: pnpm --filter @nimbus/demo-weather build
+      # The release deploys the demo with this checked-in config, not the one
+      # the build writes; an adapter change that moves them apart fails here.
+      - run: node scripts/deploy-config-drift.mjs apps/demo/dist/server/wrangler.json apps/demo/wrangler.deploy.json
 
   windows-child-process:
     name: Windows child process

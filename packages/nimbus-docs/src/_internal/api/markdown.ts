@@ -5,8 +5,9 @@
  * `entry.body`) yields nothing for them. This serializes the frozen view-model
  * instead: every fact in `ApiPageProps` becomes Markdown, deterministically and
  * with no spine access. Output is safe to embed in `llms-full.txt` — page content starts at `##`,
- * and every spec-controlled string is neutralized so a hostile description or
- * field name can neither forge a heading nor break an inline-code span.
+ * and every spec-controlled string is made safe: headings in descriptions are
+ * demoted below their section, and nothing a description or field name holds
+ * can forge a page heading or break an inline-code span.
  */
 
 import type {
@@ -22,6 +23,7 @@ import type {
   ApiVariant,
   JsonValue,
 } from "./view-model.js";
+import { fromMarkdown } from "mdast-util-from-markdown";
 import { withBase } from "../url.js";
 
 function inlineCode(value: string): string {
@@ -81,25 +83,162 @@ function link(label: string, href: string, base?: string): string {
   return `[${inlineText(label).replace(/[\\`[\]]/g, "\\$&")}](${safeHref(target)})`;
 }
 
-/** Neutralize block prose so spec CommonMark can't forge document structure:
- * ATX headings (`# …`), setext underlines (`===` / `---`), and thematic breaks
- * in every form (`---`, `***`, `___`, and their space-separated variants).
- * Line endings are `\r\n | \r | \n` per CommonMark; normalize to `\n` first so
- * a lone `\r` can't hide a heading mid-"line" from the per-line analysis. */
-function safeBlock(text: string): string {
-  return text
-    .replace(/\r\n?/g, "\n")
+// A line that could open a heading, setext underline, thematic break, list or
+// fence, after any blockquote markers. Text without one is returned as is,
+// unparsed, which is most descriptions.
+const STRUCTURE_CANDIDATE = /^[ \t>]*(?:[#=*_+`~-]|\d)/m;
+
+// Real descriptions are a few KB, with shallow lists. The parser slows down
+// sharply on very long text and on deep nesting (a 35,000-item list, or 10,000
+// list markers on one line, takes seconds), so past these limits the text is
+// escaped line by line instead.
+const PARSE_LIMIT = 32 * 1024;
+const NESTING_LIMIT = 16;
+
+const BLOCK_START = /^(?:#{1,6}(?:[ \t]|$)|`{3,}|~{3,})/;
+const RULE = /^(?:=+|-+|(?:[-*_][ \t]*){3,})[ \t]*$/;
+const LIST_MARKER = /^(?:[-*+]|\d{1,9}[.)])(?=[ \t]|$)/;
+
+/** Walk a line's blockquote and list markers, in any mix (`- > 1. # x`). At
+ * each level, a heading, fence, underline or break there is found first, as
+ * CommonMark reads it (`- - -` is a break, not three list items). Returns
+ * where it starts, if any, and how many containers came before it. */
+function scanLine(line: string): { at: number | undefined; depth: number } {
+  let pos = 0;
+  let depth = 0;
+  for (;;) {
+    while (line[pos] === " " || line[pos] === "\t") pos++;
+    // Past the budget, escape whatever comes next rather than keep scanning:
+    // only pathological text gets here, and each level re-reads the line.
+    if (depth > NESTING_LIMIT) return { at: pos, depth };
+    const rest = line.slice(pos);
+    if (RULE.test(rest) || BLOCK_START.test(rest)) return { at: pos, depth };
+    if (rest[0] === ">") {
+      pos++;
+    } else {
+      const marker = LIST_MARKER.exec(rest);
+      if (!marker) return { at: undefined, depth };
+      pos += marker[0].length;
+    }
+    depth++;
+  }
+}
+
+/** Escape every line that could be a heading, underline, break or fence, at
+ * any container depth. Safe without parsing, but code loses its fences. Used
+ * past the parse limits, and inside raw HTML blocks. */
+function escapeLines(src: string): string {
+  return src
     .split("\n")
     .map((line) => {
-      const atx = line.replace(/^(\s*)(#{1,6})(\s|$)/, "$1\\$2$3");
-      return /^\s*(=+|-+|(?:[-*_]\s*){3,})\s*$/.test(atx)
-        ? atx.replace(/[-=*_]/g, "\\$&")
-        : atx;
+      const { at } = scanLine(line);
+      return at === undefined ? line : `${line.slice(0, at)}\\${line.slice(at)}`;
     })
     .join("\n");
 }
 
+function tooNested(src: string): boolean {
+  return src.split("\n").some((line) => scanLine(line).depth > NESTING_LIMIT);
+}
+
+/** Make spec prose safe to place under a heading at `parentLevel`. ATX headings
+ * are demoted, keeping their relative depth, so the shallowest lands at
+ * `max(3, parentLevel + 1)`. Setext headings and thematic breaks are escaped,
+ * and so are heading and fence lines inside raw HTML blocks. A top-level fence
+ * left open is closed, so it can't swallow what follows in `llms-full.txt`.
+ * Found by parsing as CommonMark, so headings in lists and blockquotes count
+ * and code is left alone; everything else is copied as written. */
+function safeBlock(text: string, parentLevel: number): string {
+  // CommonMark line endings are `\r\n | \r | \n`.
+  const src = text.replace(/\r\n?/g, "\n");
+  if (!STRUCTURE_CANDIDATE.test(src)) return src;
+  if (src.length > PARSE_LIMIT || tooNested(src)) return escapeLines(src);
+  const tree = fromMarkdown(src);
+  const atx: { at: number; length: number; depth: number }[] = [];
+  const edits: { at: number; remove: number; insert: string }[] = [];
+  // A stack, not recursion: a spec can nest blockquotes deeply.
+  const stack: MdNode[] = [tree as MdNode];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    const start = node.position?.start.offset;
+    const end = node.position?.end.offset;
+    if (node.type === "code" || start === undefined || end === undefined) continue;
+    if (node.type === "heading") {
+      const run = /^#{1,6}/.exec(src.slice(start, start + 6));
+      if (run) atx.push({ at: start, length: run[0].length, depth: run[0].length });
+      else edits.push({ at: underlineStart(src, end), remove: 0, insert: "\\" });
+    } else if (node.type === "thematicBreak") {
+      edits.push({ at: start, remove: 0, insert: "\\" });
+    } else if (node.type === "html" && src.slice(start, end).includes("\n")) {
+      // Raw to CommonMark, but a looser reader may still see Markdown in it.
+      const raw = src.slice(start, end);
+      edits.push({ at: start, remove: raw.length, insert: escapeLines(raw) });
+    }
+    for (const child of node.children ?? []) stack.push(child);
+  }
+  if (atx.length > 0) {
+    let shallowest = 6;
+    for (const h of atx) shallowest = Math.min(shallowest, h.depth);
+    const floor = Math.max(3, parentLevel + 1);
+    for (const h of atx) {
+      const depth = Math.min(6, floor + h.depth - shallowest);
+      edits.push({ at: h.at, remove: h.length, insert: "#".repeat(depth) });
+    }
+  }
+  const parts: string[] = [];
+  let from = 0;
+  for (const e of edits.sort((a, b) => a.at - b.at)) {
+    parts.push(src.slice(from, e.at), e.insert);
+    from = e.at + e.remove;
+  }
+  parts.push(src.slice(from));
+  const out = parts.join("");
+  const fence = unclosedFence(src, tree.children.at(-1) as MdNode | undefined);
+  return fence ? `${out}\n${fence}` : out;
+}
+
+interface MdNode {
+  type: string;
+  position?: { start: { offset?: number }; end: { offset?: number } };
+  children?: MdNode[];
+}
+
+/** Where a setext heading's underline starts: the first `=` or `-` on its
+ * last line, after indentation and blockquote markers. */
+function underlineStart(src: string, end: number): number {
+  const lineStart = src.lastIndexOf("\n", end - 1) + 1;
+  return lineStart + /^[ \t>]*/.exec(src.slice(lineStart, end))![0].length;
+}
+
+/** The closing fence for a top-level fenced block that runs to the end of the
+ * text without one, or undefined. */
+function unclosedFence(src: string, last: MdNode | undefined): string | undefined {
+  if (last?.type !== "code") return undefined;
+  const start = last.position?.start.offset ?? 0;
+  const end = last.position?.end.offset ?? 0;
+  const open = /^ {0,3}(`{3,}|~{3,})/.exec(src.slice(start));
+  if (!open) return undefined;
+  if (src.slice(end).trim() !== "") return undefined;
+  const body = src.slice(start, end);
+  const lastLine = body.slice(body.lastIndexOf("\n") + 1);
+  const marker = open[1]!;
+  const closed =
+    body.includes("\n") &&
+    new RegExp(`^ {0,3}${marker[0] === "`" ? "`" : "~"}{${marker.length},}[ \\t]*$`).test(lastLine);
+  return closed ? undefined : marker;
+}
+
 function typeLabel(field: ApiFieldView, base?: string): string {
+  // A named union, or a list stopping at a repeat, reads as its schema's name.
+  if (field.typeName) {
+    // A named array schema keeps its name and says it's an array.
+    if (field.namedArray) {
+      const name = field.typeRef ? link(field.typeName, field.typeRef.href, base) : inlineText(field.typeName);
+      return `${name} (array)`;
+    }
+    const name = field.type.startsWith("array<") ? `array<${field.typeName}>` : field.typeName;
+    return field.typeRef ? link(name, field.typeRef.href, base) : inlineText(name);
+  }
   if (field.typeRef) return link(field.type, field.typeRef.href, base);
   if (field.typeRefs && field.typeRefs.length > 0) {
     return field.typeRefs.map((r) => link(r.label, r.href, base)).join(" | ");
@@ -192,12 +331,15 @@ function variantLabel(v: { label: string; href?: string }, base?: string): strin
  *  fields, which have no other home. A named branch stays a label, union or not,
  *  so a twin's size does not follow `schemaPages`. */
 function opens(v: ApiVariant): boolean {
-  return !v.name && Boolean(v.union || v.fields);
+  return !v.name && Boolean(v.union || v.fields || v.enum || v.description);
 }
 
 function renderVariant(v: ApiVariant, depth: number, out: string[], base?: string): void {
   const pad = "  ".repeat(depth);
-  out.push(`${pad}- ${variantLabel(v, base)}`);
+  let head = `${pad}- ${variantLabel(v, base)}`;
+  if (v.enum && v.enum.length > 0) head += `: one of ${v.enum.map(code).join(", ")}`;
+  if (v.description) head += ` — ${inlineText(v.description)}`;
+  out.push(head);
   if (v.name) return;
   if (v.union) {
     out.push(`${pad}  - ${v.union.kind === "oneOf" ? "one of" : "any of"}:`);
@@ -293,7 +435,7 @@ function renderResponses(responses: ApiResponseView[], out: string[], base?: str
   out.push("## Responses", "");
   for (const response of responses) {
     out.push(`### ${inlineText(response.status)}`, "");
-    if (response.description) out.push(safeBlock(response.description), "");
+    if (response.description) out.push(safeBlock(response.description, 3), "");
     const primary = {
       fields: response.fields,
       truncated: response.truncated,
@@ -364,7 +506,7 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
     case "operation": {
       out.push(inlineCode(`${props.method.toUpperCase()} ${props.path}`), "");
       if (props.isWebhook) out.push("_Webhook._", "");
-      if (props.description) out.push(safeBlock(props.description), "");
+      if (props.description) out.push(safeBlock(props.description, 1), "");
       renderAuth(props.auth, out);
       for (const group of props.parameters) {
         renderFieldSection(group.label, group.fields, out, group.truncated, base);
@@ -380,7 +522,7 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
       if (props.bodyRequired !== undefined) {
         bodyMeta.push(props.bodyRequired ? "_Required._" : "_Optional._", "");
       }
-      if (props.bodyDescription) bodyMeta.push(safeBlock(props.bodyDescription), "");
+      if (props.bodyDescription) bodyMeta.push(safeBlock(props.bodyDescription, 2), "");
       if (props.bodyUnion) {
         out.push(`## ${bodyHeading}`, "", ...bodyMeta);
         renderUnion(props.bodyUnion, out, base);
@@ -396,7 +538,7 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
         out.push("## Example requests", "");
         for (const example of props.requestExamples ?? []) {
           out.push(`### ${inlineText(example.label)}`, "");
-          if (example.description) out.push(safeBlock(example.description), "");
+          if (example.description) out.push(safeBlock(example.description, 3), "");
           renderExample("", example, out);
         }
       } else if (props.example) {
@@ -419,7 +561,7 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
       break;
     }
     case "schema": {
-      if (props.description) out.push(safeBlock(props.description), "");
+      if (props.description) out.push(safeBlock(props.description, 1), "");
       if (props.scalar) renderScalar(props.scalar, out);
       if (props.union) renderUnion(props.union, out, base);
       if (props.fields.length > 0) {
@@ -430,7 +572,7 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
       break;
     }
     case "section": {
-      if (props.description) out.push(safeBlock(props.description), "");
+      if (props.description) out.push(safeBlock(props.description, 1), "");
       if (props.operations.length > 0) renderRefs("Operations", props.operations, out, base);
       if (props.sections) renderRefs("Sections", props.sections, out, base);
       if (props.operations.length === 0 && !props.sections && !props.description) {
@@ -439,7 +581,7 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
       break;
     }
     case "api": {
-      if (props.description) out.push(safeBlock(props.description), "");
+      if (props.description) out.push(safeBlock(props.description, 1), "");
       if (props.version) out.push(`Version: ${inlineText(props.version)}`, "");
       if (props.servers.length > 0) {
         out.push("## Servers", "");

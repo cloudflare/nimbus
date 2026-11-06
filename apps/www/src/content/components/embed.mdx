@@ -26,6 +26,12 @@ props:
 import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";
 import { Embed } from "@/components/ui/embed";
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+import ComponentProps from "@/components/showcase/ComponentProps.astro";
+
+## Installation
+
+<ComponentInstall slug="embed" />
 
 ## Preview
 
@@ -55,3 +61,9 @@ Pass any CSS aspect-ratio string — useful for square previews or ultrawide con
     <Embed src="about:blank" title="Square preview" ratio="1/1" />
   </div>
 </Example>
+
+## API reference
+
+Every prop the component accepts, sourced from a single declaration.
+
+<ComponentProps slug="embed" />

@@ -160,6 +160,7 @@ export function coreResponses(): Record<string, unknown> {
         "RateLimit-Remaining": { description: "Requests left in the current window.", schema: { type: "integer", example: 0 } },
       },
     },
+    "500": error("Something failed on our side. Retry with backoff, and quote `request_id` if you contact support."),
   };
 }
 

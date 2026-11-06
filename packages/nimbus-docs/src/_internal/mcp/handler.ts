@@ -1,6 +1,7 @@
 /** One module wraps the SDK so a swap stays away from the route and tests. */
 import {
   McpServer,
+  SUPPORTED_PROTOCOL_VERSIONS,
   WebStandardStreamableHTTPServerTransport,
   createMcpHandler,
   fromJsonSchema,
@@ -287,6 +288,22 @@ async function readBody(request: Request): Promise<Blob | null> {
   return size > MCP_MAX_REQUEST_BODY_BYTES ? null : new Blob(chunks);
 }
 
+/**
+ * 2025-03-26 is the one MCP revision that requires JSON-RPC batches, which
+ * this server refuses, so it never agrees to it: a client asking for it is
+ * offered the newest revision instead.
+ */
+const PROTOCOL_VERSIONS = SUPPORTED_PROTOCOL_VERSIONS.filter((version) => version !== "2025-03-26");
+
+/** Whether the body is a JSON array. Anything that isn't JSON is left to the transport. */
+async function isBatch(body: Blob): Promise<boolean> {
+  try {
+    return Array.isArray(JSON.parse(await body.text()));
+  } catch {
+    return false;
+  }
+}
+
 function unavailable(error: unknown) {
   console.error(error);
   return toolResult(
@@ -315,6 +332,7 @@ export function createDocsMcpHandler(options: DocsMcpHandlerOptions): DocsMcpHan
         capabilities: { tools: { listChanged: false } },
         instructions: identity.instructions,
         jsonSchemaValidator: validator,
+        supportedProtocolVersions: PROTOCOL_VERSIONS,
       },
     );
     const readIndex = () => source.readIndex(request);
@@ -396,6 +414,17 @@ export function createDocsMcpHandler(options: DocsMcpHandlerOptions): DocsMcpHan
         return json(
           { jsonrpc: "2.0", id: null, error: { code: -32000, message: `Request body exceeds ${MCP_MAX_REQUEST_BODY_BYTES} bytes.` } },
           413,
+        );
+      }
+      // MCP dropped JSON-RPC batches in 2025-06-18: one request, one call.
+      if (await isBatch(body)) {
+        return json(
+          {
+            jsonrpc: "2.0",
+            id: null,
+            error: { code: -32600, message: "Batch requests are not supported; send one JSON-RPC message per request." },
+          },
+          400,
         );
       }
       const sized = new Request(request, { body });

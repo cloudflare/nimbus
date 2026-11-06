@@ -35,7 +35,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -469,6 +469,36 @@ export function generateTemplates(outDir = DEFAULT_OUT_DIR) {
     console.log(`[copy-template] generated ${variant}/ → ${relative(REPO_ROOT, targetDir) || targetDir}`);
   }
   return generated;
+}
+
+/**
+ * A sha256 over every file under `dir`, so a release can prove the templates it
+ * syncs are the ones it verified. Files are taken in POSIX path order (UTF-8
+ * bytes), each as `path NUL mode NUL size NUL bytes`, where mode is 755 if any
+ * execute bit is set and 644 otherwise. A symlink or any other non-regular
+ * file is an error.
+ */
+export function templatesDigest(dir) {
+  const files = [];
+  const walk = (at, prefix) => {
+    for (const name of readdirSync(at)) {
+      const full = join(at, name);
+      const path = prefix ? `${prefix}/${name}` : name;
+      const stat = lstatSync(full);
+      if (stat.isDirectory()) walk(full, path);
+      else if (stat.isFile()) files.push({ path, full, mode: stat.mode & 0o111 ? "755" : "644" });
+      else throw new Error(`[copy-template] ${path} is not a regular file`);
+    }
+  };
+  walk(dir, "");
+  files.sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)));
+  const hash = createHash("sha256");
+  for (const file of files) {
+    const bytes = readFileSync(file.full);
+    hash.update(`${file.path}\0${file.mode}\0${bytes.length}\0`);
+    hash.update(bytes);
+  }
+  return `sha256-${hash.digest("hex")}`;
 }
 
 function parseOutArg(argv) {

@@ -1,0 +1,29 @@
+---
+title: Developers
+description: Everything to build on the Weather API, from a free test key to the full reference.
+---
+
+Sign up, create a key in the dashboard, and make a request: no sales call, no card for test keys.
+
+## Plans
+
+| Plan | Keys | Price | Limits |
+| --- | --- | --- | --- |
+| Free | `wx_test_` keys: the sandbox, with realistic fixed data from every endpoint that takes a key | Free, no card | 10 requests a second, 10,000 a day |
+| Pay as you go | `wx_live_` keys: live data | Per request, billed monthly | Per product; see [Rate limits](/concepts/rate-limits) |
+
+Both are self-serve: create, scope and revoke keys under **API keys** in the dashboard. A test key works with every endpoint that takes an API key and returns the response shapes a live key does, so code written against the sandbox runs unchanged with a live key. Account endpoints (keys, members, the audit log) take an OAuth token instead; see [Authentication](/get-started/authentication).
+
+## Start here
+
+- [Quickstart](/get-started/quickstart): a test key and a seven-day forecast in two minutes.
+- [Authentication](/get-started/authentication): sending the key, scopes, and OAuth for account endpoints.
+- [API reference](/api): every endpoint, field and error, with code samples.
+- [Errors](/concepts/errors): one error shape across the API.
+
+## For agents
+
+- [`llms.txt`](/llms.txt) lists every page; each page has a Markdown version at `<page>/index.md`.
+- The MCP server at [`/mcp`](/mcp) serves these docs as tools.
+- The [call-sample-co-api](/.well-known/agent-skills/index.json) Agent Skill teaches an agent to call the API.
+- The OpenAPI document is at [`/api/openapi.json`](/api/openapi.json).

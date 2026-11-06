@@ -241,16 +241,16 @@ test("prose citations carry a non-root base in HTML, Markdown, and llms-full.txt
   assert.match(built.html, /<code>\[kept\]\(api\.ref:api:create\)<\/code>/);
 
   for (const markdown of [built.markdown, built.llmsFull]) {
-    assert.match(markdown, /\[bare link\]\(\/docs\/api\/charges\/create\/\)/);
-    assert.match(markdown, /\[angle link\]\(\/docs\/api\/charges\/list\/\)/);
+    assert.match(markdown, /\[bare link\]\(https:\/\/example\.test\/docs\/api\/charges\/create\/\)/);
+    assert.match(markdown, /\[angle link\]\(https:\/\/example\.test\/docs\/api\/charges\/list\/\)/);
     assert.match(markdown, /href="\/docs\/api\/disputes\/openDispute\/"/);
-    assert.match(markdown, /\[versioned link\]\(\/docs\/api\/v1\/search\/search\/\)/);
+    assert.match(markdown, /\[versioned link\]\(https:\/\/example\.test\/docs\/api\/v1\/search\/search\/\)/);
   }
   for (const markdown of [built.mdMarkdown, built.llmsFull]) {
-    assert.match(markdown, /\[md bare link\]\(\/docs\/api\/charges\/create\/\)/);
-    assert.match(markdown, /\[md angle link\]\(\/docs\/api\/charges\/list\/\)/);
+    assert.match(markdown, /\[md bare link\]\(https:\/\/example\.test\/docs\/api\/charges\/create\/\)/);
+    assert.match(markdown, /\[md angle link\]\(https:\/\/example\.test\/docs\/api\/charges\/list\/\)/);
     assert.match(markdown, /href="\/docs\/api\/disputes\/openDispute\/">md html link/);
-    assert.match(markdown, /\[md versioned link\]\(\/docs\/api\/v1\/search\/search\/\)/);
+    assert.match(markdown, /\[md versioned link\]\(https:\/\/example\.test\/docs\/api\/v1\/search\/search\/\)/);
   }
   for (const output of [
     built.html,
@@ -267,8 +267,8 @@ test("prose citations resolve without a prefix on a root base", async () => {
   const built = await buildFixture("/");
 
   assert.deepEqual(hrefs(built.html), expected(""));
-  assert.match(built.markdown, /\[bare link\]\(\/api\/charges\/create\/\)/);
-  assert.match(built.markdown, /\[versioned link\]\(\/api\/v1\/search\/search\/\)/);
-  assert.match(built.llmsFull, /\[angle link\]\(\/api\/charges\/list\/\)/);
-  assert.match(built.mdMarkdown, /\[md bare link\]\(\/api\/charges\/create\/\)/);
+  assert.match(built.markdown, /\[bare link\]\(https:\/\/example\.test\/api\/charges\/create\/\)/);
+  assert.match(built.markdown, /\[versioned link\]\(https:\/\/example\.test\/api\/v1\/search\/search\/\)/);
+  assert.match(built.llmsFull, /\[angle link\]\(https:\/\/example\.test\/api\/charges\/list\/\)/);
+  assert.match(built.mdMarkdown, /\[md bare link\]\(https:\/\/example\.test\/api\/charges\/create\/\)/);
 });

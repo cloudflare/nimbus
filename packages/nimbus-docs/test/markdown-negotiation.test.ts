@@ -92,6 +92,47 @@ test("on server output a request-rendered page and the homepage negotiate; every
   }
 });
 
+test("on server output a missing page answers Markdown with its 404 when Markdown is preferred", async () => {
+  const site = await fixture("---\ntitle: Root entry\n---\nHome body.", "docs", false, undefined, {
+    rendering: { default: "request" },
+  });
+  await site.write(
+    "src/pages/[...slug].astro",
+    `---\nimport { getDocsPage, getDocsStaticPaths } from ${srcModule("runtime.ts")};\nexport const getStaticPaths = getDocsStaticPaths;\nconst page = await getDocsPage(Astro);\nif (page instanceof Response) return page;\n---\n<html><body>Page</body></html>`,
+  );
+  await site.write("src/pages/404.astro", "<html><body>Not here</body></html>");
+  await site.write(
+    "src/pages/gone.json.ts",
+    'export const GET = () => new Response(null, { status: 404, headers: { "Content-Type": "application/json" } });',
+  );
+  const server = await dev({ ...site.config, output: "server", server: { host: "127.0.0.1", port: 0 } });
+  try {
+    const origin = `http://127.0.0.1:${server.address.port}`;
+    const missing = await fetch(`${origin}/docs/nowhere/`, { headers: { Accept: "text/markdown" } });
+    assert.equal(missing.status, 404);
+    assert.match(missing.headers.get("Content-Type") ?? "", /text\/markdown/);
+    assert.match(missing.headers.get("Vary") ?? "", /Accept/);
+    const body = await missing.text();
+    assert.match(body, /^# Not found\n\nThere is no page at `\/docs\/nowhere\/`\./);
+    assert.match(body, /https:\/\/example\.test\/docs\/llms\.txt/);
+    assert.match(body, /https:\/\/example\.test\/docs\/sitemap-index\.xml/);
+    const head = await fetch(`${origin}/docs/nowhere/`, { method: "HEAD", headers: { Accept: "text/markdown" } });
+    assert.equal(head.status, 404);
+    assert.match(head.headers.get("Content-Type") ?? "", /text\/markdown/);
+    const html = await fetch(`${origin}/docs/nowhere/`);
+    assert.equal(html.status, 404);
+    assert.match(await html.text(), /Not here/);
+    assert.match(html.headers.get("Vary") ?? "", /Accept/);
+    // An endpoint's own 404 keeps its type.
+    const endpoint = await fetch(`${origin}/docs/gone.json`, { headers: { Accept: "text/markdown" } });
+    assert.equal(endpoint.status, 404);
+    assert.match(endpoint.headers.get("Content-Type") ?? "", /application\/json/);
+  } finally {
+    await server.stop();
+    await rm(site.root, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
+
 test("under server output, build-rendered pages and the homepage of an all-build site stay HTML", async () => {
   const site = await fixture("---\ntitle: Root entry\n---\nHome body.", "docs", false, undefined, {
     rendering: { collections: { docs: "build" } },

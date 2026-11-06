@@ -148,11 +148,11 @@ export function initSearch(config: SearchConfig): SearchInstance {
   }
 
   function handleInput(): void {
+    activeController?.abort();
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       const query = input.value.trim();
       if (!query) {
-        activeController?.abort();
         clearResults();
         emptyState.style.display = "";
         emptyState.textContent = "Type to search…";

@@ -71,7 +71,7 @@ test("moving routes on a warm cache rebuilds pages and citations at the new URLs
   const options = { packageImports: true, api: [{ collection: "api", spec: "./specs/pets.json" }] };
   const { root } = await sites.buildSite(FILES, options);
   const read = (file: string) => readFile(path.join(root, "dist", file), "utf8");
-  assert.match(await read("index.md"), /\[the pets list\]\(\/docs\/api\/list-pets\/\)/);
+  assert.match(await read("index.md"), /\[the pets list\]\(https:\/\/example\.test\/docs\/api\/list-pets\/\)/);
 
   await sites.buildSite(
     {
@@ -82,7 +82,7 @@ test("moving routes on a warm cache rebuilds pages and citations at the new URLs
     },
     { ...options, root },
   );
-  assert.match(await read("index.md"), /\[the pets list\]\(\/docs\/reference\/api\/list-pets\/\)/);
+  assert.match(await read("index.md"), /\[the pets list\]\(https:\/\/example\.test\/docs\/reference\/api\/list-pets\/\)/);
   assert.match(await read("products/kit/setup/index.md"), /Set it up\./);
   for (const old of ["sdk", "api"]) assert.ok(!existsSync(path.join(root, "dist", old)), `nothing left at /${old}`);
 });

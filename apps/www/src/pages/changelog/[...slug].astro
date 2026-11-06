@@ -5,6 +5,8 @@ import DocsLayout from "@/layouts/DocsLayout.astro";
 import { CHANGELOG_TITLE, dateLabel, getReleaseIndex, releaseHref, releaseLabel, releaseNeighbours, type Release } from "@/components/changelog/changelog";
 import { Pagination } from "@/components/ui/pagination";
 
+export const prerender = true;
+
 export const getStaticPaths = (async () =>
   (await getCollection("releases")).map((entry) => ({ params: { slug: entry.id }, props: { entry } }))) satisfies GetStaticPaths;
 
@@ -22,6 +24,7 @@ const prevNext = { prev: link(newer), next: link(older) };
 
 <DocsLayout
   title={title}
+  markdownUrl={`${releaseHref(entry)}index.md`}
   description={date ? `Released ${dateLabel(date, "long")}.` : undefined}
   sidebar={false}
   headings={headings.filter((heading) => heading.depth === 2)}

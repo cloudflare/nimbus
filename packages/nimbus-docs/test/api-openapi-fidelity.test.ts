@@ -372,11 +372,11 @@ describe("anonymous union branches get readable labels", () => {
   });
 
   test("Markdown shows the new labels, never unknown", () => {
-    assert.match(md("Shape"), /One of:\n\n- `object`\n  - `radius` \(.*\n  - `label` \(.*\n- `string`\n- `Legacy shape`\n- `integer`\n- `Option 5`\n/);
-    assert.match(md("Level"), /Any of:\n\n- `integer`\n- `number`\n- `string \| null`\n/);
+    assert.match(md("Shape"), /One of:\n\n- `object`\n  - `radius` \(.*\n  - `label` \(.*\n- `string`: one of `"small"`, `"medium"`, `"large"`\n- `Legacy shape`\n- `integer`\n- `Option 5`\n/);
+    assert.match(md("Level"), /Any of:\n\n- `integer`: one of `1`, `2`\n- `number`: one of `1`, `2.5`\n- `string \| null`: one of `"low"`, `null`\n/);
     assert.match(
       md("getShape"),
-      /- one of:\n    - `object`\n      - `radius` \(.*\n      - `label` \(.*\n    - `string`\n    - `Legacy shape`\n    - `integer`\n    - `Option 5`\n/,
+      /- one of:\n    - `object`\n      - `radius` \(.*\n      - `label` \(.*\n    - `string`: one of `"small"`, `"medium"`, `"large"`\n    - `Legacy shape`\n    - `integer`\n    - `Option 5`\n/,
     );
     for (const coordinate of ["Shape", "Level", "getShape"]) {
       assert.doesNotMatch(md(coordinate), /`unknown`/);

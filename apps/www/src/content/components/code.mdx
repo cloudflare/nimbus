@@ -17,6 +17,12 @@ props:
 import Showcase from "@/components/showcase/Showcase.astro";
 import Example from "@/components/showcase/Example.astro";
 import { Code } from "@/components/ui/code";
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+import ComponentProps from "@/components/showcase/ComponentProps.astro";
+
+## Installation
+
+<ComponentInstall slug="code" />
 
 export const helloSample = `export function hello(name: string) {
   return \`Hello, \${name}!\`;
@@ -126,3 +132,9 @@ Highlight a specific token everywhere it appears with `// [!code word:term]`.
     <Code code={wordSample} lang="ts" />
   </div>
 </Example>
+
+## API reference
+
+Every prop the component accepts, sourced from a single declaration.
+
+<ComponentProps slug="code" />

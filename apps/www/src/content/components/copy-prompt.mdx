@@ -9,6 +9,12 @@ props:
 ---
 import Showcase from "@/components/showcase/Showcase.astro";
 import { CopyPrompt } from "@/components/ui/copy-prompt";
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+import ComponentProps from "@/components/showcase/ComponentProps.astro";
+
+## Installation
+
+<ComponentInstall slug="copy-prompt" />
 
 ## Preview
 
@@ -17,3 +23,9 @@ import { CopyPrompt } from "@/components/ui/copy-prompt";
     <CopyPrompt text="Read https://nimbus-docs.com/llms.txt then help me set up a docs site with Nimbus." />
   </div>
 </Showcase>
+
+## API reference
+
+Every prop the component accepts, sourced from a single declaration.
+
+<ComponentProps slug="copy-prompt" />

@@ -2,6 +2,7 @@ import { defineCollection } from "astro:content";
 import { z } from "astro/zod";
 import { pathToFileURL } from "node:url";
 import { componentsCollection, docsCollection, partialsCollection } from "@cloudflare/nimbus-docs/content";
+import { componentsSchema } from "@cloudflare/nimbus-docs/schemas";
 import { releasesLoader } from "./lib/releases";
 
 export const collections = {
@@ -22,7 +23,12 @@ export const collections = {
     }),
   ),
   partials: defineCollection(partialsCollection()),
-  components: defineCollection(componentsCollection()),
+  // The tagline is each component's description, so its Markdown, llms.txt
+  // and MCP carry it as docs pages carry theirs.
+  components: defineCollection({
+    ...componentsCollection(),
+    schema: componentsSchema.transform((data) => ({ ...data, description: data.tagline })),
+  }),
   // /changelog/: the packages' releases, from their CHANGELOG.md files and
   // release tags. The build runs in apps/www, two folders below the repo.
   releases: defineCollection({

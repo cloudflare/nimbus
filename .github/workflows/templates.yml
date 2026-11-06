@@ -15,6 +15,10 @@ on:
       - "scripts/templates-pm-check.mjs"
       - "scripts/release.mjs"
       - "scripts/release.test.mjs"
+      - "scripts/release-candidate.test.mjs"
+      - "scripts/release-workflow.test.mjs"
+      - "scripts/deploy-config-drift.mjs"
+      - "apps/demo/wrangler.deploy.json"
       - ".github/workflows/release.yml"
       - "scripts/fixtures/content-integrity/**"
       - ".github/workflows/templates.yml"
@@ -29,6 +33,10 @@ on:
       - "scripts/templates-pm-check.mjs"
       - "scripts/release.mjs"
       - "scripts/release.test.mjs"
+      - "scripts/release-candidate.test.mjs"
+      - "scripts/release-workflow.test.mjs"
+      - "scripts/deploy-config-drift.mjs"
+      - "apps/demo/wrangler.deploy.json"
       - ".github/workflows/release.yml"
       - "scripts/fixtures/content-integrity/**"
       - ".github/workflows/templates.yml"
@@ -60,11 +68,14 @@ jobs:
           TEMPLATES_CHECK_LANE: ${{ matrix.lane }}
         run: node scripts/templates-check.mjs
 
+      # The release's own path: pack the candidate, then verify every variant
+      # against it.
       - name: Verify every release variant without publishing
         if: matrix.lane == 'static'
         run: |
-          node --test scripts/release.test.mjs
-          node scripts/release.mjs publish --halt-after verify
+          node --test scripts/release.test.mjs scripts/release-candidate.test.mjs scripts/release-workflow.test.mjs
+          node scripts/release.mjs pack --out "$RUNNER_TEMP/candidate"
+          node scripts/release.mjs verify --from "$RUNNER_TEMP/candidate"
 
   # Check docs and API-only scaffolds with the workspace package manager.
   site-parts:
