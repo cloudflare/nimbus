@@ -440,6 +440,12 @@ function renderUnion(union: ApiUnionView, out: string[], base?: string): void {
 /** The placeholder shared fields cite their coordinates under. */
 const OPTION = "<option>";
 
+/** View-model keys that hold the spec's own JSON: compared and copied as
+ *  written, so an authored `{ "anchor": … }` example isn't read as metadata. */
+const AUTHORED = new Set(["default", "enum", "example", "extensions", "value"]);
+
+const literal = (a: unknown, b: unknown): boolean => a === b || JSON.stringify(a) === JSON.stringify(b);
+
 /** A branch's coordinate prefix: what each of its top-level fields' coordinates
  *  starts with, before `.name`. Undefined when they don't agree. */
 function branchPrefix(fields: ApiFieldView[]): string | undefined {
@@ -462,7 +468,8 @@ function rerooted(value: unknown, prefix: string, root: string): unknown {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(value)) {
     if (k === "anchor") continue;
-    out[k] = k === "coordinate" && typeof v === "string" && v.startsWith(`${prefix}.`) ? `${root}${v.slice(prefix.length)}` : rerooted(v, prefix, root);
+    if (AUTHORED.has(k)) out[k] = v;
+    else out[k] = k === "coordinate" && typeof v === "string" && v.startsWith(`${prefix}.`) ? `${root}${v.slice(prefix.length)}` : rerooted(v, prefix, root);
   }
   return out;
 }
@@ -487,7 +494,9 @@ function sameBelow(a: unknown, pa: string, b: unknown, pb: string): boolean {
     if (!(k in bo)) return false;
     const x = ao[k];
     const y = bo[k];
-    if (k === "coordinate" && typeof x === "string" && typeof y === "string") {
+    if (AUTHORED.has(k)) {
+      if (!literal(x, y)) return false;
+    } else if (k === "coordinate" && typeof x === "string" && typeof y === "string") {
       if (!x.startsWith(`${pa}.`) || !y.startsWith(`${pb}.`) || x.slice(pa.length) !== y.slice(pb.length)) return false;
     } else if (!sameBelow(x, pa, y, pb)) return false;
   }
@@ -695,7 +704,13 @@ function renderIndex(index: ApiRootIndex, out: string[], base?: string): void {
     if (label) {
       out.push(`## ${group.ref ? link(label, group.ref.href, base) : plainText(label)}`, "");
     }
-    renderOperations(group.operations, out, base);
+    // A group with a page of its own gets a count, like a section; one without
+    // keeps its endpoints, which nothing else lists.
+    if (summary && group.ref) {
+      if (group.operations.length > 0) out.push(count(group.operations.length), "");
+    } else {
+      renderOperations(group.operations, out, base);
+    }
     for (const s of group.sections) section(s, label ? 3 : 2);
   }
   if (index.operations.length > 0) {

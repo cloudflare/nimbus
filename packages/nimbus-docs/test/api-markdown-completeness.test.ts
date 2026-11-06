@@ -282,3 +282,59 @@ paths:
   assert.doesNotMatch(md, /Every option has|<option>/);
   assert.match(md, /One of the following:/);
 });
+
+test("authored values named like view-model keys are compared as written", async () => {
+  const spec = `
+openapi: 3.1.0
+info: { title: T, version: "1" }
+paths:
+  /things:
+    post:
+      operationId: createThing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/Left"
+                - $ref: "#/components/schemas/Right"
+      responses:
+        "204": { description: Done }
+components:
+  schemas:
+    Left:
+      type: object
+      properties:
+        layout: { type: object, default: { anchor: left, coordinate: a } }
+        same: { type: object, example: { anchor: top, coordinate: z } }
+    Right:
+      type: object
+      properties:
+        layout: { type: object, default: { anchor: right, coordinate: b } }
+        same: { type: object, example: { anchor: top, coordinate: z } }
+`;
+  const model = await buildApiModel({ collection: "api", label: "spec.yaml", spec, schemaPages: false });
+  const md = renderApiPageMarkdown(getApiPageProps(model, "createThing") as never);
+  const shared = md.slice(md.indexOf("Every option has:"), md.indexOf("each adding:"));
+  assert.match(shared, /`same`/, "identical authored examples are shared");
+  assert.match(shared, /"anchor":"top","coordinate":"z"/, "and printed as written");
+  assert.doesNotMatch(shared, /`layout`/, "different authored defaults stay per branch");
+  assert.match(md, /"anchor":"left"/);
+  assert.match(md, /"anchor":"right"/);
+});
+
+test("a large API's home counts a tag group's endpoints when the group has a page", async () => {
+  const ops = (tag: string, n: number) =>
+    Object.fromEntries(Array.from({ length: n }, (_, i) => [`/${tag.toLowerCase()}/${i}`, { get: { operationId: `${tag}${i}`, summary: `${tag} ${i}`, tags: [tag], responses: { "200": { description: "OK" } } } }]));
+  const spec = JSON.stringify({
+    openapi: "3.1.0",
+    info: { title: "T", version: "1" },
+    tags: [{ name: "Core", description: "Core endpoints." }, { name: "Extra" }],
+    "x-tagGroups": [{ name: "Core", tags: ["Core", "Extra"] }],
+    paths: { ...ops("Core", 200), ...ops("Extra", 5) },
+  });
+  const model = await buildApiModel({ collection: "api", label: "spec.json", spec });
+  const md = renderApiPageMarkdown(getApiPageProps(model, "api") as never);
+  assert.doesNotMatch(md, /Core 17\b/, "the group's endpoints are on its own page");
+  assert.match(md, /\b200 endpoints\b|\b5 endpoints\b/);
+});
