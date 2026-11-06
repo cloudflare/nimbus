@@ -13,6 +13,7 @@
  * through a computed specifier so a prose-only build never resolves it.
  */
 
+import { nearestPointer, pointer } from "./pointer.js";
 import {
   ApiBuildError,
   CoordinateRegistry,
@@ -46,7 +47,7 @@ import { explainReferenceErrors } from "./publish-spec.js";
 import { refProbe, refProbeIntact } from "./ref-probe.js";
 import { SchemaResolver, docNeedsRawDoc } from "./schema-resolver.js";
 import { asString, isPlainObject } from "./schema-algebra.js";
-import { parseOperations } from "./operations.js";
+import { parseOperations, warnOrderPlace } from "./operations.js";
 import { parseSchemas } from "./schemas.js";
 import { parseWebhooks } from "./webhooks.js";
 import type { ParseContext } from "./parse-context.js";
@@ -237,6 +238,7 @@ export async function parseOpenApi(source: SpecSource, onceKey?: string): Promis
       source.schemaPages ?? false,
       source.samples,
       source.extensions,
+      parsed,
     );
     const model = walker.walk();
     if (source.mountPath !== undefined) model.mountPath = source.mountPath;
@@ -345,9 +347,12 @@ export function surfaceWarnings(collection: string, diagnostics: readonly Diagno
   // The same message from many sources is one line: the first source and a count.
   const groups = new Map<string, { first: Diagnostic; count: number }>();
   for (const d of warnings) {
-    const group = groups.get(d.message);
+    // Each cut field list keeps its own line: the same list name can recur
+    // across operations.
+    const key = d.code === "field-walk-ceiling" ? `${d.message}\u0000${d.coordinate ?? d.source ?? ""}` : d.message;
+    const group = groups.get(key);
     if (group) group.count++;
-    else groups.set(d.message, { first: d, count: 1 });
+    else groups.set(key, { first: d, count: 1 });
   }
   const CAP = 20;
   const lines = [...groups.values()];
@@ -436,6 +441,7 @@ function hasCallableOperations(document: OpenApiDocument): boolean {
 // The read-context and write verbs are public to satisfy ParseContext, which the
 // parse passes (operations/schemas/webhooks) write through; Walker is never exported.
 class Walker implements ParseContext {
+  private readonly written: (source: string | undefined) => string | undefined;
   readonly registry: CoordinateRegistry;
   private readonly nodes = new Map<Coordinate, Node>();
   private readonly pages = new Set<Coordinate>();
@@ -473,8 +479,13 @@ class Walker implements ParseContext {
     readonly schemaPages: boolean = false,
     readonly samples: ApiSamples = {},
     readonly extensions: readonly string[] = [],
+    /** The spec as written: a warning's source built inside a `$ref`'d object
+     *  isn't in it, so it stops at the reference. */
+    sourceDoc?: unknown,
   ) {
-    this.registry = new CoordinateRegistry(collection);
+    this.written = (source) =>
+      sourceDoc !== undefined && source?.startsWith("#") ? nearestPointer(sourceDoc, source) : source;
+    this.registry = new CoordinateRegistry(collection, this.written);
     // Schema tables are captured once here — the walk never reassigns them on `doc`.
     this.resolver = new SchemaResolver(
       rawDoc,
@@ -601,10 +612,11 @@ class Walker implements ParseContext {
     // operation) — is born with the right model parent, keeping the nav tree
     // and the coordinate ancestry (breadcrumbs, auto-expand) in lockstep.
     this.collectHierarchy();
-    for (const tag of asArray(this.doc.tags)) {
-      if (!isPlainObject(tag) || typeof tag.name !== "string") continue;
+    asArray(this.doc.tags).forEach((tag, i) => {
+      if (!isPlainObject(tag) || typeof tag.name !== "string") return;
+      if ("x-nimbus-order" in tag) warnOrderPlace(this, pointer("tags", i, "x-nimbus-order"));
       this.ensureSection(tag.name, asString(tag.description), true, asString(tag["x-displayName"]));
-    }
+    });
     // x-tagGroups categories are nav-only grouping nodes:
     // they get a section node so member ancestry (breadcrumbs, auto-expand)
     // resolves, but no page of their own — no route, no `.md`, no href. A name
@@ -677,7 +689,7 @@ class Walker implements ParseContext {
     for (const [tag, parent] of raw) {
       const fault = this.hierarchyEdgeFault(tag, parent, sections, raw);
       if (fault) {
-        this.registry.addWarning(fault, sectionCoordinate(tag), `#/tags/${tag}`);
+        this.registry.addWarning(fault, sectionCoordinate(tag), this.tagSource(tag));
         continue;
       }
       this.tagParent.set(tag, parent);
@@ -719,6 +731,19 @@ class Walker implements ParseContext {
    * `addSections`; tags first seen on an operation are synthesized here so an
    * operation never dangles under a parent coordinate that has no node.
    */
+  /** Where a tag is declared: its `tags` entry, else the `x-tagGroups` group
+   *  that lists it, else the `tags` list (or the document) for a tag only
+   *  operations name. */
+  private tagSource(tag: string): string {
+    const tags = asArray(this.doc.tags);
+    const declared = tags.findIndex((t) => isPlainObject(t) && t.name === tag);
+    if (declared !== -1) return pointer("tags", declared);
+    const groups = asArray(this.doc["x-tagGroups"]);
+    const group = groups.findIndex((g) => isPlainObject(g) && asArray(g.tags).includes(tag));
+    if (group !== -1) return pointer("x-tagGroups", group);
+    return Array.isArray(this.doc.tags) ? pointer("tags") : "#";
+  }
+
   ensureSection(tag: string, description?: string, page = true, displayName?: string): void {
     if (this.navByTag.has(tag)) return;
     const coord = sectionCoordinate(tag);
@@ -726,7 +751,7 @@ class Walker implements ParseContext {
     const parent = parentTag
       ? sectionCoordinate(parentTag)
       : apiCoordinate(this.collection);
-    this.registry.register(coord, "section", { source: `#/tags/${tag}` });
+    this.registry.register(coord, "section", { source: this.tagSource(tag) });
     // A tag is a display label, not a machine identifier, so its route is a
     // slugified projection (`tagRouteSegment`) rather than a verbatim,
     // route-faulted segment — a spaced tag like "User Management" routes cleanly
@@ -751,7 +776,7 @@ class Walker implements ParseContext {
             `([${[...RESERVED_ROUTE_SEGMENTS].join(", ")}] and the API root). ` +
             `Give it another segment in \`routes.tagSegments\`.`,
           coord,
-          `#/tags/${tag}`,
+          this.tagSource(tag),
           "route-reserved-collision",
         );
       }

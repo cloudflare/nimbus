@@ -22,6 +22,13 @@ export interface LlmsFullBlock {
   markdown: string;
 }
 
+/** An API page's block. Its Markdown already prints the description, and its
+ * title comes from a spec summary that can span lines, which would start a new
+ * heading. */
+export function apiLlmsFullBlock(block: LlmsFullBlock): LlmsFullBlock {
+  return { ...block, title: block.title.replace(/\s+/g, " ").trim(), description: undefined };
+}
+
 export interface LlmsFullHeader {
   /** Site title — the document's opening `#` heading. */
   title: string;

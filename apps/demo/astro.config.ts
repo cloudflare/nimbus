@@ -16,12 +16,11 @@ const nimbusConfig = defineNimbusConfig({
   locale: "en",
   github: null,
   socialImageAlt: "Sample Co documentation preview",
-  // Guides are prerendered; the API reference renders on request so its
-  // versions can live in the query (`?version=v1`).
-  rendering: {
-    default: "build",
-    collections: { api: "request", changelog: "build" },
-  },
+  // Every page renders on request, so each answers `Accept: text/markdown` at
+  // its own URL, and the API reference's versions can live in the query
+  // (`?version=v1`). The MCP server needs the Worker anyway.
+  rendering: { default: "request", collections: { changelog: "request" } },
+  agents: { mcp: true },
   sidebar: {
     // Docs only: the API reference and the changelog are header tabs (Header.astro).
     items: [
@@ -80,10 +79,15 @@ export default defineConfig({
   },
   output: "server",
   adapter: cloudflare({ prerenderEnvironment: "node" }),
+  // No Astro sessions, so the adapter adds no SESSION KV binding (preview
+  // deployments can't create a KV namespace).
+  session: false,
   // Tailwind v4 via its Vite plugin (the integration Astro recommends for
   // Tailwind v4 — replaces the PostCSS plugin, which doesn't build under
   // Astro 7's Vite 8 bundler).
   vite: {
+    // `build:workers` (Workers Builds previews) sets DEMO_NOINDEX=1.
+    define: { "import.meta.env.DEMO_NOINDEX": JSON.stringify(process.env.DEMO_NOINDEX === "1") },
     plugins: [tailwindcss()],
   },
   // Hover-prefetch link targets so full-page navigations feel instant without

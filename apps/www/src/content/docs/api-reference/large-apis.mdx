@@ -140,7 +140,7 @@ When Astro's route cache is enabled, each page is cached with the tags `nimbus-a
 
 It also narrows discovery for that API. Search, `llms.txt`, `llms-full.txt`, the sitemap and Markdown versions cover only the default version. Older versions stay readable as HTML with `noindex`, still publish their spec, and stay in the API catalog.
 
-With `bundle: false`, Nimbus reuses the versions you didn't change. In CI:
+With `bundle: false`, Nimbus reuses the versions you didn't change, and the highlighted code samples of the ones you did. In CI:
 
 - Restore the whole `.nimbus/cache/page-assets/` directory before the build.
 - Save it after a successful production deploy, not after previews, so "previous" means the live release.

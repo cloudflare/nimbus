@@ -507,6 +507,82 @@ describe("api markdown emitter", () => {
     }
   });
 
+  test("description headings are demoted below their section, keeping relative depth", () => {
+    const page = renderApiPageMarkdown(schema([], "# A\n\n## B\n\n### C"));
+    assert.match(page, /^### A$/m);
+    assert.match(page, /^#### B$/m);
+    assert.match(page, /^##### C$/m);
+    const deep = renderApiPageMarkdown(schema([], "#### Only"));
+    assert.match(deep, /^### Only$/m, "the shallowest heading lands at the floor");
+    const response = renderApiPageMarkdown(
+      operation({
+        responses: [
+          { coordinate: "c.200", status: "200", anchor: "r-200", description: "# Notes", headers: [], fields: [] },
+        ],
+      }),
+    );
+    assert.match(response, /^### 200$/m);
+    assert.match(response, /^#### Notes$/m);
+  });
+
+  test("headings in blockquotes and list items are demoted too", () => {
+    const md = renderApiPageMarkdown(schema([], "> # Quoted\n\n- # Listed\n\n1. ## Numbered"));
+    assert.match(md, /^> ### Quoted$/m);
+    assert.match(md, /^- ### Listed$/m);
+    assert.match(md, /^1\. #### Numbered$/m);
+  });
+
+  test("code in a description is left as written", () => {
+    const fenced = "```sh\n# install\nnpm i nimbus\n```";
+    assert.ok(renderApiPageMarkdown(schema([], fenced)).includes(fenced));
+    const indented = "Run:\n\n    # install\n    ---";
+    assert.ok(renderApiPageMarkdown(schema([], indented)).includes(indented));
+  });
+
+  test("a fence left open in a description is closed", () => {
+    const md = renderApiPageMarkdown(schema([], "Example:\n\n~~~~js\nconst a = 1;\n# not a heading"));
+    assert.match(md, /# not a heading\n~~~~\n/);
+  });
+
+  test("a heading inside an HTML block is demoted too", () => {
+    const md = renderApiPageMarkdown(schema([], "<div>\n# Forged\n```\n</div>\n\n# After"));
+    assert.match(md, /^\\# Forged$/m, "raw HTML is escaped, as a looser reader may parse it");
+    assert.match(md, /^\\```$/m);
+    assert.match(md, /^### After$/m);
+  });
+
+  test("deeply nested markers are escaped line by line instead of parsed", () => {
+    const t = performance.now();
+    const md = renderApiPageMarkdown(schema([], `${"- ".repeat(10000)}# hi\n\n>>># Q\n\n- - -`));
+    assert.ok(performance.now() - t < 1000);
+    assert.doesNotMatch(md, /^(?:[-*+>\d.) ]*)#{1,2} /m);
+    assert.match(md, /^>>>\\# Q$/m);
+    assert.match(md, /^\\- - -$/m, "a break isn't read as list markers");
+  });
+
+  test("past the size limit, mixed containers can't hide a heading", () => {
+    const filler = "word ".repeat(7000);
+    const md = renderApiPageMarkdown(schema([], `- > # Forged\n\n1. > - ## Also\n\n${filler}`));
+    assert.ok(md.includes("- > \\# Forged"));
+    assert.ok(md.includes("1. > - \\## Also"));
+  });
+
+  test("a very long description is escaped line by line instead of parsed", () => {
+    const filler = "word ".repeat(8000);
+    const md = renderApiPageMarkdown(schema([], `> # Quoted\n- # Listed\n\`\`\`\nopen fence\n${filler}`));
+    assert.match(md, /^> \\# Quoted$/m);
+    assert.match(md, /^- \\# Listed$/m);
+    assert.match(md, /^\\```$/m, "an open fence can't swallow what follows");
+    const t = performance.now();
+    renderApiPageMarkdown(schema([], "- item `x`\n".repeat(35000)));
+    assert.ok(performance.now() - t < 1000, "a 35,000-item list renders in under a second");
+  });
+
+  test("a description with nothing that could open a block comes back as written", () => {
+    const text = "Creates a charge. Use `amount` in cents; see [pricing](https://example.com).";
+    assert.equal(renderApiPageMarkdown(schema([], text)), `${text}\n`);
+  });
+
   test("injection: setext underline in a description is neutralized", () => {
     const md = renderApiPageMarkdown(schema([], "Status codes\n============"));
     assert.doesNotMatch(md, /^=+\s*$/m);

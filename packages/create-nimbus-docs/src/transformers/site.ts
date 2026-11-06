@@ -7,6 +7,7 @@ import {
   readSiteParts,
   type SiteRecord,
 } from "@cloudflare/nimbus-docs/site-parts";
+import { ASTRO_CONFIG_FILENAMES } from "@cloudflare/nimbus-docs/adapters";
 import { ScaffoldError } from "../scaffold.js";
 
 /** The parts a new site has: what's at the root, and the API with its spec (null: the sample). */
@@ -77,6 +78,37 @@ export function applySite(target: string, choice: SiteChoice, registry: string):
   } finally {
     rmSync(join(target, SITE_PARTS_DIR), { recursive: true, force: true });
   }
+}
+
+/**
+ * Name an API-only site after its spec: the starter's `title` (and
+ * `description`) in the Astro config become the spec's `info.title` (and the
+ * first paragraph of `info.description`). `false` when the spec has a title
+ * but the config's line wasn't found, so the caller can say so.
+ */
+export function nameSiteFromSpec(target: string, spec: string): boolean {
+  let info: Record<string, unknown> = {};
+  try {
+    const doc = parse(readFileSync(join(target, spec), "utf8"), { merge: true }) as { info?: unknown } | null;
+    if (doc && typeof doc.info === "object" && doc.info !== null) info = doc.info as Record<string, unknown>;
+  } catch {
+    return true;
+  }
+  const title = typeof info.title === "string" ? info.title.trim() : "";
+  if (!title) return true;
+  const file = ASTRO_CONFIG_FILENAMES.map((name) => join(target, name)).find((path) => existsSync(path));
+  if (!file) return false;
+  const source = readFileSync(file, "utf8");
+  const line = /^(\s*)title: "Nimbus",$/m;
+  if (!line.test(source)) return false;
+  let next = source.replace(line, (_, indent: string) => `${indent}title: ${JSON.stringify(title)},`);
+  const description =
+    typeof info.description === "string" ? info.description.trim().split(/\n\s*\n/)[0]!.replace(/\s+/g, " ") : "";
+  if (description) {
+    next = next.replace(/^(\s*)description: "[^"\n]*",$/m, (_, indent: string) => `${indent}description: ${JSON.stringify(description)},`);
+  }
+  writeFileSync(file, next);
+  return true;
 }
 
 /**

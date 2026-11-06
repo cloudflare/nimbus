@@ -1,6 +1,6 @@
 {
 	"name": "@cloudflare/nimbus-docs",
-	"version": "0.19.2",
+	"version": "0.19.4",
 	"private": false,
 	"publishConfig": {
 		"access": "public"
@@ -184,6 +184,7 @@
 		"hast-util-sanitize": "^5.0.2",
 		"hast-util-to-html": "^9.0.5",
 		"jsonc-parser": "^3.3.1",
+		"mdast-util-from-markdown": "^2.0.3",
 		"mdast-util-gfm": "^3.1.0",
 		"mdast-util-math": "^3.0.0",
 		"mdast-util-mdx": "^3.0.0",

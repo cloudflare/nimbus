@@ -1,6 +1,12 @@
 ---
 title: Overview
 description: Forecasts, observations, alerts, maps, and climate data for anywhere on Earth, over one REST API.
+# Who makes the API, for agents and search engines: its contact point and (fictional) address.
+head:
+  - tag: script
+    attrs:
+      type: application/ld+json
+    content: "{\"@context\": \"https://schema.org\", \"@type\": \"Organization\", \"name\": \"Sample Co\", \"description\": \"Makers of the Weather API: forecasts, observations, alerts, imagery and climate data for anywhere on Earth. Sample Co is fictional; this site is the Nimbus reference demo.\", \"url\": \"https://demo.nimbus-docs.com/\", \"logo\": \"https://demo.nimbus-docs.com/favicon.ico\", \"sameAs\": [\"https://github.com/cloudflare/nimbus/tree/main/apps/demo\"], \"contactPoint\": [{\"@type\": \"ContactPoint\", \"contactType\": \"customer support\", \"email\": \"support@weather.example\", \"url\": \"https://demo.nimbus-docs.com/contact/\", \"availableLanguage\": \"en\"}, {\"@type\": \"ContactPoint\", \"contactType\": \"sales\", \"email\": \"sales@weather.example\"}], \"address\": {\"@type\": \"PostalAddress\", \"streetAddress\": \"1 Example Street\", \"addressLocality\": \"Example City\", \"postalCode\": \"00000\", \"addressCountry\": \"NO\"}}"
 ---
 
 The Weather API tells you what the weather is doing at any point on Earth, what it will do over the next sixteen days, and what it did on any day since 1940. Every endpoint takes the same locations, returns the same units, and fails the same way, so once you've made one request, the rest of the API reads the same.
