@@ -85,15 +85,17 @@ test("a built route with different sizes in its two helpers fails the build", as
   );
 });
 
-// What the starter's layout builds its table of contents from: each part's
-// headings, and `anchorParts` to link a heading to the part that holds it.
+// The starter's ApiLayout builds the home's table of contents from the
+// version's whole index (`page.index`), drops headings no part renders, and
+// links a heading in a later part to that part (`anchorParts`). ApiHome renders
+// each part's own headings (`home.part`). This route does both, the same way.
 const tocRoute = `---
 import { getApiRoute, getApiStaticPaths } from ${runtime};
 export const prerender = true;
 export const getStaticPaths = getApiStaticPaths("api", { homeChunkSize: 2 });
 const result = await getApiRoute(Astro, { homeChunkSize: 2 });
 if (result instanceof Response) return result;
-const home = result.home;
+const { page, home } = result;
 const ids = home
   ? [
       ...home.part.groups.flatMap((g) => [...(g.label && !g.continued ? [g.anchor] : []), ...g.sections.map((s) => s.anchor)]),
@@ -101,23 +103,90 @@ const ids = home
       ...(home.part.webhooks ? [home.part.webhooks.anchor] : []),
     ]
   : [];
-const links = home && home.part.number === 1
-  ? Object.entries(home.anchorParts).map(([anchor, n]) => (n > 1 ? home.parts[n - 1].href : "") + "#" + anchor)
+const headings = page.kind === "api" && home && home.part.number === 1
+  ? [
+      ...page.index.groups.flatMap((g) => [...(g.label ? [g.anchor] : []), ...g.sections.map((s) => s.anchor)]),
+      ...(page.index.operations.length > 0 ? ["endpoints"] : []),
+      ...(page.index.webhooks.length > 0 ? ["webhooks"] : []),
+    ]
   : [];
+const links = headings
+  .filter((slug) => Object.hasOwn(home.anchorParts, slug))
+  .map((slug) => {
+    const n = home.anchorParts[slug];
+    return (n > 1 ? home.parts[n - 1].href : "") + "#" + slug;
+  });
 ---
 {ids.map((id) => <h2 id={id}>{id}</h2>)}
 {links.map((href) => <a data-toc href={href}>{href}</a>)}
+<script type="application/json" data-headings set:html={JSON.stringify(headings)} />
 `;
 
-test("every heading the home lists links to the part that holds it", async () => {
-  const site = await sites.buildSite(files(tocRoute), options);
-  const read = (href: string) => readFile(path.join(site.root, "dist", href, "index.html"), "utf8");
-  const home = await read("/api/");
-  const links = [...home.matchAll(/<a data-toc href="([^"]+)"/g)].map((m) => m[1]!);
+// Tagged operations across three tags, an `x-tagGroups` category with no tags
+// that exist, and untagged operations, so the home splits into several parts.
+const tocSpec = (version: string) =>
+  JSON.stringify({
+    openapi: "3.1.0",
+    info: { title: "Toc", version },
+    tags: [{ name: "Pets" }, { name: "Stores" }, { name: "Users" }],
+    "x-tagGroups": [
+      { name: "Core", tags: ["Pets", "Stores"] },
+      { name: "Accounts", tags: ["Users"] },
+      { name: "Empty", tags: ["Missing"] },
+    ],
+    paths: Object.fromEntries(
+      ["Pets", "Pets", "Stores", "Stores", "Users", "Users", null, null].map((tag, n) => [
+        `/things/${n}`,
+        { get: { operationId: `get${n}`, ...(tag ? { tags: [tag] } : {}), responses: { "200": { description: "OK" } } } },
+      ]),
+    ),
+  });
+
+async function auditToc(site: { root: string }, homeHref: string) {
+  const read = (href: string) => {
+    const url = new URL(href, "https://x.test");
+    const dir = url.searchParams.get("version") ? `${url.pathname}` : url.pathname;
+    return readFile(path.join(site.root, "dist", dir, "index.html"), "utf8");
+  };
+  const home = await read(homeHref);
+  const links = [...home.matchAll(/<a data-toc href="([^"]+)"/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
+  const headings: string[] = JSON.parse(/<script type="application\/json" data-headings>(.*?)<\/script>/.exec(home)![1]!);
   assert.ok(links.some((href) => !href.startsWith("#")), "some heading lives in a later part");
+  assert.ok(headings.some((slug) => !links.some((href) => href.endsWith(`#${slug}`))), "the empty group gets no link");
   for (const href of links) {
     const [page, id] = href.split("#") as [string, string];
     const html = page ? await read(page) : home;
     assert.match(html, new RegExp(`id="${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`), href);
   }
+  return links;
+}
+
+test("every heading the home lists links to the part that holds it, and an empty tag group gets no link", async () => {
+  const site = await sites.buildSite(
+    { ...files(tocRoute), "src/api/toc.json": tocSpec("1") },
+    { ...options, api: [{ collection: "api", spec: "./src/api/toc.json" }] },
+  );
+  await auditToc(site, "/api/");
+});
+
+test("with path versions, each version's home links to its own parts", async () => {
+  const site = await sites.buildSite(
+    { ...files(tocRoute), "src/api/v2.json": tocSpec("2"), "src/api/v1.json": tocSpec("1") },
+    {
+      ...options,
+      api: [
+        {
+          collection: "api",
+          versionUrl: { in: "path" },
+          versions: [
+            { version: "v2", spec: "./src/api/v2.json", default: true },
+            { version: "v1", spec: "./src/api/v1.json" },
+          ],
+        },
+      ],
+    },
+  );
+  await auditToc(site, "/api/");
+  const v1 = await auditToc(site, "/api/v1/");
+  assert.ok(v1.every((href) => href.startsWith("#") || href.startsWith("/api/v1/")), v1.join(" "));
 });

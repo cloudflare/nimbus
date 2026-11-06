@@ -188,10 +188,16 @@ if (rows.length > 0 && !home) {
         const id = homePartTarget(e, later.map((part) => part.href));
         if (!id) return;
         const here = document.getElementById(id);
+        // A filter hides the list, and the heading with it: clear it first.
+        const filtering = feed.hidden;
         // A `#heading` already on the page is the browser's to follow, as before.
         const hashOnly = (e.target as Element).closest("a")?.getAttribute("href")?.startsWith("#");
-        if (here ? hashOnly : loaded >= later.length) return;
+        if (!filtering && (here ? hashOnly : loaded >= later.length)) return;
         e.preventDefault();
+        if (filtering) {
+          input.value = "";
+          void apply();
+        }
         // Load up to the heading (if it isn't here yet), then let the router
         // make the hash navigation, so Back and Forward keep working.
         void (here ? Promise.resolve() : reveal(id)).then(() => navigate(`#${encodeURIComponent(id)}`));

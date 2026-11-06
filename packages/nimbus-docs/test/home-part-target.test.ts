@@ -8,7 +8,11 @@ const { window } = new JSDOM(
    <a id="part" href="/api/index/2/#tags.Health">b</a>
    <a id="other-version" href="/api/index/2/?version=v1#tags.Health">c</a>
    <a id="other-origin" href="https://elsewhere.example/api/index/2/#tags.Health">d</a>
-   <a id="other-page" href="/api/pets/#x">e</a>`,
+   <a id="other-page" href="/api/pets/#x">e</a>
+   <a id="blank" href="/api/index/2/#tags.Health" target="_blank">f</a>
+   <a id="self" href="/api/index/2/#tags.Health" target="_self">g</a>
+   <a id="download" href="#tags.Pets" download>h</a>
+   <a id="malformed" href="#tags.%E0%A4%A">i</a>`,
   { url: "https://docs.example/api/" },
 );
 Object.assign(globalThis, { location: window.location });
@@ -42,4 +46,14 @@ test("another version's part, another origin and another page aren't intercepted
   assert.equal(click("other-version"), null);
   assert.equal(click("other-origin"), null);
   assert.equal(click("other-page"), null);
+});
+
+test("a link that opens elsewhere or downloads is left to the browser", () => {
+  assert.equal(click("blank"), null);
+  assert.equal(click("download"), null);
+  assert.equal(click("self"), "tags.Health");
+});
+
+test("a malformed fragment is left to the browser instead of throwing", () => {
+  assert.equal(click("malformed"), null);
 });

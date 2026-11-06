@@ -73,10 +73,13 @@ const homeHeadings: TOCItem[] =
         ...(page.index.webhooks.length > 0 ? [{ depth: 2, text: "Webhooks", slug: "webhooks" }] : []),
       ]
     : [];
-const tocHeadings: TOCItem[] = homeHeadings.map((h) => {
-  const href = partHref(h.slug);
-  return href ? { ...h, href } : h;
-});
+// A heading no part renders (an empty tag group) would be a dead link.
+const tocHeadings: TOCItem[] = homeHeadings
+  .filter((h) => !home || Object.hasOwn(home.anchorParts, h.slug))
+  .map((h) => {
+    const href = partHref(h.slug);
+    return href ? { ...h, href } : h;
+  });
 
 const hasRail =
   page.kind === "operation" &&
