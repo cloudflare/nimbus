@@ -381,25 +381,52 @@ function variantView(
   inlineFields = false,
   seen: ReadonlySet<Coordinate> = new Set(),
   openNamed = inlineFields,
+  depth: PreviewDepth = "full",
 ): ApiVariant {
   const out = variantLink(view, v);
   const resolved = v.coordinate && view.node(v.coordinate) ? v.coordinate : undefined;
   if (!resolved || seen.has(resolved)) return out;
+  // Beneath a field's named option, everything shows one level.
+  const below: PreviewDepth = depth === "one-level" && v.name ? "shallow" : depth;
   const facts = view.node(resolved)!.facts;
   const nested = facts.kind === "schema" || facts.kind === "variant" ? facts.union : undefined;
   if (nested) {
     // A named union opens one level and its own named unions stay labels:
     // named schemas form a DAG, and opening every one per path is exponential.
     if (openNamed || !v.name) {
-      out.union = unionView(view, nested, inlineFields, new Set([...seen, resolved]), openNamed && !v.name);
+      out.union = unionView(view, nested, inlineFields, new Set([...seen, resolved]), openNamed && !v.name, below);
     }
   } else if (inlineFields || facts.kind === "variant") {
     // `seen` is the path of branches above; a repeat stays a label. The preview
     // passes `false` so a named union among these properties stays a label.
-    const fields = boundFields(topLevelFields(view, resolved, false, new Set([...seen, resolved]))).fields;
+    const fields = boundFields(topLevelFields(view, resolved, false, new Set([...seen, resolved]), below === "shallow")).fields;
     if (fields.length > 0) out.fields = fields;
   }
   if (v.name) unanchorVariant(out);
+  return out;
+}
+
+/**
+ * How far a union's options open. `full`: as far as their fields go (a page's
+ * root). `one-level`: a field's named options show their own fields, and those
+ * fields only their type and count; the option's full shape is its own (with
+ * schema pages, linked) page's. `shallow`: everything beneath such an option.
+ */
+type PreviewDepth = "full" | "one-level" | "shallow";
+
+/** How many distinct named schemas a union chooses between. */
+function namedAlternatives(shape: UnionShape): number {
+  const names = [...shape.variants, ...(shape.mapping ?? []).map((m) => m.variant)].map((v) => v.name);
+  return new Set(names.filter(Boolean)).size;
+}
+
+/** A union's options as labels and links, none opened. */
+function unionLabels(view: ModelView, shape: UnionShape): ApiUnionView {
+  const out: ApiUnionView = { kind: shape.kind, variants: shape.variants.map((v) => variantLink(view, v)) };
+  if (shape.discriminator) out.discriminator = shape.discriminator;
+  if (shape.mapping && shape.mapping.length > 0) {
+    out.mapping = shape.mapping.map((m) => ({ value: m.value, variant: variantLink(view, m.variant) }));
+  }
   return out;
 }
 
@@ -420,6 +447,7 @@ function unionView(
   inlineFields = false,
   seen: ReadonlySet<Coordinate> = new Set(),
   openNamed = inlineFields,
+  depth: PreviewDepth = "full",
 ): ApiUnionView {
   // With a discriminator mapping the explorer lists the mapped branches from
   // `mapping`, then the branches no mapping value selects. A mapped branch is
@@ -431,14 +459,14 @@ function unionView(
     variants: shape.variants.map((v) =>
       hasMapping && v.name && mapped.has(v.name)
         ? variantLink(view, v)
-        : variantView(view, v, inlineFields, seen, openNamed),
+        : variantView(view, v, inlineFields, seen, openNamed, depth),
     ),
   };
   if (shape.discriminator) out.discriminator = shape.discriminator;
   if (shape.mapping && shape.mapping.length > 0) {
     out.mapping = shape.mapping.map((m) => ({
       value: m.value,
-      variant: variantView(view, m.variant, inlineFields, seen),
+      variant: variantView(view, m.variant, inlineFields, seen, openNamed, depth),
     }));
   }
   return out;
@@ -472,22 +500,26 @@ function boundFields(all: ApiFieldView[]): {
   return { fields: all.slice(0, FIELD_INLINE_CEILING), truncated: true, total: all.length };
 }
 
-// `allowInline` governs whether a field's named union branches preview (it is
-// forwarded to `unionView`); inline branches and ordinary object children
-// always open. `seen` is the path of union branches above this field, so a
-// branch that reappears inside its own fields stays a label.
+// `allowInline` governs whether a field's named union branches preview; only
+// a page's top-level fields pass it, so a page's size follows what it documents,
+// not how deep its schemas reach. Inline branches and ordinary object children
+// open, unless `shallow` (a field inside a named option's preview), which shows
+// the field's type and child count only. `seen` is the path of union branches
+// above this field, so a branch that reappears inside its own fields stays a label.
 function fieldView(
   view: ModelView,
   node: Node,
   allowInline = true,
   seen: ReadonlySet<Coordinate> = new Set(),
+  shallow = false,
 ): ApiFieldView {
   const f = node.facts as FieldFacts | ParameterFacts;
   const childNodes = view
     .childrenOf(node.id)
     .filter((n) => n.kind === "field");
-  const ordered = requiredFirst(childNodes);
-  const bounded = boundFields(ordered.map((child) => fieldView(view, child, allowInline, seen)));
+  const bounded = shallow
+    ? { fields: [], total: childNodes.length, truncated: false }
+    : boundFields(requiredFirst(childNodes).map((child) => fieldView(view, child, false, seen)));
 
   const out: ApiFieldView = {
     coordinate: node.id,
@@ -517,7 +549,13 @@ function fieldView(
     out.description = description;
     out.descriptionHtml = renderMarkdown(description);
   }
-  if (f.union) out.union = unionView(view, f.union, allowInline, seen);
+  // A field that is one of several named schemas (an A, MX or CNAME record)
+  // previews them; one that is "an id or the whole object" links to the object.
+  if (f.union && shallow) out.union = unionLabels(view, f.union);
+  else if (f.union) {
+    const previews = allowInline && namedAlternatives(f.union) >= 2;
+    out.union = unionView(view, f.union, previews, seen, previews, previews ? "one-level" : "full");
+  }
   if (f.typeRef?.coordinate && view.hasPage(f.typeRef.coordinate)) {
     out.typeRef = { label: f.typeRef.label, href: view.href(f.typeRef.coordinate) };
   }
@@ -541,9 +579,10 @@ function topLevelFields(
   parent: Coordinate,
   allowInline = true,
   seen: ReadonlySet<Coordinate> = new Set(),
+  shallow = false,
 ): ApiFieldView[] {
   const fields = view.childrenOf(parent).filter((n) => n.kind === "field");
-  return requiredFirst(fields).map((node) => fieldView(view, node, allowInline, seen));
+  return requiredFirst(fields).map((node) => fieldView(view, node, allowInline, seen, shallow));
 }
 
 function paramGroups(view: ModelView, opCoord: Coordinate): ApiParamGroup[] {
