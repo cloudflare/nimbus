@@ -16,6 +16,7 @@ import {
   getApiPageSlugs,
   apiSchemaVersion,
   type ApiFieldView,
+  type ApiVariant,
   type ApiModel,
   type ApiNavItem,
   type ApiOperationPage,
@@ -1859,8 +1860,17 @@ describe("citations: a page owns the fields of its inline branches", () => {
   });
 });
 
-describe("named previews stay bounded", () => {
-  const Deep = { type: "object", properties: { inner: { type: "object", properties: { z: { type: "string" } } } } };
+describe("a named schema with its own page links; without one, it previews", () => {
+  // An option with an inline object (`inner`) and a field that is itself one of two
+  // named schemas (`link`).
+  const Deep = {
+    type: "object",
+    properties: {
+      inner: { type: "object", properties: { z: { type: "string" } } },
+      link: { oneOf: [{ $ref: "#/components/schemas/C" }, { $ref: "#/components/schemas/D" }] },
+    },
+  };
+  const Leaf = { type: "object", properties: { q: { type: "string" } } };
   const spec = {
     openapi: "3.1.0",
     info: { title: "P", version: "1" },
@@ -1877,7 +1887,6 @@ describe("named previews stay bounded", () => {
                     record: { oneOf: [{ $ref: "#/components/schemas/A" }, { $ref: "#/components/schemas/B" }] },
                     owner: { oneOf: [{ type: "string" }, { $ref: "#/components/schemas/A" }] },
                     wrap: { type: "object", properties: { record: { oneOf: [{ $ref: "#/components/schemas/A" }, { $ref: "#/components/schemas/B" }] } } },
-                    grouped: { oneOf: [{ $ref: "#/components/schemas/Group" }, { $ref: "#/components/schemas/B" }] },
                     mapped: {
                       oneOf: [{ type: "object", properties: { kind: { type: "string" } } }],
                       discriminator: { propertyName: "kind", mapping: { a: "#/components/schemas/A", b: "#/components/schemas/B" } },
@@ -1891,40 +1900,88 @@ describe("named previews stay bounded", () => {
         },
       },
     },
-    components: { schemas: { A: Deep, B: Deep, Group: { oneOf: [Deep] } } },
+    components: { schemas: { A: Deep, B: Deep, C: Leaf, D: Leaf } },
+  };
+  const load = async (schemaPages: boolean) => {
+    const model = await buildApiModel({ collection: "p", spec, schemaPages });
+    const page = getApiPageProps(model, "create") as ApiOperationPage;
+    return { page, field: (name: string) => page.body.find((f) => f.name === name)! };
+  };
+  const opens = (v: ApiVariant | undefined) => Boolean(v?.fields || v?.union);
+
+  test("with schema pages, a top-level field choosing between named schemas previews them; every other named use links", async () => {
+    const { page, field } = await load(true);
+    const option = field("record").union!.variants[0]!;
+    assert.ok(opens(option), "a record type previews");
+    assert.deepEqual(option.fields!.find((f) => f.name === "inner")!.children.map((c) => c.name), ["z"], "its inline objects open");
+    const link = option.fields!.find((f) => f.name === "link")!;
+    assert.ok(link.union!.variants.every((v) => !opens(v) && v.href), "named schemas inside it link");
+
+    const owner = field("owner").union!.variants[1]!;
+    assert.ok(!opens(owner) && owner.href, "an id-or-object field links to the object");
+    const nested = field("wrap").children.find((f) => f.name === "record")!;
+    assert.ok(nested.union!.variants.every((v) => !opens(v) && v.href), "a nested field links");
+    assert.ok(field("mapped").union!.mapping!.every((m) => opens(m.variant)), "options named only by the mapping count");
+    const root = page.responses.find((r) => r.status === "200")!.bodyUnion!;
+    assert.ok(root.variants.every(opens), "a page-root union previews");
+  });
+
+  test("without schema pages, every named schema previews, since nothing else shows its fields", async () => {
+    const { field } = await load(false);
+    assert.ok(opens(field("owner").union!.variants[1]), "an id-or-object field previews the object");
+    const nested = field("wrap").children.find((f) => f.name === "record")!;
+    assert.ok(nested.union!.variants.every(opens), "a nested field previews");
+    assert.ok(JSON.stringify(field("record").union).includes('"name":"q"') === false, "a preview's own named unions stay labels, as before");
+  });
+
+  // A union option that is itself a named union, reaching a named union through a
+  // discriminator mapping, whose inline option holds `deep`; and a named object `C`.
+  const nestedSpec = {
+    openapi: "3.1.0",
+    info: { title: "N", version: "1" },
+    paths: {
+      "/r": {
+        post: {
+          operationId: "create",
+          requestBody: {
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { record: { oneOf: [{ $ref: "#/components/schemas/Group" }, { $ref: "#/components/schemas/B" }] } },
+                },
+              },
+            },
+          },
+          responses: { "200": { description: "ok", content: { "application/json": { schema: { $ref: "#/components/schemas/Group" } } } } },
+        },
+      },
+    },
+    components: {
+      schemas: {
+        Group: {
+          oneOf: [{ $ref: "#/components/schemas/C" }, { $ref: "#/components/schemas/M" }],
+          discriminator: { propertyName: "kind", mapping: { m: "#/components/schemas/M" } },
+        },
+        M: { oneOf: [{ type: "object", properties: { kind: { type: "string" }, deep: { type: "string" } } }] },
+        C: { type: "object", properties: { q: { type: "string" } } },
+        B: { type: "object", properties: { b: { type: "string" } } },
+      },
+    },
   };
 
-  for (const schemaPages of [true, false]) {
-    test(`a field choosing between named schemas previews one level of each (schemaPages ${schemaPages})`, async () => {
-      const model = await buildApiModel({ collection: "p", spec, schemaPages });
-      const page = getApiPageProps(model, "create") as ApiOperationPage;
-      const field = (name: string) => page.body.find((f) => f.name === name)!;
-
-      const inner = field("record").union!.variants[0]!.fields!.find((f) => f.name === "inner")!;
-      assert.deepEqual(inner.children, [], "an option's own fields show by type");
-      assert.equal(inner.childCount, 1);
-      assert.equal(inner.truncated, false, "and nothing to open");
-
-      assert.equal(field("owner").union!.variants[1]!.fields, undefined, "an id-or-object field labels the object");
-
-      const nested = field("wrap").children.find((f) => f.name === "record")!;
-      assert.ok(nested.union!.variants.every((v) => !v.fields), "nested fields label named options");
-
-      const grouped = JSON.stringify(field("grouped").union);
-      assert.ok(grouped.includes('"name":"inner"') && !grouped.includes('"name":"z"'), "a named option that is itself a union shows one level too");
-
-      const mapped = field("mapped").union!.mapping!;
-      assert.ok(mapped.every((m) => m.variant.fields?.some((f) => f.name === "inner")), "options named only by the mapping count");
-      assert.ok(!JSON.stringify(mapped).includes('"name":"z"'));
-    });
-  }
-
-  test("a page-root union still previews its named options in full", async () => {
-    const model = await buildApiModel({ collection: "p", spec, schemaPages: false });
+  test("without schema pages, a union reached through a mapping keeps its inline fields", async () => {
+    const model = await buildApiModel({ collection: "n", spec: nestedSpec, schemaPages: false });
     const page = getApiPageProps(model, "create") as ApiOperationPage;
-    const union = page.responses.find((r) => r.status === "200")!;
-    const json = JSON.stringify(union);
-    assert.ok(json.includes('"name":"z"'), "the root option's nested fields open");
-    assert.ok(!JSON.stringify(page.body.find((f) => f.name === "record")).includes('"name":"z"'), "a field's options stop a level down");
+    const record = JSON.stringify(page.body.find((f) => f.name === "record")!.union);
+    assert.ok(record.includes('"name":"deep"'), "the mapped union's inline option opens, as on main");
+  });
+
+  test("with schema pages, a named schema inside a named option's union links", async () => {
+    const model = await buildApiModel({ collection: "n", spec: nestedSpec, schemaPages: true });
+    const page = getApiPageProps(model, "create") as ApiOperationPage;
+    const group = page.body.find((f) => f.name === "record")!.union!.variants[0]!;
+    const c = group.union!.variants.find((v) => v.label === "C")!;
+    assert.ok(!c.fields && c.href, "C links to its page instead of previewing");
   });
 });
