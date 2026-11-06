@@ -79,6 +79,19 @@ function facts(props: ApiPageProps): string[] {
   return out;
 }
 
+/** A field every union branch shares prints once, citing `<option>.path`; its
+ *  coordinate is still in the Markdown if some split `prefix.path` has both
+ *  the cited `<option>.path` and the option `prefix` it stands for, as code
+ *  or as a link's text. */
+function cited(flat: string, coordinate: string): boolean {
+  for (let i = coordinate.indexOf("."); i > 0; i = coordinate.indexOf(".", i + 1)) {
+    const prefix = coordinate.slice(0, i);
+    const named = flat.includes(`\`${prefix}\``) || flat.includes(`[${prefix}](`);
+    if (named && flat.includes(`\`<option>${coordinate.slice(i)}\``)) return true;
+  }
+  return false;
+}
+
 for (const [name, file] of [
   ["smallco", "smallco.yaml"],
   ["fidelity", "fidelity.yaml"],
@@ -95,7 +108,7 @@ for (const [name, file] of [
         const flat = md.replace(/\s+/g, " ");
         for (const fact of facts(props)) {
           const want = fact.replace(/\s+/g, " ").trim();
-          assert.ok(flat.includes(want), `${coordinate}: ${JSON.stringify(want)} missing from its Markdown`);
+          assert.ok(flat.includes(want) || cited(flat, want), `${coordinate}: ${JSON.stringify(want)} missing from its Markdown`);
           checked++;
         }
       }
@@ -169,4 +182,103 @@ test("a large API's home lists each section with its endpoint count; a small one
   const small = await home(10);
   assert.match(small, /Get thing 7\b/);
   assert.doesNotMatch(small, /\d+ endpoints\n/);
+});
+
+const RECORDS = `
+openapi: 3.1.0
+info: { title: T, version: "1" }
+paths:
+  /records:
+    post:
+      operationId: createRecord
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/ARecord"
+                - $ref: "#/components/schemas/MXRecord"
+                - $ref: "#/components/schemas/CNAMERecord"
+      responses:
+        "204": { description: Done }
+components:
+  schemas:
+    Shared:
+      type: object
+      properties:
+        name: { type: string, description: Record name., maxLength: 255 }
+        ttl: { type: integer, default: 1 }
+        settings:
+          type: object
+          properties:
+            ipv4_only: { type: boolean }
+    ARecord:
+      allOf:
+        - $ref: "#/components/schemas/Shared"
+        - type: object
+          properties:
+            content: { type: string, description: An IPv4 address. }
+    MXRecord:
+      allOf:
+        - $ref: "#/components/schemas/Shared"
+        - type: object
+          properties:
+            content: { type: string, description: A mail server. }
+            priority: { type: integer }
+    CNAMERecord:
+      allOf:
+        - $ref: "#/components/schemas/Shared"
+        - type: object
+          properties:
+            content: { type: string, description: A hostname. }
+            settings:
+              type: object
+              properties:
+                flatten_cname: { type: boolean }
+`;
+
+for (const schemaPages of [true, false]) {
+  test(`union branches: shared fields print once, differing ones stay with their branch (schemaPages ${schemaPages})`, async () => {
+    const model = await buildApiModel({ collection: "api", label: "spec.yaml", spec: RECORDS, schemaPages });
+    const md = renderApiPageMarkdown(getApiPageProps(model, "createRecord") as never);
+    const shared = md.slice(md.indexOf("Every option has:"), md.indexOf("each adding:"));
+    assert.match(shared, /`name` \(`<option>\.name`; string, optional\) — Record name\./);
+    assert.match(shared, /`ttl` \(`<option>\.ttl`;/);
+    assert.doesNotMatch(shared, /`content`/, "content differs in every branch");
+    assert.doesNotMatch(shared, /`settings`/, "CNAMERecord redefines settings");
+    assert.equal(md.match(/`<option>\.name`/g)?.length, 1, "printed once, not per branch");
+    const branches = md.slice(md.indexOf("each adding:"));
+    for (const [record, own] of [["ARecord", "An IPv4 address."], ["MXRecord", "A mail server."], ["CNAMERecord", "A hostname."]] as const) {
+      assert.ok(branches.includes(record), record);
+      assert.ok(branches.includes(own), `${record} keeps its own content`);
+    }
+    assert.match(branches, /`MXRecord\.priority`/);
+    assert.match(branches, /`ARecord\.settings\.ipv4_only`/, "settings stays per branch, with its coordinates");
+    assert.match(branches, /`CNAMERecord\.settings\.flatten_cname`/);
+    assert.doesNotMatch(branches, /`ARecord\.name`/, "shared fields aren't repeated");
+  });
+}
+
+test("union branches that share nothing render as before", async () => {
+  const spec = `
+openapi: 3.1.0
+info: { title: T, version: "1" }
+paths:
+  /records:
+    post:
+      operationId: createRecord
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - { type: object, properties: { ip: { type: string } } }
+                - { type: object, properties: { host: { type: string } } }
+      responses:
+        "204": { description: Done }
+`;
+  const model = await buildApiModel({ collection: "api", label: "spec.yaml", spec, schemaPages: false });
+  const md = renderApiPageMarkdown(getApiPageProps(model, "createRecord") as never);
+  assert.doesNotMatch(md, /Every option has|<option>/);
+  assert.match(md, /One of the following:/);
 });

@@ -305,13 +305,11 @@ function renderField(field: ApiFieldView, depth: number, out: string[], base?: s
   if (detail.length > 0) out.push(`${pad}  - ${detail.join(" · ")}`);
 
   if (field.union) {
-    const label = unionLabel(field.union).toLowerCase();
     const entries = unionEntries(field.union);
     if (entries.some((e) => opens(e.variant))) {
-      out.push(`${pad}  - ${label}:`);
-      for (const e of entries) renderVariant(e, depth + 2, out, base);
+      renderBranches(field.union, entries, depth + 1, out, base);
     } else {
-      out.push(`${pad}  - ${label}: ${entries.map((e) => entryLabel(e, base)).join(", ")}`);
+      out.push(`${pad}  - ${unionLabel(field.union).toLowerCase()}: ${entries.map((e) => entryLabel(e, base)).join(", ")}`);
     }
     if (field.union.discriminator) {
       out.push(`${pad}  - discriminator: ${inlineCode(field.union.discriminator)}`);
@@ -381,26 +379,152 @@ function opens(v: ApiVariant): boolean {
   return Boolean(v.union || (v.fields && v.fields.length > 0) || (v.enum && v.enum.length > 0) || v.description);
 }
 
-function renderVariant(e: UnionEntry, depth: number, out: string[], base?: string): void {
+function renderVariant(
+  e: UnionEntry,
+  depth: number,
+  out: string[],
+  base?: string,
+  own?: { fields: ApiFieldView[]; prefix?: string },
+): void {
   const pad = "  ".repeat(depth);
   const v = e.variant;
   let head = `${pad}- ${entryLabel(e, base)}`;
+  // When the shared fields cite this option as `<option>`, say what that is
+  // wherever it isn't the label already (an inline branch's).
+  if (own?.prefix && own.prefix !== v.label) head += ` (${inlineCode(own.prefix)})`;
   if (v.enum && v.enum.length > 0) head += `: one of ${v.enum.map(code).join(", ")}`;
   if (v.description) head += ` — ${inlineText(v.description)}`;
   out.push(head);
   if (v.union) {
-    out.push(`${pad}  - ${unionLabel(v.union).toLowerCase()}:`);
-    for (const inner of unionEntries(v.union)) renderVariant(inner, depth + 2, out, base);
-  } else if (v.fields) {
-    for (const f of v.fields) renderField(f, depth + 1, out, base);
+    renderBranches(v.union, unionEntries(v.union), depth + 1, out, base);
+  } else {
+    for (const f of own?.fields ?? v.fields ?? []) renderField(f, depth + 1, out, base);
   }
 }
 
+/** A union's branches, `depth` levels in. Fields every branch has, identical
+ *  but for their coordinates, print once first, so a union of twenty record
+ *  types that share six fields doesn't repeat them twenty times; each branch
+ *  then lists only what it adds. */
+function renderBranches(union: ApiUnionView, entries: UnionEntry[], depth: number, out: string[], base?: string): void {
+  const pad = "  ".repeat(depth);
+  const label = unionLabel(union).toLowerCase();
+  const factored = factorUnion(entries);
+  if (!factored) {
+    out.push(`${pad}- ${label}:`);
+    for (const e of entries) renderVariant(e, depth + 1, out, base);
+    return;
+  }
+  out.push(`${pad}- every option has:`);
+  for (const f of factored.shared) renderField(f, depth + 1, out, base);
+  out.push(`${pad}- ${label}, each adding:`);
+  entries.forEach((e, i) => renderVariant(e, depth + 1, out, base, { fields: factored.own[i]!, prefix: factored.prefixes?.[i] }));
+}
+
 function renderUnion(union: ApiUnionView, out: string[], base?: string): void {
-  out.push(`${unionLabel(union)}:`, "");
-  for (const e of unionEntries(union)) renderVariant(e, 0, out, base);
+  const entries = unionEntries(union);
+  const factored = factorUnion(entries);
+  if (factored) {
+    out.push("Every option has:", "");
+    for (const f of factored.shared) renderField(f, 0, out, base);
+    out.push("", `${unionLabel(union)}, each adding:`, "");
+    entries.forEach((e, i) => renderVariant(e, 0, out, base, { fields: factored.own[i]!, prefix: factored.prefixes?.[i] }));
+  } else {
+    out.push(`${unionLabel(union)}:`, "");
+    for (const e of entries) renderVariant(e, 0, out, base);
+  }
   out.push("");
   if (union.discriminator) out.push(`Discriminator: ${inlineCode(union.discriminator)}`, "");
+}
+
+/** The placeholder shared fields cite their coordinates under. */
+const OPTION = "<option>";
+
+/** A branch's coordinate prefix: what each of its top-level fields' coordinates
+ *  starts with, before `.name`. Undefined when they don't agree. */
+function branchPrefix(fields: ApiFieldView[]): string | undefined {
+  let prefix: string | undefined;
+  for (const f of fields) {
+    const tail = `.${f.name}`;
+    if (!f.name || !f.coordinate.endsWith(tail)) return undefined;
+    const p = f.coordinate.slice(0, -tail.length);
+    if (prefix !== undefined && p !== prefix) return undefined;
+    prefix = p;
+  }
+  return prefix;
+}
+
+/** `value` with every coordinate under `prefix` re-rooted at `root`, and
+ *  anchors (derived from coordinates) dropped: how a shared field cites itself. */
+function rerooted(value: unknown, prefix: string, root: string): unknown {
+  if (Array.isArray(value)) return value.map((v) => rerooted(v, prefix, root));
+  if (!value || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (k === "anchor") continue;
+    out[k] = k === "coordinate" && typeof v === "string" && v.startsWith(`${prefix}.`) ? `${root}${v.slice(prefix.length)}` : rerooted(v, prefix, root);
+  }
+  return out;
+}
+
+/** Whether `a` (under coordinate prefix `pa`) and `b` (under `pb`) are the
+ *  same field: equal in everything, with coordinates equal once their prefixes
+ *  are set aside and anchors (derived from coordinates) ignored. Compared in
+ *  place, stopping at the first difference, so it allocates nothing. */
+function sameBelow(a: unknown, pa: string, b: unknown, pb: string): boolean {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    const bb = b as unknown[];
+    return a.length === bb.length && a.every((v, i) => sameBelow(v, pa, bb[i], pb));
+  }
+  const ao = a as Record<string, unknown>;
+  const bo = b as Record<string, unknown>;
+  const keys = Object.keys(ao).filter((k) => k !== "anchor");
+  if (keys.length !== Object.keys(bo).filter((k) => k !== "anchor").length) return false;
+  for (const k of keys) {
+    if (!(k in bo)) return false;
+    const x = ao[k];
+    const y = bo[k];
+    if (k === "coordinate" && typeof x === "string" && typeof y === "string") {
+      if (!x.startsWith(`${pa}.`) || !y.startsWith(`${pb}.`) || x.slice(pa.length) !== y.slice(pb.length)) return false;
+    } else if (!sameBelow(x, pa, y, pb)) return false;
+  }
+  return true;
+}
+
+/** Fields every branch has, identical in everything but their coordinates;
+ *  each branch's remaining fields; and the prefix each branch's coordinates
+ *  start with, when shared fields cite `<option>`. Undefined when nothing is
+ *  shared, or a branch has no field preview to compare. */
+function factorUnion(
+  entries: UnionEntry[],
+): { shared: ApiFieldView[]; own: ApiFieldView[][]; prefixes?: string[] } | undefined {
+  if (entries.length < 2) return undefined;
+  const lists = entries.map((e) => (e.variant.union ? undefined : e.variant.fields));
+  if (lists.some((l) => !l || l.length === 0)) return undefined;
+  const fields = lists as ApiFieldView[][];
+  // Most unions share no field names at all: settle that before comparing
+  // anything deeper, so they cost a set lookup per field.
+  const byName = fields.map((list) => new Map(list.map((f) => [f.name, f])));
+  const candidates = fields[0]!.filter((f) => byName.every((m) => m.has(f.name)));
+  if (candidates.length === 0) return undefined;
+  const prefixes = fields.map(branchPrefix);
+  if (prefixes.some((p) => p === undefined)) return undefined;
+  const roots = prefixes as string[];
+  const shared = candidates.filter((f) =>
+    byName.every((m, i) => i === 0 || sameBelow(f, roots[0]!, m.get(f.name)!, roots[i]!)),
+  );
+  if (shared.length === 0) return undefined;
+  const names = new Set(shared.map((f) => f.name));
+  // Branches whose coordinates already agree need no placeholder.
+  const cite = new Set(roots).size > 1;
+  return {
+    shared: cite ? shared.map((f) => rerooted(f, roots[0]!, OPTION) as ApiFieldView) : shared,
+    own: fields.map((list) => list.filter((f) => !names.has(f.name))),
+    ...(cite ? { prefixes: roots } : {}),
+  };
 }
 
 function renderFieldSection(
