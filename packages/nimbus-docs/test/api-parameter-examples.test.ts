@@ -48,6 +48,6 @@ test("parameter examples: own value, then an inline examples entry, then the sch
     none: undefined,
   });
   const md = renderApiPageMarkdown(page);
-  assert.match(md, /`own`[^\n]*\n\s+- [^\n]*example `20`/);
-  assert.match(md, /`listed`[^\n]*\n\s+- [^\n]*example `"inline"`/);
+  assert.match(md, /`own`[^\n]*\n\s+- [^\n]*example: `20`/);
+  assert.match(md, /`listed`[^\n]*\n\s+- [^\n]*example: `"inline"`/);
 });
