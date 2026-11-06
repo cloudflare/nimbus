@@ -103,3 +103,40 @@ for (const [name, file] of [
     });
   }
 }
+
+test("an unnamed branch whose label matches a mapped schema's keeps its own fields", async () => {
+  const spec = `
+openapi: 3.1.0
+info: { title: T, version: "1" }
+paths:
+  /things:
+    post:
+      operationId: createThing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/object"
+                - type: object
+                  properties:
+                    alternativeOnly: { type: string }
+              discriminator:
+                propertyName: kind
+                mapping:
+                  mapped: "#/components/schemas/object"
+      responses:
+        "204": { description: Done }
+components:
+  schemas:
+    object:
+      type: object
+      properties:
+        kind: { type: string }
+        mappedOnly: { type: string }
+`;
+  const model = await buildApiModel({ collection: "api", label: "spec.yaml", spec, schemaPages: false });
+  const md = renderApiPageMarkdown(getApiPageProps(model, "createThing") as never);
+  assert.match(md, /mappedOnly/);
+  assert.match(md, /alternativeOnly/, "the unnamed branch isn't folded into the mapped one");
+});

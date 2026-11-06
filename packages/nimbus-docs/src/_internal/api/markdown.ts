@@ -360,10 +360,12 @@ interface UnionEntry {
 function unionEntries(union: ApiUnionView): UnionEntry[] {
   const mapping = union.mapping ?? [];
   if (mapping.length === 0) return union.variants.map((variant) => ({ variant }));
-  const mapped = new Set(mapping.map((m) => m.variant.href ?? m.variant.label));
+  // By schema name, as the page matches them (type-display.ts): an unnamed
+  // branch is never a mapped one, even when its label (`object`) matches.
+  const mapped = new Set(mapping.map((m) => m.variant.name));
   return [
     ...mapping.map((m) => ({ variant: m.variant, value: m.value })),
-    ...union.variants.filter((v) => !mapped.has(v.href ?? v.label)).map((variant) => ({ variant })),
+    ...union.variants.filter((v) => !v.name || !mapped.has(v.name)).map((variant) => ({ variant })),
   ];
 }
 
