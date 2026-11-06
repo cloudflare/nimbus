@@ -1086,7 +1086,7 @@
       "affected": "Sites with the starter's src/layouts/DocsLayout.astro or, with an API reference, src/components/ui/api-layout/ApiLayout.astro.",
       "instructions": [
         "No action is needed: the layouts keep their props and look.",
-        "Take the change with nimbus-docs diff src/layouts/DocsLayout.astro --apply and nimbus-docs diff src/components/ui/api-layout/ApiLayout.astro --apply.",
+        "Take the DocsLayout change with nimbus-docs diff src/layouts/DocsLayout.astro --apply. ApiLayout is a registry component, which nimbus-docs diff doesn't cover: if it's unmodified, update it with nimbus-docs add api-layout --overwrite.",
         "If you edited DocsLayout, merge by hand: move the <main id=\"main-content\"> element to the start of the <div class=\"flex\"> that holds it, and add order-first to the desktop sidebar <aside> and to the no-sidebar spacer <div>. Leave the sidebar's inline restore script after the sidebar.",
         "If you edited ApiLayout, merge by hand: move the <div data-api-layout> block (main, table of contents and code rail together) before the sidebar <aside>, give the outer <div> md:grid md:grid-cols-[15rem_minmax(0,1fr)] lg:grid-cols-[var(--nb-sidebar-width)_minmax(0,1fr)] in place of flex, and add md:col-start-1 md:row-start-1 to the <aside> and md:col-start-2 md:row-start-1 to the data-api-layout <div>. The nav-state inline script stays right after the <aside>."
       ],
@@ -1104,7 +1104,7 @@
       "affected": "Sites with the starter's src/components/ui/page-actions/PageActions.astro or, with an API reference, src/components/ui/api-field-row/ApiUnionExplorer.astro.",
       "instructions": [
         "No action is needed: both components keep their props and look.",
-        "Take the changes with nimbus-docs diff src/components/ui/page-actions/PageActions.astro --apply and nimbus-docs diff src/components/ui/api-field-row/ApiUnionExplorer.astro --apply.",
+        "Take the PageActions change with nimbus-docs diff src/components/ui/page-actions/PageActions.astro --apply. ApiUnionExplorer is part of the api-field-row registry component, which nimbus-docs diff doesn't cover: if it's unmodified, update it with nimbus-docs add api-field-row --overwrite.",
         "To merge by hand: in PageActions, change the row's root <div data-nb-page-actions> to <nav aria-label=\"Page actions\" data-nb-page-actions>, closing it with </nav>. In ApiUnionExplorer, add data-markdown-ignore to the <div class=\"fl-desc\"> that holds the \"View … schema →\" link."
       ],
       "verify": [
