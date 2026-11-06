@@ -49,6 +49,20 @@
     "933e3aa": {
       "components": {
         "schemas": {
+          "Owner": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "pets": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/x-ext/933e3aa/components/schemas/Pet"
+                }
+              }
+            }
+          },
           "Pet": {
             "type": "object",
             "properties": {
@@ -59,20 +73,6 @@
                 "$ref": "#/x-ext/933e3aa/components/schemas/Owner"
               },
               "friends": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/x-ext/933e3aa/components/schemas/Pet"
-                }
-              }
-            }
-          },
-          "Owner": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string"
-              },
-              "pets": {
                 "type": "array",
                 "items": {
                   "$ref": "#/x-ext/933e3aa/components/schemas/Pet"
@@ -113,22 +113,8 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/x-ext/4b96100/components/schemas/Error"
+                  "$ref": "#/components/schemas/Error"
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "4b96100": {
-      "components": {
-        "schemas": {
-          "Error": {
-            "type": "object",
-            "properties": {
-              "message": {
-                "type": "string"
               }
             }
           }

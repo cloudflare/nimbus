@@ -10,6 +10,8 @@ import { registerHooks } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { apiCollection } from "../src/content.js";
+import { checkEnv } from "../src/check/env.js";
+import { parseNimbusConfig } from "../src/_internal/parse-nimbus-config.js";
 import {
   activatePreparedApiNav,
   isPreparedApiPage,
@@ -122,6 +124,44 @@ before(async () => {
     collection: "api",
     spec: fixtureText("smallco.yaml"),
   });
+});
+
+describe("Node runtime requirement", () => {
+  for (const [version, supported] of [
+    ["20.20.0", false],
+    ["22.23.3", false],
+    ["22.23.4-rc.1", false],
+    ["22.23.4", true],
+    ["22.23.4+build.1", true],
+    ["22.23.5-nightly.20261028", true],
+    ["24.0.0", true],
+    ["24.15.0", true],
+    ["25.0.0-rc.1", true],
+    ["26.0.0-rc.1", true],
+    ["27.0.0-nightly.20261028", true],
+    ["28.0.0", true],
+  ] as const) {
+    test(`API loading and environment check ${supported ? "accept" : "reject"} Node ${version}`, async () => {
+      const descriptor = Object.getOwnPropertyDescriptor(process.versions, "node")!;
+      Object.defineProperty(process.versions, "node", { ...descriptor, value: version });
+      try {
+        const report = checkEnv(ROOT, parseNimbusConfig(ROOT));
+        const finding = report.findings.find(({ code }) => code === "nimbus/node-version");
+        const loading = runLoader("api", "test/fixtures/api/smallco.yaml");
+        if (supported) {
+          assert.equal(finding, undefined);
+          const { store } = await loading;
+          assert.ok(store.has("index"));
+        } else {
+          assert.equal(finding?.severity, "error");
+          assert.ok(finding.message.includes(">=22.23.4"));
+          await assert.rejects(loading, /Node >=22\.23\.4 is required/);
+        }
+      } finally {
+        Object.defineProperty(process.versions, "node", descriptor);
+      }
+    });
+  }
 });
 
 describe("apiCollection loader — output-aware index", () => {

@@ -49,9 +49,7 @@ if (!LANES.includes(LANE)) {
 // The lanes that serve the site turn on the remote MCP server too.
 const MCP = LANE === "node" || LANE === "cloudflare";
 
-// Package manager for the scaffold install/build. Default is the ambient pnpm
-// (pinned pnpm 9); set SCAFFOLD_PNPM to a corepack spec (e.g. `pnpm@latest`) to
-// exercise the build-scripts gate under a modern pnpm the pin 9 predates.
+// Override the workspace pnpm with a Corepack spec for scaffold checks.
 const SCAFFOLD_PNPM = process.env.SCAFFOLD_PNPM;
 const [SCAFFOLD_PM_BIN, SCAFFOLD_PM_PREFIX] = SCAFFOLD_PNPM
   ? ["corepack", [SCAFFOLD_PNPM]]

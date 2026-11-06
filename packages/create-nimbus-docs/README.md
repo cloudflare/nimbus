@@ -2,7 +2,7 @@
 
 Create a [Nimbus](https://nimbus-docs.com) docs site.
 
-Requires Node.js 22.12.0 or later.
+Requires Node.js 22.23.4 or later.
 
 ```sh
 npx @cloudflare/create-nimbus-docs@latest my-docs

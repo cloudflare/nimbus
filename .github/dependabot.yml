@@ -14,7 +14,10 @@ updates:
         patterns:
           - "*"
     ignore:
-      # Types track the oldest supported node (engines: >=22.12.0).
+      # Types track the oldest supported Node major.
       - dependency-name: "@types/node"
         update-types:
           - version-update:semver-major
+      # Keep 0.20.3: newer declaration bundling regressed public ApiExtensions augmentation.
+      # Revisit manually with packages/nimbus-docs/test/api-extensions.test.ts.
+      - dependency-name: "tsdown"
