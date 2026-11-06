@@ -1,5 +1,21 @@
 # @cloudflare/nimbus-docs
 
+## 0.19.4
+
+### Patch Changes
+
+- [#338](https://github.com/cloudflare/nimbus/pull/338) [`fb01af8`](https://github.com/cloudflare/nimbus/commit/fb01af8c9161ec38eff84aba73265aed6fc7e4ae) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - API pages' Markdown versions start with a `# Title` line and no longer repeat the description in their frontmatter.
+  - `llms-full.txt` no longer repeats an API page's description above its Markdown.
+  - Headings in API descriptions keep their structure, demoted below their section, instead of showing as escaped `\###` text.
+  - The code copy button comes before its code in Tab order.
+  - Following a link to a field inside a collapsed section scrolls once, to the field.
+
+- [#336](https://github.com/cloudflare/nimbus/pull/336) [`41ade23`](https://github.com/cloudflare/nimbus/commit/41ade230d3baa742c8754edd437ed26f2b95ba72) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - API builds that keep `.nimbus/cache` between runs only highlight the code samples that changed.
+
+- [#333](https://github.com/cloudflare/nimbus/pull/333) [`fdb7ba0`](https://github.com/cloudflare/nimbus/commit/fdb7ba0fdd42b2e3df49acf75ca78ba45d82f572) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Large API sites build faster: each repeated description and code sample is rendered once per build.
+
+- [#335](https://github.com/cloudflare/nimbus/pull/335) [`993d5c1`](https://github.com/cloudflare/nimbus/commit/993d5c186a7af2d6d5b9fdcd95eac2dab7823108) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - `shiki.css` no longer keeps code styles from earlier releases when CI keeps `.nimbus/cache` between builds. The first build after upgrading prepares every API version again.
+
 ## 0.19.3
 
 ### Patch Changes
