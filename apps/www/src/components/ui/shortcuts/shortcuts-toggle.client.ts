@@ -6,16 +6,17 @@ import {
   syncShortcutHints,
 } from "@cloudflare/nimbus-docs/client";
 
+// The switch flips itself; this keeps it and the reader's setting in step.
 mount("[data-nb-shortcuts-toggle]", (button) => {
-  const sync = () => button.setAttribute("aria-pressed", String(singleKeyShortcutsEnabled()));
-  const toggle = () => setSingleKeyShortcutsEnabled(!singleKeyShortcutsEnabled());
+  const sync = () => button.setAttribute("aria-checked", String(singleKeyShortcutsEnabled()));
+  const change = () => setSingleKeyShortcutsEnabled(button.getAttribute("aria-checked") === "true");
   sync();
   // The rest of the page follows the switch: hints hide, `aria-keyshortcuts` go.
   syncShortcutHints();
-  button.addEventListener("click", toggle);
+  button.addEventListener("change", change);
   document.addEventListener(SHORTCUTS_CHANGE, sync);
   return () => {
-    button.removeEventListener("click", toggle);
+    button.removeEventListener("change", change);
     document.removeEventListener(SHORTCUTS_CHANGE, sync);
   };
 });

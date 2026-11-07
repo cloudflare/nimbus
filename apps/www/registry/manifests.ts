@@ -81,7 +81,7 @@ export const MANIFESTS = {
       "components/ui/shortcuts/shortcuts-toggle.client.ts",
       "components/ui/shortcuts/index.ts",
     ],
-    registryDependencies: ["cn"],
+    registryDependencies: ["cn", "switch"],
   },
 
   variants: {
@@ -114,6 +114,13 @@ export const MANIFESTS = {
     title: "Aside",
     description: "Generic boxed callout — note, tip, caution, or danger.",
     registryDependencies: ["cn"],
+  },
+
+  switch: {
+    type: "registry:ui",
+    title: "Switch",
+    description: "On/off control: a role=\"switch\" button whose aria-checked holds the state; a click flips it and fires change.",
+    registryDependencies: ["cn", "variants"],
   },
 
   badge: {
