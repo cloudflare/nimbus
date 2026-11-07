@@ -12,11 +12,13 @@ import { STARTER_MANIFEST } from "../../nimbus-starter-source/starter.manifest.m
 import {
   classifyStarter,
   diffCommand,
+  formatOutdatedPretty,
   gatherOutdated,
   STARTER_ROOT_FILES,
   type TemplateSource,
   labelWithVersions,
   registryDrift,
+  reviewedBehind,
   selectStarterApplyTarget,
 } from "../src/cli/upgrade.js";
 import { bytesHash, readNimbusJson } from "../src/cli/nimbus-json.js";
@@ -614,5 +616,45 @@ test("an untouched static site's redundant prerender lines from an older starter
     assert.doesNotMatch((await runDiff(route, {}, { cwd: project, source })).stdout, /prerender/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a review recorded at the installed prerelease is current; an older one is behind", () => {
+  assert.equal(reviewedBehind("0.19.0-pr.284.sha7d95d00", "0.19.0-pr.284.sha7d95d00"), false);
+  assert.equal(reviewedBehind("0.18.0", "0.19.0-pr.284.sha7d95d00"), true);
+  assert.equal(reviewedBehind("0.19.0-pr.270.shaabc1234", "0.19.0-pr.284.sha7d95d00"), true);
+  assert.equal(reviewedBehind("0.19.0", "0.19.0"), false);
+  assert.equal(reviewedBehind("0.18.2", "0.19.0"), true);
+});
+
+test("a preview package on a release scaffold says the starter comparison can't see its changes", async () => {
+  const fixture = starterFixture();
+  try {
+    const pkg = path.join(fixture.project, "node_modules", "@cloudflare", "nimbus-docs");
+    fs.mkdirSync(pkg, { recursive: true });
+    const install = (version: string) =>
+      fs.writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ name: "@cloudflare/nimbus-docs", version }));
+    const starterWarnings = (result: Awaited<ReturnType<typeof gatherOutdated>>) =>
+      result.warnings.filter((warning) => warning.scope === "starter");
+
+    install("0.19.2-pr.309.sha1234567");
+    const preview = await gatherOutdated(fixture.project, { json: true }, fixture.source);
+    assert.deepEqual(starterWarnings(preview).map((warning) => warning.code), ["preview-package"]);
+    assert.match(starterWarnings(preview)[0]!.message, /Preview 0\.19\.2-pr\.309\.sha1234567 has no published starter, so this compares with templates-v0\.2\.0/);
+    const pretty = formatOutdatedPretty(preview, {});
+    assert.doesNotMatch(pretty, /Starter files: unavailable/);
+    assert.match(pretty, /! Preview 0\.19\.2-pr\.309\.sha1234567 has no published starter/);
+
+    install("0.19.1");
+    assert.deepEqual(starterWarnings(await gatherOutdated(fixture.project, { json: true }, fixture.source)), []);
+
+    install("0.19.2-pr.309.sha1234567");
+    const offline = await gatherOutdated(fixture.project, {
+      json: true,
+      templateDir: path.join(path.dirname(fixture.project), "templates-v0.2.0"),
+    });
+    assert.equal(offline.warnings.some((warning) => warning.code === "preview-package"), false);
+  } finally {
+    fixture.cleanup();
   }
 });

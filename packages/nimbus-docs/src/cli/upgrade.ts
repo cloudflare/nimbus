@@ -204,7 +204,13 @@ export interface OutdatedResult {
   }>;
   warnings: Array<{
     scope: "starter" | "package-apis" | "registry";
-    code: StarterCompatibility["code"] | "preview-build" | "newer-release" | "reviewed-behind" | "registry-dependency-behind";
+    code:
+      | StarterCompatibility["code"]
+      | "preview-build"
+      | "preview-package"
+      | "newer-release"
+      | "reviewed-behind"
+      | "registry-dependency-behind";
     message: string;
   }>;
 }
@@ -438,7 +444,7 @@ export async function gatherOutdated(
   if (
     baseline.fromVersion &&
     !baseline.error &&
-    lt(baseline.fromVersion, withoutPrerelease(baseline.targetVersion)) &&
+    reviewedBehind(baseline.fromVersion, baseline.targetVersion) &&
     !packageApis.some((item) => item.mode !== "optional") &&
     !errors.some((error) => error.scope === "package-apis")
   ) {
@@ -502,6 +508,15 @@ export async function gatherOutdated(
     let gathered: Gathered | null = null;
     try {
       gathered = await gatherStarter(cwd, nimbus, flags, source);
+      // A preview publishes no starter, so a released one is all there is to
+      // compare with: say so rather than report the preview's files current.
+      if (installed && prerelease(installed) !== null && !flags.templateDir) {
+        warnings.push({
+          scope: "starter",
+          code: "preview-package",
+          message: `Preview ${installed} has no published starter, so this compares with ${gathered.upstreamTag}; its starter changes show once it is released.`,
+        });
+      }
       const shown = (finding: StarterFinding) => flags.all || !isContent(finding.treeFile);
       hiddenContent = gathered.findings.filter((finding) => isContent(finding.treeFile) && !flags.all).length;
       const { compatibility } = gathered;
@@ -649,7 +664,7 @@ function classifyRegistryLocal(cwd: string, nimbus: NimbusJson, component: Insta
   return bytesHash(files) === component.hash ? "clean" : "customized";
 }
 
-function formatOutdatedPretty(result: OutdatedResult, flags: UpgradeFlags): string {
+export function formatOutdatedPretty(result: OutdatedResult, flags: UpgradeFlags): string {
   const lines: string[] = [];
   const unavailable = (scope: OutdatedResult["errors"][number]["scope"]): boolean =>
     result.errors.some((error) => error.scope === scope) ||
@@ -1019,8 +1034,12 @@ function isPreviewScaffold(nimbus: NimbusJson): boolean {
   );
 }
 
-function withoutPrerelease(version: string): string {
-  return version.replace(/-.*$/, "");
+/**
+ * Whether a recorded review is behind the installed Nimbus. A review of the
+ * installed prerelease itself is current; an older one, release or preview, is behind.
+ */
+export function reviewedBehind(reviewed: string, installed: string): boolean {
+  return lt(reviewed, installed);
 }
 
 /** The latest published Nimbus, or null offline or when the registry is slow. */
