@@ -201,6 +201,10 @@ export interface LlmsEndpointApiEntry {
   id: string;
   data: Record<string, unknown>;
   hidden?: boolean;
+  /** The entry id of the sidebar group the page is listed under: its own id
+   * when it indexes a group (a product, tag or resource), else its nearest
+   * ancestor's. Absent for a top-level page, which is placed by its URL. */
+  section?: string;
 }
 
 interface AgentEndpointAssetState {
@@ -780,6 +784,8 @@ interface PreparedLlmsPage {
   /** An API page: its `llms-full.txt` block has a one-line title and no
    * description, which its Markdown already prints. */
   api?: boolean;
+  /** An API page's sidebar group (`LlmsEndpointApiEntry.section`). */
+  section?: string;
 }
 
 /**
@@ -797,7 +803,7 @@ interface PreparedLlmsGroup {
 }
 
 function preparedLlmsPage(
-  entry: Pick<PreparedMarkdownEntry, "collection" | "id" | "data">,
+  entry: Pick<PreparedMarkdownEntry, "collection" | "id" | "data"> & { section?: string },
   markdown: string,
   options: BakeAgentEndpointAssetsOptions,
   api = false,
@@ -819,7 +825,19 @@ function preparedLlmsPage(
     markdown,
     groupLabel: sidebarGroupLabel(entry.data),
     ...(api ? { api } : {}),
+    ...(entry.section !== undefined ? { section: entry.section } : {}),
   };
+}
+
+/**
+ * Where a page sits in the llms indexes. A page with a sidebar group sits in
+ * that group, wherever its URL is: its group's own index page at the group's
+ * id, any other page as a leaf directly under it, named so it can't merge
+ * with a sub-section. Every other page sits at its URL.
+ */
+function llmsPlacement(page: Pick<PreparedLlmsPage, "id" | "section">): string {
+  if (page.section === undefined || page.section === page.id) return page.id;
+  return `${page.section}/\u0000${page.id.replaceAll("/", "\u0001")}`;
 }
 
 /**
@@ -827,11 +845,11 @@ function preparedLlmsPage(
  * collection's URL without the leading `/` (`products/sdk`).
  */
 function llmsSection(
-  page: Pick<PreparedLlmsPage, "collection" | "id">,
+  page: Pick<PreparedLlmsPage, "collection" | "id" | "section">,
   options: BakeAgentEndpointAssetsOptions,
 ): string {
   const mount = collectionMountPrefix(page.collection, mountContext(options));
-  return mount ? mount.slice(1) : page.id.split("/")[0]!;
+  return mount ? mount.slice(1) : llmsPlacement(page).split("/")[0]!;
 }
 
 /** Whether a page's collection is served at the root, like `docs`. */
@@ -925,7 +943,7 @@ function groupPreparedLlmsPages(
   const leaves: PreparedLlmsPage[] = [];
   const groups: PreparedLlmsGroup[] = [];
   for (const [slug, members] of primary) {
-    if (members.length === 1 && members[0]!.id === slug) {
+    if (members.length === 1 && llmsPlacement(members[0]!) === slug) {
       leaves.push(members[0]!);
     } else {
       groups.push(
@@ -933,7 +951,7 @@ function groupPreparedLlmsPages(
           ? nestLlmsGroup(
               slug,
               "primary",
-              members.map((page) => ({ page, rest: page.id.slice(slug.length + 1) })),
+              members.map((page) => ({ page, rest: llmsPlacement(page).slice(slug.length + 1) })),
             )
           : { slug, label: groupLabel(slug, members), kind: "primary", members, children: [] },
       );
@@ -942,7 +960,7 @@ function groupPreparedLlmsPages(
   for (const [slug, members] of secondary) {
     const kind: PreparedLlmsGroup["kind"] = versionSlugs.has(slug) ? "version" : "secondary";
     const group: PreparedLlmsGroup = nested
-      ? nestLlmsGroup(slug, kind, members.map((page) => ({ page, rest: page.id })))
+      ? nestLlmsGroup(slug, kind, members.map((page) => ({ page, rest: llmsPlacement(page) })))
       : { slug, label: groupLabel(slug, members), kind, members, children: [] };
     if (kind === "version") group.label = slug;
     groups.push(group);
