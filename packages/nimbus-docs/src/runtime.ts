@@ -812,6 +812,14 @@ export function clearNavCaches(): void {
   clearContentCaches();
 }
 
+// In `astro dev`, pages render in a module runner (Node's, or workerd's) with
+// its own copy of these caches. Astro tells each runner when the content store
+// changes, and clears its own route cache on the same event.
+(import.meta as { hot?: { on(event: string, cb: () => void): void } }).hot?.on(
+  "astro:content-changed",
+  clearNavCaches,
+);
+
 function deepFreeze(items: readonly SidebarItem[]): void {
   for (const item of items) {
     if (item.type === "group") deepFreeze(item.children);
@@ -1420,9 +1428,12 @@ async function resolveProseRoute<C extends string>(
  * also claims `/`, so a site keeps one or the other.
  */
 export const getDocsStaticPaths: GetStaticPaths = async () => {
-  // Docs-specific helper: always reads the `docs` collection. Other
-  // collections require their own `pages/<name>/[...slug].astro` with
-  // a one-line `getCollection("<name>")`-based getStaticPaths.
+  // Docs-specific helper: always reads the `docs` collection; other
+  // collections use getCollectionStaticPaths. A site whose content.config.ts
+  // declares no `docs` keeps the starter's route with nothing to serve, so its
+  // URLs are 404s. A `docs` that's declared but isn't a page collection is
+  // still an error.
+  if (await loadPrimaryCollectionAbsent()) return [];
   await assertPageCollection(PRIMARY_COLLECTION);
   return collectionPaths(PRIMARY_COLLECTION, await getVisibleEntries(["docs"]));
 };

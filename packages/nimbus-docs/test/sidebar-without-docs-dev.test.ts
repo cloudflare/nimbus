@@ -27,7 +27,7 @@ walk(await getSidebar("/"));
 <html><body><main>labels:{labels.join(",")};</main></body></html>
 `;
 
-test("dev adds and removes docs pages in the sidebar as content.config.ts declares docs", { timeout: 240_000, skip: "dev keeps a cached sidebar after content.config.ts adds a collection, on main too" }, async () => {
+test("dev adds and removes docs pages in the sidebar as content.config.ts declares docs", { timeout: 240_000 }, async () => {
   const files = {
     "src/content.config.ts": config(`guides: collection("./src/content/guides")`),
     "src/content/guides/start.md": "---\ntitle: Start\n---\nStart.\n",
@@ -35,7 +35,12 @@ test("dev adds and removes docs pages in the sidebar as content.config.ts declar
     "src/pages/index.astro": PAGE,
   };
   await withDevSite(files, {}, async ({ write, page, serves, since, mark }) => {
-    const labels = async () => /labels:([^;]*);/.exec((await page("/")).body)?.[1]?.split(",") ?? [];
+    // A broken page must not pass for "Intro is gone".
+    const labels = async () => {
+      const { status, body } = await page("/");
+      assert.equal(status, 200, body.slice(0, 300));
+      return /labels:([^;]*);/.exec(body)?.[1]?.split(",") ?? [];
+    };
     // A request during the content sync caches the old sidebar; edit, then
     // ask once the sync is done.
     const edit = async (collections: string) => {
