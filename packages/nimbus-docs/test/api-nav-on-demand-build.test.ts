@@ -302,6 +302,21 @@ describe("outdated starter components", () => {
       "components/ui/api-sidebar/ApiSidebarPanel.astro": "data-nb-nav-build={navBuildId}",
     });
     assert.equal(outdatedApiSidebarError(onDemand, moved, moved), undefined);
+    const own = await site({
+      [item]: "item.childrenHref",
+      [layout]: "<ApiNavSidebar nav={nav} />",
+      "components/api-nav-sidebar/ApiNavSidebar.astro": "data-nb-nav-build={navBuildId}",
+    });
+    assert.equal(outdatedApiSidebarError(onDemand, own, own), undefined);
+  });
+
+  test("flag an old ApiLayout even when a newer panel is installed but not rendered", async () => {
+    const stale = await site({
+      [item]: "item.childrenHref",
+      [layout]: "<ApiSidebar items={nav.items} />",
+      "components/ui/api-sidebar/ApiSidebarPanel.astro": "data-nb-nav-build={navBuildId}",
+    });
+    assert.match(outdatedApiSidebarError(onDemand, stale, stale) ?? "", /ApiLayout\.astro predates it/);
   });
 });
 
