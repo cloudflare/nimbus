@@ -2586,6 +2586,8 @@ export async function getVersionLandingUrl(
   return inVersion[0]!.url;
 }
 
+export { getPageLanguage, type PageLanguage } from "./_internal/page-language.js";
+
 export async function getVersionStatus(
   collectionId: string,
 ): Promise<VersionStatus | null> {

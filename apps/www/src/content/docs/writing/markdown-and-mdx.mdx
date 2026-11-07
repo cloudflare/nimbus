@@ -169,6 +169,16 @@ nimbus(config, {
 });
 ```
 
+Type a plugin of your own with `HastPluginDefinition` from the same entry:
+
+```ts
+import type { HastPluginDefinition } from "@cloudflare/nimbus-docs/markdown";
+
+export function mermaidFence(): HastPluginDefinition {
+  // …
+}
+```
+
 Remark and rehype plugins passed to `mdx()` silently do nothing, because Nimbus parses Markdown with Sätteri, not unified. Use `markdown.mdastPlugins` and `markdown.hastPlugins` instead.
 
 To keep a unified plugin you can't replace, set `markdown.processor` to a unified processor, and turn off features that need Sätteri, such as admonitions.

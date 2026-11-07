@@ -68,6 +68,7 @@ test("only universally skippable entries are optional", () => {
       "og-font-path",
       "page-actions-out-of-search",
       "page-chrome-for-agents",
+      "page-language",
       "page-not-found-head",
       "page-urls-and-llms-routes",
       "pnpm-sharp",

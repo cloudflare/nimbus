@@ -1182,6 +1182,24 @@
         "An operation with an HTTP bearer scheme shows HTTP Bearer and Authorization: Bearer <token> in its Authorization section.",
         "An OAuth2 operation lists its scopes."
       ]
+    },
+    {
+      "id": "page-language",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "page-language",
+      "summary": "Optionally let a page set its language and share-image alt text, and write dir=\"rtl\" for a right-to-left language.",
+      "affected": "Sites with the starter's src/layouts/BaseLayout.astro and src/layouts/DocsLayout.astro.",
+      "instructions": [
+        "No action is needed: without these files, pages keep the site's language. og:locale changes to Open Graph's form (en_US) either way, from NimbusHead.",
+        "Take both with nimbus-docs diff src/layouts/BaseLayout.astro --apply and nimbus-docs diff src/layouts/DocsLayout.astro --apply.",
+        "If you edited them, merge by hand: BaseLayout reads locale and socialImageAlt from its props, passes both to NimbusHead, and writes <html lang={lang} dir={dir}> from await getPageLanguage(locale) (from @cloudflare/nimbus-docs/runtime); DocsLayout destructures both and passes them to BaseLayout.",
+        "With a right-to-left config.locale (Arabic, Hebrew, Persian, …), every page gains dir=\"rtl\" once BaseLayout is updated."
+      ],
+      "verify": [
+        "A page given locale=\"fr\" renders <html lang=\"fr\"> and og:locale fr_FR.",
+        "A page given locale=\"ar\" renders <html lang=\"ar\" dir=\"rtl\">."
+      ]
     }
   ]
 }

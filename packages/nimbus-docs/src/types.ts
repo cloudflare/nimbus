@@ -1069,6 +1069,14 @@ export interface BasePageProps {
    * cards and files in `public/` referenced by the config are sized already.
    */
   socialImageSize?: { width: number; height: number };
+  /** Alt text for `socialImage`. Falls back to `config.socialImageAlt`. */
+  socialImageAlt?: string;
+  /**
+   * The page's language as a BCP 47 tag (`fr`, `ar-SA`), when it differs from
+   * `config.locale`. Sets `<html lang>`, `dir` for a right-to-left language,
+   * `og:locale` and JSON-LD `inLanguage`.
+   */
+  locale?: string;
   /**
    * ISO date for `article:modified_time`. Today this is sourced from
    * frontmatter `lastUpdated`; a future git-based source can populate the
