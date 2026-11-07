@@ -4,6 +4,7 @@ import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 import nimbus, { defineConfig as defineNimbusConfig } from "@cloudflare/nimbus-docs";
 import { tableScroll } from "@cloudflare/nimbus-docs/markdown";
+import { communityRecipesMarkdown } from "./src/lib/community-recipes-markdown";
 import { showcaseMarkdown } from "./src/lib/showcase-markdown";
 import redirects from "./redirects.json" with { type: "json" };
 
@@ -55,7 +56,7 @@ export default defineConfig({
   // each with and without a trailing slash; public/_redirects adds the
   // Markdown versions. Static fork previews read the file for the slash forms.
   redirects: Object.fromEntries(Object.entries(redirects).map(([from, to]) => [from, { status: 301, destination: to }])),
-  integrations: [homepage, react(), nimbus(nimbusConfig, { markdown: { hastPlugins: [tableScroll()], componentMap: showcaseMarkdown } })],
+  integrations: [homepage, react(), nimbus(nimbusConfig, { markdown: { hastPlugins: [tableScroll()], componentMap: { ...showcaseMarkdown, ...communityRecipesMarkdown } } })],
   vite: {
     define: { "import.meta.env.WWW_NOINDEX": JSON.stringify(process.env.WWW_NOINDEX === "1") },
     // Tailwind v4 via its Vite plugin (replaces the PostCSS plugin, which
