@@ -17,6 +17,8 @@ export interface ConfiguredApiProjectors {
   page: ConfiguredApiPageProjector;
   /** Page props without code highlighting or navigation, for Markdown. */
   pageProps: ConfiguredApiPagePropsProjector;
+  /** A version's whole navigation, with no page active. */
+  nav: (collection: string, version: string | null) => Promise<ApiNav>;
 }
 
 interface ApiProjectorState {
@@ -64,4 +66,9 @@ export function projectConfiguredApiPageProps(
   coordinate: string,
 ): Promise<ApiPageProps> {
   return configuredProjectors().pageProps(collection, version, coordinate);
+}
+
+/** A configured API version's whole navigation, for reading order. */
+export function projectConfiguredApiNav(collection: string, version: string | null): Promise<ApiNav> {
+  return configuredProjectors().nav(collection, version);
 }

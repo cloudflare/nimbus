@@ -102,6 +102,7 @@ import { NAV_STATE_KEYS, restoreNavState } from "./client/nav-sidebar.js";
 import {
   projectConfiguredApiPage,
   projectConfiguredApiPageProps,
+  projectConfiguredApiNav,
 } from "./_internal/api-projector.js";
 
 import type {
@@ -679,8 +680,7 @@ async function apiNavOrderOf(
       const target = (await assets.apiAssetTargets(collection)).find((candidate) => version === null ? candidate.isDefault : candidate.version === version);
       return target ? assets.apiAssetMetadata(await assets.readApiAssetIndex(target)).nav.nav.items : undefined;
     }
-    const { getApiModel, getApiNav } = await import("./api/index.js");
-    return getApiNav(await getApiModel(collection, version ?? undefined)).items;
+    return (await projectConfiguredApiNav(collection, version)).items;
   };
   const order = new Map<string, number>();
   for (const group of versions.values()) {

@@ -353,7 +353,16 @@ export async function projectConfiguredApiPageProps(
   );
 }
 
+/** A version's whole navigation, with no page active. */
+export async function projectConfiguredApiVersionNav(
+  collection: string,
+  version: string | null,
+): Promise<ApiNav> {
+  return getApiNav(await configuredApiModel(collection, version));
+}
+
 registerConfiguredApiProjector({
   page: projectConfiguredApiPage,
   pageProps: projectConfiguredApiPageProps,
+  nav: projectConfiguredApiVersionNav,
 });
