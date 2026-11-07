@@ -98,6 +98,7 @@ import {
 } from "./_internal/page-resolution.js";
 import { NAV_STATE_KEYS, restoreNavState } from "./client/nav-sidebar.js";
 import {
+  projectConfiguredApiNav,
   projectConfiguredApiPage,
   projectConfiguredApiPageProps,
 } from "./_internal/api-projector.js";
@@ -1904,6 +1905,67 @@ export async function getApiRoot(
   return page.kind === "api" ? page : null;
 }
 
+/**
+ * The API sidebar, opened at one API page, for any route: a site's own pages
+ * can show the same sidebar as its API pages. `href` is the page's nav `href`:
+ * the API's mount path and, in query mode, its `?version=`, without the site
+ * base. The page and its parents come back expanded, with nothing current and
+ * no previous/next links, since the page asking isn't that API page. `version`
+ * is the version `href` resolved to, as `getApiRoute` returns it.
+ *
+ *   const result = await getApiNav(Astro, { collection: "api", href: "/api/d1/" });
+ *   if (result) { result.nav; result.version; }
+ *
+ * `null` when the collection or page doesn't exist, or `href` redirects. It
+ * reads only navigation, never the page. It throws on a broken build, and, under
+ * `bundle: false`, when the server is at its read limit: an error named
+ * `PageAssetReadOverloadError`, which `getApiRoute` answers with a `503`.
+ */
+export async function getApiNav(
+  astro: RouteContext,
+  options: { collection: string; href: string },
+): Promise<ApiNavResult | null> {
+  const { collection, href } = options;
+  if (!(await loadApiCollections()).includes(collection)) return null;
+  // An href that isn't a URL path names no page.
+  let url: URL;
+  let path: string;
+  try {
+    url = new URL(href, "http://nimbus.invalid");
+    path = decodeURI(url.pathname).replace(/\/+$/, "");
+  } catch {
+    return null;
+  }
+  // The slug is the path below the API's family path, the same for every
+  // version, so `/api/v2/d1/` in path mode is the v2 page `v2/d1`.
+  const family = resolveCollectionPrefix(collection, await loadMountContext()).replace(/\/+$/, "");
+  if (path !== family && !path.startsWith(`${family}/`)) return null;
+  const slug = path.slice(family.length).replace(/^\/+/, "");
+  const result = await resolveApiPage(
+    {
+      props: {},
+      params: { slug: slug || undefined },
+      url,
+      routePattern: "",
+      projection: pageResolutionContext(astro).projection,
+    },
+    { collection },
+    apiLookup(astro, (collection, version, coordinate, entry) =>
+      readApiNav(astro, collection, version, coordinate, entry),
+    ),
+  );
+  // A home part (`/index/<n>/`) is no nav `href`.
+  if (result.status !== "found" || result.page.homePart) return null;
+  const { nav, version } = result.page;
+  return { nav: await withNavList(openApiNav(nav), collection, version), version };
+}
+
+/** What `getApiNav` returns. */
+export interface ApiNavResult {
+  nav: import("./api/index.js").ApiNav;
+  version: string | null;
+}
+
 // `(Astro, options)` and `(Astro, collection, options)` both stay valid: the
 // collection lets a request-rendered route away from its default URL name it.
 function apiRouteArguments(
@@ -1926,38 +1988,16 @@ async function resolveApiRoute(
   const result = await resolveApiPage(
     pageResolutionContext(astro),
     { collection: routeCollection },
-    {
-      getApiCollections: loadApiCollections,
-      getCollectionAt,
-      warn: runtimeWarn,
-      async getApiQueryRouting(collection) {
-        const { apiQueryRouting } = await import("./_internal/api/resolve-versions.js");
-        return apiQueryRouting((await loadNimbusConfig()).api, collection);
-      },
-      async getVisibleEntry(collection, id, ctx) {
-        const { hasApiPageAssets, getApiAssetEntry } =
-          await import("./_internal/api/page-assets-runtime.js");
-        return (await hasApiPageAssets(collection))
-          ? getApiAssetEntry(collection, id, astro.request)
-          : getVisibleEntry(collection, id, ctx);
-      },
-      render(collection, version, coordinate, resolvedEntry) {
-        return renderApiEntry(astro, collection, version, coordinate, resolvedEntry);
-      },
-    },
+    apiLookup(astro, (collection, version, coordinate, resolvedEntry) =>
+      renderApiEntry(astro, collection, version, coordinate, resolvedEntry),
+    ),
   );
   if (result.status !== "found") {
     return proseResolutionResponse(astro, result);
   }
   await assertRouteServesCollection(result.page.collection, astro.routePattern, "getApiStaticPaths");
   const { page, nav, collection, version, coordinate, homePart } = result.page;
-  // The version's page list: an on-demand sidebar's filter and the home's read it.
-  const { navLists, apiLists } = await import("virtual:nimbus/config");
-  const listHref = (lists: typeof navLists | undefined) => {
-    const file = lists?.[collection]?.[version ?? ""];
-    return file ? `/_nimbus/pages/${file}` : undefined;
-  };
-  const sidebarList = listHref(navLists);
+  const { apiLists } = await import("virtual:nimbus/config");
   let home: ApiRouteProps["home"];
   if (page.kind === "api") {
     const { apiHome } = await import("./_internal/api/home-index.js");
@@ -1968,18 +2008,75 @@ async function resolveApiRoute(
         `nimbus-docs: the API home's homeChunkSize is ${props.homeChunkSize ?? "unset"} in getApiStaticPaths("${collection}") but ${size ?? "unset"} in getApiRoute. Pass API_HOME_CHUNK_SIZE to both, as the api-reference recipe's route does.`,
       );
     }
-    home = apiHome(page.index, { homeHref: page.href, part: homePart ?? 1, size, listHref: listHref(apiLists) }) ?? undefined;
+    home = apiHome(page.index, { homeHref: page.href, part: homePart ?? 1, size, listHref: pageListHref(apiLists, collection, version) }) ?? undefined;
     if (!home && homePart) return proseResolutionResponse(astro, { status: "not-found" });
   }
   return {
     // A later part repeats the home's list; it has no Markdown version.
     page: homePart ? { ...page, markdownHref: undefined } : page,
-    nav: sidebarList ? { ...nav, listHref: sidebarList } : nav,
+    nav: await withNavList(nav, collection, version),
     collection,
     version,
     coordinate,
     ...(home ? { home } : {}),
   };
+}
+
+// How an API route finds its page: which collections are APIs, query-mode
+// version routing, the entry for a store id (from the version's index under
+// `bundle: false`), and `read`, which turns the found entry into what the
+// caller needs.
+function apiLookup<R extends object>(
+  astro: RouteContext,
+  read: (
+    collection: string,
+    version: string | null,
+    coordinate: string,
+    resolvedEntry?: Awaited<ReturnType<typeof getVisibleEntry>>,
+  ) => Promise<R>,
+) {
+  return {
+    getApiCollections: loadApiCollections,
+    getCollectionAt,
+    warn: runtimeWarn,
+    async getApiQueryRouting(collection: string) {
+      const { apiQueryRouting } = await import("./_internal/api/resolve-versions.js");
+      return apiQueryRouting((await loadNimbusConfig()).api, collection);
+    },
+    async getVisibleEntry(collection: string, id: string, ctx?: ProjectionContext) {
+      const { hasApiPageAssets, getApiAssetEntry } =
+        await import("./_internal/api/page-assets-runtime.js");
+      return (await hasApiPageAssets(collection))
+        ? getApiAssetEntry(collection, id, astro.request)
+        : getVisibleEntry(collection, id, ctx);
+    },
+    render: (
+      collection: string,
+      version: string | null,
+      coordinate: string,
+      resolvedEntry?: Awaited<ReturnType<typeof getVisibleEntry>>,
+    ) => read(collection, version, coordinate, resolvedEntry),
+  };
+}
+
+// A version's page list file, as the site serves it.
+function pageListHref(
+  lists: Record<string, Record<string, string>> | undefined,
+  collection: string,
+  version: string | null,
+): string | undefined {
+  const file = lists?.[collection]?.[version ?? ""];
+  return file ? `/_nimbus/pages/${file}` : undefined;
+}
+
+// The version's page list goes on its nav: an on-demand sidebar's filter
+// searches it for rows not loaded yet.
+type ApiNav = import("./api/index.js").ApiNav;
+
+async function withNavList(nav: ApiNav, collection: string, version: string | null): Promise<ApiNav> {
+  const { navLists } = await import("virtual:nimbus/config");
+  const listHref = pageListHref(navLists, collection, version);
+  return listHref ? { ...nav, listHref } : nav;
 }
 
 // Read one prepared API page and its navigation, from whichever store the
@@ -2050,8 +2147,7 @@ async function renderApiEntry(
   if (!entry) {
     throw new Error(`Missing prepared API entry for "${coordinate}".`);
   }
-  const { activatePreparedApiNav, isPreparedApiNav, isPreparedApiPage } =
-    await import("./_internal/api/prepared.js");
+  const { isPreparedApiPage } = await import("./_internal/api/prepared.js");
   const prepared = (entry.data as { prepared?: unknown }).prepared;
   if (!isPreparedApiPage(prepared)) {
     if (THIN_API_ENTRIES) {
@@ -2061,14 +2157,37 @@ async function renderApiEntry(
       `nimbus-docs: API entry "${entry.id}" is missing prepared page data. Rebuild the content collection.`,
     );
   }
+  return {
+    page: prepared.page,
+    nav: await preparedEntryNav(entry, prepared.navEntryId, {
+      collection,
+      version,
+      coordinate,
+      projection,
+      overview: prepared.page.kind === "api",
+    }),
+  };
+}
+
+// A prepared entry's navigation: the version's prepared nav (on its nav entry),
+// opened at `coordinate` and bounded by the sidebar mode.
+async function preparedEntryNav(
+  entry: NonNullable<Awaited<ReturnType<typeof getVisibleEntry>>>,
+  navEntryId: string,
+  options: {
+    collection: string;
+    version: string | null;
+    coordinate: string;
+    projection?: ProjectionContext;
+    overview: boolean;
+  },
+): Promise<ApiNav> {
+  const { collection, version, coordinate } = options;
   const navEntry =
-    entry.id === prepared.navEntryId
+    entry.id === navEntryId
       ? entry
-      : await getVisibleEntry(
-          collection,
-          prepared.navEntryId,
-          projection,
-        );
+      : await getVisibleEntry(collection, navEntryId, options.projection);
+  const { activatePreparedApiNav, isPreparedApiNav } = await import("./_internal/api/prepared.js");
   const preparedNav = (
     navEntry?.data as { prepared?: { nav?: unknown } } | undefined
   )?.prepared?.nav;
@@ -2088,17 +2207,58 @@ async function renderApiEntry(
   ]);
   const target = resolveApiVersion(config.api, collection, version, await loadMountContext());
   const nav = activatePreparedApiNav(preparedNav, coordinate);
+  return target
+    ? applyApiSidebarMode(nav, {
+        mode: target.sidebar,
+        mountPath: target.mountPath,
+        ...targetUrlFields(target),
+        overview: options.overview,
+      })
+    : nav;
+}
+
+// One API page's navigation alone, as `renderApiEntry` gives it with the page,
+// from whichever store the collection uses. Never reads, projects or copies the
+// page: under `bundle: false` it reads only the version's index. The overview is
+// the collection's own coordinate.
+async function readApiNav(
+  astro: RouteContext,
+  collection: string,
+  version: string | null,
+  coordinate: string,
+  entry: Awaited<ReturnType<typeof getVisibleEntry>> | undefined,
+): Promise<{ nav: ApiNav }> {
+  const { hasApiPageAssets, getApiAssetNav } = await import("./_internal/api/page-assets-runtime.js");
+  if (await hasApiPageAssets(collection)) {
+    return getApiAssetNav(collection, version, coordinate, astro.request);
+  }
+  if (!entry) throw new Error(`Missing prepared API entry for "${coordinate}".`);
+  const { preparedNavEntryId } = await import("./_internal/api/prepared.js");
+  // Only the envelope is read: the prepared page is left alone.
+  const navEntryId = preparedNavEntryId((entry.data as { prepared?: unknown }).prepared);
+  const overview = coordinate === collection;
+  if (navEntryId === undefined) {
+    if (THIN_API_ENTRIES) return { nav: await projectConfiguredApiNav(collection, version, coordinate) };
+    throw new Error(
+      `nimbus-docs: API entry "${entry.id}" is missing prepared page data. Rebuild the content collection.`,
+    );
+  }
+  const projection = pageResolutionContext(astro).projection;
   return {
-    page: prepared.page,
-    nav: target
-      ? applyApiSidebarMode(nav, {
-          mode: target.sidebar,
-          mountPath: target.mountPath,
-          ...targetUrlFields(target),
-          overview: prepared.page.kind === "api",
-        })
-      : nav,
+    nav: await preparedEntryNav(entry, navEntryId, { collection, version, coordinate, projection, overview }),
   };
+}
+
+// The trail to the page stays open, but nothing is current: the page asking
+// isn't this API page. Its previous/next links go too.
+function openApiNav(nav: ApiNav): ApiNav {
+  const open = (item: ApiNav["items"][number]): ApiNav["items"][number] => {
+    if (!item.active && !item.expanded) return item;
+    const { active: _active, ...rest } = item;
+    return { ...rest, expanded: true, children: item.children.map(open) };
+  };
+  const { prevNext: _prevNext, ...rest } = nav;
+  return { ...rest, items: nav.items.map(open) };
 }
 
 /**

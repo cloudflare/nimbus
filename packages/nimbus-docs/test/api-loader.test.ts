@@ -20,6 +20,7 @@ import {
   projectApiModelPage,
   projectConfiguredApiPage,
   projectConfiguredApiPageProps,
+  projectConfiguredApiNav,
 } from "../src/_internal/api-loader.js";
 import { registerConfiguredApiProjector } from "../src/_internal/api-projector.js";
 import {
@@ -366,6 +367,8 @@ describe("apiCollection loader — output-aware index", () => {
         );
         const { nav } = await projectConfiguredApiPage("api", version, coordinate);
         assert.deepEqual(nav, getApiNav(model, coordinate));
+        // The nav alone, for a page that isn't this one, is the same nav.
+        assert.deepEqual(await projectConfiguredApiNav("api", version, coordinate), nav);
       }
     }
   });
@@ -391,6 +394,9 @@ describe("apiCollection loader — output-aware index", () => {
     registerConfiguredApiProjector({
       page: () => {
         throw new Error("Markdown must not request the HTML projection");
+      },
+      nav: () => {
+        throw new Error("Markdown must not request navigation");
       },
       pageProps: async (collection, version, coordinate) => {
         calls.push([collection, version, coordinate]);
@@ -418,6 +424,7 @@ describe("apiCollection loader — output-aware index", () => {
       registerConfiguredApiProjector({
         page: projectConfiguredApiPage,
         pageProps: projectConfiguredApiPageProps,
+        nav: projectConfiguredApiNav,
       });
       delete thinGlobal.__NIMBUS_THIN_API_ENTRIES__;
       hooks.deregister();
