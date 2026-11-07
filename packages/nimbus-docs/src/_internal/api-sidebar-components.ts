@@ -52,7 +52,9 @@ export function navBuildId(
 
 /**
  * `sidebar: "on-demand"` relies on two starter components: `ApiSidebarItem`
- * renders collapsed groups as loadable, and `ApiLayout` mounts the loader.
+ * renders collapsed groups as loadable, and the sidebar panel mounts the
+ * loader. The panel's marker may live in any component, since a site can
+ * render the sidebar outside `ApiLayout` (`ApiSidebarPanel`, or its own).
  * With older copies, collapsed groups never open and page-less categories
  * link nowhere, so the integration fails the build with this message. Sites
  * that replaced these components (no file at the starter's path) are not
@@ -65,17 +67,26 @@ export function outdatedApiSidebarError(
 ): string | undefined {
   const onDemand = api.filter((entry) => entry.sidebar === "on-demand");
   if (onDemand.length === 0) return undefined;
-  const expected: Array<[file: string, marker: string]> = [
-    ["components/ui/api-sidebar/ApiSidebarItem.astro", "childrenHref"],
-    ["components/ui/api-layout/ApiLayout.astro", "data-nb-nav-build"],
-  ];
-  const outdated = expected.flatMap(([file, marker]) => {
+  const read = (file: string): string | undefined => {
     try {
-      return fs.readFileSync(path.join(srcDir, file), "utf8").includes(marker) ? [] : [file];
+      return fs.readFileSync(path.join(srcDir, file), "utf8");
     } catch {
-      return [];
+      return undefined;
     }
-  });
+  };
+  const anyComponentHas = (marker: string) =>
+    [
+      ...walkFilesSync(path.join(srcDir, "components"), {
+        onReadError: "lenient",
+        extensions: [".astro", ".ts", ".tsx", ".js", ".jsx"],
+      }),
+    ].some((file) => fs.readFileSync(file.abs, "utf8").includes(marker));
+  const outdated: string[] = [];
+  const item = "components/ui/api-sidebar/ApiSidebarItem.astro";
+  const itemSource = read(item);
+  if (itemSource !== undefined && !itemSource.includes("childrenHref")) outdated.push(item);
+  const layout = "components/ui/api-layout/ApiLayout.astro";
+  if (read(layout) !== undefined && !anyComponentHas("data-nb-nav-build")) outdated.push(layout);
   if (outdated.length === 0) return undefined;
   const collections = onDemand.map((e) => `"${e.collection}"`).join(", ");
   return (

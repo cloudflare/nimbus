@@ -294,6 +294,15 @@ describe("outdated starter components", () => {
     assert.equal(outdatedApiSidebarError([{ collection: "api" }], old, old), undefined);
     assert.match(outdatedApiSidebarError(onDemand, old, old) ?? "", /ApiSidebarItem\.astro and src\/.*ApiLayout\.astro predate it/);
   });
+
+  test("stay quiet when the sidebar panel lives outside ApiLayout", async () => {
+    const moved = await site({
+      [item]: "item.childrenHref",
+      [layout]: "<ApiSidebarPanel nav={nav} version={version} />",
+      "components/ui/api-sidebar/ApiSidebarPanel.astro": "data-nb-nav-build={navBuildId}",
+    });
+    assert.equal(outdatedApiSidebarError(onDemand, moved, moved), undefined);
+  });
 });
 
 test("the build id changes with what rows are made from, and only then", async () => {
