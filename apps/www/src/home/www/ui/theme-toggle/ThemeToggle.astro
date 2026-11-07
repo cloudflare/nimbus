@@ -21,10 +21,9 @@ const { class: className, ...attrs } = Astro.props;
   )}
   {...attrs}
   aria-label="Toggle dark mode"
-  data-nb-state="light"
 >
-  <Icon name="ph:sun" class="w-[1.125rem] h-[1.125rem] hidden group-data-[nb-state=dark]:block" />
-  <Icon name="ph:moon" class="w-[1.125rem] h-[1.125rem] group-data-[nb-state=dark]:hidden" />
+  <Icon name="ph:sun" class="w-[1.125rem] h-[1.125rem] hidden dark:block" />
+  <Icon name="ph:moon" class="w-[1.125rem] h-[1.125rem] dark:hidden" />
 </button>
 
 <script>

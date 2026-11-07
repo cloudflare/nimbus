@@ -50,13 +50,17 @@ export function initSearch(config: SearchConfig): SearchInstance {
 
   function clearResults(): void {
     for (const result of resultsContainer.querySelectorAll("[role='option']")) result.remove();
+    activeIndex = -1;
     resultsContainer.hidden = true;
     input.setAttribute("aria-expanded", "false");
     input.removeAttribute("aria-activedescendant");
   }
 
+  // A result's link is reached with the arrow keys through its option, never
+  // with Tab: Tab leaves the listbox.
   function resultLink(title: string, href: string, className: string): HTMLAnchorElement {
     const link = document.createElement("a");
+    link.tabIndex = -1;
     link.href = href;
     link.className = className;
     link.textContent = title;
@@ -64,37 +68,48 @@ export function initSearch(config: SearchConfig): SearchInstance {
     return link;
   }
 
-  function buildResult(result: SearchResult): HTMLElement {
+  // One option, named by its single link: a click anywhere on it follows it.
+  function resultOption(link: HTMLAnchorElement, className: string): HTMLElement {
     const option = document.createElement("div");
     option.id = `search-result-${resultIdCounter++}`;
     option.setAttribute("role", "option");
-    option.className = "rounded-lg px-2 py-2 transition-colors cursor-pointer hover:bg-accent focus-within:bg-accent data-[highlighted]:bg-accent";
-
-    const link = resultLink(result.title, result.url, "block truncate text-sm font-medium text-foreground no-underline focus-visible:outline-none");
+    option.className = className;
+    link.id = `${option.id}-title`;
+    option.setAttribute("aria-labelledby", link.id);
     option.appendChild(link);
-
-    if (result.snippet) {
-      const snippet = document.createElement("p");
-      snippet.className = "mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground";
-      snippet.innerHTML = result.snippet;
-      option.appendChild(snippet);
-    }
-
-    if (result.subResults?.length) {
-      const subList = document.createElement("div");
-      subList.className = "mt-2 border-s border-border ps-3";
-      for (const sub of result.subResults.slice(0, 3)) {
-        subList.appendChild(resultLink(sub.title, sub.url, "block truncate py-0.5 text-xs text-muted-foreground no-underline hover:text-foreground"));
-      }
-      option.appendChild(subList);
-    }
-
     option.addEventListener("click", (event) => {
       if ((event.target as Element | null)?.closest("a")) return;
       link.click();
     });
-
     return option;
+  }
+
+  // A result is an option, then one option per sub-result after it, so the
+  // arrow keys reach every link and each option's name is its own title.
+  function buildResult(result: SearchResult): HTMLElement[] {
+    const option = resultOption(
+      resultLink(result.title, result.url, "block truncate text-sm font-medium text-foreground no-underline focus-visible:outline-none"),
+      "rounded-lg px-2 py-2 transition-colors cursor-pointer hover:bg-accent data-[highlighted]:bg-accent",
+    );
+
+    if (result.snippet) {
+      const snippet = document.createElement("p");
+      snippet.id = `${option.id}-snippet`;
+      snippet.className = "mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground";
+      snippet.innerHTML = result.snippet;
+      option.appendChild(snippet);
+      option.setAttribute("aria-describedby", snippet.id);
+    }
+
+    // Pagefind's first sub-result is often the page itself: skip it.
+    const subs = (result.subResults ?? []).filter((sub) => sub.url !== result.url).slice(0, 3).map((sub) =>
+      resultOption(
+        resultLink(sub.title, sub.url, "block truncate text-xs text-muted-foreground no-underline"),
+        "ms-4 border-s border-border rounded-e-lg ps-3 py-1 transition-colors cursor-pointer hover:bg-accent hover:text-foreground data-[highlighted]:bg-accent",
+      ),
+    );
+
+    return [option, ...subs];
   }
 
   async function ensureInitialized(): Promise<boolean> {
@@ -137,7 +152,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
 
       emptyState.style.display = "none";
       input.setAttribute("aria-expanded", "true");
-      for (const result of results) resultsContainer.appendChild(buildResult(result));
+      for (const result of results) resultsContainer.append(...buildResult(result));
       resultsContainer.hidden = false;
     } catch {
       if (signal.aborted) return;
@@ -170,10 +185,11 @@ export function initSearch(config: SearchConfig): SearchInstance {
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       updateActive(activeIndex - 1);
-    } else if (event.key === "Home") {
+    } else if (event.key === "Home" && activeIndex >= 0) {
+      // Only while an option is active; otherwise Home and End move the caret.
       event.preventDefault();
       updateActive(0);
-    } else if (event.key === "End") {
+    } else if (event.key === "End" && activeIndex >= 0) {
       event.preventDefault();
       updateActive(options.length - 1);
     } else if (event.key === "Enter" && activeIndex >= 0) {

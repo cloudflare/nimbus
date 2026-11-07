@@ -12,7 +12,9 @@ interface Props extends HTMLAttributes<"div"> {
   headings: TOCItem[];
 }
 
-const { headings, class: className, ...attrs } = Astro.props;
+const { headings: allHeadings, class: className, ...attrs } = Astro.props;
+// A heading that slugs to "" (an emoji-only `## 🎉`) has no target to link to.
+const headings = allHeadings.filter((h) => h.slug);
 ---
 
 {headings.length > 0 && (
