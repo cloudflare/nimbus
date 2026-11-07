@@ -266,6 +266,34 @@ export async function fetchFeatureMarkdown(slug: string): Promise<string> {
 }
 
 /**
+ * A recipe at a URL the user typed (`add <url>`). Not the registry: redirects
+ * are followed (raw-file hosts redirect), and errors talk about the URL.
+ */
+export async function fetchRecipeUrl(url: string): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { accept: "text/markdown, text/plain;q=0.9" } });
+  } catch (err) {
+    const cause = (err as Error & { cause?: Error }).cause?.message ?? (err as Error).message;
+    throw new Error(`Could not fetch ${url}: ${cause}`);
+  }
+  if (!res.ok) throw new Error(`${url} returned ${res.status}.`);
+  // A recipe pipes straight into an agent; an HTML page is usually a GitHub
+  // file page pasted instead of the raw file.
+  if (contentType(res).includes("text/html")) {
+    throw new Error(
+      `${url} returned an HTML page, not a recipe. Use the raw file's URL (on GitHub, the Raw button).`,
+    );
+  }
+  try {
+    return await res.text();
+  } catch (err) {
+    const cause = (err as Error & { cause?: Error }).cause?.message ?? (err as Error).message;
+    throw new Error(`Could not read ${url}: ${cause}`);
+  }
+}
+
+/**
  * A content source's guide (`add source <name>`). The name is a listed
  * registry name, never a URL: the URL form fetches the fixed `from-url` guide.
  */

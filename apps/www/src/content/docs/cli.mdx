@@ -89,6 +89,14 @@ If the CLI detects a coding agent in the environment, it prints the recipe to st
 
 Use `--print` to force the markdown output, skipping detection.
 
+#### Recipes from a URL
+
+`add <url>` hands the Markdown recipe at any URL to your agent the same way. It isn't from the Nimbus registry: read it before your agent follows it. [Community recipes](/community-recipes) lists recipes other people maintain.
+
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="exec" args="add https://raw.githubusercontent.com/someone/mcp-chat/main/RECIPE.md" />
+
+`add source <url>` is a different command: it adds a provider's documentation as a [content source](/content-sources).
+
 ### Server adapters
 
 Add the adapter for the host you deploy to: `adapter-cloudflare`, `adapter-netlify`, `adapter-node` or `adapter-vercel`. The CLI installs the Astro adapter and rewrites the marked `output` block in `astro.config`. It refuses to replace a different adapter or a non-literal `output` value.
