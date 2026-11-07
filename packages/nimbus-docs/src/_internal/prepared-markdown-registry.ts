@@ -87,14 +87,6 @@ interface MutableRoot {
   session: number;
   revision: number;
   activeEpochs: Map<string, number>;
-  /** The epoch of each collection's latest load, finished or not. */
-  loadedEpochs: Map<string, number>;
-  /** Collections whose latest load hasn't committed, cancelled or aborted yet. */
-  loading: Set<string>;
-  /** Set by a content.config.ts edit: loads after this epoch belong to its sync. */
-  reconcileFrom?: number;
-  /** The epoch of the latest load a content sync ran (a Markdown loader's full load). */
-  lastSyncLoad: number;
   collections: Map<string, MutableCollection>;
   locks: Map<string, Promise<void>>;
   /** Whether page headings are rendered on request instead of at load. */
@@ -141,9 +133,6 @@ function createRoot(): MutableRoot {
     session: state.nextSession,
     revision: 0,
     activeEpochs: new Map(),
-    loadedEpochs: new Map(),
-    loading: new Set(),
-    lastSyncLoad: 0,
     collections: new Map(),
     locks: new Map(),
     lazyHeadings: false,
@@ -229,9 +218,6 @@ export function beginPreparedMarkdownSession(
     current.lazyHeadings = lazyHeadings;
     current.headingRenderers.clear();
     current.activeEpochs.clear();
-    current.loadedEpochs.clear();
-    current.loading.clear();
-    current.reconcileFrom = undefined;
     if (current.collections.size > 0) current.revision += 1;
     current.collections.clear();
   } else {
@@ -281,55 +267,13 @@ export function beginPreparedMarkdownLoad(
   root: string,
   collection: string,
   invalidate: boolean,
-  /** A loader's full load, as a content sync runs it; not a watcher's refresh. */
-  sync = false,
 ): number {
   const current = rootState(root);
   const epoch = ++state.nextEpoch;
-  if (sync) current.lastSyncLoad = epoch;
   current.activeEpochs.set(collection, epoch);
-  current.loadedEpochs.set(collection, epoch);
-  current.loading.add(collection);
   if (invalidate && current.collections.delete(collection))
     current.revision += 1;
   return epoch;
-}
-
-/**
- * A content.config.ts edit starts a sync that re-runs every collection's
- * loader. Records whose loader doesn't run in it (a collection removed from
- * the config, or one whose loader is no longer a Nimbus one) are stale once it
- * finishes: see `finishPreparedMarkdownReconcile`.
- */
-export function beginPreparedMarkdownReconcile(root: string): void {
-  const current = state.roots.get(root);
-  if (current) current.reconcileFrom = state.nextEpoch;
-}
-
-/**
- * After the sync a content.config.ts edit started has written the content
- * store, with no load still running and at least one since the edit: drop
- * every record no loader re-registered since the edit. Returns the dropped
- * collections. Until a sync runs loaders, nothing is dropped.
- */
-export function finishPreparedMarkdownReconcile(root: string): string[] {
-  const current = state.roots.get(root);
-  if (current?.reconcileFrom === undefined) return [];
-  // Astro also writes the store while a sync runs; the sync's last write
-  // comes after its last load. And a sync runs Markdown loaders' full loads:
-  // a write with none since the edit is an ordinary content edit, an API
-  // spec's refresh, or a sync Astro skipped or that failed, which proves
-  // nothing about what the config declares.
-  if (current.loading.size > 0) return [];
-  const from = current.reconcileFrom;
-  if (current.lastSyncLoad <= from) return [];
-  current.reconcileFrom = undefined;
-  const stale = [...current.collections.keys()].filter(
-    (collection) => (current.loadedEpochs.get(collection) ?? 0) <= from,
-  );
-  for (const collection of stale) current.collections.delete(collection);
-  if (stale.length > 0) current.revision += 1;
-  return stale;
 }
 
 export function isPreparedMarkdownLoadActive(
@@ -348,7 +292,6 @@ export function cancelPreparedMarkdownLoad(
   const current = state.roots.get(root);
   if (current?.activeEpochs.get(collection) === epoch) {
     current.activeEpochs.delete(collection);
-    current.loading.delete(collection);
   }
 }
 
@@ -360,7 +303,6 @@ export function abortPreparedMarkdownLoad(
   const current = state.roots.get(root);
   if (current?.activeEpochs.get(collection) !== epoch) return;
   current.activeEpochs.delete(collection);
-  current.loading.delete(collection);
   if (current.collections.delete(collection)) current.revision += 1;
 }
 
@@ -379,7 +321,6 @@ export function commitPreparedMarkdownCollection(
 ): boolean {
   const current = state.roots.get(root);
   if (!current || current.activeEpochs.get(collection) !== epoch) return false;
-  current.loading.delete(collection);
   const sourceEntries = [...entries];
   const nextCollection: MutableCollection = {
     role,
@@ -419,7 +360,6 @@ export function commitPreparedDataCollection(
 ): boolean {
   const current = state.roots.get(root);
   if (!current || current.activeEpochs.get(collection) !== epoch) return false;
-  current.loading.delete(collection);
   const sourceEntries = [...entries];
   const nextCollection = {
     role: "api" as const,
