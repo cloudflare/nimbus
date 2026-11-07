@@ -4,6 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { test } from "node:test";
 import { build, sync } from "astro";
+import { astroConfigHash } from "../src/_internal/astro-config-file.js";
 
 import nimbus from "../src/index.js";
 import { runningNimbusVersion } from "../src/_internal/upgrades.js";
@@ -106,6 +107,8 @@ test("markdown.features turns math on for the page, generated Markdown and lint"
     assert.equal(lint.markdownFeatures.math, true);
     assert.equal(lint.markdownFeatures.headingAttributes, true);
     assert.equal(lint.base, "/docs");
+    // `lint` compares this first and skips reading the config when it matches.
+    assert.equal(lint.configHash, astroConfigHash(s.root));
   } finally {
     await rm(s.root, { recursive: true, force: true });
   }

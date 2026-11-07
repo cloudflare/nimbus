@@ -122,7 +122,7 @@ export async function lintCommand(flags: LintCliFlags): Promise<void> {
     process.exit(1);
   }
 
-  const { rules, collections, site, markdownFeatures, base: materializedBase, found } =
+  const { rules, collections, site, markdownFeatures, base: materializedBase, configHash, found } =
     loadMaterializedConfig(cwd);
   if (markdownFeatures) setMarkdownFeatures(markdownFeatures);
   else if (found) {
@@ -140,7 +140,7 @@ export async function lintCommand(flags: LintCliFlags): Promise<void> {
   } else if (imageRefRuns && found && materializedBase === undefined) {
     process.stderr.write(`nimbus-docs: ${BASE_FROM_ROUTES_MESSAGE}\n`);
   }
-  if (found && lintConfigIsStale(cwd, { rules, collections, base: materializedBase })) {
+  if (found && lintConfigIsStale(cwd, { rules, collections, base: materializedBase, configHash })) {
     process.stderr.write(`nimbus-docs: ${STALE_LINT_CONFIG_MESSAGE}\n`);
   }
   if (!found && !flags.rule) {
@@ -264,6 +264,8 @@ interface MaterializedConfig {
   markdownFeatures?: Features;
   /** The site base as the renderer applies it; absent in a file from an older version. */
   base?: string;
+  /** The Astro config's hash when the file was written; absent in older files. */
+  configHash?: string;
   /** False when `.nimbus/lint.json` doesn't exist. */
   found: boolean;
 }
@@ -295,6 +297,7 @@ function loadMaterializedConfig(cwd: string): MaterializedConfig {
     site?: unknown;
     markdownFeatures?: unknown;
     base?: unknown;
+    configHash?: unknown;
   };
   try {
     parsed = JSON.parse(raw) as typeof parsed;
@@ -330,6 +333,7 @@ function loadMaterializedConfig(cwd: string): MaterializedConfig {
     site,
     markdownFeatures: materializedFeatures(parsed.markdownFeatures),
     base: typeof parsed.base === "string" ? parsed.base : undefined,
+    configHash: typeof parsed.configHash === "string" ? parsed.configHash : undefined,
     found: true,
   };
 }
