@@ -59,6 +59,39 @@ test("a root-mounted API's landing page reads before its operations", () => {
   assert.ok(at("index", "/") < at("create", "/create/"));
 });
 
+test("each API version reads as a block, its landing page first", () => {
+  const position = llmsSidebarPosition({
+    tree: [link("Pets", "/api/"), link("Guide", "/guide/")],
+    apiMounts: new Map([["api", "/api"]]),
+    apiLandings: new Map([["api", ["/api", "/api/v1"]]]),
+    apiNavOrder: (_collection, id) => ({ list: 0, create: 1, "v1/list": 0, "v1/create": 1 } as Record<string, number>)[id],
+  });
+  const at = (id: string, url: string) => position({ collection: "api", id, url })!;
+  const order = [
+    at("index", "/api/"),
+    at("list", "/api/list/"),
+    at("create", "/api/create/"),
+    at("v1", "/api/v1/"),
+    at("v1/list", "/api/v1/list/"),
+    at("v1/create", "/api/v1/create/"),
+    position({ collection: "docs", id: "guide", url: "/guide/" })!,
+  ];
+  assert.deepEqual([...order].sort((a, b) => a - b), order);
+});
+
+test("a root-mounted API sits at the first of its pages the sidebar links", () => {
+  const position = llmsSidebarPosition({
+    tree: [link("List users", "/users/list/"), link("Guide", "/guide/")],
+    apiMounts: new Map([["api", ""]]),
+    apiUrls: new Map([["api", ["/", "/users/list/", "/users/create/"]]]),
+    apiNavOrder: (_collection, id) => ({ "users/list": 0, "users/create": 1 } as Record<string, number>)[id],
+  });
+  const api = (id: string, url: string) => position({ collection: "api", id, url })!;
+  const guide = position({ collection: "docs", id: "guide", url: "/guide/" })!;
+  assert.ok(api("index", "/") < api("users/list", "/users/list/"));
+  assert.ok(api("users/create", "/users/create/") < guide);
+});
+
 test("an older docs version reads in its own sidebar's order", () => {
   const position = llmsSidebarPosition({
     tree: [link("Configure", "/configure/"), link("Deploy", "/deploy/")],

@@ -138,8 +138,8 @@ export type AgentEndpointVisibilityDecision =
   | { status: "unknown"; reason: string };
 
 export interface BakeAgentEndpointAssetsOptions {
-  /** Each page's place in the sidebar's reading order. Without it, indexes list by URL. */
-  sidebarPosition?: () => Promise<SidebarPosition>;
+  /** Each page's place in the sidebar's reading order, given the pages. Without it, indexes list by URL. */
+  sidebarPosition?: (pages: ReadonlyArray<{ collection: string; url: string }>) => Promise<SidebarPosition>;
   root: URL | string;
   base: string;
   site: string;
@@ -2216,8 +2216,9 @@ export async function bakeAgentEndpointAssets(
   }
 
   if (options.sidebarPosition) {
-    const position = await options.sidebarPosition();
-    for (const page of new Set([...preparedLlmsPages, ...llmsRoutePages])) {
+    const pages = new Set([...preparedLlmsPages, ...llmsRoutePages]);
+    const position = await options.sidebarPosition([...pages]);
+    for (const page of pages) {
       const value = position(page);
       if (value !== undefined) page.position = value;
     }

@@ -632,6 +632,16 @@ export async function renderIndexedEntryMarkdown(
   });
 }
 
+/** Each API version's landing page URL, by collection. */
+async function apiLandingsOf(apiCollections: ReadonlySet<string>): Promise<Map<string, string[]>> {
+  const { apiAssetTargets } = await import("./_internal/api/page-assets-runtime.js");
+  const landings = new Map<string, string[]>();
+  for (const collection of apiCollections) {
+    landings.set(collection, (await apiAssetTargets(collection)).map((target) => target.mountPath || "/"));
+  }
+  return landings;
+}
+
 /**
  * Each API page's index in its version's nav, from wherever the build keeps
  * that nav: the prepared nav on the overview entry, the page-asset index, or
@@ -731,6 +741,13 @@ export async function renderLlmsFullMarkdown(options?: {
     tree: await buildStructuralTree(),
     apiMounts: new Map([...apiCollections].map((collection) => [collection, resolveCollectionPrefix(collection, mountContext)])),
     apiNavOrder: await apiNavOrderOf(entries, apiCollections),
+    apiLandings: await apiLandingsOf(apiCollections),
+    apiUrls: new Map(
+      [...apiCollections].map((collection) => [
+        collection,
+        included.filter((item) => item.collection === collection).map((item) => item.url),
+      ]),
+    ),
   });
   const blocks = await Promise.all(
     included.map(async (item) => {

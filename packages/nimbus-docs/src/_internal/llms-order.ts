@@ -47,8 +47,9 @@ export function normalize(url: string): string {
 /**
  * Positions for a site: its docs pages from the combined sidebar tree, each
  * older docs version's pages from that version's own tree, and API pages in
- * their nav order, at the API's link in the tree (its landing page, else its
- * first linked page), else after everything else, by mount.
+ * their nav order after each version's landing page, at the API's link in the
+ * tree (its landing page, else its first linked page), else after everything
+ * else, by mount.
  */
 export function llmsSidebarPosition(input: {
   /** The combined sidebar tree. */
@@ -59,6 +60,10 @@ export function llmsSidebarPosition(input: {
   apiMounts: ReadonlyMap<string, string>;
   /** An API page's index in its version's nav, by collection and entry id. */
   apiNavOrder: (collection: string, id: string) => number | undefined;
+  /** Each API version's landing page URL (`/api`, `/api/v1`), by collection. */
+  apiLandings?: ReadonlyMap<string, readonly string[]>;
+  /** Each API's page URLs, by collection: the tree may link any of them. */
+  apiUrls?: ReadonlyMap<string, readonly string[]>;
 }): SidebarPosition {
   const main = sidebarPositions(input.tree);
   const versions = new Map([...(input.versionTrees ?? [])].map(([collection, tree]) => [collection, sidebarPositions(tree)]));
@@ -75,7 +80,29 @@ export function llmsSidebarPosition(input: {
     }
     return first;
   };
-  const anchors = new Map([...input.apiMounts].map(([collection, mount]) => [collection, linkedAt(mount)]));
+  // An API is anchored at its landing link, else at the first of its own
+  // pages the tree links; without its page list, at the first link under its mount.
+  const apiLinkedAt = (collection: string, mount: string): number | undefined => {
+    const own = main.get(normalize(mount));
+    const urls = input.apiUrls?.get(collection);
+    if (own !== undefined || !urls) return own ?? linkedAt(mount);
+    let first: number | undefined;
+    for (const url of urls) {
+      const position = main.get(normalize(url));
+      if (position !== undefined && (first === undefined || position < first)) first = position;
+    }
+    return first;
+  };
+  const anchors = new Map([...input.apiMounts].map(([collection, mount]) => [collection, apiLinkedAt(collection, mount)]));
+  // Each version reads as its own block: its landing page, then its pages in
+  // nav order. A page belongs to the version whose landing is its longest prefix.
+  const landings = new Map(
+    [...input.apiMounts].map(([collection, mount]) => [
+      collection,
+      [...new Set([...(input.apiLandings?.get(collection) ?? [mount])].map(normalize))],
+    ]),
+  );
+  const under = (url: string, landing: string) => landing === "/" || url === landing || url.startsWith(`${landing}/`);
   const unlinked = [...input.apiMounts].filter(([collection]) => anchors.get(collection) === undefined).map(([collection]) => collection);
   unlinked.sort((a, b) => compare(input.apiMounts.get(a)!, input.apiMounts.get(b)!));
   const apiAnchor = (collection: string): number => anchors.get(collection) ?? main.size + unlinked.indexOf(collection);
@@ -83,9 +110,16 @@ export function llmsSidebarPosition(input: {
     if (input.apiMounts.has(collection)) {
       // The API's landing page reads first; its pages follow in nav order,
       // between the anchor and the next position.
-      if (normalize(url) === normalize(input.apiMounts.get(collection)!)) return apiAnchor(collection);
+      const path = normalize(url);
+      const blocks = landings.get(collection)!;
+      let block = 0;
+      let longest = -1;
+      for (const [index, landing] of blocks.entries()) {
+        if (under(path, landing) && landing.length > longest) [block, longest] = [index, landing.length];
+      }
       const order = input.apiNavOrder(collection, id);
-      return apiAnchor(collection) + (order === undefined ? 0.999999 : (order + 1) / (order + 2) * 0.999999);
+      const inner = path === blocks[block] ? 0 : order === undefined ? 0.999 : ((order + 1) / (order + 2)) * 0.999;
+      return apiAnchor(collection) + ((block + inner) / blocks.length) * 0.999999;
     }
     const table = versions.get(collection) ?? main;
     return table.get(normalize(url));

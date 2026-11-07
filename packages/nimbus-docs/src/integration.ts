@@ -1447,10 +1447,11 @@ export function nimbus(
               routes: mountContextForBuild.routes,
               // Indexes list pages as the sidebar reads them. Called after the
               // API entries load, which records their nav order.
-              sidebarPosition: async () => {
-                const [sidebar, { llmsSidebarPosition }] = await Promise.all([
+              sidebarPosition: async (pages) => {
+                const [sidebar, { llmsSidebarPosition }, { resolveApiFamily }] = await Promise.all([
                   import("./_internal/sidebar.js"),
                   import("./_internal/llms-order.js"),
+                  import("./_internal/api/resolve-versions.js"),
                 ]);
                 const snapshot = getPreparedMarkdownSnapshot(projectRoot);
                 const mountOf = (collection: string) => collectionMountPrefix(collection, mountContextForBuild);
@@ -1521,6 +1522,15 @@ export function nimbus(
                   versionTrees,
                   apiMounts: new Map(apiCollections.map((name) => [name, mountOf(name)])),
                   apiNavOrder: (collection, id) => apiNavOrder.get(`${collection}\0${id}`),
+                  apiLandings: new Map(
+                    (config.api ?? []).map((entry) => [
+                      entry.collection,
+                      resolveApiFamily(entry, mountOf(entry.collection)).map((target) => target.mountPath || "/"),
+                    ]),
+                  ),
+                  apiUrls: new Map(
+                    apiCollections.map((name) => [name, pages.filter((page) => page.collection === name).map((page) => page.url)]),
+                  ),
                 });
               },
               base: astroConfig.base || "/",
