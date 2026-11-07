@@ -24,27 +24,35 @@ export interface TypeToken {
 export const LINK_CLS = "text-info font-medium hover:underline underline-offset-2";
 const MUTED_CLS = "text-muted-foreground";
 
-/** How many enum literals to show inline before collapsing to `+N more`. */
+/** How many enum literals fit inline. Past it, the type line counts them and
+ *  `allowedValues` lists them all on a line of their own. */
 const ENUM_CAP = 6;
 
 // Enum literals render bare (not JSON-quoted) — cleaner in a docs reading
 // context, and the muted mono already marks them as values.
 const display = (v: unknown): string => (typeof v === "string" ? v : String(v));
 
-export function literalTokens(values: readonly unknown[]): TypeToken[] {
+/** An enum's values as type tokens: inline up to `ENUM_CAP`, else `type · one
+ *  of N values`, with the list itself on the row's "Allowed values" line. */
+export function literalTokens(values: readonly unknown[], type?: string): TypeToken[] {
+  if (values.length > ENUM_CAP) {
+    return [
+      ...(type ? [{ text: type, cls: MUTED_CLS }, { text: "·", cls: MUTED_CLS }] : []),
+      { text: `one of ${values.length} values`, cls: MUTED_CLS },
+    ];
+  }
   const out: TypeToken[] = [];
-  values.slice(0, ENUM_CAP).forEach((v, i) => {
+  values.forEach((v, i) => {
     if (i > 0) out.push({ text: "or", cls: MUTED_CLS });
     out.push({ text: display(v), cls: MUTED_CLS, mono: true });
   });
-  if (values.length > ENUM_CAP) {
-    out.push({
-      text: `+${values.length - ENUM_CAP} more`,
-      cls: MUTED_CLS,
-      title: values.map(display).join(", "),
-    });
-  }
   return out;
+}
+
+/** Every value of an enum too long for the type line, for its "Allowed values"
+ *  line: in the page text, so keyboard, touch and screen readers reach it. */
+export function allowedValues(values: readonly unknown[] | undefined): string | undefined {
+  return values && values.length > ENUM_CAP ? values.map(display).join(", ") : undefined;
 }
 
 /** A union's branches in display order: with a discriminator mapping, the
@@ -104,13 +112,13 @@ export function typeTokens(field: ApiFieldView): TypeToken[] {
   }
 
   if (shape?.kind === "array") {
-    if (field.enum && field.enum.length > 0) return [...prefix, ...literalTokens(field.enum)];
+    if (field.enum && field.enum.length > 0) return [...prefix, ...literalTokens(field.enum, shape.inner)];
     if (field.typeRef)
       return [...prefix, { text: shape.inner, cls: LINK_CLS, href: field.typeRef.href, mono: true }];
     return [...prefix, { text: shape.inner || "any", cls: MUTED_CLS }];
   }
 
-  if (field.enum && field.enum.length > 0) return literalTokens(field.enum);
+  if (field.enum && field.enum.length > 0) return literalTokens(field.enum, field.type);
   if (field.typeRef) return [{ text: field.type, cls: LINK_CLS, href: field.typeRef.href, mono: true }];
   if (field.typeRefs && field.typeRefs.length > 0) {
     return field.typeRefs.flatMap((r, i) => [

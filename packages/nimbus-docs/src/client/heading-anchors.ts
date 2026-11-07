@@ -29,8 +29,13 @@ function announce(message: string) {
   liveRegion.textContent = message;
 }
 
+/** Headings that get a link: in `.docs-content`, or in any container marked
+ *  `data-nb-heading-anchors` (an API page's sections, which don't take prose
+ *  styles). */
+const HEADINGS = ":is(.docs-content, [data-nb-heading-anchors]) :is(h2, h3, h4)[id]";
+
 function applyHeadingAnchors() {
-  document.querySelectorAll<HTMLElement>(".docs-content :is(h2, h3, h4)[id]").forEach((heading) => {
+  document.querySelectorAll<HTMLElement>(HEADINGS).forEach((heading) => {
     if (heading.hasAttribute("data-heading-anchor-ready")) return;
     heading.setAttribute("data-heading-anchor-ready", "true");
 
@@ -56,7 +61,8 @@ function applyHeadingAnchors() {
 }
 
 /**
- * Add hoverable `#` self-links to all `h2`–`h4` headings in `.docs-content`.
+ * Add hoverable `#` self-links to all `h2`–`h4` headings with an id in
+ * `.docs-content`, or in a container marked `data-nb-heading-anchors`.
  * Clicking one navigates (hash) *and* copies the absolute deep link, with an
  * `aria-live` announcement for screen readers. Re-runs on `astro:page-load`
  * for View Transitions. Call once (e.g. from BaseLayout).

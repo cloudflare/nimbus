@@ -33,7 +33,6 @@ function buildPanel(
   if (pre.dataset.nbLang) row.dataset.nbLang = pre.dataset.nbLang;
 
   pre.dataset.cgPre = "";
-  row.appendChild(pre);
 
   const copyBtn = document.createElement("button");
   copyBtn.type = "button";
@@ -42,7 +41,9 @@ function buildPanel(
   copyBtn.setAttribute("aria-label", "Copy to clipboard");
   copyBtn.dataset.slot = "code-group-copy";
   copyBtn.appendChild(cloneIcon(copyTpl));
-  row.appendChild(copyBtn);
+  // The button comes first, so Tab reaches it before the code; CSS keeps it on
+  // the right.
+  row.append(copyBtn, pre);
 
   panel.appendChild(row);
   return panel;

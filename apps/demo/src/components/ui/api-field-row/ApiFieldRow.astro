@@ -1,6 +1,6 @@
 ---
 import ApiUnionExplorer from "./ApiUnionExplorer.astro";
-import { typeTokens, constraintPairs, isExpandable, contentsLabel, unionTitle } from "./type-display";
+import { typeTokens, constraintPairs, isExpandable, contentsLabel, unionTitle, allowedValues } from "./type-display";
 import type { ApiFieldView } from "@cloudflare/nimbus-docs/api";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
 import "./field-list.css";
@@ -20,6 +20,7 @@ const expandable = isExpandable(field);
 const startOpen = AUTO_OPEN_DEPTH >= depth;
 const toks = typeTokens(field);
 const constraints = constraintPairs(field.constraints);
+const allowed = allowedValues(field.enum);
 const omitted = field.childCount - field.children.length;
 const detail = (v: unknown): string => JSON.stringify(v);
 // Constraints, default and example share one line, in that order. Body field
@@ -84,6 +85,10 @@ const linkSvg = `<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a
 
       {field.descriptionHtml && (
         <div class="fl-desc" set:html={field.descriptionHtml} />
+      )}
+
+      {allowed && (
+        <div class="fl-constraints">Allowed values: <span class="fl-constraint-value">{allowed}</span></div>
       )}
 
       {meta.length > 0 && (
