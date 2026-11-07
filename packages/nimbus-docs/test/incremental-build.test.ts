@@ -75,3 +75,36 @@ test("incremental build: navigation changes rebuild the pages that show them", {
   const unchanged = await sites.buildSite({}, { ...options, root: first.root });
   for (const file of DOCS_PAGES) assert.equal(outcome(unchanged.logs, file), "skipped", `${file} is skipped when nothing changed`);
 });
+
+// A layout like the starter's: a font stylesheet with one `@font-face` per
+// unicode subset, each pointing at its own bundled file, as a variable font
+// package ships, plus a hoisted script. On Astro 7.3.3 every page re-rendered
+// on each such build, because the route's hash over its bundled assets moved;
+// fixed upstream between 7.3.4 and 7.3.6 (withastro/astro#18063, #18155).
+const SUBSETS = ["latin", "latin-ext", "cyrillic", "greek", "vietnamese", "symbols"];
+const FONT_FILES = Object.fromEntries(
+  SUBSETS.map((subset, index) => [
+    // Over Vite's 4 KiB inline limit, so each is emitted as a file.
+    `src/fonts/brand-${subset}.woff2`,
+    `wOF2${subset}${String(index).repeat(8192)}`,
+  ]),
+);
+const FONT_CSS = SUBSETS.map(
+  (subset, index) =>
+    `@font-face { font-family: Brand; font-display: swap; font-weight: 100 900; src: url("./brand-${subset}.woff2") format("woff2-variations"); unicode-range: U+${(index * 256).toString(16).padStart(4, "0")}-${(index * 256 + 255).toString(16).padStart(4, "0")}; }`,
+)
+  .join("\n")
+  .concat("\n", `/* ${"padding so the stylesheet is emitted as a file ".repeat(80)} */\n`);
+const ASSET_PAGE = PAGE.replace(
+  "export const prerender = true;",
+  `import "../fonts/brand.css";\nexport const prerender = true;`,
+).replace("<html><body>", `<html><body><script>document.documentElement.dataset.ready = "1";</script>`);
+
+test("incremental build: a layout with bundled font assets skips unchanged pages", { timeout: 240_000 }, async () => {
+  const options = { experimental: { incrementalBuild: true }, logLevel: "info" as const, base: "/" };
+  const files = { ...FILES, ...FONT_FILES, "src/fonts/brand.css": FONT_CSS, "src/pages/[...slug].astro": ASSET_PAGE };
+  const first = await sites.buildSite(files, options);
+  for (const file of DOCS_PAGES) assert.equal(outcome(first.logs, file), "rendered", `${file} renders on a cold build`);
+  const second = await sites.buildSite({}, { ...options, root: first.root });
+  for (const file of DOCS_PAGES) assert.equal(outcome(second.logs, file), "skipped", `${file} is skipped when nothing changed`);
+});
