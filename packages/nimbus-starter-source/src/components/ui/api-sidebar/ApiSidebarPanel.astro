@@ -53,8 +53,10 @@ const navKey = `${import.meta.env.BASE_URL}|${nav.collection}${version ? `@${ver
     <ApiSidebar items={nav.items}><slot /></ApiSidebar>
   </div>
 </div>
+<div class="pointer-events-none sticky bottom-0 h-8 bg-gradient-to-t from-background to-transparent"></div>
 {/* Inline and unbundled (`aria-hidden` keeps Astro from hoisting it) so it
-    runs before the page paints and before the disclosures mount. */}
+    runs before the page paints and before the disclosures mount. After the
+    fade, so the tree's height is final when it first scrolls to the page. */}
 <script is:inline aria-hidden="true" set:html={navStateScript} />
 
 <script>

@@ -1282,7 +1282,7 @@
       "instructions": [
         "No action is needed: ApiLayout keeps working as before.",
         "These are registry components, which nimbus-docs diff doesn't cover. If they are unmodified, update them with nimbus-docs add api-layout --overwrite, which brings the new api-sidebar too.",
-        "If they are customized, copy ApiSidebarPanel.astro into src/components/ui/api-sidebar/ and export it from its index.ts, give ApiSidebar.astro a <slot /> as the first child of its <ul>, then in ApiLayout.astro replace the data-nb-api-tree block and its navStateScript with <ApiSidebarPanel nav={nav} version={version} /> and drop initNavSidebar and the two sidebar script imports from its script."
+        "If they are customized, copy ApiSidebarPanel.astro into src/components/ui/api-sidebar/ and export it from its index.ts, give ApiSidebar.astro a <slot /> as the first child of its <ul>, then in ApiLayout.astro replace the data-nb-api-tree block, the fade below it and its navStateScript with <ApiSidebarPanel nav={nav} version={version} /> and drop initNavSidebar and the two sidebar script imports from its script."
       ],
       "verify": [
         "API pages show the same sidebar as before, and with sidebar: \"on-demand\" a collapsed group loads its rows when opened.",
