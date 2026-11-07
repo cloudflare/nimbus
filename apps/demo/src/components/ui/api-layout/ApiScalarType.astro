@@ -1,0 +1,38 @@
+---
+/**
+ * The type of something with no fields to list: a schema that is a string or an
+ * enum, or a request or response body that is plain text or a binary file. Its
+ * details read like a field row's: `format: binary · default: "a"`.
+ */
+import type { ApiScalarView } from "@cloudflare/nimbus-docs/api";
+import { constraintPairs } from "../api-field-row/type-display";
+import "../api-field-row/field-list.css";
+
+interface Props {
+  scalar: ApiScalarView;
+}
+
+const { scalar } = Astro.props;
+const detail = (v: unknown): string => JSON.stringify(v);
+const meta = [
+  ...(scalar.enum ? [{ name: "one of", value: scalar.enum.map(detail).join(", ") }] : []),
+  ...constraintPairs(scalar.constraints),
+  ...(scalar.default !== undefined ? [{ name: "default", value: detail(scalar.default) }] : []),
+  ...(scalar.example !== undefined ? [{ name: "example", value: detail(scalar.example) }] : []),
+];
+---
+
+<section>
+  <p class="text-sm">
+    <span class="text-muted-foreground">Type:</span>
+    <code class="ms-1 font-mono text-foreground">{scalar.type}</code>
+    {scalar.nullable && <span class="ms-1 text-muted-foreground">(nullable)</span>}
+  </p>
+  {meta.length > 0 && (
+    <div class="fl-constraints">
+      {meta.map((c, i) => (
+        <span>{i > 0 && " · "}{c.name}: <span class="fl-constraint-value">{c.value}</span></span>
+      ))}
+    </div>
+  )}
+</section>

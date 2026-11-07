@@ -36,10 +36,12 @@ const {
   examples = false,
 }: Props = Astro.props;
 
-const hasFields = fields !== undefined;
-if (hasFields && fields.length === 0) return;
+// A section with neither fields nor anything in its slot (a union explorer) is
+// left out.
+const hasFields = fields !== undefined && fields.length > 0;
+if (fields !== undefined && !hasFields && !Astro.slots.has("default")) return;
 
-const showControls = collapsible ?? (hasFields && fields.some(isExpandable));
+const showControls = collapsible ?? (hasFields && fields!.some(isExpandable));
 const omitted = truncated ? truncated.total - (fields?.length ?? 0) : 0;
 const TitleTag = title ? HeadTag : "span";
 const flag = required === true ? "required" : required === false ? "optional" : undefined;
@@ -78,18 +80,18 @@ const flag = required === true ? "required" : required === false ? "optional" : 
 
   {descriptionHtml && <div class="fl-desc mb-3" set:html={descriptionHtml} />}
 
-  {hasFields ? (
+  {/* Fields, then the slot: a union's options add to the fields above them. */}
+  {hasFields && (
     <ul class="fl-list">
-      {fields.map((field: ApiFieldView) => (
+      {fields!.map((field: ApiFieldView) => (
         <ApiFieldRow field={field} depth={0} showExample={examples} />
       ))}
       {omitted > 0 && (
         <li class="fl-truncated">… {omitted} more field(s) omitted</li>
       )}
     </ul>
-  ) : (
-    <slot />
   )}
+  <slot />
 </section>
 
 <script>

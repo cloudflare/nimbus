@@ -31,10 +31,17 @@ function facts(props: ApiPageProps): string[] {
     }
     for (const m of u.mapping ?? []) out.push(m.value);
   };
+  // A field shows its children, then its union's options: both, when the spec
+  // declares fields beside a union.
   const field = (f: ApiFieldView) => {
     out.push(f.coordinate);
+    for (const c of f.children) field(c);
     if (f.union) union(f.union);
-    else for (const c of f.children) field(c);
+  };
+  const body = (b: { fields: ApiFieldView[]; union?: ApiUnionView; scalar?: { type: string }; mediaType?: string }) => {
+    b.fields.forEach(field);
+    if (b.union) union(b.union);
+    if (b.scalar) out.push(b.scalar.type);
   };
   const ops = (list: ApiOperationRef[]) => {
     for (const op of list) out.push(op.label, `${op.method.toUpperCase()} ${op.path}`);
@@ -42,11 +49,11 @@ function facts(props: ApiPageProps): string[] {
   switch (props.kind) {
     case "operation":
       for (const g of props.parameters) g.fields.forEach(field);
-      props.body.forEach(field);
-      if (props.bodyUnion) union(props.bodyUnion);
+      body({ fields: props.body, union: props.bodyUnion, scalar: props.bodyScalar });
+      for (const b of props.additionalBodies ?? []) body(b);
       for (const r of props.responses) {
-        r.fields.forEach(field);
-        if (r.bodyUnion) union(r.bodyUnion);
+        body({ fields: r.fields, union: r.bodyUnion, scalar: r.scalar });
+        for (const m of r.additionalMedia ?? []) body(m);
         r.headers?.forEach(field);
       }
       break;
@@ -96,6 +103,7 @@ for (const [name, file] of [
   ["smallco", "smallco.yaml"],
   ["fidelity", "fidelity.yaml"],
   ["deviant", "deviant.yaml"],
+  ["shapes", "shapes.yaml"],
 ] as const) {
   for (const schemaPages of [true, false]) {
     test(`${name}, schemaPages ${schemaPages}: every page's Markdown carries what the page shows`, async () => {

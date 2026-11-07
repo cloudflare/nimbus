@@ -9,6 +9,7 @@ import {
   mediaTypeTokens,
   operationCoordinate,
   parameterCoordinate,
+  parameterFieldCoordinate,
   RESERVED_ROUTE_SEGMENTS,
   responseCoordinate,
   responseFieldCoordinate,
@@ -19,6 +20,7 @@ import {
   tagRouteSegment,
 } from "./coordinates.js";
 import { pointer, pointerAt } from "./pointer.js";
+import { bodyScalarShape } from "./schemas.js";
 import { resolveOperationRoute, routeSlugFault } from "./route-policy.js";
 import {
   HTTP_METHODS,
@@ -380,6 +382,10 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
       ? ctx.resolver.unionPreferRaw(rawRespSchema, respSchema, itemsOf(respSchema), responseFieldCoordinate(coord, status, ""))
       : undefined;
     if (respUnion) facts.union = respUnion;
+    else if (respSchema) {
+      const scalar = bodyScalarShape(respSchema);
+      if (scalar) facts.scalar = scalar;
+    }
     if (respEntry) facts.mediaType = respEntry.mediaType;
     ctx.node(respCoord, "response", coord, facts);
     responses.push(respCoord);
@@ -426,6 +432,10 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
     protocol: site.protocol,
   };
   if (bodyUnion) facts.bodyUnion = bodyUnion;
+  else if (bodySchema) {
+    const scalar = bodyScalarShape(bodySchema);
+    if (scalar) facts.bodyScalar = scalar;
+  }
   if (primaryEntry) facts.bodyMediaType = primaryEntry.mediaType;
   // `required` and `description` belong to the Request Body Object itself, so
   // every media type shares them. Only what the spec states is carried.
@@ -523,30 +533,38 @@ function addParameter(
   const location = param.in as ParameterLocation;
   const coord = parameterCoordinate(opCoord, location, param.name);
   ctx.registry.register(coord, "parameter", { source });
+  // Fold `allOf` first, as a field's schema is, so a wrapped array or object
+  // keeps its type and fields.
+  const schema = param.schema && foldAllOf(param.schema);
   const facts: ParameterFacts = {
     kind: "parameter",
     location,
-    type: typeLabel(param.schema),
+    type: typeLabel(schema),
     required: param.required ?? location === "path",
-    description: asString(param.description) ?? asString(param.schema?.description),
+    description: asString(param.description) ?? asString(schema?.description),
     deprecated: param.deprecated,
-    constraints: constraintsOf(param.schema),
-    default: param.schema?.default,
-    enum: param.schema?.enum,
+    constraints: constraintsOf(schema),
+    default: schema?.default,
+    enum: schema?.enum,
     example: parameterExample(param),
   };
-  const union = param.schema
-    ? ctx.resolver.unionPreferRaw(
-        ctx.resolver.rawParameterSchema(rawOp?.parameters, rawSharedParams, param.name, location),
-        param.schema,
-        itemsOf(param.schema),
-      )
+  const rawSchema = ctx.resolver.rawParameterSchema(rawOp?.parameters, rawSharedParams, param.name, location);
+  const union = schema
+    ? ctx.resolver.unionPreferRaw(rawSchema, schema, itemsOf(schema), coord)
     : undefined;
   if (union) facts.union = union;
   // The parameter object's own value wins over its schema's.
-  const extensions = extensionValues(ctx.extensions, param, param.schema && foldAllOf(param.schema));
+  const extensions = extensionValues(ctx.extensions, param, schema);
   if (extensions) facts.extensions = extensions;
   ctx.node(coord, "parameter", opCoord, facts, source);
+
+  // An object (or array of objects) parameter lists its fields, as a body does.
+  if (schema) {
+    if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind, repeat) => {
+      const parent = parentPath ? parameterFieldCoordinate(coord, parentPath) : coord;
+      addField(ctx, parameterFieldCoordinate(coord, fieldPath), parent, fieldSchema, required, kind, source, rawField, repeat);
+    }, rawSchema, "request")) warnFieldCeiling(ctx.registry, coord, source, `parameter ${param.name}`);
+  }
   return coord;
 }
 
@@ -596,6 +614,10 @@ function addMediaBody(
     ? ctx.resolver.unionPreferRaw(rawSchema, schema, itemsOf(schema), mediaCoord)
     : undefined;
   if (union) facts.union = union;
+  else if (schema) {
+    const scalar = bodyScalarShape(schema);
+    if (scalar) facts.scalar = scalar;
+  }
   const example = resolveExampleValue(mediaExample(entry), role, ctx.sampleTools);
   if (example !== undefined) facts.example = { mediaType: entry.mediaType, value: example };
   ctx.node(mediaCoord, "requestBody", opCoord, facts, source);
@@ -628,6 +650,10 @@ function addResponseMedia(
     ? ctx.resolver.unionPreferRaw(rawSchema, schema, itemsOf(schema), mediaCoord)
     : undefined;
   if (union) facts.union = union;
+  else if (schema) {
+    const scalar = bodyScalarShape(schema);
+    if (scalar) facts.scalar = scalar;
+  }
   const example = resolveExampleValue(mediaExample(entry), "response", ctx.sampleTools);
   if (example !== undefined) facts.example = { mediaType: entry.mediaType, value: example };
   ctx.node(mediaCoord, "responseMedia", respCoord, facts, source);

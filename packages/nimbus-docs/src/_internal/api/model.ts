@@ -146,6 +146,8 @@ export interface OperationFacts {
    * a discriminated body. Without it the union collapses to an empty body.
    */
   bodyUnion?: UnionShape;
+  /** The primary request body's type, when it isn't an object. */
+  bodyScalar?: ScalarShape;
   /** The primary request body's media type, when the operation has a body — so
    *  the renderer labels it correctly instead of assuming JSON. */
   bodyMediaType?: string;
@@ -309,6 +311,8 @@ export interface ResponseFacts {
    * union response renders its variants instead of an empty body section.
    */
   union?: UnionShape;
+  /** A body that isn't an object (`text/plain`, a binary file): its type. */
+  scalar?: ScalarShape;
   /** The primary media type, when the response declares content. Chosen by the
    *  same precedence as the request body's (`orderedMediaEntries`). */
   mediaType?: string;
@@ -325,6 +329,8 @@ export interface RequestBodyFacts {
   mediaType: string;
   example?: DerivedExample;
   union?: UnionShape;
+  /** A body that isn't an object (`text/plain`, a binary file): its type. */
+  scalar?: ScalarShape;
 }
 
 /**
@@ -338,6 +344,8 @@ export interface ResponseMediaFacts {
   mediaType: string;
   example?: DerivedExample;
   union?: UnionShape;
+  /** A body that isn't an object (`text/plain`, a binary file): its type. */
+  scalar?: ScalarShape;
 }
 
 export interface ErrorCodeFacts {

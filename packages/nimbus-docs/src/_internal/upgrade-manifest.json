@@ -1146,6 +1146,23 @@
         "A query parameter with an example shows `example` on its row.",
         "On an API home split into parts, a table of contents link to a heading in a later part lands on it, with and without JavaScript."
       ]
+    },
+    {
+      "id": "api-shapes-beside-unions",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-dropped-shapes",
+      "summary": "Optionally show fields declared beside a union, and the type of a body that isn't an object, on API pages.",
+      "affected": "Sites with the api-layout and api-field-row registry components.",
+      "instructions": [
+        "No action is needed: without these files, API pages show what they did before, and their Markdown already carries the new fields.",
+        "api-layout and api-field-row are registry components, which nimbus-docs diff doesn't cover. If they are unmodified, update them with nimbus-docs add api-layout --overwrite and nimbus-docs add api-field-row --overwrite.",
+        "If they are customized, copy the changes from the current registry version: ApiFieldList.astro renders its fields and then its slot, and keeps a section with no fields when the slot has content; ApiFieldRow.astro and ApiUnionExplorer.astro render a field's or option's fields, then its union with afterFields, and count both with contentsLabel from type-display.ts; ApiBody.astro passes fields beside each union explorer, shows a body's scalar with the new ApiScalarType.astro, and labels every body with mediaBadge(mediaType): JSON for a JSON body, otherwise the media type as written, so field-list.css's .fl-badge no longer sets text-transform: uppercase."
+      ],
+      "verify": [
+        "A response whose schema is allOf of a oneOf and properties lists those properties, then the options.",
+        "A text/plain response shows its type, and its badge isn't JSON."
+      ]
     }
   ]
 }

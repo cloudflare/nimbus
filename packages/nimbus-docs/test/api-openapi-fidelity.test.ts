@@ -134,7 +134,7 @@ describe("request body: required and description", () => {
     const union = renderApiPageMarkdown(getApiPageProps(m, "addPet"));
     assert.match(union, /## Request body\n\n_Required\._\n\nA cat or a dog\.\n\nOne of the following:/);
     const blob = renderApiPageMarkdown(getApiPageProps(m, "putBlob"));
-    assert.match(blob, /## Request body\n\n_Required\._\n\nThe raw bytes\.\n/);
+    assert.match(blob, /## Request body \(application\/octet-stream\)\n\n_Required\._\n\nThe raw bytes\.\n\nType: `string`\n\n- format: `binary`/);
   });
 });
 

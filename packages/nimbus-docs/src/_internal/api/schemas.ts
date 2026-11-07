@@ -13,6 +13,7 @@ import {
   typeLabel,
 } from "./schema-algebra.js";
 import type { Coordinate, ScalarShape, SchemaFacts } from "./model.js";
+import type { OpenApiSchema } from "./openapi-types.js";
 import { addField, walkFields, warnFieldCeiling } from "./field-walk.js";
 import type { ParseContext } from "./parse-context.js";
 
@@ -43,50 +44,27 @@ export function parseSchemas(ctx: ParseContext): void {
       description: asString(schema.description),
       projection: { fields: fieldCoords },
     };
-    // A leaf schema (no object properties) still carries meaning. A top-level
-    // `oneOf`/`anyOf` becomes a `union` (branches linked to their component
-    // pages); otherwise a scalar/enum/array/constrained leaf becomes a
-    // `scalar`. `leaf` folds `allOf` wrappers; `item` descends into array
-    // items (where an array-of-scalar's enum/constraints live). Still excluded:
-    // a bare `{}`/empty object (nothing to show). A schema with BOTH properties
-    // and a container-level enum/union keeps only its fields; the fields of an
-    // inline union branch are the union's, not the schema's own.
-    if (!ownFields) {
-      const leaf = foldAllOf(schema);
-      const leafItems = leaf.type === "array" && leaf.items ? foldAllOf(leaf.items) : undefined;
-      // Route the schema-page union through the same raw-recovery path as
-      // fields/bodies so an array-item or `allOf`-composed union surfaces with
-      // named, linked branches (not just a top-level `$ref`-alias union).
-      const union = ctx.resolver.unionPreferRaw(ctx.resolver.rawAlias(name), leaf, leafItems, coord);
-      const item = leafItems ?? leaf;
-      const constraints = constraintsOf(item);
-      const enumValues =
-        Array.isArray(item.enum) && item.enum.length > 0 ? item.enum : undefined;
-      // A pure map (`{ [key]: T }`, no declared properties) is informative even
-      // though its `type` is `object` — without this its component page would
-      // render blank instead of showing `map<T>`.
-      const isMap = mapValueSchema(leaf) !== undefined && !hasProperties(leaf);
-      const informative =
-        (leaf.type !== undefined && leaf.type !== "object") ||
-        isMap ||
-        enumValues !== undefined ||
-        constraints !== undefined;
-      if (union) {
-        facts.union = union;
-      } else if (informative) {
-        const mapRef = isMap ? ctx.resolver.mapValueRef(ctx.resolver.rawAlias(name)) : undefined;
-        const scalar: ScalarShape = { type: mapRef ? `map<${mapRef.label}>` : typeLabel(leaf) };
-        if (constraints) scalar.constraints = constraints;
-        if (enumValues) scalar.enum = enumValues;
-        // enum/constraints describe the value space (the array's *elements*,
-        // via `item`), but default/example/nullable are the node's own — the
-        // array's, not an element's. Sourcing them from `item` would print an
-        // element default beside an `array<…>` type (a value/type mismatch).
-        if (leaf.default !== undefined) scalar.default = leaf.default;
-        if (leaf.example !== undefined) scalar.example = leaf.example;
-        if (leaf.nullable) scalar.nullable = true;
-        facts.scalar = scalar;
-      }
+    // A top-level `oneOf`/`anyOf` becomes a `union` (branches linked to their
+    // component pages), kept beside the schema's own fields when it has both
+    // (`allOf: [{ oneOf }, { properties }]`: the fields every option has, then
+    // the options). Otherwise a leaf schema (no object properties) becomes a
+    // `scalar`. The fields of an inline union branch are the union's, not the
+    // schema's own.
+    const leaf = foldAllOf(schema);
+    const leafItems = leaf.type === "array" && leaf.items ? foldAllOf(leaf.items) : undefined;
+    // Route the schema-page union through the same raw-recovery path as
+    // fields/bodies so an array-item or `allOf`-composed union surfaces with
+    // named, linked branches (not just a top-level `$ref`-alias union).
+    // A schema with its own fields has a union only if it declares one: skip the
+    // raw lookup for the rest, most of a large spec.
+    const declares = (x: OpenApiSchema | undefined) => Boolean(x?.oneOf || x?.anyOf);
+    const union = !ownFields || declares(leaf) || declares(leafItems)
+      ? ctx.resolver.unionPreferRaw(ctx.resolver.rawAlias(name), leaf, leafItems, coord)
+      : undefined;
+    if (union) facts.union = union;
+    else if (!ownFields) {
+      const scalar = scalarShape(leaf, () => ctx.resolver.mapValueRef(ctx.resolver.rawAlias(name)));
+      if (scalar) facts.scalar = scalar;
     }
     ctx.node(coord, "schema", apiCoordinate(ctx.collection), facts, pointer("components", "schemas", name));
     const slug = `schemas/${name}`;
@@ -98,4 +76,47 @@ export function parseSchemas(ctx: ParseContext): void {
       ctx.registry.registerSlug(slug, coord);
     }
   }
+}
+
+/**
+ * The leaf shape of a schema with no object properties: its type, enum,
+ * constraints, default and example. `undefined` for a bare `{}` or an empty
+ * object, which says nothing. `mapRef` recovers a map's named value type, which
+ * dereferencing loses.
+ */
+export function scalarShape(
+  schema: OpenApiSchema,
+  mapRef?: () => { label: string } | undefined,
+): ScalarShape | undefined {
+  const leaf = foldAllOf(schema);
+  const item = leaf.type === "array" && leaf.items ? foldAllOf(leaf.items) : leaf;
+  const constraints = constraintsOf(item);
+  const enumValues = Array.isArray(item.enum) && item.enum.length > 0 ? item.enum : undefined;
+  // A pure map (`{ [key]: T }`, no declared properties) is informative even
+  // though its `type` is `object`.
+  const isMap = mapValueSchema(leaf) !== undefined && !hasProperties(leaf);
+  const informative =
+    (leaf.type !== undefined && leaf.type !== "object") || isMap || enumValues !== undefined || constraints !== undefined;
+  if (!informative) return undefined;
+  const ref = isMap ? mapRef?.() : undefined;
+  const scalar: ScalarShape = { type: ref ? `map<${ref.label}>` : typeLabel(leaf) };
+  if (constraints) scalar.constraints = constraints;
+  if (enumValues) scalar.enum = enumValues;
+  // enum/constraints describe the value space (an array's *elements*, via
+  // `item`), but default/example/nullable are the node's own: an element
+  // default beside an `array<…>` type would be a value/type mismatch.
+  if (leaf.default !== undefined) scalar.default = leaf.default;
+  if (leaf.example !== undefined) scalar.example = leaf.example;
+  if (leaf.nullable) scalar.nullable = true;
+  return scalar;
+}
+
+/** A request or response body's type when it has no fields to list: a string,
+ *  a binary file, an array of scalars. `undefined` when its object (or array
+ *  items) has properties or a union, which list instead. */
+export function bodyScalarShape(schema: OpenApiSchema): ScalarShape | undefined {
+  const folded = foldAllOf(schema);
+  const target = folded.type === "array" && folded.items ? foldAllOf(folded.items) : folded;
+  if (hasProperties(target) || target.oneOf || target.anyOf) return undefined;
+  return scalarShape(schema);
 }

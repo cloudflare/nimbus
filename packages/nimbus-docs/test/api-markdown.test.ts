@@ -313,7 +313,7 @@ describe("api markdown emitter", () => {
     assert.doesNotMatch(group, /`content` \(/, "a schema page's named branch links out, as its page does");
   });
 
-  test("a union field renders its variants XOR its children — no hidden coordinates leak", () => {
+  test("a union field lists the fields beside its union, then the options they add to", () => {
     const md = renderApiPageMarkdown(
       schema([
         field({
@@ -321,13 +321,12 @@ describe("api markdown emitter", () => {
           coordinate: "c.source",
           type: "one of",
           union: { kind: "oneOf", variants: [{ label: "Card" }, { label: "Bank" }] },
-          children: [field({ name: "leak", coordinate: "c.source.leak" })],
+          children: [field({ name: "id", coordinate: "c.source.id" })],
           childCount: 1,
         }),
       ]),
     );
-    assert.match(md, /one of the following: `Card`, `Bank`/);
-    assert.doesNotMatch(md, /c\.source\.leak/);
+    assert.match(md, /- `source` [^\n]*\n  - `id` \(`c\.source\.id`[^\n]*\n  - and one of the following: `Card`, `Bank`/);
   });
 
   test("a backtick in a variant's schema name cannot corrupt the link", async () => {
