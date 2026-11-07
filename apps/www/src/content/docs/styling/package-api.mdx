@@ -156,6 +156,10 @@ From `@cloudflare/nimbus-docs/client`, in component scripts.
 | `mount(selector, init)` | Runs `init` for every matching element on each page, including after client-side navigation, and its cleanup when the page goes. See [Custom components](/styling/custom-components). |
 | `initTabs(config)` | Tab-list keyboard and selection behaviour. |
 | `makeDisclosure(options)` | Open-and-close behaviour for a disclosure. |
+| `onShortcut(key, handler, { within? })` | Runs `handler` when `key` is pressed anywhere on the page, or only while focus is inside `within`: a character such as `"/"`, or a combo such as `"Mod+K"` (⌘ on macOS, Ctrl elsewhere). Returns a function that unbinds it. See [Keyboard shortcuts](/styling/layouts#keyboard-shortcuts). |
+| `syncShortcutHints(root?)` | Writes each `data-nb-shortcut-hint` as this platform shows its key, and each `data-nb-shortcut-for` control's `aria-keyshortcuts`; both then follow the reader's switch. |
+| `shortcutLabel(key)`, `ariaKeyShortcuts(key)` | A key as a reader sees it (`⌘K`, `Ctrl K`, `[`) and as `aria-keyshortcuts` names it. |
+| `singleKeyShortcutsEnabled()`, `setSingleKeyShortcutsEnabled(on)` | The reader's choice to turn single-key shortcuts off. |
 
 ## Markdown plugins
 

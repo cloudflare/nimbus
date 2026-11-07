@@ -8,6 +8,7 @@
       "api-catalog-published-specs",
       "api-code-sample-ids",
       "api-collections-from-config",
+      "api-page-polish",
       "api-parameter-examples-and-home-toc",
       "api-query-version-mode",
       "api-reference-polish",
@@ -1217,6 +1218,57 @@
       "verify": [
         "Searching shows each sub-result as its own option, and the arrow keys reach it.",
         "A dismissed banner stays gone across pages without flashing."
+      ]
+    },
+    {
+      "id": "api-page-polish",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-page-polish",
+      "summary": "Optionally take API page fixes: a code rail that fits the viewport on wide screens, an endpoint box that keeps the path, spaced description headings, a wide previous/next bar, every allowed value listed, and section anchors with \"#\" links.",
+      "affected": "Sites with the api-layout, api-code-rail and api-field-row registry components.",
+      "instructions": [
+        "No action is needed: without these files, API pages look as before.",
+        "These are registry components, which nimbus-docs diff doesn't cover. If they are unmodified, update them with nimbus-docs add api-layout --overwrite, nimbus-docs add api-code-rail --overwrite and nimbus-docs add api-field-row --overwrite.",
+        "If they are customized, take code-rail.css and ApiLayout.astro together: the rail fits the viewport only when ApiLayout's rail wrapper is a flex column at 90rem and the CSS chain is in place. ApiEndpointCard.astro and ApiBody.astro can each be taken on their own. type-display.ts with ApiFieldRow.astro and ApiUnionExplorer.astro list long enums on an Allowed values line; ApiFieldList.astro puts a titled section's anchor on its heading."
+      ],
+      "verify": [
+        "In a window at least 1440px wide and 672px tall, a long request sample scrolls inside the code rail while its header stays in view.",
+        "A field with more than six allowed values lists them all under its description."
+      ]
+    },
+    {
+      "id": "code-group-copy-first",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-page-polish",
+      "summary": "Optionally put CodeGroup's copy button before its code in Tab order.",
+      "affected": "Sites with the code-group registry component.",
+      "instructions": [
+        "No action is needed: CodeGroup works as before.",
+        "If it is unmodified, update it with nimbus-docs add code-group --overwrite.",
+        "If it is customized, in code-group.client.ts add the copy button to the row before the pre (row.append(copyBtn, pre)), and in CodeGroup.astro give [data-cg-copy] order: 1 so it stays on the right."
+      ],
+      "verify": [
+        "Tab reaches a code group's copy button before its code."
+      ]
+    },
+    {
+      "id": "keyboard-shortcuts",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-page-polish",
+      "summary": "Optionally keep every keyboard shortcut in src/lib/shortcuts.ts, let [ and ] work from anywhere on the page, and give readers a switch to turn single-key shortcuts off.",
+      "affected": "Every site.",
+      "instructions": [
+        "No action is needed: without these files, the shortcuts work as before.",
+        "Add the shortcuts file and the reader's switch with nimbus-docs add shortcuts. An existing src/lib/shortcuts.ts is kept.",
+        "Then take these together with nimbus-docs diff <file> --apply: src/components/ui/search/SearchDialog.astro, src/components/Header.astro, src/components/ui/search/SearchTrigger.astro, src/components/ui/search/search.client.ts, src/components/ui/search/search-trigger.client.ts, src/components/ui/sidebar/sidebar.client.ts, src/components/ui/sidebar/SidebarFilter.astro, src/components/ui/pagination/Pagination.astro, src/components/ui/pagination/PaginationLink.astro and src/components/ui/pagination/pagination.client.ts. Take all of them: each client reads the attributes its component now writes, so taking one without the other can leave a key without its hint or its binding.",
+        "Single keys (/, [, ]) work page-wide only on a page with the switch, which the search dialog has, or the header when search is off."
+      ],
+      "verify": [
+        "Pressing ] anywhere on a docs page goes to the next page.",
+        "Turning off Single-key shortcuts in the search dialog stops /, [ and ], and keeps the search shortcut working."
       ]
     }
   ]

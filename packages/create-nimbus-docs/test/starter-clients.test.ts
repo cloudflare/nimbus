@@ -10,6 +10,7 @@ import { JSDOM } from "jsdom";
 
 const UI = path.resolve(import.meta.dirname, "../../nimbus-starter-source/src/components/ui");
 const CLIENT = JSON.stringify(pathToFileURL(path.resolve(import.meta.dirname, "../../nimbus-docs/src/client/index.ts")).href);
+const SHORTCUTS = JSON.stringify(pathToFileURL(path.resolve(import.meta.dirname, "../../nimbus-starter-source/src/lib/shortcuts.ts")).href);
 const GLOBALS = ["window", "document", "HTMLElement", "HTMLDialogElement", "HTMLDetailsElement", "HTMLInputElement", "MutationObserver", "localStorage", "getComputedStyle"] as const;
 
 /** A page of `html`, with the starter client at `file` (under ui/) loaded into it. */
@@ -23,7 +24,10 @@ async function page(t: test.TestContext, html: string, file?: string, beforeLoad
   });
   beforeLoad?.(dom.window);
   if (file) {
-    const source = fs.readFileSync(path.join(UI, file), "utf8").replace(/from "@cloudflare\/nimbus-docs\/client";/, `from ${CLIENT};`);
+    const source = fs
+      .readFileSync(path.join(UI, file), "utf8")
+      .replace(/from "@cloudflare\/nimbus-docs\/client";/, `from ${CLIENT};`)
+      .replace(/from "@\/lib\/shortcuts";/, `from ${SHORTCUTS};`);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-starter-client-"));
     const target = path.join(dir, path.basename(file));
     fs.writeFileSync(target, source);

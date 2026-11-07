@@ -1,6 +1,7 @@
 ---
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
+import { ShortcutsToggle } from "@/components/ui/shortcuts";
 ---
 
 <Dialog data-slot="search-dialog" aria-label="Search documentation" data-search-dialog>
@@ -37,10 +38,11 @@ import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
       </div>
     </div>
 
-    <div class="flex items-center gap-4 px-4 py-2.5 text-xs text-muted-foreground">
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-2.5 text-xs text-muted-foreground">
       <span>↑↓ navigate</span>
       <span>↵ select</span>
       <span>Esc close</span>
+      <ShortcutsToggle class="ms-auto" />
     </div>
   </DialogContent>
 </Dialog>

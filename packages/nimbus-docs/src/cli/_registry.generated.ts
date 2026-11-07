@@ -38,6 +38,12 @@ export const BUNDLED_INDEX: BundledIndex = {
       "title": "cn",
       "description": "Tailwind-aware className merger built on clsx + tailwind-merge."
     },
+    "shortcuts": {
+      "name": "shortcuts",
+      "type": "registry:lib",
+      "title": "shortcuts",
+      "description": "The site's keyboard shortcuts in one file, src/lib/shortcuts.ts: change a key or set it to false to remove it. Ships the reader's switch that turns single-key shortcuts off (WCAG 2.1.4). An existing file is kept, so custom keys survive."
+    },
     "variants": {
       "name": "variants",
       "type": "registry:lib",
