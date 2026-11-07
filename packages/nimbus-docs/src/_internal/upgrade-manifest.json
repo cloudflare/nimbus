@@ -3,6 +3,7 @@
   "oldestSupportedVersion": "0.11.0",
   "appliesTo": {
     "api": [
+      "api-auth-details",
       "api-body-request-example",
       "api-catalog-published-specs",
       "api-code-sample-ids",
@@ -12,6 +13,7 @@
       "api-reference-polish",
       "api-request-path",
       "api-schema-pages-off-by-default",
+      "api-shapes-beside-unions",
       "api-sidebar-filter",
       "api-version-id-format",
       "api-version-picker",
@@ -1162,6 +1164,23 @@
       "verify": [
         "A response whose schema is allOf of a oneOf and properties lists those properties, then the options.",
         "A text/plain response shows its type, and its badge isn't JSON."
+      ]
+    },
+    {
+      "id": "api-auth-details",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-auth-details",
+      "summary": "Optionally show each auth scheme's header example and scopes on API pages again, with HTTP Bearer and Basic named.",
+      "affected": "Sites with the api-layout registry component.",
+      "instructions": [
+        "Upgrade @cloudflare/nimbus-docs first: the new auth.ts reads ApiAuthView.httpScheme, which this release adds.",
+        "api-layout is a registry component, which nimbus-docs diff doesn't cover. If it is unmodified, update it with nimbus-docs add api-layout --overwrite.",
+        "If it is customized, update src/components/ui/api-layout/auth.ts from the current registry version: toField sets descriptionHtml instead of description, with the header example and each scope HTML-escaped inside <code>; authTypeLabel and authExample read httpScheme for Bearer and Basic."
+      ],
+      "verify": [
+        "An operation with an HTTP bearer scheme shows HTTP Bearer and Authorization: Bearer <token> in its Authorization section.",
+        "An OAuth2 operation lists its scopes."
       ]
     }
   ]
