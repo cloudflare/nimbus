@@ -49,6 +49,16 @@ test("an API group with no landing page sits at its first linked page", () => {
   assert.ok(at("pets", "list", "/pets/list/") < at("docs", "intro", "/intro/"));
 });
 
+test("a root-mounted API's landing page reads before its operations", () => {
+  const position = llmsSidebarPosition({
+    tree: [link("Guide", "/guide/")],
+    apiMounts: new Map([["api", ""]]),
+    apiNavOrder: (_collection, id) => ({ create: 0 } as Record<string, number>)[id],
+  });
+  const at = (id: string, url: string) => position({ collection: "api", id, url })!;
+  assert.ok(at("index", "/") < at("create", "/create/"));
+});
+
 test("an older docs version reads in its own sidebar's order", () => {
   const position = llmsSidebarPosition({
     tree: [link("Configure", "/configure/"), link("Deploy", "/deploy/")],

@@ -1466,6 +1466,41 @@ test("nested sections: a collection in another slice is linked from the section 
   assert.doesNotMatch(body, /cli/);
 });
 
+test("nested sections: collection links follow the sidebar with the section's other sub-sections", async () => {
+  const projectRoot = await root();
+  const routes = new Map([
+    ["sdk", { mount: "/reference/sdk", file: "src/pages/reference/sdk/[...slug].astro", aliases: [] }],
+    ["cli", { mount: "/reference/cli", file: "src/pages/reference/cli/[...slug].astro", aliases: [] }],
+  ]);
+  const urls = collectionUrlsKey({ versions: null, routes });
+  commit(projectRoot, "docs", [
+    { id: "reference", body: "Reference", data: { title: "Reference" } },
+    { id: "reference/basics/a", body: "A", data: { title: "A" } },
+    { id: "reference/basics/b", body: "B", data: { title: "B" } },
+  ], urls);
+  commit(projectRoot, "sdk", [{ id: "start", body: "SDK", data: { title: "SDK start" } }], urls);
+  commit(projectRoot, "cli", [{ id: "start", body: "CLI", data: { title: "CLI start" } }], urls);
+  // The sidebar reads Reference, then SDK, CLI, Basics.
+  const order = ["/reference", "/reference/sdk/start", "/reference/cli/start", "/reference/basics/a", "/reference/basics/b"];
+  const options = {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+    nestedSections: true,
+    routes,
+    sidebarPosition: async () => (page: { url: string }) => {
+      const index = order.indexOf(page.url.replace(/\/$/, ""));
+      return index === -1 ? undefined : index;
+    },
+  };
+  configure(projectRoot, options);
+  await bakeAgentEndpointAssets(options);
+  const body = (await readLlmsEndpointPayload(projectRoot, { scope: "section", surface: "index", section: "reference" })).body;
+  const sections = [...body.matchAll(/\/(reference\/[a-z]+)\/llms\.txt/g)].map((match) => match[1]);
+  assert.deepEqual(sections, ["reference/sdk", "reference/cli", "reference/basics"]);
+});
+
 test("without nested sections, a top-level section lists every page under it", async () => {
   const projectRoot = await root();
   commit(projectRoot, "docs", [

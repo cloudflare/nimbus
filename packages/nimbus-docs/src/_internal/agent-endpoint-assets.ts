@@ -1128,8 +1128,8 @@ function siteIndexAsset(
 function nestedCollectionLinks(
   groups: readonly PreparedLlmsGroup[],
   options: BakeAgentEndpointAssetsOptions,
-): Map<string, Array<{ slug: string; label: string }>> {
-  const links = new Map<string, Array<{ slug: string; label: string }>>();
+): Map<string, Array<{ slug: string; label: string; position?: number }>> {
+  const links = new Map<string, Array<{ slug: string; label: string; position?: number }>>();
   if (options.nestedSections !== true) return links;
   const sections = flattenLlmsGroups(groups);
   const nested = [
@@ -1141,7 +1141,11 @@ function nestedCollectionLinks(
       .filter((candidate) => section.slug.startsWith(`${candidate.slug}/`))
       .sort((a, b) => b.slug.length - a.slug.length)[0];
     if (!parent) continue;
-    links.set(parent.slug, [...(links.get(parent.slug) ?? []), { slug: section.slug, label: section.label }]);
+    const position = (section as { position?: number }).position;
+    links.set(parent.slug, [
+      ...(links.get(parent.slug) ?? []),
+      { slug: section.slug, label: section.label, ...(position !== undefined ? { position } : {}) },
+    ]);
   }
   return links;
 }
@@ -1149,7 +1153,7 @@ function nestedCollectionLinks(
 function sectionIndexAsset(
   group: PreparedLlmsGroup,
   options: BakeAgentEndpointAssetsOptions,
-  nestedCollections: ReadonlyArray<{ slug: string; label: string }> = [],
+  nestedCollections: ReadonlyArray<{ slug: string; label: string; position?: number }> = [],
 ): string {
   const subsections = [...group.children, ...nestedCollections].sort(compareGroups);
   const pages =

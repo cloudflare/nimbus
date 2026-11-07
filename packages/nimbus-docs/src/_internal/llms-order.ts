@@ -34,7 +34,8 @@ export function sidebarPositions(items: readonly SidebarItem[]): Map<string, num
 /** A URL as the sidebar and the indexes both write it: no trailing slash, `/` for the root. */
 export function normalize(url: string): string {
   const path = url.split(/[?#]/)[0]!;
-  return path.length > 1 ? path.replace(/\/+$/, "") : path;
+  // A root mount is written "" and its landing page "/".
+  return path.length > 1 ? path.replace(/\/+$/, "") : "/";
 }
 
 /**
