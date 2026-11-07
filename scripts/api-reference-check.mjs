@@ -1545,10 +1545,11 @@ async function assertBasePathMetadata() {
     ],
     "API agent index": [
       await readFile(join(site, "dist-base", "api", "llms.txt"), "utf8"),
-      [absoluteUrl("/docs/api/charges/llms.txt")],
+      [absoluteUrl("/docs/api/tags/charges/llms.txt")],
     ],
+    // An operation is listed under its tag, as the sidebar groups it.
     "nested API agent index": [
-      await readFile(join(site, "dist-base", "api", "charges", "llms.txt"), "utf8"),
+      await readFile(join(site, "dist-base", "api", "tags", "charges", "llms.txt"), "utf8"),
       [absoluteUrl("/docs/api/charges/create/index.md")],
     ],
     "full documentation": [
