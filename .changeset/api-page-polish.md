@@ -11,3 +11,4 @@
 - Request body and Returns have anchors (`#request-body`, `#responses`), and every API section heading gets a "#" link. `headingAnchors()` also links headings inside any `data-nb-heading-anchors` container.
 - CodeGroup's copy button comes before its code in Tab order.
 - Every keyboard shortcut lives in `src/lib/shortcuts.ts`: change a key or set it to `false` to remove it. `[` and `]` go to the previous and next page from anywhere on the page, and readers can turn single-key shortcuts off from the search dialog. `onShortcut`, `syncShortcutHints`, the key labels and the reader's switch are in `@cloudflare/nimbus-docs/client`.
+- A `Switch` component (`nimbus-docs add switch`): an on/off control. The shortcuts switch in the search dialog uses it.
