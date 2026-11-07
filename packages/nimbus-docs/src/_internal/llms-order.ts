@@ -8,8 +8,14 @@
 
 import type { SidebarItem } from "../types.js";
 
-/** A page's place in reading order, or undefined when the sidebar doesn't show it. */
-export type SidebarPosition = (page: { collection: string; id: string; url: string }) => number | undefined;
+/**
+ * A page's place in reading order, or undefined when the sidebar doesn't show
+ * it. `section` places a section by its path, as an API is placed: at its
+ * landing link, else its first linked page.
+ */
+export type SidebarPosition = ((page: { collection: string; id: string; url: string }) => number | undefined) & {
+  section?: (path: string) => number | undefined;
+};
 
 /** Each internal link's index in a depth-first walk of `items`, by normalized URL. */
 export function sidebarPositions(items: readonly SidebarItem[]): Map<string, number> {
@@ -73,7 +79,7 @@ export function llmsSidebarPosition(input: {
   const unlinked = [...input.apiMounts].filter(([collection]) => anchors.get(collection) === undefined).map(([collection]) => collection);
   unlinked.sort((a, b) => compare(input.apiMounts.get(a)!, input.apiMounts.get(b)!));
   const apiAnchor = (collection: string): number => anchors.get(collection) ?? main.size + unlinked.indexOf(collection);
-  return ({ collection, id, url }) => {
+  const position = ({ collection, id, url }: { collection: string; id: string; url: string }) => {
     if (input.apiMounts.has(collection)) {
       // The API's landing page reads first; its pages follow in nav order,
       // between the anchor and the next position.
@@ -84,6 +90,7 @@ export function llmsSidebarPosition(input: {
     const table = versions.get(collection) ?? main;
     return table.get(normalize(url));
   };
+  return Object.assign(position, { section: linkedAt });
 }
 
 /** Positioned first, by position; then the rest, by URL. */

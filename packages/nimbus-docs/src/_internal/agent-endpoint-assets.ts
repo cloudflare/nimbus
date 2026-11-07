@@ -181,7 +181,7 @@ export interface BakeAgentEndpointAssetsOptions {
    * Page collections a partial build left empty: the site index lists each
    * one's `llms.txt`, which the slice holding it serves.
    */
-  absentSections?: ReadonlyArray<{ slug: string; label: string }>;
+  absentSections?: ReadonlyArray<{ slug: string; label: string; position?: number }>;
   /**
    * Whether the section route serves nested paths (`[...section]/llms.txt`).
    * Then each sub-folder gets its own `llms.txt`. Default false.
@@ -1079,6 +1079,7 @@ function siteIndexAsset(
       })),
     ...(options.absentSections ?? []).map((section) => ({
       key: `/${section.slug}`,
+      position: section.position,
       // The slice holding a nested section serves its llms-full.txt, not an llms.txt.
       line: `- [${section.label}](${absoluteUrl(options.site, options.base, `/${section.slug}/${options.nestedSections === true || !section.slug.includes("/") ? "llms.txt" : "llms-full.txt"}`)})`,
     })),
@@ -2219,6 +2220,17 @@ export async function bakeAgentEndpointAssets(
     for (const page of new Set([...preparedLlmsPages, ...llmsRoutePages])) {
       const value = position(page);
       if (value !== undefined) page.position = value;
+    }
+    // A section another slice builds sits where the sidebar links it.
+    const { section } = position;
+    if (section && options.absentSections) {
+      options = {
+        ...options,
+        absentSections: options.absentSections.map((absent) => {
+          const value = section(`/${absent.slug}`);
+          return value === undefined ? absent : { ...absent, position: value };
+        }),
+      };
     }
   }
   const { leaves, groups } = groupPreparedLlmsPages(preparedLlmsPages, options);

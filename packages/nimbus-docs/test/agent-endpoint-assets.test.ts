@@ -1501,6 +1501,35 @@ test("nested sections: collection links follow the sidebar with the section's ot
   assert.deepEqual(sections, ["reference/sdk", "reference/cli", "reference/basics"]);
 });
 
+test("a section another slice builds is listed where the sidebar links it", async () => {
+  const { llmsSidebarPosition } = await import("../src/_internal/llms-order.ts");
+  const projectRoot = await root();
+  commit(projectRoot, "docs", [
+    { id: "guide", body: "Guide", data: { title: "Guide" } },
+    { id: "zeta", body: "Zeta", data: { title: "Zeta" } },
+  ]);
+  const link = (label: string, href: string) => ({ type: "link" as const, label, href, order: 0 });
+  const options = {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+    absentSections: [{ slug: "api", label: "API" }],
+    // The sidebar reads Zeta, API, Guide.
+    sidebarPosition: async () =>
+      llmsSidebarPosition({
+        tree: [link("Zeta", "/zeta/"), link("API", "/api/"), link("Guide", "/guide/")],
+        apiMounts: new Map(),
+        apiNavOrder: () => undefined,
+      }),
+  };
+  configure(projectRoot, options);
+  await bakeAgentEndpointAssets(options);
+  const body = (await readLlmsEndpointPayload(projectRoot, { scope: "site", surface: "index" })).body;
+  const rows = [...body.matchAll(/^- \[([^\]]+)\]/gm)].map((match) => match[1]);
+  assert.deepEqual(rows, ["Zeta", "API", "Guide"]);
+});
+
 test("without nested sections, a top-level section lists every page under it", async () => {
   const projectRoot = await root();
   commit(projectRoot, "docs", [
