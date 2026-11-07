@@ -4987,8 +4987,6 @@ snapshots:
       es-define-property: 1.0.1
       side-channel: 1.1.1
 
-  quotation@2.0.3: {}
-
   radix3@1.1.2: {}
 
   readdirp@5.1.1: {}
