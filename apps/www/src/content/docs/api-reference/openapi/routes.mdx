@@ -134,6 +134,8 @@ A `oneOf`/`anyOf` opens where it is declared, and inline branches keep opening a
 - A branch declared inline, with no `$ref`, is addressed by its 1-based position: the second branch of a `source` field is `source.2`, its `iban` property `source.2.iban`. Its fields always open, are anchored on the page, and can be cited. Positions follow the document, so inserting a branch renumbers the ones after it.
 - A branch already open above it stays a label, so a self-referential schema stops at its first repeat.
 
-The Markdown version prints nested branches as a nested list and the fields of inline branches; a named branch stays a label or a link, even when it is itself a union, as it does with schema pages off.
+Fields declared beside a union, as in `allOf: [{ oneOf: [A, B] }, { properties: { id } }]`, show first, then the options that add to them. A body, field, branch or schema page then carries both `fields` (or `children`) and `union`, and a component renders both, fields first.
+
+The Markdown version prints what the page shows: nested branches as a nested list, each branch's fields, and a discriminator's value beside the branch it selects. A named branch links to its schema page when there is one. With schema pages on, it previews its fields where a page's own field chooses between several named schemas, and elsewhere only links. Without them, it always previews, since nothing else shows its fields.
 
 Depth has no limit. A field list stops at 25,000 fields, far beyond any spec measured, and the build then warns, naming the operation or schema whose list it cut. The page shows the fields up to the cut.

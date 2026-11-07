@@ -81,8 +81,6 @@ import { getCommand } from "../lib/pkgm.js";
 // into process.env before the Vite-parity preflight runs.
 loadDotenv(process.cwd());
 
-declare const __APP_VERSION__: string;
-
 interface CliArgs {
   _: string[];
   yes: boolean;
@@ -243,7 +241,7 @@ async function main(): Promise<void> {
     return;
   }
   if (args.version) {
-    process.stdout.write(`${__APP_VERSION__}\n`);
+    process.stdout.write(`${runningNimbusVersion()}\n`);
     return;
   }
 

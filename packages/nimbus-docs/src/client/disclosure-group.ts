@@ -31,9 +31,6 @@ export interface DisclosureGroupInstance {
   destroy(): void;
 }
 
-const prefersReducedMotion = (): boolean =>
-  window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-
 export function initDisclosureGroup(config: DisclosureGroupConfig): DisclosureGroupInstance {
   const { root, toggleAll = null, deepLink = false } = config;
   let destroyed = false;
@@ -69,8 +66,15 @@ export function initDisclosureGroup(config: DisclosureGroupConfig): DisclosureGr
     const el = document.getElementById(id);
     if (!el || !root.contains(el)) return;
 
+    // Opening a collapsed ancestor moves the target after the browser has
+    // already scrolled to it, so only then is a second scroll needed. Opening
+    // the target's own <details> doesn't move it.
+    let opened = false;
     for (let node: Element | null = el; node; node = node.parentElement) {
-      if (node instanceof HTMLDetailsElement) node.open = true;
+      if (node instanceof HTMLDetailsElement && !node.open) {
+        node.open = true;
+        if (node !== el) opened = true;
+      }
     }
     const own = el.querySelector<HTMLDetailsElement>(":scope > details");
     if (own) own.open = true;
@@ -80,7 +84,8 @@ export function initDisclosureGroup(config: DisclosureGroupConfig): DisclosureGr
     requestAnimationFrame(() => {
       if (destroyed) return;
       (el as HTMLElement).focus({ preventScroll: true });
-      el.scrollIntoView({ block: "center", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+      // Where the browser lands a fragment, so this is one destination, not two.
+      if (opened) el.scrollIntoView({ block: "start" });
     });
   };
 

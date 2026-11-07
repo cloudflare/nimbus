@@ -132,9 +132,9 @@ describe("request body: required and description", () => {
     Dog: { type: object, properties: { barks: { type: boolean } } }`),
     });
     const union = renderApiPageMarkdown(getApiPageProps(m, "addPet"));
-    assert.match(union, /## Request body\n\n_Required\._\n\nA cat or a dog\.\n\nOne of:/);
+    assert.match(union, /## Request body\n\n_Required\._\n\nA cat or a dog\.\n\nOne of the following:/);
     const blob = renderApiPageMarkdown(getApiPageProps(m, "putBlob"));
-    assert.match(blob, /## Request body\n\n_Required\._\n\nThe raw bytes\.\n/);
+    assert.match(blob, /## Request body \(application\/octet-stream\)\n\n_Required\._\n\nThe raw bytes\.\n\nType: `string`\n\n- format: `binary`/);
   });
 });
 
@@ -372,11 +372,11 @@ describe("anonymous union branches get readable labels", () => {
   });
 
   test("Markdown shows the new labels, never unknown", () => {
-    assert.match(md("Shape"), /One of:\n\n- `object`\n  - `radius` \(.*\n  - `label` \(.*\n- `string`\n- `Legacy shape`\n- `integer`\n- `Option 5`\n/);
-    assert.match(md("Level"), /Any of:\n\n- `integer`\n- `number`\n- `string \| null`\n/);
+    assert.match(md("Shape"), /One of the following:\n\n- `object`\n  - `radius` \(.*\n  - `label` \(.*\n- `string`: one of `"small"`, `"medium"`, `"large"`\n- `Legacy shape`\n- `integer`\n- `Option 5`\n/);
+    assert.match(md("Level"), /Any of the following:\n\n- `integer`: one of `1`, `2`\n- `number`: one of `1`, `2.5`\n- `string \| null`: one of `"low"`, `null`\n/);
     assert.match(
       md("getShape"),
-      /- one of:\n    - `object`\n      - `radius` \(.*\n      - `label` \(.*\n    - `string`\n    - `Legacy shape`\n    - `integer`\n    - `Option 5`\n/,
+      /- one of the following:\n    - `object`\n      - `radius` \(.*\n      - `label` \(.*\n    - `string`: one of `"small"`, `"medium"`, `"large"`\n    - `Legacy shape`\n    - `integer`\n    - `Option 5`\n/,
     );
     for (const coordinate of ["Shape", "Level", "getShape"]) {
       assert.doesNotMatch(md(coordinate), /`unknown`/);

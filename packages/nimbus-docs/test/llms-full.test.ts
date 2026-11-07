@@ -6,6 +6,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  apiLlmsFullBlock,
   buildLlmsFullMarkdown,
   type LlmsFullBlock,
 } from "../src/_internal/llms-full.ts";
@@ -145,5 +146,23 @@ describe("buildLlmsFullMarkdown", () => {
   test("a page with no body adds no blank run", () => {
     const out = buildLlmsFullMarkdown([block({ title: "Empty", markdown: "" })], HEADER);
     assert.match(out, /# Empty\n\nSource: https:\/\/docs\.acme\.dev\/page\/ · Markdown: https:\/\/docs\.acme\.dev\/page\/index\.md\n$/);
+  });
+});
+
+describe("apiLlmsFullBlock", () => {
+  test("an API block has a one-line title and no description; a docs block keeps both", () => {
+    const out = buildLlmsFullMarkdown(
+      [
+        apiLlmsFullBlock(
+          block({ title: "Title\n# Forged", description: "Starts\n# a registration.", url: "/api/" }),
+        ),
+        block({ title: "Guide", description: "About the guide.", url: "/guide/" }),
+      ],
+      HEADER,
+    );
+    assert.match(out, /^# Title # Forged$/m);
+    assert.doesNotMatch(out, /^# Forged/m);
+    assert.doesNotMatch(out, /registration/);
+    assert.match(out, /^> About the guide\.$/m);
   });
 });

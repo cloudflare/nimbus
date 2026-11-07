@@ -6,7 +6,7 @@ Docs: [nimbus-docs.com](https://nimbus-docs.com)
 
 ## Quickstart
 
-Requires Node.js 22.12.0 or later.
+Requires Node.js 22.23.4 or later.
 
 ```sh
 npx @cloudflare/create-nimbus-docs@latest my-docs --yes --package-manager npm
@@ -58,7 +58,7 @@ Pre-1.0. The public API can change between minor releases. Pin your versions and
 
 ## Contributing
 
-Start with an issue or a discussion. Once a maintainer approves it, your pull requests go through normal review. See [CONTRIBUTING.md](./CONTRIBUTING.md), and [CLAUDE.md](./CLAUDE.md) for the architecture and agent context.
+Pull requests are welcome; for anything bigger than a small fix, start with an issue or a discussion. See [CONTRIBUTING.md](./CONTRIBUTING.md), and [CLAUDE.md](./CLAUDE.md) for the architecture and agent context.
 
 ## License
 

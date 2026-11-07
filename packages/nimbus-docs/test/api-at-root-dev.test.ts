@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { rename } from "node:fs/promises";
 import { test } from "node:test";
+import { JSDOM } from "jsdom";
 
 import { moduleUrl, withDevSite } from "./fixtures/dev-site.ts";
 
@@ -40,6 +41,12 @@ export const collections = { api: defineCollection(apiCollection()) };`,
     assert.equal((await page("/api/Pets/listPets/")).status, 404);
     const home = await page("/");
     assert.match(home.body, /api:api /);
-    assert.match(home.body, /<a class="self" href="\/">/);
+    const { window } = new JSDOM(home.body);
+    try {
+      const selfLinks = [...window.document.querySelectorAll("a.self")];
+      assert.deepEqual(selfLinks.map((link) => link.getAttribute("href")), ["/"]);
+    } finally {
+      window.close();
+    }
   });
 });

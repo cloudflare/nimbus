@@ -9,6 +9,7 @@ import {
   mediaTypeTokens,
   operationCoordinate,
   parameterCoordinate,
+  parameterFieldCoordinate,
   RESERVED_ROUTE_SEGMENTS,
   responseCoordinate,
   responseFieldCoordinate,
@@ -18,6 +19,8 @@ import {
   sectionCoordinate,
   tagRouteSegment,
 } from "./coordinates.js";
+import { pointer, pointerAt } from "./pointer.js";
+import { bodyScalarShape } from "./schemas.js";
 import { resolveOperationRoute, routeSlugFault } from "./route-policy.js";
 import {
   HTTP_METHODS,
@@ -59,10 +62,20 @@ export function parseOperations(ctx: ParseContext): void {
   const operations: [order: number, args: [HttpMethod, string, OpenApiOperation, OpenApiParameter[]]][] = [];
   for (const [path, item] of Object.entries(ctx.doc.paths ?? {})) {
     if (item === null || typeof item !== "object") continue;
+    if (ORDER in item) warnOrderPlace(ctx, pointer("paths", path, ORDER));
     const sharedParams = Array.isArray(item.parameters) ? item.parameters : [];
     for (const method of HTTP_METHODS) {
       const op = item[method];
       if (!op || typeof op !== "object") continue;
+      const order: unknown = op[ORDER];
+      if (ORDER in op && !(typeof order === "number" && Number.isFinite(order))) {
+        ctx.registry.addWarning(
+          `${ORDER} must be a number; ${shownValue(order)} is ignored`,
+          undefined,
+          pointer("paths", path, method, ORDER),
+          "nimbus-extension",
+        );
+      }
       // Sections are minted in path order; the sort below never moves them.
       const tag = op.tags?.[0];
       if (typeof tag === "string") ctx.ensureSection(tag);
@@ -73,6 +86,23 @@ export function parseOperations(ctx: ParseContext): void {
   // operations keep the spec's.
   operations.sort((a, b) => a[0] - b[0]);
   for (const [, args] of operations) addOperation(ctx, ...args);
+}
+
+const ORDER = "x-nimbus-order";
+
+/** An ignored value as a warning shows it; never serializes an object, which
+ *  a `$ref` can make circular. */
+function shownValue(value: unknown): string {
+  if (typeof value === "string") return JSON.stringify(value);
+  if (Array.isArray(value)) return "an array";
+  if (value !== null && typeof value === "object") return "an object";
+  return String(value);
+}
+
+/** `x-nimbus-order` somewhere Nimbus doesn't read it. Checked where the parse
+ *  already visits each place, so it costs no extra pass over the spec. */
+export function warnOrderPlace(ctx: ParseContext, source: string): void {
+  ctx.registry.addWarning(`${ORDER} is read on path operations only; ignored here`, undefined, source, "nimbus-extension");
 }
 
 function operationOrder(op: OpenApiOperation): number {
@@ -88,7 +118,7 @@ function addOperation(
   sharedParams: OpenApiParameter[],
 ): void {
   let opCoord: Coordinate;
-  const sourceBase = `#/paths/${path}/${method}`;
+  const sourceBase = pointer("paths", path, method);
   const operationId =
     typeof op.operationId === "string" && op.operationId ? op.operationId : undefined;
   if (operationId !== undefined) {
@@ -286,7 +316,7 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
   // operation-wins so an override does not mint the coordinate twice.
   const allParams = dedupeParameters(sharedParams, op.parameters ?? []);
   for (const param of allParams) {
-    request.push(addParameter(ctx, coord, param, sourceBase, rawOp, site.rawSharedParams));
+    request.push(addParameter(ctx, coord, param, parameterSource(sourceBase, param, op.parameters, sharedParams), rawOp, site.rawSharedParams));
   }
 
   // Every declared media type renders. The primary (deterministic precedence)
@@ -319,7 +349,7 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
 
   for (const [status, response] of Object.entries(op.responses ?? {})) {
     const respCoord = responseCoordinate(coord, status);
-    const respSource = `${sourceBase}/responses/${status}`;
+    const respSource = pointerAt(sourceBase, "responses", status);
     ctx.registry.register(respCoord, "response", { source: respSource });
     // Every declared media type renders, as on the request side: the primary
     // (same deterministic precedence) keeps the response's own coordinates, and
@@ -352,12 +382,16 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
       ? ctx.resolver.unionPreferRaw(rawRespSchema, respSchema, itemsOf(respSchema), responseFieldCoordinate(coord, status, ""))
       : undefined;
     if (respUnion) facts.union = respUnion;
+    else if (respSchema) {
+      const scalar = bodyScalarShape(respSchema);
+      if (scalar) facts.scalar = scalar;
+    }
     if (respEntry) facts.mediaType = respEntry.mediaType;
     ctx.node(respCoord, "response", coord, facts);
     responses.push(respCoord);
     const respFieldPaths: string[] = [];
     if (respSchema) {
-      if (walkFields(ctx.resolver, respSchema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind) => {
+      if (walkFields(ctx.resolver, respSchema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind, repeat) => {
         respFieldPaths.push(fieldPath);
         const fieldCoord = responseFieldCoordinate(coord, status, fieldPath);
         // A nested response field parents to its container field; a top-level
@@ -365,8 +399,8 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
         const parent = parentPath
           ? responseFieldCoordinate(coord, status, parentPath)
           : respCoord;
-        addField(ctx, fieldCoord, parent, fieldSchema, required, kind, respSource, rawField);
-      }, rawRespSchema, "response")) warnFieldCeiling(ctx.registry, respCoord, respSource);
+        addField(ctx, fieldCoord, parent, fieldSchema, required, kind, respSource, rawField, repeat);
+      }, rawRespSchema, "response")) warnFieldCeiling(ctx.registry, respCoord, respSource, `${status} response`);
     }
     const extraMedia = respEntries.slice(1);
     const extraTokens = mediaTypeTokens(
@@ -398,6 +432,10 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
     protocol: site.protocol,
   };
   if (bodyUnion) facts.bodyUnion = bodyUnion;
+  else if (bodySchema) {
+    const scalar = bodyScalarShape(bodySchema);
+    if (scalar) facts.bodyScalar = scalar;
+  }
   if (primaryEntry) facts.bodyMediaType = primaryEntry.mediaType;
   // `required` and `description` belong to the Request Body Object itself, so
   // every media type shares them. Only what the spec states is carried.
@@ -455,43 +493,78 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
   return facts;
 }
 
+/** A parameter's example for its row, in order: its own `example`; the first
+ *  `examples` entry with an inline `value` (an `externalValue` is never
+ *  fetched); its schema's `example`, then the first of its schema's
+ *  `examples` (OAS 3.1). Falsy values, `null` included, count. */
+function parameterExample(param: OpenApiParameter): unknown {
+  if (param.example !== undefined) return param.example;
+  for (const entry of Object.values(param.examples ?? {})) {
+    if (entry && typeof entry === "object" && "value" in entry && entry.value !== undefined) return entry.value;
+  }
+  if (param.schema?.example !== undefined) return param.schema.example;
+  return Array.isArray(param.schema?.examples) ? param.schema.examples[0] : undefined;
+}
+
+/** Where a parameter is declared: its index in the operation's list, or in the
+ *  path item's shared list when the operation doesn't override it. */
+function parameterSource(
+  sourceBase: string,
+  param: OpenApiParameter,
+  own: OpenApiParameter[] | undefined,
+  shared: OpenApiParameter[],
+): string {
+  const same = (p: OpenApiParameter) => p.name === param.name && p.in === param.in;
+  const i = (own ?? []).findIndex(same);
+  if (i !== -1) return pointerAt(sourceBase, "parameters", i);
+  const j = shared.findIndex(same);
+  const pathItem = sourceBase.slice(0, sourceBase.lastIndexOf("/"));
+  return j !== -1 ? pointerAt(pathItem, "parameters", j) : sourceBase;
+}
+
 function addParameter(
   ctx: ParseContext,
   opCoord: Coordinate,
   param: OpenApiParameter,
-  sourceBase: string,
+  source: string,
   rawOp: Record<string, unknown> | undefined,
   rawSharedParams: unknown[] | undefined,
 ): Coordinate {
   const location = param.in as ParameterLocation;
   const coord = parameterCoordinate(opCoord, location, param.name);
-  ctx.registry.register(coord, "parameter", {
-    source: `${sourceBase}/parameters/${param.name}`,
-  });
+  ctx.registry.register(coord, "parameter", { source });
+  // Fold `allOf` first, as a field's schema is, so a wrapped array or object
+  // keeps its type and fields.
+  const schema = param.schema && foldAllOf(param.schema);
   const facts: ParameterFacts = {
     kind: "parameter",
     location,
-    type: typeLabel(param.schema),
+    type: typeLabel(schema),
     required: param.required ?? location === "path",
-    description: asString(param.description) ?? asString(param.schema?.description),
+    description: asString(param.description) ?? asString(schema?.description),
     deprecated: param.deprecated,
-    constraints: constraintsOf(param.schema),
-    default: param.schema?.default,
-    enum: param.schema?.enum,
-    example: param.schema?.example,
+    constraints: constraintsOf(schema),
+    default: schema?.default,
+    enum: schema?.enum,
+    example: parameterExample(param),
   };
-  const union = param.schema
-    ? ctx.resolver.unionPreferRaw(
-        ctx.resolver.rawParameterSchema(rawOp?.parameters, rawSharedParams, param.name, location),
-        param.schema,
-        itemsOf(param.schema),
-      )
+  const rawSchema = ctx.resolver.rawParameterSchema(rawOp?.parameters, rawSharedParams, param.name, location);
+  const union = schema
+    ? ctx.resolver.unionPreferRaw(rawSchema, schema, itemsOf(schema), coord)
     : undefined;
   if (union) facts.union = union;
   // The parameter object's own value wins over its schema's.
-  const extensions = extensionValues(ctx.extensions, param, param.schema && foldAllOf(param.schema));
+  const extensions = extensionValues(ctx.extensions, param, schema);
   if (extensions) facts.extensions = extensions;
-  ctx.node(coord, "parameter", opCoord, facts);
+  ctx.node(coord, "parameter", opCoord, facts, source);
+
+  // An object (or array of objects) parameter lists its fields, as a body does.
+  if (schema) {
+    if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind, repeat) => {
+      const parent = parentPath ? parameterFieldCoordinate(coord, parentPath) : coord;
+      addField(ctx, parameterFieldCoordinate(coord, fieldPath), parent, fieldSchema, required, kind, source, rawField, repeat);
+    }, rawSchema, "request")) warnFieldCeiling(ctx.registry, coord, source, `parameter ${param.name}`);
+  }
   return coord;
 }
 
@@ -504,7 +577,7 @@ function addBodyFields(
   rawSchema?: OpenApiSchema,
 ): Coordinate[] {
   const coords: Coordinate[] = [];
-  if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, topLevelName, parentPath, rawField, kind) => {
+  if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, topLevelName, parentPath, rawField, kind, repeat) => {
     const coord = bodyFieldCoordinate(opCoord, fieldPath);
     // A nested body field parents to its container field; a top-level one
     // parents to the operation. Nesting is minted here because coordinates are
@@ -515,9 +588,9 @@ function addBodyFields(
     if (topLevelName && isShadowingBodyProperty(topLevelName)) {
       ctx.registry.warnShadowing(coord, topLevelName, sourceBase);
     }
-    addField(ctx, coord, parent, fieldSchema, required, kind, `${sourceBase}/requestBody`, rawField);
+    addField(ctx, coord, parent, fieldSchema, required, kind, `${sourceBase}/requestBody`, rawField, repeat);
     coords.push(coord);
-  }, rawSchema, role)) warnFieldCeiling(ctx.registry, opCoord, sourceBase);
+  }, rawSchema, role)) warnFieldCeiling(ctx.registry, opCoord, pointerAt(sourceBase, "requestBody"), "request body");
   return coords;
 }
 
@@ -531,7 +604,7 @@ function addMediaBody(
   rawRequestBody: unknown,
 ): void {
   const mediaCoord = bodyMediaCoordinate(opCoord, token);
-  const source = `${sourceBase}/requestBody/content/${entry.mediaType}`;
+  const source = pointerAt(sourceBase, "requestBody", "content", entry.mediaType);
   ctx.registry.register(mediaCoord, "requestBody", { source });
 
   const schema = entry.media.schema;
@@ -541,16 +614,20 @@ function addMediaBody(
     ? ctx.resolver.unionPreferRaw(rawSchema, schema, itemsOf(schema), mediaCoord)
     : undefined;
   if (union) facts.union = union;
+  else if (schema) {
+    const scalar = bodyScalarShape(schema);
+    if (scalar) facts.scalar = scalar;
+  }
   const example = resolveExampleValue(mediaExample(entry), role, ctx.sampleTools);
   if (example !== undefined) facts.example = { mediaType: entry.mediaType, value: example };
   ctx.node(mediaCoord, "requestBody", opCoord, facts, source);
 
   if (schema) {
-    if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind) => {
+    if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind, repeat) => {
       const coord = bodyMediaFieldCoordinate(opCoord, token, fieldPath);
       const parent = parentPath ? bodyMediaFieldCoordinate(opCoord, token, parentPath) : mediaCoord;
-      addField(ctx, coord, parent, fieldSchema, required, kind, source, rawField);
-    }, rawSchema, role)) warnFieldCeiling(ctx.registry, mediaCoord, source);
+      addField(ctx, coord, parent, fieldSchema, required, kind, source, rawField, repeat);
+    }, rawSchema, role)) warnFieldCeiling(ctx.registry, mediaCoord, source, `request body (${entry.mediaType})`);
   }
 }
 
@@ -563,7 +640,7 @@ function addResponseMedia(
 ): void {
   const { opCoord, status, respCoord, respSource } = response;
   const mediaCoord = responseMediaCoordinate(opCoord, status, token);
-  const source = `${respSource}/content/${entry.mediaType}`;
+  const source = pointerAt(respSource, "content", entry.mediaType);
   ctx.registry.register(mediaCoord, "responseMedia", { source });
 
   const schema = entry.media.schema;
@@ -573,17 +650,21 @@ function addResponseMedia(
     ? ctx.resolver.unionPreferRaw(rawSchema, schema, itemsOf(schema), mediaCoord)
     : undefined;
   if (union) facts.union = union;
+  else if (schema) {
+    const scalar = bodyScalarShape(schema);
+    if (scalar) facts.scalar = scalar;
+  }
   const example = resolveExampleValue(mediaExample(entry), "response", ctx.sampleTools);
   if (example !== undefined) facts.example = { mediaType: entry.mediaType, value: example };
   ctx.node(mediaCoord, "responseMedia", respCoord, facts, source);
 
   if (schema) {
-    if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind) => {
+    if (walkFields(ctx.resolver, schema, new Set(), (fieldPath, fieldSchema, required, _topLevelName, parentPath, rawField, kind, repeat) => {
       const coord = responseMediaFieldCoordinate(opCoord, status, token, fieldPath);
       const parent = parentPath
         ? responseMediaFieldCoordinate(opCoord, status, token, parentPath)
         : mediaCoord;
-      addField(ctx, coord, parent, fieldSchema, required, kind, source, rawField);
-    }, rawSchema, "response")) warnFieldCeiling(ctx.registry, mediaCoord, source);
+      addField(ctx, coord, parent, fieldSchema, required, kind, source, rawField, repeat);
+    }, rawSchema, "response")) warnFieldCeiling(ctx.registry, mediaCoord, source, `${status} response (${entry.mediaType})`);
   }
 }

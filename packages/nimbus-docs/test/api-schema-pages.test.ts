@@ -212,7 +212,7 @@ describe("schemaPages: false — view model", () => {
     assert.match(create, /`Card`/);
     const envs = renderApiPageMarkdown(getApiPageProps(await model(false, MAP_SPEC), "putEnvs"));
     assert.doesNotMatch(envs, /\/schemas\//);
-    assert.match(envs, /; map<Env>, optional\)/, "an unlinked field type reads like any other unlinked type");
+    assert.match(envs, /; map of Env, optional\)/, "an unlinked map type reads as the page reads it");
   });
 });
 

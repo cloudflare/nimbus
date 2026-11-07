@@ -26,13 +26,11 @@ implement it and try our best to attribute it to you.
 
 ## Pull requests
 
-Start with an issue or a discussion, not a PR. If we decide to take your bug or
-feature forward, a maintainer approves you right there in the thread — from then
-on your pull requests stay open and go through normal review. Until then, PRs
-from outside the team are closed automatically and pointed back here.
+Pull requests are welcome. For anything bigger than a small fix, start with an
+issue or a discussion so we can agree on what to build before you build it. A
+drive-by AI-generated PR is cheap to write and expensive to review.
 
-A drive-by AI-generated PR is cheap to write and expensive to review. Deciding
-what to build, and how, is the part we'd rather do with you up front.
+CI on a pull request from a fork waits for a maintainer to approve the run.
 
 ## For maintainers
 
@@ -53,7 +51,9 @@ one production corpus is not sufficient evidence of consumer compatibility.
 
 ### Local development
 
-Requires **Node ≥ 22.12.0** and **pnpm 9** (pinned via `packageManager`, so Corepack fetches it for you).
+Requires **Node 22.23.4+, 24.15.0+, or 26+** and **pnpm 10** (pinned via `packageManager`, so Corepack fetches it for you). Node 23 and 25 are not supported for contributing. Use the latest patched release of your Node line.
+
+Node 25+ no longer bundles Corepack; install it with `npm install -g corepack && corepack enable`, or install pnpm 10 directly.
 
 ```sh
 pnpm install
@@ -128,6 +128,8 @@ Build command:
 ```sh
 case "$WORKERS_CI_BRANCH" in dependabot/*|templates|fork-*) exit 1 ;; esac && pnpm install --frozen-lockfile && pnpm run build:workers
 ```
+
+The weather demo's `nimbus-demo-weather` Worker takes the same settings with root directory `apps/demo`; its `build:workers` marks every response `noindex`.
 
 The build command stops Dependabot, `templates` and `fork-*` builds before any of their code runs (`fork-*` names belong to fork PR Previews, so don't use them for branches), so those commits show a failed Workers Builds check. Keep the default watch paths: the `pr preview` label needs a Preview of the PR's latest commit, and a skipped build leaves an older one. Workers Builds runs other branches' code with its own Cloudflare API token, so anyone who can push a branch can use that token. If PR-close cleanup fails, a build still running at close recreates the Preview, or a PR doesn't target `main` or is retargeted away from it, run `pnpm exec wrangler preview delete --name <name> --skip-confirmation`, using the name from the bot's dashboard link, from `apps/www` with access to the Worker account.
 

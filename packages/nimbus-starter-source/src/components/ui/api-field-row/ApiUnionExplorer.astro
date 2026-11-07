@@ -2,32 +2,35 @@
 import ApiFieldRow from "./ApiFieldRow.astro";
 import type { ApiUnionView } from "@cloudflare/nimbus-docs/api";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
-import { countLabel } from "./type-display";
+import { contentsLabel, literalTokens, unionEntries } from "./type-display";
 import "./field-list.css";
 
 interface Props {
   union: ApiUnionView;
   nested?: boolean;
   depth?: number;
+  /** Open the first branch whatever the depth: set while the first-branch path
+   *  is still unions, so a union of unions opens to its first fields. */
+  openFirst?: boolean;
+  /** The union follows fields its options add to: "And one of the following:". */
+  afterFields?: boolean;
 }
 
-const { union, nested = false, depth = 0 } = Astro.props;
+const { union, nested = false, depth = 0, openFirst = false, afterFields = false } = Astro.props;
+const label = union.kind === "anyOf" ? "any of the following:" : "one of the following:";
 
 const AUTO_OPEN_DEPTH = 1;
 
-const entries =
-  union.mapping && union.mapping.length > 0
-    ? union.mapping.map((m) => ({ value: m.value, variant: m.variant }))
-    : union.variants.map((v) => ({ variant: v, value: undefined as string | undefined }));
+const entries = unionEntries(union);
 ---
 
 <div class={nested ? "fl-children fl-children--union" : ""}>
-  <p class="fl-union-label">{union.kind === "anyOf" ? "Any of the following:" : "One of the following:"}</p>
+  <p class="fl-union-label">{afterFields ? `And ${label}` : label.charAt(0).toUpperCase() + label.slice(1)}</p>
   <ul class="fl-list">
     {entries.map(({ variant, value }, i) => {
       const hasFields = variant.fields && variant.fields.length > 0;
       const heading = variant.title ?? variant.label;
-      const open = i === 0 && AUTO_OPEN_DEPTH >= depth + 1;
+      const open = i === 0 && (openFirst || AUTO_OPEN_DEPTH >= depth + 1);
       return variant.union || hasFields ? (
         <li class="fl-item fl-item--child">
           <div class="fl-body">
@@ -39,24 +42,27 @@ const entries =
               )}
               {value && <div class="fl-type">{value}</div>}
               <button type="button" class="fl-count" data-fl-toggle data-pagefind-ignore aria-expanded={open ? "true" : "false"}>
-                <span class="fl-count-brace" aria-hidden="true">{"{"}</span><span class="fl-count-text">{variant.union ? countLabel(variant.union.variants.length, "variant") : countLabel(variant.fields!.length, "property")}</span><span class="fl-count-brace" aria-hidden="true">{"}"}</span>
+                <span class="fl-count-brace" aria-hidden="true">{"{"}</span><span class="fl-count-text">{contentsLabel(variant.fields?.length ?? 0, variant.union)}</span><span class="fl-count-brace" aria-hidden="true">{"}"}</span>
               </button>
             </div>
+            {/* The branch's name above is the same link; Markdown has only that one. */}
             {variant.href && (
-              <div class="fl-desc">
+              <div class="fl-desc" data-markdown-ignore>
                 <a href={withBase(variant.href, import.meta.env.BASE_URL)}>View {heading} schema →</a>
               </div>
             )}
             <details class="fl-expandable" open={open}>
               <summary class="fl-expand-trigger"></summary>
-              {variant.union ? (
-                <Astro.self union={variant.union} nested depth={depth + 1} />
-              ) : (
+              {/* Fields beside a union come first; the options add to them. */}
+              {hasFields && (
                 <ul class="fl-list fl-children">
                   {variant.fields!.map((f) => (
                     <ApiFieldRow field={f} depth={depth + 1} />
                   ))}
                 </ul>
+              )}
+              {variant.union && (
+                <Astro.self union={variant.union} nested depth={depth + 1} openFirst={open && !hasFields} afterFields={hasFields} />
               )}
               <span class="fl-fold-close" aria-hidden="true" data-pagefind-ignore>{"}"}</span>
             </details>
@@ -71,7 +77,13 @@ const entries =
               <div class="fl-name">{heading}</div>
             )}
             {value && <div class="fl-type">{value}</div>}
+            {variant.enum && variant.enum.length > 0 && (
+              <div class="fl-type-group">
+                {literalTokens(variant.enum).map((t) => <div class="fl-type" title={t.title}>{t.text}</div>)}
+              </div>
+            )}
           </div>
+          {variant.description && <div class="fl-desc">{variant.description}</div>}
         </li>
       );
     })}

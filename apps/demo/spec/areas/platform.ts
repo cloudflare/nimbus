@@ -49,7 +49,7 @@ export function platform(v: Version): Area {
     schemas: props({
       ApiKey: key,
       CreatedApiKey: created,
-      Member: v === 1 ? undefined : obj({ id: str("", "usr_2Hc8"), email: str("", "ingrid@example.com"), role: enm("", ROLES, "developer"), joined_at: time("", "2025-04-02T08:30:00Z") }, ["id", "email", "role"]),
+      Member: v === 1 ? undefined : obj({ id: str("Member id.", "usr_2Hc8"), email: str("The address the invitation went to, and the member signs in with.", "ingrid@example.com"), role: enm("The member's role in the organization.", ROLES, "developer"), joined_at: time("When the member accepted the invitation (UTC). Absent while it's pending.", "2025-04-02T08:30:00Z") }, ["id", "email", "role"], "A person in your organization's account."),
     }),
     paths: paths([
       [v === 1 ? "/keys" : "/account/keys", "get", op(tag, {

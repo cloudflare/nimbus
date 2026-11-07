@@ -368,6 +368,9 @@ function variantLink(view: ModelView, v: VariantRef): ApiVariant {
   const out: ApiVariant = { label: v.label };
   if (v.name) out.name = v.name;
   if (v.title) out.title = v.title;
+  const enumValues = jsonArrayOrOmit(v.enum);
+  if (enumValues) out.enum = enumValues;
+  if (v.description) out.description = v.description;
   if (resolved && view.hasPage(resolved)) out.href = view.href(resolved);
   return out;
 }
@@ -378,19 +381,26 @@ function variantView(
   inlineFields = false,
   seen: ReadonlySet<Coordinate> = new Set(),
   openNamed = inlineFields,
+  linkPaged = false,
 ): ApiVariant {
   const out = variantLink(view, v);
   const resolved = v.coordinate && view.node(v.coordinate) ? v.coordinate : undefined;
   if (!resolved || seen.has(resolved)) return out;
+  // A named schema with its own page is shown there: here it links.
+  if (linkPaged && v.name && view.hasPage(resolved)) return out;
   const facts = view.node(resolved)!.facts;
   const nested = facts.kind === "schema" || facts.kind === "variant" ? facts.union : undefined;
+  // An option can have fields beside a union of its own (`allOf: [{ oneOf },
+  // { properties }]`): it shows both, fields first.
   if (nested) {
     // A named union opens one level and its own named unions stay labels:
     // named schemas form a DAG, and opening every one per path is exponential.
     if (openNamed || !v.name) {
-      out.union = unionView(view, nested, inlineFields, new Set([...seen, resolved]), openNamed && !v.name);
+      // Inside a named option's preview, named schemas with pages link.
+      out.union = unionView(view, nested, inlineFields, new Set([...seen, resolved]), openNamed && !v.name, linkPaged || Boolean(v.name));
     }
-  } else if (inlineFields || facts.kind === "variant") {
+  }
+  if (inlineFields || facts.kind === "variant") {
     // `seen` is the path of branches above; a repeat stays a label. The preview
     // passes `false` so a named union among these properties stays a label.
     const fields = boundFields(topLevelFields(view, resolved, false, new Set([...seen, resolved]))).fields;
@@ -398,6 +408,12 @@ function variantView(
   }
   if (v.name) unanchorVariant(out);
   return out;
+}
+
+/** How many distinct named schemas a union chooses between, mapped ones included. */
+function namedAlternatives(shape: UnionShape): number {
+  const names = [...shape.variants, ...(shape.mapping ?? []).map((m) => m.variant)].map((v) => v.name);
+  return new Set(names.filter(Boolean)).size;
 }
 
 function unanchorVariant(v: ApiVariant): void {
@@ -417,22 +433,26 @@ function unionView(
   inlineFields = false,
   seen: ReadonlySet<Coordinate> = new Set(),
   openNamed = inlineFields,
+  linkPaged = false,
 ): ApiUnionView {
-  // When a discriminator mapping is present the explorer iterates it exclusively
-  // (its variants are the named, linkable ones), so the raw `variants` stay label
-  // and link only — opening them too would just double the payload.
-  const hasMapping = Boolean(shape.mapping && shape.mapping.length > 0);
+  // With a discriminator mapping the explorer lists the mapped branches from
+  // `mapping`, then the branches no mapping value selects. A mapped branch is
+  // opened once, under `mapping`; its entry in `variants` stays a label and link.
+  const mapped = new Set((shape.mapping ?? []).map((m) => m.variant.name).filter(Boolean));
+  const hasMapping = mapped.size > 0;
   const out: ApiUnionView = {
     kind: shape.kind,
     variants: shape.variants.map((v) =>
-      hasMapping ? variantLink(view, v) : variantView(view, v, inlineFields, seen, openNamed),
+      hasMapping && v.name && mapped.has(v.name)
+        ? variantLink(view, v)
+        : variantView(view, v, inlineFields, seen, openNamed, linkPaged),
     ),
   };
   if (shape.discriminator) out.discriminator = shape.discriminator;
   if (shape.mapping && shape.mapping.length > 0) {
     out.mapping = shape.mapping.map((m) => ({
       value: m.value,
-      variant: variantView(view, m.variant, inlineFields, seen),
+      variant: variantView(view, m.variant, inlineFields, seen, inlineFields, linkPaged),
     }));
   }
   return out;
@@ -475,13 +495,14 @@ function fieldView(
   node: Node,
   allowInline = true,
   seen: ReadonlySet<Coordinate> = new Set(),
+  nested = false,
 ): ApiFieldView {
   const f = node.facts as FieldFacts | ParameterFacts;
   const childNodes = view
     .childrenOf(node.id)
     .filter((n) => n.kind === "field");
   const ordered = requiredFirst(childNodes);
-  const bounded = boundFields(ordered.map((child) => fieldView(view, child, allowInline, seen)));
+  const bounded = boundFields(ordered.map((child) => fieldView(view, child, allowInline, seen, true)));
 
   const out: ApiFieldView = {
     coordinate: node.id,
@@ -511,10 +532,16 @@ function fieldView(
     out.description = description;
     out.descriptionHtml = renderMarkdown(description);
   }
-  if (f.union) out.union = unionView(view, f.union, allowInline, seen);
+  // A named schema with its own page is previewed only where a page's own field
+  // chooses between several (an A, MX or CNAME record); elsewhere, such as an
+  // "id or the whole object" field, it links to its page. Without a page, a
+  // preview is the only place its fields appear, so it always previews.
+  if (f.union) out.union = unionView(view, f.union, allowInline, seen, allowInline, nested || namedAlternatives(f.union) < 2);
   if (f.typeRef?.coordinate && view.hasPage(f.typeRef.coordinate)) {
     out.typeRef = { label: f.typeRef.label, href: view.href(f.typeRef.coordinate) };
   }
+  if (f.typeRef && !f.type.startsWith("map<")) out.typeName = f.typeRef.label;
+  if (f.namedArray && out.typeName) out.namedArray = true;
   const extensions = extensionsView(f.extensions);
   if (extensions) out.extensions = extensions;
 
@@ -602,6 +629,7 @@ function mediaView(
   };
   if (bounded.truncated) body.truncated = { total: bounded.total };
   if (union) body.union = union;
+  if (f.scalar) body.scalar = scalarView(f.scalar);
   if (f.example && exampleValue !== undefined) {
     body.example = { mediaType: f.example.mediaType, value: exampleValue };
   }
@@ -659,6 +687,7 @@ function responseViews(view: ModelView, opCoord: Coordinate): ApiResponseView[] 
       out.descriptionHtml = renderMarkdown(f.description);
     }
     if (f.union) out.bodyUnion = unionView(view, f.union, true);
+    if (f.scalar) out.scalar = scalarView(f.scalar);
     if (f.example) {
       const value = jsonOrOmit(f.example.value);
       if (value !== undefined) out.example = { mediaType: f.example.mediaType, value };
@@ -872,6 +901,7 @@ function projectPageWithView(
         if (requestExamples.length > 0) page.requestExamples = requestExamples;
       }
       if (f.bodyUnion) page.bodyUnion = unionView(view, f.bodyUnion, true);
+      if (f.bodyScalar) page.bodyScalar = scalarView(f.bodyScalar);
       if (f.bodyMediaType) page.bodyMediaType = f.bodyMediaType;
       if (f.bodyRequired !== undefined) page.bodyRequired = f.bodyRequired;
       if (f.bodyDescription) {
@@ -1132,23 +1162,25 @@ function walkFieldCitations(
     seen.add(field.coordinate);
     out.push({ coordinate: field.coordinate, slug, anchor: field.anchor });
   }
-  // A field renders its union XOR its children, so a union's sibling
-  // `properties` are never rows.
-  const roots = field.union ? branchFields(field.union) : field.children;
-  for (const child of roots) walkFieldCitations(child, slug, seen, out);
+  // A field renders its children, then its union's options.
+  for (const child of field.children) walkFieldCitations(child, slug, seen, out);
+  if (field.union) for (const child of branchFields(field.union)) walkFieldCitations(child, slug, seen, out);
 }
 
+/** The fields a union's options render: mapped options first, as the explorer
+ *  lists them, then each option's own fields and its nested union's. */
 function branchFields(union: ApiUnionView): ApiFieldView[] {
-  return union.variants.flatMap((v) => (v.union ? branchFields(v.union) : v.fields ?? []));
+  const options = [...(union.mapping ?? []).map((m) => m.variant), ...union.variants];
+  return options.flatMap((v) => [...(v.fields ?? []), ...(v.union ? branchFields(v.union) : [])]);
 }
 
 /** The `ApiFieldView` roots a page renders. Mirrors `api-layout/ApiBody.astro`:
- *  each body renders `fields` XOR its union explorer. Only fields carrying an
+ *  each body renders its `fields`, then its union explorer. Only fields carrying an
  *  `anchor` are this page's, so no indexed coordinate is a dead fragment or
  *  another page's. */
 function pageFieldRoots(page: ApiPageProps): ApiFieldView[] {
   const bodyRoots = (fields: ApiFieldView[], union: ApiUnionView | undefined) =>
-    union ? branchFields(union) : fields;
+    union ? [...fields, ...branchFields(union)] : fields;
   if (page.kind === "operation") {
     const roots: ApiFieldView[] = [...page.parameters.flatMap((g) => g.fields)];
     roots.push(...bodyRoots(page.body, page.bodyUnion));

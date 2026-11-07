@@ -26,8 +26,11 @@ const formattedDate = lastUpdated
   : null;
 ---
 
+{/* A nav: the row is page chrome, so text readers and agents skip it as
+    they skip the sidebar, while its controls stay in the tab order. */}
 {(markdownUrl || lastUpdated || extra) && (
-  <div
+  <nav
+    aria-label="Page actions"
     data-nb-page-actions
     data-slot="page-actions"
     data-pagefind-ignore
@@ -75,7 +78,7 @@ const formattedDate = lastUpdated
       <span aria-hidden="true" data-slot="page-actions-separator" class="hidden select-none text-muted-foreground/40 sm:inline">|</span>
     )}
     {extra && <Fragment set:html={extra} />}
-  </div>
+  </nav>
 )}
 
 <script>

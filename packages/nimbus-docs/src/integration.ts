@@ -244,7 +244,7 @@ import {
 } from "./_internal/route-ownership.js";
 import { COORDINATES_PATH, coordinatesRouteOwner, isCoordinatesOwnerPath } from "./_internal/coordinates-route.js";
 import type { RequestRouteInventoryEntry } from "./_internal/request-route-url.js";
-import { safeDecode, setLinkPolicy, stripBase, toRouteKey, withBase } from "./_internal/url.js";
+import { safeDecode, setLinkPolicy, stripBase, toDocumentHref, toRouteKey, withBase } from "./_internal/url.js";
 import { OG_CARD } from "./_internal/page-urls.js";
 import { listPublicImages, measureSocialImages } from "./_internal/social-image-size.js";
 import { createSitemapSerialize, sitemapSources } from "./_internal/sitemap-lastmod.js";
@@ -631,9 +631,9 @@ export function nimbus(
   let contentRoutePatternsForBuild = new Set<string>();
   let sitemapCustomPages: string[] = [];
   let sitemapExcludedPaths = new Set<string>();
-  let sitemapTrailingSlash: "always" | "never" | "ignore" = "ignore";
   let mcpServerForBuild: McpServerIdentity | undefined;
-  let sitemapBareRootUrl: string | null = null;
+  let sitemapRootUrl: string | null = null;
+  let sitemapRootAliasUrl: string | null = null;
   let sitemapHasResolvedRootPage = false;
   let building = false;
   // A partial build (`NIMBUS_BUILD_ONLY`): the collections it holds, or null
@@ -1687,8 +1687,8 @@ export function nimbus(
         const integrationsToAdd: AstroIntegration[] = [];
         sitemapCustomPages = [];
         sitemapExcludedPaths = new Set();
-        sitemapTrailingSlash = astroConfig.trailingSlash;
-        sitemapBareRootUrl = null;
+        sitemapRootUrl = null;
+        sitemapRootAliasUrl = null;
         sitemapHasResolvedRootPage = false;
 
         // One reading of Markdown for the whole site: every internal parse
@@ -2567,7 +2567,9 @@ export function nimbus(
             config.site,
           );
           if (deploymentRoot.pathname !== "/") {
-            sitemapBareRootUrl = deploymentRoot.href.replace(/\/$/, "");
+            const bareRootUrl = deploymentRoot.href.replace(/\/$/, "");
+            sitemapRootUrl = new URL(withBase("/", astroConfig.base || "/"), config.site).href;
+            sitemapRootAliasUrl = sitemapRootUrl === bareRootUrl ? `${bareRootUrl}/` : bareRootUrl;
           }
           const sitemapIntegration = sitemap({
             // Our public `SitemapSerialize` types `changefreq` as a
@@ -2590,12 +2592,10 @@ export function nimbus(
             }) as unknown as NonNullable<
               Parameters<typeof sitemap>[0]
             >["serialize"],
-            ...((sitemapOpts?.customPages || requestRenderingConfigured) && {
-              customPages: sitemapCustomPages,
-            }),
+            customPages: sitemapCustomPages,
             filter: (url: string) => {
               if (!hiddenFilter(url)) return false;
-              if (sitemapHasResolvedRootPage && url === sitemapBareRootUrl) return false;
+              if (sitemapHasResolvedRootPage && url === sitemapRootAliasUrl) return false;
               const { pathname } = new URL(url, config.site);
               return (
                 !isRequestRouteInventoryPath(pathname, astroConfig.base) &&
@@ -3749,6 +3749,13 @@ export function nimbus(
               (candidate) => candidate.pathname === "/",
             ),
         );
+        if (
+          sitemapHasResolvedRootPage &&
+          sitemapRootUrl &&
+          !sitemapCustomPages.includes(sitemapRootUrl)
+        ) {
+          sitemapCustomPages.push(sitemapRootUrl);
+        }
         endpointRoutesForBuild = routes
           .filter((route) => route.type === "endpoint")
           .map((route) => ({
@@ -3861,11 +3868,7 @@ export function nimbus(
             entry.discoverable &&
             !prerenderedSitemapPaths.has(pathname)
           ) {
-            const basedPath = withBase(entry.url, astroBaseForBuild);
-            const sitemapPath =
-              sitemapTrailingSlash === "never"
-                ? basedPath.replace(/\/$/, "") || "/"
-                : `${basedPath.replace(/\/$/, "")}/`;
+            const sitemapPath = toDocumentHref(withBase(entry.url, astroBaseForBuild));
             sitemapCustomPages.push(new URL(sitemapPath, config.site).href);
           }
         }

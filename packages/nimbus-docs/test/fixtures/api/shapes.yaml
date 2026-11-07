@@ -1,0 +1,161 @@
+# Shapes an API page must not drop: fields declared beside a union (at a body's
+# root, in a nested field, in a union option and on a schema page), fields of
+# object and array-of-object query parameters, and bodies that aren't objects.
+openapi: 3.1.0
+info:
+  title: Shapes
+  version: "1"
+paths:
+  /records:
+    post:
+      operationId: createRecord
+      tags: [records]
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                field:
+                  type: string
+                  enum: [value, uuid]
+                op:
+                  type: string
+                value:
+                  type: string
+        - name: filter
+          in: query
+          style: deepObject
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+        - name: wrapped
+          in: query
+          schema:
+            allOf:
+              - type: array
+                items:
+                  type: object
+                  properties:
+                    key:
+                      type: string
+        - name: scope
+          in: query
+          schema:
+            allOf:
+              - oneOf:
+                  - type: object
+                    properties:
+                      zone:
+                        type: string
+                  - type: object
+                    properties:
+                      account:
+                        type: string
+              - type: object
+                properties:
+                  depth:
+                    type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Record"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/Record"
+      responses:
+        "200":
+          description: The record.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    $ref: "#/components/schemas/Record"
+                  rules:
+                    type: array
+                    items:
+                      oneOf:
+                        - $ref: "#/components/schemas/Grouped"
+                        - $ref: "#/components/schemas/MXRecord"
+        "201":
+          description: The record, at the root.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Record"
+  /profiles:
+    put:
+      operationId: uploadProfile
+      tags: [records]
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Compressed profile data.
+          content:
+            application/vnd.google.protobuf:
+              schema:
+                type: string
+                format: binary
+        "202":
+          description: A note.
+          content:
+            text/plain:
+              schema:
+                type: string
+components:
+  schemas:
+    Record:
+      allOf:
+        - oneOf:
+            - $ref: "#/components/schemas/ARecord"
+            - $ref: "#/components/schemas/MXRecord"
+        - type: object
+          properties:
+            id:
+              type: string
+              readOnly: true
+            created_on:
+              type: string
+            meta:
+              type: object
+              properties:
+                source:
+                  type: string
+    Grouped:
+      allOf:
+        - oneOf:
+            - $ref: "#/components/schemas/ARecord"
+            - $ref: "#/components/schemas/MXRecord"
+        - type: object
+          properties:
+            group:
+              type: string
+    ARecord:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [A]
+        content:
+          type: string
+          format: ipv4
+    MXRecord:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [MX]
+        priority:
+          type: integer

@@ -146,6 +146,8 @@ export interface OperationFacts {
    * a discriminated body. Without it the union collapses to an empty body.
    */
   bodyUnion?: UnionShape;
+  /** The primary request body's type, when it isn't an object. */
+  bodyScalar?: ScalarShape;
   /** The primary request body's media type, when the operation has a body — so
    *  the renderer labels it correctly instead of assuming JSON. */
   bodyMediaType?: string;
@@ -199,6 +201,8 @@ export interface FieldFacts {
    * page. Absent for a scalar-valued map (`map<string>`) or a free-form object.
    */
   typeRef?: VariantRef;
+  /** `typeRef` names the whole field: a `$ref` to a named array schema. */
+  namedArray?: boolean;
   /** The configured `x-*` fields the field declares, values unchanged. */
   extensions?: Record<string, unknown>;
 }
@@ -214,9 +218,12 @@ export interface VariantRef {
   label: string;
   /** The component schema's key, present only for a named branch. */
   name?: string;
-  /** The component schema's `title`, when it declares one. */
+  /** The branch's `title` (a component's, or an inline branch's own). */
   title?: string;
   coordinate?: Coordinate;
+  /** An inline scalar branch's literals and description. */
+  enum?: unknown[];
+  description?: string;
 }
 
 export interface UnionShape {
@@ -304,6 +311,8 @@ export interface ResponseFacts {
    * union response renders its variants instead of an empty body section.
    */
   union?: UnionShape;
+  /** A body that isn't an object (`text/plain`, a binary file): its type. */
+  scalar?: ScalarShape;
   /** The primary media type, when the response declares content. Chosen by the
    *  same precedence as the request body's (`orderedMediaEntries`). */
   mediaType?: string;
@@ -320,6 +329,8 @@ export interface RequestBodyFacts {
   mediaType: string;
   example?: DerivedExample;
   union?: UnionShape;
+  /** A body that isn't an object (`text/plain`, a binary file): its type. */
+  scalar?: ScalarShape;
 }
 
 /**
@@ -333,6 +344,8 @@ export interface ResponseMediaFacts {
   mediaType: string;
   example?: DerivedExample;
   union?: UnionShape;
+  /** A body that isn't an object (`text/plain`, a binary file): its type. */
+  scalar?: ScalarShape;
 }
 
 export interface ErrorCodeFacts {

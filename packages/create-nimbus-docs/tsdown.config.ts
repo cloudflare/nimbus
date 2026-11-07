@@ -1,13 +1,14 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { minVersion } from "semver";
 import { defineConfig } from "tsdown";
 
 const pkg = JSON.parse(
   readFileSync(new URL("./package.json", import.meta.url), "utf-8"),
-) as { version: string; engines?: { node?: string } };
+) as { version: string; engines: { node: string } };
 
 // Minimum Node is taken from this package's own `engines.node`.
-const minNodeVersion = pkg.engines?.node?.replace(/^>=/, "") ?? "20.0.0";
+const minNodeVersion = minVersion(pkg.engines.node)!.version;
 const isPreview = process.env.NIMBUS_PREVIEW === "1";
 const previewPr = process.env.PR_NUMBER ?? null;
 const previewRef = process.env.NIMBUS_PREVIEW_REF ?? null;

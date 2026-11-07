@@ -39,6 +39,9 @@ test("a multi-file spec publishes as one self-contained document with the pinned
   const pet = resolved.schema.paths["/pets"].get.responses["200"].content["application/json"].schema.items;
   assert.deepEqual(pet.properties.friends.items, pet, "recursion survives bundling");
   assert.deepEqual(resolved.schema.components.schemas.Local, pet);
+  const owner = resolved.schema.paths["/owners/{id}"].get.responses;
+  assert.deepEqual(owner["200"].content["application/json"].schema, pet.properties.owner);
+  assert.deepEqual(owner["404"].content["application/json"].schema, resolved.schema.components.schemas.Error);
   assert.deepEqual(
     result.spec!.files.map((file) => path.relative(fixtures, file).split(path.sep).join("/")).sort(),
     ["multi/openapi.yaml", "multi/paths/owner.yaml", "multi/schemas.yaml"],

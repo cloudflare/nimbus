@@ -11,7 +11,7 @@ Full docs: https://nimbus-docs.com/llms.txt. Every page has a Markdown version a
 
 ## Create a site
 
-Requires Node 22.12 or later.
+Requires Node 22.23.4 or later.
 
 ```sh
 npm create @cloudflare/nimbus-docs@latest my-docs -- --yes

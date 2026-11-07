@@ -128,6 +128,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /locations/reverse:
     get:
       operationId: reverseGeocode
@@ -171,6 +173,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /locations/{location_id}:
     get:
       operationId: getLocation
@@ -200,6 +204,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /forecast:
     get:
       operationId: getForecast
@@ -270,6 +276,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /forecast/hourly:
     get:
       operationId: getHourlyForecast
@@ -339,6 +347,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /stations/{id}/observations/latest:
     get:
       operationId: getCurrentConditions
@@ -368,6 +378,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /stations/{id}/observations:
     get:
       operationId: listObservations
@@ -437,6 +449,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /current:
     get:
       operationId: getCurrent
@@ -480,6 +494,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /stations:
     get:
       operationId: listStations
@@ -557,6 +573,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /stations/{id}:
     get:
       operationId: getStation
@@ -586,6 +604,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /alerts:
     get:
       operationId: listAlerts
@@ -667,6 +687,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /alerts/{alert_id}:
     get:
       operationId: getAlert
@@ -696,6 +718,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /alerts/point:
     get:
       operationId: listAlertsForPoint
@@ -740,6 +764,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /radar/{z}/{x}/{y}.png:
     get:
       operationId: getRadarTile
@@ -794,6 +820,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /layers:
     get:
       operationId: listLayers
@@ -817,6 +845,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /history:
     get:
       operationId: getHistory
@@ -885,6 +915,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /keys:
     get:
       operationId: listApiKeys
@@ -908,6 +940,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
     post:
       operationId: createApiKey
       summary: Create an API key
@@ -941,6 +975,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /keys/{id}:
     delete:
       operationId: deleteApiKey
@@ -967,6 +1003,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /usage:
     get:
       operationId: getUsage
@@ -1007,6 +1045,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
   /status:
     get:
       operationId: getServiceStatus
@@ -1056,6 +1096,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security: []
   /ping:
     get:
@@ -1084,6 +1126,8 @@ paths:
           $ref: "#/components/responses/404"
         "429":
           $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
       security: []
 components:
   schemas:
@@ -1515,6 +1559,12 @@ components:
           schema:
             type: integer
             example: 0
+    "500":
+      description: Something failed on our side. Retry with backoff, and quote `request_id` if you contact support.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   securitySchemes:
     apiKey:
       type: apiKey

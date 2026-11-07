@@ -11,6 +11,14 @@ const here = dirname(fileURLToPath(import.meta.url));
 const demo = join(here, "../../demo");
 const RELEASE_TS = join(demo, "src/components/changelog/changelog.ts");
 
+/** The recipe's documented edit for a changelog that renders on request. */
+function forRequestRendering(route: string): string {
+  return route
+    .replace('import type { GetStaticPaths } from "astro";\n', "")
+    .replace("import { getCollectionStaticPaths, getCollectionPage } from", "import { getCollectionPage } from")
+    .replace(/\nexport const getStaticPaths[\s\S]*?\);\n/, "");
+}
+
 test("the recipe's code is apps/demo's changelog, file for file", async () => {
   const recipe = await readFile(join(here, "features/changelog.md"), "utf8");
   const files = [
@@ -30,10 +38,12 @@ test("the recipe's code is apps/demo's changelog, file for file", async () => {
     const fence = recipe.slice(heading).match(/```(?:astro|ts)\n([\s\S]*?)\n```/);
     assert.ok(fence, `no code for ${file}`);
     let source = await readFile(join(demo, file), "utf8");
-    // The demo is request-rendered with a prerendered changelog; the recipe's
-    // release route is written for a static site and says how to adjust it.
-    if (file === "src/pages/changelog/[...slug].astro") source = source.replace("export const prerender = true;\n", "");
-    assert.equal(fence[1], source.trimEnd(), `${file} drifted from apps/demo`);
+    // The recipe's release route is written for a static site and says how
+    // to adjust it; the demo renders its changelog on request, so it carries
+    // that edit: no `getStaticPaths`, nor the imports only it used.
+    const expected =
+      file === "src/pages/changelog/[...slug].astro" ? forRequestRendering(fence[1]!) : fence[1];
+    assert.equal(expected, source.trimEnd(), `${file} drifted from apps/demo`);
   }
 });
 

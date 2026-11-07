@@ -50,9 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # netlify runs under pnpm@latest below: under pnpm 9 its site's
-        # esbuild 0.28.1 postinstall intermittently finds 0.28.2's binary.
-        lane: [static, vercel, node, cloudflare]
+        lane: [static, vercel, node, cloudflare, netlify]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
@@ -79,9 +77,7 @@ jobs:
           node scripts/release.mjs pack --out "$RUNNER_TEMP/candidate"
           node scripts/release.mjs verify --from "$RUNNER_TEMP/candidate"
 
-  # Scaffold + install a variant under pnpm@latest, so a build-scripts gate
-  # regression fails a PR instead of a user. The monorepo's pin to pnpm 9
-  # predates the gate, so the pnpm-9 checks above can't catch it.
+  # Check docs and API-only scaffolds with the workspace package manager.
   site-parts:
     runs-on: ubuntu-latest
     steps:
@@ -99,12 +95,13 @@ jobs:
       - name: Scaffold, build and check sites with an API reference
         run: node scripts/site-parts-check.mjs
 
+  # Catch build-policy changes in newer pnpm majors.
   templates-modern-pnpm:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        lane: [static, cloudflare, netlify]
+        lane: [cloudflare, netlify]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 

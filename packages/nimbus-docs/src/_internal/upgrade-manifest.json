@@ -7,6 +7,7 @@
       "api-catalog-published-specs",
       "api-code-sample-ids",
       "api-collections-from-config",
+      "api-parameter-examples-and-home-toc",
       "api-query-version-mode",
       "api-reference-polish",
       "api-request-path",
@@ -19,6 +20,23 @@
     ]
   },
   "entries": [
+    {
+      "id": "dependency-runtime-requirements",
+      "introducedIn": "0.20.0",
+      "mode": "review-required",
+      "changeset": "dependency-compatibility",
+      "summary": "Update Node and Astro before installing the refreshed Nimbus dependencies.",
+      "affected": "Projects building with Node below 22.23.4 or Astro below 7.2.10.",
+      "instructions": [
+        "Upgrade Node to 22.23.4 or newer locally and in CI and hosting build environments before updating Nimbus. Use the latest patched release of your Node line.",
+        "Update Astro to at least 7.2.10 within major 7. New starters use Astro 7.4.2.",
+        "Reinstall dependencies with the project's package manager and commit the updated lockfile. Existing Satori 0.26 installations remain supported; new starters use Satori 0.63."
+      ],
+      "verify": [
+        "Confirm node --version in the local, CI, and hosting build environments meets the new minimum.",
+        "Run the project's typecheck and production build, including API references and OG images when enabled."
+      ]
+    },
     {
       "id": "math-rendering",
       "introducedIn": "0.18.0",
@@ -1075,6 +1093,75 @@
       "verify": [
         "The build passes and nimbus-docs check reports nothing for the changelog routes.",
         "/changelog/ lists releases newest first under their years, and a release's /changelog/<slug>/index.md has date and tags in its frontmatter."
+      ]
+    },
+    {
+      "id": "content-first-layouts",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "content-first-layouts",
+      "summary": "Optionally put the page's content before the sidebar in the HTML of DocsLayout and ApiLayout, so agents and text readers reach it first. Pages look the same.",
+      "affected": "Sites with the starter's src/layouts/DocsLayout.astro or, with an API reference, src/components/ui/api-layout/ApiLayout.astro.",
+      "instructions": [
+        "No action is needed: the layouts keep their props and look.",
+        "Take the DocsLayout change with nimbus-docs diff src/layouts/DocsLayout.astro --apply. ApiLayout is a registry component, which nimbus-docs diff doesn't cover: if it's unmodified, update it with nimbus-docs add api-layout --overwrite.",
+        "If you edited DocsLayout, merge by hand: move the <main id=\"main-content\"> element to the start of the <div class=\"flex\"> that holds it, and add order-first to the desktop sidebar <aside> and to the no-sidebar spacer <div>. Leave the sidebar's inline restore script after the sidebar.",
+        "If you edited ApiLayout, merge by hand: move the <div data-api-layout> block (main, table of contents and code rail together) before the sidebar <aside>, give the outer <div> md:grid md:grid-cols-[15rem_minmax(0,1fr)] lg:grid-cols-[var(--nb-sidebar-width)_minmax(0,1fr)] in place of flex, and add md:col-start-1 md:row-start-1 to the <aside> and md:col-start-2 md:row-start-1 to the data-api-layout <div>. The nav-state inline script stays right after the <aside>."
+      ],
+      "verify": [
+        "View source on a docs page and an API page: <main> comes before the sidebar's <aside>.",
+        "At desktop and phone widths the pages look as before, the skip link lands on the content, Tab goes header, content, then sidebar, and the mobile navigation drawer opens, closes on Escape and keeps its place across pages."
+      ]
+    },
+    {
+      "id": "page-chrome-for-agents",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "content-first-layouts",
+      "summary": "Optionally mark two pieces of page chrome so agents and text readers skip them: the page actions row (Updated, Copy page, View as Markdown) becomes a nav, and the API union explorer's \"View X schema →\" link, which repeats the branch name's link, is marked data-markdown-ignore.",
+      "affected": "Sites with the starter's src/components/ui/page-actions/PageActions.astro or, with an API reference, src/components/ui/api-field-row/ApiUnionExplorer.astro.",
+      "instructions": [
+        "No action is needed: both components keep their props and look.",
+        "Take the PageActions change with nimbus-docs diff src/components/ui/page-actions/PageActions.astro --apply. ApiUnionExplorer is part of the api-field-row registry component, which nimbus-docs diff doesn't cover: if it's unmodified, update it with nimbus-docs add api-field-row --overwrite.",
+        "To merge by hand: in PageActions, change the row's root <div data-nb-page-actions> to <nav aria-label=\"Page actions\" data-nb-page-actions>, closing it with </nav>. In ApiUnionExplorer, add data-markdown-ignore to the <div class=\"fl-desc\"> that holds the \"View … schema →\" link."
+      ],
+      "verify": [
+        "The page actions and union explorer look as before, and their buttons and links are still reached with Tab."
+      ]
+    },
+    {
+      "id": "api-parameter-examples-and-home-toc",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-parameter-examples",
+      "summary": "Optionally show parameter examples on API rows, and make API home table of contents links reach headings in later parts.",
+      "affected": "Sites with the api-layout and api-field-row registry components.",
+      "instructions": [
+        "No action is needed: without these files, API pages behave as before.",
+        "api-layout and api-field-row are registry components, which nimbus-docs diff doesn't cover. If they are unmodified, update them with nimbus-docs add api-layout api-field-row --overwrite.",
+        "If they are customized, copy the changes from the current registry version: ApiFieldRow.astro and ApiFieldList.astro take showExample and examples props and ApiBody.astro passes examples to parameter groups; ApiLayout.astro gives later-part TOC items an href from home.anchorParts and drops headings that aren't in it; ApiHome.astro's click handler calls homePartTarget and clears an active filter first.",
+        "src/components/ui/toc/TOC.astro is a template file: if unmodified, update it with nimbus-docs diff src/components/ui/toc/TOC.astro --apply; if customized, run nimbus-docs diff src/components/ui/toc/TOC.astro and render href={h.href ?? `#${h.slug}`}, with data-astro-reload when h.href is set."
+      ],
+      "verify": [
+        "A query parameter with an example shows `example` on its row.",
+        "On an API home split into parts, a table of contents link to a heading in a later part lands on it, with and without JavaScript."
+      ]
+    },
+    {
+      "id": "api-shapes-beside-unions",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-dropped-shapes",
+      "summary": "Optionally show fields declared beside a union, and the type of a body that isn't an object, on API pages.",
+      "affected": "Sites with the api-layout and api-field-row registry components.",
+      "instructions": [
+        "No action is needed: without these files, API pages show what they did before, and their Markdown already carries the new fields.",
+        "api-layout and api-field-row are registry components, which nimbus-docs diff doesn't cover. If they are unmodified, update them with nimbus-docs add api-layout --overwrite and nimbus-docs add api-field-row --overwrite.",
+        "If they are customized, copy the changes from the current registry version: ApiFieldList.astro renders its fields and then its slot, and keeps a section with no fields when the slot has content; ApiFieldRow.astro and ApiUnionExplorer.astro render a field's or option's fields, then its union with afterFields, and count both with contentsLabel from type-display.ts; ApiBody.astro passes fields beside each union explorer, shows a body's scalar with the new ApiScalarType.astro, and labels every body with mediaBadge(mediaType): JSON for a JSON body, otherwise the media type as written, so field-list.css's .fl-badge no longer sets text-transform: uppercase."
+      ],
+      "verify": [
+        "A response whose schema is allOf of a oneOf and properties lists those properties, then the options.",
+        "A text/plain response shows its type, and its badge isn't JSON."
       ]
     },
     {

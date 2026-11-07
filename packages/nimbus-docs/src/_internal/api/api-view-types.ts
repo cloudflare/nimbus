@@ -78,6 +78,13 @@ export interface ApiFieldView {
   type: string;
   typeShape?: ApiTypeShape;
   typeRef?: ApiRef;
+  /** The named schema a field is typed as, with or without a page: set for a
+   *  field typed as a named union, and where the list stops at a repeat. The
+   *  link, when there is one, is `typeRef`. */
+  typeName?: string;
+  /** `typeName` names the whole field, a named array schema, not its items:
+   *  show it as `typeName (array)`, not `array<typeName>`. */
+  namedArray?: boolean;
   typeRefs?: ApiRef[];
   required: boolean;
   deprecated?: boolean;
@@ -156,6 +163,8 @@ export interface ApiResponseView {
   truncated?: { total: number };
   /** The response body's union shape, when it is a top-level `oneOf`/`anyOf`. */
   bodyUnion?: ApiUnionView;
+  /** The body's type, when it isn't an object (`text/plain`, a binary file). */
+  scalar?: ApiScalarView;
   /** Derived example response body for this status. Symmetric with the request
    *  `ApiOperationPage.example`; present when the engine could resolve one. */
   example?: ApiExampleView;
@@ -184,6 +193,8 @@ export interface ApiOperationPage extends ApiPageBase {
   bodyTruncated?: { total: number };
   /** The body's union shape, when the request body is a top-level `oneOf`/`anyOf`. */
   bodyUnion?: ApiUnionView;
+  /** The primary request body's type, when it isn't an object. */
+  bodyScalar?: ApiScalarView;
   /** The primary request body's media type, so the renderer labels it correctly
    *  instead of assuming JSON. Present when the operation has a request body. */
   bodyMediaType?: string;
@@ -230,6 +241,8 @@ export interface ApiRequestBodyView {
   truncated?: { total: number };
   /** The body's union shape, when this media type is a top-level `oneOf`/`anyOf`. */
   union?: ApiUnionView;
+  /** The body's type, when it isn't an object (`text/plain`, a binary file). */
+  scalar?: ApiScalarView;
   /** Derived example for this media type, when the engine could resolve one. */
   example?: ApiExampleView;
 }
@@ -244,6 +257,8 @@ export interface ApiResponseMediaView {
   truncated?: { total: number };
   /** The body's union shape, when this media type is a top-level `oneOf`/`anyOf`. */
   union?: ApiUnionView;
+  /** The body's type, when it isn't an object (`text/plain`, a binary file). */
+  scalar?: ApiScalarView;
   /** Derived example for this media type, when the engine could resolve one. */
   example?: ApiExampleView;
 }
@@ -288,10 +303,14 @@ export interface ApiVariant {
   label: string;
   /** The component schema's key, present only for a named branch. */
   name?: string;
-  /** The component schema's `title`, when it declares one; a component shows
-   *  `title ?? label` to read the spec's own name for the branch. */
+  /** The branch's `title` (a component's, or an inline branch's own); a
+   *  component shows `title ?? label` to read the spec's own name for it. */
   title?: string;
   href?: string;
+  /** An inline scalar branch's literals, as a scalar property's `enum`. */
+  enum?: JsonValue[];
+  /** An inline scalar branch's description. */
+  description?: string;
   /**
    * The variant's own properties, inlined so a field union renders an in-place
    * explorer instead of only a link. Present for an inline object branch

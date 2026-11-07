@@ -165,7 +165,7 @@ components:
 
   test("the generated Markdown carries the union branch links", () => {
     const md = renderApiPageMarkdown(getApiPageProps(refModel, "search"));
-    assert.match(md, /one of:/);
+    assert.match(md, /one of the following:/);
     assert.match(md, /\[ById\]\(\/rpu\/schemas\/ById\/\)/);
     assert.match(md, /\[ByName\]\(\/rpu\/schemas\/ByName\/\)/);
   });

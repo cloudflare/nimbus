@@ -111,6 +111,26 @@ test("--template api serves the API at the root and drops the docs part", () => 
   assert.match(config, /collection: "api"/);
 });
 
+test("an API-only site is named after its spec; a docs site keeps its own name", () => {
+  const spec = join(work, "acme.yaml");
+  writeFileSync(spec, `openapi: 3.1.0\ninfo:\n  title: Acme "Payments"\n  description: |\n    Move money\n    between accounts.\n\n    Second paragraph.\n  version: "1"\npaths: {}\n`);
+  const own = scaffold("acme-api", "--template", "api", "--api", spec);
+  assert.equal(own.status, 0, own.output);
+  const config = readFileSync(join(own.site, "astro.config.ts"), "utf8");
+  assert.match(config, /title: "Acme \\"Payments\\"",/);
+  assert.match(config, /description: "Move money between accounts\.",/);
+
+  const sample = scaffold("sample-api", "--template", "api");
+  assert.equal(sample.status, 0, sample.output);
+  const sampleConfig = readFileSync(join(sample.site, "astro.config.ts"), "utf8");
+  assert.doesNotMatch(sampleConfig, /title: "Nimbus",/);
+  assert.match(sampleConfig, /title: "Weather API",/);
+
+  const docs = scaffold("acme-docs", "--api", spec);
+  assert.equal(docs.status, 0, docs.output);
+  assert.match(readFileSync(join(docs.site, "astro.config.ts"), "utf8"), /title: "Nimbus",/);
+});
+
 test("a spec is recognised by its OpenAPI version in any YAML or JSON style", () => {
   const specs = {
     "bom.yaml": "\uFEFFopenapi: 3.1.0\npaths: {}\n",
