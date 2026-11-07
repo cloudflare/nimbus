@@ -33,7 +33,7 @@ const singles = Object.values(shortcuts).filter(isSingleKey).map(shortcutLabel);
     )}
     {...attrs}
   >
-    <span class="relative inline-flex h-3.5 w-6 shrink-0 items-center rounded-full bg-border transition-colors" aria-hidden="true">
+    <span class="relative inline-flex h-3.5 w-6 shrink-0 items-center rounded-full bg-muted-foreground/30 transition-colors" aria-hidden="true">
       <span class="nb-shortcuts-knob ms-0.5 h-2.5 w-2.5 rounded-full bg-card shadow-sm transition-transform"></span>
     </span>
     <span class={compact ? "sr-only" : undefined}>Single-key shortcuts</span>
@@ -47,7 +47,7 @@ const singles = Object.values(shortcuts).filter(isSingleKey).map(shortcutLabel);
 
 <style>
   [data-nb-shortcuts-toggle][aria-pressed="true"] > span:first-child {
-    background: var(--nb-brand);
+    background: var(--nb-success);
   }
   [data-nb-shortcuts-toggle][aria-pressed="true"] .nb-shortcuts-knob {
     transform: translateX(0.625rem);
