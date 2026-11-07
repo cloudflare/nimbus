@@ -5,7 +5,6 @@
  * aren't JSON-shaped literals are reported as `unresolved`, never guessed.
  */
 
-import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 
