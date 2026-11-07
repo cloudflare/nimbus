@@ -62,6 +62,12 @@ export const BUNDLED_INDEX: BundledIndex = {
       "title": "Aside",
       "description": "Generic boxed callout — note, tip, caution, or danger."
     },
+    "switch": {
+      "name": "switch",
+      "type": "registry:ui",
+      "title": "Switch",
+      "description": "On/off control: a role=\"switch\" button whose aria-checked holds the state; a click flips it and fires change."
+    },
     "badge": {
       "name": "badge",
       "type": "registry:ui",
