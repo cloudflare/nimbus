@@ -72,3 +72,67 @@ const labels = (items) => items.flatMap((item) => [item.label, ...(item.type ===
   assert.equal(await reread("guides/llms.txt"), await read("guides/llms.txt"));
   assert.equal(await reread("llms-full.txt"), full);
 });
+
+test("an API placed before the docs in the sidebar reads there, in its nav order", { timeout: 300_000 }, async () => {
+  const { mkdtemp, writeFile } = await import("node:fs/promises");
+  const { TEST_TMP } = await import("./fixtures/temp-root.js");
+  const { srcModule } = await import("./fixtures/agent-site.ts");
+  const ok = { "200": { description: "ok" } };
+  const specDir = await mkdtemp(path.join(TEST_TMP, "nimbus-llms-order-api-"));
+  const spec = path.join(specDir, "spec.json");
+  // Nav order (list, then create) against URL order (create, then list).
+  await writeFile(spec, JSON.stringify({
+    openapi: "3.1.0",
+    info: { title: "Pets", version: "1" },
+    tags: [{ name: "Users" }],
+    paths: {
+      "/users": {
+        get: { operationId: "usersList", summary: "List users", tags: ["Users"], responses: ok },
+        post: { operationId: "usersCreate", summary: "Create user", tags: ["Users"], responses: ok },
+      },
+    },
+  }));
+  const site = await sites.buildSite(
+    {
+      "src/content.config.ts": `import { defineCollection } from "astro:content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
+import { apiCollection } from ${srcModule("content.ts")};
+export const collections = { docs: defineCollection(docsCollection()), api: defineCollection(apiCollection()) };`,
+      "src/pages/[...slug].astro": `---
+import { getDocsStaticPaths, getDocsPageProps } from ${runtime};
+export const getStaticPaths = getDocsStaticPaths;
+const { Content } = await getDocsPageProps(Astro);
+---
+<html><body><Content /></body></html>
+`,
+      "src/pages/api/[...slug].astro": `---
+import { getApiRoute, getApiStaticPaths } from ${runtime};
+export const getStaticPaths = getApiStaticPaths("api");
+const result = await getApiRoute(Astro, "api");
+if (result instanceof Response) return result;
+---
+<html><body>{result.page.kind}</body></html>
+`,
+      "src/pages/[...slug]/index.md.ts": `import { markdownRoute } from ${endpoints};\nexport const prerender = true;\nexport const { GET, getStaticPaths } = markdownRoute();\n`,
+      "src/pages/llms-full.txt.ts": `import { llmsFullRoute } from ${endpoints};\nexport const prerender = true;\nexport const { GET } = llmsFullRoute();\n`,
+      "src/pages/runtime-full.txt.ts": `import { renderLlmsFullMarkdown } from ${runtime};\nexport const prerender = true;\nexport const GET = async () => new Response(await renderLlmsFullMarkdown());\n`,
+      "src/content/docs/index.mdx": page("Home"),
+      "src/content/docs/intro.mdx": page("Intro"),
+    },
+    {
+      packageImports: true,
+      logLevel: "warn",
+      sidebar: { items: [{ label: "Pets API", autogenerate: { collection: "api" } }, { autogenerate: { directory: "." } }] },
+      api: [{ collection: "api", spec, routes: { convention: "resource-action-v2" } }],
+    },
+  );
+  const read = (file: string) => readFile(path.join(site.root, "dist", file), "utf8");
+  const headings = (body: string) => [...body.matchAll(/^# (.+)$/gm)].map((match) => match[1]!);
+  for (const file of ["llms-full.txt", "runtime-full.txt"]) {
+    const order = headings(await read(file));
+    const at = (title: string) => order.findIndex((heading) => heading.includes(title));
+    assert.ok(at("List users") >= 0 && at("Create user") >= 0 && at("Intro") >= 0, `${file}: ${order.join(", ")}`);
+    assert.ok(at("List users") < at("Create user"), `${file}: ${order.join(", ")}`);
+    assert.ok(at("Create user") < at("Intro"), `${file}: ${order.join(", ")}`);
+  }
+});

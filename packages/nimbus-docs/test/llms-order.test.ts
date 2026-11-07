@@ -38,6 +38,17 @@ test("an API sits at its link in the tree, in nav order; an unlinked one after t
   assert.ok(at("billing", "create", "/billing/create/") < at("users", "list", "/users/list/"));
 });
 
+test("an API group with no landing page sits at its first linked page", () => {
+  const position = llmsSidebarPosition({
+    tree: [group("Pets API", [link("Create", "/pets/create/"), link("List", "/pets/list/")]), link("Intro", "/intro/")],
+    apiMounts: new Map([["pets", "/pets"]]),
+    apiNavOrder: (_collection, id) => ({ create: 0, list: 1 } as Record<string, number>)[id],
+  });
+  const at = (collection: string, id: string, url: string) => position({ collection, id, url })!;
+  assert.ok(at("pets", "create", "/pets/create/") < at("pets", "list", "/pets/list/"));
+  assert.ok(at("pets", "list", "/pets/list/") < at("docs", "intro", "/intro/"));
+});
+
 test("an older docs version reads in its own sidebar's order", () => {
   const position = llmsSidebarPosition({
     tree: [link("Configure", "/configure/"), link("Deploy", "/deploy/")],

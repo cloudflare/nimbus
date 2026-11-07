@@ -633,6 +633,58 @@ export async function renderIndexedEntryMarkdown(
 }
 
 /**
+ * Each API page's index in its version's nav, from wherever the build keeps
+ * that nav: the prepared nav on the overview entry, the page-asset index, or
+ * the model a thin entry renders from.
+ */
+async function apiNavOrderOf(
+  entries: readonly IndexedEntry[],
+  apiCollections: ReadonlySet<string>,
+): Promise<(collection: string, id: string) => number | undefined> {
+  const [{ apiLlmsPlacement }, { isPreparedApiPage }, assets] = await Promise.all([
+    import("./_internal/api/llms-sections.js"),
+    import("./_internal/api/prepared.js"),
+    import("./_internal/api/page-assets-runtime.js"),
+  ]);
+  type Version = { collection: string; version: string | null; navEntryId?: string; pages: Map<string, string> };
+  const versions = new Map<string, Version>();
+  for (const { collection, entry } of entries) {
+    if (!apiCollections.has(collection)) continue;
+    const data = entry.data as { coordinate?: unknown; version?: unknown; prepared?: unknown };
+    if (typeof data.coordinate !== "string") continue;
+    const version = typeof data.version === "string" ? data.version : null;
+    const key = `${collection}\0${version ?? ""}`;
+    let group = versions.get(key);
+    if (!group) versions.set(key, (group = { collection, version, pages: new Map() }));
+    group.pages.set(data.coordinate, entry.id);
+    if (isPreparedApiPage(data.prepared)) group.navEntryId = data.prepared.navEntryId;
+  }
+  const navItems = async ({ collection, version, navEntryId }: Version) => {
+    if (navEntryId !== undefined) {
+      // The nav rides on the API's overview entry, which the indexes may not list.
+      const prepared = ((await getVisibleEntry(collection, navEntryId))?.data as { prepared?: unknown } | undefined)?.prepared;
+      return isPreparedApiPage(prepared) ? prepared.nav?.nav.items : undefined;
+    }
+    if (await assets.hasApiPageAssets(collection)) {
+      const target = (await assets.apiAssetTargets(collection)).find((candidate) => version === null ? candidate.isDefault : candidate.version === version);
+      return target ? assets.apiAssetMetadata(await assets.readApiAssetIndex(target)).nav.nav.items : undefined;
+    }
+    const { getApiModel, getApiNav } = await import("./api/index.js");
+    return getApiNav(await getApiModel(collection, version ?? undefined)).items;
+  };
+  const order = new Map<string, number>();
+  for (const group of versions.values()) {
+    const items = await navItems(group);
+    if (!items) continue;
+    for (const [coordinate, index] of apiLlmsPlacement(items, (coordinate) => group.pages.get(coordinate)).order) {
+      order.set(`${group.collection}\0${group.pages.get(coordinate)}`, index);
+    }
+  }
+  return (collection, id) => order.get(`${collection}\0${id}`);
+}
+
+
+/**
  * Render the full published documentation as one Markdown document for the
  * `llms-full.txt` route. One fetch returns every discoverable current page as
  * clean Markdown, with no crawling.
@@ -678,7 +730,7 @@ export async function renderLlmsFullMarkdown(options?: {
   const position = llmsSidebarPosition({
     tree: await buildStructuralTree(),
     apiMounts: new Map([...apiCollections].map((collection) => [collection, resolveCollectionPrefix(collection, mountContext)])),
-    apiNavOrder: () => undefined,
+    apiNavOrder: await apiNavOrderOf(entries, apiCollections),
   });
   const blocks = await Promise.all(
     included.map(async (item) => {
