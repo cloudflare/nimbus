@@ -6,6 +6,7 @@ import { Button } from "./ui/button";
 import { LinkButton } from "./ui/link-button";
 import { ThemeToggle } from "./ui/theme-toggle";
 import SearchTrigger from "./ui/search/SearchTrigger.astro";
+import { ShortcutsToggle } from "./ui/shortcuts";
 import { config } from "virtual:nimbus/config";
 import { stripBase, withBase } from "@cloudflare/nimbus-docs/runtime";
 
@@ -79,6 +80,8 @@ const resolveSectionHref = (href: string): string =>
     <div class="flex items-center gap-2 shrink-0">
       <slot name="actions" />
       {config.search !== false && <SearchTrigger />}
+      {/* Without search, the reader's single-key switch lives here. */}
+      {config.search === false && <ShortcutsToggle compact />}
       {config.github && (
         <LinkButton
           href={config.github}

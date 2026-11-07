@@ -51,3 +51,36 @@ const nimbusConfig = defineNimbusConfig({
 ```
 
 There's no per-page opt-in to override a site-wide `false`: turn a column off site-wide and it stays off.
+
+## Keyboard shortcuts
+
+Every shortcut is in one file, `src/lib/shortcuts.ts`. Change a key there, or set it to `false` to remove it with its hint:
+
+```ts title="src/lib/shortcuts.ts"
+export const shortcuts = {
+  search: "Mod+K", // ⌘K on macOS, Ctrl K elsewhere
+  filterSidebar: "/",
+  previousPage: "[",
+  nextPage: "]",
+} satisfies Shortcuts;
+```
+
+A key is a character, such as `"/"` or `"?"`, or a combo, such as `"Mod+K"` or `"Shift+Alt+P"`. Nothing fires while a reader types in a field, except combos.
+
+Single keys, with no Ctrl, ⌘ or Alt, work anywhere on the page only while the reader can turn them off, as accessibility guidelines require. The "Single-key shortcuts" switch in the search dialog does that, or in the header when search is off.
+
+A page without the switch keeps `[` and `]` to the previous/next bar while it has focus, and leaves `/` unbound. Single keys also wait while a dialog is open.
+
+To add a shortcut of your own, name it in `src/lib/shortcuts.ts` and bind it with `onShortcut` from `@cloudflare/nimbus-docs/client`. Mark its hint `data-nb-shortcut-hint` and its control `data-nb-shortcut-for`, then call `syncShortcutHints`: the hint shows the key as the reader's platform writes it, and hides with the other single keys.
+
+```ts title="src/components/help.client.ts"
+import { mount, onShortcut, syncShortcutHints } from "@cloudflare/nimbus-docs/client";
+import { shortcuts } from "@/lib/shortcuts";
+
+// <button data-help data-nb-shortcut-for="?">Help <kbd data-nb-shortcut-hint="?">?</kbd></button>
+mount("[data-help]", (button) => {
+  syncShortcutHints(button);
+  return onShortcut(shortcuts.help, () => button.click());
+});
+```
+

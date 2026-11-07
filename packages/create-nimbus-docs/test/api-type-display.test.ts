@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { ApiFieldView, ApiUnionView } from "@cloudflare/nimbus-docs/api";
-import { typeTokens, unionEntries, unionTitle } from "../../nimbus-starter-source/src/components/ui/api-field-row/type-display.ts";
+import { allowedValues, literalTokens, typeTokens, unionEntries, unionTitle } from "../../nimbus-starter-source/src/components/ui/api-field-row/type-display.ts";
 
 const field = (over: Partial<ApiFieldView>): ApiFieldView =>
   ({ coordinate: "op.f", name: "f", type: "object", required: false, children: [], childCount: 0, truncated: false, ...over }) as ApiFieldView;
@@ -41,4 +41,15 @@ test("a named array schema shows its name, then (array); an array of a named uni
   assert.deepEqual(whole.map((t) => t.text), ["Groups", "(array)"]);
   const items = typeTokens(field({ ...array, union, typeName: "Group" }));
   assert.deepEqual(items.map((t) => t.text), ["array of", "Group"]);
+});
+
+test("up to six allowed values sit in the type line; more are counted there and listed in full", () => {
+  assert.deepEqual(literalTokens(["a", "b"], "string").map((t) => t.text), ["a", "or", "b"]);
+  assert.equal(allowedValues(["a", "b"]), undefined);
+  const countries = Array.from({ length: 140 }, (_, i) => `C${i}`);
+  assert.deepEqual(literalTokens(countries, "string").map((t) => t.text), ["string", "·", "one of 140 values"]);
+  assert.ok(literalTokens(countries, "string").every((t) => !t.title), "no hover-only tooltip");
+  const list = allowedValues(countries)!;
+  assert.equal(list.split(", ").length, 140, "every value, in the page text");
+  assert.deepEqual(typeTokens(field({ type: "string", enum: countries })).map((t) => t.text), ["string", "·", "one of 140 values"]);
 });

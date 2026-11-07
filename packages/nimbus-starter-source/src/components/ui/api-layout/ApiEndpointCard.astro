@@ -44,8 +44,12 @@ const variant = methodVariant(method);
   </LayerCardHeader>
   <LayerCardContent class="flex-row items-stretch gap-0 p-0">
     <div class="min-w-0 grow self-center px-3">
-      <code class="block truncate font-mono text-[0.8125rem] text-foreground">
-        {server && <span class="text-muted-foreground">{base}</span>}{path}{serverQuery && <span class="text-muted-foreground">{serverQuery}</span>}
+      {/* The server base is cut first: the path, which differs between pages,
+          is cut only when it alone is wider than the box. The title carries the
+          full URL. */}
+      <code class="flex min-w-0 whitespace-nowrap font-mono text-[0.8125rem] text-foreground" title={url}>
+        {server && <span class="min-w-0 truncate text-muted-foreground">{base}</span>}
+        <span class="max-w-full shrink-0 truncate">{path}{serverQuery && <span class="text-muted-foreground">{serverQuery}</span>}</span>
       </code>
     </div>
     {isWebhook && <Badge text="Webhook" variant="outline" class="me-3 self-center" />}

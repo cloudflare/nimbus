@@ -1,4 +1,5 @@
-import { mount } from "@cloudflare/nimbus-docs/client";
+import { mount, onShortcut } from "@cloudflare/nimbus-docs/client";
+import { shortcuts } from "@/lib/shortcuts";
 import type { SearchProvider, SearchResult } from "@cloudflare/nimbus-docs/types";
 import { provider } from "./providers/pagefind";
 
@@ -254,8 +255,7 @@ function bindGlobals() {
     primaryDialog()?.__openSearchDialog?.();
   });
 
-  document.addEventListener("keydown", (event) => {
-    if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
+  onShortcut(shortcuts.search, (event) => {
     const dialog = primaryDialog();
     if (!dialog) return;
     event.preventDefault();
