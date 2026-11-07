@@ -569,7 +569,7 @@ function renderAuth(alternatives: ApiAuthView[][], out: string[]): void {
   out.push("## Authentication", "");
   const describe = (a: ApiAuthView): string => {
     const bits: string[] = [inlineCode(a.scheme)];
-    if (a.type) bits.push(inlineText(a.type));
+    if (a.type) bits.push(inlineText(a.httpScheme ? `${a.type} ${a.httpScheme}` : a.type));
     if (a.in) bits.push(`in ${inlineText(a.in)}`);
     if (a.headerName) bits.push(`header ${inlineCode(a.headerName)}`);
     if (a.bearerFormat) bits.push(`format ${inlineCode(a.bearerFormat)}`);

@@ -599,6 +599,7 @@ function authView(view: ModelView, auth: OperationFacts["auth"]): ApiAuthView[][
       const headerName = deriveHeaderName(scheme);
       if (headerName) out.headerName = headerName;
       if (scheme?.bearerFormat) out.bearerFormat = scheme.bearerFormat;
+      if (scheme?.type === "http" && typeof scheme.scheme === "string") out.httpScheme = scheme.scheme.toLowerCase();
       return out;
     }),
   );

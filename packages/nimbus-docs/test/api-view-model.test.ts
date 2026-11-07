@@ -1985,3 +1985,28 @@ describe("a named schema with its own page links; without one, it previews", () 
     assert.ok(!c.fields && c.href, "C links to its page instead of previewing");
   });
 });
+
+test("an HTTP auth scheme carries its scheme lowercased; other types carry none", async () => {
+  const model = await buildApiModel({
+    collection: "auth",
+    spec: {
+      openapi: "3.1.0",
+      info: { title: "Auth", version: "1" },
+      paths: { "/r": { get: { operationId: "read", security: [{ b: [] }, { B: [] }, { basic: [] }, { key: [] }], responses: { "200": { description: "ok" } } } } },
+      components: {
+        securitySchemes: {
+          b: { type: "http", scheme: "bearer" },
+          B: { type: "http", scheme: "Bearer" },
+          basic: { type: "http", scheme: "basic" },
+          key: { type: "apiKey", in: "header", name: "X-Key" },
+        },
+      },
+    },
+  });
+  const page = getApiPageProps(model, "read") as ApiOperationPage;
+  assert.deepEqual(page.auth.map(([a]) => [a!.scheme, a!.httpScheme]), [["b", "bearer"], ["B", "bearer"], ["basic", "basic"], ["key", undefined]]);
+  const md = renderApiPageMarkdown(page);
+  assert.match(md, /`b`, http bearer, header `Authorization`/, "the Markdown names the scheme, as the page does");
+  assert.match(md, /`basic`, http basic, header `Authorization`/);
+  assert.match(md, /`key`, apiKey, in header, header `X-Key`/);
+});

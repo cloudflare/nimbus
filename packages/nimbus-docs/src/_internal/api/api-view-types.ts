@@ -147,6 +147,9 @@ export interface ApiAuthView {
   in?: "header" | "query" | "cookie";
   headerName?: string;
   bearerFormat?: string;
+  /** The HTTP authentication scheme, lowercased (`bearer`, `basic`, …). Set only
+   *  for `type: "http"`. */
+  httpScheme?: string;
   scopes: string[];
 }
 
