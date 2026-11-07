@@ -9,6 +9,7 @@ import { ClientRouter } from "astro:transitions";
 import { config } from "virtual:nimbus/config";
 import {
   getCollectionLlmsUrl,
+  getPageLanguage,
   getVersionStatus,
   withBase,
 } from "@cloudflare/nimbus-docs/runtime";
@@ -27,6 +28,8 @@ const {
   markdownUrl,
   socialImage,
   socialImageSize,
+  socialImageAlt,
+  locale,
   lastUpdated,
   head: pageHead = [],
   collection,
@@ -35,7 +38,8 @@ const {
   coordinate,
 } = Astro.props;
 
-const lang = config.locale ?? "en";
+// The page's language, or the site's; `dir="rtl"` for a right-to-left one.
+const { lang, dir } = await getPageLanguage(locale);
 // Per-page agent-index pointer. For pages in non-primary or version
 // collections, this resolves to `/<prefix>/llms.txt` (e.g. `/v0/llms.txt`
 // for a v0 docs page, `/blog/llms.txt` for a blog post). Falls back to
@@ -64,7 +68,7 @@ const resolvedMarkdownUrl =
 ---
 
 <!doctype html>
-<html lang={lang}>
+<html lang={lang} dir={dir}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -126,6 +130,8 @@ const resolvedMarkdownUrl =
       markdownUrl={markdownUrl}
       socialImage={socialImage}
       socialImageSize={socialImageSize}
+      socialImageAlt={socialImageAlt}
+      locale={locale}
       lastUpdated={lastUpdated}
       head={pageHead}
       collection={collection}

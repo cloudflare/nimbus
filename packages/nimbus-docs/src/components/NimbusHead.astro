@@ -35,6 +35,7 @@ import {
   getApiVersionHead,
   getApiVersions,
   getCollectionLlmsUrl,
+  getPageLanguage,
   getVersionAlternates,
   getVersionStatus,
   withBase,
@@ -62,6 +63,14 @@ export interface Props {
    * in `public/`; any other image gets no size tags.
    */
   socialImageSize?: { width: number; height: number };
+  /** Alt text for the page's image. Falls back to `config.socialImageAlt`. */
+  socialImageAlt?: string;
+  /**
+   * The page's language as a BCP 47 tag (`fr`, `ar-SA`). Falls back to
+   * `config.locale`. Drives `og:locale` and JSON-LD `inLanguage`; the layout
+   * writes `<html lang dir>` from the same value.
+   */
+  locale?: string;
   /** Drives `<meta property="article:modified_time">` on non-home pages. */
   lastUpdated?: Date;
   /** Per-page head extras, appended after `config.head`. */
@@ -90,6 +99,8 @@ const {
   markdownUrl,
   socialImage,
   socialImageSize,
+  socialImageAlt,
+  locale,
   lastUpdated,
   head: pageHead = [],
   collection,
@@ -204,7 +215,18 @@ const resolvedMarkdownUrl =
 
 const fullTitle = title !== config.title ? `${title} | ${config.title}` : title;
 const resolvedDescription = description ?? config.description;
-const lang = config.locale ?? "en";
+const { lang } = await getPageLanguage(locale);
+// Open Graph wants `language_TERRITORY` (`en_US`), not a BCP 47 tag. The region
+// comes from the tag, else its likely one (`ar` → `ar_EG`); a numeric region
+// (`es-419`) or an invalid tag gets no `og:locale`.
+const ogLocale = (() => {
+  try {
+    const { language, region } = new Intl.Locale(lang).maximize();
+    return region && /^[A-Z]{2}$/.test(region) ? `${language}_${region}` : undefined;
+  } catch {
+    return undefined;
+  }
+})();
 
 const routeKey = (path: string) => path.replace(/\/+$/, "") || "/";
 const isHomePage = routeKey(pagePath) === routeKey(withBase("/", baseUrl));
@@ -224,7 +246,7 @@ const ogImage = socialImagePath
     ? new URL(withBase(socialImagePath, baseUrl), Astro.site).href
     : withBase(socialImagePath, baseUrl)
   : null;
-const ogImageAlt = config.socialImageAlt;
+const ogImageAlt = socialImageAlt ?? config.socialImageAlt;
 // Size precedence: the page's own, a file measured in `public/`, a generated
 // card, else none. A remote image, or a frontmatter image with no size, gets
 // no width/height rather than a wrong one. Files under `public/og/` are
@@ -304,7 +326,7 @@ const shikiCssHref = withBase(
 <meta property="og:title" content={fullTitle} />
 <meta property="og:type" content={ogType} />
 <meta property="og:site_name" content={config.title} />
-<meta property="og:locale" content={lang} />
+{ogLocale && <meta property="og:locale" content={ogLocale} />}
 {resolvedDescription && <meta property="og:description" content={resolvedDescription} />}
 {hasSite && canonical && <meta property="og:url" content={canonical} />}
 {ogImage && <meta property="og:image" content={ogImage} />}

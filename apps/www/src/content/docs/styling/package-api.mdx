@@ -36,6 +36,7 @@ From `@cloudflare/nimbus-docs`. The starter's `src/pages/[...slug].astro` uses t
 | `getEditUrl(entry)` | The page's edit link, from `editPattern`, or `undefined`. |
 | `getLastUpdated(entry)` | The page's last git commit date, or `undefined` when git can't say. |
 | `getVersionStatus(key)` | Whether a version is current, deprecated or hidden, for banners. |
+| `getPageLanguage(locale?)` | The page's language, `locale` or `config.locale`, and `dir: "rtl"` when it's written right to left: `{ lang, dir }` for `<html lang dir>`. |
 | `getCollectionLlmsUrl(collection)` | The `llms.txt` that indexes a collection. |
 
 ## URLs
@@ -167,10 +168,12 @@ From `@cloudflare/nimbus-docs/markdown`, in `markdown.hastPlugins` in the integr
 | `titleFigure(options)` | Turns an image with a title into a figure with a caption. |
 | `math(options)` | Renders math as MathML at build time; turn on `features: { math: true }` too. |
 
+Type your own plugins with `HastPluginDefinition` and `HastVisitorContext` from the same entry.
+
 ## Components
 
 | Component | What it does |
 | --- | --- |
 | `@cloudflare/nimbus-docs/components/Icon.astro` | Renders an icon by name, such as `ph:check`. |
-| `@cloudflare/nimbus-docs/components/NimbusHead.astro` | The page's head: title, description, canonical, share card and agent discovery tags. |
+| `@cloudflare/nimbus-docs/components/NimbusHead.astro` | The page's head: title, description, canonical, share card and agent discovery tags. `locale` and `socialImageAlt` set a page's language and share-image alt. |
 | `@cloudflare/nimbus-docs/components/NestedContent.astro` | Shows another page's content inside this one, such as a release on a changelog list: its `h1` and `h2` become `headingLevel` and drop their ids, and links to its sections go to `sourceUrl`. |
