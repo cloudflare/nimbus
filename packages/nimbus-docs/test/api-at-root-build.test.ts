@@ -231,8 +231,11 @@ for (const variant of VARIANTS) {
         assert.ok(locs.every((loc) => loc.startsWith(`${origin}/`) && !loc.includes("/api/") && !loc.includes("/index/2")), locs.join("\n"));
         const llms = (await get(`${prefix}/llms.txt`)).body;
         assert.match(llms, new RegExp(`\\(${origin}/index\\.md\\)`));
-        assert.match(llms, new RegExp(`\\(${origin}/Workers/llms\\.txt\\)`));
-        assert.match((await get(`${prefix}/Workers/llms.txt`)).body, new RegExp(`\\(${origin}${OP}index\\.md\\)`));
+        // Operations are listed in their tag's index, as the sidebar groups them.
+        assert.match(llms, new RegExp(`\\(${origin}/tags/llms\\.txt\\)`));
+        assert.match((await get(`${prefix}/tags/llms.txt`)).body, new RegExp(`\\(${origin}/tags/Workers/llms\\.txt\\)`));
+        assert.match((await get(`${prefix}/tags/Workers/llms.txt`)).body, new RegExp(`\\(${origin}${OP}index\\.md\\)`));
+        assert.equal((await get(`${prefix}/Workers/llms.txt`)).status, 404);
         assert.equal((await get(`${prefix}/index.md`)).status, 200);
         assert.equal((await get(`${prefix}${OP}index.md`)).status, 200);
         assert.equal((await get(`${prefix}/openapi.json`)).status, 200);

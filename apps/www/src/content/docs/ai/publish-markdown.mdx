@@ -15,7 +15,7 @@ Every Nimbus site publishes a plain-text copy of itself for agents and other too
 | `/<slug>/index.md` | The page as clean Markdown, with components converted to text. Links to its `.mdx` source. |
 | `/<slug>/index.mdx` | The page's authored source, with imports, JSX and directives. Not published for API pages. |
 | `/llms.txt` | An index of the current docs: top-level pages and a link to each section's index. |
-| `/<section>/llms.txt` | An index for each top-level group and collection, and each folder below it, linked from its parent. |
+| `/<section>/llms.txt` | An index for each top-level group and collection, and each folder below it, linked from its parent. An API operation is listed in its resource's or tag's index, as in the sidebar; docs folders are sections as before. |
 | `/llms-full.txt` | Every current page in one Markdown document. Over 25 MiB, it becomes an index of one `llms-full.txt` per section. |
 | `/<version>/llms.txt` | An index for each older docs version, which the site index leaves out. |
 
