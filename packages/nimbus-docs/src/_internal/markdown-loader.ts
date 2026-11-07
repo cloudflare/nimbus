@@ -436,7 +436,7 @@ export function prepareMarkdownLoader<T extends Loader>(
     } satisfies NimbusMarkdownCapability);
     if (options.empty) {
       await runPreparedMarkdownTransaction(root, context.collection, async () => {
-        const epoch = beginPreparedMarkdownLoad(root, context.collection, true);
+        const epoch = beginPreparedMarkdownLoad(root, context.collection, true, true);
         context.store.clear();
         context.meta.delete(NIMBUS_MARKDOWN_META_KEY);
         const committed = commitPreparedMarkdownCollection(
@@ -470,6 +470,7 @@ export function prepareMarkdownLoader<T extends Loader>(
         root,
         context.collection,
         !reusable,
+        true,
       );
       const commit = async (
         entries: Iterable<StoreEntry> = context.store.values(),

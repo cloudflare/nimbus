@@ -32,6 +32,7 @@ export const collections = { api: defineCollection(apiCollection()) };`,
   };
   await withDevSite(files, { api: [{ collection: "api", spec: "./spec.json" }] }, async ({ file, page, serves, since, restarted, mark: now }) => {
     await serves("/api/Pets/listPets/", "api:operation");
+    assert.doesNotMatch(since(0), /The collection "docs" does not exist/, "an API-only site doesn't query docs");
 
     const mark = now();
     await rename(file("src/pages/api/[...slug].astro"), file("src/pages/[...slug].astro"));

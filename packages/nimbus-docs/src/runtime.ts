@@ -812,6 +812,14 @@ export function clearNavCaches(): void {
   clearContentCaches();
 }
 
+// In `astro dev`, pages render in a module runner (Node's, or workerd's) with
+// its own copy of these caches. Astro tells each runner when the content store
+// changes, and clears its own route cache on the same event.
+(import.meta as { hot?: { on(event: string, cb: () => void): void } }).hot?.on(
+  "astro:content-changed",
+  clearNavCaches,
+);
+
 function deepFreeze(items: readonly SidebarItem[]): void {
   for (const item of items) {
     if (item.type === "group") deepFreeze(item.children);
