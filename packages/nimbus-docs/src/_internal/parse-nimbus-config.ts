@@ -9,16 +9,8 @@ import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 
+import { findConfigFile } from "./astro-config-file.js";
 import { findMatchingBrace } from "./parse-object-literal.js";
-
-const CONFIG_FILENAMES = [
-  "astro.config.ts",
-  "astro.config.mts",
-  "astro.config.cts",
-  "astro.config.mjs",
-  "astro.config.cjs",
-  "astro.config.js",
-] as const;
 
 const NIMBUS_PACKAGE = "@cloudflare/nimbus-docs";
 
@@ -348,19 +340,6 @@ function maskSource(source: string): string {
     }
   }
   return out.join("");
-}
-
-function findConfigFile(cwd: string): { file: string; source: string } | null {
-  for (const name of CONFIG_FILENAMES) {
-    const file = path.join(cwd, name);
-    try {
-      return { file, source: fs.readFileSync(file, "utf8") };
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") continue;
-      throw err;
-    }
-  }
-  return null;
 }
 
 // Building the TypeScript program costs a few hundred ms; `check` reads the
