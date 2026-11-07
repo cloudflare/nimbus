@@ -111,6 +111,8 @@ function applyFilter(root: HTMLElement, query: string): void {
     if (!text.includes(query)) return;
     group.removeAttribute("data-nb-sidebar-hidden");
     openGroup(group);
+    // A matching group inside one that doesn't match shows its parents too.
+    revealAncestors(group, root);
     group.querySelectorAll<HTMLElement>("li > a, details")
       .forEach((child) => child.removeAttribute("data-nb-sidebar-hidden"));
   });

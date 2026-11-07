@@ -1200,6 +1200,24 @@
         "A page given locale=\"fr\" renders <html lang=\"fr\"> and og:locale fr_FR.",
         "A page given locale=\"ar\" renders <html lang=\"ar\" dir=\"rtl\">."
       ]
+    },
+    {
+      "id": "starter-defects",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "starter-defects",
+      "summary": "Optionally take fixes to search, the dialog, the table of contents, the sidebar filter, the theme toggle, banners, the destructive button, Steps, page actions, image zoom and the hidden note for AI agents.",
+      "affected": "Sites with the starter's components; each file is fixed on its own.",
+      "instructions": [
+        "No action is needed: each file works as before until you take it.",
+        "List the changed files with nimbus-docs outdated, and take each with nimbus-docs diff <file> --apply. They are: src/components/ui/search/search.client.ts, src/components/ui/search/providers/pagefind.ts, src/components/ui/dialog/dialog.client.ts, src/components/ui/toc/TOC.astro, src/components/ui/toc/toc.client.ts, src/components/ui/sidebar/sidebar.client.ts, src/components/ui/theme-toggle/ThemeToggle.astro, src/components/ui/banner/Banner.astro, src/components/ui/banner/banner.client.ts, src/components/ui/button/variants.ts, src/components/ui/button/Button.astro, src/components/ui/steps/Steps.astro, src/components/ui/page-actions/page-actions.client.ts, src/components/ui/image-zoom/ImageZoom.astro, src/components/AgentDirective.astro.",
+        "Each file can be taken on its own, in any order. ThemeToggle.astro alone drives its icons from <html data-mode>, and BaseLayout's data-nb-state write stays harmless. Banner.astro alone hides a dismissed banner before paint, reading the same nb-banner-dismissed-<id> key; banner.client.ts alone still hides one rendered by an older Banner.astro.",
+        "If you edited a file, run nimbus-docs diff <file> and merge the change by hand."
+      ],
+      "verify": [
+        "Searching shows each sub-result as its own option, and the arrow keys reach it.",
+        "A dismissed banner stays gone across pages without flashing."
+      ]
     }
   ]
 }

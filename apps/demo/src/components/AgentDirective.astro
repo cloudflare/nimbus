@@ -11,16 +11,18 @@ interface Props {
 const { markdownUrl, llmsUrl } = Astro.props;
 ---
 
+{/* Read by screen readers and agents; out of the Tab order, so keyboard users
+    don't land on links they can't see. */}
 <aside class="sr-only" aria-label="For AI agents" data-ai-agent-directive>
   {markdownUrl ? (
     <Fragment>
       This page is available in Markdown format. Markdown is recommended for AI
-      consumption. See <a href={markdownUrl}>{markdownUrl}</a> for this page, or
-      <a href={llmsUrl}>{llmsUrl}</a> for the full documentation index.
+      consumption. See <a tabindex="-1" href={markdownUrl}>{markdownUrl}</a> for this page, or
+      <a tabindex="-1" href={llmsUrl}>{llmsUrl}</a> for the full documentation index.
     </Fragment>
   ) : (
     <Fragment>
-      See <a href={llmsUrl}>{llmsUrl}</a> for the full documentation index.
+      See <a tabindex="-1" href={llmsUrl}>{llmsUrl}</a> for the full documentation index.
       Markdown is recommended for AI consumption.
     </Fragment>
   )}

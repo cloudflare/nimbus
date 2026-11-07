@@ -20,13 +20,17 @@ const firstStep = content.search(/<li\b(?:[^>"']|"[^"]*"|'[^']*')*\sdata-step\b/
 const stepMode = firstStep !== -1;
 const lead = stepMode ? content.slice(0, firstStep) : "";
 const steps = stepMode ? content.slice(firstStep) : content;
+// Without the prop, a Markdown list's own start (`3.` renders `<ol start="3">`)
+// sets the counter.
+const listStart = stepMode ? undefined : steps.match(/^\s*<ol\b[^>]*\sstart="(-?\d+)"/)?.[1];
+const counterStart = start ?? (listStart !== undefined ? Number(listStart) : undefined);
 ---
 
 <div
   data-steps
   data-slot="steps"
   class={cn("steps", className)}
-  style={start !== undefined ? `--steps-start: ${start};` : undefined}
+  style={counterStart !== undefined ? `--steps-start: ${counterStart};` : undefined}
   {...attrs}
 >
   {lead.trim() && <div data-slot="steps-intro" class="mb-4" set:html={lead} />}

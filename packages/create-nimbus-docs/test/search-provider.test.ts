@@ -88,6 +88,8 @@ async function pagefindUrlFor(
     },
     window: { location: { origin: "https://example.com" } },
     location: { origin: "https://example.com" },
+    // A page with no version markers.
+    document: { querySelector: () => null },
     // Each bundle's entry file answers, except the ones named missing.
     fetch: async (url: URL) => ({ ok: !missing.some((bundle) => url.href.startsWith(`https://example.com${bundle}`)) }),
   });
@@ -107,6 +109,7 @@ async function pagefindUrlFor(
     delete globals.__BASE_URL;
     delete globals.__import;
     delete globals.window;
+    delete (globals as { document?: unknown }).document;
     Object.assign(globals, previous);
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -167,4 +170,65 @@ test("result URLs come back as Pagefind gives them: its baseUrl adds the base, t
   const { results } = await pagefindUrlFor("/docs", { bundle: "/docs/pagefind/", merge: [] });
   assert.equal(results[0]?.url, "/docs-es/guide/");
   assert.equal(results[0]?.subResults?.[0]?.url, "/docs-es/guide/#setup");
+});
+
+// The filters a search sends from a page with `html` in it, on a site whose
+// config is `config`.
+async function filtersFrom(config: unknown, html: string): Promise<unknown> {
+  const { JSDOM } = await import("jsdom");
+  const source = fs
+    .readFileSync(PROVIDER, "utf8")
+    .replace(
+      /import \{[^}]*\} from "virtual:nimbus\/config";/,
+      "const config = (globalThis as any).__config; const searchIndex = (globalThis as any).__searchIndex;",
+    )
+    .replaceAll("import.meta.env.BASE_URL", '"/"')
+    .replace(/await import\(\/\* @vite-ignore \*\/ ([^)]+)\)/, "await (globalThis as any).__import($1)")
+    .replace('from "@cloudflare/nimbus-docs/client";', `from ${JSON.stringify(CLIENT)};`);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-search-filters-"));
+  const file = path.join(dir, "pagefind.ts");
+  fs.writeFileSync(file, source);
+  const { window } = new JSDOM(`<body>${html}</body>`);
+  const globals = globalThis as Globals & { document?: unknown };
+  let sent: unknown = "none";
+  Object.assign(globals, {
+    __config: config,
+    __searchIndex: WHOLE_SITE,
+    __import: async () => ({
+      init: async () => {},
+      options: async () => {},
+      mergeIndex: async () => {},
+      search: async (_q: string, options?: { filters?: unknown }) => {
+        sent = options?.filters;
+        return { results: [] };
+      },
+    }),
+    window: { location: { origin: "https://example.com" } },
+    document: window.document,
+  });
+  try {
+    const { provider } = (await import(pathToFileURL(file).href)) as { provider: { search(q: string): Promise<unknown> } };
+    await provider.search("guide");
+    return sent;
+  } finally {
+    delete globals.__config;
+    delete globals.__searchIndex;
+    delete globals.__import;
+    delete globals.window;
+    delete globals.document;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test("a deprecated version's page searches that version; anywhere else leaves deprecated versions out", async () => {
+  const site = { versions: { deprecated: ["v1"] } };
+  const deprecatedPage = '<div data-pagefind-filter="version:v1"><span hidden data-pagefind-filter="status:deprecated"></span></div>';
+  assert.deepEqual(await filtersFrom(site, deprecatedPage), { version: "v1" });
+  assert.deepEqual(await filtersFrom(site, '<div data-pagefind-filter="version:v2"></div>'), { status: { none: "deprecated" } });
+  assert.deepEqual(
+    await filtersFrom(site, '<span hidden data-pagefind-filter="status:deprecated"></span>'),
+    { status: { none: "deprecated" } },
+    "a deprecated marker without a version (a later part of an API home) keeps the default",
+  );
+  assert.equal(await filtersFrom({}, "<p>no versions</p>"), undefined, "a site without deprecated versions sends no filter");
 });

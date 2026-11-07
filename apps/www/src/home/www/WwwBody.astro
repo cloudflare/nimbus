@@ -43,7 +43,6 @@ const big = "text-[22px] leading-7 text-foreground md:text-[26px] md:leading-8";
         const root = document.documentElement;
         if (mode === "dark") root.setAttribute("data-mode", "dark"); else root.removeAttribute("data-mode");
         root.style.colorScheme = mode;
-        document.querySelectorAll("[data-nb-theme-toggle]").forEach((b) => b.setAttribute("data-nb-state", mode));
       };
       apply();
       media.addEventListener("change", () => { if (!read()) apply(); });
