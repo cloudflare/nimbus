@@ -19,7 +19,7 @@
  * object when the site is unversioned. See `version-alternates.ts`.
  */
 
-import { invalidateDevModules, type DevServerGraphs } from "./dev-invalidation.js";
+import { refreshDevRunners, type DevServerGraphs } from "./dev-invalidation.js";
 import type { NimbusConfig, RuntimeContentSource, RuntimeNimbusConfig } from "../types.js";
 import { searchIndexLayout } from "./build-slice.js";
 import { NO_ROUTES } from "./collection-mount.js";
@@ -183,10 +183,11 @@ export function virtualConfigPlugin(
       if (!target || file.replaceAll("\\", "/") !== target) {
         return;
       }
-      // The whole graph, not just this module: `runtime-config.ts` caches the
-      // list in module state, and an edit re-runs every loader anyway (the
-      // same rule the integration applies to content-file edits).
-      invalidateDevModules(server);
+      // Reload the runners that render pages, as Astro does for a server-only
+      // module: `runtime-config.ts` caches the collection list in module
+      // state. Astro's own reload skips this module, which the browser loads
+      // too.
+      refreshDevRunners(server);
     },
   };
 }

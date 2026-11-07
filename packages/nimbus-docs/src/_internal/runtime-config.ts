@@ -105,8 +105,8 @@ export async function loadEmptyCollections(): Promise<readonly string[]> {
 
 /**
  * Whether `content.config.ts` provably declares no `docs` collection: a
- * complete parse without it, in a build. False in dev, and when the virtual
- * module predates the field.
+ * complete parse without it. False when the parse isn't complete (spreads,
+ * indirect exports) and when the virtual module predates the field.
  */
 export async function loadPrimaryCollectionAbsent(): Promise<boolean> {
   if (_cachedPrimaryCollectionAbsent !== null) return _cachedPrimaryCollectionAbsent;
