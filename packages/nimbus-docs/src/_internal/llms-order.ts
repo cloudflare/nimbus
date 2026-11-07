@@ -74,8 +74,10 @@ export function llmsSidebarPosition(input: {
   const apiAnchor = (collection: string): number => anchors.get(collection) ?? main.size + unlinked.indexOf(collection);
   return ({ collection, id, url }) => {
     if (input.apiMounts.has(collection)) {
+      // The API's landing page reads first; its pages follow in nav order,
+      // between the anchor and the next position.
+      if (normalize(url) === normalize(input.apiMounts.get(collection)!)) return apiAnchor(collection);
       const order = input.apiNavOrder(collection, id);
-      // Nav order between the API's anchor and the next position.
       return apiAnchor(collection) + (order === undefined ? 0.999999 : (order + 1) / (order + 2) * 0.999999);
     }
     const table = versions.get(collection) ?? main;

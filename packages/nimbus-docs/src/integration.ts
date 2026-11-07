@@ -1358,6 +1358,9 @@ export function nimbus(
             // An API page's index in its nav, by collection and entry id, for
             // reading order in the indexes.
             const apiNavOrder = new Map<string, number>();
+            // An unbundled API's default-version pages, from its staged asset
+            // index: the prepared-markdown snapshot has none for it.
+            const assetApiEntries = new Map<string, Array<{ id: string; data: Record<string, unknown> }>>();
             // A bundled API collection's pages go in their sidebar group's
             // `llms.txt`, each version by its own nav: the prepared nav on
             // server builds, else the model the Markdown bake also renders from.
@@ -1452,7 +1455,7 @@ export function nimbus(
                 const snapshot = getPreparedMarkdownSnapshot(projectRoot);
                 const mountOf = (collection: string) => collectionMountPrefix(collection, mountContextForBuild);
                 const entriesOf = (collection: string) =>
-                  [...(snapshot?.collections.get(collection)?.entries.values() ?? [])]
+                  (assetApiEntries.get(collection) ?? [...(snapshot?.collections.get(collection)?.entries.values() ?? [])])
                     .filter((entry) => (entry.data as { draft?: unknown }).draft !== true)
                     .map((entry) => ({ id: entry.id, collection, data: entry.data }));
                 type TreeEntries = Parameters<typeof sidebar.buildSidebarTree>[0];
@@ -1596,6 +1599,13 @@ export function nimbus(
                       const position = order.get(row.id);
                       if (position !== undefined) apiNavOrder.set(`${collection}\0${row.slug || "index"}`, position);
                     }
+                    assetApiEntries.set(
+                      collection,
+                      index.rows.map((row) => ({
+                        id: row.slug || "index",
+                        data: { coordinate: row.id, title: row.title, description: row.description },
+                      })),
+                    );
                     for (const row of index.rows)
                       apiEntries.push({
                         collection,

@@ -117,12 +117,12 @@ if (result instanceof Response) return result;
       "src/pages/llms-full.txt.ts": `import { llmsFullRoute } from ${endpoints};\nexport const prerender = true;\nexport const { GET } = llmsFullRoute();\n`,
       "src/pages/runtime-full.txt.ts": `import { renderLlmsFullMarkdown } from ${runtime};\nexport const prerender = true;\nexport const GET = async () => new Response(await renderLlmsFullMarkdown());\n`,
       "src/content/docs/index.mdx": page("Home"),
-      "src/content/docs/intro.mdx": page("Intro"),
+      "src/content/docs/guides/intro.mdx": page("Intro"),
     },
     {
       packageImports: true,
       logLevel: "warn",
-      sidebar: { items: [{ label: "Pets API", autogenerate: { collection: "api" } }, { autogenerate: { directory: "." } }] },
+      sidebar: { items: [{ label: "Pets API", autogenerate: { collection: "api" } }, { label: "Guides", autogenerate: { directory: "guides" } }] },
       api: [{ collection: "api", spec, routes: { convention: "resource-action-v2" } }],
     },
   );
@@ -132,7 +132,73 @@ if (result instanceof Response) return result;
     const order = headings(await read(file));
     const at = (title: string) => order.findIndex((heading) => heading.includes(title));
     assert.ok(at("List users") >= 0 && at("Create user") >= 0 && at("Intro") >= 0, `${file}: ${order.join(", ")}`);
+    assert.ok(at("Pets") < at("List users"), `${file}: ${order.join(", ")}`);
     assert.ok(at("List users") < at("Create user"), `${file}: ${order.join(", ")}`);
     assert.ok(at("Create user") < at("Intro"), `${file}: ${order.join(", ")}`);
   }
+});
+
+test("an unbundled API placed before the docs reads there too", { timeout: 300_000 }, async () => {
+  const { mkdtemp, writeFile } = await import("node:fs/promises");
+  const { TEST_TMP } = await import("./fixtures/temp-root.js");
+  const { srcModule } = await import("./fixtures/agent-site.ts");
+  const { readLlmsEndpointPayload } = await import("../src/_internal/agent-endpoint-assets.js");
+  const ok = { "200": { description: "ok" } };
+  const specDir = await mkdtemp(path.join(TEST_TMP, "nimbus-llms-order-assets-"));
+  const spec = path.join(specDir, "spec.json");
+  await writeFile(spec, JSON.stringify({
+    openapi: "3.1.0",
+    info: { title: "Pets", version: "1" },
+    tags: [{ name: "Users" }],
+    paths: {
+      "/users": {
+        get: { operationId: "usersList", summary: "List users", tags: ["Users"], responses: ok },
+        post: { operationId: "usersCreate", summary: "Create user", tags: ["Users"], responses: ok },
+      },
+    },
+  }));
+  const site = await sites.buildSite(
+    {
+      "src/content.config.ts": `import { defineCollection } from "astro:content";
+import { docsCollection } from "@cloudflare/nimbus-docs/content";
+import { apiCollection } from ${srcModule("content.ts")};
+export const collections = { docs: defineCollection(docsCollection()), api: defineCollection(apiCollection()) };`,
+      "src/live.config.ts": `import { defineLiveCollection } from "astro:content";
+import { apiPagesLoader } from "@cloudflare/nimbus-docs/live";
+export const collections = { apiPages: defineLiveCollection({ loader: apiPagesLoader() }) };`,
+      "src/pages/[...slug].astro": `---
+import { getDocsStaticPaths, getDocsPageProps } from ${runtime};
+export const getStaticPaths = getDocsStaticPaths;
+const { Content } = await getDocsPageProps(Astro);
+---
+<html><body><Content /></body></html>
+`,
+      "src/pages/api/[...slug].astro": `---
+import { getApiRoute } from ${runtime};
+export const prerender = false;
+const result = await getApiRoute(Astro, "api");
+if (result instanceof Response) return result;
+---
+<html><body>{result.page.kind}</body></html>
+`,
+      "src/pages/llms-full.txt.ts": `import { llmsFullRoute } from ${endpoints};\nexport const { GET } = llmsFullRoute();\n`,
+      "src/content/docs/index.mdx": page("Home"),
+      "src/content/docs/guides/intro.mdx": page("Intro"),
+    },
+    {
+      packageImports: true,
+      logLevel: "warn",
+      server: true,
+      adapterName: "@astrojs/cloudflare",
+      rendering: { default: "build", collections: { api: "request" } },
+      sidebar: { items: [{ label: "Pets API", autogenerate: { collection: "api" } }, { label: "Guides", autogenerate: { directory: "guides" } }] },
+      api: [{ collection: "api", spec, bundle: false, routes: { convention: "resource-action-v2" } }],
+    },
+  );
+  const { body } = await readLlmsEndpointPayload(site.root, { scope: "site", surface: "full" });
+  const order = [...body.matchAll(/^# (.+)$/gm)].map((match) => match[1]!);
+  const at = (title: string) => order.findIndex((heading) => heading.includes(title));
+  assert.ok(at("List users") >= 0 && at("Intro") >= 0, order.join(", "));
+  assert.ok(at("Pets") < at("List users"), order.join(", "));
+  assert.ok(at("List users") < at("Create user") && at("Create user") < at("Intro"), order.join(", "));
 });
