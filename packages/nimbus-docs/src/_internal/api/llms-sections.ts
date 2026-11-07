@@ -15,15 +15,25 @@ export function apiLlmsSections(
   items: readonly ApiNavItem[],
   entryId: (coordinate: string) => string | undefined,
 ): Map<string, string> {
+  return apiLlmsPlacement(items, entryId).sections;
+}
+
+/** `apiLlmsSections`, plus each page's index in the nav's reading order. */
+export function apiLlmsPlacement(
+  items: readonly ApiNavItem[],
+  entryId: (coordinate: string) => string | undefined,
+): { sections: Map<string, string>; order: Map<string, number> } {
   const sections = new Map<string, string>();
+  const order = new Map<string, number>();
   const visit = (item: ApiNavItem, ancestor: string | undefined) => {
     const id = entryId(item.coordinate);
     if (id !== undefined) {
+      if (!order.has(item.coordinate)) order.set(item.coordinate, order.size);
       const section = item.children.length > 0 ? id : ancestor;
       if (section !== undefined) sections.set(item.coordinate, section);
     }
     for (const child of item.children) visit(child, id ?? ancestor);
   };
   for (const item of items) visit(item, undefined);
-  return sections;
+  return { sections, order };
 }

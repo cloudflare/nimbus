@@ -10,6 +10,7 @@
  * are external in tsdown and resolved at the consumer's build time.
  */
 
+import { llmsSidebarPosition } from "./_internal/llms-order.js";
 import {
   loadApiCollections,
   loadEmptyCollections,
@@ -40,6 +41,7 @@ import {
   applyOverviewLeaf,
   buildSidebarTree,
   collectSidebarCollectionRefs,
+  rewriteSidebarItemsForVersion,
   sidebarReadsPrimary,
   cloneSidebarTree,
   deriveSidebarSections,
@@ -671,14 +673,23 @@ export async function renderLlmsFullMarkdown(options?: {
   );
 
   const apiCollections = new Set(await loadApiCollections());
+  // Blocks follow the sidebar's reading order, as the indexes do.
+  const mountContext = await loadMountContext();
+  const position = llmsSidebarPosition({
+    tree: await buildStructuralTree(),
+    apiMounts: new Map([...apiCollections].map((collection) => [collection, resolveCollectionPrefix(collection, mountContext)])),
+    apiNavOrder: () => undefined,
+  });
   const blocks = await Promise.all(
     included.map(async (item) => {
+      const placed = position({ collection: item.collection, id: item.entry.id, url: item.url });
       const block = {
         title: item.title,
         description: item.description,
         url: item.url,
         markdownUrl: item.markdownUrl,
         markdown: await renderIndexedEntryMarkdown(item, { base: options?.base }),
+        ...(placed !== undefined ? { position: placed } : {}),
       };
       return apiCollections.has(item.collection) ? apiLlmsFullBlock(block) : block;
     }),
@@ -952,38 +963,6 @@ async function nestedCollectionCandidates(
   );
 }
 
-/**
- * Substitute the primary collection (`docs`) for `effectivePrimary`
- * inside any sidebar item that autogenerates from a named collection.
- * Used by `buildStructuralTree` to make version pages render their
- * own collection's sidebar instead of the current version's.
- */
-function rewriteSidebarItemsForVersion(
-  items: unknown[] | undefined,
-  effectivePrimary: string,
-): unknown[] | undefined {
-  if (!items) return items;
-  return items.map((item) => {
-    if (!item || typeof item !== "object") return item;
-    const o = item as Record<string, unknown>;
-    const autogen = o.autogenerate as
-      { collection?: string; directory?: string } | undefined;
-    if (autogen && autogen.collection === PRIMARY_COLLECTION) {
-      return {
-        ...o,
-        autogenerate: { ...autogen, collection: effectivePrimary },
-      };
-    }
-    // Nested groups recurse so per-group autogen items rewrite too.
-    if (Array.isArray(o.items)) {
-      return {
-        ...o,
-        items: rewriteSidebarItemsForVersion(o.items, effectivePrimary),
-      };
-    }
-    return item;
-  });
-}
 
 /**
  * Resolve prev/next links for the current page.

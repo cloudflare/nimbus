@@ -65,6 +65,7 @@ import {
   type McpPageIndex,
   type McpPageRecord,
 } from "./mcp/page-index.js";
+import { compareByPosition, type SidebarPosition } from "./llms-order.js";
 import { toDocumentHref, toRouteKey, withBase } from "./url.js";
 import type {
   GeneratedMarkdownComponentTransform,
@@ -137,6 +138,8 @@ export type AgentEndpointVisibilityDecision =
   | { status: "unknown"; reason: string };
 
 export interface BakeAgentEndpointAssetsOptions {
+  /** Each page's place in the sidebar's reading order. Without it, indexes list by URL. */
+  sidebarPosition?: () => Promise<SidebarPosition>;
   root: URL | string;
   base: string;
   site: string;
@@ -786,6 +789,8 @@ interface PreparedLlmsPage {
   api?: boolean;
   /** An API page's sidebar group (`LlmsEndpointApiEntry.section`). */
   section?: string;
+  /** The page's place in the sidebar's reading order, when the sidebar shows it. */
+  position?: number;
 }
 
 /**
@@ -800,6 +805,8 @@ interface PreparedLlmsGroup {
   kind: "primary" | "secondary" | "version";
   members: PreparedLlmsPage[];
   children: PreparedLlmsGroup[];
+  /** Its earliest page's place in reading order (set by `sortLlmsGroup`). */
+  position?: number;
 }
 
 function preparedLlmsPage(
@@ -965,9 +972,9 @@ function groupPreparedLlmsPages(
     if (kind === "version") group.label = slug;
     groups.push(group);
   }
-  leaves.sort((a, b) => compare(a.url, b.url));
-  groups.sort((a, b) => compare(a.slug, b.slug));
   for (const group of groups) sortLlmsGroup(group);
+  leaves.sort(compareByPosition);
+  groups.sort(compareGroups);
   return { leaves, groups };
 }
 
@@ -1004,10 +1011,25 @@ function nestLlmsGroup(
   return { slug, label: groupLabel(slug, members), kind, members, children };
 }
 
+/**
+ * Puts a section in reading order: pages and sub-sections by their place in
+ * the sidebar, URL after. A section sits where its earliest page does.
+ */
 function sortLlmsGroup(group: PreparedLlmsGroup): void {
-  group.members.sort((a, b) => compare(a.url, b.url));
-  group.children.sort((a, b) => compare(a.slug, b.slug));
   for (const child of group.children) sortLlmsGroup(child);
+  group.members.sort(compareByPosition);
+  group.children.sort(compareGroups);
+  const positions = [...group.members, ...group.children]
+    .map((item) => item.position)
+    .filter((position): position is number => position !== undefined);
+  group.position = positions.length > 0 ? Math.min(...positions) : undefined;
+}
+
+function compareGroups(
+  a: { slug: string; position?: number },
+  b: { slug: string; position?: number },
+): number {
+  return compareByPosition({ position: a.position, url: a.slug }, { position: b.position, url: b.slug });
 }
 
 /** Every section, parents before their sub-sections. */
@@ -1045,12 +1067,14 @@ function siteIndexAsset(
   const rows = [
     ...[...leaves, ...listed.filter((group) => !served(group)).flatMap((group) => group.members)].map((page) => ({
       key: page.url,
+      position: page.position,
       line: `- [${page.title}](${absoluteUrl(options.site, options.base, page.markdownUrl)})${page.description ? ` — ${page.description}` : ""}`,
     })),
     ...listed
       .filter(served)
       .map((group) => ({
         key: `/${group.slug}`,
+        position: group.position,
         line: `- [${group.label}](${absoluteUrl(options.site, options.base, `/${group.slug}/llms.txt`)})`,
       })),
     ...(options.absentSections ?? []).map((section) => ({
@@ -1058,7 +1082,12 @@ function siteIndexAsset(
       // The slice holding a nested section serves its llms-full.txt, not an llms.txt.
       line: `- [${section.label}](${absoluteUrl(options.site, options.base, `/${section.slug}/${options.nestedSections === true || !section.slug.includes("/") ? "llms.txt" : "llms-full.txt"}`)})`,
     })),
-  ].sort((a, b) => compare(a.key, b.key));
+  ].sort((a, b) =>
+    compareByPosition(
+      { position: "position" in a ? (a.position as number | undefined) : undefined, url: a.key },
+      { position: "position" in b ? (b.position as number | undefined) : undefined, url: b.key },
+    ),
+  );
   return [
     `# ${options.title}`,
     "",
@@ -1122,7 +1151,7 @@ function sectionIndexAsset(
   options: BakeAgentEndpointAssetsOptions,
   nestedCollections: ReadonlyArray<{ slug: string; label: string }> = [],
 ): string {
-  const subsections = [...group.children, ...nestedCollections].sort((a, b) => compare(a.slug, b.slug));
+  const subsections = [...group.children, ...nestedCollections].sort(compareGroups);
   const pages =
     group.members.length > 0 || subsections.length === 0
       ? [
@@ -1167,6 +1196,7 @@ function llmsFullBlock(page: PreparedLlmsPage): LlmsFullBlock {
     url: page.url,
     markdownUrl: page.markdownUrl,
     markdown: page.markdown,
+    ...(page.position !== undefined ? { position: page.position } : {}),
   };
   return page.api ? apiLlmsFullBlock(block) : block;
 }
@@ -1270,7 +1300,7 @@ function llmsFullBodies(
       `Index: ${llmsFullUrl(header, index)}`,
       "",
       ...(children.length > 0 ? ["## Sections", "", ...children.map(sectionLine), ""] : []),
-      ...(members.length > 0 ? ["## Pages", "", ...[...members].sort((a, b) => compare(a.url, b.url)).map(pageLine), ""] : []),
+      ...(members.length > 0 ? ["## Pages", "", ...[...members].sort(compareByPosition).map(pageLine), ""] : []),
     ].join("\n");
 
   const report: string[] = [];
@@ -2180,6 +2210,13 @@ export async function bakeAgentEndpointAssets(
     hashes.add(record.digest);
   }
 
+  if (options.sidebarPosition) {
+    const position = await options.sidebarPosition();
+    for (const page of new Set([...preparedLlmsPages, ...llmsRoutePages])) {
+      const value = position(page);
+      if (value !== undefined) page.position = value;
+    }
+  }
   const { leaves, groups } = groupPreparedLlmsPages(preparedLlmsPages, options);
   assertLlmsRouteSafety(llmsRoutePages, groups);
   const versionSlugs = new Set(options.versions?.others ?? []);

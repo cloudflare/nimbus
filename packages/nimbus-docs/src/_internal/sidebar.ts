@@ -1722,3 +1722,36 @@ export function sidebarHash(items: SidebarItem[]): string {
   }
   return (hash >>> 0).toString(36).padStart(7, "0");
 }
+
+/**
+ * Substitute the primary collection (`docs`) for `effectivePrimary`
+ * inside any sidebar item that autogenerates from a named collection.
+ * Used by `buildStructuralTree` to make version pages render their
+ * own collection's sidebar instead of the current version's.
+ */
+export function rewriteSidebarItemsForVersion(
+  items: unknown[] | undefined,
+  effectivePrimary: string,
+): unknown[] | undefined {
+  if (!items) return items;
+  return items.map((item) => {
+    if (!item || typeof item !== "object") return item;
+    const o = item as Record<string, unknown>;
+    const autogen = o.autogenerate as
+      { collection?: string; directory?: string } | undefined;
+    if (autogen && autogen.collection === "docs") {
+      return {
+        ...o,
+        autogenerate: { ...autogen, collection: effectivePrimary },
+      };
+    }
+    // Nested groups recurse so per-group autogen items rewrite too.
+    if (Array.isArray(o.items)) {
+      return {
+        ...o,
+        items: rewriteSidebarItemsForVersion(o.items, effectivePrimary),
+      };
+    }
+    return item;
+  });
+}
