@@ -3,16 +3,14 @@
  * `style?: "dash" | "asterisk"` (default `dash`). Auto-fixable: swap the
  * marker character on the offending list item.
  *
- * Detection is delegated to `remark-lint-unordered-list-marker-style`
- * via the adapter (configured with the chosen marker). The wrapper
+ * Detection is the `unorderedListMarker` detector (`../detectors.ts`),
+ * given the chosen marker. The wrapper
  * re-walks the tree at each reported position to recover the listItem
  * offset for the surgical fix.
  */
 
-import remarkLintUnorderedListMarkerStyle from "remark-lint-unordered-list-marker-style";
-
 import { findNodeAt } from "../parse.js";
-import { runRemarkLintRule } from "../remark-lint-adapter.js";
+import { unorderedListMarker } from "../detectors.js";
 import type { Rule } from "../rule.js";
 
 const MARKER = { dash: "-", asterisk: "*" } as const;
@@ -23,15 +21,7 @@ export const listMarkerStyle: Rule = {
     const style = ctx.options.style === "asterisk" ? "asterisk" : "dash";
     const want = MARKER[style];
 
-    const reports = runRemarkLintRule(
-      remarkLintUnorderedListMarkerStyle,
-      ctx.file.tree,
-      {
-        path: ctx.file.path,
-        source: ctx.file.source,
-        settings: [want],
-      },
-    );
+    const reports = unorderedListMarker(ctx.file.tree, ctx.file.source, want);
 
     for (const r of reports) {
       const item = findNodeAt(ctx.file.tree, "listItem", r.line, r.column);
