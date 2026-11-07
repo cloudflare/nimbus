@@ -92,6 +92,16 @@ test("a root-mounted API sits at the first of its pages the sidebar links", () =
   assert.ok(api("users/create", "/users/create/") < guide);
 });
 
+test("a percent-encoded sidebar link places the page it names", () => {
+  const position = llmsSidebarPosition({
+    tree: [link("Guide", "/%E6%8C%87%E5%8D%97/"), link("Alpha", "/alpha/")],
+    apiMounts: new Map(),
+    apiNavOrder: () => undefined,
+  });
+  const at = (url: string) => position({ collection: "docs", id: url, url });
+  assert.ok(at("/指南/")! < at("/alpha/")!);
+});
+
 test("an older docs version reads in its own sidebar's order", () => {
   const position = llmsSidebarPosition({
     tree: [link("Configure", "/configure/"), link("Deploy", "/deploy/")],

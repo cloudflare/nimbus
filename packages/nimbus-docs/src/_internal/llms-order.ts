@@ -7,6 +7,7 @@
  */
 
 import type { SidebarItem } from "../types.js";
+import { toRouteKey } from "./url.js";
 
 /**
  * A page's place in reading order, or undefined when the sidebar doesn't show
@@ -37,12 +38,8 @@ export function sidebarPositions(items: readonly SidebarItem[]): Map<string, num
   return positions;
 }
 
-/** A URL as the sidebar and the indexes both write it: no trailing slash, `/` for the root. */
-export function normalize(url: string): string {
-  const path = url.split(/[?#]/)[0]!;
-  // A root mount is written "" and its landing page "/".
-  return path.length > 1 ? path.replace(/\/+$/, "") : "/";
-}
+/** A URL as the sidebar and the indexes both key it: decoded, no trailing slash, `/` for the root. */
+const normalize = toRouteKey;
 
 /**
  * Positions for a site: its docs pages from the combined sidebar tree, each
