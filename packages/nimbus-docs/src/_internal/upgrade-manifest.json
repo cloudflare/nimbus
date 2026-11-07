@@ -1163,6 +1163,21 @@
         "A response whose schema is allOf of a oneOf and properties lists those properties, then the options.",
         "A text/plain response shows its type, and its badge isn't JSON."
       ]
+    },
+    {
+      "id": "framework-coordinates-route",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "framework-coordinates-route",
+      "summary": "Optionally delete src/pages/nimbus-api/coordinates.json.ts: Nimbus serves /nimbus-api/coordinates.json itself now, with the same response.",
+      "affected": "Sites with src/pages/nimbus-api/coordinates.json.ts.",
+      "instructions": [
+        "No action is needed: your file keeps serving the path, and it wins over Nimbus's route.",
+        "If nimbus-docs check reports the file as the starter's unchanged copy, delete it, and the empty src/pages/nimbus-api/ folder. If you changed it, keep it, or move what you changed elsewhere before deleting it."
+      ],
+      "verify": [
+        "After a build, /nimbus-api/coordinates.json returns the same JSON as before."
+      ]
     }
   ]
 }

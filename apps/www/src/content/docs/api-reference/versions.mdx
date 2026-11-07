@@ -75,7 +75,7 @@ The sitemap, Markdown versions, `llms.txt` and `llms-full.txt` describe only the
 - **Catalog.** The API catalog lists each visible version, a non-default one at its query URL with its spec at `/api/v1/openapi.json`. The homepage `Link` header lists only the default.
 - **Search engines.** Non-default pages are `noindex`, with the default page as canonical when one exists.
 - **Markdown.** Only the default version has Markdown. A `.md` URL serves the default version whatever its `version` says, or returns 404 with `bundle: false`.
-- **Hidden versions** are reached only by their query, but `hidden` isn't access control: `/nimbus-api/coordinates.json` lists them, and their spec is published unless `publishSpec: false`.
+- **Hidden versions** are reached only by their query, but `hidden` isn't access control: `/nimbus-api/coordinates.json` lists them (with `bundle: false`, it lists only the default version), and their spec is published unless `publishSpec: false`.
 
 If a cache sits in front of the site, its cache key must keep the version parameter and vary on `Accept`, or readers get another version's page or the wrong format.
 

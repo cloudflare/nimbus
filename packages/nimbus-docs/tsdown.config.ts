@@ -23,6 +23,7 @@ export default defineConfig({
     "lib/pkgm": "src/lib/pkgm.ts",
     "cli/index": "src/cli/index.ts",
     "_internal/agent-discovery-route": "src/_internal/agent-discovery-route.ts",
+    "_internal/coordinates-manifest-route": "src/_internal/coordinates-manifest-route.ts",
     "_internal/agent-api-catalog-route": "src/_internal/agent-api-catalog-route.ts",
     "_internal/mounted-markdown-route": "src/_internal/mounted-markdown-route.ts",
     "_internal/mounted-source-route": "src/_internal/mounted-source-route.ts",

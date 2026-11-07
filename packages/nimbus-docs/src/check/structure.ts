@@ -13,7 +13,9 @@
  */
 
 import path from "node:path";
-import { existsSync } from "node:fs";
+import fs, { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { COORDINATES_PATH } from "../_internal/coordinates-route.js";
 
 import { cloudflareTrailingSlashWarning } from "../_internal/cloudflare-trailing-slash.js";
 import { serverAdapterFeature, serverAdapterMessage, type ServerFeature } from "../_internal/server-adapter.js";
@@ -96,8 +98,38 @@ export async function checkStructure(
   await checkDuplicateRoutes(cwd, findings, snapshots, mountContext, parsed, srcDir, built);
   await checkMdxComponents(cwd, findings, notes, parsed);
   checkCloudflareTrailingSlash(cwd, findings);
+  checkCoordinatesRouteCopy(cwd, findings, srcDir);
 
   return { scope: "structure", findings, notes, evaluated: true, collections };
+}
+
+// SHA-256 of each released starter copy of the coordinate manifest's route
+// file (LF line endings), so an unmodified one is recognised offline.
+const STARTER_COORDINATES_ROUTE_DIGESTS = new Set([
+  "def4fef640b2ba09b89e0169e514f41348b5016e556552da0e1f363c419b1b60",
+  "fd8c4a19e852a79b90e605ef64228b1fffbb693c99287ff47a44b57cb61d8a7a",
+]);
+
+/** An unmodified starter copy of the manifest route, which Nimbus now serves itself. */
+function checkCoordinatesRouteCopy(cwd: string, findings: CheckFinding[], srcDir: string | undefined): void {
+  const file = path.join(srcDir ?? path.join(cwd, "src"), "pages", "nimbus-api", "coordinates.json.ts");
+  let source: string;
+  try {
+    source = fs.readFileSync(file, "utf8");
+  } catch {
+    return;
+  }
+  const digest = createHash("sha256").update(source.replaceAll("\r\n", "\n")).digest("hex");
+  if (!STARTER_COORDINATES_ROUTE_DIGESTS.has(digest)) return;
+  const relative = path.relative(cwd, file).replaceAll("\\", "/");
+  findings.push({
+    scope: "structure",
+    code: "nimbus/coordinates-route-copy",
+    severity: "info",
+    file: relative,
+    message: `${relative} is the starter's unchanged copy. Nimbus serves ${COORDINATES_PATH} itself now, with the same response; your file overrides it and can be deleted.`,
+    fixable: false,
+  });
 }
 
 function checkServerAdapter(cwd: string, findings: CheckFinding[], notes: Note[], feature: ServerFeature): void {

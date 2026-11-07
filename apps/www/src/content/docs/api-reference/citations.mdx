@@ -33,6 +33,10 @@ Review the [v1 operation](api.ref:api@v1:retrieveEvent).
 
 Use `/nimbus-api/coordinates.json` to inspect the exact coordinates and resolved URLs published by a built site.
 
+Nimbus serves that path on every site, prerendered, with `Cache-Control: public, max-age=3600`. It lists the APIs in `api`; one registered only through `apiCollection({ spec })` isn't in it. A site without `api` serves `{"version":2,"collections":{}}`.
+
+A file of your own at `src/pages/nimbus-api/coordinates.json.ts`, a page at that route, a redirect from it or `public/nimbus-api/coordinates.json` serves the path instead. Sites created before Nimbus served it have that file: an unmodified copy can be deleted, and `nimbus-docs check` says when yours is one.
+
 ## Cite an API hosted elsewhere
 
 A documentation site can cite a reference published by another Nimbus site without mounting or republishing it:
