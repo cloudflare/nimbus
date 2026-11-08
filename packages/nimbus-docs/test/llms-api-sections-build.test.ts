@@ -59,6 +59,7 @@ if (result instanceof Response) return result;
 `,
         "src/pages/[...slug]/index.md.ts": `import { markdownRoute } from ${endpoints};\nexport const prerender = true;\nexport const { GET, getStaticPaths } = markdownRoute();\n`,
         "src/pages/llms.txt.ts": `import { llmsRoute } from ${endpoints};\nexport const prerender = true;\nexport const { GET } = llmsRoute();\n`,
+        "src/pages/llms-full.txt.ts": `import { llmsFullRoute } from ${endpoints};\nexport const prerender = true;\nexport const { GET } = llmsFullRoute();\n`,
         "src/pages/[...section]/llms.txt.ts": `import { llmsSectionRoute } from ${endpoints};\nexport const prerender = true;\nexport const { GET, getStaticPaths } = llmsSectionRoute();\n`,
       },
       {
@@ -111,5 +112,16 @@ if (result instanceof Response) return result;
     assert.match(accounts, /\[List users\]\(https:\/\/example\.test\/docs\/v1\/users\/list\/index\.md\)/);
     assert.doesNotMatch(accounts, /\/users\/list\/index\.md\)[\s\S]*v2/);
     assert.ok(await missing("v1/tags/users/llms.txt"), "v1 has no Users tag");
+
+    // Each version reads as a block in llms-full.txt, its overview first.
+    const fullText = request
+      ? (await readLlmsEndpointPayload(site.root, { scope: "site", surface: "full" })).body
+      : await readFile(path.join(dist, "llms-full.txt"), "utf8");
+    const sources = [...fullText.matchAll(/^Source: (\S+)/gm)].map((match) => new URL(match[1]!).pathname);
+    const v1 = sources.filter((source) => source.startsWith("/docs/v1/"));
+    assert.ok(v1.length > 0, sources.join(", "));
+    assert.equal(v1[0], "/docs/v1/", sources.join(", "));
+    const first = sources.indexOf(v1[0]!);
+    assert.deepEqual(sources.slice(first, first + v1.length), v1, sources.join(", "));
   });
 }

@@ -7,6 +7,7 @@
  * version/hidden filtering; this module only formats.
  */
 
+import { compareByPosition } from "./llms-order.js";
 import { isAbsoluteUrl } from "./url.js";
 
 export interface LlmsFullBlock {
@@ -14,8 +15,10 @@ export interface LlmsFullBlock {
   title: string;
   /** Optional description — rendered as a blockquote under the heading. */
   description?: string | undefined;
-  /** Site-relative page URL; also the deterministic sort key. */
+  /** Site-relative page URL; the sort key after `position`. */
   url: string;
+  /** The page's place in the sidebar's reading order, when the sidebar shows it. */
+  position?: number;
   /** Site-relative URL of the page's `.md` alternate. */
   markdownUrl: string;
   /** The page body as clean markdown (already downleveled). */
@@ -49,8 +52,9 @@ export interface LlmsFullHeader {
  * Collate prepared page blocks into one Markdown document.
  *
  * Contract:
- *   - Blocks are sorted by `url` — output is deterministic for a given
- *     input set regardless of collection iteration order.
+ *   - Blocks follow the sidebar's reading order (`position`), then `url` —
+ *     output is deterministic for a given input set regardless of
+ *     collection iteration order.
  *   - Each block opens with a `#`-level heading. Page bodies render at
  *     `##` and below, so top-level headings unambiguously delimit entries.
  *   - The header cross-references the sitewide index (`/llms.txt`), making
@@ -61,9 +65,7 @@ export function buildLlmsFullMarkdown(
   blocks: LlmsFullBlock[],
   header: LlmsFullHeader,
 ): string {
-  const sorted = [...blocks].sort((a, b) =>
-    a.url < b.url ? -1 : a.url > b.url ? 1 : 0,
-  );
+  const sorted = [...blocks].sort(compareByPosition);
   // Each part ends in a blank line; the document ends with one newline.
   return (
     llmsFullHeaderText(header) +

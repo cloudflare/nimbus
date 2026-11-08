@@ -353,6 +353,14 @@ export async function projectConfiguredApiPageProps(
   );
 }
 
+/** A version's whole navigation, with no page active. */
+export async function projectConfiguredApiVersionNav(
+  collection: string,
+  version: string | null,
+): Promise<ApiNav> {
+  return getApiNav(await configuredApiModel(collection, version));
+}
+
 /** A page's navigation alone. The overview is the collection's own coordinate. */
 export async function projectConfiguredApiNav(
   collection: string,
@@ -372,4 +380,5 @@ registerConfiguredApiProjector({
   page: projectConfiguredApiPage,
   pageProps: projectConfiguredApiPageProps,
   nav: projectConfiguredApiNav,
+  versionNav: projectConfiguredApiVersionNav,
 });
