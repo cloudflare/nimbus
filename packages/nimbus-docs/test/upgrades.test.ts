@@ -60,6 +60,7 @@ test("only universally skippable entries are optional", () => {
       "connect-mcp",
       "content-first-layouts",
       "diagram-controls-height",
+      "docs-layout-optional-nav",
       "favicons-and-asset-caching",
       "homepage-renders-on-request",
       "image-zoom",

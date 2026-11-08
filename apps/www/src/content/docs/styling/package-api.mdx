@@ -136,7 +136,7 @@ const result = await getApiNav(Astro, { collection: "api", href: "/api/d1/" });
 if (!result) return Astro.redirect("/404");
 ---
 
-<DocsLayout title="D1 CLI" sidebar={[]} headings={[]} breadcrumbs={[]} prevNext={{}}>
+<DocsLayout title="D1 CLI">
   <ApiSidebarPanel slot="sidebar" nav={result.nav} version={result.version} />
   <!-- the page -->
 </DocsLayout>

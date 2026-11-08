@@ -1288,6 +1288,23 @@
         "API pages show the same sidebar as before, and with sidebar: \"on-demand\" a collapsed group loads its rows when opened.",
         "A page of your own that renders <ApiSidebarPanel> with getApiNav filters the whole API and loads collapsed groups."
       ]
+    },
+    {
+      "id": "docs-layout-optional-nav",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-nav-any-page",
+      "summary": "Optionally let a page of your own use DocsLayout without passing sidebar, headings, breadcrumbs or prevNext. Pages that pass them render as before.",
+      "affected": "Sites with the starter's src/layouts/DocsLayout.astro.",
+      "instructions": [
+        "No action is needed: pages that pass all four props are unchanged.",
+        "Take the change with nimbus-docs diff src/layouts/DocsLayout.astro --apply.",
+        "If you edited DocsLayout, merge by hand: type its Props as Omit<DocsPageProps, NavProps> & Partial<Pick<DocsPageProps, NavProps>> with type NavProps = \"sidebar\" | \"headings\" | \"breadcrumbs\" | \"prevNext\", default headings = [], breadcrumbs = [] and prevNext = {} where the props are read, and add && (sidebar !== undefined || Astro.slots.has(\"sidebar\")) to showSidebar."
+      ],
+      "verify": [
+        "Docs pages look as before.",
+        "A page of your own with <DocsLayout title=\"…\"> and no other props type-checks and renders with no sidebar, table of contents, breadcrumbs or previous/next links; with a sidebar slot it shows that sidebar."
+      ]
     }
   ]
 }
