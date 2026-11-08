@@ -561,8 +561,10 @@ async function assertStaticSurfaces(origin) {
     ["/api/Health/ping/index.md", "Ping"],
     ["/llms.txt", "Workers request prose"],
     ["/llms-full.txt", "Request prose body."],
-    ["/api/llms.txt", "/api/Health/llms.txt"],
-    ["/api/Health/llms.txt", "Ping"],
+    // An operation is listed under its tag, as the sidebar groups it.
+    ["/api/llms.txt", "/api/tags/llms.txt"],
+    ["/api/tags/llms.txt", "/api/tags/Health/llms.txt"],
+    ["/api/tags/Health/llms.txt", "Ping"],
     ["/robots.txt", "Sitemap:"],
   ]) {
     const result = await request(origin, route);

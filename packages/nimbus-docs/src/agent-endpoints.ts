@@ -486,7 +486,8 @@ export function llmsFullRoute(): LlmsRoute {
  * The route's parameter must be named `section`. In a `[...section]` folder,
  * each sub-folder with pages gets its own index (`/reference/functions/llms.txt`)
  * and its parent links to it; in a `[section]` folder, one index per top-level
- * section lists every page under it. On request, `GET` reads the section from
+ * section lists every page under it. An API operation is listed in its resource's or
+ * tag's index, as in the sidebar; docs folders are sections as before. On request, `GET` reads the section from
  * `params.section` and returns 404 for an unknown section. Same error rules as
  * {@link llmsRoute}.
  */

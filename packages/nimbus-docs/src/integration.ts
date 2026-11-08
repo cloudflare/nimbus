@@ -1356,6 +1356,75 @@ export function nimbus(
               string,
               Promise<import("./api/index.js").ApiModel>
             >();
+            // A bundled API collection's pages go in their sidebar group's
+            // `llms.txt`, each version by its own nav: the prepared nav on
+            // server builds, else the model the Markdown bake also renders from.
+            const placeBundledApiEntries = async (
+              collection: string,
+              placed: Array<{ id: string; data: Record<string, unknown>; section?: string }>,
+              stored: ReadonlyMap<string, { id: string; data: unknown }>,
+            ): Promise<void> => {
+              const [{ apiLlmsSections }, { isPreparedApiPage }, apiLoader, { getApiNav }] = await Promise.all([
+                import("./_internal/api/llms-sections.js"),
+                import("./_internal/api/prepared.js"),
+                import("./_internal/api-loader.js"),
+                import("./api/index.js"),
+              ]);
+              const declaration = (config.api ?? []).find((candidate) => candidate.collection === collection);
+              if (!declaration) return;
+              const byVersion = new Map<string | null, typeof placed>();
+              for (const entry of placed) {
+                const version = typeof entry.data.version === "string" ? entry.data.version : null;
+                const bucket = byVersion.get(version);
+                if (bucket) bucket.push(entry);
+                else byVersion.set(version, [entry]);
+              }
+              const targets = apiLoader.resolveApiFamily(
+                declaration,
+                collectionMountPrefix(declaration.collection, mountContextForBuild),
+              );
+              for (const [version, versionEntries] of byVersion) {
+                const idOf = new Map<string, string>();
+                for (const entry of versionEntries) {
+                  if (typeof entry.data.coordinate === "string") idOf.set(entry.data.coordinate, entry.id);
+                }
+                let items: readonly import("./api/index.js").ApiNavItem[] | undefined;
+                const prepared = versionEntries.map((entry) => entry.data.prepared).find(isPreparedApiPage);
+                const navData = prepared && (stored.get(prepared.navEntryId)?.data as Record<string, unknown> | undefined)?.prepared;
+                if (navData && isPreparedApiPage(navData) && navData.nav) items = navData.nav.nav.items;
+                if (!items) {
+                  const target = targets.find((candidate) => candidate.version === version);
+                  if (!target) continue;
+                  let model = apiMarkdownModels.get(target.versionKey);
+                  if (!model) {
+                    model = apiLoader
+                      .resolveSpecSource(
+                        {
+                          collection: target.namespace,
+                          spec: target.spec,
+                          label: target.label,
+                          mountPath: target.mountPath,
+                          requireOperationId: target.requireOperationId,
+                          schemaPages: target.schemaPages,
+                          routes: target.routes,
+                          samples: target.samples,
+                          extensions: target.extensions,
+                        },
+                        projectRoot,
+                      )
+                      .then(apiLoader.buildApiModel);
+                    apiMarkdownModels.set(target.versionKey, model);
+                  }
+                  items = getApiNav(await model).items;
+                }
+                const sections = apiLlmsSections(items, (coordinate) => idOf.get(coordinate));
+                for (const entry of versionEntries) {
+                  const section =
+                    typeof entry.data.coordinate === "string" ? sections.get(entry.data.coordinate) : undefined;
+                  if (section !== undefined) entry.section = section;
+                }
+              }
+            };
             const hiddenApiVersions = new Map(
               (config.api ?? []).map((entry) => [
                 entry.collection,
@@ -1405,7 +1474,9 @@ export function nimbus(
                   id: string;
                   data: Record<string, unknown>;
                   hidden: boolean;
+                  section?: string;
                 }> = [];
+                const { apiLlmsSections } = await import("./_internal/api/llms-sections.js");
                 if (apiCollectionsForBuild.length === 0) return apiEntries;
                 // Query-mode families publish twins and index lines for the
                 // default version only, at version-free URLs; a non-default
@@ -1434,10 +1505,16 @@ export function nimbus(
                         collection,
                         target.version,
                       );
+                    // Each page goes in its sidebar group's `llms.txt`.
+                    const sections = apiLlmsSections(index.metadata.nav.nav.items, (coordinate) => {
+                      const row = index.byId.get(coordinate);
+                      return row ? row.slug || "index" : undefined;
+                    });
                     for (const row of index.rows)
                       apiEntries.push({
                         collection,
                         id: row.slug || "index",
+                        section: sections.get(row.id),
                         data: {
                           coordinate: row.id,
                           title: row.title,
@@ -1463,6 +1540,7 @@ export function nimbus(
                     );
                   }
                   const queryDefault = queryModeDefaults.get(collection);
+                  const firstOfCollection = apiEntries.length;
                   for (const entry of entries.values()) {
                     if (
                       queryDefault !== undefined &&
@@ -1483,6 +1561,11 @@ export function nimbus(
                           false),
                     });
                   }
+                  await placeBundledApiEntries(
+                    collection,
+                    apiEntries.slice(firstOfCollection),
+                    entries,
+                  );
                 }
                 return apiEntries;
               },
