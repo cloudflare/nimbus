@@ -1299,7 +1299,7 @@
       "instructions": [
         "No action is needed: pages that pass all four props are unchanged.",
         "Take the change with nimbus-docs diff src/layouts/DocsLayout.astro --apply.",
-        "If you edited DocsLayout, merge by hand: type its Props as Omit<DocsPageProps, NavProps> & Partial<Pick<DocsPageProps, NavProps>> with type NavProps = \"sidebar\" | \"headings\" | \"breadcrumbs\" | \"prevNext\", default headings = [], breadcrumbs = [] and prevNext = {} where the props are read, and add && (sidebar !== undefined || Astro.slots.has(\"sidebar\")) to showSidebar."
+        "If you edited DocsLayout, merge by hand: type its Props as Omit<DocsPageProps, NavProps> & Partial<Pick<DocsPageProps, NavProps>> with type NavProps = \"sidebar\" | \"headings\" | \"breadcrumbs\" | \"prevNext\", default headings = [], breadcrumbs = [] and prevNext = {} where the props are read, add && (sidebar !== undefined || Astro.slots.has(\"sidebar\")) to showSidebar, and pass items={sidebar ?? []} to the default <Sidebar>."
       ],
       "verify": [
         "Docs pages look as before.",
