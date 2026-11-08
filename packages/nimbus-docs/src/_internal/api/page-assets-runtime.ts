@@ -197,17 +197,43 @@ export async function getApiAssetPage(
   }
   const { resolveApiAssetLinks } = await import("./page-assets-links.js");
   const page = resolveApiAssetLinks(record, target, index) as ApiPageProps;
-  const prepared = apiAssetMetadata(index).nav;
-  const nav = activatePreparedApiNav(prepared, id);
-  return {
-    page,
-    nav: applyApiSidebarMode(nav, {
-      mode: target.sidebar,
-      mountPath: target.mountPath,
-      ...targetUrlFields(target),
-      overview: page.kind === "api",
-    }),
-  };
+  return { page, nav: assetNav(target, index, id, page.kind === "api") };
+}
+
+/**
+ * One page's navigation alone, from the version's index: no page record is
+ * read. The index has no page kinds, so the overview is the collection's own
+ * coordinate.
+ */
+export async function getApiAssetNav(
+  collection: string,
+  version: string | null,
+  id: string,
+  request?: Request,
+) {
+  const targets = await apiAssetTargets(collection);
+  const target = targets.find((candidate) => candidate.version === version);
+  if (!target)
+    throw new Error(`Unknown API page version ${collection}@${version}.`);
+  const index = await readApiAssetIndex(target, request);
+  if (!index.byId.has(id)) throw new Error(`Missing API page ${id}.`);
+  return { nav: assetNav(target, index, id, id === collection) };
+}
+
+// The page's navigation: its trail open, then bounded by the sidebar mode.
+function assetNav(
+  target: Awaited<ReturnType<typeof apiAssetTargets>>[number],
+  index: Awaited<ReturnType<typeof readApiAssetIndex>>,
+  id: string,
+  overview: boolean,
+) {
+  const nav = activatePreparedApiNav(apiAssetMetadata(index).nav, id);
+  return applyApiSidebarMode(nav, {
+    mode: target.sidebar,
+    mountPath: target.mountPath,
+    ...targetUrlFields(target),
+    overview,
+  });
 }
 
 export async function resolveApiAssetSwitch(

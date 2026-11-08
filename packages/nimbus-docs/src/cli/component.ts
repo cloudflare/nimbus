@@ -20,6 +20,7 @@ import {
 import { dirname, isAbsolute, join, posix, relative, resolve, sep } from "node:path";
 
 import * as p from "@clack/prompts";
+import { satisfies, valid, validRange } from "semver";
 
 import { componentsMapBody } from "../_internal/parse-components-registry.js";
 import { stripComments, stripStrings } from "../_internal/parse-object-literal.js";
@@ -330,23 +331,22 @@ export async function installComponents(
   }
 
   if (allDeps.size > 0) {
-    const newDeps = filterAlreadyInstalled(options.cwd, [...allDeps]);
-    if (newDeps.length > 0) {
-      const pm = detectPackageManager(options.cwd);
-      const { bin, args } = addCommand(pm, newDeps);
+    const { exact, loose } = dependenciesToInstall(options.cwd, [...allDeps]);
+    const pm = detectPackageManager(options.cwd);
+    // Registry pins are exact, so they're saved exact: a `^` range would let
+    // the next install drift from the version the component was built on.
+    for (const [deps, exactPins] of [[exact, true], [loose, false]] as const) {
+      if (deps.length === 0) continue;
+      const { bin, args } = addCommand(pm, deps, { exact: exactPins });
       const spinner = progress();
-      spinner.start(`${pm} add ${newDeps.join(" ")}`);
+      spinner.start(`${bin} ${args.join(" ")}`);
       try {
         await runCommand(bin, args, options.cwd);
-        spinner.stop(
-          `Installed ${newDeps.length} dep${newDeps.length === 1 ? "" : "s"}.`,
-        );
-        report.npmDepsInstalled = newDeps;
+        spinner.stop(`Installed ${deps.length} dep${deps.length === 1 ? "" : "s"}.`);
+        report.npmDepsInstalled.push(...deps);
       } catch {
-        spinner.stop("Dependency install failed.");
-        p.log.warn(
-          `Could not install ${newDeps.join(", ")}. Run \`${bin} ${args.join(" ")}\` manually.`,
-        );
+        spinner.error("Dependency install failed.");
+        p.log.warn(`Could not install ${deps.join(", ")}. Run \`${bin} ${args.join(" ")}\` manually.`);
       }
     }
   }
@@ -559,22 +559,40 @@ export function starterBaseline(
  * Filter out deps already present in `dependencies` or `devDependencies`
  * of the user's package.json. If package.json is missing, returns all.
  */
-function filterAlreadyInstalled(cwd: string, deps: string[]): string[] {
-  const pkgPath = join(cwd, "package.json");
-  if (!existsSync(pkgPath)) return deps;
+/**
+ * The registry dependencies a site still needs, split by whether the registry
+ * pins an exact version. One counts as installed when `package.json` already
+ * declares it at that pin or at a range the pin satisfies; a dependency
+ * without a pin counts as installed when its name is there at all.
+ */
+export function dependenciesToInstall(cwd: string, deps: string[]): { exact: string[]; loose: string[] } {
+  let declared: Record<string, string> = {};
   try {
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+    const pkg = JSON.parse(readFileSync(join(cwd, "package.json"), "utf8")) as {
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
     };
-    const installed = new Set([
-      ...Object.keys(pkg.dependencies ?? {}),
-      ...Object.keys(pkg.devDependencies ?? {}),
-    ]);
-    return deps.filter((d) => !installed.has(d));
+    declared = { ...pkg.devDependencies, ...pkg.dependencies };
   } catch {
-    return deps;
+    // No readable package.json: install everything.
   }
+  const exact: string[] = [];
+  const loose: string[] = [];
+  for (const spec of deps) {
+    // The last `@` after the first character separates a version, so
+    // `@scope/name` alone is a name and `@scope/name@1.2.3` is pinned.
+    const at = spec.lastIndexOf("@");
+    const name = at > 0 ? spec.slice(0, at) : spec;
+    const version = at > 0 ? spec.slice(at + 1) : null;
+    const pinned = version !== null && valid(version) !== null;
+    const have = declared[name];
+    const installed =
+      have !== undefined &&
+      (!pinned || have === version || (validRange(have) !== null && satisfies(version!, have)));
+    if (installed) continue;
+    (pinned ? exact : loose).push(spec);
+  }
+  return { exact, loose };
 }
 
 function runCommand(

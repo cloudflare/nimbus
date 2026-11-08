@@ -28,6 +28,7 @@
 
 import fs from "node:fs";
 import { assertApiPagesLiveCollection } from "./_internal/page-assets-config.js";
+import { astroConfigHash } from "./_internal/astro-config-file.js";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -4303,7 +4304,11 @@ function materializeLintConfig(
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(
       path.join(dir, "lint.json"),
-      JSON.stringify({ version: 1, rules, collections, site, markdownFeatures, base }, null, 2) + "\n",
+      JSON.stringify(
+        { version: 1, rules, collections, site, markdownFeatures, base, configHash: astroConfigHash(projectRoot) },
+        null,
+        2,
+      ) + "\n",
       "utf8",
     );
   } catch {

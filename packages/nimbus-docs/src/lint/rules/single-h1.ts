@@ -4,25 +4,18 @@
  * layouts render the page title from frontmatter, so the body legitimately
  * starts at H2.
  *
- * Detection is delegated to `remark-lint-no-multiple-toplevel-headings`
- * via the remark-lint adapter — Sätteri-parsed tree, remark-lint detector
- * logic, our message + envelope. The message stays Nimbus-shaped so the
- * agent-loop hint ("demote to ##") is preserved.
+ * Detection is the `multipleTopLevelHeadings` detector (`../detectors.ts`),
+ * which also counts HTML and MDX `<h1>`. The message stays Nimbus-shaped so
+ * the agent-loop hint ("demote to ##") is preserved.
  */
 
-import remarkLintNoMultipleTopLevelHeadings from "remark-lint-no-multiple-toplevel-headings";
-
-import { runRemarkLintRule } from "../remark-lint-adapter.js";
+import { multipleTopLevelHeadings } from "../detectors.js";
 import type { Rule } from "../rule.js";
 
 export const singleH1: Rule = {
   code: "nimbus/single-h1",
   run(ctx) {
-    const reports = runRemarkLintRule(
-      remarkLintNoMultipleTopLevelHeadings,
-      ctx.file.tree,
-      { path: ctx.file.path, source: ctx.file.source },
-    );
+    const reports = multipleTopLevelHeadings(ctx.file.tree);
     for (const r of reports) {
       ctx.report({
         ...r,

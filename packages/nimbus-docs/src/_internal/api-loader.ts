@@ -361,8 +361,24 @@ export async function projectConfiguredApiVersionNav(
   return getApiNav(await configuredApiModel(collection, version));
 }
 
+/** A page's navigation alone. The overview is the collection's own coordinate. */
+export async function projectConfiguredApiNav(
+  collection: string,
+  version: string | null,
+  coordinate: string,
+): Promise<ApiNav> {
+  const model = await configuredApiModel(collection, version);
+  return projectedNav(
+    model,
+    coordinate,
+    coordinate === collection,
+    configuredBounds.get(configuredModelKey(collection, version)),
+  );
+}
+
 registerConfiguredApiProjector({
   page: projectConfiguredApiPage,
   pageProps: projectConfiguredApiPageProps,
-  nav: projectConfiguredApiVersionNav,
+  nav: projectConfiguredApiNav,
+  versionNav: projectConfiguredApiVersionNav,
 });

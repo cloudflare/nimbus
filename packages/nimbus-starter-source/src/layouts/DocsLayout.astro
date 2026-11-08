@@ -4,6 +4,10 @@
  *
  * Named slots for overrides (all optional, defaults render otherwise):
  *   header, sidebar, toc, page-title, content-footer, pagination
+ *
+ * A page of your own can leave out `sidebar`, `headings`, `breadcrumbs` and
+ * `prevNext`: it then gets no sidebar (unless it fills the `sidebar` slot),
+ * no table of contents, no breadcrumbs and no previous/next links.
  */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import BaseLayout from "./BaseLayout.astro";
@@ -23,9 +27,10 @@ import { Badge } from "@/components/ui/badge";
 import type { DocsPageProps } from "@cloudflare/nimbus-docs/types";
 import { getVersionStatus, getVersionAlternates, withBase } from "@cloudflare/nimbus-docs/runtime";
 
-type Props = DocsPageProps & { audience?: "human" };
+type NavProps = "sidebar" | "headings" | "breadcrumbs" | "prevNext";
+type Props = Omit<DocsPageProps, NavProps> & Partial<Pick<DocsPageProps, NavProps>> & { audience?: "human" };
 
-const { title, description, sidebar, headings, breadcrumbs, prevNext, mode = "doc", banner, head = [], searchable, noindex, markdownUrl, socialImage, socialImageAlt, locale, lastUpdated, editUrl, draft, audience, collection, entryId } = Astro.props;
+const { title, description, sidebar, headings = [], breadcrumbs = [], prevNext = {}, mode = "doc", banner, head = [], searchable, noindex, markdownUrl, socialImage, socialImageAlt, locale, lastUpdated, editUrl, draft, audience, collection, entryId } = Astro.props;
 
 // `searchable` derives from `noindex` when omitted: a non-crawlable page is
 // by default not in the site search either. Explicit `searchable: true`
@@ -36,8 +41,9 @@ const isCustom = mode === "custom";
 // `sidebar: false` / `tableOfContents: false` in frontmatter come through
 // from the route as literal `false` (not coerced to `[]`). They drive
 // per-column suppression — chrome, mobile dialog, header menu button.
-// Custom pages render no sidebar, so they get no drawer or menu button.
-const showSidebar = sidebar !== false && !isCustom;
+// Custom pages render no sidebar, so they get no drawer or menu button. With
+// no `sidebar` at all, only a filled `sidebar` slot renders one.
+const showSidebar = sidebar !== false && !isCustom && (sidebar !== undefined || Astro.slots.has("sidebar"));
 
 // Versioning: per-page status drives Pagefind faceting, deprecation
 // banner, and the data-pagefind-ignore exclusion for hidden versions.
@@ -187,7 +193,7 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
                 ) : (
                   <nav class="px-4 pb-12 pt-5">
                     {showFilter && <SidebarFilter />}
-                    <Sidebar items={sidebar} persist />
+                    <Sidebar items={sidebar ?? []} persist />
                   </nav>
                 )}
               </div>

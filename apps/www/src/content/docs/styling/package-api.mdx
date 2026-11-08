@@ -97,6 +97,7 @@ From `@cloudflare/nimbus-docs/runtime`. [Add an OpenAPI reference](/api-referenc
 | `getApiStaticPaths(collection)` | `getStaticPaths` for an API reference route, across its versions. |
 | `getApiRoute(Astro)` | The page and sidebar for an API route, or a redirect or `404` `Response`. |
 | `getApiRoot(Astro, { collection, version })` | A version's root page, with its index of every endpoint, from any route. |
+| `getApiNav(Astro, { collection, href })` | The API sidebar opened at one API page, from any route, and that page's version. |
 | `getApiVersions(collection)` | The versions of an API, for a picker. |
 | `getVersionSwitchUrl({ collection, sourceVersion, id, targetVersion })` | The same page in another version, or that version's landing page. |
 | `getApiVersionHead(collection, version, coordinate, request)` | The canonical link and alternate versions, for a custom API head. |
@@ -120,6 +121,34 @@ const rows = root ? apiIndexRows(root.index) : [];
   ))}
 </ul>
 ```
+
+### Show the API sidebar on your own pages
+
+A page of your own can show the same sidebar as the API pages. `getApiNav` returns it opened at the API page `href` names, with that page and its parents expanded and nothing marked current:
+
+```astro title="src/pages/cli.astro"
+---
+import DocsLayout from "@/layouts/DocsLayout.astro";
+import { ApiSidebarPanel } from "@/components/ui/api-sidebar";
+import { getApiNav } from "@cloudflare/nimbus-docs/runtime";
+
+const result = await getApiNav(Astro, { collection: "api", href: "/api/d1/" });
+if (!result) return Astro.redirect("/404");
+---
+
+<DocsLayout title="D1 CLI">
+  <ApiSidebarPanel slot="sidebar" nav={result.nav} version={result.version} />
+  <!-- the page -->
+</DocsLayout>
+```
+
+`ApiSidebarPanel` is the sidebar `ApiLayout` renders: the filter, which searches the whole API when groups load on demand, groups that load when opened, and open groups and scroll kept across pages. `<li>` rows you put inside it, such as an overview link, come before the API's rows.
+
+Write `href` as the sidebar writes its own links: the API's mount path and, in query-version mode, its `?version=`, without the site base. `result.version` is the version it resolved to.
+
+It returns `null` when the collection or page doesn't exist, or the `href` redirects. It reads only the sidebar, never the page, so it's cheap on any route, including with `bundle: false`.
+
+It throws when the build is broken. With `bundle: false`, it also throws when the server is at its read limit, with an error named `PageAssetReadOverloadError`. API pages answer that with a `503` and `Retry-After: 1`; a page of your own can do the same.
 
 ### Link to the same page in another version
 

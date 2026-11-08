@@ -129,6 +129,8 @@ export interface MaterializedConfig {
   markdownFeatures?: Features;
   /** The site base as the renderer applies it; absent in a file from an older version. */
   base?: string;
+  /** The Astro config's hash when the file was written; absent in older files. */
+  configHash?: string;
 }
 
 export interface LoadMaterializedResult {
@@ -160,6 +162,7 @@ export function loadMaterializedConfig(cwd: string): LoadMaterializedResult {
     site?: unknown;
     markdownFeatures?: unknown;
     base?: unknown;
+    configHash?: unknown;
   };
   try {
     parsed = JSON.parse(raw) as typeof parsed;
@@ -179,8 +182,9 @@ export function loadMaterializedConfig(cwd: string): LoadMaterializedResult {
     const site = typeof parsed.site === "string" ? parsed.site : undefined;
     const markdownFeatures = materializedFeatures(parsed.markdownFeatures);
     const base = typeof parsed.base === "string" ? parsed.base : undefined;
+    const configHash = typeof parsed.configHash === "string" ? parsed.configHash : undefined;
     return {
-      config: { rules: validated.rules, collections: validated.collections, site, markdownFeatures, base },
+      config: { rules: validated.rules, collections: validated.collections, site, markdownFeatures, base, configHash },
       error: null,
     };
   } catch (err) {
