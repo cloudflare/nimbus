@@ -1,0 +1,68 @@
+---
+/**
+ * ApiSidebarPanel — everything the API sidebar needs to work, for `ApiLayout`
+ * and for any page of your own: the filter (an on-demand tree searches the
+ * version's page list), the tree, groups that load when opened, and open
+ * groups and scroll kept across pages. Pass the `nav` an API page renders, or
+ * the one `getApiNav` returns. Slotted `<li>` rows go before the API's rows.
+ * Render it inside a scrolling column, such as a layout's sidebar.
+ */
+import { SidebarFilter, SidebarLink } from "@/components/ui/sidebar";
+import { navBuildId, navStateScript, withBase } from "@cloudflare/nimbus-docs/runtime";
+import type { ApiNav } from "@cloudflare/nimbus-docs/api";
+import ApiMethodChip from "./ApiMethodChip.astro";
+import ApiSidebar from "./ApiSidebar.astro";
+
+interface Props {
+  nav: ApiNav;
+  /** The version `nav` belongs to, or null for an unversioned API. */
+  version?: string | null;
+}
+
+const { nav, version = null } = Astro.props;
+// Open groups and scroll are kept per API version. The base keeps two sites on
+// one origin apart.
+const navKey = `${import.meta.env.BASE_URL}|${nav.collection}${version ? `@${version}` : ""}`;
+---
+
+<div
+  data-nb-api-tree
+  data-nb-nav-state={navKey}
+  data-nb-nav-build={navBuildId}
+  data-nb-nav-scroller="nav"
+  class="h-full min-h-0 flex-1 overflow-y-auto overscroll-contain"
+>
+  {/* A full tree filters in place, as the docs sidebar does. An on-demand
+      tree holds only part of the API, so its filter searches the
+      version's page list instead (`api-nav-filter.client`). */}
+  <div class="px-4 pb-12 pt-5" data-nb-sidebar={nav.listHref ? undefined : ""}>
+    <SidebarFilter data-nb-nav-list={nav.listHref && withBase(nav.listHref, import.meta.env.BASE_URL)} />
+    {nav.listHref && (
+      <>
+        <p data-nb-nav-status role="status" class="px-3 pb-2 text-xs text-muted-foreground empty:p-0"></p>
+        <ul data-nb-nav-results hidden class="flex list-none flex-col gap-0.5 p-0"></ul>
+        <template data-nb-nav-result>
+          <li>
+            <SidebarLink label="" href="/">
+              <ApiMethodChip slot="leading" method="GET" display="label" />
+            </SidebarLink>
+          </li>
+        </template>
+      </>
+    )}
+    <ApiSidebar items={nav.items}><slot /></ApiSidebar>
+  </div>
+</div>
+<div class="pointer-events-none sticky bottom-0 h-8 bg-gradient-to-t from-background to-transparent"></div>
+{/* Inline and unbundled (`aria-hidden` keeps Astro from hoisting it) so it
+    runs before the page paints and before the disclosures mount. After the
+    fade, so the tree's height is final when it first scrolls to the page. */}
+<script is:inline aria-hidden="true" set:html={navStateScript} />
+
+<script>
+  import { mount, initNavSidebar } from "@cloudflare/nimbus-docs/client";
+  import "@/components/ui/sidebar/sidebar.client";
+  import "./api-nav-filter.client";
+
+  mount("[data-nb-nav-state]", initNavSidebar);
+</script>

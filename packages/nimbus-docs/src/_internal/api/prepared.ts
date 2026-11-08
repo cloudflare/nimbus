@@ -45,6 +45,19 @@ export function activatePreparedApiNav(
   return { ...prepared.nav, items: prepared.nav.items.map(overlay), ...(prevNext && { prevNext }) };
 }
 
+/**
+ * The entry holding a prepared page's navigation, read from the envelope alone:
+ * the page itself is never touched. `undefined` when `value` isn't a prepared
+ * page of this version (a thin entry).
+ */
+export function preparedNavEntryId(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const prepared = value as { version?: unknown; navEntryId?: unknown };
+  return prepared.version === preparedApiVersion && typeof prepared.navEntryId === "string"
+    ? prepared.navEntryId
+    : undefined;
+}
+
 export function isPreparedApiPage(value: unknown): value is PreparedApiPage {
   if (!value || typeof value !== "object") return false;
   const prepared = value as Partial<PreparedApiPage>;

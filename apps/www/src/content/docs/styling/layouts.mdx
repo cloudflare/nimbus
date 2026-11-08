@@ -15,6 +15,23 @@ Layouts are user-owned `.astro` files in `src/layouts/`. The scaffolder writes t
 
 Because they're your files, the way to remove a piece of chrome is to delete it from the layout — drop `<Pagination />` from `DocsLayout` and it's gone site-wide.
 
+### On your own pages
+
+A page under `src/pages/` can use `DocsLayout` with just a title. It gets the header and content column, with no sidebar, table of contents, breadcrumbs or prev/next until you pass them:
+
+```astro title="src/pages/status.astro"
+---
+import DocsLayout from "@/layouts/DocsLayout.astro";
+import { getSidebar } from "@cloudflare/nimbus-docs/runtime";
+---
+
+<DocsLayout title="Status" sidebar={await getSidebar("/status")}>
+  <p>All systems normal.</p>
+</DocsLayout>
+```
+
+Pass `sidebar` for the docs sidebar, from `getSidebar` with the page's path without the site base, or fill the `sidebar` slot with one of your own, such as the [API sidebar](/styling/package-api/#show-the-api-sidebar-on-your-own-pages).
+
 ## Per-page toggles
 
 Frontmatter turns individual columns off without touching the layout:
