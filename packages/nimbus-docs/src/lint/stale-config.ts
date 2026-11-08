@@ -4,6 +4,7 @@
  * a value isn't a literal we can't tell, so we say nothing about it.
  */
 
+import { astroConfigHash } from "../_internal/astro-config-file.js";
 import { parseAstroConfigFields, parseNimbusOptions } from "../_internal/parse-nimbus-config.js";
 import { validateLintOptions, type ValidatedLintOptions } from "./config.js";
 import { IMPLEMENTED_CODES } from "./rules/index.js";
@@ -16,8 +17,11 @@ export const STALE_LINT_CONFIG_MESSAGE =
 /** True when the Astro config's lint rules or base differ from the materialized ones. */
 export function lintConfigIsStale(
   cwd: string,
-  materialized: ValidatedLintOptions & { base?: string },
+  materialized: ValidatedLintOptions & { base?: string; configHash?: string },
 ): boolean {
+  // The config file is byte-for-byte the one the build read: nothing to
+  // compare, and no TypeScript program to build.
+  if (materialized.configHash !== undefined && materialized.configHash === astroConfigHash(cwd)) return false;
   return rulesAreStale(cwd, materialized) || baseIsStale(cwd, materialized.base);
 }
 
