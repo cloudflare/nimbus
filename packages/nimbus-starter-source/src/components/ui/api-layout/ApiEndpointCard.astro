@@ -31,8 +31,10 @@ const serverQuery = at < 0 ? "" : server!.slice(at);
 const base = at < 0 ? (server ?? "") : server!.slice(0, at).replace(/\/+$/, "");
 const url = `${base}${path}${serverQuery}`;
 const copyLabel = server ? "Copy request URL" : "Copy path";
-// One popover per card on the page.
-const popoverId = `nb-url-${Math.random().toString(36).slice(2, 9)}`;
+// One popover per card, named from the request line so every render is identical.
+let hash = 0;
+for (const ch of `${method} ${url}`) hash = (Math.imul(hash, 31) + ch.codePointAt(0)!) | 0;
+const popoverId = `nb-url-${(hash >>> 0).toString(36)}`;
 const variant = methodVariant(method);
 ---
 
