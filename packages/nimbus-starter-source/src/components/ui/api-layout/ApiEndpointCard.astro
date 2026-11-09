@@ -111,10 +111,11 @@ const variant = methodVariant(method);
       popover.style.overflowY = "auto";
       const { offsetWidth: width, offsetHeight: height } = popover;
       const left = Math.min(Math.max(8, anchor.left), Math.max(8, innerWidth - width - 8));
-      // Below the path when it fits, else above it, else as low as fits.
+      // Below the path when it fits, else above it; always inside the viewport.
       const below = anchor.bottom + 6;
       const above = anchor.top - 6 - height;
-      const top = below + height <= innerHeight - 8 ? below : above >= 8 ? above : Math.max(8, innerHeight - 8 - height);
+      const wanted = below + height <= innerHeight - 8 ? below : above >= 8 ? above : below;
+      const top = Math.max(8, Math.min(wanted, innerHeight - 8 - height));
       popover.style.position = "fixed";
       popover.style.inset = "auto";
       popover.style.left = `${left}px`;
