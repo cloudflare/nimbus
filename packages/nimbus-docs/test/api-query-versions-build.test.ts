@@ -237,6 +237,26 @@ if (page instanceof Response) return page;
 <html><body>doc</body></html>
 `,
   );
+  // Agent surfaces exist only where a route serves them: the starter's
+  // page Markdown, site index and section indexes.
+  await write(
+    "src/pages/[...slug]/index.md.ts",
+    `import { markdownRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+export const { GET, getStaticPaths } = markdownRoute();
+`,
+  );
+  await write(
+    "src/pages/llms.txt.ts",
+    `import { llmsRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+export const { GET } = llmsRoute();
+`,
+  );
+  await write(
+    "src/pages/[...section]/llms.txt.ts",
+    `import { llmsSectionRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+export const { GET, getStaticPaths } = llmsSectionRoute();
+`,
+  );
   await write("src/pages/qv/[...slug].astro", QV_PAGE);
   await write("src/pages/core/[...slug].astro", corePage("core"));
   await write("src/pages/reference/nq/[...slug].astro", corePage("nq"));

@@ -74,7 +74,11 @@ function route(pattern: string, shared?: "markdown" | "source" | "llms") {
     .split("/")
     .filter(Boolean)
     .map((segment) =>
-      segment.startsWith("[...") ? "(?:(.*?)/)?" : segment.startsWith("[") ? "([^/]+)/" : `${segment.replace(/\./gu, "\\.")}/`,
+      segment.startsWith("[...")
+        ? "(?:(.*?)/)?"
+        : segment.startsWith("[")
+          ? "([^/]+)/"
+          : `${segment.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}/`,
     )
     .join("")
     .replace(/\/$/u, "");
