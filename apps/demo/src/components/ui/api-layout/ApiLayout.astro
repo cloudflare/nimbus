@@ -175,8 +175,9 @@ if (versionStatus?.isHidden || homePart) {
         </ApiBody>
         {nav.prevNext && !hasRail && <Pagination prevNext={nav.prevNext} data-pagefind-ignore />}
         {/* With a rail, previous/next comes after the body. From 90rem it takes
-            the grid's last row (13, after the rail's rows 1 to 12, so the
-            pinned rail never covers it) from the body text's left edge (the body's padding
+            the grid's last row (13, after the rail's rows 1 to 12; a rail
+            taller than the remaining page can still reach over it while pinned,
+            as before) from the body text's left edge (the body's padding
             plus its centring inset in the first column) to the rail card's right
             edge. */}
         {hasRail && (

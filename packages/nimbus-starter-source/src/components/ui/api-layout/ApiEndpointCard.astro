@@ -100,17 +100,25 @@ const variant = methodVariant(method);
   mount("[data-nb-url-path]", (path) => {
     const id = path.getAttribute("popovertarget");
     const popover = id ? document.getElementById(id) : null;
-    if (!popover) return () => {};
+    // Without the Popover API the URL shows inline under the card; nothing to place.
+    if (!popover || !("showPopover" in HTMLElement.prototype)) return () => {};
     const controller = new AbortController();
     const place = () => {
       if (!popover.matches(":popover-open")) return;
       const anchor = path.getBoundingClientRect();
-      const width = popover.offsetWidth;
+      // Never taller than the viewport; a longer URL scrolls inside.
+      popover.style.maxHeight = `${innerHeight - 16}px`;
+      popover.style.overflowY = "auto";
+      const { offsetWidth: width, offsetHeight: height } = popover;
       const left = Math.min(Math.max(8, anchor.left), Math.max(8, innerWidth - width - 8));
+      // Below the path when it fits, else above it, else as low as fits.
+      const below = anchor.bottom + 6;
+      const above = anchor.top - 6 - height;
+      const top = below + height <= innerHeight - 8 ? below : above >= 8 ? above : Math.max(8, innerHeight - 8 - height);
       popover.style.position = "fixed";
       popover.style.inset = "auto";
       popover.style.left = `${left}px`;
-      popover.style.top = `${anchor.bottom + 6}px`;
+      popover.style.top = `${top}px`;
     };
     popover.addEventListener("toggle", place, { signal: controller.signal });
     addEventListener("scroll", place, { passive: true, signal: controller.signal });
