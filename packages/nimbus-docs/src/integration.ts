@@ -1686,6 +1686,8 @@ export function nimbus(
                               : { apiVersion: target.version, url: pageUrl(target, row.slug) }),
                             // The pack's content-addressed file: the record's identity without reading it.
                             fingerprint: `${row.location.filename}\0${row.location.key ?? ""}`,
+                            // The stored record's bytes: an estimate of its Markdown, so an on-request part can size itself unrendered.
+                            ...(row.bytes !== undefined ? { recordBytes: row.bytes } : {}),
                           },
                           hidden: target.hidden,
                           ...(target.isDefault ? {} : { historical: target.versionMode === "query" }),

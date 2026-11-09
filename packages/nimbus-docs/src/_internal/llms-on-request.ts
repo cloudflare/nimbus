@@ -109,6 +109,7 @@ export function rendersOnRequest(manifest: StagedAgentEndpointManifest, referenc
 
 /** A page's Markdown body: the baked twin's content, or the API page rendered now. */
 async function pageMarkdown(manifest: StagedAgentEndpointManifest, page: LlmsPage, request?: Request): Promise<string> {
+  countRender("page");
   const asset = manifest.markdownAssets.find(
     (candidate) => candidate.surface === "markdown" && candidate.collection === page.collection && candidate.id === page.id,
   );
@@ -272,7 +273,7 @@ export async function renderLlmsDocument(
       if (partPages(group, version).length === 0) return null;
       body = await cached(manifest, ctx.site, `part:${group.slug}@${version ?? ""}`, async () => {
         countRender("part");
-        return assembleLlmsFullPart(group, ctx, (page) => pageMarkdown(manifest, page, request), undefined, version);
+        return assembleLlmsFullPart(group, ctx, (page) => pageMarkdown(manifest, page, request), manifest.fullLimitBytes, version);
       });
     }
   }

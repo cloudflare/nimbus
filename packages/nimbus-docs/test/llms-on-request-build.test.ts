@@ -57,6 +57,8 @@ const DOCS: Record<string, string> = {
   "guide/advanced.md": "---\ntitle: Advanced\n---\n\nDeeper.\n",
   "concepts/errors.md": "---\ntitle: Errors\ndescription: What can go wrong.\n---\n\nErrors happen.\n",
   "concepts/limits.md": "---\ntitle: Limits\n---\n\nSlow down.\n",
+  // A body of nothing: its size is zero, not unknown.
+  "concepts/empty.md": "---\ntitle: Empty\n---\n",
 };
 
 interface Site {
@@ -203,7 +205,9 @@ const { page } = result;
 interface Manifest {
   llmsAssets: Array<{ scope: string; surface: string; section?: string; path: string }>;
   onRequest: { llms: boolean; llmsSections: boolean; llmsFull: boolean };
-  pages?: Array<{ collection: string; id: string; url: string; title: string }>;
+  pages?: Array<{ collection: string; id: string; url: string; title: string; bytes?: number }>;
+  markdownAssets: Array<{ collection: string; id: string; surface: string; path: string; contentStart: number; contentEnd: number }>;
+  fullLimitBytes?: number;
   buildId: string;
 }
 
@@ -225,6 +229,11 @@ let baked: Site;
 let live: Site;
 let bodiesOnly: Site;
 
+// A part limit small enough that the API sections are over it and the docs
+// pages are not (tests only; the build records it for the Worker).
+const SMALL_LIMIT = 6_000;
+let small: Site;
+
 before(async () => {
   // One build at a time: Astro builds in one process share module state.
   baked = await buildSite("baked.test", "build");
@@ -232,10 +241,56 @@ before(async () => {
   // No Markdown route and no MCP: nothing publishes a page's Markdown, yet
   // the parts still need every body.
   bodiesOnly = await buildSite("bodies.test", "request", { markdownRoute: false });
+  process.env.NIMBUS_TEST_LLMS_FULL_LIMIT_BYTES = String(SMALL_LIMIT);
+  try {
+    small = await buildSite("small.test", "request");
+  } finally {
+    delete process.env.NIMBUS_TEST_LLMS_FULL_LIMIT_BYTES;
+  }
 });
 
 after(async () => {
-  await Promise.all([baked, live, bodiesOnly].filter(Boolean).map((site) => rm(site.root, { recursive: true, force: true, maxRetries: 5 })));
+  await Promise.all([baked, live, bodiesOnly, small].filter(Boolean).map((site) => rm(site.root, { recursive: true, force: true, maxRetries: 5 })));
+});
+
+test("every listed page records its Markdown bytes: the baked body's exactly, the record's as an estimate for a page the Worker renders", async () => {
+  const manifest = await manifestOf(live);
+  for (const page of manifest.pages!) {
+    assert.ok(Number.isSafeInteger(page.bytes) && page.bytes! >= 0, `${page.collection}:${page.id} has no recorded size`);
+  }
+  // A baked body's size is the bytes of the content the Worker slices from the staged twin, an empty body's zero.
+  const docsPages = manifest.pages!.filter((page) => page.collection === "docs");
+  assert.ok(docsPages.some((page) => page.id === "concepts/empty"));
+  for (const page of docsPages) {
+    const asset = manifest.markdownAssets.find((candidate) => candidate.surface === "markdown" && candidate.collection === "docs" && candidate.id === page.id)!;
+    const body = await readFile(path.join(live.root, ".astro/nimbus/agent-endpoint-assets", asset.path), "utf8");
+    const content = body.slice(asset.contentStart, asset.contentEnd);
+    assert.equal(page.bytes, new TextEncoder().encode(content).length, `docs:${page.id}`);
+    if (page.id === "concepts/empty") assert.equal(page.bytes, 0);
+  }
+  // An API page's size is the record's: the Markdown made from these records fits in it.
+  for (const page of manifest.pages!.filter((candidate) => candidate.collection === "pets").slice(0, 3)) {
+    const markdown = await (await live.app.render(new Request(`https://live.test${page.url.replace(/\/$/, "")}/index.md`))).text();
+    assert.ok(page.bytes! > 0 && new TextEncoder().encode(markdown).length <= page.bytes!, `${page.id}: ${markdown.length} vs estimate ${page.bytes}`);
+  }
+});
+
+test("a part over the limit by its recorded sizes answers the index without rendering a page", async () => {
+  const manifest = await manifestOf(small);
+  assert.equal(manifest.fullLimitBytes, SMALL_LIMIT);
+  const index = await (await small.app.render(new Request("https://small.test/llms-full.txt"))).text();
+  const hrefs = links(index).map(([, h]) => h!).filter((h) => h.endsWith("/llms-full.txt"));
+  const pets = hrefs.find((h) => h.includes("/pets/"))!;
+  const before = renders().page ?? 0;
+  const part = await small.app.render(new Request(pets));
+  assert.equal(part.status, 200);
+  const body = await part.text();
+  assert.match(body, /> This section is over [\d.]+ KiB/);
+  assert.match(body, /## Pages\n\n- \[[^\]]+\]\(https:\/\/small\.test\/pets\/[^)]*index\.md\)/);
+  assert.equal(renders().page ?? 0, before, "the oversize answer rendered no page");
+  // The same request on the unbounded site assembles the part in full.
+  const full = await (await live.app.render(new Request(pets.replace("small.test", "live.test")))).text();
+  assert.doesNotMatch(full, /This section is over/);
 });
 
 // Before any other test asks for a part: a cold render, shared by concurrent

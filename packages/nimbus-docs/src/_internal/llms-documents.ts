@@ -48,6 +48,14 @@ export interface LlmsPage {
   apiVersion?: string;
   /** A query-mode non-default version's page: listed by no index, its URL carries the version. */
   historical?: true;
+  /**
+   * The page's Markdown body in bytes: exact for a body the build rendered;
+   * for a page the Worker renders, an estimate (the stored record's JSON
+   * bytes). A part sums these to learn it is over the limit without
+   * rendering a page; a part that proves bigger while assembling still stops
+   * at the limit.
+   */
+  bytes?: number;
 }
 
 /** How an API family's versions appear in URLs, for the parts a version gets. */
@@ -773,11 +781,41 @@ function partHeader(group: LlmsGroup, ctx: LlmsDocumentContext, version: string 
 }
 
 /**
- * One part of a request-rendered `llms-full`, assembled incrementally:
- * `markdownOf` is asked for one page at a time, in reading order, and the
- * assembly stops at the first page that takes the part over the limit, which
- * then answers with {@link llmsFullPartIndex} instead. The pages the part
- * holds are those under the section, its sub-sections' included.
+ * A part's bytes from its pages' recorded sizes: the header, each page's
+ * block framing, and its body's recorded bytes. Exact where every body was
+ * rendered by the build, an estimate where the Worker renders bodies, and
+ * `undefined` when a page has no recorded size, so the caller has to render
+ * to know.
+ */
+export function partBytesEstimate<P extends LlmsPage>(
+  group: LlmsGroup<P>,
+  ctx: LlmsDocumentContext,
+  version?: string,
+): number | undefined {
+  const header = partHeader(group, ctx, version);
+  let bytes = llmsFullHeaderBytes(header) - 1;
+  for (const page of partPages(group, version)) {
+    if (page.bytes === undefined) return undefined;
+    // The framing with an empty body, plus the body and the blank line after
+    // it; an empty body adds no blank run (see llmsFullBlockText).
+    bytes += llmsFullBlockBytes(llmsFullBlock(page, ""), header) + (page.bytes > 0 ? page.bytes + 2 : 0);
+  }
+  return bytes;
+}
+
+/** How many pages' Markdown a part assembly asks for ahead of the one it is adding. */
+export const PART_READ_AHEAD = 8;
+
+/**
+ * One part of a request-rendered `llms-full`, assembled incrementally in
+ * reading order. A part whose recorded sizes ({@link partBytesEstimate}) put
+ * it over the limit answers with {@link llmsFullPartIndex} without asking
+ * for a page. Otherwise `markdownOf` is asked for up to {@link PART_READ_AHEAD}
+ * pages ahead of the one being added, and the assembly still stops at the
+ * first page that takes the part over the limit, which then answers with
+ * the index too: the recorded sizes decide what is never attempted, the
+ * assembly decides what is sent. The pages the part holds are those under
+ * the section, its sub-sections' included.
  */
 export async function assembleLlmsFullPart<P extends LlmsPage>(
   group: LlmsGroup<P>,
@@ -786,11 +824,26 @@ export async function assembleLlmsFullPart<P extends LlmsPage>(
   limit = LLMS_FULL_LIMIT_BYTES,
   version?: string,
 ): Promise<string> {
+  const estimate = partBytesEstimate(group, ctx, version);
+  if (estimate !== undefined && estimate > limit) return llmsFullPartIndex(group, ctx, limit, version);
   const header = partHeader(group, ctx, version);
+  const pages = partPages(group, version);
   const blocks: LlmsFullBlock[] = [];
   let bytes = llmsFullHeaderBytes(header) - 1;
-  for (const page of partPages(group, version)) {
-    const block = llmsFullBlock(page, await markdownOf(page));
+  const ahead: Array<Promise<string>> = [];
+  let next = 0;
+  const fill = () => {
+    while (next < pages.length && ahead.length < PART_READ_AHEAD) {
+      const pending = markdownOf(pages[next++]!);
+      // A page abandoned by an early return must not surface as unhandled.
+      pending.catch(() => {});
+      ahead.push(pending);
+    }
+  };
+  fill();
+  for (const page of pages) {
+    const block = llmsFullBlock(page, await ahead.shift()!);
+    fill();
     bytes += llmsFullBlockBytes(block, header);
     if (bytes > limit) return llmsFullPartIndex(group, ctx, limit, version);
     blocks.push(block);

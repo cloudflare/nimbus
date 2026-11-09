@@ -142,6 +142,8 @@ export interface AgentEndpointAssetManifest {
   fullSplit: boolean;
   /** The sections an on-request `llms-full.txt` lists as parts (`/<slug>/llms-full.txt`). */
   renderedParts?: string[];
+  /** Tests only: the part size limit the build was given, so the Worker splits at the same size. */
+  fullLimitBytes?: number;
   /**
    * Identifies this build's output and the inputs of what it renders on
    * request: a cache key for documents assembled on request.
@@ -838,11 +840,29 @@ interface PreparedLlmsPage extends LlmsPage {
   markdown: string;
 }
 
+/**
+ * An estimate of an unrendered API page's Markdown bytes: the stored record's
+ * JSON bytes (a page pack row's, or the prepared page's). The Markdown made
+ * from a record is usually smaller (0.07–0.98 of the record across the
+ * Cloudflare API's pages), though a record rich in constructs the emitter
+ * expands can exceed it. A part that proves bigger than its estimate while
+ * assembling still stops at the limit; the estimate only decides what is
+ * never attempted.
+ */
+function markdownBytesEstimate(entry: Pick<PreparedMarkdownEntry, "data">): number | undefined {
+  if (typeof entry.data.recordBytes === "number") return entry.data.recordBytes;
+  if (isPreparedApiPage(entry.data.prepared)) return utf8Length(JSON.stringify(entry.data.prepared.page));
+  return undefined;
+}
+
 function preparedLlmsPage(
   entry: Pick<PreparedMarkdownEntry, "collection" | "id" | "data"> & { section?: string; historical?: boolean },
-  markdown: string,
+  /** The body made here, or `null` for a page the Worker renders. */
+  markdown: string | null,
   options: BakeAgentEndpointAssetsOptions,
   api = false,
+  /** An estimate of the body's bytes when it is not made here. */
+  bytesEstimate?: number,
 ): PreparedLlmsPage {
   const route = entryRouteUrl(
     collectionMountPrefix(entry.collection, mountContext(options)),
@@ -866,7 +886,10 @@ function preparedLlmsPage(
     ...(!entry.historical && publishes(options, route === "/" ? "/index.md" : `${route}/index.md`)
       ? { markdownUrl: route === "/" ? "/index.md" : `${route}/index.md` }
       : {}),
-    markdown,
+    markdown: markdown ?? "",
+    // Exact for a body made here (an empty one included); the record's
+    // estimate for one the Worker makes.
+    ...(markdown !== null ? { bytes: utf8Length(markdown) } : bytesEstimate !== undefined ? { bytes: bytesEstimate } : {}),
     groupLabel: sidebarGroupLabel(entry.data),
     ...(api ? { api } : {}),
     ...(entry.section !== undefined ? { section: entry.section } : {}),
@@ -1767,7 +1790,7 @@ export async function bakeAgentEndpointAssets(
   for (const entry of apiEntries) {
     const decision = decisions.get(`${entry.collection}\0${entry.id}`)!;
     if (decision.status === "exclude") continue;
-    const routePage = preparedLlmsPage(entry, "", options);
+    const routePage = preparedLlmsPage(entry, null, options);
     // A historical page is listed by no index and no MCP record.
     if (!entry.historical) {
       llmsRoutePages.push(routePage);
@@ -1819,14 +1842,14 @@ export async function bakeAgentEndpointAssets(
       // The indexes list the page without its body; only the full document
       // needs the body made here.
       if (!(servesLlmsFull(options) && !onRequest(options).llmsFull && isDiscoverable(entry)) || entry.historical) {
-        if (isDiscoverable(entry)) preparedLlmsPages.push(preparedLlmsPage(entry, "", options, true));
+        if (isDiscoverable(entry)) preparedLlmsPages.push(preparedLlmsPage(entry, null, options, true, markdownBytesEstimate(entry)));
         continue;
       }
     }
     // A historical page in a build-rendered collection: its body is baked
     // (unpublished) only for parts made on request; it is in no baked document.
     if (entry.historical && !partsReadBodies) {
-      if (isDiscoverable(entry)) preparedLlmsPages.push(preparedLlmsPage(entry, "", options, true));
+      if (isDiscoverable(entry)) preparedLlmsPages.push(preparedLlmsPage(entry, null, options, true));
       continue;
     }
     const prepared = entry.data.prepared;
@@ -2061,6 +2084,7 @@ export async function bakeAgentEndpointAssets(
     llmsAssets: llmsRecords.map(withoutBody),
     onRequest: rendersOnRequest,
     fullSplit: full.split,
+    ...(rendersOnRequest.llmsFull && options.llmsFullLimitBytes !== undefined ? { fullLimitBytes: options.llmsFullLimitBytes } : {}),
     ...(rendersOnRequest.llms || rendersOnRequest.llmsSections || rendersOnRequest.llmsFull
       ? { pages: preparedLlmsPages.map(({ markdown: _markdown, ...page }) => page) }
       : {}),
