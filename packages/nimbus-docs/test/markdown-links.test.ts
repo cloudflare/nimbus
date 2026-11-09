@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { fromMarkdown } from "mdast-util-from-markdown";
-import { gfmFromMarkdown } from "mdast-util-gfm";
-import { gfm } from "micromark-extension-gfm";
+import { gfmTableFromMarkdown } from "mdast-util-gfm-table";
+import { gfmTable } from "micromark-extension-gfm-table";
 import { absolutizeMarkdownLinks, type MdastNode } from "../src/_internal/markdown-links.ts";
 import { absoluteMarkdownLinks } from "../src/_internal/transform.ts";
 
@@ -10,7 +10,7 @@ import { absoluteMarkdownLinks } from "../src/_internal/transform.ts";
 // authored pages parse with Sätteri; both must place the origin at the same
 // bytes, or a request-rendered page differs from the baked file.
 const runtimeParse = (source: string) =>
-  fromMarkdown(source, { extensions: [gfm()], mdastExtensions: [gfmFromMarkdown()] }) as unknown as MdastNode;
+  fromMarkdown(source, { extensions: [gfmTable()], mdastExtensions: [gfmTableFromMarkdown()] }) as unknown as MdastNode;
 
 const SITE = "https://docs.example";
 

@@ -220,14 +220,13 @@ let packed: Site;
 let atRoot: Site;
 
 before(async () => {
-  [baked, rendered, noIndex, imaged, packed, atRoot] = await Promise.all([
-    buildSite({ host: "baked.test", rendering: "build" }),
-    buildSite({ host: "rendered.test", rendering: "request", mcp: true }),
-    buildSite({ host: "noindex.test", rendering: "request", llms: false }),
-    buildSite({ host: "imaged.test", rendering: "request", socialImage: "/social.png" }),
-    buildSite({ host: "packed.test", rendering: "request", bundle: false }),
-    buildSite({ host: "atroot.test", rendering: "request", atRoot: true, mcp: true }),
-  ]);
+  // One build at a time: Astro builds in one process share module state.
+  baked = await buildSite({ host: "baked.test", rendering: "build" });
+  rendered = await buildSite({ host: "rendered.test", rendering: "request", mcp: true });
+  noIndex = await buildSite({ host: "noindex.test", rendering: "request", llms: false });
+  imaged = await buildSite({ host: "imaged.test", rendering: "request", socialImage: "/social.png" });
+  packed = await buildSite({ host: "packed.test", rendering: "request", bundle: false });
+  atRoot = await buildSite({ host: "atroot.test", rendering: "request", atRoot: true, mcp: true });
 });
 
 after(async () => {

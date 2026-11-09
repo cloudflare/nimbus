@@ -359,6 +359,9 @@ importers:
       mdast-util-gfm:
         specifier: ^3.1.0
         version: 3.1.0
+      mdast-util-gfm-table:
+        specifier: ^2.0.0
+        version: 2.0.0
       mdast-util-math:
         specifier: ^3.0.0
         version: 3.0.0
@@ -368,9 +371,9 @@ importers:
       mdast-util-to-markdown:
         specifier: ^2.2.1
         version: 2.2.1
-      micromark-extension-gfm:
-        specifier: ^3.0.0
-        version: 3.0.0
+      micromark-extension-gfm-table:
+        specifier: ^2.1.2
+        version: 2.1.2
       mri:
         specifier: ^1.2.0
         version: 1.2.0

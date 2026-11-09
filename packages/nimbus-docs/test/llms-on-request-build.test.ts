@@ -226,13 +226,12 @@ let live: Site;
 let bodiesOnly: Site;
 
 before(async () => {
-  [baked, live, bodiesOnly] = await Promise.all([
-    buildSite("baked.test", "build"),
-    buildSite("live.test", "request"),
-    // No Markdown route and no MCP: nothing publishes a page's Markdown, yet
-    // the parts still need every body.
-    buildSite("bodies.test", "request", { markdownRoute: false }),
-  ]);
+  // One build at a time: Astro builds in one process share module state.
+  baked = await buildSite("baked.test", "build");
+  live = await buildSite("live.test", "request");
+  // No Markdown route and no MCP: nothing publishes a page's Markdown, yet
+  // the parts still need every body.
+  bodiesOnly = await buildSite("bodies.test", "request", { markdownRoute: false });
 });
 
 after(async () => {

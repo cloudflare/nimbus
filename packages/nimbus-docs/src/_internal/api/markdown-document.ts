@@ -8,8 +8,8 @@
  */
 
 import { fromMarkdown } from "mdast-util-from-markdown";
-import { gfmFromMarkdown } from "mdast-util-gfm";
-import { gfm } from "micromark-extension-gfm";
+import { gfmTableFromMarkdown } from "mdast-util-gfm-table";
+import { gfmTable } from "micromark-extension-gfm-table";
 import { absolutizeMarkdownLinks, type MdastNode } from "../markdown-links.js";
 import { withBase } from "../url.js";
 import type { ApiPageProps } from "./api-view-types.js";
@@ -65,10 +65,11 @@ function oneLine(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-// GFM, as the authored pages' parser reads: a `|` splits a table cell before
-// a code span can span it, so links sit where a GFM reader sees them.
+// GFM tables, as the authored pages' parser reads them: a `|` splits a cell
+// before a code span can span it, so links sit where a GFM reader sees them.
+// The other GFM constructs move no link, so only the table tokenizer ships.
 const parse = (source: string) =>
-  fromMarkdown(source, { extensions: [gfm()], mdastExtensions: [gfmFromMarkdown()] }) as unknown as MdastNode;
+  fromMarkdown(source, { extensions: [gfmTable()], mdastExtensions: [gfmTableFromMarkdown()] }) as unknown as MdastNode;
 
 /** The "Documentation Index" note every page Markdown opens with, when a route serves `/llms.txt`. */
 export function llmsIndexNoteLines(site: ApiMarkdownSite): string[] {
