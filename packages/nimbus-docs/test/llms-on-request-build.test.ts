@@ -1,0 +1,279 @@
+// The agent documents on request: on a site whose routes all render on
+// request, `/llms.txt`, each section index, `/llms-full.txt` and its parts are
+// not baked; the Worker makes them from the manifest's page list through the
+// functions the bake uses, so the indexes match a build-rendered site's files
+// in membership, order, titles, descriptions and links, and a part's blocks
+// are the build-rendered full document's. Server builds for the Cloudflare
+// adapter (by name; the Workers assets binding is stubbed to read dist/).
+
+import assert from "node:assert/strict";
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { register } from "node:module";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { after, before, test } from "node:test";
+
+import { build, type AstroIntegration } from "astro";
+
+import nimbus from "../src/index.ts";
+import { runningNimbusVersion } from "../src/_internal/upgrades.ts";
+import { TEST_TMP } from "./fixtures/temp-root.js";
+
+register(new URL("./fixtures/mcp/workers-loader.mjs", import.meta.url));
+const assetRoots = ((globalThis as { __nimbusTestAssetRoots?: Map<string, { dir: string; base: string }> }).__nimbusTestAssetRoots ??= new Map());
+
+const SRC_DIR = path.resolve(import.meta.dirname, "../src");
+
+const SPEC = JSON.stringify({
+  openapi: "3.0.0",
+  info: { title: "Pets", version: "1.0.0", description: "A pet store." },
+  paths: {
+    "/pets": {
+      get: { operationId: "listPets", summary: "List pets", description: "Every pet.", responses: { "200": { description: "ok" } } },
+      post: { operationId: "createPet", summary: "Create pet", responses: { "201": { description: "created" } } },
+    },
+  },
+});
+
+const DOCS: Record<string, string> = {
+  "index.md": "---\ntitle: Home\ndescription: Start here.\n---\n\nWelcome.\n",
+  "guide/index.md": "---\ntitle: Guide\ndescription: The guide.\n---\n\nRead [the start](/) first.\n",
+  "guide/advanced.md": "---\ntitle: Advanced\n---\n\nDeeper.\n",
+  "concepts/errors.md": "---\ntitle: Errors\ndescription: What can go wrong.\n---\n\nErrors happen.\n",
+  "concepts/limits.md": "---\ntitle: Limits\n---\n\nSlow down.\n",
+};
+
+interface Site {
+  root: string;
+  app: { render(request: Request): Promise<Response> };
+}
+
+async function buildSite(host: string, rendering: "build" | "request"): Promise<Site> {
+  const root = await realpath(await mkdtemp(path.join(TEST_TMP, "nimbus-llms-on-request-")));
+  const write = async (relative: string, contents: string) => {
+    await mkdir(path.dirname(path.join(root, relative)), { recursive: true });
+    await writeFile(path.join(root, relative), contents, "utf8");
+  };
+  await symlink(path.resolve(import.meta.dirname, "../node_modules"), path.join(root, "node_modules"), "dir");
+  await write("package.json", '{"type":"module"}\n');
+  await write("nimbus.json", `${JSON.stringify({ lastReviewedNimbusVersion: runningNimbusVersion() })}\n`);
+  await write("specs/pets.json", SPEC);
+  await write(
+    "src/content.config.ts",
+    `import { defineCollection } from "astro:content";
+import { apiCollection, docsCollection } from ${JSON.stringify(pathToFileURL(path.join(SRC_DIR, "content.ts")).href)};
+export const collections = {
+  docs: defineCollection(docsCollection()),
+  pets: defineCollection(apiCollection()),
+};
+`,
+  );
+  for (const [file, body] of Object.entries(DOCS)) await write(`src/content/docs/${file}`, body);
+  await write(
+    "src/pages/[...slug].astro",
+    `---
+import { getDocsStaticPaths, getDocsPage } from "@cloudflare/nimbus-docs/runtime";
+export const prerender = true;
+export const getStaticPaths = getDocsStaticPaths;
+const page = await getDocsPage(Astro);
+if (page instanceof Response) return page;
+---
+<html><body>doc</body></html>
+`,
+  );
+  await write(
+    "src/pages/pets/[...slug].astro",
+    `---
+import { getApiRoute, getApiStaticPaths } from "@cloudflare/nimbus-docs/runtime";
+export const prerender = true;
+export const getStaticPaths = getApiStaticPaths("pets");
+const result = await getApiRoute(Astro);
+if (result instanceof Response) return result;
+const { page } = result;
+---
+<html><body><main data-title={page.title}>{page.title}</main></body></html>
+`,
+  );
+  const routes = {
+    "src/pages/[...slug]/index.md.ts": "markdownRoute",
+    "src/pages/llms.txt.ts": "llmsRoute",
+    "src/pages/[...section]/llms.txt.ts": "llmsSectionRoute",
+    "src/pages/llms-full.txt.ts": "llmsFullRoute",
+  };
+  for (const [file, factory] of Object.entries(routes)) {
+    const paths = factory === "llmsRoute" || factory === "llmsFullRoute" ? "GET" : "GET, getStaticPaths";
+    await write(file, `import { ${factory} } from "@cloudflare/nimbus-docs/agent-endpoints";\nexport const { ${paths} } = ${factory}();\n`);
+  }
+  await write("server-entry.mjs", 'import { createApp } from "astro/app/entrypoint";\nexport const app = createApp();\n');
+
+  const adapter: AstroIntegration = {
+    name: "@astrojs/cloudflare",
+    hooks: {
+      "astro:config:done": ({ setAdapter }) => {
+        setAdapter({
+          name: "@astrojs/cloudflare",
+          entrypointResolution: "auto",
+          serverEntrypoint: path.join(root, "server-entry.mjs"),
+          supportedAstroFeatures: { serverOutput: "stable" },
+        });
+      },
+    },
+  };
+  await build({
+    root: pathToFileURL(`${root}${path.sep}`),
+    cacheDir: path.join(root, ".astro"),
+    outDir: "./dist",
+    build: { server: path.join(root, ".server"), client: path.join(root, "dist") },
+    vite: {
+      cacheDir: path.join(root, ".vite"),
+      resolve: {
+        alias: [
+          { find: /^@cloudflare\/nimbus-docs$/, replacement: path.join(SRC_DIR, "index.ts") },
+          { find: /^@cloudflare\/nimbus-docs\//, replacement: `${SRC_DIR}/` },
+        ],
+      },
+    },
+    site: `https://${host}`,
+    output: "server",
+    adapter,
+    integrations: [
+      nimbus(
+        {
+          site: `https://${host}`,
+          title: "Test",
+          description: "A test site.",
+          search: false,
+          rendering: { default: rendering },
+          api: [{ collection: "pets", spec: "./specs/pets.json" }],
+        } as Parameters<typeof nimbus>[0],
+        { admonitions: false, sitemap: false, validateMdx: false },
+      ),
+    ],
+  } as never);
+  assetRoots.set(host, { dir: path.join(root, "dist"), base: "/" });
+  const { app } = (await import(pathToFileURL(path.join(root, ".server/entry.mjs")).href)) as { app: Site["app"] };
+  return { root, app };
+}
+
+interface Manifest {
+  llmsAssets: Array<{ scope: string; surface: string; section?: string; path: string }>;
+  onRequest: { llms: boolean; llmsSections: boolean; llmsFull: boolean };
+  pages?: Array<{ collection: string; id: string; url: string; title: string }>;
+  buildId: string;
+}
+
+const manifestOf = async (site: Site): Promise<Manifest> =>
+  JSON.parse(await readFile(path.join(site.root, ".astro/nimbus/agent-endpoint-assets/manifest.json"), "utf8")) as Manifest;
+
+/** A build-rendered site's prerendered file. */
+const bakedFile = (site: Site, url: string) => readFile(path.join(site.root, "dist", ...url.split("/").filter(Boolean)), "utf8");
+
+const rehost = (body: string, from: string, to: string) => body.replaceAll(`https://${from}/`, `https://${to}/`);
+const links = (body: string) => [...body.matchAll(/^- \[([^\]]*)\]\(([^)]+)\)(?: — (.*))?$/gm)].map((m) => [m[1], m[2], m[3] ?? ""]);
+/** A full document's blocks: `# ` headings and what follows, in order. */
+const blocks = (body: string) => body.split(/\n(?=# )/).map((block) => block.trimEnd());
+
+const renders = () =>
+  ((globalThis as unknown as Record<symbol, Record<string, number> | undefined>)[Symbol.for("nimbus.llms-on-request.renders")] ?? {}) as Record<string, number>;
+
+let baked: Site;
+let live: Site;
+
+before(async () => {
+  [baked, live] = await Promise.all([buildSite("baked.test", "build"), buildSite("live.test", "request")]);
+});
+
+after(async () => {
+  await Promise.all([baked, live].filter(Boolean).map((site) => rm(site.root, { recursive: true, force: true, maxRetries: 5 })));
+});
+
+test("a request-rendered site bakes no agent document and lists its pages in the manifest", async () => {
+  const manifest = await manifestOf(live);
+  assert.deepEqual(manifest.onRequest, { llms: true, llmsSections: true, llmsFull: true });
+  assert.deepEqual(manifest.llmsAssets, []);
+  assert.ok(manifest.pages && manifest.pages.length >= 8, "the discoverable pages, docs and API");
+  assert.match(manifest.buildId, /^[0-9a-f]{16}$/);
+  const bakedManifest = await manifestOf(baked);
+  assert.deepEqual(bakedManifest.onRequest, { llms: false, llmsSections: false, llmsFull: false });
+  assert.equal(bakedManifest.pages, undefined, "a build-rendered site keeps its files and needs no page list");
+  assert.ok(bakedManifest.llmsAssets.length > 0);
+});
+
+test("/llms.txt renders the build-rendered index: same pages, order, titles, descriptions and links", async () => {
+  const response = await live.app.render(new Request("https://live.test/llms.txt"));
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("Content-Type") ?? "", /^text\/plain/);
+  assert.match(response.headers.get("ETag") ?? "", /^"sha256:[0-9a-f]{64}"$/);
+  const body = await response.text();
+  const expected = rehost(await bakedFile(baked, "/llms.txt"), "baked.test", "live.test");
+  assert.deepEqual(links(body), links(expected));
+  // The only sentence that may differ says whether the full document is one file or parts.
+  assert.equal(
+    body.replace(/^Full documentation .*$/m, "FULL"),
+    expected.replace(/^Full documentation .*$/m, "FULL"),
+  );
+  assert.match(body, /^Full documentation \(discoverable current pages, split by section\)/m);
+});
+
+test("each section index renders the build-rendered one", async () => {
+  const expectedIndex = rehost(await bakedFile(baked, "/llms.txt"), "baked.test", "live.test");
+  const sections = links(expectedIndex)
+    .map(([, href]) => href!)
+    .filter((href) => href.endsWith("/llms.txt"))
+    .map((href) => new URL(href).pathname);
+  assert.ok(sections.length >= 2, `sections: ${sections.join(", ")}`);
+  for (const pathname of sections) {
+    const response = await live.app.render(new Request(`https://live.test${pathname}`));
+    assert.equal(response.status, 200, pathname);
+    const body = await response.text();
+    assert.equal(body, rehost(await bakedFile(baked, pathname), "baked.test", "live.test"), pathname);
+  }
+  const unknown = await live.app.render(new Request("https://live.test/nowhere/llms.txt"));
+  assert.equal(unknown.status, 404);
+});
+
+test("/llms-full.txt is an index of parts; every part resolves and their blocks are the build-rendered document's", async () => {
+  const index = await live.app.render(new Request("https://live.test/llms-full.txt"));
+  assert.equal(index.status, 200);
+  const indexBody = await index.text();
+  assert.match(indexBody, /^# Test\n\n> The full documentation is served by section/);
+  assert.match(indexBody, /^Index: https:\/\/live\.test\/llms\.txt$/m);
+  const partUrls = links(indexBody).map(([, href]) => href!).filter((href) => href.endsWith("/llms-full.txt"));
+  const pageUrls = links(indexBody).map(([, href]) => href!).filter((href) => !href.endsWith("/llms-full.txt"));
+  assert.ok(partUrls.length >= 2, indexBody);
+  assert.doesNotMatch(indexBody, /\(\d+(\.\d+)? [KM]iB\)/, "parts are listed without sizes");
+
+  const partBlocks: string[] = [];
+  for (const href of partUrls) {
+    const response = await live.app.render(new Request(href));
+    assert.equal(response.status, 200, href);
+    const body = await response.text();
+    assert.match(body, /^# Test — /, href);
+    partBlocks.push(...blocks(body).slice(1));
+  }
+  // Pages the index links directly (top-level leaves) are not in any part.
+  const expectedFull = rehost(await bakedFile(baked, "/llms-full.txt"), "baked.test", "live.test");
+  const expectedBlocks = blocks(expectedFull).slice(1);
+  const leafTitles = pageUrls.length;
+  assert.equal(
+    partBlocks.length + leafTitles,
+    expectedBlocks.length,
+    `every page is in exactly one part or linked from the index\nparts: ${partBlocks.map((b) => b.split("\n")[0]).join(" | ")}\nleaves: ${pageUrls.join(", ")}\nexpected: ${expectedBlocks.map((b) => b.split("\n")[0]).join(" | ")}\nindex:\n${indexBody}`,
+  );
+  const normalize = (block: string) => block.replace(/\n+$/, "");
+  const expectedSet = new Set(expectedBlocks.map(normalize));
+  for (const block of partBlocks) assert.ok(expectedSet.has(normalize(block)), `block not in the build-rendered document:\n${block.slice(0, 300)}`);
+});
+
+test("a part is assembled once per isolate: the second request is a hit", async () => {
+  const href = links(await (await live.app.render(new Request("https://live.test/llms-full.txt"))).text())
+    .map(([, h]) => h!)
+    .find((h) => h.endsWith("/llms-full.txt"))!;
+  const before = renders().part ?? 0;
+  const first = await (await live.app.render(new Request(href))).text();
+  const afterFirst = renders().part ?? 0;
+  const second = await (await live.app.render(new Request(href))).text();
+  assert.equal(first, second);
+  assert.equal(renders().part, afterFirst, "no second render");
+  assert.ok(afterFirst >= before, "the first request may have rendered or hit an earlier test's render");
+});

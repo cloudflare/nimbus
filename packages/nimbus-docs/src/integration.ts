@@ -336,6 +336,7 @@ function surfaceSummary(surfaces: AgentSurfaces): unknown {
     llms: surfaces.llms,
     llmsSections: surfaces.llmsSections,
     llmsFull: surfaces.llmsFull,
+    onRequest: surfaces.onRequest,
   };
 }
 

@@ -16,6 +16,7 @@ import {
   renderedMarkdownPath,
   type RenderedMarkdownPage,
 } from "./_internal/api/markdown-record.js";
+import { renderLlmsDocument, rendersOnRequest } from "./_internal/llms-on-request.js";
 export type MarkdownEndpointSurface = "markdown" | "source";
 
 export interface MarkdownEndpointReference {
@@ -450,7 +451,13 @@ export async function getLlmsPayload(
   }
   const { llmsByIdentity } = await llmsIndex(context.request);
   const asset = llmsByIdentity.get(llmsIdentity(reference));
-  if (!asset) return null;
+  if (!asset) {
+    // A document whose route renders on request: made now from the page list.
+    const manifest = await loadAgentEndpointManifest(context.request);
+    if (!rendersOnRequest(manifest, reference)) return null;
+    const rendered = await renderLlmsDocument(manifest, reference, context.request);
+    return rendered ? { ...reference, ...rendered } : null;
+  }
   return {
     ...reference,
     digest: asset.digest,
