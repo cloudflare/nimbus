@@ -52,44 +52,79 @@ async function homepageMarkdownFallback(context: APIContext): Promise<Response |
 }
 
 /**
- * Cloudflare reads assets first, then resolves request-rendered alternates
- * through Astro. Other adapters fetch from the configured site origin.
+ * The Markdown a route of the site serves at `pathname`. Cloudflare reads
+ * assets first. A URL a request-rendered route owns is rewritten to it, and
+ * that answer is final: Astro's rewrite replaces the request's route, so the
+ * caller must never call `next()` after it. A URL a prerendered route owns
+ * is a file: read from the assets or, off Cloudflare, from the configured
+ * origin; when neither has it, `undefined`, and the page renders as HTML.
  */
-async function publishedMarkdown(context: APIContext, pathname: string): Promise<Response | undefined> {
+async function markdownResponse(context: APIContext, pathname: string): Promise<Response | undefined> {
   const path = withBase(pathname, options.base);
+  let rewrote = false;
   try {
     // Loaded on demand: the binding module exists only where the Worker runs.
     const { fetchAgentEndpointAsset } = await import("virtual:nimbus/agent-endpoint-asset-loader");
     const asset = await fetchAgentEndpointAsset(path, context.request);
-    if (asset?.status === 404) {
-      if (pathname === "/index.md" && options.homepageMarkdownFallback) {
+    if (asset && asset.status !== 404) return asset;
+    const { routes } = await import("virtual:nimbus/markdown-routes");
+    const owner = routes.find((route) => route.regex.test(pathname));
+    const homepageFallback = pathname === "/index.md" && options.homepageMarkdownFallback;
+    if ((owner !== undefined && !owner.prerendered) || homepageFallback) {
+      rewrote = true;
+      if (homepageFallback) {
         // A prebuilt /llms.txt can't be reached by rewrite from a
-        // request-rendered homepage; fall through to the /index.md route,
-        // whose factory serves the site llms payload itself.
+        // request-rendered homepage; the /index.md route's factory serves
+        // the site llms payload itself when this fails.
         try {
           const fallback = await homepageMarkdownFallback(context);
           if (fallback) return fallback;
         } catch {}
       }
       const route = await context.rewrite(pathname);
-      return route.ok && route.headers.get("Content-Type")?.includes("text/markdown") ? route : undefined;
+      const isMarkdown = route.headers.get("Content-Type")?.includes("text/markdown") ?? false;
+      if (isMarkdown) return route;
+      return new Response("Not found", { status: 404, headers: { "Content-Type": "text/markdown; charset=utf-8" } });
     }
-    if (asset) return asset.ok ? asset : undefined;
-    // No assets binding (non-Cloudflare server): a request-rendered Markdown
-    // route has no public file, so try the in-process rewrite first and fall
-    // back to fetching the deployed file from the configured origin.
-    try {
-      const route = await context.rewrite(pathname);
-      if (route.ok && route.headers.get("Content-Type")?.includes("text/markdown")) return route;
-    } catch {}
-    const origin = import.meta.env.DEV ? context.url.origin : new URL(options.site).origin;
-    const url = new URL(path, origin);
-    if (url.origin !== origin) return undefined;
-    const file = await fetch(url, { method: context.request.method, redirect: "error" });
-    return file.ok ? file : undefined;
-  } catch {
+    if (!asset) {
+      // No assets binding (non-Cloudflare server): the prerendered file lives
+      // at the deployed origin, and only there.
+      const origin = import.meta.env.DEV ? context.url.origin : new URL(options.site).origin;
+      const url = new URL(path, origin);
+      if (url.origin === origin) {
+        const file = await fetch(url, { method: context.request.method, redirect: "error" });
+        if (file.ok) return file;
+      }
+    }
     return undefined;
+  } catch (error) {
+    if (!rewrote) return undefined;
+    console.error(error);
+    return new Response("Internal Server Error", { status: 500 });
   }
+}
+
+/**
+ * The negotiated form: the Markdown response a route of the site serves,
+ * varying on Accept, with the homepage's discovery links. The page's HTML
+ * route never runs, so the headers are the Markdown route's.
+ */
+async function negotiatedMarkdown(context: APIContext, pathname: string, atHome: boolean): Promise<Response | undefined> {
+  const markdown = await markdownResponse(context, pathname);
+  if (!markdown) return undefined;
+  const headers = new Headers(markdown.headers);
+  for (const name of ["Content-Length", "Content-Encoding"]) headers.delete(name);
+  if (markdown.ok) headers.set("Content-Type", markdown.headers.get("Content-Type") ?? "text/markdown; charset=utf-8");
+  varyOnAccept(headers);
+  if (atHome && markdown.ok) {
+    const current: typeof capabilities = Reflect.get(context.locals, Symbol.for("nimbus.agent-capabilities")) ?? capabilities;
+    for (const value of agentHomepageLinks(current, options)) headers.append("Link", value);
+  }
+  return new Response(context.request.method === "HEAD" ? null : markdown.body, {
+    status: markdown.status,
+    statusText: markdown.statusText,
+    headers,
+  });
 }
 
 /**
@@ -139,6 +174,25 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
       if (markdown) return markdown;
     } catch {}
   }
+  // Only a request-rendered page on server output negotiates: a static host
+  // answers from its files before any middleware runs.
+  const live = options.output === "server" && !context.isPrerendered;
+  const atHome = isHome(context.url.pathname);
+  // A client that prefers Markdown gets a published page's Markdown without
+  // the page's HTML being rendered: the request goes to the route that
+  // serves the Markdown, so a site's wrapper around it still applies. Pages
+  // with no published Markdown, and clients preferring HTML, render as usual.
+  if (live && prefersMarkdown(context.request.headers.get("Accept"))) {
+    const markdownPath = atHome
+      ? capabilities.homepageMarkdownUrl
+        ? "/index.md"
+        : undefined
+      : (await pageEntry(context))?.markdownUrl;
+    if (markdownPath) {
+      const markdown = await negotiatedMarkdown(context, markdownPath, atHome);
+      if (markdown) return markdown;
+    }
+  }
   const response = await next();
   if (options.output === "server" && isMissingPage(response)) {
     // Both forms vary on Accept, so a cache never serves one for the other.
@@ -147,32 +201,15 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
       : withHeaders(response, varyOnAccept);
   }
   if (response.status !== 200) return response;
-  const atHome = isHome(context.url.pathname);
-  // Only a request-rendered page on server output negotiates: a static host
-  // answers from its files before any middleware runs.
-  const live = options.output === "server" && !context.isPrerendered && (response.headers.get("Content-Type")?.includes("text/html") ?? false);
-  const entry = live && !atHome ? await pageEntry(context) : undefined;
+  const html = live && (response.headers.get("Content-Type")?.includes("text/html") ?? false);
   // A page negotiates only when a route of the site serves its Markdown.
-  const negotiates = live && (atHome ? !!capabilities.homepageMarkdownUrl : !!entry?.markdownUrl);
-  let markdown: Response | undefined;
-  if (negotiates && prefersMarkdown(context.request.headers.get("Accept"))) {
-    markdown = await publishedMarkdown(context, atHome ? "/index.md" : entry!.markdownUrl!);
-  }
+  const negotiates = html && (atHome ? !!capabilities.homepageMarkdownUrl : !!(await pageEntry(context))?.markdownUrl);
   if (!negotiates && !atHome) return response;
-  // The Markdown form keeps the page's own response headers and swaps the body.
   const headers = new Headers(response.headers);
-  if (markdown) {
-    for (const name of ["Content-Length", "Content-Encoding", "ETag", "Last-Modified"]) headers.delete(name);
-    headers.set("Content-Type", markdown.headers.get("Content-Type") ?? "text/markdown; charset=utf-8");
-  }
   if (negotiates) varyOnAccept(headers);
   if (atHome) {
     const current: typeof capabilities = Reflect.get(context.locals, Symbol.for("nimbus.agent-capabilities")) ?? capabilities;
     for (const value of agentHomepageLinks(current, options)) headers.append("Link", value);
   }
-  return new Response(markdown ? (context.request.method === "HEAD" ? null : markdown.body) : response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 };

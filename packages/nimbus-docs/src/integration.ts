@@ -840,6 +840,12 @@ export function nimbus(
           asset.collection,
           asset.id,
         );
+      } else if (
+        // An API served at the site root that renders on request: its
+        // overview's Markdown is described, not baked.
+        manifest.rendered.some((page) => page.published && page.url.replace(/\/+$/u, "") === "")
+      ) {
+        sharedHomepage = true;
       }
     }
     const hasLlms = endpointRoutesForBuild.some(
@@ -1564,6 +1570,9 @@ export function nimbus(
               componentMap: options.markdown?.componentMap,
               partialResolver,
               fullDocument: servesFullDocument ?? true,
+              // Request-rendered API pages are described, not baked: the Worker
+              // renders their Markdown from the records it holds.
+              requestRendered: (collection) => requestRenderingCollections.has(collection),
               ...(agentSurfacesForBuild ? { surfaces: agentSurfacesForBuild } : {}),
               // Pagefind over request-rendered pages reads each page's text
               // from the build cache, route or no route.
@@ -1700,7 +1709,7 @@ export function nimbus(
                 }
                 return apiEntries;
               },
-              renderApiEntryMarkdown: async (entry, base) => {
+              projectApiEntryPage: async (entry) => {
                 const coordinate = entry.data.coordinate;
                 if (typeof coordinate !== "string") {
                   throw new Error(
@@ -1742,22 +1751,15 @@ export function nimbus(
                   const row = index.byId.get(coordinate);
                   if (!row)
                     throw new Error(`Missing API Markdown page ${coordinate}.`);
-                  const [{ resolveApiAssetLinks }, { renderApiPageMarkdown }] =
-                    await Promise.all([
-                      import("./_internal/api/page-assets-links.js"),
-                      import("./api/index.js"),
-                    ]);
-                  return renderApiPageMarkdown(
-                    resolveApiAssetLinks(
-                      await pageAssetsBuild.readApiAssetPageForBuild(
-                        projectRoot,
-                        row,
-                      ),
-                      target,
-                      index,
-                    ) as import("./api/index.js").ApiPageProps,
-                    { base },
-                  );
+                  const { resolveApiAssetLinks } = await import("./_internal/api/page-assets-links.js");
+                  return resolveApiAssetLinks(
+                    await pageAssetsBuild.readApiAssetPageForBuild(
+                      projectRoot,
+                      row,
+                    ),
+                    target,
+                    index,
+                  ) as import("./api/index.js").ApiPageProps;
                 }
                 let model = apiMarkdownModels.get(modelKey);
                 if (!model) {
@@ -1779,12 +1781,8 @@ export function nimbus(
                     .then(apiLoader.buildApiModel);
                   apiMarkdownModels.set(modelKey, model);
                 }
-                const { getApiPageProps, renderApiPageMarkdown } =
-                  await import("./api/index.js");
-                return renderApiPageMarkdown(
-                  getApiPageProps(await model, coordinate),
-                  { base },
-                );
+                const { getApiPageProps } = await import("./api/index.js");
+                return getApiPageProps(await model, coordinate);
               },
             });
           },
@@ -4115,6 +4113,10 @@ export function nimbus(
             endpointRoutesForBuild,
             [
               ...manifest.markdownAssets.map(({ url }) => url),
+              // Described pages: a prerendered route that owns one must still generate it.
+              ...manifest.rendered
+                .filter((page) => page.published)
+                .map((page) => (page.url.replace(/\/+$/u, "") === "" ? "/index.md" : `${page.url.replace(/\/+$/u, "")}/index.md`)),
               ...manifest.llmsAssets.map(llmsAssetUrl),
             ].filter((url) => !reported.has(url)),
             generated,

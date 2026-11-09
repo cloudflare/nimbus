@@ -12,7 +12,11 @@ import {
   loadNimbusConfig,
 } from "./runtime-config.js";
 import { getIndexedEntries, getVersionStatus, renderIndexedEntryMarkdown } from "../runtime.js";
-import { readConfiguredMarkdownEndpointPayload } from "./agent-endpoint-asset-reader.js";
+import {
+  readConfiguredMarkdownEndpointPayload,
+  readConfiguredRenderedMarkdownPage,
+} from "./agent-endpoint-asset-reader.js";
+import { renderMarkdownDocument } from "./api/markdown-record.js";
 
 export const prerender = true;
 
@@ -88,6 +92,10 @@ async function pageText(
       })
     ).content;
   } catch {
+    // Not baked: an API page that renders on request takes the serialization
+    // the route uses, so the search text is the content the `.md` carries.
+    const page = await readConfiguredRenderedMarkdownPage(projectRoot, { collection, id: item.entry.id });
+    if (page) return (await renderMarkdownDocument(page)).content;
     return renderIndexedEntryMarkdown(item);
   }
 }

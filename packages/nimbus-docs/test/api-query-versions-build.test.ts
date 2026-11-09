@@ -9,6 +9,7 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { register } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { test, before, after } from "node:test";
@@ -18,6 +19,12 @@ import { build, type AstroIntegration } from "astro";
 import nimbus from "../src/index.ts";
 import { runningNimbusVersion } from "../src/_internal/upgrades.ts";
 import { TEST_TMP } from "./fixtures/temp-root.js";
+
+// The request-rendered API's Markdown is made on request from the client
+// directory's records, read through the Workers assets binding: stub it to
+// read `dist/`.
+register(new URL("./fixtures/mcp/workers-loader.mjs", import.meta.url));
+const assetRoots = ((globalThis as { __nimbusTestAssetRoots?: Map<string, { dir: string; base: string }> }).__nimbusTestAssetRoots ??= new Map());
 
 const SRC_DIR = path.resolve(import.meta.dirname, "../src");
 
@@ -350,6 +357,7 @@ export const { GET, getStaticPaths } = llmsSectionRoute();
       ),
     ],
   } as never);
+  assetRoots.set("example.test", { dir: path.join(root, "dist"), base: "/" });
   ({ app } = (await import(
     pathToFileURL(path.join(root, ".server/entry.mjs")).href
   )) as { app: typeof app });
@@ -507,24 +515,25 @@ test("head: the default is indexable with its Markdown alternate and card; non-d
 });
 
 test("agent assets cover the default version only, at version-free URLs", async () => {
-  // The baked agent assets are static files the CDN serves ahead of the
-  // Worker; the test adapter has no static layer, so assert on the build
-  // products: the asset manifest and the content-addressed files.
+  // The API renders on request, so its page Markdown is described in the
+  // manifest and made when asked for; the indexes are still baked files the
+  // CDN serves ahead of the Worker, so assert on them from the build products.
   const manifest = JSON.parse(
-    await readFile(
-      path.join(root, ".astro/nimbus/agent-endpoint-assets/manifest.json"),
-      "utf8",
-    ),
+    await readFile(path.join(root, ".astro/nimbus/agent-endpoint-assets/manifest.json"), "utf8"),
   ) as {
     markdownAssets: Array<{ collection: string; id: string; url: string; path: string }>;
+    rendered: Array<{ collection: string; id: string; version: string | null; coordinate: string; url: string; published: boolean }>;
     llmsAssets: Array<{ scope: string; section?: string; path: string }>;
   };
   const assetsDir = path.join(root, "dist/_nimbus/agent-endpoint-assets");
 
-  const qvTwins = manifest.markdownAssets
-    .filter((asset) => asset.collection === "qv")
-    .map((asset) => asset.url)
-    .sort();
+  assert.deepEqual(
+    manifest.markdownAssets.filter((asset) => asset.collection === "qv"),
+    [],
+    "a request-rendered API bakes no page Markdown",
+  );
+  const qvPages = manifest.rendered.filter((page) => page.collection === "qv");
+  const qvTwins = qvPages.map((page) => `${page.url.replace(/\/$/, "")}/index.md`).sort();
   assert.deepEqual(qvTwins, [
     "/qv/create-pet/index.md",
     "/qv/index.md",
@@ -533,12 +542,16 @@ test("agent assets cover the default version only, at version-free URLs", async 
   for (const url of qvTwins) {
     assert.ok(!/[?&]version=/.test(url) && !/\/qv\/v[01]\//.test(url), url);
   }
+  assert.ok(qvPages.every((page) => page.published && page.version === "v2"), "the default version, published");
 
-  const twinAsset = manifest.markdownAssets.find(
-    (asset) => asset.collection === "qv" && asset.id === "list-pets",
-  )!;
-  const twin = await readFile(path.join(assetsDir, twinAsset.path), "utf8");
-  assert.match(twin, /list-pets \(v2\)/, "the twin describes the default version");
+  const twin = await app.render(new Request("https://example.test/qv/list-pets/index.md"));
+  assert.equal(twin.status, 200);
+  assert.match(twin.headers.get("Content-Type") ?? "", /text\/markdown/);
+  assert.match(twin.headers.get("ETag") ?? "", /^"sha256:[0-9a-f]{64}"$/, "the document's own fingerprint");
+  const body = await twin.text();
+  assert.match(body, /^---\ntitle: /, "the envelope's frontmatter");
+  assert.match(body, /list-pets \(v2\)/, "the twin describes the default version");
+  assert.match(body, /\nSource: https:\/\/example\.test\/qv\/list-pets\/index\.md\n$/, "the Source line names the served .md");
 
   const qvLlms = manifest.llmsAssets.find((asset) => asset.section === "qv")!;
   const llmsText = await readFile(path.join(assetsDir, qvLlms.path), "utf8");

@@ -18,6 +18,8 @@ import path from "node:path";
 
 import { entryRouteUrl } from "./astro-slug.js";
 import { isPreparedApiPage } from "./api/prepared.js";
+import { renderApiMarkdownDocument } from "./api/markdown-document.js";
+import type { RenderedMarkdownPage } from "./api/markdown-record.js";
 import { expandPreparedPartials } from "./build-partials.js";
 import {
   COLLECTION_URLS_DOCS,
@@ -79,7 +81,7 @@ import type {
   MarkdownEndpointReference,
 } from "../agent-endpoints.js";
 
-export const AGENT_ENDPOINT_ASSET_MANIFEST_VERSION = 6;
+export const AGENT_ENDPOINT_ASSET_MANIFEST_VERSION = 7;
 export const AGENT_ENDPOINT_ASSET_GENERATION = 1;
 
 export interface MarkdownEndpointAsset extends MarkdownEndpointReference {
@@ -112,11 +114,13 @@ export interface PageIndexAsset {
 }
 
 export interface AgentEndpointAssetManifest {
-  version: 6;
+  version: 7;
   generation: number;
   base: string;
   audience: "public";
   markdownAssets: MarkdownEndpointAsset[];
+  /** API pages that render their Markdown on request instead of baking it. */
+  rendered: RenderedMarkdownPage[];
   llmsAssets: LlmsEndpointAsset[];
   pageIndex?: PageIndexAsset;
   headings: PreparedHeadingRecord[];
@@ -144,6 +148,12 @@ export type AgentEndpointVisibilityDecision =
   | { status: "unknown"; reason: string };
 
 export interface BakeAgentEndpointAssetsOptions {
+  /**
+   * Whether a collection's pages render on request. Such an API page's
+   * Markdown is not baked: the manifest describes the page and the Worker
+   * renders it when asked, through the same serialization.
+   */
+  requestRendered?: (collection: string) => boolean;
   /** Each page's place in the sidebar's reading order, given the pages. Without it, indexes list by URL. */
   sidebarPosition?: (pages: ReadonlyArray<{ collection: string; url: string }>) => Promise<SidebarPosition>;
   root: URL | string;
@@ -204,10 +214,10 @@ export interface BakeAgentEndpointAssetsOptions {
    * Then each sub-folder gets its own `llms.txt`. Default false.
    */
   nestedSections?: boolean;
-  renderApiEntryMarkdown?: (
+  /** The page view model of an API entry that carries none (thin entries). */
+  projectApiEntryPage?: (
     entry: LlmsEndpointApiEntry,
-    base: string,
-  ) => Promise<string>;
+  ) => Promise<import("./api/api-view-types.js").ApiPageProps>;
 }
 
 /** Whether a route of the site serves `url`; every URL when no surfaces were given. */
@@ -686,10 +696,9 @@ function entryDescription(
     : undefined;
 }
 
-// API titles come from spec summaries, which can span lines; a line break in a
-// `# title` would start a new heading.
-function oneLine(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
+/** An entry's title, as the document's frontmatter carries it. */
+function oneLineTitle(entry: Pick<PreparedMarkdownEntry, "id" | "data">): string {
+  return typeof entry.data.title === "string" && entry.data.title.length > 0 ? entry.data.title : entry.id;
 }
 
 function frontmatter(
@@ -772,27 +781,6 @@ function llmsIndexNote(options: BakeAgentEndpointAssetsOptions): string[] {
     "> Use this file to discover all available pages before exploring further.",
     "",
   ];
-}
-
-// API pages have no authored source, so `Source:` points at the Markdown URL
-// itself. The description is left out of the frontmatter: the body prints it.
-function apiMarkdownAsset(
-  entry: LlmsEndpointApiEntry,
-  markdown: string,
-  markdownUrl: string,
-  options: BakeAgentEndpointAssetsOptions,
-): MarkdownEndpointPayloadBody {
-  const prefix = [
-    ...frontmatter(entry, options),
-    "",
-    ...llmsIndexNote(options),
-    `# ${oneLine(typeof entry.data.title === "string" && entry.data.title.length > 0 ? entry.data.title : entry.id)}`,
-    "",
-  ].join("\n");
-  // The source is the Markdown URL when a route serves it, else the page.
-  const source = publishes(options, markdownUrl) ? markdownUrl : preparedLlmsPage(entry, "", options, true).url;
-  const suffix = ["", `Source: ${absoluteUrl(options.site, options.base, source)}`, ""].join("\n");
-  return envelopedAsset(`${prefix}\n`, markdown, `\n${suffix}`);
 }
 
 function sourceAsset(
@@ -2061,6 +2049,8 @@ export async function bakeAgentEndpointAssets(
   };
 
   const records: Array<MarkdownEndpointAsset & { body: string }> = [];
+
+  const renderedPages: RenderedMarkdownPage[] = [];
   const headingRecords: PreparedHeadingRecord[] = [];
   const preparedLlmsPages: PreparedLlmsPage[] = [];
   const llmsRoutePages: PreparedLlmsPage[] = [];
@@ -2206,31 +2196,64 @@ export async function bakeAgentEndpointAssets(
         `nimbus-docs: API entry "${entry.id}" in collection "${entry.collection}" is missing its coordinate — the apiCollection() loader should have set it.`,
       );
     }
+    const url = preparedMarkdownUrls(entry, options).markdown;
+    const published = publishes(options, url);
+    const rendered = options.requestRendered?.(entry.collection) === true;
+    const meta = {
+      collection: entry.collection,
+      id: entry.id,
+      title: oneLineTitle(entry),
+      ...(typeof entry.data.version === "string" ? { version: entry.data.version } : {}),
+      ...(typeof entry.data.socialImage === "string" && entry.data.socialImage.length > 0
+        ? { image: entry.data.socialImage }
+        : {}),
+      url: routePage.url,
+    };
+    if (rendered) {
+      // The Worker renders this page's Markdown from the record it already
+      // holds; the build only describes it. Its body is made here only when a
+      // build-time document needs it.
+      renderedPages.push({
+        collection: entry.collection,
+        id: entry.id,
+        version: typeof entry.data.version === "string" ? entry.data.version : null,
+        coordinate,
+        title: meta.title,
+        ...(meta.image ? { image: meta.image } : {}),
+        url: routePage.url,
+        published,
+      });
+      // The indexes list the page without its body; only the full document
+      // needs the body made here.
+      if (!(servesLlmsFull(options) && isDiscoverable(entry))) {
+        if (isDiscoverable(entry)) preparedLlmsPages.push(preparedLlmsPage(entry, "", options, true));
+        continue;
+      }
+    }
     const prepared = entry.data.prepared;
-    let markdown: string;
+    let page: import("./api/api-view-types.js").ApiPageProps;
     if (isPreparedApiPage(prepared)) {
-      const { renderApiPageMarkdown } = await import("./api/markdown.js");
-      markdown = renderApiPageMarkdown(prepared.page, { base });
-    } else if (options.renderApiEntryMarkdown) {
-      markdown = await options.renderApiEntryMarkdown(entry, base);
+      page = prepared.page;
+    } else if (options.projectApiEntryPage) {
+      page = await options.projectApiEntryPage(entry);
     } else {
       throw new Error(
         `nimbus-docs: API entry "${entry.id}" in collection "${entry.collection}" is missing its prepared page data — rebuild the apiCollection() index.`,
       );
     }
-    markdown = absoluteMarkdownLinks(markdown, options.site);
+    const document = renderApiMarkdownDocument(page, meta, {
+      site: options.site,
+      base,
+      ...(options.socialImage ? { socialImage: options.socialImage } : {}),
+      publishes: (candidate) => publishes(options, candidate),
+    });
+    const markdown = document.content;
     if (isDiscoverable(entry)) {
       preparedLlmsPages.push(preparedLlmsPage(entry, markdown, options, true));
     }
-    const url = preparedMarkdownUrls(entry, options).markdown;
-    const published = publishes(options, url);
+    if (rendered) continue;
     if (!published && !options.mcpUrl && !options.buildBodies) continue;
-    const { body, contentStart, contentEnd } = apiMarkdownAsset(
-      entry,
-      markdown,
-      url,
-      options,
-    );
+    const { body, contentStart, contentEnd } = document;
     const fingerprint = digest(
       JSON.stringify({
         generation: AGENT_ENDPOINT_ASSET_GENERATION,
@@ -2423,6 +2446,7 @@ export async function bakeAgentEndpointAssets(
     base,
     audience: "public",
     markdownAssets: records.map(withoutBody),
+    rendered: renderedPages,
     llmsAssets: llmsRecords.map(withoutBody),
     ...(pageIndexRecord ? { pageIndex: withoutBody(pageIndexRecord) } : {}),
     headings: headingRecords,
@@ -2586,4 +2610,8 @@ export async function readLlmsEndpointPayload(
   }
 }
 
-registerAgentEndpointAssetReader(readMarkdownEndpointPayload);
+registerAgentEndpointAssetReader(readMarkdownEndpointPayload, async (root, reference) =>
+  (await ensureAgentEndpointAssets(root)).rendered.find(
+    (page) => page.collection === reference.collection && page.id === reference.id,
+  ),
+);

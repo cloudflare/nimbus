@@ -901,7 +901,10 @@ const WORKER_TEXT_DENYLIST = [
   {
     category: "parser",
     pattern:
-      /(?:@astrojs[\\/]markdown-satteri|@bruits[\\/]|node_modules[\\/]satteri(?:[\\/]|$)|(?:from\s*|import\s*\(?|require\s*\()\s*["']satteri(?:[\\/][^"']*)?["']|(?:node_modules[\\/]|["'])(?:unified|micromark|mdast-util-from-markdown|@mdx-js[\\/]mdx)(?:[\\/"']|$)|remark-(?:parse|mdx))/,
+      /(?:@astrojs[\\/]markdown-satteri|@bruits[\\/]|node_modules[\\/]satteri(?:[\\/]|$)|(?:from\s*|import\s*\(?|require\s*\()\s*["']satteri(?:[\\/][^"']*)?["']|(?:node_modules[\\/]|["'])(?:unified|@mdx-js[\\/]mdx)(?:[\\/"']|$)|remark-(?:parse|mdx))/,
+    // `micromark` and `mdast-util-from-markdown` are admitted: the API
+    // Markdown serialization parses with them on request, and they run in a
+    // Worker. Sätteri, unified and the MDX compiler stay forbidden.
   },
   {
     category: "compiler",
@@ -965,8 +968,6 @@ function assertWorkerPurityScanner() {
     ['require("satteri/browser")', "parser"],
     ["/bundle/node_modules/satteri/browser.js", "parser"],
     ['import("remark-parse")', "parser"],
-    ['import("micromark")', "parser"],
-    ['from "mdast-util-from-markdown"', "parser"],
     ['require("@mdx-js/mdx")', "parser"],
     ['import ts from "typescript"', "compiler"],
     ["/bundle/node_modules/typescript/lib/typescript.js", "compiler"],

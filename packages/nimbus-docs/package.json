@@ -189,6 +189,7 @@
 		"mdast-util-math": "^3.0.0",
 		"mdast-util-mdx": "^3.0.0",
 		"mdast-util-to-markdown": "^2.2.1",
+		"micromark-extension-gfm": "^3.0.0",
 		"mri": "^1.2.0",
 		"picomatch": "^4.0.7",
 		"satteri": "^0.10.5",

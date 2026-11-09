@@ -122,6 +122,18 @@ const apiPage = (title: string) => ({
   },
 });
 
+/** The smallest API page view model: an overview whose body is its description. */
+const thinPage = (description: string) =>
+  ({
+    kind: "api",
+    deprecated: false,
+    breadcrumbs: [],
+    description,
+    version: null,
+    servers: [],
+    sections: [],
+  }) as unknown as Parameters<typeof renderApiPageMarkdown>[0];
+
 test("bakes API discovery from thin entries through the projection callback", async () => {
   const projectRoot = await root();
   const entry = {
@@ -140,16 +152,16 @@ test("bakes API discovery from thin entries through the projection callback", as
     site: "https://example.test",
     title: "Test",
     apiEntries: [entry],
-    renderApiEntryMarkdown: async (candidate: typeof entry, base: string) => {
-      calls.push(`${candidate.collection}:${candidate.id}:${base}`);
-      return "# Create charge\n\nCreates a charge.\n";
+    projectApiEntryPage: async (candidate: typeof entry) => {
+      calls.push(`${candidate.collection}:${candidate.id}`);
+      return thinPage("Creates a charge.");
     },
   };
 
   configure(projectRoot, options);
   await bakeAgentEndpointAssets(options);
 
-  assert.deepEqual(calls, ["api:charges/create:/docs"]);
+  assert.deepEqual(calls, ["api:charges/create"]);
   const full = await readLlmsEndpointPayload(projectRoot, {
     scope: "site",
     surface: "full",
@@ -1217,7 +1229,7 @@ test("bakes every Markdown asset at its public URL, API pages included, hidden A
   configure(projectRoot, options);
   const manifest = await bakeAgentEndpointAssets(options);
 
-  assert.equal(manifest.version, 6);
+  assert.equal(manifest.version, 7);
   assert.deepEqual(
     manifest.markdownAssets.map((asset) => `${asset.surface} ${asset.url}`).sort(),
     [
@@ -1811,7 +1823,7 @@ const thinApi = (id: string, title: string, section?: string) => ({
   data: { title, coordinate: id },
   ...(section ? { section } : {}),
 });
-const renderThin = async (candidate: { data: Record<string, unknown> }) => `# ${String(candidate.data.title)}\n`;
+const renderThin = async (candidate: { data: Record<string, unknown> }) => thinPage(String(candidate.data.title));
 
 test("nested sections: API operations are listed under their resource, with no methods section", async () => {
   const projectRoot = await root();
@@ -1832,7 +1844,7 @@ test("nested sections: API operations are listed under their resource, with no m
       // A resource with no operations is a page of its parent.
       thinApi("zero-trust/settings", "Settings", "zero-trust"),
     ],
-    renderApiEntryMarkdown: renderThin,
+    projectApiEntryPage: renderThin,
   };
   configure(projectRoot, options);
   const manifest = await bakeAgentEndpointAssets(options);
@@ -1872,7 +1884,7 @@ test("nested sections: an API mounted at the root lists each operation in its ta
       thinApi("users/list", "List users", "tags/user-management"),
       thinApi("users/create", "Create user", "tags/user-management"),
     ],
-    renderApiEntryMarkdown: renderThin,
+    projectApiEntryPage: renderThin,
   };
   configure(projectRoot, options);
   const manifest = await bakeAgentEndpointAssets(options);

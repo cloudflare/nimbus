@@ -56,6 +56,8 @@ content-type: text/markdown; charset=utf-8
 vary: Accept
 ```
 
+The Markdown form is answered before the page's HTML renders: the request goes to the route that serves the page's Markdown, so the response carries that route's headers (and an `ETag` of the Markdown) rather than headers the page sets for its HTML. Wrap `markdownRoute()` to add headers to the Markdown form.
+
 When a request-rendered route finds no page, it answers the same request with a `404` and a short Markdown body that links `/llms.txt` and the sitemap. The starter's docs route answers every URL, so every missing page gets it. If your docs live under a prefix such as `/guides/`, a URL outside it gets your HTML 404 page.
 
 If `content-type` is `text/html`, the page is still prerendered: check that its collection is set to `"request"`. A browser's `Accept: */*` always gets HTML.
