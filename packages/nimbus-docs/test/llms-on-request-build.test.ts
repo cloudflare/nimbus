@@ -48,7 +48,7 @@ interface Site {
   app: { render(request: Request): Promise<Response> };
 }
 
-async function buildSite(host: string, rendering: "build" | "request"): Promise<Site> {
+async function buildSite(host: string, rendering: "build" | "request", options: { markdownRoute?: boolean } = {}): Promise<Site> {
   const root = await realpath(await mkdtemp(path.join(TEST_TMP, "nimbus-llms-on-request-")));
   const write = async (relative: string, contents: string) => {
     await mkdir(path.dirname(path.join(root, relative)), { recursive: true });
@@ -95,7 +95,7 @@ const { page } = result;
 `,
   );
   const routes = {
-    "src/pages/[...slug]/index.md.ts": "markdownRoute",
+    ...(options.markdownRoute === false ? {} : { "src/pages/[...slug]/index.md.ts": "markdownRoute" }),
     "src/pages/llms.txt.ts": "llmsRoute",
     "src/pages/[...section]/llms.txt.ts": "llmsSectionRoute",
     "src/pages/llms-full.txt.ts": "llmsFullRoute",
@@ -178,13 +178,56 @@ const renders = () =>
 
 let baked: Site;
 let live: Site;
+let bodiesOnly: Site;
 
 before(async () => {
-  [baked, live] = await Promise.all([buildSite("baked.test", "build"), buildSite("live.test", "request")]);
+  [baked, live, bodiesOnly] = await Promise.all([
+    buildSite("baked.test", "build"),
+    buildSite("live.test", "request"),
+    // No Markdown route and no MCP: nothing publishes a page's Markdown, yet
+    // the parts still need every body.
+    buildSite("bodies.test", "request", { markdownRoute: false }),
+  ]);
 });
 
 after(async () => {
-  await Promise.all([baked, live].filter(Boolean).map((site) => rm(site.root, { recursive: true, force: true, maxRetries: 5 })));
+  await Promise.all([baked, live, bodiesOnly].filter(Boolean).map((site) => rm(site.root, { recursive: true, force: true, maxRetries: 5 })));
+});
+
+// Before any other test asks for a part: a cold render, shared by concurrent
+// requests, then a memo hit.
+test("a part is assembled once per isolate: concurrent requests share the render and the next request is a hit", async () => {
+  const index = await (await live.app.render(new Request("https://live.test/llms-full.txt"))).text();
+  const href = links(index).map(([, h]) => h!).find((h) => h.endsWith("/llms-full.txt"))!;
+  const before = renders().part ?? 0;
+  const [first, second] = await Promise.all([live.app.render(new Request(href)), live.app.render(new Request(href))]);
+  assert.equal(first.status, 200);
+  assert.equal(await first.text(), await second.text());
+  assert.equal(renders().part, before + 1, "one cold render for two concurrent requests");
+  const third = await live.app.render(new Request(href));
+  assert.equal(third.status, 200);
+  assert.equal(renders().part, before + 1, "a memo hit renders nothing");
+});
+
+test("with no Markdown route and no MCP, the parts still read every page's body", async () => {
+  const manifest = await manifestOf(bodiesOnly);
+  assert.deepEqual(manifest.onRequest, { llms: true, llmsSections: true, llmsFull: true });
+  // The deployed manifest keeps the unpublished bodies the parts read.
+  const deployed = JSON.parse(
+    await readFile(path.join(bodiesOnly.root, "dist/_nimbus/agent-endpoint-assets/manifest.json"), "utf8"),
+  ) as { markdownAssets: Array<{ collection: string; published?: false }> };
+  assert.ok(deployed.markdownAssets.some((asset) => asset.collection === "docs" && asset.published === false));
+  const index = await (await bodiesOnly.app.render(new Request("https://bodies.test/llms-full.txt"))).text();
+  for (const href of links(index).map(([, h]) => h!).filter((h) => h.endsWith("/llms-full.txt"))) {
+    const response = await bodiesOnly.app.render(new Request(href));
+    assert.equal(response.status, 200, href);
+    const body = await response.text();
+    assert.match(body, /^# Test — /, href);
+    assert.ok(blocks(body).length >= 2, `${href} holds its pages`);
+    // No page links a Markdown URL: none is served.
+    assert.doesNotMatch(body, /index\.md/);
+  }
+  assert.doesNotMatch(index, /index\.md/);
 });
 
 test("a request-rendered site bakes no agent document and lists its pages in the manifest", async () => {
@@ -263,17 +306,4 @@ test("/llms-full.txt is an index of parts; every part resolves and their blocks 
   const normalize = (block: string) => block.replace(/\n+$/, "");
   const expectedSet = new Set(expectedBlocks.map(normalize));
   for (const block of partBlocks) assert.ok(expectedSet.has(normalize(block)), `block not in the build-rendered document:\n${block.slice(0, 300)}`);
-});
-
-test("a part is assembled once per isolate: the second request is a hit", async () => {
-  const href = links(await (await live.app.render(new Request("https://live.test/llms-full.txt"))).text())
-    .map(([, h]) => h!)
-    .find((h) => h.endsWith("/llms-full.txt"))!;
-  const before = renders().part ?? 0;
-  const first = await (await live.app.render(new Request(href))).text();
-  const afterFirst = renders().part ?? 0;
-  const second = await (await live.app.render(new Request(href))).text();
-  assert.equal(first, second);
-  assert.equal(renders().part, afterFirst, "no second render");
-  assert.ok(afterFirst >= before, "the first request may have rendered or hit an earlier test's render");
 });

@@ -388,7 +388,7 @@ export function blockquote(text: string): string {
     .join("\n");
 }
 
-function llmsFullBlock(page: LlmsPage, markdown: string): LlmsFullBlock {
+export function llmsFullBlock(page: LlmsPage, markdown: string): LlmsFullBlock {
   const block = {
     title: page.title,
     description: page.description,
@@ -616,20 +616,12 @@ export function llmsFullPartsIndex(pages: readonly LlmsPage[], ctx: LlmsDocument
 }
 
 /**
- * One part of a request-rendered `llms-full`: the section's pages in full
- * when they fit, else an index of its sub-sections' parts and its own pages.
+ * An oversize part of a request-rendered `llms-full`: an index of the
+ * section's sub-section parts and links to its own pages (the baked split's
+ * shape), so nothing larger than the limit is ever assembled or sent.
  */
-export function llmsFullPart<P extends LlmsPage>(
-  group: LlmsGroup<P>,
-  ctx: LlmsDocumentContext,
-  markdownOf: (page: P) => string,
-  limit = LLMS_FULL_LIMIT_BYTES,
-): string {
+export function llmsFullPartIndex(group: LlmsGroup, ctx: LlmsDocumentContext, limit = LLMS_FULL_LIMIT_BYTES): string {
   const header = sectionFullHeader(group, ctx);
-  const members = pagesUnder(group);
-  const blocks = members.map((page) => llmsFullBlock(page, markdownOf(page)));
-  const bytes = llmsFullHeaderBytes(header) + blocks.reduce((sum, block) => sum + llmsFullBlockBytes(block, header), 0) - 1;
-  if (bytes <= limit) return buildLlmsFullMarkdown(blocks, header);
   const siteHeader = llmsFullHeaderOf(ctx);
   return llmsFullIndexDocument({
     title: header.title,
@@ -643,4 +635,29 @@ export function llmsFullPart<P extends LlmsPage>(
     header: siteHeader,
     sectionLine: (child) => `- [${child.label}](${llmsFullUrl(siteHeader, `/${child.slug}/llms-full.txt`)})`,
   });
+}
+
+/**
+ * One part of a request-rendered `llms-full`, assembled incrementally:
+ * `markdownOf` is asked for one page at a time, in reading order, and the
+ * assembly stops at the first page that takes the part over the limit, which
+ * then answers with {@link llmsFullPartIndex} instead. The pages the part
+ * holds are those under the section, its sub-sections' included.
+ */
+export async function assembleLlmsFullPart<P extends LlmsPage>(
+  group: LlmsGroup<P>,
+  ctx: LlmsDocumentContext,
+  markdownOf: (page: P) => Promise<string>,
+  limit = LLMS_FULL_LIMIT_BYTES,
+): Promise<string> {
+  const header = sectionFullHeader(group, ctx);
+  const blocks: LlmsFullBlock[] = [];
+  let bytes = llmsFullHeaderBytes(header) - 1;
+  for (const page of pagesUnder(group)) {
+    const block = llmsFullBlock(page, await markdownOf(page));
+    bytes += llmsFullBlockBytes(block, header);
+    if (bytes > limit) return llmsFullPartIndex(group, ctx, limit);
+    blocks.push(block);
+  }
+  return buildLlmsFullMarkdown(blocks, header);
 }

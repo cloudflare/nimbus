@@ -25,7 +25,7 @@ import {
   parseContentCollections,
 } from "../_internal/parse-content-collections.js";
 import { readPageCollectionsFile } from "../_internal/page-collections.js";
-import { planRouteFiles } from "../_internal/route-files.js";
+import { planRouteFiles, projectRouteFiles } from "../_internal/route-files.js";
 import { describeAgentSurfaces } from "../_internal/agent-surfaces.js";
 import { walkFilesSync } from "../_internal/fs-walk.js";
 import { DEFAULT_RENDERING_NOTE } from "../_internal/route-modes.js";
@@ -597,15 +597,38 @@ function checkAgentSurfaces(
     llmsFull: routes.some((route) => file("llms-full.txt").test(route)),
     mcpBodies: !parsed.unresolved.includes("agents") && !!config?.agents?.mcp,
   };
-  // A site with every starter route says nothing: the line is for the one
-  // that deleted a route and wonders where its Markdown went.
+  // Which documents the rendering policy makes on request: the mode each
+  // agent route file takes, as the build reads it.
+  const project = projectRouteFiles(cwd, srcDirOverride);
+  let onRequest: { llms: boolean; llmsSections: boolean; llmsFull: boolean } | undefined;
+  if (project.ok && project.configured) {
+    const prefix = `${path.relative(cwd, pagesDir).split(path.sep).join("/")}/`;
+    const agentFiles = project.files
+      .filter((entry) => entry.target.page === undefined && entry.file.startsWith(prefix))
+      .map((entry) => ({ rel: entry.file.slice(prefix.length), request: entry.target.mode === "request" }));
+    const isFile = (name: string) => new RegExp(`^${escape(name)}\\.[cm]?[jt]s$`, "u");
+    const site = agentFiles.find((entry) => isFile("llms.txt").test(entry.rel));
+    const full = agentFiles.find((entry) => isFile("llms-full.txt").test(entry.rel));
+    const sections = agentFiles.filter((entry) => entry.rel.includes("/") && (file("llms.txt").test(entry.rel) || file("[llms].txt").test(entry.rel)));
+    const parts = agentFiles.filter((entry) => entry.rel.includes("/") && (file("llms-full.txt").test(entry.rel) || file("[llms].txt").test(entry.rel)));
+    const every = (entries: Array<{ request: boolean }>) => entries.length > 0 && entries.every((entry) => entry.request);
+    onRequest = {
+      llms: site?.request === true,
+      llmsSections: every(sections),
+      llmsFull: full !== undefined && every([full, ...parts]),
+    };
+  }
+  // A site with every starter route, every one built ahead of time, says
+  // nothing: the line is for the one that deleted a route and wonders where
+  // its Markdown went, or whose documents are made on request.
   const allOn = surfaces.pageMarkdown && surfaces.source && surfaces.llms && surfaces.llmsSections && surfaces.llmsFull;
-  if (allOn) return;
+  const anyOnRequest = onRequest !== undefined && (onRequest.llms || onRequest.llmsSections || onRequest.llmsFull);
+  if (allOn && !anyOnRequest) return;
   findings.push({
     scope: "structure",
     code: "nimbus/agent-surfaces",
     severity: "info",
-    message: `Agent surfaces follow the route files under src/pages: ${describeAgentSurfaces(surfaces).join("; ")}.`,
+    message: `Agent surfaces follow the route files under src/pages: ${describeAgentSurfaces({ ...surfaces, ...(onRequest ? { onRequest } : {}) }).join("; ")}.`,
     fixable: false,
   });
 }

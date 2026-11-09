@@ -1663,6 +1663,8 @@ export function nimbus(
                           ...(target.version
                             ? { version: target.version }
                             : {}),
+                          // The pack's content-addressed file: the record's identity without reading it.
+                          fingerprint: `${row.location.filename}\0${row.location.key ?? ""}`,
                         },
                         hidden: target.hidden,
                       });
@@ -4102,9 +4104,13 @@ export function nimbus(
           // the shadowing check.
           const shadowed = findShadowedLlmsFullFiles(
             endpointRoutesForBuild,
-            manifest.llmsAssets
-              .filter((asset) => asset.scope === "section" && asset.surface === "full")
-              .map(llmsAssetUrl),
+            [
+              ...manifest.llmsAssets
+                .filter((asset) => asset.scope === "section" && asset.surface === "full")
+                .map(llmsAssetUrl),
+              // Parts an on-request llms-full.txt advertises are owned the same way.
+              ...(manifest.renderedParts ?? []).map((slug) => `/${slug}/llms-full.txt`),
+            ],
           );
           if (shadowed.length > 0) {
             logger.warn(formatShadowedLlmsFullFiles(shadowed));

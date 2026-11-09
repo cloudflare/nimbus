@@ -137,7 +137,14 @@ export interface AgentEndpointAssetManifest {
   pages?: LlmsPage[];
   /** Sections another build slice holds, for the indexes. */
   absentSections?: AbsentSection[];
-  /** Identifies this build's output; a cache key for documents assembled on request. */
+  /** Whether `/llms-full.txt` is one document or an index of parts (baked split, or made on request). */
+  fullSplit: boolean;
+  /** The sections an on-request `llms-full.txt` lists as parts (`/<slug>/llms-full.txt`). */
+  renderedParts?: string[];
+  /**
+   * Identifies this build's output and the inputs of what it renders on
+   * request: a cache key for documents assembled on request.
+   */
   buildId: string;
   pageIndex?: PageIndexAsset;
   headings: PreparedHeadingRecord[];
@@ -1260,7 +1267,11 @@ export async function stageAgentEndpointAssets(
   // kept for the build's own consumers stays in the build cache.
   const manifest: AgentEndpointAssetManifest = {
     ...baked,
-    markdownAssets: baked.markdownAssets.filter((asset) => asset.published !== false || baked.pageIndex),
+    // Unpublished bodies travel when something reads them by path: the MCP
+    // server, or an llms-full part assembled on request.
+    markdownAssets: baked.markdownAssets.filter(
+      (asset) => asset.published !== false || baked.pageIndex || baked.onRequest.llmsFull,
+    ),
   };
   // Every agent endpoint reads this one file, so a server build cannot ship without it.
   const manifestBody = JSON.stringify(stagedManifest(manifest));
@@ -1788,6 +1799,13 @@ export async function bakeAgentEndpointAssets(
         ...(meta.image ? { image: meta.image } : {}),
         url: routePage.url,
         published,
+        // What the record holds, without rendering it: the prepared page, or
+        // the page pack's content-addressed file.
+        fingerprint: digest(
+          typeof entry.data.fingerprint === "string"
+            ? entry.data.fingerprint
+            : JSON.stringify(isPreparedApiPage(entry.data.prepared) ? entry.data.prepared.page : entry.data),
+        ).slice(0, 16),
       });
       // The indexes list the page without its body; only the full document
       // needs the body made here.
@@ -2024,16 +2042,34 @@ export async function bakeAgentEndpointAssets(
     rendered: renderedPages,
     llmsAssets: llmsRecords.map(withoutBody),
     onRequest: rendersOnRequest,
+    fullSplit: full.split,
     ...(rendersOnRequest.llms || rendersOnRequest.llmsSections || rendersOnRequest.llmsFull
       ? { pages: preparedLlmsPages.map(({ markdown: _markdown, ...page }) => page) }
       : {}),
+    ...(rendersOnRequest.llmsFull
+      ? { renderedParts: flattenLlmsGroups(groupLlmsPages(llmsFullPages, { ...ctx, nestedSections: true }).groups).map((group) => group.slug) }
+      : {}),
     ...(options.absentSections ? { absentSections: [...options.absentSections] } : {}),
+    // Every input a document made on request reads: the baked bodies, the
+    // described records, the page list and the context the documents are
+    // written for. A change to any of them is a new build id.
     buildId: digest(
       JSON.stringify([
+        AGENT_ENDPOINT_ASSET_GENERATION,
+        options.site,
+        base,
+        options.title,
+        options.description ?? "",
+        options.nestedSections === true,
+        options.mcpUrl ?? "",
+        options.surfaces?.markdownRoutes.map((route) => route.pattern) ?? [],
+        options.absentSections ?? [],
         ...records.map((record) => record.digest),
         ...llmsRecords.map((record) => record.digest),
-        ...renderedPages.map((page) => `${page.collection}\0${page.id}\0${page.url}`),
-        ...preparedLlmsPages.map((page) => `${page.collection}\0${page.id}\0${page.url}\0${page.position ?? ""}`),
+        ...renderedPages.map((page) => `${page.collection}\0${page.id}\0${page.url}\0${page.published}\0${page.fingerprint}`),
+        ...preparedLlmsPages.map(
+          (page) => `${page.collection}\0${page.id}\0${page.url}\0${page.title}\0${page.description ?? ""}\0${page.markdownUrl ?? ""}\0${page.position ?? ""}`,
+        ),
       ]),
     ).slice(0, 16),
     ...(pageIndexRecord ? { pageIndex: withoutBody(pageIndexRecord) } : {}),

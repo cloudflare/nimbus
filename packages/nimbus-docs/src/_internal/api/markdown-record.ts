@@ -32,6 +32,8 @@ export interface RenderedMarkdownPage {
   url: string;
   /** Whether a route of the site serves the page's `.md`; the body is kept for MCP either way. */
   published: boolean;
+  /** A digest of the record's content, so a build id changes when a page's data does. */
+  fingerprint?: string;
 }
 
 export interface RenderedMarkdownPayload {

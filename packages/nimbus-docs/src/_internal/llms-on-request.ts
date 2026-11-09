@@ -3,8 +3,9 @@
  * `/llms-full.txt` as an index of parts, and each part, from the page list
  * the build put in the manifest, through the same functions the bake uses.
  * A part's page bodies are the baked docs twins' content and request-
- * rendered API pages' Markdown. Parts are kept per isolate once assembled,
- * and in the Cache API where there is one; both are best effort.
+ * rendered API pages' Markdown. One isolate assembles one part at a time;
+ * assembled parts are kept per isolate within a byte budget, and in the
+ * Cache API where there is one, keyed by the build id. Both are best effort.
  */
 
 import type { LlmsEndpointReference } from "../agent-endpoints.js";
@@ -12,10 +13,10 @@ import type { StagedAgentEndpointManifest } from "./agent-endpoint-assets.js";
 import { readStagedAsset } from "./staged-asset-reader.js";
 import { renderMarkdownDocument } from "./api/markdown-record.js";
 import {
+  assembleLlmsFullPart,
   flattenLlmsGroups,
   groupLlmsPages,
   llmsFullPagesOf,
-  llmsFullPart,
   llmsFullPartsIndex,
   nestedCollectionLinks,
   sectionIndexDocument,
@@ -75,11 +76,6 @@ async function documentContext(manifest: StagedAgentEndpointManifest): Promise<L
   };
 }
 
-/** The pages the manifest lists, or none when no document renders on request. */
-function pagesOf(manifest: StagedAgentEndpointManifest): readonly LlmsPage[] {
-  return manifest.pages ?? [];
-}
-
 /** Whether the manifest says `reference` renders on request. */
 export function rendersOnRequest(manifest: StagedAgentEndpointManifest, reference: LlmsEndpointReference): boolean {
   const flags = manifest.onRequest;
@@ -102,24 +98,49 @@ async function pageMarkdown(manifest: StagedAgentEndpointManifest, page: LlmsPag
   throw new Error(`nimbus-docs: no Markdown for "${page.collection}:${page.id}" to assemble llms-full.txt from.`);
 }
 
-// Assembled parts, per isolate: the in-flight promise doubles as the memo,
-// so concurrent requests for one part share a render. Bounded; a failed
-// render is forgotten.
-const PART_MEMO_LIMIT = 32;
-const parts = new Map<string, Promise<string>>();
+// Assembled parts, per isolate, within a byte budget: the in-flight promise
+// doubles as the memo, so concurrent requests for one part share a render.
+// A failed render is forgotten.
+const PART_MEMO_BUDGET_BYTES = 64 * 1024 * 1024;
+const parts = new Map<string, { promise: Promise<string>; bytes: number }>();
+let memoBytes = 0;
+// One part at a time per isolate: a part is the costly assembly, and two in
+// flight would hold two parts' bodies at once.
+let assembling: Promise<unknown> = Promise.resolve();
 
 function memoized(key: string, render: () => Promise<string>): Promise<string> {
   // Dev re-renders every time: content and routes change under it.
   if (import.meta.env?.DEV) return render();
   const existing = parts.get(key);
-  if (existing) return existing;
-  const promise = render().catch((error) => {
-    parts.delete(key);
-    throw error;
-  });
-  parts.set(key, promise);
-  if (parts.size > PART_MEMO_LIMIT) parts.delete(parts.keys().next().value!);
-  return promise;
+  if (existing) return existing.promise;
+  const entry = { promise: Promise.resolve(""), bytes: 0 };
+  entry.promise = render().then(
+    (body) => {
+      entry.bytes = body.length;
+      memoBytes += entry.bytes;
+      // Evict the oldest until the budget holds; the newest stays even when
+      // it is larger than the budget alone.
+      for (const [other, value] of parts) {
+        if (memoBytes <= PART_MEMO_BUDGET_BYTES || other === key) break;
+        parts.delete(other);
+        memoBytes -= value.bytes;
+      }
+      return body;
+    },
+    (error: unknown) => {
+      parts.delete(key);
+      throw error;
+    },
+  );
+  parts.set(key, entry);
+  return entry.promise;
+}
+
+/** Runs `work` after every assembly already queued in this isolate. */
+function queued<T>(work: () => Promise<T>): Promise<T> {
+  const run = assembling.then(work, work);
+  assembling = run.catch(() => undefined);
+  return run;
 }
 
 /** The Cache API where the runtime has one (Workers on a custom domain); never required. */
@@ -146,7 +167,7 @@ async function cached(manifest: StagedAgentEndpointManifest, site: string, key: 
         if (hit?.ok) return hit.text();
       } catch {}
     }
-    const body = await render();
+    const body = await queued(render);
     if (cache) {
       try {
         await cache.put(
@@ -173,14 +194,15 @@ export async function renderLlmsDocument(
   request?: Request,
 ): Promise<RenderedLlmsDocument | null> {
   const ctx = await documentContext(manifest);
-  const pages = pagesOf(manifest);
+  const pages = manifest.pages ?? [];
   let body: string | null;
   if (reference.surface === "index") {
     const { leaves, groups } = groupLlmsPages(pages, ctx);
     if (reference.scope === "site") {
       countRender("llms");
-      // On a request-rendered site the full document is always an index of parts.
-      body = siteIndexDocument(leaves, groups, ctx, true);
+      // The full document's shape as the build decided it: parts when it
+      // renders on request, else the baked split or the one file.
+      body = siteIndexDocument(leaves, groups, ctx, manifest.fullSplit);
     } else {
       const group = findGroup(groups, reference.section);
       if (!group || !servesSectionIndex(group, ctx)) return null;
@@ -198,22 +220,15 @@ export async function renderLlmsDocument(
       if (!group) return null;
       body = await cached(manifest, ctx.site, `part:${group.slug}`, async () => {
         countRender("part");
-        const bodies = new Map<LlmsPage, string>();
-        // Bodies one at a time: a part is assembled whole before it is sent,
-        // and one isolate assembles one part at a time.
-        for (const page of flattenPages(group)) bodies.set(page, await pageMarkdown(manifest, page, request));
-        return llmsFullPart(group, ctx, (page) => bodies.get(page)!);
+        return assembleLlmsFullPart(group, ctx, (page) => pageMarkdown(manifest, page, request));
       });
     }
   }
   return { body, mediaType: "text/plain; charset=utf-8", digest: `sha256:${await sha256(body)}` };
 }
 
-function flattenPages(group: LlmsGroup): LlmsPage[] {
-  return [...group.members, ...group.children.flatMap(flattenPages)];
-}
-
 /** Dev only: forget assembled parts after the content or routes change. */
 export function resetLlmsOnRequest(): void {
   parts.clear();
+  memoBytes = 0;
 }
