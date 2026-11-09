@@ -23,7 +23,6 @@
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@iconify-json/ph": "^1.2.2",
     "@modelcontextprotocol/server": "^2.3.0",
-    "@readme/httpsnippet": "11.4.1",
     "@resvg/resvg-js": "^2.6.2",
     "@scalar/openapi-parser": "0.29.16",
     "astro": "7.4.2",

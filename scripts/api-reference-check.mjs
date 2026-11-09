@@ -79,7 +79,6 @@ const GLOBAL_TIMEOUT_MS = Number(
 );
 const DEFAULT_PHASE_TIMEOUT_MS = 10 * 60_000;
 const PEERS = {
-  "@readme/httpsnippet": "11.4.0",
   "@scalar/openapi-parser": "0.28.12",
   "openapi-sampler": "1.7.4",
 };
