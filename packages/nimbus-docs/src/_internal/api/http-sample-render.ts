@@ -118,26 +118,29 @@ function objectOrder(names: string[]): string[] {
 // The characters user info keeps as written; any other is percent-encoded.
 const USERINFO_KEEPS = /^[A-Za-z0-9!'()*\-.:_~]$/;
 
-function decodeLeniently(text: string): string {
-  try {
-    return decodeURIComponent(text);
-  } catch {
-    return text;
-  }
-}
+// A host ends at the first of these; what follows belongs to the path.
+const HOST_ENDS = /[%/?;#'{}|\\^`<>" ]/;
 
 /**
- * Scheme, user info, host and port as samples have always written them:
- * tabs and newlines dropped; scheme and host in lower case, an international
- * host in its ASCII form; user info decoded and re-encoded, keeping its
- * colons; the port as written, dropped when empty. IP addresses keep their
- * spelling.
+ * Scheme, user info, host and port as samples have always written them, and
+ * any text after the host that belongs to the path: tabs and newlines dropped
+ * from the authority; the host ending at the first character a host can't
+ * hold; scheme and host in lower case, an international host in its ASCII
+ * form; user info decoded and re-encoded, keeping its colons, and dropped
+ * when empty; the port as written, dropped when empty. IP addresses keep
+ * their spelling. User info that isn't valid percent-encoding throws, which
+ * leaves the sample out.
  */
-function normaliseAuthority(scheme: string, rawAuthority: string): string {
-  const authority = rawAuthority.replace(/[\t\r\n]/g, "");
-  const at = authority.lastIndexOf("@");
-  const userinfo = at < 0 ? undefined : authority.slice(0, at);
-  const hostPort = authority.slice(at + 1);
+function splitAuthority(scheme: string, rest: string): { authority: string; path: string } {
+  const slash = rest.indexOf("/");
+  const authorityPart = (slash < 0 ? rest : rest.slice(0, slash)).replace(/[\t\r\n]/g, "");
+  const afterAuthority = slash < 0 ? "" : rest.slice(slash);
+  const at = authorityPart.lastIndexOf("@");
+  const userinfo = at < 0 ? undefined : authorityPart.slice(0, at);
+  const hostAndMore = authorityPart.slice(at + 1);
+  const end = hostAndMore.search(HOST_ENDS);
+  const hostPort = end < 0 ? hostAndMore : hostAndMore.slice(0, end);
+  const spill = end < 0 ? "" : hostAndMore.slice(end);
   const portMatch = hostPort.startsWith("[") ? /\](:(\d*))?$/.exec(hostPort) : /:(\d*)$/.exec(hostPort);
   const port = hostPort.startsWith("[") ? portMatch?.[2] : portMatch?.[1];
   let host = (hostPort.startsWith("[") ? hostPort.slice(0, hostPort.indexOf("]") + 1) : portMatch ? hostPort.slice(0, portMatch.index) : hostPort).toLowerCase();
@@ -148,15 +151,14 @@ function normaliseAuthority(scheme: string, rawAuthority: string): string {
       /* Not a valid international name: keep it as written. */
     }
   }
-  let user = "";
-  if (userinfo !== undefined) {
-    try {
-      user = `${[...decodeLeniently(userinfo)].map((char) => (USERINFO_KEEPS.test(char) ? char : encodeURIComponent(char))).join("")}@`;
-    } catch {
-      user = `${userinfo}@`;
-    }
-  }
-  return `${scheme.toLowerCase()}//${user}${host}${port ? `:${port}` : ""}`;
+  const user = userinfo
+    ? `${[...decodeURIComponent(userinfo)].map((char) => (USERINFO_KEEPS.test(char) ? char : encodeURIComponent(char))).join("")}@`
+    : "";
+  const path = `${spill}${afterAuthority}`;
+  return {
+    authority: `${scheme.toLowerCase()}//${user}${host}${port ? `:${port}` : ""}`,
+    path: path === "" || path.startsWith("/") ? path : `/${path}`,
+  };
 }
 
 /**
@@ -177,8 +179,8 @@ export function sampleUrl(request: Pick<SampleRequest, "url" | "query">): Segmen
   // The literal text as written and as decoded, so a `%`-encoded token can't collide either.
   const ownText = `${literal}\n${decodeForm(literal)}`.toLowerCase();
   for (let attempt = 0; attempt < 1000; attempt++) {
-    if (ownText.includes(`nph${attempt}q`)) continue;
-    const out = sampleUrlWith(request, `nph${attempt}q`);
+    if (ownText.includes(`nbph${attempt}q`)) continue;
+    const out = sampleUrlWith(request, `nbph${attempt}q`);
     if (out) return out;
   }
   throw new Error("No placeholder token fits this URL.");
@@ -199,10 +201,9 @@ function sampleUrlWith(request: Pick<SampleRequest, "url" | "query">, prefix: st
   let authority = "";
   const scheme = /^[a-z][a-z0-9+.-]*:(?=\/\/)/i.exec(before)?.[0];
   if (scheme) {
-    const rest = before.slice(scheme.length + 2);
-    const slash = rest.indexOf("/");
-    authority = normaliseAuthority(scheme, slash < 0 ? rest : rest.slice(0, slash));
-    before = slash < 0 ? "" : rest.slice(slash);
+    const split = splitAuthority(scheme, before.slice(scheme.length + 2));
+    authority = split.authority;
+    before = split.path;
   }
   let path = before.replace(AUTO_ESCAPE, escapeChar);
   if (scheme && path === "") path = "/";

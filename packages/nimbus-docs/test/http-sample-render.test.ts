@@ -163,7 +163,16 @@ describe("server URLs keep what the previous renderer kept", () => {
     ["http://127.1", "http://127.1/x"],
     ["http://[0:0:0:0:0:0:0:1]", "'http://[0:0:0:0:0:0:0:1]/x'"],
     ["https://user:pass:two@X.TEST", "https://user:pass:two@x.test/x"],
+    ["https://x.test%2Eevil.test", "https://x.test/%2Eevil.test/x"],
+    ["https://x.test;foo", "'https://x.test/;foo/x'"],
+    ["https://münich-{tenant}.example", "'https://xn--mnich-<tenant>-gsb.example/x'"],
+    ["https://@x.test", "https://x.test/x"],
   ];
+
+  test("user info that isn't valid percent-encoding leaves the samples out, as before", async () => {
+    const { buildOperationSamples } = await import("../src/_internal/api/samples.js");
+    assert.deepEqual(buildOperationSamples(tools, { method: "get", path: "/x", params: [], auth: [], server: "https://u%FF@x.test" }), []);
+  });
   for (const [server, url] of cases) {
     test(JSON.stringify(server), async () => assert.equal(await curlUrl(server), url));
   }
