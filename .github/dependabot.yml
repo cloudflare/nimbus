@@ -21,3 +21,12 @@ updates:
       # Keep 0.20.3: newer declaration bundling regressed public ApiExtensions augmentation.
       # Revisit manually with packages/nimbus-docs/test/api-extensions.test.ts.
       - dependency-name: "tsdown"
+      # nimbus-docs's vite range follows the oldest Astro it supports, so a
+      # site's Astro and Nimbus share one vite. Raising its floor installs a
+      # second vite in sites whose Astro locked an older one. Security updates
+      # still come through.
+      - dependency-name: "vite"
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
+          - version-update:semver-patch
