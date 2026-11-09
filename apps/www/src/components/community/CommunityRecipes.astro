@@ -19,6 +19,13 @@ import { HERO, SHARE_HREF } from "@/lib/community-recipes-markdown";
 
 const base = import.meta.env.BASE_URL;
 const cards = communityRecipes.flatMap((owner) => owner.recipes.map((recipe) => ({ owner, recipe })));
+
+// The invite cell fills the rest of the last row, or a whole row of its own
+// when the recipes fill theirs (or there are none). Columns per breakpoint
+// match the grid's classes below.
+const columns = { md: 2, lg: 3, xl2: 4 };
+const fill = (perRow: number) => perRow - (cards.length % perRow);
+const inviteSpan = `--span-md: ${fill(columns.md)}; --span-lg: ${fill(columns.lg)}; --span-2xl: ${fill(columns.xl2)}`;
 ---
 
 <div class="nb-recipes not-prose">
@@ -76,7 +83,7 @@ const cards = communityRecipes.flatMap((owner) => owner.recipes.map((recipe) => 
         </div>
       </li>
     ))}
-    <li class="nb-recipes-card">
+    <li class="nb-recipes-card nb-recipes-invite" style={inviteSpan}>
       <a href={withBase(SHARE_HREF, base)} class="nb-recipes-link">
         <span>{cards.length === 0 ? "Be the first" : "Yours next"}</span>
         <Icon name="ph:arrow-right" class="size-4 shrink-0 text-muted-foreground" />
@@ -179,6 +186,21 @@ const cards = communityRecipes.flatMap((owner) => owner.recipes.map((recipe) => 
   .nb-recipes-link:focus-visible {
     outline: 2px solid var(--nb-ring);
     outline-offset: -2px;
+  }
+  @media (min-width: 48rem) {
+    .nb-recipes-invite {
+      grid-column: span var(--span-md);
+    }
+  }
+  @media (min-width: 64rem) {
+    .nb-recipes-invite {
+      grid-column: span var(--span-lg);
+    }
+  }
+  @media (min-width: 96rem) {
+    .nb-recipes-invite {
+      grid-column: span var(--span-2xl);
+    }
   }
   .nb-recipes-body {
     flex: 1;
