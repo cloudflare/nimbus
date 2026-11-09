@@ -154,6 +154,15 @@ describe("server URLs keep what the previous renderer kept", () => {
     ["https://münich.example", "https://xn--mnich-kva.example/x"],
     ["https://x.test/?0=z&2=a&1=b", "'https://x.test/x?0=z&1=b&2=a'"],
     ["https://API.Example.com:443/v1/", "https://api.example.com:443/v1/x"],
+    ["https://x.test/?q=%6E%70%68%30%71%30%7A", "'https://x.test/x?q=nph0q0z'"],
+    ["https://x.test/?q=%6E%70%68%30%71%30%7A&v={v}", "'https://x.test/x?q=nph0q0z&v=<v>'"],
+    ["https://x.test:8\t080", "https://x.test:8080/x"],
+    ["https://x.test/?q=%EF%BB%BFabc", "'https://x.test/x?q=%EF%BB%BFabc'"],
+    ["https://x.test:", "https://x.test/x"],
+    ["https://u:@x.test", "https://u:@x.test/x"],
+    ["http://127.1", "http://127.1/x"],
+    ["http://[0:0:0:0:0:0:0:1]", "'http://[0:0:0:0:0:0:0:1]/x'"],
+    ["https://user:pass:two@X.TEST", "https://user:pass:two@x.test/x"],
   ];
   for (const [server, url] of cases) {
     test(JSON.stringify(server), async () => assert.equal(await curlUrl(server), url));

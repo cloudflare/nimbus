@@ -100,7 +100,8 @@ function decodeForm(text: string): string {
     bytes.push(...encoder.encode(piece));
     i += piece.length - 1;
   }
-  return new TextDecoder().decode(new Uint8Array(bytes));
+  // A byte-order mark is query data, not a marker to drop.
+  return new TextDecoder("utf-8", { ignoreBOM: true }).decode(new Uint8Array(bytes));
 }
 
 function escapeChar(char: string): string {
@@ -114,21 +115,48 @@ function objectOrder(names: string[]): string[] {
   return [...integers, ...names.filter((name) => index(name) === undefined)];
 }
 
-/**
- * Scheme, user info, host and port, normalised as a URL parser does: scheme and
- * host in lower case, an international host in its ASCII form, user info
- * percent-encoded where it must be, tabs and newlines dropped. The port is kept
- * as written, including a default one.
- */
-function normaliseAuthority(scheme: string, authority: string): string {
-  const port = /:(\d*)$/.exec(authority.replace(/^.*@/, ""))?.[1];
+// The characters user info keeps as written; any other is percent-encoded.
+const USERINFO_KEEPS = /^[A-Za-z0-9!'()*\-.:_~]$/;
+
+function decodeLeniently(text: string): string {
   try {
-    const url = new URL(`${scheme}//${authority}`);
-    const userinfo = url.username || url.password ? `${url.username}${url.password ? `:${url.password}` : ""}@` : "";
-    return `${url.protocol}//${userinfo}${url.hostname}${port !== undefined ? `:${port}` : ""}`;
+    return decodeURIComponent(text);
   } catch {
-    return `${scheme.toLowerCase()}//${authority.replace(/[\t\r\n]/g, "").replace(/[^@]*$/, (host) => host.toLowerCase())}`;
+    return text;
   }
+}
+
+/**
+ * Scheme, user info, host and port as samples have always written them:
+ * tabs and newlines dropped; scheme and host in lower case, an international
+ * host in its ASCII form; user info decoded and re-encoded, keeping its
+ * colons; the port as written, dropped when empty. IP addresses keep their
+ * spelling.
+ */
+function normaliseAuthority(scheme: string, rawAuthority: string): string {
+  const authority = rawAuthority.replace(/[\t\r\n]/g, "");
+  const at = authority.lastIndexOf("@");
+  const userinfo = at < 0 ? undefined : authority.slice(0, at);
+  const hostPort = authority.slice(at + 1);
+  const portMatch = hostPort.startsWith("[") ? /\](:(\d*))?$/.exec(hostPort) : /:(\d*)$/.exec(hostPort);
+  const port = hostPort.startsWith("[") ? portMatch?.[2] : portMatch?.[1];
+  let host = (hostPort.startsWith("[") ? hostPort.slice(0, hostPort.indexOf("]") + 1) : portMatch ? hostPort.slice(0, portMatch.index) : hostPort).toLowerCase();
+  if (/[^\x00-\x7f]/.test(host)) {
+    try {
+      host = new URL(`http://${host}`).hostname;
+    } catch {
+      /* Not a valid international name: keep it as written. */
+    }
+  }
+  let user = "";
+  if (userinfo !== undefined) {
+    try {
+      user = `${[...decodeLeniently(userinfo)].map((char) => (USERINFO_KEEPS.test(char) ? char : encodeURIComponent(char))).join("")}@`;
+    } catch {
+      user = `${userinfo}@`;
+    }
+  }
+  return `${scheme.toLowerCase()}//${user}${host}${port ? `:${port}` : ""}`;
 }
 
 /**
@@ -143,13 +171,21 @@ function normaliseAuthority(scheme: string, authority: string): string {
  */
 export function sampleUrl(request: Pick<SampleRequest, "url" | "query">): Segment[] {
   const values = [request.url, ...request.query.map((field) => field.value)];
-  const ownText = [...values.flat(), ...request.query.map((field) => ({ text: field.name }))]
+  const literal = [...values.flat(), ...request.query.map((field) => ({ text: field.name }))]
     .map((segment) => (isPlaceholder(segment) ? "" : segment.text))
-    .join("\n")
-    .toLowerCase();
-  let attempt = 0;
-  while (ownText.includes(`nph${attempt}q`)) attempt++;
-  const prefix = `nph${attempt}q`;
+    .join("\n");
+  // The literal text as written and as decoded, so a `%`-encoded token can't collide either.
+  const ownText = `${literal}\n${decodeForm(literal)}`.toLowerCase();
+  for (let attempt = 0; attempt < 1000; attempt++) {
+    if (ownText.includes(`nph${attempt}q`)) continue;
+    const out = sampleUrlWith(request, `nph${attempt}q`);
+    if (out) return out;
+  }
+  throw new Error("No placeholder token fits this URL.");
+}
+
+/** The URL with placeholders as `<prefix><n>z` tokens, or `undefined` when a token comes back wrong. */
+function sampleUrlWith(request: Pick<SampleRequest, "url" | "query">, prefix: string): Segment[] | undefined {
   const placeholders: Segment[] = [];
   const flat = (value: SampleValue) =>
     value.map((segment) => (isPlaceholder(segment) ? `${prefix}${placeholders.push(segment) - 1}z` : segment.text)).join("");
@@ -187,10 +223,15 @@ export function sampleUrl(request: Pick<SampleRequest, "url" | "query">): Segmen
 
   url = `${authority}${path}${query ? `?${query}` : ""}${hash}`;
   const out: Segment[] = [];
+  const seen = new Set<number>();
   let last = 0;
   for (const match of url.matchAll(new RegExp(`${prefix}(\\d+)z`, "g"))) {
+    const index = Number(match[1]);
+    // A token the URL's own text produced, or one seen twice: try another prefix.
+    if (index >= placeholders.length || seen.has(index)) return undefined;
+    seen.add(index);
     if (match.index > last) out.push({ text: url.slice(last, match.index) });
-    out.push(placeholders[Number(match[1])]!);
+    out.push(placeholders[index]!);
     last = match.index + match[0].length;
   }
   if (last < url.length) out.push({ text: url.slice(last) });
