@@ -35,9 +35,8 @@ const MESSAGES = {
 /**
  * The filters for a search from a page. Readers search every visible version
  * that isn't deprecated; a reader on a deprecated version's page searches
- * that version alone. On a page in a product, search stays in it; a page in
- * the default product searches the whole site. A scope policy, not access
- * control: the endpoint is public.
+ * that version alone. A scope policy, not access control: the endpoint is
+ * public.
  */
 export function aiSearchFilters(
   scope: PageSearchScope | undefined,
@@ -47,7 +46,6 @@ export function aiSearchFilters(
   if (choice?.versions) filters.version = { $in: [...choice.versions] };
   else if (scope?.deprecated) filters.version = scope.version;
   else filters.deprecated = false;
-  if (scope && scope.product !== "site") filters.product = scope.product;
   return filters;
 }
 

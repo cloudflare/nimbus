@@ -5,8 +5,8 @@ import { config } from "virtual:nimbus/config";
 
 /**
  * Search a Cloudflare AI Search instance's public endpoint, filled by
- * `nimbus-docs search sync`. A query from a page searches that page's scope:
- * its product, and its version when that version is deprecated.
+ * `nimbus-docs search sync`. A query leaves out deprecated versions, except
+ * from a deprecated version's page, which searches that version.
  */
 const search = config.search && config.search.provider === "ai-search" ? config.search : undefined;
 

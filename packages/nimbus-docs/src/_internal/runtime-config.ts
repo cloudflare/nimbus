@@ -58,7 +58,7 @@ export async function loadMountContext(): Promise<MountContext> {
 
 /** The search scope table (`search-scope.ts`). */
 export async function loadSearchScope(): Promise<import("./search-scope.js").SearchScopeTable> {
-  return (await virtualConfig()).searchScope ?? { pairs: [], docs: {}, apis: {}, products: [] };
+  return (await virtualConfig()).searchScope ?? { pairs: [], docs: {}, apis: {} };
 }
 
 /** Static-folder routes that import a route helper in a shape the build couldn't read. */

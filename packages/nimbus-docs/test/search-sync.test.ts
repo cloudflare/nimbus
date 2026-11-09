@@ -29,7 +29,7 @@ async function site(pages: Array<{ route: string; body: string; collection?: str
     const content = Buffer.from(page.body, "utf8");
     await mkdir(path.dirname(path.join(outDir, file)), { recursive: true });
     await writeFile(path.join(outDir, file), Buffer.concat([Buffer.from(preamble), content, Buffer.from("\nSource: x\n")]));
-    const meta = { url: `https://example.com${page.route}`, title: page.route, version: VERSION, deprecated: false, product: "site" };
+    const meta = { url: `https://example.com${page.route}`, title: page.route, version: VERSION, deprecated: false };
     records.push({
       ...meta,
       collection: page.collection ?? "docs",
@@ -50,7 +50,6 @@ async function site(pages: Array<{ route: string; body: string; collection?: str
     collections,
     siteCollections: collections,
     versions: [],
-    products: [],
     pages: records,
   };
   return [{ manifest, outDir, source: "test" }] satisfies LoadedManifest[];
@@ -70,7 +69,7 @@ async function withStandIn(run: (standIn: Awaited<ReturnType<typeof startAiSearc
 const freshApi = (standIn: Awaited<ReturnType<typeof startAiSearchStandIn>>) =>
   createAiSearchApi({ accountId: standIn.accountId, token: standIn.token, instance: standIn.instance, apiBase: standIn.apiBase, gapMs: 0, backoffMs: 1 });
 
-test("first sync uploads every searchable page with the five fields; a second uploads nothing", async () => {
+test("first sync uploads every searchable page with the four fields; a second uploads nothing", async () => {
   await withStandIn(async (standIn, api) => {
     const manifests = await site([
       { route: "/", body: "# Home\n\nWelcome." },
@@ -83,7 +82,7 @@ test("first sync uploads every searchable page with the five fields; a second up
     assert.deepEqual(items.map((item) => item.metadata.url).sort(), ["https://example.com/", "https://example.com/guide/"]);
     const guide = items.find((item) => item.metadata.url === "https://example.com/guide/")!;
     assert.equal(guide.content, "# Guide\n\nInstall it — ünïcode.");
-    assert.deepEqual(Object.keys(guide.metadata).sort(), ["deprecated", "product", "title", "url", "version"]);
+    assert.deepEqual(Object.keys(guide.metadata).sort(), ["deprecated", "title", "url", "version"]);
     assert.match(guide.key, /^docs\/guide-[0-9a-f]{16}\.[0-9a-f]{12}\.md$/);
 
     const second = await syncSearchCorpus(freshApi(standIn), manifests);
@@ -148,10 +147,10 @@ test("a heading-only page is reported as skipped by the next run, which leaves i
   });
 });
 
-test("a schema without the five fields stops the run before any upload", async () => {
+test("a schema without the four fields stops the run before any upload", async () => {
   await withStandIn(
     async (standIn, api) => {
-      await assert.rejects(syncSearchCorpus(api, await site([{ route: "/a/", body: "# A\n\none" }])), /missing product \(text\)/);
+      await assert.rejects(syncSearchCorpus(api, await site([{ route: "/a/", body: "# A\n\none" }])), /missing title \(text\)/);
       assert.equal(standIn.items.size, 0);
     },
     { fields: [{ field_name: "url", data_type: "text" }] },

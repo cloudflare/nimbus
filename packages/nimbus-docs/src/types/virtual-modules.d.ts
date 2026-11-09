@@ -40,7 +40,7 @@ declare module "virtual:nimbus/config" {
     prefix: string;
     search: { bundle: string; merge: readonly string[] };
   } | null;
-  /** Which version pair and product each page searches in (`search-scope.ts`). */
+  /** Which version pair each page searches in (`search-scope.ts`). */
   export const searchScope: import("../_internal/search-scope.js").SearchScopeTable;
   /** Each visible version label and the version pair hashes it selects in search. */
   export const searchVersionChoices: Record<string, string[]>;

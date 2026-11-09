@@ -121,14 +121,6 @@ export interface NimbusConfig {
    */
   search?: SearchConfig | false;
   /**
-   * Products: groups of top-level sections and API mounts, by a stable id.
-   * Search on a page in a product stays in that product; pages in no listed
-   * product belong to the default product, `site`, and search the whole site.
-   *
-   *   products: { sdk: ["sdk", "api/sdk"], platform: ["platform"] }
-   */
-  products?: Record<string, string[]>;
-  /**
    * Versioned-docs manifest. Absent means the site is unversioned (the
    * default; no behavior change). When set, declares:
    *
@@ -714,13 +706,11 @@ export interface AiSearchConfig {
 
 export type { SearchScopeTable, SearchVersionPair } from "./_internal/search-scope.js";
 
-/** Where a page sits for search: its version pair, deprecation and product. */
+/** Where a page sits for search: its version pair, and whether that version is deprecated. */
 export interface PageSearchScope {
   /** SHA-256 hex of the versioned unit and version id. */
   version: string;
   deprecated: boolean;
-  /** The product id, or `site` for the default product. */
-  product: string;
 }
 
 export type SearchErrorCode = "invalid_input" | "index_unavailable" | "search_failed";

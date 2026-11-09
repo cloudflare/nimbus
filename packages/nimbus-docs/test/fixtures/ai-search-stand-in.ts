@@ -25,7 +25,7 @@ export interface StandInOptions {
   token?: string;
   accountId?: string;
   instance?: string;
-  /** The instance's custom metadata schema; the five fields by default. */
+  /** The instance's custom metadata schema; the four fields by default. */
   fields?: Array<{ field_name: string; data_type: string }>;
   /** Milliseconds an upload stays queued. Default 0: completed on the next list. */
   processingMs?: number;
@@ -38,7 +38,6 @@ export const FIVE_FIELDS = [
   { field_name: "title", data_type: "text" },
   { field_name: "version", data_type: "text" },
   { field_name: "deprecated", data_type: "boolean" },
-  { field_name: "product", data_type: "text" },
 ];
 
 export async function startAiSearchStandIn(options: StandInOptions = {}) {

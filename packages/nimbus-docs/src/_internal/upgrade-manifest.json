@@ -1332,7 +1332,7 @@
       "instructions": [
         "No action is needed for Pagefind search.",
         "Take the change with nimbus-docs diff src/layouts/BaseLayout.astro --apply.",
-        "If you edited BaseLayout, merge by hand: import getPageSearchScope from @cloudflare/nimbus-docs/runtime, call it with { collection, entryId, apiVersion } from the props, and add data-nb-search-version, data-nb-search-deprecated and data-nb-search-product to <body> from its version, deprecated and product."
+        "If you edited BaseLayout, merge by hand: import getPageSearchScope from @cloudflare/nimbus-docs/runtime, call it with { collection, apiVersion } from the props, and add data-nb-search-version and data-nb-search-deprecated to <body> from its version and deprecated."
       ],
       "verify": [
         "A built page's <body> carries the three data-nb-search attributes."

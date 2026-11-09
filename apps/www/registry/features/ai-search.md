@@ -45,8 +45,7 @@ curl -X POST "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_
       { "field_name": "url", "data_type": "text" },
       { "field_name": "title", "data_type": "text" },
       { "field_name": "version", "data_type": "text" },
-      { "field_name": "deprecated", "data_type": "boolean" },
-      { "field_name": "product", "data_type": "text" }
+      { "field_name": "deprecated", "data_type": "boolean" }
     ]
   }'
 ```
@@ -68,7 +67,7 @@ curl -X PUT "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_I
   }'
 ```
 
-Show the user the tokenizer, the five fields and the rate limit from the response. Leave CORS at its default (all origins) unless the user asks to narrow it; narrowing it stops search on local dev and preview origins.
+Show the user the tokenizer, the four fields and the rate limit from the response. Leave CORS at its default (all origins) unless the user asks to narrow it; narrowing it stops search on local dev and preview origins.
 
 The response's `public_endpoint_id` gives the endpoint origin: `https://<public_endpoint_id>.search.ai.cloudflare.com`, no path. It's also under **AI Search → the instance → Settings → Public Endpoints**.
 
@@ -87,12 +86,6 @@ search: {
 ```
 
 `wait` (milliseconds the dialog waits after typing stops, default 150) and `minQueryLength` (default 1) are optional; add them only if the user wants fewer requests.
-
-If the site has products (separate SDKs, platforms), ask whether search on a product's pages should stay in that product, and if so add `products`, by top-level section and API mount:
-
-```ts
-products: { sdk: ["sdk", "api/sdk"], platform: ["platform"] },
-```
 
 ## 3. Build and push the first time
 
@@ -113,7 +106,7 @@ curl -s -X POST "https://<public_endpoint_id>.search.ai.cloudflare.com/search" \
   -d '{"query":"<a word from a page title>","ai_search_options":{"retrieval":{"filters":{"deprecated":false}}}}'
 ```
 
-The response's chunks should include that page, each with `url`, `title`, `version`, `deprecated` and `product` in `item.metadata`. If the chunks are empty, wait a minute and retry; stop and tell the user if they stay empty.
+The response's chunks should include that page, each with `url`, `title`, `version` and `deprecated` in `item.metadata`. If the chunks are empty, wait a minute and retry; stop and tell the user if they stay empty.
 
 ## 4. Switch the site
 

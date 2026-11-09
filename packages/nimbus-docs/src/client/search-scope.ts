@@ -13,6 +13,5 @@ export function pageSearchScope(root: Document = document): PageSearchScope | un
   return {
     version,
     deprecated: body.getAttribute("data-nb-search-deprecated") === "true",
-    product: body.getAttribute("data-nb-search-product") || "site",
   };
 }

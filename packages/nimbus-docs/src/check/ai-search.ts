@@ -57,7 +57,7 @@ export async function checkAiSearch(
   }
   const schema = schemaProblem(settings.custom_metadata);
   if (schema) {
-    finding("fields", "warn", `Instance "${instance}" has the wrong metadata fields (${schema}). Create it with the five fields in the ai-search recipe.`);
+    finding("fields", "warn", `Instance "${instance}" has the wrong metadata fields (${schema}). Create it with the four fields in the ai-search recipe.`);
     return findings;
   }
   const tokenizer = (settings.indexing_options as { keyword_tokenizer?: string } | undefined)?.keyword_tokenizer ?? "porter";

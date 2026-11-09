@@ -95,7 +95,7 @@ export function parseKey(key: string): { collection: string; pathHash: string } 
   return match ? { collection: match[1]!, pathHash: match[2]! } : undefined;
 }
 
-/** The instance's metadata schema must be exactly the five fields: anything else would drop filters silently. */
+/** The instance must have the four fields the sync sets, with their types: a missing one would drop filters silently. Other fields are left alone. */
 export function schemaProblem(fields: Array<{ field_name: string; data_type: string }> | undefined): string | undefined {
   const have = new Map((fields ?? []).map((field) => [field.field_name.toLowerCase(), field.data_type]));
   const want = new Map<string, string>(AI_SEARCH_FIELDS.map((field) => [field.field_name, field.data_type]));
@@ -104,7 +104,6 @@ export function schemaProblem(fields: Array<{ field_name: string; data_type: str
     if (!have.has(name)) problems.push(`missing ${name} (${type})`);
     else if (have.get(name) !== type) problems.push(`${name} is ${have.get(name)}, not ${type}`);
   }
-  for (const name of have.keys()) if (!want.has(name)) problems.push(`unexpected field ${name}`);
   return problems.length ? problems.join("; ") : undefined;
 }
 
@@ -129,7 +128,7 @@ export async function syncSearchCorpus(api: AiSearchApi, manifests: LoadedManife
   const problem = schemaProblem(instance.custom_metadata);
   if (problem) {
     throw new AiSearchApiError(
-      `The instance's metadata fields aren't the five search uses (${problem}). Set custom_metadata to url (text), title (text), version (text), deprecated (boolean), product (text); changing it reindexes the instance.`,
+      `The instance's metadata fields aren't the four search uses (${problem}). Add url (text), title (text), version (text) and deprecated (boolean) to custom_metadata; changing it reindexes the instance.`,
       0,
       "schema",
     );
@@ -237,7 +236,6 @@ export async function syncSearchCorpus(api: AiSearchApi, manifests: LoadedManife
         title: entry.page.title,
         version: entry.page.version,
         deprecated: entry.page.deprecated,
-        product: entry.page.product,
       });
       if (result.warning) {
         // The fields didn't attach: remove it so the next run retries.

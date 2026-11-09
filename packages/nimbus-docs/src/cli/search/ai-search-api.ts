@@ -10,7 +10,6 @@ export const AI_SEARCH_FIELDS = [
   { field_name: "title", data_type: "text" },
   { field_name: "version", data_type: "text" },
   { field_name: "deprecated", data_type: "boolean" },
-  { field_name: "product", data_type: "text" },
 ] as const;
 
 export type ItemStatus = "queued" | "running" | "completed" | "error" | "skipped" | "outdated";

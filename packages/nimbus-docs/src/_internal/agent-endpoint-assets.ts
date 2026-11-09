@@ -171,7 +171,7 @@ export interface BakeAgentEndpointAssetsOptions {
   apiEntries?: readonly LlmsEndpointApiEntry[];
   loadApiEntries?: () => Promise<readonly LlmsEndpointApiEntry[]>;
   /**
-   * A page's search scope (version pair, deprecation, product). When set, the
+   * A page's search scope (version pair, deprecation). When set, the
    * bake also records the search corpus.
    */
   searchScope?: (page: { collection: string; route: string; apiVersion?: string }) => PageSearchScope;
@@ -2051,7 +2051,6 @@ export async function bakeAgentEndpointAssets(
       section: llmsSection(page, options),
       version: scope.version,
       deprecated: scope.deprecated,
-      product: scope.product,
       searchable: isSearchable(entry),
       asset: asset.path,
       markdownUrl: page.markdownUrl,

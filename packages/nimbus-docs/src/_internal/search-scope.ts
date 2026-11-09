@@ -1,5 +1,5 @@
 /**
- * Search scope identity: which version and product a page belongs to, as the
+ * Search scope identity: which version a page belongs to, as the
  * values a search index filters on. One table, built from config at build
  * time, feeds the corpus manifest, the `<body>` attributes the dialog reads,
  * WebMCP's version input and the query filters, so they can't disagree.
@@ -29,11 +29,8 @@ export interface SearchScopeTable {
   docs: Record<string, string>;
   /** API collections: their versioned unit and default version id. */
   apis: Record<string, { unit: string; defaultVersion: string }>;
-  /** Products by route prefix (`/sdk`, `/api/sdk`), longest first. */
-  products: Array<{ id: string; prefix: string }>;
 }
 
-export const DEFAULT_PRODUCT = "site";
 export const DOCS_UNIT = "docs";
 
 export interface SearchScopeInput {
@@ -52,7 +49,6 @@ export interface SearchScopeInput {
     deprecated: boolean;
     hidden: boolean;
   }>;
-  products?: Record<string, readonly string[]>;
   hash: (text: string) => string;
 }
 
@@ -84,30 +80,13 @@ export function buildSearchScopeTable(input: SearchScopeInput): SearchScopeTable
     if (api.isDefault || !apis[api.family]) apis[api.family] = { unit: api.familyPath || "/", defaultVersion: id };
     pair(api.familyPath || "/", id, api.label, api.deprecated, api.hidden);
   }
-  const products = Object.entries(input.products ?? {})
-    .flatMap(([id, paths]) => paths.map((path) => ({ id, prefix: `/${path.replace(/^\/+|\/+$/gu, "")}` })))
-    .sort((a, b) => b.prefix.length - a.prefix.length);
-  return { pairs, docs, apis, products };
+  return { pairs, docs, apis };
 }
 
-/** A page's product: the longest configured prefix its route sits under, else `site`. */
-export function productOf(table: SearchScopeTable, route: string): string {
-  let end = route.length;
-  while (end > 0 && route[end - 1] === "/") end -= 1;
-  const path = route.slice(0, end) || "/";
-  for (const { id, prefix } of table.products) {
-    if (path === prefix || path.startsWith(`${prefix}/`)) return id;
-  }
-  return DEFAULT_PRODUCT;
-}
-
-/**
- * The scope of one page. `route` is the page's base-free path;
- * `apiVersion` the API version id a page of an API family renders.
- */
+/** The scope of one page. `apiVersion` is the API version id a page of an API family renders. */
 export function pageScopeOf(
   table: SearchScopeTable,
-  page: { collection: string; route: string; apiVersion?: string | null },
+  page: { collection: string; apiVersion?: string | null },
 ): PageSearchScope {
   const api = table.apis[page.collection];
   const unit = api ? api.unit : DOCS_UNIT;
@@ -115,7 +94,7 @@ export function pageScopeOf(
   const match =
     table.pairs.find((candidate) => candidate.unit === unit && candidate.id === id) ??
     table.pairs.find((candidate) => candidate.unit === DOCS_UNIT && candidate.id === "")!;
-  return { version: match.hash, deprecated: match.deprecated, product: productOf(table, page.route) };
+  return { version: match.hash, deprecated: match.deprecated };
 }
 
 /**

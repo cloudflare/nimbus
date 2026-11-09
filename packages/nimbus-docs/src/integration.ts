@@ -661,7 +661,6 @@ export function nimbus(
         deprecated: api.status === "deprecated",
         hidden: api.hidden,
       })),
-      products: config.products,
       hash: sha256Hex,
     });
     searchScopeCache = { routes: mountContextForBuild.routes, table };
@@ -3418,7 +3417,7 @@ export function nimbus(
             "  export const primaryCollectionAbsent: boolean;",
             "  /** The Pagefind bundle to load and the other slices' bundles to merge into it (none in a whole-site build): served URLs, base included. */",
             "  export const searchIndex: { bundle: string; merge: readonly string[] };",
-            "  /** Which version pair and product each page searches in. See `getPageSearchScope()`. */",
+            "  /** Which version pair each page searches in. See `getPageSearchScope()`. */",
             "  export const searchScope: import(\"@cloudflare/nimbus-docs/types\").SearchScopeTable;",
             "  /** Each visible version label and the version pair hashes it selects in search. */",
             "  export const searchVersionChoices: Record<string, string[]>;",

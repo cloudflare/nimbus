@@ -21,8 +21,6 @@ export interface SearchCorpusPage {
   /** The version pair hash: the value uploaded as `version` metadata. */
   version: string;
   deprecated: boolean;
-  /** The product id, `site` for the default product. */
-  product: string;
   /** Whether site search should index it (`searchable ?? !noindex`). */
   searchable: boolean;
   /** The twin's file, relative to the output directory. */
@@ -30,7 +28,7 @@ export interface SearchCorpusPage {
   /** UTF-8 byte range of the page inside `file`: its `# Title` line and content, without the frontmatter, the index preamble or the `Source:` line. */
   contentStart: number;
   contentEnd: number;
-  /** SHA-256 hex of the content bytes followed by `JSON.stringify([url, title, version, deprecated, product])`. */
+  /** SHA-256 hex of the content bytes followed by `JSON.stringify([url, title, version, deprecated])`. */
   hash: string;
   bytes: number;
 }
@@ -46,18 +44,17 @@ export interface SearchCorpusManifest {
   /** Every configured page collection. */
   siteCollections: string[];
   versions: Array<{ unit: string; id: string; label: string; hash: string; deprecated: boolean }>;
-  products: string[];
   pages: SearchCorpusPage[];
 }
 
 /** The hash an indexer reproduces from a page's content bytes and its own five metadata values. */
 export function corpusHash(
   content: Uint8Array,
-  page: Pick<SearchCorpusPage, "url" | "title" | "version" | "deprecated" | "product">,
+  page: Pick<SearchCorpusPage, "url" | "title" | "version" | "deprecated">,
 ): string {
   return createHash("sha256")
     .update(content)
-    .update(JSON.stringify([page.url, page.title, page.version, page.deprecated, page.product]))
+    .update(JSON.stringify([page.url, page.title, page.version, page.deprecated]))
     .digest("hex");
 }
 

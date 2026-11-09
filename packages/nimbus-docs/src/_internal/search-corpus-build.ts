@@ -68,13 +68,6 @@ export async function writeSearchCorpus(input: {
     if (input.required) throw new Error(`nimbus-docs search: ${message}`);
     input.logger.warn(message);
   }
-  const used = new Set(pages.map((page) => page.product));
-  // A slice holds only some products; only a full build can tell one is empty.
-  if (input.slice === "" && input.collections.length === input.siteCollections.length) {
-    for (const id of new Set(table.products.map((product) => product.id))) {
-      if (!used.has(id)) input.logger.warn(`products.${id} matches no page; check its section and API mount names.`);
-    }
-  }
   const corpus: SearchCorpusManifest = {
     format: SEARCH_CORPUS_FORMAT,
     site: input.site,
@@ -85,7 +78,6 @@ export async function writeSearchCorpus(input: {
     versions: table.pairs
       .filter((pair) => !pair.hidden)
       .map(({ unit, id, label, hash, deprecated }) => ({ unit, id, label, hash, deprecated })),
-    products: [...new Set(table.products.map((product) => product.id))].sort(),
     pages,
   };
   const target = path.join(input.sliceDir, SEARCH_CORPUS_PATH);

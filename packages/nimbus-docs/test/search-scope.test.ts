@@ -12,32 +12,24 @@ const table = buildSearchScopeTable({
     { family: "api", familyPath: "/api", version: "v1", label: "v1", isDefault: false, deprecated: true, hidden: false },
     { family: "sdk", familyPath: "/sdk/reference", version: "v2", label: "v2", isDefault: true, deprecated: false, hidden: false },
   ],
-  products: { sdk: ["sdk", "sdk/reference"], platform: ["platform"] },
   hash: sha256Hex,
 });
 
 test("docs and API versions with the same label stay apart, and a label selects both", () => {
-  const docs = pageScopeOf(table, { collection: "docs", route: "/guide/" });
-  const api = pageScopeOf(table, { collection: "api", route: "/api/forecast/" });
-  const sdk = pageScopeOf(table, { collection: "sdk", route: "/sdk/reference/x/" });
+  const docs = pageScopeOf(table, { collection: "docs" });
+  const api = pageScopeOf(table, { collection: "api" });
+  const sdk = pageScopeOf(table, { collection: "sdk" });
   assert.notEqual(docs.version, api.version);
   assert.notEqual(api.version, sdk.version);
   assert.deepEqual(versionChoices(table).v2!.sort(), [docs.version, api.version, sdk.version].sort());
   assert.equal(versionChoices(table).v0, undefined, "hidden versions aren't offered");
-  assert.equal(pageScopeOf(table, { collection: "api", route: "/api/x/", apiVersion: "v1" }).deprecated, true);
-  assert.equal(pageScopeOf(table, { collection: "docs-v1", route: "/v1/guide/" }).deprecated, true);
+  assert.equal(pageScopeOf(table, { collection: "api", apiVersion: "v1" }).deprecated, true);
+  assert.equal(pageScopeOf(table, { collection: "docs-v1" }).deprecated, true);
 });
 
-test("products match the longest prefix; anything else is the default product", () => {
-  assert.equal(pageScopeOf(table, { collection: "docs", route: "/sdk/install/" }).product, "sdk");
-  assert.equal(pageScopeOf(table, { collection: "sdk", route: "/sdk/reference/x/" }).product, "sdk");
-  assert.equal(pageScopeOf(table, { collection: "docs", route: "/platformer/" }).product, "site");
-  assert.equal(pageScopeOf(table, { collection: "docs", route: "/" }).product, "site");
-});
-
-test("readers search visible current versions, a deprecated page its own version, a product page its product", () => {
-  assert.deepEqual(aiSearchFilters({ version: "h", deprecated: false, product: "site" }), { deprecated: false });
-  assert.deepEqual(aiSearchFilters({ version: "h", deprecated: true, product: "sdk" }), { version: "h", product: "sdk" });
+test("readers search visible current versions, and a deprecated page its own version", () => {
+  assert.deepEqual(aiSearchFilters({ version: "h", deprecated: false }), { deprecated: false });
+  assert.deepEqual(aiSearchFilters({ version: "h", deprecated: true }), { version: "h" });
   assert.deepEqual(aiSearchFilters(undefined, { versions: ["a", "b"] }), { version: { $in: ["a", "b"] } });
 });
 

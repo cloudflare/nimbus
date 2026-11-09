@@ -94,13 +94,7 @@ In CI, it runs only on pushes to `main`, and refuses on pull requests and previe
 
 A reader searches every version except deprecated ones. On a deprecated version's page, they search that version.
 
-With `products`, search on a product's pages stays in that product:
-
-```ts title="astro.config.ts"
-products: { sdk: ["sdk", "api/sdk"], platform: ["platform"] },
-```
-
-These filters shape what readers see. They aren't access control: the endpoint is public, so only public, searchable pages are ever pushed.
+This filter shapes what readers see. They aren't access control: the endpoint is public, so only public, searchable pages are ever pushed.
 
 ### Cost and privacy
 

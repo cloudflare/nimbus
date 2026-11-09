@@ -161,7 +161,7 @@ export function virtualConfigPlugin(
         const emptyCollections = (await extras.getEmptyCollections?.()) ?? [];
         const buildSlice = (await extras.getBuildSlice?.()) ?? null;
         const primaryCollectionAbsent = (await extras.getPrimaryCollectionAbsent?.()) ?? false;
-        const searchScope = extras.getSearchScope?.() ?? { pairs: [], docs: {}, apis: {}, products: [] };
+        const searchScope = extras.getSearchScope?.() ?? { pairs: [], docs: {}, apis: {} };
         return (
           `export const config = ${JSON.stringify(runtimeConfig)};\n` +
           `export const pageAssets = ${JSON.stringify(extras.getPageAssets?.() ?? {})};\n` +

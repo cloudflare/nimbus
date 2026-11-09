@@ -129,37 +129,6 @@ const searchSchema = z
   ])
   .optional();
 
-/** A product id: the value search filters on, so a slug of at most 64 bytes. */
-const PRODUCT_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
-
-const productsSchema = z
-  .record(
-    z.string().regex(PRODUCT_ID, {
-      message: "product ids must be lowercase letters, digits, - and _, at most 64 characters",
-    }).refine((id) => id !== "site", {
-      message: '"site" is the default product\'s id; pick another',
-    }),
-    z
-      .array(
-        z.string().regex(/^[a-z0-9][a-z0-9._~-]*(?:\/[a-z0-9][a-z0-9._~-]*)*$/iu, {
-          message: 'product paths are top-level sections or API mounts without slashes at either end, e.g. "sdk" or "api/sdk"',
-        }),
-      )
-      .min(1),
-  )
-  .superRefine((products, ctx) => {
-    const owner = new Map<string, string>();
-    for (const [id, paths] of Object.entries(products)) {
-      for (const entry of paths) {
-        const previous = owner.get(entry);
-        if (previous && previous !== id)
-          ctx.addIssue({ code: "custom", path: [id], message: `"${entry}" is in both products "${previous}" and "${id}"` });
-        owner.set(entry, id);
-      }
-    }
-  })
-  .optional();
-
 const renderingModeSchema = z.enum(["build", "request"], {
   error: 'rendering mode must be either "build" or "request"',
 });
@@ -908,7 +877,6 @@ const nimbusConfigSchema = withStrictKeys(
     sidebar: sidebarSchema,
     features: featuresSchema,
     search: searchSchema,
-    products: productsSchema,
     versions: versionsSchema,
     api: apiSchema,
     sources: sourcesSchema,
