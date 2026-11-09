@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { llmsRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
 
 export const prerender = true;
 
@@ -35,6 +36,7 @@ How an agent uses it:
 export const GET: APIRoute = async (context) => {
   const response = await route.GET(context);
   if (!response.ok) return response;
-  const url = (path: string) => new URL(path, context.site).href;
+  // With the site's base, so the appendix's links resolve under it too.
+  const url = (path: string) => new URL(withBase(path, import.meta.env.BASE_URL), context.site).href;
   return new Response(`${await response.text()}${appendix(url)}`, { headers: response.headers });
 };
