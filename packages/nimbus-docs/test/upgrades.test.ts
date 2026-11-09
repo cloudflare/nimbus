@@ -42,6 +42,7 @@ test("only universally skippable entries are optional", () => {
       "api-code-sample-ids",
       "api-collections-from-config",
       "api-home",
+      "api-page-layout",
       "api-page-polish",
       "api-parameter-examples-and-home-toc",
       "api-query-version-mode",

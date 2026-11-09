@@ -4,8 +4,8 @@
  *
  * The recessed header (left) holds the method: a decorative `ApiMethodChip`
  * glyph and the verb in its palette colour. The raised content (right) holds
- * the full request URL (server muted, then path) and a copy button split off
- * by a divider. Glyph and verb read the shared `--nb-m-*` palette
+ * the operation's path (the server base is left out: it is the same on every
+ * page) and a copy button, split off by a divider, that copies the full URL. Glyph and verb read the shared `--nb-m-*` palette
  * (`globals.css`), so the card and the sidebar never disagree on a method.
  */
 import { LayerCard, LayerCardHeader, LayerCardContent } from "@/components/ui/layer-card";
@@ -13,11 +13,12 @@ import ApiMethodChip from "@/components/ui/api-sidebar/ApiMethodChip.astro";
 import { methodVariant } from "@/components/ui/api-sidebar/method";
 import { Badge } from "@/components/ui/badge";
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
+import { cn } from "@/lib/cn";
 
 interface Props {
   method: string;
   path: string;
-  /** Effective server base URL; when absent, the card shows the path alone. */
+  /** Effective server base URL: copied and shown on hover with the path, never displayed. */
   server?: string;
   isWebhook?: boolean;
   class?: string;
@@ -34,8 +35,10 @@ const copyLabel = server ? "Copy request URL" : "Copy path";
 const variant = methodVariant(method);
 ---
 
-{/* The method and URL read as one line of code, left to right in every language. */}
-<LayerCard orientation="horizontal" dir="ltr" class={className}>
+{/* The method and URL read as one line of code, left to right in every language.
+    The wrapper holds the full-URL tooltip outside the card, which clips. */}
+<div class={cn("group/url relative", className)}>
+<LayerCard orientation="horizontal" dir="ltr">
   <LayerCardHeader class="py-2 ps-2 pe-3">
     <ApiMethodChip method={method} display="glyph" size="md" decorative />
     <span class="font-mono text-[0.8125rem] font-medium" style={`color:var(--nb-m-${variant})`}>
@@ -44,13 +47,26 @@ const variant = methodVariant(method);
   </LayerCardHeader>
   <LayerCardContent class="flex-row items-stretch gap-0 p-0">
     <div class="min-w-0 grow self-center px-3">
-      {/* The server base is cut first: the path, which differs between pages,
-          is cut only when it alone is wider than the box. The title carries the
-          full URL. */}
-      <code class="flex min-w-0 whitespace-nowrap font-mono text-[0.8125rem] text-foreground" title={url}>
-        {server && <span class="min-w-0 truncate text-muted-foreground">{base}</span>}
-        <span class="max-w-full shrink-0 truncate">{path}{serverQuery && <span class="text-muted-foreground">{serverQuery}</span>}</span>
-      </code>
+      {/* The path only. With a server, the full URL shows on hover, on keyboard
+          focus and on tap (the path is focusable), and screen readers hear it
+          as the path's name. Search indexes the full URL once, from the tooltip. */}
+      {server ? (
+        <>
+          <code
+            tabindex="0"
+            aria-label={url}
+            data-nb-url-path
+            data-pagefind-ignore
+            class="flex min-w-0 cursor-default whitespace-nowrap rounded-sm font-mono text-[0.8125rem] text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span class="max-w-full truncate">{path}</span>
+          </code>
+        </>
+      ) : (
+        <code class="flex min-w-0 whitespace-nowrap font-mono text-[0.8125rem] text-foreground">
+          <span class="max-w-full truncate">{path}</span>
+        </code>
+      )}
     </div>
     {isWebhook && <Badge text="Webhook" variant="outline" class="me-3 self-center" />}
     <button
@@ -72,6 +88,15 @@ const variant = methodVariant(method);
     </button>
   </LayerCardContent>
 </LayerCard>
+{server && (
+  <span
+    aria-hidden="true"
+    class="pointer-events-none absolute start-0 top-full z-20 mt-1.5 hidden w-max max-w-[min(40rem,90vw)] break-all rounded-md border border-border bg-card px-2 py-1 font-mono text-xs text-foreground shadow-sm group-has-[[data-nb-url-path]:hover]/url:block group-has-[[data-nb-url-path]:focus]/url:block"
+  >
+    {url}
+  </span>
+)}
+</div>
 
 <script>
   // Copy the request URL. mount() re-binds per navigation.
