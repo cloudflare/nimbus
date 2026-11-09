@@ -20,6 +20,7 @@ import {
   type LlmsFullHeader,
 } from "./llms-full.js";
 import { absoluteSiteUrl } from "./api/markdown-document.js";
+import { selectApiVersion } from "./api/resolve-versions.js";
 import { formatLabel } from "./sidebar.js";
 import { toDocumentHref } from "./url.js";
 import type { LlmsEndpointReference } from "../agent-endpoints.js";
@@ -115,9 +116,22 @@ const absoluteUrl = (ctx: Pick<LlmsDocumentContext, "site" | "base">, pathname: 
  * id with the page's own id as one segment, so an operation lists under its
  * resource whatever its URL depth.
  */
-export function llmsPlacement(page: Pick<LlmsPage, "id" | "section">): string {
-  if (page.section === undefined || page.section === page.id) return page.id;
-  return `${page.section}/\u0000${page.id.replaceAll("/", "\u0001")}`;
+export function llmsPlacement(page: Pick<LlmsPage, "id" | "section" | "apiVersion">): string {
+  // A non-default version's store ids carry the version (`v1/list-pets`);
+  // it places like the default's page of the same slug, so a version's part
+  // is the section's pages of that version.
+  const strip = (value: string) =>
+    page.apiVersion === undefined
+      ? value
+      : value === page.apiVersion
+        ? "index"
+        : value.startsWith(`${page.apiVersion}/`)
+          ? value.slice(page.apiVersion.length + 1)
+          : value;
+  const id = strip(page.id);
+  const section = page.section === undefined ? undefined : strip(page.section);
+  if (section === undefined || section === id) return id;
+  return `${section}/\u0000${id.replaceAll("/", "\u0001")}`;
 }
 
 /**
@@ -211,7 +225,9 @@ function nestLlmsGroup<P extends LlmsPage>(
   }
   const children: LlmsGroup<P>[] = [];
   for (const [segment, bucket] of buckets) {
-    if (bucket.length === 1 && bucket[0]!.rest === "") members.push(bucket[0]!.page);
+    // A segment holding only pages whose paths end there is a page of this
+    // section (one page, or the same page in several API versions).
+    if (bucket.every((entry) => entry.rest === "")) members.push(...bucket.map((entry) => entry.page));
     else children.push(nestLlmsGroup(`${slug}/${segment}`, kind, bucket));
   }
   return { slug, label: groupLabel(slug, members), kind, members, children };
@@ -664,10 +680,14 @@ export function resolvePartIdentity(
     const collection = sectionApiCollection(exact, ctx);
     const family = collection ? ctx.apiVersions?.[collection] : undefined;
     if (family?.mode === "query") {
-      const values = search.getAll(family.param);
-      if (values.length > 1) return null;
-      const selected = values[0] || family.defaultVersion;
-      if (!family.versions.includes(selected)) return null;
+      // The same selection a page makes: the family's parameter, the legacy
+      // one when absent, one value only, a known version.
+      const selected = selectApiVersion(search, {
+        defaultVersion: family.defaultVersion,
+        versions: new Set(family.versions),
+        param: family.param,
+      });
+      if (selected === null) return null;
       return { group: exact, version: selected === family.defaultVersion ? undefined : selected };
     }
     return { group: exact, version: undefined };

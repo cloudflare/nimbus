@@ -76,6 +76,9 @@ async function buildSite(host: string, rendering: "build" | "request", options: 
   await write("specs/pets.json", SPEC);
   await write("specs/qv-v2.json", QV_SPEC("v2"));
   await write("specs/qv-v1.json", QV_SPEC("v1"));
+  await write("specs/qv-v0.json", QV_SPEC("v0"));
+  await write("specs/pv-v2.json", QV_SPEC("v2").replace("Weather", "Radar"));
+  await write("specs/pv-v1.json", QV_SPEC("v1").replace("Weather", "Radar"));
   await write(
     "src/content.config.ts",
     `import { defineCollection } from "astro:content";
@@ -84,6 +87,7 @@ export const collections = {
   docs: defineCollection(docsCollection()),
   pets: defineCollection(apiCollection()),
   qv: defineCollection(apiCollection()),
+  pv: defineCollection(apiCollection()),
 };
 `,
   );
@@ -100,7 +104,7 @@ if (page instanceof Response) return page;
 <html><body>doc</body></html>
 `,
   );
-  for (const collection of ["pets", "qv"]) {
+  for (const collection of ["pets", "qv", "pv"]) {
     await write(
       `src/pages/${collection}/[...slug].astro`,
       `---
@@ -175,6 +179,14 @@ const { page } = result;
               versions: [
                 { version: "v2", spec: "./specs/qv-v2.json", default: true },
                 { version: "v1", spec: "./specs/qv-v1.json" },
+                { version: "v0", spec: "./specs/qv-v0.json", hidden: true },
+              ],
+            },
+            {
+              collection: "pv",
+              versions: [
+                { version: "v2", spec: "./specs/pv-v2.json", default: true },
+                { version: "v1", spec: "./specs/pv-v1.json" },
               ],
             },
           ],
@@ -251,16 +263,23 @@ test("with no Markdown route and no MCP, the parts still read every page's body"
   ) as { markdownAssets: Array<{ collection: string; published?: false }> };
   assert.ok(deployed.markdownAssets.some((asset) => asset.collection === "docs" && asset.published === false));
   const index = await (await bodiesOnly.app.render(new Request("https://bodies.test/llms-full.txt"))).text();
-  for (const href of links(index).map(([, h]) => h!).filter((h) => h.endsWith("/llms-full.txt"))) {
+  const partHrefs = links(index).map(([, h]) => h!).filter((h) => /\/llms-full\.txt(\?|$)/.test(h));
+  const leaves = links(index).map(([, h]) => h!).filter((h) => !/\/llms-full\.txt(\?|$)/.test(h));
+  let total = 0;
+  for (const href of partHrefs) {
     const response = await bodiesOnly.app.render(new Request(href));
     assert.equal(response.status, 200, href);
     const body = await response.text();
     assert.match(body, /^# Test — /, href);
-    assert.ok(blocks(body).length >= 2, `${href} holds its pages`);
+    const count = blocks(body).length - 1;
+    assert.ok(count >= 1, `${href} holds its pages`);
+    total += count;
     // No page links a Markdown URL: none is served.
     assert.doesNotMatch(body, /index\.md/);
   }
   assert.doesNotMatch(index, /index\.md/);
+  // Every discoverable page is in exactly one part or linked from the index.
+  assert.equal(total + leaves.length, manifest.pages!.length);
 });
 
 test("a query-versioned API gets one part per version, each holding that version's pages", async () => {
@@ -291,12 +310,52 @@ test("a query-versioned API gets one part per version, each holding that version
   await live.app.render(new Request("https://live.test/qv/llms-full.txt?v=v1"));
   assert.equal(renders().part, before + 2);
   assert.equal((await live.app.render(new Request("https://live.test/qv/llms-full.txt?v=v9"))).status, 404);
+  // A hidden version is listed nowhere and has no part.
+  assert.doesNotMatch(index, /v=v0/);
+  assert.equal((await live.app.render(new Request("https://live.test/qv/llms-full.txt?v=v0"))).status, 404);
   // The indexes list the default version only.
   const siteIndex = await (await live.app.render(new Request("https://live.test/llms.txt"))).text();
   assert.doesNotMatch(siteIndex, /\?v=v1/);
   const section = await (await live.app.render(new Request("https://live.test/qv/llms.txt"))).text();
   assert.match(section, /Get a forecast \(v2\)/);
   assert.doesNotMatch(section, /v1/);
+});
+
+test("a path-versioned API gets a part per version at the version's URL, its pages keeping their Markdown links", async () => {
+  const index = await (await live.app.render(new Request("https://live.test/llms-full.txt"))).text();
+  const pvParts = links(index).filter(([, href]) => href!.includes("/pv/"));
+  assert.deepEqual(
+    pvParts.map(([label, href]) => [label, new URL(href!).pathname]),
+    [
+      ["Radar v2", "/pv/llms-full.txt"],
+      ["Radar v2 (v1)", "/pv/v1/llms-full.txt"],
+    ],
+  );
+  const historical = await live.app.render(new Request("https://live.test/pv/v1/llms-full.txt"));
+  assert.equal(historical.status, 200);
+  const body = await historical.text();
+  assert.match(body, /^# Test — Radar v2 \(v1\)\n/);
+  assert.match(body, /Get a forecast \(v1\)/);
+  assert.match(body, /Legacy report \(v1\)/);
+  assert.doesNotMatch(body, /\(v2\)/);
+  // A path version's pages have URLs and Markdown of their own.
+  assert.match(body, /Source: https:\/\/live\.test\/pv\/v1\/getForecast\/ · Markdown: https:\/\/live\.test\/pv\/v1\/getForecast\/index\.md/);
+  const current = await (await live.app.render(new Request("https://live.test/pv/llms-full.txt"))).text();
+  assert.doesNotMatch(current, /\/pv\/v1\//);
+  assert.equal((await live.app.render(new Request("https://live.test/pv/v9/llms-full.txt"))).status, 404);
+  // The section index lists the path version's pages, as a build-rendered site's does.
+  const section = await (await live.app.render(new Request("https://live.test/pv/llms.txt"))).text();
+  assert.match(section, /\/pv\/v1\/getForecast\/index\.md/);
+});
+
+test("a section index on request still answers the default version only", async () => {
+  assert.equal((await live.app.render(new Request("https://live.test/qv/llms.txt?v=v1"))).status, 404);
+  assert.equal((await live.app.render(new Request("https://live.test/qv/llms.txt?v=v2"))).status, 200);
+  // The legacy parameter selects a part too.
+  const legacy = await live.app.render(new Request("https://live.test/qv/llms-full.txt?api-version=v1"));
+  assert.equal(legacy.status, 200);
+  assert.match(await legacy.text(), /\(v1\)\n/);
+  assert.equal((await live.app.render(new Request("https://live.test/qv/llms-full.txt?v=v1&v=v2"))).status, 404);
 });
 
 test("a request-rendered site bakes no agent document and lists its pages in the manifest", async () => {

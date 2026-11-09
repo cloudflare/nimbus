@@ -19,6 +19,7 @@ import {
   llmsFullPagesOf,
   llmsFullPartsIndex,
   nestedCollectionLinks,
+  partPages,
   resolvePartIdentity,
   sectionIndexDocument,
   servesSectionIndex,
@@ -121,43 +122,57 @@ async function pageMarkdown(manifest: StagedAgentEndpointManifest, page: LlmsPag
   throw new Error(`nimbus-docs: no Markdown for "${page.collection}:${page.id}" to assemble llms-full.txt from.`);
 }
 
-// Assembled parts, per isolate, within a byte budget: the in-flight promise
-// doubles as the memo, so concurrent requests for one part share a render.
-// A failed render is forgotten.
+// Assembled parts, per isolate: in-flight renders, shared by concurrent
+// requests for one part, and completed bodies within a byte budget. A failed
+// render is forgotten.
 const PART_MEMO_BUDGET_BYTES = 64 * 1024 * 1024;
-const parts = new Map<string, { promise: Promise<string>; bytes: number }>();
-let memoBytes = 0;
-// One part at a time per isolate: a part is the costly assembly, and two in
-// flight would hold two parts' bodies at once.
-let assembling: Promise<unknown> = Promise.resolve();
+const inFlight = new Map<string, Promise<string>>();
+const completed = new Map<string, { body: string; bytes: number }>();
+let completedBytes = 0;
+const utf8 = new TextEncoder();
+
+function remember(key: string, body: string): void {
+  const bytes = utf8.encode(body).length;
+  const previous = completed.get(key);
+  if (previous) completedBytes -= previous.bytes;
+  completed.delete(key);
+  completed.set(key, { body, bytes });
+  completedBytes += bytes;
+  // Evict the oldest completed bodies until the budget holds; the newest
+  // stays even when it is larger than the budget alone.
+  for (const [other, value] of completed) {
+    if (completedBytes <= PART_MEMO_BUDGET_BYTES || other === key) break;
+    completed.delete(other);
+    completedBytes -= value.bytes;
+  }
+}
 
 function memoized(key: string, render: () => Promise<string>): Promise<string> {
   // Dev re-renders every time: content and routes change under it.
   if (import.meta.env?.DEV) return render();
-  const existing = parts.get(key);
-  if (existing) return existing.promise;
-  const entry = { promise: Promise.resolve(""), bytes: 0 };
-  entry.promise = render().then(
+  const done = completed.get(key);
+  if (done) return Promise.resolve(done.body);
+  const existing = inFlight.get(key);
+  if (existing) return existing;
+  const promise = render().then(
     (body) => {
-      entry.bytes = body.length;
-      memoBytes += entry.bytes;
-      // Evict the oldest until the budget holds; the newest stays even when
-      // it is larger than the budget alone.
-      for (const [other, value] of parts) {
-        if (memoBytes <= PART_MEMO_BUDGET_BYTES || other === key) break;
-        parts.delete(other);
-        memoBytes -= value.bytes;
+      if (inFlight.get(key) === promise) {
+        inFlight.delete(key);
+        remember(key, body);
       }
       return body;
     },
     (error: unknown) => {
-      parts.delete(key);
+      if (inFlight.get(key) === promise) inFlight.delete(key);
       throw error;
     },
   );
-  parts.set(key, entry);
-  return entry.promise;
+  inFlight.set(key, promise);
+  return promise;
 }
+// One part at a time per isolate: a part is the costly assembly, and two in
+// flight would hold two parts' bodies at once.
+let assembling: Promise<unknown> = Promise.resolve();
 
 /** Runs `work` after every assembly already queued in this isolate. */
 function queued<T>(work: () => Promise<T>): Promise<T> {
@@ -244,6 +259,8 @@ export async function renderLlmsDocument(
       const identity = resolvePartIdentity(groups, reference.section, search, ctx);
       if (!identity) return null;
       const { group, version } = identity;
+      // A version with no discoverable pages (a hidden one) has no part.
+      if (partPages(group, version).length === 0) return null;
       body = await cached(manifest, ctx.site, `part:${group.slug}@${version ?? ""}`, async () => {
         countRender("part");
         return assembleLlmsFullPart(group, ctx, (page) => pageMarkdown(manifest, page, request), undefined, version);
@@ -255,6 +272,7 @@ export async function renderLlmsDocument(
 
 /** Dev only: forget assembled parts after the content or routes change. */
 export function resetLlmsOnRequest(): void {
-  parts.clear();
-  memoBytes = 0;
+  inFlight.clear();
+  completed.clear();
+  completedBytes = 0;
 }

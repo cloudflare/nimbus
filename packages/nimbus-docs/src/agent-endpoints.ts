@@ -90,9 +90,6 @@ async function selectedApiOutputIsDefault(
   const url = new URL(request.url);
   if (!url.search) return true;
   const params = url.searchParams;
-  const { hasApiPageAssets } =
-    await import("./_internal/api/page-assets-runtime.js");
-  if (!(await hasApiPageAssets(collection))) return true;
   const { loadNimbusConfig } = await import("./_internal/runtime-config.js");
   const { apiQueryRouting, selectApiVersion } =
     await import("./_internal/api/resolve-versions.js");
@@ -445,18 +442,29 @@ export async function getLlmsPayload(
   reference: LlmsEndpointReference,
   context: AgentEndpointContext = {},
 ): Promise<LlmsEndpointPayload | null> {
+  // An index is the default version's; another version's query selects
+  // nothing. A full-document part reads the version its query or path
+  // selects itself.
+  if (
+    reference.scope === "section" &&
+    reference.surface === "index" &&
+    context.request &&
+    new URL(context.request.url).search
+  ) {
+    const api = await sectionApiCollection(reference.section);
+    if (api && !(await selectedApiOutputIsDefault(api, context.request))) return null;
+  }
   const { llmsByIdentity } = await llmsIndex(context.request);
   const asset = llmsByIdentity.get(llmsIdentity(reference));
   if (!asset) {
-    // A document whose route renders on request: made now from the page
-    // list. A part reads the version its query or path selects itself.
+    // A document whose route renders on request: made now from the page list.
     const manifest = await loadAgentEndpointManifest(context.request);
     if (!rendersOnRequest(manifest, reference)) return null;
     const rendered = await renderLlmsDocument(manifest, reference, context.request);
     return rendered ? { ...reference, ...rendered } : null;
   }
-  // A baked document is the default version's; another version's query selects nothing here.
-  if (reference.scope === "section" && context.request && new URL(context.request.url).search) {
+  // A baked full document is the default version's too.
+  if (reference.scope === "section" && reference.surface === "full" && context.request && new URL(context.request.url).search) {
     const api = await sectionApiCollection(reference.section);
     if (api && !(await selectedApiOutputIsDefault(api, context.request))) return null;
   }

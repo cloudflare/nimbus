@@ -861,7 +861,9 @@ function preparedLlmsPage(
         : entry.id,
     description: entryDescription(entry),
     url: ownUrl ?? toDocumentHref(route),
-    ...(ownUrl === undefined && publishes(options, route === "/" ? "/index.md" : `${route}/index.md`)
+    // A historical page's Markdown is served nowhere; a path-version page's
+    // is, where a route serves it, at its own version's URL.
+    ...(!entry.historical && publishes(options, route === "/" ? "/index.md" : `${route}/index.md`)
       ? { markdownUrl: route === "/" ? "/index.md" : `${route}/index.md` }
       : {}),
     markdown,
@@ -2079,13 +2081,18 @@ export async function bakeAgentEndpointAssets(
         options.nestedSections === true,
         options.mcpUrl ?? "",
         options.surfaces?.markdownRoutes.map((route) => route.pattern) ?? [],
+        rendersOnRequest,
+        servesLlms(options),
+        servesLlmsFull(options),
+        full.split,
         options.absentSections ?? [],
+        options.apiVersions ?? {},
         ...records.map((record) => record.digest),
         ...llmsRecords.map((record) => record.digest),
         ...renderedPages.map((page) => `${page.collection}\0${page.id}\0${page.url}\0${page.published}\0${page.fingerprint}`),
-        ...preparedLlmsPages.map(
-          (page) => `${page.collection}\0${page.id}\0${page.url}\0${page.title}\0${page.description ?? ""}\0${page.markdownUrl ?? ""}\0${page.position ?? ""}`,
-        ),
+        // Every body-free field of every listed page: a group label or a
+        // section is a document input too.
+        ...preparedLlmsPages.map(({ markdown: _markdown, ...page }) => JSON.stringify(page)),
       ]),
     ).slice(0, 16),
     ...(pageIndexRecord ? { pageIndex: withoutBody(pageIndexRecord) } : {}),
