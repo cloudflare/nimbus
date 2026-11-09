@@ -92,8 +92,11 @@ const cmd = "npx @cloudflare/create-nimbus-docs@latest";
 </style>
 
 <script>
-  const root = document.querySelector<HTMLElement>("[data-exp-start]");
-  if (root) {
+  import { mount } from "@cloudflare/nimbus-docs/client";
+
+  // Through mount(), so the keys work again after a client-side navigation
+  // (docs pages use Astro's router) and its listeners go when the page does.
+  mount("[data-exp-start]", (root) => {
     const caps = Array.from(root.querySelectorAll<HTMLElement>("[data-cap]"));
     const after = root.querySelector<HTMLElement>("[data-after]")!, idle = after.textContent;
     const mac = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -108,15 +111,27 @@ const cmd = "npx @cloudflare/create-nimbus-docs@latest";
       window.clearTimeout(reset);
       reset = window.setTimeout(() => { delete after.dataset.copied; after.textContent = idle; }, 2400);
     };
-    root.querySelector<HTMLElement>("[data-caps]")!.addEventListener("click", () => { press(true); setTimeout(() => press(false), 140); copy(); });
+    const button = root.querySelector<HTMLElement>("[data-caps]")!;
+    const click = () => { press(true); setTimeout(() => press(false), 140); copy(); };
+    button.addEventListener("click", click);
     // The real shortcut works while the keys are on screen, unless the reader has text selected.
     let inView = false;
-    new IntersectionObserver(([e]) => { inView = e.isIntersecting; }, { threshold: 0.4 }).observe(root);
-    addEventListener("keydown", (e) => {
+    const observer = new IntersectionObserver(([e]) => { inView = e.isIntersecting; }, { threshold: 0.4 });
+    observer.observe(root);
+    const keydown = (e: KeyboardEvent) => {
       if (!inView || !(mac ? e.metaKey : e.ctrlKey) || e.key.toLowerCase() !== "c") return;
       if (String(getSelection() ?? "").length > 0) return;
       e.preventDefault(); press(true); copy();
-    });
-    addEventListener("keyup", () => press(false));
-  }
+    };
+    const keyup = () => press(false);
+    addEventListener("keydown", keydown);
+    addEventListener("keyup", keyup);
+    return () => {
+      button.removeEventListener("click", click);
+      observer.disconnect();
+      removeEventListener("keydown", keydown);
+      removeEventListener("keyup", keyup);
+      window.clearTimeout(reset);
+    };
+  });
 </script>
