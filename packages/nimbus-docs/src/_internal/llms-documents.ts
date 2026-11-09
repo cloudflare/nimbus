@@ -116,12 +116,13 @@ const absoluteUrl = (ctx: Pick<LlmsDocumentContext, "site" | "base">, pathname: 
  * id with the page's own id as one segment, so an operation lists under its
  * resource whatever its URL depth.
  */
-export function llmsPlacement(page: Pick<LlmsPage, "id" | "section" | "apiVersion">): string {
-  // A non-default version's store ids carry the version (`v1/list-pets`);
-  // it places like the default's page of the same slug, so a version's part
-  // is the section's pages of that version.
+export function llmsPlacement(page: Pick<LlmsPage, "id" | "section" | "apiVersion">, versionFree = false): string {
+  // For the full document's parts, a non-default version's store ids
+  // (`v1/list-pets`) place like the default's page of the same slug, so a
+  // version's part is the section's pages of that version. The indexes keep
+  // a path version's own section, as they always have.
   const strip = (value: string) =>
-    page.apiVersion === undefined
+    !versionFree || page.apiVersion === undefined
       ? value
       : value === page.apiVersion
         ? "index"
@@ -139,11 +140,12 @@ export function llmsPlacement(page: Pick<LlmsPage, "id" | "section" | "apiVersio
  * collection's URL without the leading `/` (`products/sdk`).
  */
 export function llmsSection(
-  page: Pick<LlmsPage, "collection" | "id" | "section">,
+  page: Pick<LlmsPage, "collection" | "id" | "section" | "apiVersion">,
   ctx: Pick<LlmsDocumentContext, "versions" | "routes">,
+  versionFree = false,
 ): string {
   const mount = collectionMountPrefix(page.collection, mountContextOf(ctx));
-  return mount ? mount.slice(1) : llmsPlacement(page).split("/")[0]!;
+  return mount ? mount.slice(1) : llmsPlacement(page, versionFree).split("/")[0]!;
 }
 
 /** Whether a page's collection is served at the root, like `docs`. */
@@ -154,13 +156,15 @@ function atRoot(page: Pick<LlmsPage, "collection">, ctx: Pick<LlmsDocumentContex
 export function groupLlmsPages<P extends LlmsPage>(
   pages: readonly P[],
   ctx: Pick<LlmsDocumentContext, "versions" | "routes" | "nestedSections">,
+  /** Place a non-default API version's pages with the default's (the full document's parts). */
+  versionFree = false,
 ): { leaves: P[]; groups: LlmsGroup<P>[] } {
   const nested = ctx.nestedSections === true;
   const primary = new Map<string, P[]>();
   const secondary = new Map<string, P[]>();
   const versionSlugs = new Set(ctx.versions?.others ?? []);
   for (const page of pages) {
-    const slug = llmsSection(page, ctx);
+    const slug = llmsSection(page, ctx, versionFree);
     const buckets = atRoot(page, ctx) ? primary : secondary;
     const bucket = buckets.get(slug);
     if (bucket) bucket.push(page);
@@ -170,7 +174,7 @@ export function groupLlmsPages<P extends LlmsPage>(
   const leaves: P[] = [];
   const groups: LlmsGroup<P>[] = [];
   for (const [slug, members] of primary) {
-    if (members.length === 1 && llmsPlacement(members[0]!) === slug) {
+    if (members.length === 1 && llmsPlacement(members[0]!, versionFree) === slug) {
       leaves.push(members[0]!);
     } else {
       groups.push(
@@ -178,7 +182,7 @@ export function groupLlmsPages<P extends LlmsPage>(
           ? nestLlmsGroup(
               slug,
               "primary",
-              members.map((page) => ({ page, rest: llmsPlacement(page).slice(slug.length + 1) })),
+              members.map((page) => ({ page, rest: llmsPlacement(page, versionFree).slice(slug.length + 1) })),
             )
           : { slug, label: groupLabel(slug, members), kind: "primary", members, children: [] },
       );
@@ -187,7 +191,7 @@ export function groupLlmsPages<P extends LlmsPage>(
   for (const [slug, members] of secondary) {
     const kind: LlmsGroup["kind"] = versionSlugs.has(slug) ? "version" : "secondary";
     const group: LlmsGroup<P> = nested
-      ? nestLlmsGroup(slug, kind, members.map((page) => ({ page, rest: llmsPlacement(page) })))
+      ? nestLlmsGroup(slug, kind, members.map((page) => ({ page, rest: llmsPlacement(page, versionFree) })))
       : { slug, label: groupLabel(slug, members), kind, members, children: [] };
     if (kind === "version") group.label = slug;
     groups.push(group);
@@ -712,7 +716,7 @@ export function resolvePartIdentity(
  * assembled until a part is asked for.
  */
 export function llmsFullPartsIndex(pages: readonly LlmsPage[], ctx: LlmsDocumentContext): string {
-  const { leaves, groups } = groupLlmsPages(pages, { ...ctx, nestedSections: true });
+  const { leaves, groups } = groupLlmsPages(pages, { ...ctx, nestedSections: true }, true);
   const header = llmsFullHeaderOf(ctx);
   return llmsFullIndexDocument({
     title: ctx.title,

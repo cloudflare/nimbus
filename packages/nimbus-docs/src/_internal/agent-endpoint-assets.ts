@@ -2065,7 +2065,11 @@ export async function bakeAgentEndpointAssets(
       ? { pages: preparedLlmsPages.map(({ markdown: _markdown, ...page }) => page) }
       : {}),
     ...(rendersOnRequest.llmsFull
-      ? { renderedParts: flattenLlmsGroups(groupLlmsPages(llmsFullPages, { ...ctx, nestedSections: true }).groups).map((group) => group.slug) }
+      ? {
+          renderedParts: flattenLlmsGroups(
+            groupLlmsPages(preparedLlmsPages.filter((page) => page.collection === PRIMARY_COLLECTION || !versionSlugs.has(collectionLabel(page.collection, options.versions))), { ...ctx, nestedSections: true }, true).groups,
+          ).map((group) => group.slug),
+        }
       : {}),
     ...(options.absentSections ? { absentSections: [...options.absentSections] } : {}),
     // Every input a document made on request reads: the baked bodies, the

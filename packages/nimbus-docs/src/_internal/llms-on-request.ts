@@ -133,6 +133,8 @@ const utf8 = new TextEncoder();
 
 function remember(key: string, body: string): void {
   const bytes = utf8.encode(body).length;
+  // A body the whole budget can't hold is served, not kept.
+  if (bytes > PART_MEMO_BUDGET_BYTES) return;
   const previous = completed.get(key);
   if (previous) completedBytes -= previous.bytes;
   completed.delete(key);
@@ -177,7 +179,11 @@ let assembling: Promise<unknown> = Promise.resolve();
 /** Runs `work` after every assembly already queued in this isolate. */
 function queued<T>(work: () => Promise<T>): Promise<T> {
   const run = assembling.then(work, work);
-  assembling = run.catch(() => undefined);
+  // The tail holds no body: it only orders the next assembly.
+  assembling = run.then(
+    () => undefined,
+    () => undefined,
+  );
   return run;
 }
 
@@ -254,7 +260,8 @@ export async function renderLlmsDocument(
       countRender("full");
       body = llmsFullPartsIndex(fullPages, ctx);
     } else {
-      const { groups } = groupLlmsPages(fullPages, { ...ctx, nestedSections: true });
+      // Parts place a version's pages with the default's; see llmsPlacement.
+      const { groups } = groupLlmsPages(fullPages, { ...ctx, nestedSections: true }, true);
       const search = request ? new URL(request.url).searchParams : new URLSearchParams();
       const identity = resolvePartIdentity(groups, reference.section, search, ctx);
       if (!identity) return null;

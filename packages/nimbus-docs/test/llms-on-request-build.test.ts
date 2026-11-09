@@ -265,21 +265,22 @@ test("with no Markdown route and no MCP, the parts still read every page's body"
   const index = await (await bodiesOnly.app.render(new Request("https://bodies.test/llms-full.txt"))).text();
   const partHrefs = links(index).map(([, h]) => h!).filter((h) => /\/llms-full\.txt(\?|$)/.test(h));
   const leaves = links(index).map(([, h]) => h!).filter((h) => !/\/llms-full\.txt(\?|$)/.test(h));
-  let total = 0;
+  const seen: string[] = [];
   for (const href of partHrefs) {
     const response = await bodiesOnly.app.render(new Request(href));
     assert.equal(response.status, 200, href);
     const body = await response.text();
     assert.match(body, /^# Test — /, href);
-    const count = blocks(body).length - 1;
-    assert.ok(count >= 1, `${href} holds its pages`);
-    total += count;
+    const sources = [...body.matchAll(/^Source: (\S+)$/gm)].map((m) => new URL(m[1]!).pathname + new URL(m[1]!).search);
+    assert.ok(sources.length >= 1, `${href} holds its pages`);
+    seen.push(...sources);
     // No page links a Markdown URL: none is served.
     assert.doesNotMatch(body, /index\.md/);
   }
   assert.doesNotMatch(index, /index\.md/);
-  // Every discoverable page is in exactly one part or linked from the index.
-  assert.equal(total + leaves.length, manifest.pages!.length);
+  // Every discoverable page is in exactly one part or linked from the index: same multiset of URLs.
+  seen.push(...leaves.map((href) => new URL(href).pathname + new URL(href).search));
+  assert.deepEqual(seen.sort(), manifest.pages!.map((page) => page.url).sort());
 });
 
 test("a query-versioned API gets one part per version, each holding that version's pages", async () => {
@@ -343,9 +344,12 @@ test("a path-versioned API gets a part per version at the version's URL, its pag
   const current = await (await live.app.render(new Request("https://live.test/pv/llms-full.txt"))).text();
   assert.doesNotMatch(current, /\/pv\/v1\//);
   assert.equal((await live.app.render(new Request("https://live.test/pv/v9/llms-full.txt"))).status, 404);
-  // The section index lists the path version's pages, as a build-rendered site's does.
+  // The indexes keep a path version as its own section, as a build-rendered site's do.
   const section = await (await live.app.render(new Request("https://live.test/pv/llms.txt"))).text();
-  assert.match(section, /\/pv\/v1\/getForecast\/index\.md/);
+  assert.match(section, /\[Radar v1\]\(https:\/\/live\.test\/pv\/v1\/llms\.txt\)/);
+  assert.doesNotMatch(section, /\/pv\/v1\/getForecast/);
+  const versionSection = await (await live.app.render(new Request("https://live.test/pv/v1/llms.txt"))).text();
+  assert.match(versionSection, /\/pv\/v1\/getForecast\/index\.md/);
 });
 
 test("a section index on request still answers the default version only", async () => {
@@ -438,7 +442,10 @@ test("/llms-full.txt is an index of parts; every part resolves and their blocks 
     expectedBlocks.length,
     `every page is in exactly one part or linked from the index\nparts: ${partBlocks.map((b) => b.split("\n")[0]).join(" | ")}\nleaves: ${pageUrls.join(", ")}\nexpected: ${expectedBlocks.map((b) => b.split("\n")[0]).join(" | ")}\nindex:\n${indexBody}`,
   );
+  // The parts' blocks, with multiplicity, are the build-rendered document's minus the leaves it holds.
   const normalize = (block: string) => block.replace(/\n+$/, "");
-  const expectedSet = new Set(expectedBlocks.map(normalize));
-  for (const block of partBlocks) assert.ok(expectedSet.has(normalize(block)), `block not in the build-rendered document:\n${block.slice(0, 300)}`);
+  const leafPaths = new Set(pageUrls.map((href) => new URL(href).pathname.replace(/index\.md$/, "")));
+  const sourceOf = (block: string) => block.match(/^Source: (\S+)/m)?.[1]!;
+  const expectedParts = expectedBlocks.filter((block) => !leafPaths.has(new URL(sourceOf(block)).pathname)).map(normalize).sort();
+  assert.deepEqual(partBlocks.map(normalize).sort(), expectedParts);
 });
