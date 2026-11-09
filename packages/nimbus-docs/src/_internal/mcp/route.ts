@@ -25,7 +25,8 @@ const markdownByPath = cachedPerOrigin(async (request): Promise<Map<string, Mark
 // Request-rendered API pages, by the `.md` path their index record names.
 const renderedByPath = cachedPerOrigin(async (request): Promise<Map<string, RenderedMarkdownPage>> => {
   const { rendered = [] } = await loadAgentEndpointManifest(request);
-  return new Map(rendered.map((page) => [renderedMarkdownPath(page), page] as const));
+  // A historical version's page shares its path with the default's; only the default answers by path.
+  return new Map(rendered.filter((page) => !page.historical).map((page) => [renderedMarkdownPath(page), page] as const));
 });
 let handler: DocsMcpHandler | undefined;
 

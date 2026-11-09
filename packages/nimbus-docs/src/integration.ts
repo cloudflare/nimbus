@@ -154,7 +154,8 @@ import {
   AGENT_SKILLS_INDEX_PATH,
   publishAgentSkills,
 } from "./_internal/agent-skills.js";
-import { pageUrl, resolveAllApiCollections } from "./_internal/api/resolve-versions.js";
+import { pageUrl, resolveAllApiCollections, versionQueryParam } from "./_internal/api/resolve-versions.js";
+import type { ApiVersionUrls } from "./_internal/llms-documents.js";
 
 import { coalesce } from "./_internal/coalesce.js";
 import { virtualApiBuildConfigPlugin } from "./_internal/virtual-api-build-config.js";
@@ -328,6 +329,22 @@ const REQUEST_ROUTE_INVENTORY_ENTRYPOINT = new URL(
 const initialDevWatchers = new Map<string, { close(): Promise<void> }>();
 
 type AgentEndpointAssetsModule = typeof import("./_internal/agent-endpoint-assets.js");
+
+/** Versioned API families by collection: how their versions appear in URLs, for per-version `llms-full` parts. */
+function apiVersionsForDocuments(api: NimbusConfig["api"]): Record<string, ApiVersionUrls> | undefined {
+  const families: Record<string, ApiVersionUrls> = {};
+  for (const entry of api ?? []) {
+    if (!entry.versions || entry.versions.length < 2) continue;
+    const fallback = entry.versions.find((version) => version.default) ?? entry.versions[0]!;
+    families[entry.collection] = {
+      mode: entry.versionUrl?.in === "query" ? "query" : "path",
+      param: versionQueryParam(entry),
+      defaultVersion: fallback.version,
+      versions: entry.versions.map((version) => version.version),
+    };
+  }
+  return Object.keys(families).length > 0 ? families : undefined;
+}
 
 /** The parts of the agent surfaces that change what the bake writes, for change detection. */
 function surfaceSummary(surfaces: AgentSurfaces): unknown {
@@ -1574,6 +1591,7 @@ export function nimbus(
               // Request-rendered API pages are described, not baked: the Worker
               // renders their Markdown from the records it holds.
               requestRendered: (collection) => requestRenderingCollections.has(collection),
+              apiVersions: apiVersionsForDocuments(config.api),
               ...(agentSurfacesForBuild ? { surfaces: agentSurfacesForBuild } : {}),
               // Pagefind over request-rendered pages reads each page's text
               // from the build cache, route or no route.
@@ -1605,69 +1623,74 @@ export function nimbus(
                   data: Record<string, unknown>;
                   hidden: boolean;
                   section?: string;
+                  historical?: boolean;
                 }> = [];
                 const { apiLlmsPlacement } = await import("./_internal/api/llms-sections.js");
                 if (apiCollectionsForBuild.length === 0) return apiEntries;
-                // Query-mode families publish twins and index lines for the
-                // default version only, at version-free URLs; a non-default
-                // entry's store id is not a route.
-                const queryModeDefaults = new Map<string, string>();
-                for (const entry of config.api ?? []) {
-                  if (entry.versionUrl?.in !== "query" || !entry.versions) continue;
-                  const fallback =
-                    entry.versions.find((v) => v.default) ?? entry.versions[0];
-                  queryModeDefaults.set(entry.collection, fallback!.version);
-                }
+                const { resolveApiFamily, pageUrl, apiPageSlug } = await import("./_internal/api/resolve-versions.js");
+                // Every version's render targets. A non-default version's
+                // pages carry their version identity so the full document's
+                // parts partition by it. Query-mode families publish twins and
+                // index lines for the default version only, at version-free
+                // URLs: a non-default entry's store id is not a route, so those
+                // pages are historical, listed by no index.
+                const families = new Map(
+                  (config.api ?? []).map((entry) => [
+                    entry.collection,
+                    resolveApiFamily(entry, collectionMountPrefix(entry.collection, mountContextForBuild)),
+                  ]),
+                );
                 const snapshot = getPreparedMarkdownSnapshot(projectRoot);
                 for (const collection of apiCollectionsForBuild) {
+                  const targets = families.get(collection) ?? [];
                   if (pageAssetCollections.includes(collection)) {
-                    const { resolveApiFamily } =
-                      await import("./_internal/api/resolve-versions.js");
-                    const target = resolveApiFamily(
-                      config.api!.find(
-                        (entry) => entry.collection === collection,
-                      )!,
-                      collectionMountPrefix(collection, mountContextForBuild),
-                    ).find((target) => target.isDefault)!;
-                    const index =
-                      await pageAssetsBuild.readApiAssetIndexForBuild(
-                        projectRoot,
-                        collection,
-                        target.version,
-                      );
-                    // Each page goes in its sidebar group's `llms.txt`.
-                    const { sections, order } = apiLlmsPlacement(index.metadata.nav.nav.items, (coordinate) => {
-                      const row = index.byId.get(coordinate);
-                      return row ? row.slug || "index" : undefined;
-                    });
-                    for (const row of index.rows) {
-                      const position = order.get(row.id);
-                      if (position !== undefined) apiNavOrder.set(`${collection}\0${row.slug || "index"}`, position);
-                    }
-                    assetApiEntries.set(
-                      collection,
-                      index.rows.map((row) => ({
-                        id: row.slug || "index",
-                        data: { coordinate: row.id, title: row.title, description: row.description },
-                      })),
-                    );
-                    for (const row of index.rows)
-                      apiEntries.push({
-                        collection,
-                        id: row.slug || "index",
-                        section: sections.get(row.id),
-                        data: {
-                          coordinate: row.id,
-                          title: row.title,
-                          description: row.description,
-                          ...(target.version
-                            ? { version: target.version }
-                            : {}),
-                          // The pack's content-addressed file: the record's identity without reading it.
-                          fingerprint: `${row.location.filename}\0${row.location.key ?? ""}`,
-                        },
-                        hidden: target.hidden,
+                    for (const target of targets) {
+                      const index =
+                        await pageAssetsBuild.readApiAssetIndexForBuild(
+                          projectRoot,
+                          collection,
+                          target.version,
+                        );
+                      // Each page goes in its sidebar group's `llms.txt`.
+                      const { sections, order } = apiLlmsPlacement(index.metadata.nav.nav.items, (coordinate) => {
+                        const row = index.byId.get(coordinate);
+                        return row ? row.slug || "index" : undefined;
                       });
+                      if (target.isDefault) {
+                        for (const row of index.rows) {
+                          const position = order.get(row.id);
+                          if (position !== undefined) apiNavOrder.set(`${collection}\0${row.slug || "index"}`, position);
+                        }
+                        assetApiEntries.set(
+                          collection,
+                          index.rows.map((row) => ({
+                            id: row.slug || "index",
+                            data: { coordinate: row.id, title: row.title, description: row.description },
+                          })),
+                        );
+                      }
+                      for (const row of index.rows)
+                        apiEntries.push({
+                          collection,
+                          id: target.isDefault ? row.slug || "index" : `${target.version}/${row.slug || "index"}`,
+                          section: sections.get(row.id),
+                          data: {
+                            coordinate: row.id,
+                            title: row.title,
+                            description: row.description,
+                            ...(target.version
+                              ? { version: target.version }
+                              : {}),
+                            ...(target.isDefault
+                              ? {}
+                              : { apiVersion: target.version, url: pageUrl(target, row.slug) }),
+                            // The pack's content-addressed file: the record's identity without reading it.
+                            fingerprint: `${row.location.filename}\0${row.location.key ?? ""}`,
+                          },
+                          hidden: target.hidden,
+                          ...(target.isDefault ? {} : { historical: target.versionMode === "query" }),
+                        });
+                    }
                     continue;
                   }
                   const entries =
@@ -1682,31 +1705,29 @@ export function nimbus(
                       indexError ?? missingApiCollectionMessage(collection),
                     );
                   }
-                  const queryDefault = queryModeDefaults.get(collection);
                   const firstOfCollection = apiEntries.length;
                   for (const entry of entries.values()) {
-                    if (
-                      queryDefault !== undefined &&
-                      typeof entry.data.version === "string" &&
-                      entry.data.version !== queryDefault
-                    ) {
-                      continue;
-                    }
+                    const version = typeof entry.data.version === "string" ? entry.data.version : undefined;
+                    const target = version === undefined ? undefined : targets.find((candidate) => candidate.version === version);
+                    const nonDefault = target !== undefined && !target.isDefault;
                     apiEntries.push({
                       collection,
                       id: entry.id,
-                      data: (entry.data ?? {}) as Record<string, unknown>,
+                      data: {
+                        ...((entry.data ?? {}) as Record<string, unknown>),
+                        ...(nonDefault
+                          ? { apiVersion: target.version, url: pageUrl(target, apiPageSlug(target, entry.id)) }
+                          : {}),
+                      },
                       hidden:
-                        typeof entry.data.version === "string" &&
-                        (hiddenApiVersions
-                          .get(collection)
-                          ?.has(entry.data.version) ??
-                          false),
+                        version !== undefined &&
+                        (hiddenApiVersions.get(collection)?.has(version) ?? false),
+                      ...(nonDefault && target.versionMode === "query" ? { historical: true } : {}),
                     });
                   }
                   await placeBundledApiEntries(
                     collection,
-                    apiEntries.slice(firstOfCollection),
+                    apiEntries.slice(firstOfCollection).filter((entry) => !entry.historical),
                     entries,
                   );
                 }

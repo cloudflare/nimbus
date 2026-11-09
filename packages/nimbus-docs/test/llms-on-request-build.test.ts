@@ -7,6 +7,7 @@
 // adapter (by name; the Workers assets binding is stubbed to read dist/).
 
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { register } from "node:module";
 import path from "node:path";
@@ -35,6 +36,21 @@ const SPEC = JSON.stringify({
   },
 });
 
+/** A query-versioned API: v2 default, v1 historical, with distinct summaries. */
+const QV_SPEC = (version: string) =>
+  JSON.stringify({
+    openapi: "3.0.0",
+    info: { title: `Weather ${version}`, version: "1.0.0", description: `Forecasts (${version}).` },
+    paths: {
+      "/forecast": {
+        get: { operationId: "getForecast", summary: `Get a forecast (${version})`, responses: { "200": { description: "ok" } } },
+      },
+      ...(version === "v1"
+        ? { "/legacy": { get: { operationId: "legacyReport", summary: "Legacy report (v1)", responses: { "200": { description: "ok" } } } } }
+        : {}),
+    },
+  });
+
 const DOCS: Record<string, string> = {
   "index.md": "---\ntitle: Home\ndescription: Start here.\n---\n\nWelcome.\n",
   "guide/index.md": "---\ntitle: Guide\ndescription: The guide.\n---\n\nRead [the start](/) first.\n",
@@ -58,6 +74,8 @@ async function buildSite(host: string, rendering: "build" | "request", options: 
   await write("package.json", '{"type":"module"}\n');
   await write("nimbus.json", `${JSON.stringify({ lastReviewedNimbusVersion: runningNimbusVersion() })}\n`);
   await write("specs/pets.json", SPEC);
+  await write("specs/qv-v2.json", QV_SPEC("v2"));
+  await write("specs/qv-v1.json", QV_SPEC("v1"));
   await write(
     "src/content.config.ts",
     `import { defineCollection } from "astro:content";
@@ -65,6 +83,7 @@ import { apiCollection, docsCollection } from ${JSON.stringify(pathToFileURL(pat
 export const collections = {
   docs: defineCollection(docsCollection()),
   pets: defineCollection(apiCollection()),
+  qv: defineCollection(apiCollection()),
 };
 `,
   );
@@ -81,19 +100,21 @@ if (page instanceof Response) return page;
 <html><body>doc</body></html>
 `,
   );
-  await write(
-    "src/pages/pets/[...slug].astro",
-    `---
+  for (const collection of ["pets", "qv"]) {
+    await write(
+      `src/pages/${collection}/[...slug].astro`,
+      `---
 import { getApiRoute, getApiStaticPaths } from "@cloudflare/nimbus-docs/runtime";
 export const prerender = true;
-export const getStaticPaths = getApiStaticPaths("pets");
+export const getStaticPaths = getApiStaticPaths("${collection}");
 const result = await getApiRoute(Astro);
 if (result instanceof Response) return result;
 const { page } = result;
 ---
 <html><body><main data-title={page.title}>{page.title}</main></body></html>
 `,
-  );
+    );
+  }
   const routes = {
     ...(options.markdownRoute === false ? {} : { "src/pages/[...slug]/index.md.ts": "markdownRoute" }),
     "src/pages/llms.txt.ts": "llmsRoute",
@@ -143,8 +164,20 @@ const { page } = result;
           title: "Test",
           description: "A test site.",
           search: false,
-          rendering: { default: rendering },
-          api: [{ collection: "pets", spec: "./specs/pets.json" }],
+          // Query versions need request rendering, so the build-rendered site
+          // keeps that one collection on request; its documents still bake.
+          rendering: rendering === "build" ? { default: "build", collections: { qv: "request" } } : { default: "request" },
+          api: [
+            { collection: "pets", spec: "./specs/pets.json" },
+            {
+              collection: "qv",
+              versionUrl: { in: "query", param: "v" },
+              versions: [
+                { version: "v2", spec: "./specs/qv-v2.json", default: true },
+                { version: "v1", spec: "./specs/qv-v1.json" },
+              ],
+            },
+          ],
         } as Parameters<typeof nimbus>[0],
         { admonitions: false, sitemap: false, validateMdx: false },
       ),
@@ -230,11 +263,48 @@ test("with no Markdown route and no MCP, the parts still read every page's body"
   assert.doesNotMatch(index, /index\.md/);
 });
 
+test("a query-versioned API gets one part per version, each holding that version's pages", async () => {
+  const index = await (await live.app.render(new Request("https://live.test/llms-full.txt"))).text();
+  const qvParts = links(index).filter(([, href]) => href!.includes("/qv/llms-full.txt"));
+  assert.deepEqual(
+    qvParts.map(([label, href]) => [label, new URL(href!).pathname + new URL(href!).search]),
+    [
+      ["Weather v2", "/qv/llms-full.txt"],
+      ["Weather v2 (v1)", "/qv/llms-full.txt?v=v1"],
+    ],
+  );
+  const before = renders().part ?? 0;
+  const current = await (await live.app.render(new Request("https://live.test/qv/llms-full.txt"))).text();
+  const historical = await (await live.app.render(new Request("https://live.test/qv/llms-full.txt?v=v1"))).text();
+  assert.equal(renders().part, before + 2, "two parts, two renders: the cache keys carry the version");
+  assert.match(current, /^# Test — Weather v2\n/);
+  assert.match(current, /Get a forecast \(v2\)/);
+  assert.doesNotMatch(current, /v1\)|\?v=v1|Legacy report/);
+  assert.match(historical, /^# Test — Weather v2 \(v1\)\n/);
+  assert.match(historical, /Get a forecast \(v1\)/);
+  assert.match(historical, /Legacy report \(v1\)/);
+  assert.doesNotMatch(historical, /\(v2\)/);
+  // A historical page's URL carries its version; it has no Markdown URL.
+  assert.match(historical, /Source: https:\/\/live\.test\/qv\/getForecast\/\?v=v1\n/);
+  assert.doesNotMatch(historical, /index\.md/);
+  // The same version twice is a hit; an unknown version is nothing.
+  await live.app.render(new Request("https://live.test/qv/llms-full.txt?v=v1"));
+  assert.equal(renders().part, before + 2);
+  assert.equal((await live.app.render(new Request("https://live.test/qv/llms-full.txt?v=v9"))).status, 404);
+  // The indexes list the default version only.
+  const siteIndex = await (await live.app.render(new Request("https://live.test/llms.txt"))).text();
+  assert.doesNotMatch(siteIndex, /\?v=v1/);
+  const section = await (await live.app.render(new Request("https://live.test/qv/llms.txt"))).text();
+  assert.match(section, /Get a forecast \(v2\)/);
+  assert.doesNotMatch(section, /v1/);
+});
+
 test("a request-rendered site bakes no agent document and lists its pages in the manifest", async () => {
   const manifest = await manifestOf(live);
   assert.deepEqual(manifest.onRequest, { llms: true, llmsSections: true, llmsFull: true });
   assert.deepEqual(manifest.llmsAssets, []);
-  assert.ok(manifest.pages && manifest.pages.length >= 8, "the discoverable pages, docs and API");
+  assert.ok(manifest.pages && manifest.pages.length >= 11, "the discoverable pages, docs and API, historical versions included");
+  assert.ok(manifest.pages.some((page) => (page as { historical?: true }).historical), "a historical version's pages travel for the parts");
   assert.match(manifest.buildId, /^[0-9a-f]{16}$/);
   const bakedManifest = await manifestOf(baked);
   assert.deepEqual(bakedManifest.onRequest, { llms: false, llmsSections: false, llmsFull: false });
@@ -269,7 +339,12 @@ test("each section index renders the build-rendered one", async () => {
     const response = await live.app.render(new Request(`https://live.test${pathname}`));
     assert.equal(response.status, 200, pathname);
     const body = await response.text();
-    assert.equal(body, rehost(await bakedFile(baked, pathname), "baked.test", "live.test"), pathname);
+    // The build-rendered site's file, or, for its one request-rendered mount, its served asset.
+    const file = path.join(baked.root, "dist", ...pathname.split("/").filter(Boolean));
+    const expected = existsSync(file)
+      ? await readFile(file, "utf8")
+      : await (await baked.app.render(new Request(`https://baked.test${pathname}`))).text();
+    assert.equal(body, rehost(expected, "baked.test", "live.test"), pathname);
   }
   const unknown = await live.app.render(new Request("https://live.test/nowhere/llms.txt"));
   assert.equal(unknown.status, 404);
@@ -281,8 +356,9 @@ test("/llms-full.txt is an index of parts; every part resolves and their blocks 
   const indexBody = await index.text();
   assert.match(indexBody, /^# Test\n\n> The full documentation is served by section/);
   assert.match(indexBody, /^Index: https:\/\/live\.test\/llms\.txt$/m);
-  const partUrls = links(indexBody).map(([, href]) => href!).filter((href) => href.endsWith("/llms-full.txt"));
-  const pageUrls = links(indexBody).map(([, href]) => href!).filter((href) => !href.endsWith("/llms-full.txt"));
+  const allParts = links(indexBody).map(([, href]) => href!).filter((href) => /\/llms-full\.txt(\?|$)/.test(href));
+  const partUrls = allParts.filter((href) => !href.includes("?"));
+  const pageUrls = links(indexBody).map(([, href]) => href!).filter((href) => !/\/llms-full\.txt(\?|$)/.test(href));
   assert.ok(partUrls.length >= 2, indexBody);
   assert.doesNotMatch(indexBody, /\(\d+(\.\d+)? [KM]iB\)/, "parts are listed without sizes");
 

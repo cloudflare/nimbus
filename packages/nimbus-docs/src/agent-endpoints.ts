@@ -122,7 +122,7 @@ async function markdownIndexes(request?: Request) {
     for (const page of rendered) {
       const reference = { collection: page.collection, id: page.id, surface: "markdown" as const };
       renderedByIdentity.set(markdownIdentity(reference), page);
-      if (!page.published) continue;
+      if (!page.published || page.historical) continue;
       renderedByUrl.set(renderedMarkdownPath(page), page);
       renderedByRoute.set(
         markdownRouteIdentity({ collection: page.collection, surface: "markdown", slug: entryRouteKey(page.id) }),
@@ -445,18 +445,20 @@ export async function getLlmsPayload(
   reference: LlmsEndpointReference,
   context: AgentEndpointContext = {},
 ): Promise<LlmsEndpointPayload | null> {
-  if (reference.scope === "section" && context.request && new URL(context.request.url).search) {
-    const api = await sectionApiCollection(reference.section);
-    if (api && !(await selectedApiOutputIsDefault(api, context.request))) return null;
-  }
   const { llmsByIdentity } = await llmsIndex(context.request);
   const asset = llmsByIdentity.get(llmsIdentity(reference));
   if (!asset) {
-    // A document whose route renders on request: made now from the page list.
+    // A document whose route renders on request: made now from the page
+    // list. A part reads the version its query or path selects itself.
     const manifest = await loadAgentEndpointManifest(context.request);
     if (!rendersOnRequest(manifest, reference)) return null;
     const rendered = await renderLlmsDocument(manifest, reference, context.request);
     return rendered ? { ...reference, ...rendered } : null;
+  }
+  // A baked document is the default version's; another version's query selects nothing here.
+  if (reference.scope === "section" && context.request && new URL(context.request.url).search) {
+    const api = await sectionApiCollection(reference.section);
+    if (api && !(await selectedApiOutputIsDefault(api, context.request))) return null;
   }
   return {
     ...reference,

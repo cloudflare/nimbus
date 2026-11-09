@@ -19,9 +19,11 @@ import {
   llmsFullPagesOf,
   llmsFullPartsIndex,
   nestedCollectionLinks,
+  resolvePartIdentity,
   sectionIndexDocument,
   servesSectionIndex,
   siteIndexDocument,
+  type ApiVersionUrls,
   type LlmsDocumentContext,
   type LlmsGroup,
   type LlmsPage,
@@ -48,12 +50,17 @@ async function sha256(value: string): Promise<string> {
 }
 
 async function documentContext(manifest: StagedAgentEndpointManifest): Promise<LlmsDocumentContext> {
-  const [{ options, capabilities }, { loadNimbusConfig, loadMountContext, loadNestedLlmsSections }, { publishedAgentUrls }] =
-    await Promise.all([
-      import("virtual:nimbus/agent-capabilities"),
-      import("./runtime-config.js"),
-      import("./agent-surfaces-runtime.js"),
-    ]);
+  const [
+    { options, capabilities },
+    { loadNimbusConfig, loadMountContext, loadNestedLlmsSections },
+    { publishedAgentUrls },
+    { versionQueryParam },
+  ] = await Promise.all([
+    import("virtual:nimbus/agent-capabilities"),
+    import("./runtime-config.js"),
+    import("./agent-surfaces-runtime.js"),
+    import("./api/resolve-versions.js"),
+  ]);
   const [config, mount, nestedSections, publishes] = await Promise.all([
     loadNimbusConfig(),
     loadMountContext(),
@@ -73,6 +80,22 @@ async function documentContext(manifest: StagedAgentEndpointManifest): Promise<L
     publishes,
     llms: publishes("/llms.txt"),
     llmsFull: publishes("/llms-full.txt"),
+    apiVersions: Object.fromEntries(
+      (config.api ?? [])
+        .filter((entry) => entry.versions && entry.versions.length >= 2)
+        .map((entry): [string, ApiVersionUrls] => {
+          const fallback = entry.versions!.find((version) => version.default) ?? entry.versions![0]!;
+          return [
+            entry.collection,
+            {
+              mode: entry.versionUrl?.in === "query" ? "query" : "path",
+              param: versionQueryParam(entry),
+              defaultVersion: fallback.version,
+              versions: entry.versions!.map((version) => version.version),
+            },
+          ];
+        }),
+    ),
   };
 }
 
@@ -197,7 +220,8 @@ export async function renderLlmsDocument(
   const pages = manifest.pages ?? [];
   let body: string | null;
   if (reference.surface === "index") {
-    const { leaves, groups } = groupLlmsPages(pages, ctx);
+    // The indexes list the pages they know; a historical version's pages are only in the parts.
+    const { leaves, groups } = groupLlmsPages(pages.filter((page) => !page.historical), ctx);
     if (reference.scope === "site") {
       countRender("llms");
       // The full document's shape as the build decided it: parts when it
@@ -216,11 +240,13 @@ export async function renderLlmsDocument(
       body = llmsFullPartsIndex(fullPages, ctx);
     } else {
       const { groups } = groupLlmsPages(fullPages, { ...ctx, nestedSections: true });
-      const group = findGroup(groups, reference.section);
-      if (!group) return null;
-      body = await cached(manifest, ctx.site, `part:${group.slug}`, async () => {
+      const search = request ? new URL(request.url).searchParams : new URLSearchParams();
+      const identity = resolvePartIdentity(groups, reference.section, search, ctx);
+      if (!identity) return null;
+      const { group, version } = identity;
+      body = await cached(manifest, ctx.site, `part:${group.slug}@${version ?? ""}`, async () => {
         countRender("part");
-        return assembleLlmsFullPart(group, ctx, (page) => pageMarkdown(manifest, page, request));
+        return assembleLlmsFullPart(group, ctx, (page) => pageMarkdown(manifest, page, request), undefined, version);
       });
     }
   }

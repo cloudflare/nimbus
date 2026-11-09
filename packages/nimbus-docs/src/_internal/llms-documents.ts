@@ -45,6 +45,19 @@ export interface LlmsPage {
   section?: string;
   /** The page's place in the sidebar's reading order, when the sidebar shows it. */
   position?: number;
+  /** A non-default API version's page: the version, so `llms-full` parts partition by it. */
+  apiVersion?: string;
+  /** A query-mode non-default version's page: listed by no index, its URL carries the version. */
+  historical?: true;
+}
+
+/** How an API family's versions appear in URLs, for the parts a version gets. */
+export interface ApiVersionUrls {
+  mode: "query" | "path";
+  /** The query parameter that carries the version (query mode). */
+  param: string;
+  defaultVersion: string;
+  versions: readonly string[];
 }
 
 export interface LlmsGroup<P extends LlmsPage = LlmsPage> {
@@ -81,6 +94,8 @@ export interface LlmsDocumentContext {
   /** Whether `/llms.txt` and `/llms-full.txt` exist: a route serves them and the build makes them. */
   llms: boolean;
   llmsFull: boolean;
+  /** Versioned API families by collection, for per-version parts. */
+  apiVersions?: Readonly<Record<string, ApiVersionUrls>>;
 }
 
 const NO_ROUTES: CollectionRoutes = new Map();
@@ -596,10 +611,85 @@ export function llmsFullBodies<P extends LlmsPage>(
   return { bodies, split: true };
 }
 
+/** A part's identity: a section, and for a non-default API version that version. */
+export interface LlmsPartIdentity {
+  section: string;
+  version?: string;
+}
+
+/** The pages of a part: the section's pages of one version identity. */
+export function partPages<P extends LlmsPage>(group: LlmsGroup<P>, version: string | undefined): P[] {
+  return pagesUnder(group).filter((page) => (version === undefined ? page.apiVersion === undefined : page.apiVersion === version));
+}
+
+/** The collection a section's API pages belong to, when it holds any. */
+function sectionApiCollection(group: LlmsGroup, ctx: LlmsDocumentContext): string | undefined {
+  const page = pagesUnder(group).find((candidate) => candidate.collection in (ctx.apiVersions ?? {}));
+  return page?.collection;
+}
+
+/** The non-default API versions a section holds pages of, in the family's order. */
+export function sectionVersions(group: LlmsGroup, ctx: LlmsDocumentContext): string[] {
+  const collection = sectionApiCollection(group, ctx);
+  const family = collection ? ctx.apiVersions?.[collection] : undefined;
+  if (!family) return [];
+  const present = new Set(pagesUnder(group).map((page) => page.apiVersion).filter((version): version is string => version !== undefined));
+  return family.versions.filter((version) => version !== family.defaultVersion && present.has(version));
+}
+
+/** A part's URL: `/<section>/llms-full.txt`, with the version in the query or the path for a non-default version. */
+export function partUrl(group: LlmsGroup, version: string | undefined, ctx: LlmsDocumentContext): string {
+  const plain = `/${group.slug}/llms-full.txt`;
+  if (version === undefined) return plain;
+  const collection = sectionApiCollection(group, ctx);
+  const family = collection ? ctx.apiVersions?.[collection] : undefined;
+  if (!family) return plain;
+  return family.mode === "query"
+    ? `${plain}?${family.param}=${encodeURIComponent(version)}`
+    : `/${group.slug}/${version}/llms-full.txt`;
+}
+
+/**
+ * The part a request names: the section, and the version its query or path
+ * selects. `null` when the query names a version the family doesn't have.
+ */
+export function resolvePartIdentity(
+  groups: readonly LlmsGroup[],
+  section: string,
+  search: URLSearchParams,
+  ctx: LlmsDocumentContext,
+): { group: LlmsGroup; version: string | undefined } | null | undefined {
+  const exact = flattenLlmsGroups(groups).find((group) => group.slug === section);
+  if (exact) {
+    const collection = sectionApiCollection(exact, ctx);
+    const family = collection ? ctx.apiVersions?.[collection] : undefined;
+    if (family?.mode === "query") {
+      const values = search.getAll(family.param);
+      if (values.length > 1) return null;
+      const selected = values[0] || family.defaultVersion;
+      if (!family.versions.includes(selected)) return null;
+      return { group: exact, version: selected === family.defaultVersion ? undefined : selected };
+    }
+    return { group: exact, version: undefined };
+  }
+  // A path-mode version: `/<section>/<version>/llms-full.txt`.
+  const at = section.lastIndexOf("/");
+  if (at < 0) return undefined;
+  const slug = section.slice(0, at);
+  const version = section.slice(at + 1);
+  const group = flattenLlmsGroups(groups).find((candidate) => candidate.slug === slug);
+  if (!group) return undefined;
+  const collection = sectionApiCollection(group, ctx);
+  const family = collection ? ctx.apiVersions?.[collection] : undefined;
+  if (!family || family.mode !== "path" || !family.versions.includes(version) || version === family.defaultVersion) return undefined;
+  return { group, version };
+}
+
 /**
  * On a request-rendered site `/llms-full.txt` is always an index of parts,
- * one per section at every depth that holds pages, listed without sizes:
- * nothing is assembled until a part is asked for.
+ * one per section at every depth that holds pages, and one more per
+ * non-default API version a section holds, listed without sizes: nothing is
+ * assembled until a part is asked for.
  */
 export function llmsFullPartsIndex(pages: readonly LlmsPage[], ctx: LlmsDocumentContext): string {
   const { leaves, groups } = groupLlmsPages(pages, { ...ctx, nestedSections: true });
@@ -609,9 +699,15 @@ export function llmsFullPartsIndex(pages: readonly LlmsPage[], ctx: LlmsDocument
     note: "The full documentation is served by section. Fetch the sections you need; each is one Markdown document.",
     index: servesLlms(ctx) ? "/llms.txt" : null,
     children: groups,
-    members: leaves,
+    members: leaves.filter((page) => page.apiVersion === undefined),
     header,
-    sectionLine: (group) => `- [${group.label}](${llmsFullUrl(header, `/${group.slug}/llms-full.txt`)})`,
+    sectionLine: (group) =>
+      [
+        `- [${group.label}](${llmsFullUrl(header, partUrl(group, undefined, ctx))})`,
+        ...sectionVersions(group, ctx).map(
+          (version) => `- [${group.label} (${version})](${llmsFullUrl(header, partUrl(group, version, ctx))})`,
+        ),
+      ].join("\n"),
   });
 }
 
@@ -620,21 +716,33 @@ export function llmsFullPartsIndex(pages: readonly LlmsPage[], ctx: LlmsDocument
  * section's sub-section parts and links to its own pages (the baked split's
  * shape), so nothing larger than the limit is ever assembled or sent.
  */
-export function llmsFullPartIndex(group: LlmsGroup, ctx: LlmsDocumentContext, limit = LLMS_FULL_LIMIT_BYTES): string {
-  const header = sectionFullHeader(group, ctx);
+export function llmsFullPartIndex(
+  group: LlmsGroup,
+  ctx: LlmsDocumentContext,
+  limit = LLMS_FULL_LIMIT_BYTES,
+  version?: string,
+): string {
+  const header = partHeader(group, ctx, version);
   const siteHeader = llmsFullHeaderOf(ctx);
+  const children = group.children.filter((child) => partPages(child, version).length > 0);
   return llmsFullIndexDocument({
     title: header.title,
     note:
-      group.children.length > 0
+      children.length > 0
         ? `This section is over ${mebibytes(limit)}, so it's split further. Fetch the parts you need.`
         : `This section is over ${mebibytes(limit)} and has no sub-folders, so it links to each page's Markdown. Fetch the pages you need.`,
     index: header.index!,
-    children: group.children,
-    members: group.members,
+    children,
+    members: group.members.filter((page) => (version === undefined ? page.apiVersion === undefined : page.apiVersion === version)),
     header: siteHeader,
-    sectionLine: (child) => `- [${child.label}](${llmsFullUrl(siteHeader, `/${child.slug}/llms-full.txt`)})`,
+    sectionLine: (child) => `- [${child.label}](${llmsFullUrl(siteHeader, partUrl(child, version, ctx))})`,
   });
+}
+
+/** A part's header: the section's, naming the version when the part is one version's. */
+function partHeader(group: LlmsGroup, ctx: LlmsDocumentContext, version: string | undefined): LlmsFullHeader {
+  const header = sectionFullHeader(group, ctx);
+  return version === undefined ? header : { ...header, title: `${header.title} (${version})` };
 }
 
 /**
@@ -649,14 +757,15 @@ export async function assembleLlmsFullPart<P extends LlmsPage>(
   ctx: LlmsDocumentContext,
   markdownOf: (page: P) => Promise<string>,
   limit = LLMS_FULL_LIMIT_BYTES,
+  version?: string,
 ): Promise<string> {
-  const header = sectionFullHeader(group, ctx);
+  const header = partHeader(group, ctx, version);
   const blocks: LlmsFullBlock[] = [];
   let bytes = llmsFullHeaderBytes(header) - 1;
-  for (const page of pagesUnder(group)) {
+  for (const page of partPages(group, version)) {
     const block = llmsFullBlock(page, await markdownOf(page));
     bytes += llmsFullBlockBytes(block, header);
-    if (bytes > limit) return llmsFullPartIndex(group, ctx, limit);
+    if (bytes > limit) return llmsFullPartIndex(group, ctx, limit, version);
     blocks.push(block);
   }
   return buildLlmsFullMarkdown(blocks, header);

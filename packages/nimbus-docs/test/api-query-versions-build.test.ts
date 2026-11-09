@@ -522,7 +522,7 @@ test("agent assets cover the default version only, at version-free URLs", async 
     await readFile(path.join(root, ".astro/nimbus/agent-endpoint-assets/manifest.json"), "utf8"),
   ) as {
     markdownAssets: Array<{ collection: string; id: string; url: string; path: string }>;
-    rendered: Array<{ collection: string; id: string; version: string | null; coordinate: string; url: string; published: boolean }>;
+    rendered: Array<{ collection: string; id: string; version: string | null; coordinate: string; url: string; published: boolean; historical?: true }>;
     llmsAssets: Array<{ scope: string; section?: string; path: string }>;
   };
   const assetsDir = path.join(root, "dist/_nimbus/agent-endpoint-assets");
@@ -532,7 +532,12 @@ test("agent assets cover the default version only, at version-free URLs", async 
     [],
     "a request-rendered API bakes no page Markdown",
   );
-  const qvPages = manifest.rendered.filter((page) => page.collection === "qv");
+  // The default version's pages are published at version-free URLs; the
+  // other visible version's pages are described too, for llms-full parts,
+  // but historical: no .md URL, their URLs carrying the version.
+  const qvPages = manifest.rendered.filter((page) => page.collection === "qv" && page.published);
+  const historical = manifest.rendered.filter((page) => page.collection === "qv" && !page.published);
+  assert.ok(historical.length > 0 && historical.every((page) => page.historical && page.version === "v1" && page.url.includes("?version=v1")));
   const qvTwins = qvPages.map((page) => `${page.url.replace(/\/$/, "")}/index.md`).sort();
   assert.deepEqual(qvTwins, [
     "/qv/create-pet/index.md",

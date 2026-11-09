@@ -48,7 +48,7 @@ export interface ApiMarkdownDocument {
 
 /** The `.md` URL of a page URL (`/api/pets/` → `/api/pets/index.md`). */
 export function markdownUrlOf(pageUrl: string): string {
-  const route = pageUrl.replace(/\/+$/u, "");
+  const route = pageUrl.split("?")[0]!.replace(/\/+$/u, "");
   return route === "" ? "/index.md" : `${route}/index.md`;
 }
 

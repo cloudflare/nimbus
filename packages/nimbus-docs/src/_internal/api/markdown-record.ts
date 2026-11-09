@@ -34,6 +34,8 @@ export interface RenderedMarkdownPage {
   published: boolean;
   /** A digest of the record's content, so a build id changes when a page's data does. */
   fingerprint?: string;
+  /** A query-mode non-default version's page: rendered only inside an `llms-full` part, served at no `.md` URL. */
+  historical?: true;
 }
 
 export interface RenderedMarkdownPayload {
