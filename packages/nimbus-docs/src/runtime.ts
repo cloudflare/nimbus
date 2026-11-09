@@ -2678,6 +2678,22 @@ export async function getCanonicalUrl(
 }
 
 /**
+ * The `llms.txt` index a route of the site serves for a page: the page's
+ * collection index when a route serves it, else the site's `/llms.txt`, else
+ * `null`. Agent surfaces follow the route files, so a layout that names the
+ * index reads this rather than {@link getCollectionLlmsUrl}, which only says
+ * where the index would be.
+ */
+export async function getPublishedLlmsUrl(
+  collectionId: import("astro:content").CollectionKey | (string & {}) = PRIMARY_COLLECTION,
+): Promise<string | null> {
+  const publishes = await publishedAgentUrls();
+  const own = await getCollectionLlmsUrl(collectionId);
+  if (publishes(own)) return own;
+  return publishes("/llms.txt") ? "/llms.txt" : null;
+}
+
+/**
  * Return the agent index URL path (the `/llms.txt` route) that
  * corresponds to a given Astro collection. The path is mount-point
  * aware: pages in version collections point at the per-version index,
@@ -2690,9 +2706,10 @@ export async function getCanonicalUrl(
  *   - `"api"`         → `"/api/llms.txt"`
  *   - `"docs-archive"` (unrecognised version slug) → `"/docs-archive/llms.txt"`
  *
- * Returns a path with a leading slash and no trailing slash, or `null` when
- * no route of the site serves that index or the site's. Routes resolve it
- * against `Astro.site` to produce a full URL.
+ * Returns a path with a leading slash and no trailing slash. Routes
+ * resolve it against `Astro.site` to produce a full URL. The path is where
+ * the index would be; {@link getPublishedLlmsUrl} says whether a route of the
+ * site serves it.
  *
  * Used by `BaseLayout` and `AgentDirective` to surface the correct
  * agent index hint on every page — readers landing on `/v1/foo` get
@@ -2700,17 +2717,6 @@ export async function getCanonicalUrl(
  * the wrong section.
  */
 export async function getCollectionLlmsUrl(
-  collectionId: import("astro:content").CollectionKey | (string & {}),
-): Promise<string | null> {
-  const publishes = await publishedAgentUrls();
-  // The index a route of the site serves: the collection's own, else the
-  // site's, else none.
-  const served = (candidate: string): string | null =>
-    publishes(candidate) ? candidate : publishes("/llms.txt") ? "/llms.txt" : null;
-  return served(await collectionLlmsCandidate(collectionId));
-}
-
-async function collectionLlmsCandidate(
   collectionId: import("astro:content").CollectionKey | (string & {}),
 ): Promise<string> {
   if (collectionId === PRIMARY_COLLECTION) return "/llms.txt";

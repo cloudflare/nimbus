@@ -1315,12 +1315,12 @@
       "introducedIn": "0.20.0",
       "mode": "optional",
       "changeset": "agent-surfaces-follow-routes",
-      "summary": "Optionally let the agent directive and the base layout cope with a site that serves no llms.txt: getCollectionLlmsUrl() now returns null when no route serves an index, and the directive then names only the page's Markdown, or renders nothing.",
+      "summary": "Optionally let the agent directive and the base layout cope with a site that serves no llms.txt: the layout reads the new getPublishedLlmsUrl(), which returns null when no route serves an index, and the directive then names only the page's Markdown, or renders nothing.",
       "affected": "Sites created from the starter that still have src/layouts/BaseLayout.astro or src/components/AgentDirective.astro and that delete src/pages/llms.txt.ts.",
       "instructions": [
-        "No action is needed while src/pages/llms.txt.ts exists: getCollectionLlmsUrl() returns the same path as before.",
+        "No action is needed while src/pages/llms.txt.ts exists: getPublishedLlmsUrl() returns the same path getCollectionLlmsUrl() did.",
         "Take the change with nimbus-docs diff src/layouts/BaseLayout.astro --apply and nimbus-docs diff src/components/AgentDirective.astro --apply.",
-        "If you edited either file, merge by hand: in BaseLayout, build basedLlmsUrl and llmsUrl only when llmsIndexPath is not null; in AgentDirective, type llmsUrl as string | null | undefined and render the aside only when markdownUrl or llmsUrl is set, with a Markdown-only sentence when there is no index."
+        "If you edited either file, merge by hand: in BaseLayout, read llmsIndexPath from getPublishedLlmsUrl(collection ?? undefined) and build basedLlmsUrl and llmsUrl only when it is not null; in AgentDirective, type llmsUrl as string | null | undefined and render the aside only when markdownUrl or llmsUrl is set, with a Markdown-only sentence when there is no index."
       ],
       "verify": [
         "With src/pages/llms.txt.ts present, every page's agent directive and <link rel=\"alternate\" type=\"text/markdown\"> read as before.",

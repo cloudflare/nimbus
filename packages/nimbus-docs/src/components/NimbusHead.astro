@@ -34,7 +34,7 @@ import { buildSlice, config, headDefaults } from "virtual:nimbus/config";
 import {
   getApiVersionHead,
   getApiVersions,
-  getCollectionLlmsUrl,
+  getPublishedLlmsUrl,
   getPageLanguage,
   getVersionAlternates,
   getVersionStatus,
@@ -180,7 +180,7 @@ const isHiddenVersion = versionStatus?.isHidden === true;
 // root index. Hidden-version pages emit no LLM hint (see above).
 // Null when no route of the site serves an index; the site's own for a
 // page outside any collection.
-const llmsIndexPath = isHiddenVersion ? null : await getCollectionLlmsUrl(collection ?? "docs");
+const llmsIndexPath = isHiddenVersion ? null : await getPublishedLlmsUrl(collection ?? undefined);
 const llmsIndexUrl =
   llmsIndexPath
     ? Astro.site

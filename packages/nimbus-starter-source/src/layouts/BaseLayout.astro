@@ -8,7 +8,7 @@ import "../styles/prose.css";
 import { ClientRouter } from "astro:transitions";
 import { config } from "virtual:nimbus/config";
 import {
-  getCollectionLlmsUrl,
+  getPublishedLlmsUrl,
   getPageLanguage,
   getVersionStatus,
   withBase,
@@ -54,7 +54,7 @@ const versionStatus = versionStatusKey
 const isHiddenVersion = versionStatus?.isHidden === true;
 // `null` when no route of the site serves an index; the directive then
 // names only the page's Markdown, or nothing.
-const llmsIndexPath = await getCollectionLlmsUrl(collection ?? "docs");
+const llmsIndexPath = await getPublishedLlmsUrl(collection ?? undefined);
 const baseUrl = import.meta.env.BASE_URL;
 const basedLlmsUrl = llmsIndexPath ? withBase(llmsIndexPath, baseUrl) : null;
 const llmsUrl = basedLlmsUrl

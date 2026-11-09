@@ -587,7 +587,8 @@ function checkAgentSurfaces(
   const routes = [...walkFilesSync(pagesDir, { onReadError: "lenient", extensions: [".ts", ".js", ".mjs", ".cjs", ".mts", ".cts"] })].map(
     (file) => file.rel.split(path.sep).join("/"),
   );
-  const file = (name: string) => new RegExp(`(^|/)${name.replace(/\./gu, "\\.")}\.[cm]?[jt]s$`, "u");
+  const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const file = (name: string) => new RegExp(`(^|/)${escape(name)}\\.[cm]?[jt]s$`, "u");
   const surfaces = {
     pageMarkdown: routes.some((route) => /\.md\.[cm]?[jt]s$/u.test(route)),
     source: routes.some((route) => /\.mdx\.[cm]?[jt]s$/u.test(route)),
@@ -596,6 +597,10 @@ function checkAgentSurfaces(
     llmsFull: routes.some((route) => file("llms-full.txt").test(route)),
     mcpBodies: !parsed.unresolved.includes("agents") && !!config?.agents?.mcp,
   };
+  // A site with every starter route says nothing: the line is for the one
+  // that deleted a route and wonders where its Markdown went.
+  const allOn = surfaces.pageMarkdown && surfaces.source && surfaces.llms && surfaces.llmsSections && surfaces.llmsFull;
+  if (allOn) return;
   findings.push({
     scope: "structure",
     code: "nimbus/agent-surfaces",
