@@ -1,8 +1,8 @@
 /**
- * Recipes other people maintain, listed on /community-recipes. To list yours,
- * open a PR adding an entry: its `url` is the raw file on GitHub (open the file,
- * select Raw, copy that URL), in a public repo you own. See the page's "Share a
- * recipe".
+ * Recipes other people maintain, listed on /community-recipes/showcase. To list
+ * yours, open a PR adding an entry: its `url` is the raw file on GitHub (open the
+ * file, select Raw, copy that URL) or a release asset, in a public repo you own.
+ * See "Share a recipe" on /community-recipes.
  *
  *   {
  *     name: "MCP chat",

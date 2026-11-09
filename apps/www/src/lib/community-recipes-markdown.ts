@@ -1,6 +1,4 @@
-import type { GeneratedMarkdownComponentTransform } from "@cloudflare/nimbus-docs/types";
-import { communityRecipes } from "../data/community-recipes";
-import { addCommand, type CommunityRecipeOwner } from "../data/parse-recipes";
+import { agentPrompt, type CommunityRecipeOwner } from "../data/parse-recipes";
 
 // Listing text is text in the page, so it stays text in Markdown: characters
 // Markdown would read as syntax are escaped.
@@ -8,32 +6,44 @@ function text(value: string): string {
   return value.replace(/[\\`*_{}[\]()<>#+!|~&]/g, (char) => `\\${char}`);
 }
 
-/** What the page says while nothing is listed, in its HTML and its Markdown. */
-export const EMPTY_STATE = "No recipes are listed yet. Share yours: see below.";
+/** The showcase page: its title, description and Markdown version. */
+export const SHOWCASE = {
+  title: "Community recipes showcase",
+  description: "Features other people built for their Nimbus sites, each with a prompt to copy into your coding agent.",
+  markdownPath: "/community-recipes/showcase/index.md",
+};
 
-/** The listing in Markdown: every recipe, grouped by owner, with its repo and its `add` command. */
+/** The showcase's hero, in its HTML and its Markdown. */
+export const HERO = {
+  title: "Community recipes",
+  lead: "Features people built for their Nimbus sites. Copy a prompt, and your agent adds it to yours.",
+  /** The whole trust line: the page's Markdown, and the hero's tooltip. */
+  note: "Recipes live in their authors' repos and Nimbus doesn't review them. Read one before your agent follows it.",
+  /** The trust line as the hero shows it, beside its one button. */
+  shortNote: "Not reviewed by Nimbus.",
+};
+/** What the showcase says while nothing is listed. */
+export const EMPTY_STATE = "No recipes are listed yet.";
+/** Where the showcase points authors. */
+export const SHARE_HREF = "/community-recipes/#share-a-recipe";
+
+/** The showcase in Markdown: the hero's text, then every recipe with its repo and the prompt to copy. */
+export function showcaseMarkdown(owners: CommunityRecipeOwner[], url: (path: string) => string = (path) => path): string {
+  return [HERO.lead, HERO.note, recipesMarkdown(owners), `To list yours, see [Share a recipe](${url(SHARE_HREF)}).`].join("\n\n");
+}
+
+/** Every recipe with its repo and the prompt to copy. */
 export function recipesMarkdown(owners: CommunityRecipeOwner[]): string {
-  if (owners.length === 0) return EMPTY_STATE;
-  return owners
-    .map((owner) =>
+  const recipes = owners.flatMap((owner) => owner.recipes);
+  if (recipes.length === 0) return EMPTY_STATE;
+  return recipes
+    .map((recipe) =>
       [
-        `### [${text(owner.owner)}](${owner.profileUrl})`,
-        ...owner.recipes.map(
-          (recipe) =>
-            `- **${text(recipe.name)}** — ${text(recipe.description)} ([${text(`${recipe.owner}/${recipe.repo}`)}](${recipe.repoUrl}))\n\n  \`\`\`sh\n  ${addCommand(recipe.url)}\n  \`\`\``,
-        ),
+        `### ${text(recipe.name)}`,
+        `${text(recipe.description)} By [${text(`${recipe.owner}/${recipe.repo}`)}](${recipe.repoUrl}).`,
+        "```text\n" + agentPrompt(recipe.url) + "\n```",
       ].join("\n\n"),
     )
     .join("\n\n");
 }
 
-/**
- * `<CommunityRecipes />` in Markdown, so the page's `.md`, MCP and
- * `llms-full.txt` list what the page shows.
- */
-export const communityRecipesMarkdown: Record<string, GeneratedMarkdownComponentTransform> = {
-  CommunityRecipes: {
-    revision: "community-recipes-v3",
-    render: () => recipesMarkdown(communityRecipes),
-  },
-};

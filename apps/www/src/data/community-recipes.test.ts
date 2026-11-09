@@ -37,10 +37,22 @@ test("one owner's recipes group together, owners compared case-insensitively", (
   );
 });
 
-test("a URL that isn't a raw GitHub .md file with a ref and path fails, naming the entry", () => {
+test("a release asset credits its owner, pinned to a tag or following the latest release", () => {
+  const release = "https://github.com/alice/browser-chat/releases/download/v0.1.0/browser-chat.md";
+  const latest = "https://github.com/alice/browser-chat/releases/latest/download/browser-chat.md";
+  const [owner] = parseRecipes([recipe("Chat", release), recipe("Chat latest", latest)]);
+  assert.equal(owner!.owner, "alice");
+  assert.equal(owner!.recipes[0]!.repoUrl, "https://github.com/alice/browser-chat");
+  assert.deepEqual(owner!.recipes.map((r) => r.url), [release, latest]);
+});
+
+test("a URL that isn't a raw GitHub .md file or release asset fails, naming the entry", () => {
   const cases: Array<[string, RegExp]> = [
-    ["https://github.com/alice/mcp-chat/blob/main/RECIPE.md", /must be a raw file on raw\.githubusercontent\.com/],
+    ["https://github.com/alice/mcp-chat/blob/main/RECIPE.md", /must be a raw file on raw\.githubusercontent\.com or a release asset on github\.com/],
     ["https://github.com/alice/mcp-chat", /must be a raw file/],
+    ["https://github.com/alice/mcp-chat/releases/tag/v0.1.0", /or a release asset/],
+    ["https://github.com/alice/mcp-chat/releases/latest/download/docs/RECIPE.md", /or a release asset/],
+    ["https://example.com/alice/RECIPE.md", /must be a raw file/],
     [raw("alice/mcp-chat/main/RECIPE.md?token=1"), /can't have a query or fragment/],
     [raw("alice/mcp-chat/main/RECIPE.md#top"), /can't have a query or fragment/],
     ["http://raw.githubusercontent.com/alice/mcp-chat/main/RECIPE.md", /must use https/],
@@ -98,7 +110,7 @@ test("an entry with a missing, multi-line or unknown field fails, naming it", ()
   );
 });
 
-test("the Markdown lists every recipe, with listing text kept as text", () => {
+test("the Markdown lists every recipe with its prompt, listing text kept as text", () => {
   assert.equal(recipesMarkdown([]), EMPTY_STATE);
   const markdown = recipesMarkdown(
     parseRecipes([
@@ -109,9 +121,12 @@ test("the Markdown lists every recipe, with listing text kept as text", () => {
   assert.equal(
     markdown,
     [
-      "### [alice](https://github.com/alice)",
-      "- **Chat \\*bold\\*** — \\[a link\\]\\(https://x.test\\) \\<b\\>html\\</b\\> \\& \\`code\\` ([alice/mcp-chat](https://github.com/alice/mcp-chat))\n\n  ```sh\n  npx @cloudflare/nimbus-docs add https://raw.githubusercontent.com/alice/mcp-chat/main/RECIPE.md\n  ```",
-      "- **Badges** — Badges. ([Alice/\\_\\_badges\\_\\_](https://github.com/Alice/__badges__))\n\n  ```sh\n  npx @cloudflare/nimbus-docs add https://raw.githubusercontent.com/Alice/__badges__/v1/RECIPE.md\n  ```",
+      "### Chat \\*bold\\*",
+      "\\[a link\\]\\(https://x.test\\) \\<b\\>html\\</b\\> \\& \\`code\\` By [alice/mcp-chat](https://github.com/alice/mcp-chat).",
+      "```text\nRun `npx @cloudflare/nimbus-docs add https://raw.githubusercontent.com/alice/mcp-chat/main/RECIPE.md --print` and follow the recipe it prints.\n```",
+      "### Badges",
+      "Badges. By [Alice/\\_\\_badges\\_\\_](https://github.com/Alice/__badges__).",
+      "```text\nRun `npx @cloudflare/nimbus-docs add https://raw.githubusercontent.com/Alice/__badges__/v1/RECIPE.md --print` and follow the recipe it prints.\n```",
     ].join("\n\n"),
   );
 });

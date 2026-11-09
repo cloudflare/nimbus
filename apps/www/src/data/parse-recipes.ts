@@ -1,7 +1,7 @@
 /**
  * Community recipes: Markdown recipes other people maintain in their own public
- * GitHub repos, listed on /community-recipes. Each entry is checked when the
- * site builds, with no network calls: a bad entry fails the build and names
+ * GitHub repos, listed on /community-recipes/showcase. Each entry is checked when
+ * the site builds, with no network calls: a bad entry fails the build and names
  * itself.
  *
  * The credit is the GitHub owner in the recipe's URL, never a typed field.
@@ -31,7 +31,7 @@ export type CommunityRecipeEntry = z.input<typeof entry>;
 export interface CommunityRecipe {
   name: string;
   description: string;
-  /** The raw file: what `add <url>` fetches. */
+  /** The raw file or release asset: what `add <url>` fetches. */
   url: string;
   owner: string;
   repo: string;
@@ -48,12 +48,17 @@ export interface CommunityRecipeOwner {
 }
 
 const RAW_HOST = "raw.githubusercontent.com";
+const RELEASE_HOST = "github.com";
+const WHERE = `must be a raw file on ${RAW_HOST} or a release asset on ${RELEASE_HOST}: open the file on GitHub and copy its Raw URL, or copy the asset's link from the release`;
 
-// owner/repo, then a ref and a file path: at least four segments. Where the ref
-// ends isn't guessed, since a branch name can hold `/`. The URL must be written
-// as a URL parser writes it back, and its path only in the characters GitHub
-// names use, so the `add` command copies as one shell argument and one recipe
-// has one spelling.
+// Two shapes, both naming the owner and repo first:
+//   raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>.md
+//   github.com/<owner>/<repo>/releases/download/<tag>/<file>.md
+//   github.com/<owner>/<repo>/releases/latest/download/<file>.md
+// Where a raw ref ends isn't guessed, since a branch name can hold `/`. The URL
+// must be written as a URL parser writes it back, and its path only in the
+// characters GitHub names use, so the `add` command copies as one shell
+// argument and one recipe has one spelling.
 function parseUrl(value: string): { owner: string; repo: string } | string {
   let url: URL;
   try {
@@ -62,17 +67,26 @@ function parseUrl(value: string): { owner: string; repo: string } | string {
     return "isn't a URL";
   }
   if (url.protocol !== "https:") return "must use https";
-  if (url.hostname !== RAW_HOST)
-    return `must be a raw file on ${RAW_HOST}: open the file on GitHub, select Raw and copy that URL`;
+  if (url.hostname !== RAW_HOST && url.hostname !== RELEASE_HOST) return WHERE;
   if (url.search || url.hash || value.includes("?") || value.includes("#")) return "can't have a query or fragment";
-  if (url.username || url.password || url.port) return `must be ${RAW_HOST} alone, with no user, password or port`;
+  if (url.username || url.password || url.port) return `must be ${url.hostname} alone, with no user, password or port`;
   if (url.href !== value) return `must be written as ${url.href}`;
   // The whole URL, not just its path: nothing in it is read differently by a shell.
-  if (!/^https:\/\/raw\.githubusercontent\.com\/[A-Za-z0-9._\/-]+$/.test(value))
+  if (!/^https:\/\/[a-z.]+\/[A-Za-z0-9._\/-]+$/.test(value))
     return "can only use letters, digits, '.', '_', '-' and '/' in its path";
   const segments = url.pathname.split("/").slice(1);
-  if (segments.length < 4 || segments.some((segment) => segment === "" || segment === "." || segment === ".."))
-    return "needs an owner, a repo, a ref and a file path";
+  if (segments.some((segment) => segment === "" || segment === "." || segment === ".."))
+    return "can't have empty, '.' or '..' path segments";
+  if (url.hostname === RAW_HOST) {
+    if (segments.length < 4) return "needs an owner, a repo, a ref and a file path";
+  } else {
+    const [, , releases, kind, third] = segments;
+    const asset =
+      releases === "releases" &&
+      ((kind === "download" && segments.length >= 6) ||
+        (kind === "latest" && third === "download" && segments.length === 6));
+    if (!asset) return WHERE;
+  }
   if (!url.pathname.endsWith(".md")) return "must be a .md file";
   return { owner: segments[0]!, repo: segments[1]! };
 }
@@ -129,4 +143,10 @@ export function parseRecipes(entries: CommunityRecipeEntry[]): CommunityRecipeOw
  *  word as written (its path is letters, digits, `.`, `_`, `-` and `/`). */
 export function addCommand(url: string): string {
   return `npx @cloudflare/nimbus-docs add ${url}`;
+}
+
+/** The prompt the showcase copies: the agent runs the `add` command itself and
+ *  follows what it prints, so it gets what the command hands over. */
+export function agentPrompt(url: string): string {
+  return `Run \`${addCommand(url)} --print\` and follow the recipe it prints.`;
 }

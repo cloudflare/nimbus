@@ -91,7 +91,11 @@ Use `--print` to force the markdown output, skipping detection.
 
 #### Recipes from a URL
 
-`add <url>` hands the Markdown recipe at any URL to your agent the same way. It isn't from the Nimbus registry: read it before your agent follows it. [Community recipes](/community-recipes) lists recipes other people maintain.
+`add <url>` hands the Markdown recipe at any URL to your agent the same way. It isn't from the Nimbus registry: read it before your agent follows it.
+
+A note above the recipe tells your agent where it came from, with a digest of what was served, and to ask you before it changes CI, deploy config, secrets, environment files, git hooks or package scripts.
+
+The [community recipes showcase](/community-recipes/showcase) lists recipes other people maintain.
 
 <PackageManagers pkg="@cloudflare/nimbus-docs" type="exec" args="add https://raw.githubusercontent.com/someone/mcp-chat/main/RECIPE.md" />
 
