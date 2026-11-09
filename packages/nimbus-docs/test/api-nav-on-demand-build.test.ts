@@ -273,9 +273,18 @@ describe("outdated starter components", () => {
   const item = "components/ui/api-sidebar/ApiSidebarItem.astro";
   const layout = "components/ui/api-layout/ApiLayout.astro";
   const onDemand = [{ collection: "api", sidebar: "on-demand" }];
+  const astro = (frontmatter: string, template: string) => `---\n${frontmatter}\n---\n${template}\n`;
+  // The starter's layout before on-demand sidebars, and the current one.
+  const oldLayout = astro('import { ApiSidebar } from "@/components/ui/api-sidebar";', "<ApiSidebar items={nav.items} />");
+  const currentLayout = astro('import { ApiSidebarPanel } from "@/components/ui/api-sidebar";', "<ApiSidebarPanel nav={nav} version={version} />");
+  const flagged = async (files: Record<string, string>) => {
+    const dir = await site({ [item]: "item.childrenHref", ...files });
+    return outdatedApiSidebarError(onDemand, dir, dir) ?? "";
+  };
+  const layoutPredates = /ApiLayout\.astro predates it/;
 
   test("fail with the command that updates them", async () => {
-    const dir = await site({ [item]: "old", [layout]: "data-nb-nav-build={navBuildId}" });
+    const dir = await site({ [item]: "old", [layout]: currentLayout });
     const error = outdatedApiSidebarError(onDemand, dir, dir);
     assert.match(error ?? "", /ApiSidebarItem\.astro predates it/);
     assert.match(error ?? "", /nimbus-docs add api-layout` and choose Overwrite for api-layout and api-sidebar/);
@@ -287,36 +296,66 @@ describe("outdated starter components", () => {
   });
 
   test("stay quiet when current, replaced, or not on-demand", async () => {
-    const current = await site({ [item]: "item.childrenHref", [layout]: "data-nb-nav-build" });
+    const current = await site({ [item]: "item.childrenHref", [layout]: currentLayout });
     assert.equal(outdatedApiSidebarError(onDemand, current, current), undefined);
     assert.equal(outdatedApiSidebarError(onDemand, await site({}), TEST_TMP), undefined);
-    const old = await site({ [item]: "old", [layout]: "old" });
+    const old = await site({ [item]: "old", [layout]: oldLayout });
     assert.equal(outdatedApiSidebarError([{ collection: "api" }], old, old), undefined);
     assert.match(outdatedApiSidebarError(onDemand, old, old) ?? "", /ApiSidebarItem\.astro and src\/.*ApiLayout\.astro predate it/);
   });
 
-  test("stay quiet when the sidebar panel lives outside ApiLayout", async () => {
-    const moved = await site({
-      [item]: "item.childrenHref",
-      [layout]: "<ApiSidebarPanel nav={nav} version={version} />",
-      "components/ui/api-sidebar/ApiSidebarPanel.astro": "data-nb-nav-build={navBuildId}",
-    });
-    assert.equal(outdatedApiSidebarError(onDemand, moved, moved), undefined);
-    const own = await site({
-      [item]: "item.childrenHref",
-      [layout]: "<ApiNavSidebar nav={nav} />",
-      "components/api-nav-sidebar/ApiNavSidebar.astro": "data-nb-nav-build={navBuildId}",
-    });
-    assert.equal(outdatedApiSidebarError(onDemand, own, own), undefined);
+  test("flag the starter's pre-on-demand layout", async () => {
+    assert.match(await flagged({ [layout]: oldLayout }), layoutPredates);
+    assert.match(
+      await flagged({ [layout]: astro("import { ApiSidebar } from '@/components/ui/api-sidebar'", "<ApiSidebar items={nav.items}>\n  <li>Overview</li>\n</ApiSidebar>") }),
+      layoutPredates,
+      "single quotes, no semicolon, children",
+    );
+    assert.match(
+      await flagged({ [layout]: oldLayout, "components/ui/api-sidebar/ApiSidebarPanel.astro": "data-nb-nav-build={navBuildId}" }),
+      layoutPredates,
+      "a newer panel installed but not rendered",
+    );
   });
 
-  test("flag an old ApiLayout even when a newer panel is installed but not rendered", async () => {
-    const stale = await site({
-      [item]: "item.childrenHref",
-      [layout]: "<ApiSidebar items={nav.items} />",
-      "components/ui/api-sidebar/ApiSidebarPanel.astro": "data-nb-nav-build={navBuildId}",
-    });
-    assert.match(outdatedApiSidebarError(onDemand, stale, stale) ?? "", /ApiLayout\.astro predates it/);
+  test("trust a layout the site rewrote", async () => {
+    // The sidebar rendered through the site's own component, which renders the panel.
+    assert.equal(
+      await flagged({
+        [layout]: astro('import SiteNav from "@/components/SiteNav.astro";', "<SiteNav nav={nav} />"),
+        "components/SiteNav.astro": astro('import { ApiSidebarPanel } from "@/components/ui/api-sidebar";', "<ApiSidebarPanel nav={nav}><li>Overview</li></ApiSidebarPanel>"),
+      }),
+      "",
+      "a wrapper around the panel",
+    );
+    assert.equal(await flagged({ [layout]: astro('import ApiNavSidebar from "@/components/api-nav-sidebar/ApiNavSidebar.astro";', "<ApiNavSidebar nav={nav} />") }), "", "the site's own panel");
+    assert.equal(await flagged({ [layout]: astro('import Tree from "@/components/ui/api-sidebar/ApiSidebar.astro";', "<Tree items={nav.items} />") }), "", "the tree under another name");
+    assert.equal(
+      await flagged({ [layout]: astro('import { ApiSidebar as Tree } from "@/components/ui/api-sidebar";\nimport ApiSidebar from "./SiteNavigation.astro";', "<ApiSidebar items={nav.items} />\n<Tree items={[]} />") }),
+      "",
+      "a site component named ApiSidebar beside an aliased tree",
+    );
+    assert.equal(await flagged({ [layout]: astro('import { ApiSidebar, ApiMethodChip } from "@/components/ui/api-sidebar";', "<ApiSidebar items={nav.items} />") }), "", "a longer specifier list");
+    assert.equal(
+      await flagged({ [layout]: astro('import { ApiSidebar } from "@/components/ui/api-sidebar";', "<ApiSidebar items={nav.items} />\n<ApiSidebarPanel nav={nav} />") }),
+      "",
+      "the old lines kept beside the panel",
+    );
+    assert.equal(
+      await flagged({
+        [layout]: astro(
+          'import SiteNav from "@/components/SiteNav.astro";\n// import { ApiSidebar } from "@/components/ui/api-sidebar";',
+          `<SiteNav nav={nav} />\n<script>const old = '<ApiSidebar items={nav.items} />';</script>\n{/* <ApiSidebar items={nav.items} /> */}`,
+        ),
+      }),
+      "",
+      "the old lines quoted in a comment and a script, no panel tag",
+    );
+    assert.equal(
+      await flagged({ [layout]: astro('import { ApiSidebar } from "@/components/ui/api-sidebar";', "<ApiSidebar.Something items={nav.items} />") }),
+      "",
+      "a member tag, even with the old import",
+    );
   });
 });
 
