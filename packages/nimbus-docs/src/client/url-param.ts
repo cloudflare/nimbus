@@ -9,16 +9,15 @@
  * hash) via `history.replaceState`, preserving the anchor, any other params, and
  * the current `history.state`, and strips a stranded copy from the fragment so
  * the two never disagree. It no-ops when the URL would not change.
+ *
+ * `readUrlParam` is serialized into `choiceStateScript`, so it may reference
+ * only browser globals and its argument.
  */
-
-function hashQueryStart(hash: string): number {
-  return hash.indexOf("?");
-}
 
 export function readUrlParam(name: string): string | null {
   const fromSearch = new URLSearchParams(location.search).get(name);
   if (fromSearch) return fromSearch;
-  const qi = hashQueryStart(location.hash);
+  const qi = location.hash.indexOf("?");
   if (qi === -1) return null;
   return new URLSearchParams(location.hash.slice(qi + 1)).get(name) || null;
 }
@@ -27,7 +26,7 @@ export function writeUrlParam(name: string, value: string): void {
   try {
     const url = new URL(location.href);
 
-    const qi = hashQueryStart(url.hash);
+    const qi = url.hash.indexOf("?");
     if (qi !== -1) {
       const anchor = url.hash.slice(0, qi);
       const hashParams = new URLSearchParams(url.hash.slice(qi + 1));
