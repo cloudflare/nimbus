@@ -30,7 +30,8 @@ export const SEARCH_HELP = `
     --dry-run                 Print the plan; change nothing
     --purge                   Remove this site's items (every built collection)
     --collection <id>         With --purge: one collection's folder only
-    --force                   Allow removal deletes above a quarter of a collection
+    --force                   Allow removing 10 or more pages and over a quarter of a collection,
+                              or every page of one
     --instance <name>         Override search.instance
     --token-env <NAME>        Read the token from NAME instead of NIMBUS_AI_SEARCH_TOKEN
     --branch <name>           The production branch the CI guard accepts (default main)
@@ -182,10 +183,12 @@ export async function searchCommand(sub: string | undefined, args: SearchSyncArg
     err("--max-minutes takes a positive number.");
     return 1;
   }
+  const deadline = Date.now() + maxMinutes * 60_000;
   const api = createAiSearchApi({
     accountId,
     token,
     instance,
+    deadline,
     ...(env.NIMBUS_AI_SEARCH_API ? { apiBase: env.NIMBUS_AI_SEARCH_API } : {}),
   });
   let summary: SyncSummary;
@@ -195,7 +198,7 @@ export async function searchCommand(sub: string | undefined, args: SearchSyncArg
       purge: args.purge,
       collection: args.collection,
       force: args.force,
-      deadline: Date.now() + maxMinutes * 60_000,
+      deadline,
     });
   } catch (error) {
     err(error instanceof AiSearchApiError || error instanceof Error ? error.message : String(error));

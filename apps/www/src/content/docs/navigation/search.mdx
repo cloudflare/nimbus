@@ -80,7 +80,7 @@ npx nimbus-docs search sync
 |---|---|
 | `--dry-run` | Prints what would change, and changes nothing |
 | `--purge` | Removes the site's pages from the instance |
-| `--force` | Allows removing more than a quarter of a collection's pages |
+| `--force` | Allows removing 10 or more pages that are over a quarter of a collection, or all of a collection's pages |
 
 The command reads `CLOUDFLARE_ACCOUNT_ID` and `NIMBUS_AI_SEARCH_TOKEN` from the environment or `.env`. The token needs AI Search Edit and Run, which work on every instance in the account, so keep it to the sync job.
 
@@ -112,4 +112,4 @@ search: { provider: "ai-search", endpoint, instance, wait: 400, minQueryLength: 
 
 The dialog searches the published pages from any origin, and its results link to the origin you're on. Unsaved edits aren't searchable until they are deployed and synced.
 
-To switch back, run `npx nimbus-docs search sync --purge` and set `search: { provider: "pagefind" }`.
+To switch back, run `npx nimbus-docs search sync --purge`, set `search: { provider: "pagefind" }`, change the provider import in `search.client.ts` back to `./providers/pagefind`, and add `pagefind` back as a dev dependency.

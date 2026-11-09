@@ -6,7 +6,7 @@
  * warning, so it never changes the build's readiness.
  */
 import type { ConfigParseResult } from "../_internal/parse-nimbus-config.js";
-import { AI_SEARCH_INSTANCE, aiSearchEndpointError } from "../_internal/validate.js";
+import { aiSearchSchema } from "../_internal/validate.js";
 import { createAiSearchApi } from "../cli/search/ai-search-api.js";
 import { findManifests, loadManifest, outputDirectory } from "../cli/search/index.js";
 import { schemaProblem, syncSearchCorpus } from "../cli/search/sync.js";
@@ -27,13 +27,13 @@ export async function checkAiSearch(
   const finding = (code: string, severity: CheckFinding["severity"], message: string) =>
     findings.push({ scope: "env", code: `nimbus/ai-search-${code}`, severity, message, fixable: false });
 
-  const instance = typeof search.instance === "string" ? search.instance : undefined;
-  if (!instance || !AI_SEARCH_INSTANCE.test(instance))
-    finding("instance", "error", "`search.instance` must name the AI Search instance: lowercase letters, digits, `-` and `_`, at most 64 characters.");
-  const endpointError =
-    typeof search.endpoint === "string" ? aiSearchEndpointError(search.endpoint) : "`search.endpoint` must be the instance's public endpoint origin.";
-  if (endpointError) finding("endpoint", "error", endpointError);
-  if (!instance || findings.length) return findings;
+  // The build's own schema, so a config check passes exactly when the build would.
+  const valid = aiSearchSchema.safeParse(search);
+  if (!valid.success) {
+    for (const issue of valid.error.issues) finding(String(issue.path[0] ?? "config"), "error", issue.message);
+    return findings;
+  }
+  const instance = (valid.data as { instance: string }).instance;
 
   const token = env.NIMBUS_AI_SEARCH_TOKEN;
   const accountId = env.CLOUDFLARE_ACCOUNT_ID;

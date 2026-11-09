@@ -247,6 +247,7 @@ export async function syncSearchCorpus(api: AiSearchApi, manifests: LoadedManife
       else summary.uploaded += 1;
       for (const item of others) await deleteCounted(api, item, summary, "replacement");
     } catch (error) {
+      if (error instanceof AiSearchApiError && error.code === "deadline") return stop(summary, api);
       summary.failed.push({ url: entry.page.url, message: (error as Error).message });
     }
   }

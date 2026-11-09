@@ -99,7 +99,8 @@ export function aiSearchEndpointError(value: string): string | undefined {
   return undefined;
 }
 
-const aiSearchSchema = withStrictKeys(
+/** `search: { provider: "ai-search", … }`; `check` runs it too, so check and build agree. */
+export const aiSearchSchema = withStrictKeys(
   z.object({
     provider: z.literal("ai-search"),
     endpoint: z.string().superRefine((value, ctx) => {

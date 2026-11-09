@@ -48,6 +48,7 @@ test("results keep only this site's pages, as paths, one per page in rank order"
           chunk("https://user:pass@example.com/docs/x/"),
           chunk("javascript:alert(1)"),
           chunk("https://example.com/other/"),
+          chunk("https://example.com//evil.example/docs/x/"),
           chunk("https://example.com/docs/b/", "<img src=x onerror=alert(1)> and `custom_metadata` > 2", "B"),
           { text: "no metadata" },
         ],

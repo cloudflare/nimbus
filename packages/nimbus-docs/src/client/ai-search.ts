@@ -143,7 +143,8 @@ export function normaliseAiSearchChunks(
     if (!/^https?:$/u.test(url.protocol) || url.username || url.password || url.origin !== site.origin) continue;
     if (base !== "/" && url.pathname !== base && !url.pathname.startsWith(`${base}/`)) continue;
     const path = url.pathname;
-    if (seen.has(path)) continue;
+    // `//host/…` would leave the site as a link: a protocol-relative URL.
+    if (path.startsWith("//") || seen.has(path)) continue;
     seen.add(path);
     const title = typeof metadata.title === "string" && metadata.title.trim() ? metadata.title.trim() : path;
     const heading = firstHeading(chunk.text);

@@ -29,9 +29,13 @@ Read this entire file before changing anything. Do the steps in order: the deplo
 
   Tell the user plainly: AI Search Edit works on every instance in the account, including deleting one. Give the token an expiry and keep it only where the sync runs.
 
+The `curl` commands below read both values from the shell: run `set -a; . ./.env; set +a` first. The Nimbus CLI reads `.env` itself.
+
 ## 1. Create the instance
 
-Create it with this request:
+If the user already has an instance for this site, skip the two requests below: read it back with `curl "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/ai-search/namespaces/default/instances/<instance name>" -H "Authorization: Bearer $NIMBUS_AI_SEARCH_TOKEN"` and check it as below.
+
+Otherwise, create it with this request:
 
 ```sh
 curl -X POST "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/ai-search/namespaces/default/instances" \
@@ -96,7 +100,7 @@ npx nimbus-docs search sync --dry-run
 npx nimbus-docs search sync
 ```
 
-The dry run should plan one upload per page and no deletes. The real run should end with exit code 0. Cloudflare indexes the pages over the next few minutes; a page it refuses, such as one with only headings, is named as skipped on the next run. That is expected.
+The dry run should plan one upload per page and no deletes. The real run should end with exit code 0. Cloudflare indexes the pages over the next few minutes; a page it refuses to index is named as skipped on the next run.
 
 Check search answers before going further:
 

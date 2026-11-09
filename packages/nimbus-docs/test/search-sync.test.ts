@@ -137,14 +137,14 @@ test("deletes stay inside the manifest's collections; other folders are orphans 
   });
 });
 
-test("a heading-only page is reported as skipped by the next run, which leaves it alone", async () => {
+test("a page the service refuses is reported as skipped by the next run, which leaves it alone", async () => {
   await withStandIn(async (standIn, api) => {
     const manifests = await site([{ route: "/empty/", body: "# Empty\n" }, { route: "/full/", body: "# Full\n\ntext" }]);
     const summary = await syncSearchCorpus(api, manifests);
     assert.deepEqual([summary.uploaded, summary.failed.length], [2, 0]);
     const next = await syncSearchCorpus(freshApi(standIn), manifests);
     assert.deepEqual([next.uploaded, next.repaired, next.skipped.length], [0, 0, 1]);
-  });
+  }, { refuses: (content) => content === "# Empty\n" });
 });
 
 test("a schema without the four fields stops the run before any upload", async () => {
@@ -197,7 +197,8 @@ test("check names a bad config, then compares the live instance with the build",
   const parsed = (search: Record<string, unknown>) => ({ ok: true, config: { search }, unresolved: [] }) as never;
   const codes = (findings: Array<{ code: string }>) => findings.map((finding) => finding.code.replace("nimbus/ai-search-", ""));
   try {
-    assert.deepEqual(codes(await checkAiSearch(cwd, parsed({ provider: "ai-search", endpoint: "http://example.com", instance: "Bad Name" }), {})), ["instance", "endpoint"]);
+    assert.deepEqual(codes(await checkAiSearch(cwd, parsed({ provider: "ai-search", endpoint: "http://example.com", instance: "Bad Name" }), {})).sort(), ["endpoint", "instance"]);
+    assert.deepEqual(codes(await checkAiSearch(cwd, parsed({ provider: "ai-search", endpoint: "https://x.search.ai.cloudflare.com", instance: "ok", wait: -1, minQueryLength: 0 }), {})).sort(), ["minQueryLength", "wait"]);
     const config = parsed({ provider: "ai-search", endpoint: "https://x.search.ai.cloudflare.com", instance: "nimbus-demo" });
     assert.deepEqual(codes(await checkAiSearch(cwd, config, {})), ["live"]);
     assert.deepEqual(await checkAiSearch(cwd, parsed({ provider: "pagefind" }), {}), []);
@@ -224,4 +225,13 @@ test("check names a bad config, then compares the live instance with the build",
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
+});
+
+test("a request that never answers can't hold the run past its deadline", async () => {
+  const hang: typeof fetch = (_url, init) =>
+    new Promise((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(new Error("aborted"))));
+  const api = createAiSearchApi({ accountId: "a", token: "t", instance: "i", gapMs: 0, backoffMs: 1, deadline: Date.now() + 50, fetch: hang });
+  const started = Date.now();
+  await assert.rejects(syncSearchCorpus(api, await site([{ route: "/a/", body: "# A\n\none" }])), /time limit/);
+  assert.ok(Date.now() - started < 2000);
 });

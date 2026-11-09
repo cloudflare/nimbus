@@ -31,6 +31,8 @@ export interface StandInOptions {
   processingMs?: number;
   /** Answer the next n account requests with 429 (tests). */
   throttle?: number;
+  /** Item content the service refuses to index, as it might a file it can't parse (tests). */
+  refuses?: (content: string) => boolean;
 }
 
 export const FIVE_FIELDS = [
@@ -55,8 +57,7 @@ export async function startAiSearchStandIn(options: StandInOptions = {}) {
     for (const item of items.values()) {
       if (item.status !== "queued") continue;
       if (Date.now() - (uploadedAt.get(item.id) ?? 0) < (options.processingMs ?? 0)) continue;
-      const body = item.content.replace(/^#{1,6}\s.*$/gmu, "").trim();
-      if (!body) {
+      if (options.refuses?.(item.content)) {
         item.status = "error";
         item.error = "file_content_empty";
       } else item.status = "completed";

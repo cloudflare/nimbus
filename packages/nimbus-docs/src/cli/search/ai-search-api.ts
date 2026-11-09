@@ -47,12 +47,17 @@ export interface AiSearchApiOptions {
   gapMs?: number;
   /** Backoff base. Default 1 s. */
   backoffMs?: number;
+  /** Wall-clock time (ms since epoch) after which no request starts or waits. */
+  deadline?: number;
+  /** One request's time limit. Default 60 s. */
+  timeoutMs?: number;
   sleep?: (ms: number) => Promise<void>;
   fetch?: typeof fetch;
 }
 
 const DEFAULT_API = "https://api.cloudflare.com/client/v4";
 const RETRIES = 5;
+const MAX_WAIT_MS = 60_000;
 
 export function createAiSearchApi(options: AiSearchApiOptions) {
   const api = (options.apiBase ?? DEFAULT_API).replace(/\/+$/u, "");
@@ -61,32 +66,47 @@ export function createAiSearchApi(options: AiSearchApiOptions) {
   const backoff = options.backoffMs ?? 1000;
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const doFetch = options.fetch ?? fetch;
+  const timeout = options.timeoutMs ?? 60_000;
   let next = 0;
   let requests = 0;
+
+  const remaining = () => (options.deadline === undefined ? Infinity : options.deadline - Date.now());
+  const outOfTime = () => new AiSearchApiError("Stopped at the time limit (--max-minutes)", 0, "deadline");
+  /** Sleep, but never past the deadline. */
+  async function pause(ms: number) {
+    if (ms >= remaining()) throw outOfTime();
+    await sleep(ms);
+  }
 
   async function request(path: string, init: RequestInit = {}): Promise<{ status: number; body: Record<string, unknown> }> {
     for (let attempt = 0; ; attempt += 1) {
       const wait = next - Date.now();
-      if (wait > 0) await sleep(wait);
+      if (wait > 0) await pause(wait);
+      if (remaining() <= 0) throw outOfTime();
       next = Date.now() + gap;
       requests += 1;
       let response: Response;
+      let text: string;
       try {
+        // Bounded by the request limit and the run's deadline, body included.
+        const signal = AbortSignal.timeout(Math.max(1, Math.min(timeout, remaining())));
         response = await doFetch(`${root}${path}`, {
           ...init,
+          signal,
           headers: { authorization: `Bearer ${options.token}`, ...(init.headers ?? {}) },
         });
+        text = await response.text();
       } catch (error) {
+        if (remaining() <= 0) throw outOfTime();
         if (attempt >= RETRIES) throw new AiSearchApiError(`network error: ${(error as Error).message}`, 0);
-        await sleep(backoff * 2 ** attempt);
+        await pause(backoff * 2 ** attempt);
         continue;
       }
       if ((response.status === 429 || response.status >= 500) && attempt < RETRIES) {
         const after = Number(response.headers.get("retry-after"));
-        await sleep(Number.isFinite(after) && after > 0 ? after * 1000 : backoff * 2 ** attempt);
+        await pause(Math.min(MAX_WAIT_MS, Number.isFinite(after) && after > 0 ? after * 1000 : backoff * 2 ** attempt));
         continue;
       }
-      const text = await response.text();
       let body: Record<string, unknown> = {};
       try {
         body = text ? (JSON.parse(text) as Record<string, unknown>) : {};

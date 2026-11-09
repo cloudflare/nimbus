@@ -1315,7 +1315,7 @@
       "affected": "Sites with the starter's src/components/ui/search/search.client.ts that want provider error messages or the ai-search provider. Existing providers keep working unchanged.",
       "instructions": [
         "Take the change with nimbus-docs diff src/components/ui/search/search.client.ts --apply.",
-        "If you edited search.client.ts, merge by hand: after `const response = await provider.search(query, { signal })`, show response.error.message when the response is an object with error, and read the results as Array.isArray(response) ? response : response.results. Replace the fixed 150 ms debounce with provider.options?.wait ?? 150, and skip queries shorter than provider.options?.minQueryLength ?? 1."
+        "If you edited search.client.ts, merge by hand: type SearchConfig's provider as SearchProvider<SearchResult[] | SearchResponse> (import SearchResponse from @cloudflare/nimbus-docs/types); after `const response = await provider.search(query, { signal })`, show response.error.message when the response is an object with error, and read the results as Array.isArray(response) ? response : response.results. Replace the fixed 150 ms debounce with provider.options?.wait ?? 150, and skip queries shorter than provider.options?.minQueryLength ?? 1."
       ],
       "verify": [
         "The project typechecks.",
@@ -1335,7 +1335,7 @@
         "If you edited BaseLayout, merge by hand: import getPageSearchScope from @cloudflare/nimbus-docs/runtime, call it with { collection, apiVersion } from the props, and add data-nb-search-version and data-nb-search-deprecated to <body> from its version and deprecated."
       ],
       "verify": [
-        "A built page's <body> carries the three data-nb-search attributes."
+        "A built page's <body> carries data-nb-search-version and data-nb-search-deprecated."
       ]
     },
     {
