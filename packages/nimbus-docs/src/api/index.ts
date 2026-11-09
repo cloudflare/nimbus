@@ -65,6 +65,7 @@ export type {
   JsonValue,
   SpecSource,
 } from "../_internal/api/view-model.js";
+export type { TryItInfo, PlanId, DeliveryMode } from "../_internal/try-it/plan.js";
 export { ApiBuildError } from "../_internal/api/coordinates.js";
 export type { Diagnostic } from "../_internal/api/coordinates.js";
 export { renderApiPageMarkdown } from "../_internal/api/markdown.js";

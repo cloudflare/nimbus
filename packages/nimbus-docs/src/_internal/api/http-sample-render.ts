@@ -172,7 +172,8 @@ function splitAuthority(scheme: string, rest: string): { authority: string; path
  * changes, and become placeholder segments again at the end; a token prefix
  * the request's own text contains is skipped.
  */
-export function sampleUrl(request: Pick<SampleRequest, "url" | "query">): Segment[] {
+export function sampleUrl(request: Pick<SampleRequest, "url" | "query" | "rawUrl">): Segment[] {
+  if (request.rawUrl) return [...request.url];
   const values = [request.url, ...request.query.map((field) => field.value)];
   const literal = [...values.flat(), ...request.query.map((field) => ({ text: field.name }))]
     .map((segment) => (isPlaceholder(segment) ? "" : segment.text))

@@ -17,7 +17,7 @@ export function openApiParserMessage(root: string): string {
   );
 }
 
-export type ServerFeature = "MCP" | "request rendering" | "api bundle: false";
+export type ServerFeature = "MCP" | "request rendering" | "api bundle: false" | "Try it proxy";
 
 /** The feature an adapter error names: the strictest one, so its advice covers the others. */
 export function serverAdapterFeature(features: {
@@ -42,6 +42,8 @@ export function serverAdapterMessage(feature: ServerFeature, root: string): stri
       return `nimbus-docs: agents.mcp serves /mcp from the site's own server, which needs a server adapter. ${add("cloudflare", "netlify", "node", "vercel")} Or set agents.mcp to false.`;
     case "request rendering":
       return `nimbus-docs: rendering mode "request" needs a server adapter for production builds. ${add("cloudflare", "netlify", "node", "vercel")}`;
+    case "Try it proxy":
+      return `nimbus-docs: tryIt.proxy serves /_nimbus/try from the site's own server, which needs a server adapter. ${add("cloudflare", "netlify", "node", "vercel")} Or remove tryIt.proxy to send requests directly from the browser.`;
     case "api bundle: false":
       return `nimbus-docs: api bundle: false needs the Cloudflare or Node adapter. ${add("cloudflare", "node")} Or remove \`bundle: false\` to deploy elsewhere.`;
   }

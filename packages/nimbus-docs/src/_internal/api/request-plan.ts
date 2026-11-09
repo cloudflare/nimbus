@@ -32,6 +32,7 @@ import { IGNORED_HEADER_PARAMS } from "../try-it/serialize.js";
 
 export interface RequestPlanInput {
   id: PlanId;
+  send: RequestPlan["send"];
   method: string;
   path: string;
   openapiVersion?: string;
@@ -69,6 +70,7 @@ export function buildRequestPlan(input: RequestPlanInput): RequestPlan {
     servers: planServers(input.servers),
     params: input.params.map((param) => planParam(param, input.sampleValues.get(param))),
     auth: planAuth(input.auth, input.securitySchemes ?? {}),
+    send: input.send,
   };
   if (input.specUrl) plan.specUrl = input.specUrl;
   if (method === "TRACE" || method === "CONNECT") plan.refused = `${method} requests can't be sent from here.`;

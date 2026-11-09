@@ -498,6 +498,7 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
         ...(ctx.tryIt.version ? { version: ctx.tryIt.version } : {}),
         coordinate: coord,
       },
+      send: { ...ctx.tryIt.limits, credentials: ctx.tryIt.credentials, servers: ctx.tryIt.servers },
       method: site.sampleTarget.method,
       path: site.sampleTarget.path,
       ...(ctx.doc.openapi ? { openapiVersion: ctx.doc.openapi } : {}),

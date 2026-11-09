@@ -20,6 +20,7 @@ const plan = (over: Partial<RequestPlan> = {}): RequestPlan => ({
   servers: [{ url: "https://api.example.com/v1", variables: [] }],
   params: [],
   auth: [],
+  send: { timeoutMs: 30_000, responseBytes: 2_000_000, uploadBytes: 4_000_000, credentials: "omit", servers: "spec" },
   ...over,
 });
 

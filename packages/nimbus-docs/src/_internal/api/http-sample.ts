@@ -67,6 +67,8 @@ export interface SampleRequest {
   headers: readonly SampleField[];
   cookies: readonly SampleField[];
   body?: SampleBody;
+  /** The URL is complete and already encoded, query included: written as is. */
+  rawUrl?: true;
 }
 
 export const text = (value: string): Segment => ({ text: value });

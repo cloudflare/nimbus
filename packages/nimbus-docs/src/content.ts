@@ -884,6 +884,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
                         proxy: target.tryIt.proxy !== false && proxyRuns,
                         credentials: target.tryIt.credentials,
                         servers: target.tryIt.servers,
+                        limits: target.tryIt.limits,
                       },
                     }
                   : {}),
@@ -914,7 +915,14 @@ export function apiCollection(options?: ApiCollectionOptions): {
               model,
               target.sidebar === "on-demand",
             );
-            await stageApiTryItPlans(rootDir, model);
+            {
+              const { apiKey } = await import("./_internal/try-it/protocol.js");
+              const key = apiKey({ family: collection, ...(target.version ? { version: target.version } : {}) });
+              const proxy = target.tryIt && target.tryIt.proxy !== false && proxyRuns
+                ? { key, extraOrigins: target.tryIt.proxy.extraOrigins, limits: target.tryIt.limits }
+                : null;
+              await stageApiTryItPlans(rootDir, model, proxy, key);
+            }
           } catch (err) {
             // `ApiBuildError` already formats a pointed diagnostic list; fail
             // with it (plus which spec failed) as the author's error, no stack.

@@ -34,6 +34,7 @@ import {
 import type { ApiSidebarMode, ApiSpec } from "../types.js";
 import { unwrapModel } from "./api/model-handle.js";
 import type { OperationFacts } from "./api/model.js";
+import type { TryItLimits } from "./try-it/config.js";
 import { operationPaths } from "./api/view-model.js";
 import {
   apiNavList,
@@ -77,12 +78,25 @@ export async function stageApiModelNavList(
 /** Write each of the model's Try it plans into the staging folder, where the
  * dev server serves it and the build deploys it from (`_nimbus/try-it/`).
  * Files are named by their content, so an unchanged plan is left alone. */
-export async function stageApiTryItPlans(root: string, model: ApiModel): Promise<void> {
-  const { stageTryItPlan } = await import("./try-it/stage.js");
+export async function stageApiTryItPlans(
+  root: string,
+  model: ApiModel,
+  proxy: { key: string; extraOrigins: string[]; limits: TryItLimits } | null,
+  key: string,
+): Promise<void> {
+  const { stageTryItPlan, stageTryItPolicy, planOrigins } = await import("./try-it/stage.js");
+  const origins = new Set<string>();
   for (const node of unwrapModel(model).nodes.values()) {
     const tryIt = node.kind === "operation" ? (node.facts as OperationFacts).tryIt : undefined;
-    if (tryIt) await stageTryItPlan(root, tryIt.file, JSON.stringify(tryIt.plan));
+    if (!tryIt) continue;
+    await stageTryItPlan(root, tryIt.file, JSON.stringify(tryIt.plan));
+    for (const origin of planOrigins(tryIt.plan)) origins.add(origin);
   }
+  await stageTryItPolicy(
+    root,
+    key,
+    proxy ? { origins: [...origins].sort(), extraOrigins: proxy.extraOrigins, limits: proxy.limits } : null,
+  );
 }
 
 /** Where a projected page's navigation is bounded. Omitted = the full tree. */

@@ -67,7 +67,14 @@ const spec = {
 };
 
 const source = (tryIt?: TryItSource) => ({ collection: "api", spec: spec as unknown as Record<string, never>, ...(tryIt ? { tryIt } : {}) });
-const on: TryItSource = { family: "api", version: "v1", proxy: true, credentials: "omit", servers: "spec" };
+const on: TryItSource = {
+  family: "api",
+  version: "v1",
+  proxy: true,
+  credentials: "omit",
+  servers: "spec",
+  limits: { timeoutMs: 30_000, responseBytes: 2_000_000, uploadBytes: 4_000_000 },
+};
 
 async function plans(tryIt?: TryItSource) {
   const model = await buildApiModel(source(tryIt));

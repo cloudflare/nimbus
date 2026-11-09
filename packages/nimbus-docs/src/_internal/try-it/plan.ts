@@ -146,6 +146,19 @@ export interface RequestPlan {
   auth: PlanAuthAlternative[];
   /** Why the operation can't be sent at all (`TRACE`, `CONNECT`). */
   refused?: string;
+  /** How sending behaves for this API (from its `tryIt` settings). */
+  send: PlanSend;
+}
+
+export interface PlanSend {
+  /** Milliseconds for the whole exchange. */
+  timeoutMs: number;
+  responseBytes: number;
+  uploadBytes: number;
+  /** Whether direct requests carry the browser's cookies. */
+  credentials: "omit" | "include";
+  /** Whether the reader may enter another origin. */
+  servers: "spec" | "editable";
 }
 
 /** How a request travels: straight from the browser, or through the docs site's proxy. */
@@ -161,6 +174,7 @@ export interface TryItSource {
   credentials: "omit" | "include";
   /** `"editable"`: the reader may enter another origin. */
   servers: "spec" | "editable";
+  limits: { timeoutMs: number; responseBytes: number; uploadBytes: number };
 }
 
 /** On an operation page whose API has try-it on. */

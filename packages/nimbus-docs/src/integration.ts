@@ -72,6 +72,7 @@ import { copyMarkdownImages } from "./_internal/markdown-images-copy.js";
 import { setMarkdownImageSlicePrefix } from "./_internal/markdown-images.js";
 import { markdownImageSource, markdownImageType } from "./_internal/markdown-images-dev.js";
 import { mcpSdkMessage, serverAdapterFeature, serverAdapterMessage } from "./_internal/server-adapter.js";
+import { tryItPolicyPlugin } from "./_internal/try-it/policy-plugin.js";
 import { deriveFootprint, footprintRoutes } from "./_internal/footprint.js";
 import { readDependencyNames } from "./check/probe.js";
 import { parseComponentsRegistry } from "./_internal/parse-components-registry.js";
@@ -2574,6 +2575,33 @@ export function nimbus(
             });
           }
         }
+        {
+          // Try it's proxy: wherever an API has it on and the site serves on-request routes.
+          const tryItApis = (config.api ?? []).filter((api) => api.tryIt);
+          const explicitProxy = tryItApis.filter((api) => typeof api.tryIt === "object" && api.tryIt.proxy !== undefined && api.tryIt.proxy !== false);
+          if (explicitProxy.length > 0 && !astroConfig.adapter) {
+            throw authorError(serverAdapterMessage("Try it proxy", projectRoot));
+          }
+          const proxied = tryItApis.some((api) => !(typeof api.tryIt === "object" && api.tryIt.proxy === false));
+          if (proxied && astroConfig.adapter) {
+            const pattern = "/_nimbus/try";
+            const owned = [pattern, `${pattern}.html`, `${pattern}/index.html`]
+              .map((file) => path.join(publicDir, file))
+              .find((file) => fs.statSync(file, { throwIfNoEntry: false })?.isFile());
+            if (owned)
+              throw authorError(
+                `Nimbus serves ${pattern} for Try it's proxy. Move ${path.relative(projectRoot, owned)}, or set tryIt.proxy to false.`,
+              );
+            const entrypoint = new URL(`./_internal/try-it-route.${extension}`, import.meta.url);
+            injectRoute({ pattern, entrypoint, prerender: false });
+            managedRoutesForBuild.push({
+              pattern,
+              entrypoint: normalizeRouteEntrypoint(projectRoot, entrypoint.href)!,
+              owner: "infrastructure",
+              rendering: "request",
+            });
+          }
+        }
         for (const api of resolveAllApiCollections(config.api, mountContextForBuild)) {
           const owned = path.join(publicDir, api.mountPath, "openapi.json");
           if (api.publishSpec && fs.existsSync(owned))
@@ -3019,6 +3047,7 @@ export function nimbus(
                 () => building && outputModeForBuild === "server",
               ),
               markdownRoutes.plugin,
+              tryItPolicyPlugin(fileURLToPath(astroConfig.root)),
               agentEndpointAssets.agentEndpointAssetLoaderPlugin(
                 () => adapterNameForBuild,
               ),
