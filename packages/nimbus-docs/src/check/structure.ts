@@ -612,10 +612,18 @@ function checkAgentSurfaces(
     const sections = agentFiles.filter((entry) => entry.rel.includes("/") && (file("llms.txt").test(entry.rel) || file("[llms].txt").test(entry.rel)));
     const parts = agentFiles.filter((entry) => entry.rel.includes("/") && (file("llms-full.txt").test(entry.rel) || file("[llms].txt").test(entry.rel)));
     const every = (entries: Array<{ request: boolean }>) => entries.length > 0 && entries.every((entry) => entry.request);
+    // A collection mounted away from the root in another mode than the
+    // root's gets an injected llms route of its own, in its mode, which the
+    // build counts as serving part of the surface: a build-rendered mount
+    // keeps the sections and the full document baked.
+    const mounts = project.files
+      .filter((entry) => entry.target.page !== undefined && entry.target.page.collection !== "docs")
+      .map((entry) => ({ request: entry.target.mode === "request" }));
+    const mountsOnRequest = mounts.every((entry) => entry.request);
     onRequest = {
       llms: site?.request === true,
-      llmsSections: every(sections),
-      llmsFull: full !== undefined && every([full, ...parts]),
+      llmsSections: every(sections) && mountsOnRequest,
+      llmsFull: full !== undefined && every([full, ...parts]) && mountsOnRequest,
     };
   }
   // A site with every starter route, every one built ahead of time, says
