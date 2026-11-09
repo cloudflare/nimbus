@@ -748,11 +748,15 @@ export interface SearchResult {
   subResults?: { title: string; url: string }[];
 }
 
-export interface SearchProvider {
+/**
+ * A search backend for the dialog. `search` resolves to a result list; a
+ * provider typed `SearchProvider<SearchResponse>` resolves to `{ results }` or
+ * `{ error }` instead, so the dialog can say what went wrong.
+ */
+export interface SearchProvider<Response extends SearchResult[] | SearchResponse = SearchResult[]> {
   /** Optional lazy setup hook, called before the first search. */
   init?(): Promise<void>;
-  /** A plain list is results; `{ error }` lets the dialog say what went wrong. */
-  search(query: string, opts?: { signal?: AbortSignal }): Promise<SearchResult[] | SearchResponse>;
+  search(query: string, opts?: { signal?: AbortSignal }): Promise<Response>;
   /** Typing behaviour the dialog applies for this provider. */
   options?: SearchProviderOptions;
 }

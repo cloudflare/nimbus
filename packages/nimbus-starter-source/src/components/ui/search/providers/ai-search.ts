@@ -16,7 +16,7 @@ const escape = (text: string) =>
 // The same query from the same scope answers from the last response.
 let last: { key: string; response: SearchResponse } | undefined;
 
-export const provider: SearchProvider = {
+export const provider: SearchProvider<SearchResponse> = {
   options: { wait: search?.wait, minQueryLength: search?.minQueryLength },
 
   async search(query, { signal } = {}) {

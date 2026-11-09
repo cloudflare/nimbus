@@ -1,13 +1,14 @@
 import { mount, onShortcut } from "@cloudflare/nimbus-docs/client";
 import { shortcuts } from "@/lib/shortcuts";
-import type { SearchProvider, SearchResult } from "@cloudflare/nimbus-docs/types";
+import type { SearchProvider, SearchResponse, SearchResult } from "@cloudflare/nimbus-docs/types";
 import { provider } from "./providers/pagefind";
 
 export interface SearchConfig {
   input: HTMLInputElement;
   resultsContainer: HTMLElement;
   emptyState: HTMLElement;
-  provider: SearchProvider;
+  /** A provider returning a list or a `{ results }` / `{ error }` response. */
+  provider: SearchProvider<SearchResult[] | SearchResponse>;
   onNavigate?: () => void;
 }
 

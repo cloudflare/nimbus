@@ -1309,10 +1309,10 @@
     {
       "id": "search-provider-response",
       "introducedIn": "0.20.0",
-      "mode": "review-required",
+      "mode": "optional",
       "changeset": "ai-search",
-      "summary": "SearchProvider.search() may now resolve to { results } or { error } as well as a result list, and a provider can set options.wait and options.minQueryLength. The search dialog shows a provider's error message instead of one generic line.",
-      "affected": "Sites with the starter's src/components/ui/search/search.client.ts.",
+      "summary": "A provider typed SearchProvider<SearchResponse> resolves to { results } or { error } instead of a result list, and a provider can set options.wait and options.minQueryLength. The search dialog shows a provider's error message instead of one generic line.",
+      "affected": "Sites with the starter's src/components/ui/search/search.client.ts that want provider error messages or the ai-search provider. Existing providers keep working unchanged.",
       "instructions": [
         "Take the change with nimbus-docs diff src/components/ui/search/search.client.ts --apply.",
         "If you edited search.client.ts, merge by hand: after `const response = await provider.search(query, { signal })`, show response.error.message when the response is an object with error, and read the results as Array.isArray(response) ? response : response.results. Replace the fixed 150 ms debounce with provider.options?.wait ?? 150, and skip queries shorter than provider.options?.minQueryLength ?? 1."

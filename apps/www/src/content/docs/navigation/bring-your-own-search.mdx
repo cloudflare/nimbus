@@ -74,9 +74,9 @@ The dialog calls a `SearchProvider`. Write one in `src/components/ui/search/prov
 
 ```ts title="src/components/ui/search/providers/my-search.ts"
 import { pageSearchScope } from "@cloudflare/nimbus-docs/client";
-import type { SearchProvider } from "@cloudflare/nimbus-docs/types";
+import type { SearchProvider, SearchResponse } from "@cloudflare/nimbus-docs/types";
 
-export const provider: SearchProvider = {
+export const provider: SearchProvider<SearchResponse> = {
   options: { wait: 200 },
   async search(query, { signal } = {}) {
     const scope = pageSearchScope(); // this page's version, deprecation and product
@@ -89,7 +89,7 @@ export const provider: SearchProvider = {
 };
 ```
 
-`search()` returns a list of results, or `{ results }`, or `{ error }`, whose message the dialog shows. Escape any `snippet` you return: the dialog renders it as HTML.
+A plain `SearchProvider` returns a list of results. Typed `SearchProvider<SearchResponse>`, it returns `{ results }` or `{ error }`, whose message the dialog shows. Escape any `snippet` you return: the dialog renders it as HTML.
 
 Set `search: { provider: "custom" }` so the build skips Pagefind.
 
