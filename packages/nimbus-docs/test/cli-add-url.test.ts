@@ -3,12 +3,15 @@
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { after, before, test } from "node:test";
+
+import { provenanceNote } from "../src/cli/feature.ts";
 
 const CLI = fileURLToPath(new URL("../src/cli/index.ts", import.meta.url));
 const TSX = import.meta.resolve("tsx");
@@ -77,13 +80,32 @@ function run(...args: string[]): Promise<{ code: number; stdout: string; stderr:
   });
 }
 
-test("--print writes the recipe to stdout, adding a final newline only when it has none", async () => {
+// What the agent reads: the provenance note, a blank line, then the recipe.
+const handedOver = (url: string, body: string) =>
+  `${provenanceNote(url, new TextEncoder().encode(body))}\n\n${body}`;
+
+test("--print writes the note then the recipe, adding a final newline only when it has none", async () => {
   const recipe = await run("add", `${origin}/RECIPE.md`, "--print");
   assert.equal(recipe.code, 0, recipe.all);
-  assert.equal(recipe.stdout, RECIPE);
+  assert.equal(recipe.stdout, handedOver(`${origin}/RECIPE.md`, RECIPE));
   const bare = await run("add", `${origin}/no-newline.md`, "--print");
   assert.equal(bare.code, 0, bare.all);
-  assert.equal(bare.stdout, "No final newline\n");
+  assert.equal(bare.stdout, `${handedOver(`${origin}/no-newline.md`, "No final newline")}\n`);
+});
+
+test("the note names the URL, the digest and size of the bytes served, and asks before risky edits", () => {
+  const body = new TextEncoder().encode(RECIPE);
+  const digest = createHash("sha256").update(body).digest("hex");
+  const note = provenanceNote("https://example.com/RECIPE.md", body);
+  assert.ok(note.startsWith("<!-- nimbus-docs: recipe from https://example.com/RECIPE.md\n"), note);
+  assert.ok(note.includes(`sha256 ${digest.slice(0, 8)}…${digest.slice(-4)} · ${body.byteLength} bytes · not from the Nimbus registry.`), note);
+  assert.match(note, /tell the user what you'll change and why, and wait\n\s+for a yes\./);
+  assert.ok(note.endsWith("added. -->"));
+  assert.equal(note.indexOf("-->"), note.length - 3, "nothing closes the comment early");
+  const sized = provenanceNote("https://example.com/r.md", new Uint8Array(86_203));
+  assert.ok(sized.includes("· 86,203 bytes ·"), sized);
+  const hostile = provenanceNote("https://example.com/a-->b<!--c.md?x=-->", body);
+  assert.equal(hostile.indexOf("-->"), hostile.length - 3, "a URL can't close the comment");
 });
 
 test("outside an agent, the pipe instructions name the URL, quoted when it needs it", async () => {
@@ -100,7 +122,7 @@ test("outside an agent, the pipe instructions name the URL, quoted when it needs
 test("a redirect is followed", async () => {
   const moved = await run("add", `${origin}/moved.md`, "--print");
   assert.equal(moved.code, 0, moved.all);
-  assert.equal(moved.stdout, RECIPE);
+  assert.equal(moved.stdout, handedOver(`${origin}/moved.md`, RECIPE), "the note names the URL the user gave");
 });
 
 test("an HTML page, a 404 or an unreachable host fails naming the URL, without registry wording", async () => {

@@ -269,7 +269,7 @@ export async function fetchFeatureMarkdown(slug: string): Promise<string> {
  * A recipe at a URL the user typed (`add <url>`). Not the registry: redirects
  * are followed (raw-file hosts redirect), and errors talk about the URL.
  */
-export async function fetchRecipeUrl(url: string): Promise<string> {
+export async function fetchRecipeUrl(url: string): Promise<Uint8Array> {
   let res: Response;
   try {
     res = await fetch(url, { headers: { accept: "text/markdown, text/plain;q=0.9" } });
@@ -285,8 +285,9 @@ export async function fetchRecipeUrl(url: string): Promise<string> {
       `${url} returned an HTML page, not a recipe. Use the raw file's URL (on GitHub, the Raw button).`,
     );
   }
+  // The bytes, not text: the provenance note's digest is of what was served.
   try {
-    return await res.text();
+    return new Uint8Array(await res.arrayBuffer());
   } catch (err) {
     const cause = (err as Error & { cause?: Error }).cause?.message ?? (err as Error).message;
     throw new Error(`Could not read ${url}: ${cause}`);
