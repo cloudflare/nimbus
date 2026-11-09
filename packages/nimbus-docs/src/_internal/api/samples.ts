@@ -431,13 +431,15 @@ function withPath(base: Segment[], path: Segment[]): Segment[] {
 function sampleBase(server: string | undefined): Segment[] {
   if (server === undefined) return [placeholder("base-url")];
   let url = server.replace(/\/+$/, "");
+  // Variables stand in as letters while the URL is classified, so `{scheme}://host` is absolute.
+  const probe = (text: string) => text.replace(/\{([^{}]+)\}/g, "x");
   if (url.startsWith("//")) url = `https:${url}`;
-  else if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) {
+  else if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(probe(url))) {
     return [placeholder("base-url"), ...variables(`${url.startsWith("/") || url === "" ? "" : "/"}${url}`)];
   }
   // A placeholder where a URL can't hold one, such as the port, leaves no
   // valid URL; the whole base is then the reader's to fill in.
-  return URL.canParse(url.replace(/\{([^{}]+)\}/g, "x")) ? variables(url) : [placeholder("base-url")];
+  return URL.canParse(probe(url)) ? variables(url) : [placeholder("base-url")];
 }
 
 // A server URL's `{name}` variables as placeholders.

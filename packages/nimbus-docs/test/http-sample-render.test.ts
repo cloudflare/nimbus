@@ -133,3 +133,41 @@ describe("HTTP sample modules import nothing protocol- or page-specific", () => 
     });
   }
 });
+
+describe("server URLs keep what the previous renderer kept", () => {
+  // Each case from the review of the renderer change, with the output main produced.
+  const tools = { sampler: { sample: () => undefined } } as unknown as import("../src/_internal/api/samples.js").SampleTools;
+  const curlUrl = async (server: string, extra: Record<string, unknown> = {}) => {
+    const { buildOperationSamples } = await import("../src/_internal/api/samples.js");
+    const out = buildOperationSamples(tools, { method: "get", path: "/x", params: [], auth: [], server, ...extra });
+    return out.find((s) => s.lang === "curl")!.source.split("\n")[1]!.replace(/^ {2}--url /, "").replace(/ \\$/, "");
+  };
+  const cases: Array<[string, string]> = [
+    ["https://User:PaSS@EXAMPLE.com", "https://User:PaSS@example.com/x"],
+    ["https://x.test/?q={var}", "'https://x.test/x?q=<var>'"],
+    ["https://x.test/#a{var}", "'https://x.test/x#a<var>'"],
+    ["https://x.test\\foo", "https://x.test/foo/x"],
+    ["https://x.test\n/path", "https://x.test/path/x"],
+    ['https://u"p:p@x.test', "https://u%22p:p@x.test/x"],
+    ["{scheme}://api.test", "'<scheme>://api.test/x'"],
+    ["https://x.test/?q=%E2%82%AC%ZZ", "'https://x.test/x?q=%E2%82%AC%25ZZ'"],
+    ["https://münich.example", "https://xn--mnich-kva.example/x"],
+    ["https://x.test/?0=z&2=a&1=b", "'https://x.test/x?0=z&1=b&2=a'"],
+    ["https://API.Example.com:443/v1/", "https://api.example.com:443/v1/x"],
+  ];
+  for (const [server, url] of cases) {
+    test(JSON.stringify(server), async () => assert.equal(await curlUrl(server), url));
+  }
+
+  test("a method with an apostrophe stays valid TypeScript and Python", async () => {
+    const { buildOperationSamples } = await import("../src/_internal/api/samples.js");
+    const out = buildOperationSamples(tools, { method: "FOO'BAR", path: "/x", params: [], auth: [], server: "https://x.test" });
+    assert.match(out.find((s) => s.lang === "typescript")!.source, /method: 'FOO\\'BAR'/);
+    assert.match(out.find((s) => s.lang === "python")!.source, /requests\.request\("FOO'BAR", url\)/);
+  });
+
+  test("a query parameter named __proto__ is sent (the previous renderer dropped it)", async () => {
+    const url = await curlUrl("https://x.test", { params: [{ name: "__proto__", in: "query", required: true, example: "1" }] });
+    assert.equal(url, "'https://x.test/x?__proto__=1'");
+  });
+});

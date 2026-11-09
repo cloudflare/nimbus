@@ -82,140 +82,118 @@ function parseQuery(query: string): Array<[string, string]> {
   });
 }
 
+/** Form decoding that never fails: valid `%XX` runs become UTF-8 text, invalid
+ *  bytes the replacement character, and a malformed `%` stays as written. */
 function decodeForm(text: string): string {
   const spaced = text.replaceAll("+", " ");
-  try {
-    return decodeURIComponent(spaced);
-  } catch {
-    return spaced.replace(/%[0-9A-Fa-f]{2}/g, (hex) => {
-      try {
-        return decodeURIComponent(hex);
-      } catch {
-        return hex;
-      }
-    });
-  }
-}
-
-/**
- * The full URL the sample sends: scheme and host in lower case, a bare host
- * given the path `/`, characters a path can't hold percent-encoded, and the
- * query parameters joined with any query the server URL already carries (the
- * server's own value wins for a shared name).
- */
-export function sampleUrl(request: Pick<SampleRequest, "url" | "query">): Segment[] {
-  const segments = request.url.map((segment) => ({ ...segment }));
-  const head = segments[0];
-  let authorityEnd = 0;
-  let hasHost = false;
-  if (head && !isPlaceholder(head)) {
-    const scheme = /^[a-z][a-z0-9+.-]*:\/\//i.exec(head.text);
-    if (scheme) {
-      hasHost = true;
-      // The authority runs to the first `/`, `?` or `#` after `//`, possibly across segments.
-      let i = 0;
-      let offset = scheme[0].length;
-      for (; i < segments.length; i++) {
-        const segment = segments[i]!;
-        if (isPlaceholder(segment)) {
-          offset = 0;
-          continue;
-        }
-        const from = i === 0 ? scheme[0].length : 0;
-        const end = segment.text.slice(from).search(/[/?#]/);
-        const stop = end < 0 ? segment.text.length : from + end;
-        segment.text = segment.text.slice(0, stop).toLowerCase() + segment.text.slice(stop);
-        if (end >= 0) {
-          offset = stop;
-          break;
-        }
-      }
-      authorityEnd = i;
-      // Split the head segment at the end of the authority so the rest is path.
-      if (i < segments.length) {
-        const segment = segments[i] as { text: string };
-        const rest = segment.text.slice(offset);
-        segment.text = segment.text.slice(0, offset);
-        segments.splice(i + 1, 0, { text: rest });
-        authorityEnd = i + 1;
-      } else {
-        authorityEnd = segments.length;
-      }
-    }
-  }
-  const authority = segments.slice(0, authorityEnd);
-  const rest = segments.slice(authorityEnd);
-  // Path, server query and fragment.
-  const path: Segment[] = [];
-  let serverQuery: string | undefined;
-  let hash = "";
-  for (let i = 0; i < rest.length; i++) {
-    const segment = rest[i]!;
-    if (isPlaceholder(segment) || serverQuery !== undefined) {
-      if (serverQuery !== undefined && !isPlaceholder(segment)) serverQuery += segment.text;
-      else path.push(segment);
+  const bytes: number[] = [];
+  const encoder = new TextEncoder();
+  for (let i = 0; i < spaced.length; i++) {
+    const char = spaced[i]!;
+    if (char === "%" && /^[0-9A-Fa-f]{2}$/.test(spaced.slice(i + 1, i + 3))) {
+      bytes.push(parseInt(spaced.slice(i + 1, i + 3), 16));
+      i += 2;
       continue;
     }
-    const q = segment.text.search(/[?#]/);
-    if (q < 0) {
-      path.push({ text: pathText(segment.text) });
-      continue;
-    }
-    path.push({ text: pathText(segment.text.slice(0, q)) });
-    serverQuery = segment.text.slice(q);
+    const code = spaced.codePointAt(i)!;
+    const piece = String.fromCodePoint(code);
+    bytes.push(...encoder.encode(piece));
+    i += piece.length - 1;
   }
-  if (serverQuery !== undefined) {
-    const fragment = serverQuery.indexOf("#");
-    if (fragment >= 0) {
-      hash = serverQuery.slice(fragment).replace(AUTO_ESCAPE, escapeChar);
-      serverQuery = serverQuery.slice(0, fragment);
-    }
-    serverQuery = serverQuery.startsWith("?") ? serverQuery.slice(1) : serverQuery;
-  }
-  if (hasHost && plainText(path) === "") path.push({ text: "/" });
-
-  // Query: the request's parameters by name (repeats kept in order), then the server's own.
-  const params = new Map<string, SampleValue[]>();
-  for (const { name, value } of request.query) {
-    const list = params.get(name);
-    if (list) list.push(value);
-    else params.set(name, [value]);
-  }
-  if (serverQuery) {
-    const server = new Map<string, SampleValue[]>();
-    for (const [name, value] of parseQuery(serverQuery)) {
-      const list = server.get(name);
-      if (list) list.push([{ text: value }]);
-      else server.set(name, [[{ text: value }]]);
-    }
-    for (const [name, values] of server) params.set(name, values);
-  }
-  const query: Segment[] = [];
-  for (const [name, values] of params) {
-    for (const value of values) {
-      query.push({ text: `${query.length === 0 ? "?" : "&"}${encodeQuery(name)}=` }, ...mapText(value, encodeQuery));
-    }
-  }
-  return merge([...authority, ...path, ...query, ...(hash ? [{ text: hash }] : [])]);
-}
-
-// Before the query, a backslash is a path separator.
-function pathText(text: string): string {
-  return text.replaceAll("\\", "/").replace(AUTO_ESCAPE, escapeChar);
+  return new TextDecoder().decode(new Uint8Array(bytes));
 }
 
 function escapeChar(char: string): string {
   return `%${char.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`;
 }
 
-/** Adjacent text segments joined. */
-function merge(segments: Segment[]): Segment[] {
-  const out: Segment[] = [];
-  for (const segment of segments) {
-    const last = out[out.length - 1];
-    if (!isPlaceholder(segment) && last && !isPlaceholder(last)) out[out.length - 1] = { text: last.text + segment.text };
-    else if (isPlaceholder(segment) || segment.text !== "") out.push(segment);
+/** Names in the order an object lists them: integer-like names first, ascending, then the rest as added. */
+function objectOrder(names: string[]): string[] {
+  const index = (name: string) => (/^(0|[1-9]\d*)$/.test(name) && Number(name) < 2 ** 32 - 1 ? Number(name) : undefined);
+  const integers = names.filter((name) => index(name) !== undefined).sort((a, b) => index(a)! - index(b)!);
+  return [...integers, ...names.filter((name) => index(name) === undefined)];
+}
+
+/**
+ * Scheme, user info, host and port, normalised as a URL parser does: scheme and
+ * host in lower case, an international host in its ASCII form, user info
+ * percent-encoded where it must be, tabs and newlines dropped. The port is kept
+ * as written, including a default one.
+ */
+function normaliseAuthority(scheme: string, authority: string): string {
+  const port = /:(\d*)$/.exec(authority.replace(/^.*@/, ""))?.[1];
+  try {
+    const url = new URL(`${scheme}//${authority}`);
+    const userinfo = url.username || url.password ? `${url.username}${url.password ? `:${url.password}` : ""}@` : "";
+    return `${url.protocol}//${userinfo}${url.hostname}${port !== undefined ? `:${port}` : ""}`;
+  } catch {
+    return `${scheme.toLowerCase()}//${authority.replace(/[\t\r\n]/g, "").replace(/[^@]*$/, (host) => host.toLowerCase())}`;
   }
+}
+
+/**
+ * The full URL the sample sends: the authority normalised, a bare host given
+ * the path `/`, characters a path can't hold percent-encoded, and the query
+ * parameters joined with any query the server URL already carries (the
+ * server's own value wins for a shared name).
+ *
+ * Placeholders take part as opaque tokens of letters and digits, which no step
+ * changes, and become placeholder segments again at the end; a token prefix
+ * the request's own text contains is skipped.
+ */
+export function sampleUrl(request: Pick<SampleRequest, "url" | "query">): Segment[] {
+  const values = [request.url, ...request.query.map((field) => field.value)];
+  const ownText = [...values.flat(), ...request.query.map((field) => ({ text: field.name }))]
+    .map((segment) => (isPlaceholder(segment) ? "" : segment.text))
+    .join("\n")
+    .toLowerCase();
+  let attempt = 0;
+  while (ownText.includes(`nph${attempt}q`)) attempt++;
+  const prefix = `nph${attempt}q`;
+  const placeholders: Segment[] = [];
+  const flat = (value: SampleValue) =>
+    value.map((segment) => (isPlaceholder(segment) ? `${prefix}${placeholders.push(segment) - 1}z` : segment.text)).join("");
+
+  let url = flat(request.url).trim();
+  const params = request.query.map(({ name, value }) => [name, flat(value)] as const);
+
+  const cut = url.search(/[?#]/);
+  let before = (cut < 0 ? url : url.slice(0, cut)).replaceAll("\\", "/");
+  const after = cut < 0 ? "" : url.slice(cut);
+  let authority = "";
+  const scheme = /^[a-z][a-z0-9+.-]*:(?=\/\/)/i.exec(before)?.[0];
+  if (scheme) {
+    const rest = before.slice(scheme.length + 2);
+    const slash = rest.indexOf("/");
+    authority = normaliseAuthority(scheme, slash < 0 ? rest : rest.slice(0, slash));
+    before = slash < 0 ? "" : rest.slice(slash);
+  }
+  let path = before.replace(AUTO_ESCAPE, escapeChar);
+  if (scheme && path === "") path = "/";
+
+  const hashAt = after.indexOf("#");
+  const serverQuery = (hashAt < 0 ? after : after.slice(0, hashAt)).replace(/^\?/, "");
+  const hash = hashAt < 0 ? "" : after.slice(hashAt).replace(AUTO_ESCAPE, escapeChar);
+
+  // The parameters by name, repeats kept in order; the server's own query wins for a shared name.
+  const byName = new Map<string, string[]>();
+  for (const [name, value] of params) byName.set(name, [...(byName.get(name) ?? []), value]);
+  const server = new Map<string, string[]>();
+  for (const [name, value] of parseQuery(serverQuery)) server.set(name, [...(server.get(name) ?? []), value]);
+  for (const [name, list] of server) byName.set(name, list);
+  const query = objectOrder([...byName.keys()])
+    .flatMap((name) => byName.get(name)!.map((value) => `${encodeQuery(name)}=${encodeQuery(value)}`))
+    .join("&");
+
+  url = `${authority}${path}${query ? `?${query}` : ""}${hash}`;
+  const out: Segment[] = [];
+  let last = 0;
+  for (const match of url.matchAll(new RegExp(`${prefix}(\\d+)z`, "g"))) {
+    if (match.index > last) out.push({ text: url.slice(last, match.index) });
+    out.push(placeholders[Number(match[1])]!);
+    last = match.index + match[0].length;
+  }
+  if (last < url.length) out.push({ text: url.slice(last) });
   return out;
 }
 
@@ -420,7 +398,7 @@ export function renderFetch(request: SampleRequest): string | undefined {
   const lines: string[] = [];
   const headers = headerMap(request.headers);
   const body = request.body;
-  const entries: Array<[string, JsNode]> = [["method", code(`'${request.method}'`)]];
+  const entries: Array<[string, JsNode]> = [["method", code(jsString(request.method))]];
   let bodyNode: JsNode | undefined;
   if (body?.kind === "multipart") {
     for (const name of [...headers.keys()]) if (name.toLowerCase() === "content-type") headers.delete(name);
@@ -446,7 +424,7 @@ export function renderFetch(request: SampleRequest): string | undefined {
   if (cookie) headerEntries.push(["cookie", optionString(cookie)]);
   if (headerEntries.length > 0) entries.push(["headers", { kind: "object", entries: headerEntries }]);
   if (bodyNode) entries.push(["body", bodyNode]);
-  lines.push(`const url = '${inLiteral(sampleUrl(request), "node", (t) => t)}';`);
+  lines.push(`const url = '${inLiteral(sampleUrl(request), "node", (t) => escapeForTarget("node", t))}';`);
   // A body that renders across lines indents from the line the option sits on.
   lines.push(`const options = ${renderJsNode({ kind: "object", entries }, "", "")};`, "");
   lines.push("fetch(url, options)", "  .then(res => res.json())", "  .then(json => console.log(json))", "  .catch(err => console.error(err));");
@@ -521,7 +499,7 @@ function pythonHeaderEscape(text: string): string {
 }
 
 export function renderPython(request: SampleRequest): string | undefined {
-  const lines: string[] = ["import requests", "", `url = "${inLiteral(sampleUrl(request), "python", (t) => t)}"`, ""];
+  const lines: string[] = ["import requests", "", `url = "${inLiteral(sampleUrl(request), "python", (t) => escapeForTarget("python", t))}"`, ""];
   const headers = new Map<string, SampleValue>();
   const cookie = cookieHeader(request.cookies);
   if (cookie) headers.set("cookie", cookie);
@@ -579,7 +557,7 @@ export function renderPython(request: SampleRequest): string | undefined {
   }
   let call = PYTHON_METHODS.has(request.method)
     ? `response = requests.${request.method.toLowerCase()}(url`
-    : `response = requests.request("${request.method}", url`;
+    : `response = requests.request(${JSON.stringify(request.method)}, url`;
   if (payload) call += payload === "json" ? ", json=payload" : ", data=payload";
   if (files) call += ", files=files";
   if (names.length > 0) call += ", headers=headers";
