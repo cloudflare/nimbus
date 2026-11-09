@@ -71,7 +71,6 @@ export default defineConfig({
     // engine through a computed specifier. Kept external so a prose-only build
     // never resolves or bundles them.
     "@scalar/openapi-parser",
-    "@readme/httpsnippet",
     // Share cards' renderer and rasterizer are optional peers, loaded by
     // `./og` on first use.
     "satori",

@@ -12,8 +12,8 @@ export function openApiParserMessage(root: string): string {
   };
   return (
     `The API reference needs the OpenAPI parser. Install it in your project: \`${command(["@scalar/openapi-parser"])}\`. ` +
-    `For code samples, also install the optional generators: \`${command(["openapi-sampler", "@readme/httpsnippet"])}\` ` +
-    `(installing the api-layout registry recipe pulls all three).`
+    `For code samples, also install the optional generator: \`${command(["openapi-sampler"])}\` ` +
+    `(installing the api-layout registry recipe pulls both).`
   );
 }
 
