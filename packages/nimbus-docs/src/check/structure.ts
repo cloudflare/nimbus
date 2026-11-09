@@ -26,6 +26,8 @@ import {
 } from "../_internal/parse-content-collections.js";
 import { readPageCollectionsFile } from "../_internal/page-collections.js";
 import { planRouteFiles } from "../_internal/route-files.js";
+import { describeAgentSurfaces } from "../_internal/agent-surfaces.js";
+import { walkFilesSync } from "../_internal/fs-walk.js";
 import { DEFAULT_RENDERING_NOTE } from "../_internal/route-modes.js";
 import { invocation } from "../cli/pm.js";
 import {
@@ -93,6 +95,7 @@ export async function checkStructure(
     if (feature) checkServerAdapter(cwd, findings, notes, feature);
   }
   checkRouteFiles(cwd, findings, notes, parsed, srcDirOverride);
+  checkAgentSurfaces(cwd, findings, parsed, config, srcDirOverride);
   await checkDuplicateRoutes(cwd, findings, snapshots, mountContext, parsed, srcDir, built);
   await checkMdxComponents(cwd, findings, notes, parsed);
   checkCloudflareTrailingSlash(cwd, findings);
@@ -561,6 +564,45 @@ function checkRouteFiles(
         : { kind: "route-file", path: file, suggestion: `run \`${invocation("check --fix", cwd)}\` to update it` },
     });
   }
+}
+
+/**
+ * Which agent surfaces the site's route files serve. One `info` line: the
+ * surfaces follow the files, so this is where to look when a page has no
+ * Markdown version or an index is missing. Build-free: it reads file names
+ * under `src/pages`, the way the build reads the resolved routes.
+ */
+function checkAgentSurfaces(
+  cwd: string,
+  findings: CheckFinding[],
+  parsed: ConfigParseResult,
+  config: NimbusConfig | null | undefined,
+  srcDirOverride: string | undefined,
+): void {
+  if (!parsed.ok) return;
+  const srcDir = resolveMigrationSrcDir(cwd, srcDirOverride).srcDir;
+  if (!srcDir) return;
+  const pagesDir = path.join(srcDir, "pages");
+  if (!existsSync(pagesDir)) return;
+  const routes = [...walkFilesSync(pagesDir, { onReadError: "lenient", extensions: [".ts", ".js", ".mjs", ".cjs", ".mts", ".cts"] })].map(
+    (file) => file.rel.split(path.sep).join("/"),
+  );
+  const file = (name: string) => new RegExp(`(^|/)${name.replace(/\./gu, "\\.")}\.[cm]?[jt]s$`, "u");
+  const surfaces = {
+    pageMarkdown: routes.some((route) => /\.md\.[cm]?[jt]s$/u.test(route)),
+    source: routes.some((route) => /\.mdx\.[cm]?[jt]s$/u.test(route)),
+    llms: routes.some((route) => /^llms\.txt\.[cm]?[jt]s$/u.test(route)),
+    llmsSections: routes.some((route) => route.includes("/") && file("llms.txt").test(route)),
+    llmsFull: routes.some((route) => file("llms-full.txt").test(route)),
+    mcpBodies: !parsed.unresolved.includes("agents") && !!config?.agents?.mcp,
+  };
+  findings.push({
+    scope: "structure",
+    code: "nimbus/agent-surfaces",
+    severity: "info",
+    message: `Agent surfaces follow the route files under src/pages: ${describeAgentSurfaces(surfaces).join("; ")}.`,
+    fixable: false,
+  });
 }
 
 function checkConfigZod(

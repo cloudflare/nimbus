@@ -55,6 +55,7 @@ import {
 } from "./_internal/sidebar.js";
 import { entryRouteKey } from "./_internal/astro-slug.js";
 import { ogImagePageKey, pageUrls } from "./_internal/page-urls.js";
+import { publishedAgentUrls } from "./_internal/agent-surfaces-runtime.js";
 import {
   stripBase,
   toDocumentHref,
@@ -191,6 +192,19 @@ export { renderEntryAsMarkdown };
  * `renderEntryAsMarkdown` with the coordinate-citation index loaded and
  * passed through, so `api.ref:` citations resolve. Prerendered routes only.
  */
+/**
+ * A prepared API page with its `markdownHref` only where a route of the site
+ * serves that URL; the view model synthesizes it for every default-version
+ * page.
+ */
+async function withPublishedMarkdownHref<T extends { markdownHref?: string }>(page: T): Promise<T> {
+  if (page.markdownHref === undefined) return page;
+  const publishes = await publishedAgentUrls();
+  if (publishes(page.markdownHref)) return page;
+  const { markdownHref: _unpublished, ...rest } = page;
+  return rest as T;
+}
+
 export async function getEntryMarkdown(
   entry: Parameters<typeof renderEntryAsMarkdown>[0],
   options: Omit<RenderEntryAsMarkdownOptions, "citationIndex"> = {},
@@ -269,8 +283,9 @@ export interface IndexedEntry {
    * Site-relative URL of the page's clean-markdown alternate, e.g.
    * `/getting-started/index.md` (or `/index.md` for the root entry).
    * Consumers should use this directly rather than synthesizing from `url`.
+   * `undefined` when no route of the site serves the page's `.md` URL.
    */
-  markdownUrl: string;
+  markdownUrl: string | undefined;
   /**
    * Site-relative URL of the page's raw-source alternate, e.g.
    * `/getting-started/index.mdx`. `index.md` is the clean Markdown version for
@@ -401,6 +416,7 @@ export async function getIndexedEntries(
     if (warning) runtimeWarn(warning);
     const prefix = resolveCollectionPrefix(name, await loadMountContext());
     const collectionVersion = await getCurrentVersion(name);
+    const publishes = await publishedAgentUrls();
     for (const entry of entries) {
       const data = (entry.data ?? {}) as Record<string, unknown>;
       if (data.draft === true) continue;
@@ -435,7 +451,7 @@ export async function getIndexedEntries(
         collection: name,
         title,
         description,
-        ...pageUrls(prefix, entry),
+        ...pageUrls(prefix, entry, publishes),
         version: entryVersion,
       });
     }
@@ -765,11 +781,14 @@ export async function renderLlmsFullMarkdown(options?: {
     }),
   );
 
+  // The header links /llms.txt only where a route of the site serves it.
+  const publishes = await publishedAgentUrls();
   return buildLlmsFullMarkdown(blocks, {
     title: config.title,
     description: config.description,
     site: config.site,
     base: options?.base,
+    ...(publishes("/llms.txt") ? {} : { index: null }),
   });
 }
 
@@ -1378,7 +1397,7 @@ type ProsePageProps<C extends string> = {
   Content: import("astro/runtime/server/index.js").AstroComponentFactory;
   headings: { depth: number; text: string; slug: string }[];
   /** Same as {@link IndexedEntry.markdownUrl}. */
-  markdownUrl: string;
+  markdownUrl: string | undefined;
   /** Same as {@link IndexedEntry.sourceUrl}. */
   sourceUrl: string | undefined;
   /** Same as {@link IndexedEntry.ogImageUrl}. */
@@ -1431,6 +1450,7 @@ async function resolveProseRoute<C extends string>(
   const { markdownUrl, sourceUrl, ogImageUrl } = pageUrls(
     resolveCollectionPrefix(found.collection, await loadMountContext()),
     found,
+    await publishedAgentUrls(),
   );
   return {
     entry: found as import("astro:content").CollectionEntry<C>,
@@ -2210,14 +2230,15 @@ async function renderApiEntry(
   const prepared = (entry.data as { prepared?: unknown }).prepared;
   if (!isPreparedApiPage(prepared)) {
     if (THIN_API_ENTRIES) {
-      return projectConfiguredApiPage(collection, version, coordinate);
+      const projected = await projectConfiguredApiPage(collection, version, coordinate);
+      return { ...projected, page: await withPublishedMarkdownHref(projected.page) };
     }
     throw new Error(
       `nimbus-docs: API entry "${entry.id}" is missing prepared page data. Rebuild the content collection.`,
     );
   }
   return {
-    page: prepared.page,
+    page: await withPublishedMarkdownHref(prepared.page),
     nav: await preparedEntryNav(entry, prepared.navEntryId, {
       collection,
       version,
@@ -2669,8 +2690,9 @@ export async function getCanonicalUrl(
  *   - `"api"`         → `"/api/llms.txt"`
  *   - `"docs-archive"` (unrecognised version slug) → `"/docs-archive/llms.txt"`
  *
- * Returns a path with a leading slash and no trailing slash. Routes
- * resolve it against `Astro.site` to produce a full URL.
+ * Returns a path with a leading slash and no trailing slash, or `null` when
+ * no route of the site serves that index or the site's. Routes resolve it
+ * against `Astro.site` to produce a full URL.
  *
  * Used by `BaseLayout` and `AgentDirective` to surface the correct
  * agent index hint on every page — readers landing on `/v1/foo` get
@@ -2678,6 +2700,17 @@ export async function getCanonicalUrl(
  * the wrong section.
  */
 export async function getCollectionLlmsUrl(
+  collectionId: import("astro:content").CollectionKey | (string & {}),
+): Promise<string | null> {
+  const publishes = await publishedAgentUrls();
+  // The index a route of the site serves: the collection's own, else the
+  // site's, else none.
+  const served = (candidate: string): string | null =>
+    publishes(candidate) ? candidate : publishes("/llms.txt") ? "/llms.txt" : null;
+  return served(await collectionLlmsCandidate(collectionId));
+}
+
+async function collectionLlmsCandidate(
   collectionId: import("astro:content").CollectionKey | (string & {}),
 ): Promise<string> {
   if (collectionId === PRIMARY_COLLECTION) return "/llms.txt";

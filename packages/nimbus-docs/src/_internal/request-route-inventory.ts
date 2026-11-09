@@ -11,7 +11,7 @@ import {
   loadRequestRenderingCollections,
   loadNimbusConfig,
 } from "./runtime-config.js";
-import { getIndexedEntries, getVersionStatus } from "../runtime.js";
+import { getIndexedEntries, getVersionStatus, renderIndexedEntryMarkdown } from "../runtime.js";
 import { readConfiguredMarkdownEndpointPayload } from "./agent-endpoint-asset-reader.js";
 
 export const prerender = true;
@@ -61,13 +61,10 @@ export async function GET() {
     if (item.version) route.version = item.version;
     if (versionStatus?.isDeprecated) route.deprecated = true;
     if (route.request && searchable) {
-      route.content = (
-        await readConfiguredMarkdownEndpointPayload(projectRoot, {
-          collection,
-          id: item.entry.id,
-          surface: "markdown",
-        })
-      ).content;
+      // The baked body when the build has one; otherwise rendered here, in
+      // the build, where every renderer runs (a site whose routes publish no
+      // page Markdown bakes none).
+      route.content = await pageText(projectRoot, collection, item);
     }
     routes.push(route);
   }
@@ -75,4 +72,22 @@ export async function GET() {
   return new Response(JSON.stringify(routes), {
     headers: { "Content-Type": "application/json" },
   });
+}
+
+async function pageText(
+  projectRoot: string,
+  collection: string,
+  item: Awaited<ReturnType<typeof getIndexedEntries>>[number],
+): Promise<string> {
+  try {
+    return (
+      await readConfiguredMarkdownEndpointPayload(projectRoot, {
+        collection,
+        id: item.entry.id,
+        surface: "markdown",
+      })
+    ).content;
+  } catch {
+    return renderIndexedEntryMarkdown(item);
+  }
 }

@@ -137,6 +137,7 @@ import {
 import { validateNimbusConfig } from "./_internal/validate.js";
 import { makeHiddenSitemapFilter } from "./_internal/hidden-sitemap.js";
 import { navBuildId, outdatedApiSidebarError } from "./_internal/api-sidebar-components.js";
+import { agentSurfacesFromRoutes, publishesAgentUrl, type AgentSurfaces } from "./_internal/agent-surfaces.js";
 import { virtualConfigPlugin } from "./_internal/virtual-config.js";
 import { createAgentCapabilities } from "./_internal/agent-capabilities.js";
 import { getPreparedMarkdownEntry } from "./_internal/prepared-markdown-registry.js";
@@ -327,6 +328,16 @@ const REQUEST_ROUTE_INVENTORY_ENTRYPOINT = new URL(
 const initialDevWatchers = new Map<string, { close(): Promise<void> }>();
 
 type AgentEndpointAssetsModule = typeof import("./_internal/agent-endpoint-assets.js");
+
+/** The parts of the agent surfaces that change what the bake writes, for change detection. */
+function surfaceSummary(surfaces: AgentSurfaces): unknown {
+  return {
+    routes: surfaces.markdownRoutes.map((route) => `${route.pattern}\0${route.regex.source}`),
+    llms: surfaces.llms,
+    llmsSections: surfaces.llmsSections,
+    llmsFull: surfaces.llmsFull,
+  };
+}
 
 /** Whether an endpoint serves the site's llms-full.txt, by path or by call. */
 function servesLlmsFull(
@@ -618,6 +629,8 @@ export function nimbus(
   let endpointRoutesForBuild: EndpointRouteRecord[] = [];
   // Whether a route serves llms-full.txt; unknown until routes resolve.
   let servesFullDocument: boolean | undefined;
+  /** The agent surfaces the site's routes serve, once routes are resolved. */
+  let agentSurfacesForBuild: AgentSurfaces | undefined;
   // Whether the project's section llms route takes nested paths
   // (`[...section]/llms.txt`); decided from the resolved routes.
   let nestedLlmsSections: boolean | undefined;
@@ -832,11 +845,16 @@ export function nimbus(
     const hasLlms = endpointRoutesForBuild.some(
       (route) => route.pattern === "/llms.txt",
     );
+    // /index.md exists when something serves it: a public file, a shared route
+    // with a root entry, the site's own route, or the shared route's llms
+    // fallback. An llms.txt route alone publishes no homepage Markdown.
+    const homepageFallback =
+      hasLlms && !publicHomepage && !sharedHomepage && owner?.shared === "markdown";
     const hasHomepageMarkdown =
-      hasLlms ||
       publicHomepage ||
       sharedHomepage ||
-      (owner !== undefined && owner.shared !== "markdown");
+      (owner !== undefined && owner.shared !== "markdown") ||
+      homepageFallback;
     // Every version publishes its spec file unless opted out, hidden ones
     // included; discovery surfaces then drop hidden versions.
     const specFiles: { collection: string; file: string; url: string; type: string; contents: string }[] = [];
@@ -865,8 +883,9 @@ export function nimbus(
       // Markdown references exist only for the default version of a
       // query-addressed or `bundle: false` collection.
       const hasMarkdown =
-        api.isDefault ||
-        (api.versionMode !== "query" && !pageAssetCollections.includes(api.family));
+        (api.isDefault ||
+          (api.versionMode !== "query" && !pageAssetCollections.includes(api.family))) &&
+        publishesAgentUrl(markdownRoutes.records(), `${api.mountPath}/index.md`);
       apis.push({
         collection: api.family,
         ...(api.version ? { version: api.version } : {}),
@@ -889,7 +908,7 @@ export function nimbus(
         title: config.title,
         base: astroBaseForBuild,
         output: outputModeForBuild,
-        homepageMarkdownFallback: hasLlms && !publicHomepage && !sharedHomepage && (!owner || owner.shared === "markdown"),
+        homepageMarkdownFallback: homepageFallback,
         ...(discoveryOff ? { discovery: false as const } : {}),
         ...(mcpServerForBuild ? { mcp: mcpServerForBuild } : {}),
       },
@@ -1545,6 +1564,11 @@ export function nimbus(
               componentMap: options.markdown?.componentMap,
               partialResolver,
               fullDocument: servesFullDocument ?? true,
+              ...(agentSurfacesForBuild ? { surfaces: agentSurfacesForBuild } : {}),
+              // Pagefind over request-rendered pages reads each page's text
+              // from the build cache, route or no route.
+              buildBodies:
+                requestRenderingCollections.size > 0 && config.search !== false && config.search?.provider !== "custom",
               nestedSections: nestedLlmsSections ?? false,
               ...(await sliceLlmsOptions()),
               // The size limit it reports is Cloudflare's: warn when the site
@@ -3906,14 +3930,22 @@ export function nimbus(
         }
         // Dev re-resolves routes when a page file is added or removed.
         const nestedChanged = nestedLlmsSections !== undefined && nested !== nestedLlmsSections;
-        if ((servesFullDocument !== undefined && serves !== servesFullDocument) || nestedChanged)
+        // Which agent surfaces the routes serve: page Markdown and source per
+        // URL, the indexes and llms-full by their routes.
+        const surfaces: AgentSurfaces = agentSurfacesFromRoutes(markdownRoutes.records());
+        const surfacesChanged =
+          agentSurfacesForBuild !== undefined &&
+          JSON.stringify(surfaceSummary(agentSurfacesForBuild)) !== JSON.stringify(surfaceSummary(surfaces));
+        if ((servesFullDocument !== undefined && serves !== servesFullDocument) || nestedChanged || surfacesChanged)
           void loadAgentEndpointAssets().then((assets) =>
             assets.invalidateAgentEndpointAssets(projectRootForBuild),
           );
         servesFullDocument = serves;
         nestedLlmsSections = nested;
-        // `getCollectionLlmsUrl` reads it from the virtual config.
-        if (nestedChanged) reloadDevModules?.();
+        agentSurfacesForBuild = surfaces;
+        // `getCollectionLlmsUrl` reads it from the virtual config; the page
+        // index reads the routes module.
+        if (nestedChanged || surfacesChanged) reloadDevModules?.();
         resolvedRoutesForBuild = routes.map((r) => ({
           pattern: r.pattern,
           type: r.type,
@@ -4140,9 +4172,12 @@ export function nimbus(
         const homepageMarkdownRoute = markdownRouteRecords.find((route) =>
           route.regex.test("/index.md"),
         );
+        // The llms index stands in for /index.md only where the shared Markdown
+        // route serves the homepage; without that route there is no /index.md.
         if (
           !sliceOutput &&
-          homepageMarkdownRoute?.prerendered !== false &&
+          homepageMarkdownRoute?.shared === "markdown" &&
+          homepageMarkdownRoute.prerendered !== false &&
           !fs.existsSync(homepageMarkdownPath) &&
           fs.existsSync(llmsPath)
         ) {

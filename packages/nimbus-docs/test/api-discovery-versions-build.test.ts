@@ -89,6 +89,13 @@ if (page instanceof Response) return page;
 `,
   );
   for (const collection of ["qv", "big", "pets"]) await write(`src/pages/${collection}/[...slug].astro`, page(collection));
+  // Page Markdown is published only where a route serves it.
+  await write(
+    "src/pages/[...slug]/index.md.ts",
+    `import { markdownRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+export const { GET, getStaticPaths } = markdownRoute();
+`,
+  );
   // Each API page's section, as the starter's share cards ask for it.
   await write(
     "src/pages/sections.json.ts",

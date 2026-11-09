@@ -178,12 +178,9 @@ const isHiddenVersion = versionStatus?.isHidden === true;
 // pages point at the root `/llms.txt`. When `collection` is omitted
 // (hand-built routes outside the docs system), we fall back to the
 // root index. Hidden-version pages emit no LLM hint (see above).
-const llmsIndexPath =
-  isHiddenVersion
-    ? null
-    : collection
-      ? await getCollectionLlmsUrl(collection)
-      : "/llms.txt";
+// Null when no route of the site serves an index; the site's own for a
+// page outside any collection.
+const llmsIndexPath = isHiddenVersion ? null : await getCollectionLlmsUrl(collection ?? "docs");
 const llmsIndexUrl =
   llmsIndexPath
     ? Astro.site
