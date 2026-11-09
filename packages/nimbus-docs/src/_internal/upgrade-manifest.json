@@ -1226,16 +1226,20 @@
       "introducedIn": "0.20.0",
       "mode": "optional",
       "changeset": "api-page-polish",
-      "summary": "Optionally take API page fixes: a code rail that fits the viewport on wide screens, an endpoint box that keeps the path, spaced description headings, a wide previous/next bar, every allowed value listed, and section anchors with \"#\" links.",
+      "summary": "Optionally take API page fixes: a code rail that fits the viewport on wide screens, an endpoint box that keeps the path, spaced description headings, a wide previous/next bar, every allowed value listed, section anchors with \"#\" links, one Tab stop per response example, and long names and code that wrap on narrow screens.",
       "affected": "Sites with the api-layout, api-code-rail and api-field-row registry components.",
       "instructions": [
         "No action is needed: without these files, API pages look as before.",
         "These are registry components, which nimbus-docs diff doesn't cover. If they are unmodified, update them with nimbus-docs add api-layout --overwrite, nimbus-docs add api-code-rail --overwrite and nimbus-docs add api-field-row --overwrite.",
-        "If they are customized, take code-rail.css and ApiLayout.astro together: the rail fits the viewport only when ApiLayout's rail wrapper is a flex column at 90rem and the CSS chain is in place. ApiEndpointCard.astro and ApiBody.astro can each be taken on their own. type-display.ts with ApiFieldRow.astro and ApiUnionExplorer.astro list long enums on an Allowed values line; ApiFieldList.astro puts a titled section's anchor on its heading."
+        "If they are customized, take code-rail.css and ApiLayout.astro together: the rail fits the viewport only when ApiLayout's rail wrapper is a flex column at 90rem and the CSS chain is in place. ApiEndpointCard.astro and ApiBody.astro can each be taken on their own. type-display.ts with ApiFieldRow.astro and ApiUnionExplorer.astro list long enums on an Allowed values line; ApiFieldList.astro puts a titled section's anchor on its heading.",
+        "Take ApiCodeRail.astro and code-rail.css together: the response box becomes the example's only Tab stop, its code gets no tabindex, and the box scrolls both ways at every width.",
+        "In field-list.css, .fl-name and .fl-desc wrap with overflow-wrap: anywhere, and .fl-name has min-width: 0, so long names and inline code don't widen the page on a phone."
       ],
       "verify": [
         "In a window at least 1440px wide and 672px tall, a long request sample scrolls inside the code rail while its header stays in view.",
-        "A field with more than six allowed values lists them all under its description."
+        "A field with more than six allowed values lists them all under its description.",
+        "Tab reaches a response example once; with it focused, the arrow keys scroll it down and sideways.",
+        "At 390px wide, an API page with long field names doesn't scroll sideways."
       ]
     },
     {

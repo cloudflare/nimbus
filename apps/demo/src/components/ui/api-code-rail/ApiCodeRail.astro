@@ -51,6 +51,11 @@ function preparedCode(value: { highlightedHtml?: string }): string {
   }
   return value.highlightedHtml;
 }
+// The response box below is the one Tab stop for an example; the highlighted
+// code inside it isn't a second one.
+function unfocusable(html: string): string {
+  return html.replace(/(<pre\b[^>]*?)\s+tabindex="0"/, "$1");
+}
 // Colour the status by class: 2xx success, 3xx info, 4xx/5xx danger, else neutral.
 function statusTone(status: string): string {
   switch (status.trim()[0]) {
@@ -150,14 +155,15 @@ const respPanelId = (i: number) => `${respUid}-panel-${i}`;
                     region so keyboard users can reach and scroll it (the tab
                     primitive's auto-tabindex targets the panel, not this inner
                     scroll container, and the hidden copy button would trip its
-                    focusable check regardless). */}
+                    focusable check regardless). It is the only stop: the code
+                    inside isn't focusable. */}
                 <div
                   class="nb-cr-body nb-cr-respbody"
                   tabindex="0"
                   role="group"
                   aria-label={`${response.status} response example`}
                 >
-                  <Fragment set:html={preparedCode(example)} />
+                  <Fragment set:html={unfocusable(preparedCode(example))} />
                 </div>
               </div>
             ))}
