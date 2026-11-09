@@ -8,6 +8,7 @@
       "api-catalog-published-specs",
       "api-code-sample-ids",
       "api-collections-from-config",
+      "api-page-layout",
       "api-page-polish",
       "api-parameter-examples-and-home-toc",
       "api-query-version-mode",
@@ -1308,6 +1309,24 @@
       "verify": [
         "Docs pages look as before.",
         "A page of your own with <DocsLayout title=\"…\"> and no other props type-checks and renders with no sidebar, table of contents, breadcrumbs or previous/next links; with a sidebar slot it shows that sidebar."
+      ]
+    },
+    {
+      "id": "api-page-layout",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-page-layout",
+      "summary": "Optionally take the new API page layout: on narrow screens the request sample comes right after the header, before the fields; on wide screens the text sits in a 40rem column beside the sample, which starts at the top; and the endpoint box shows the path, which opens the full URL in a popover.",
+      "affected": "Sites with the api-layout registry component.",
+      "instructions": [
+        "No action is needed: API pages keep their current layout until you take it.",
+        "ApiLayout, ApiBody and ApiEndpointCard are part of the api-layout registry component, which nimbus-docs diff doesn't cover. If they are unmodified, update them with nimbus-docs add api-layout --overwrite.",
+        "If they are customized, merge by hand: ApiBody renders a <slot name=\"sample\" /> after its page header and moves the description out of the header, after the page actions; ApiLayout passes its code rail into that slot (marked data-pagefind-ignore) and, from 90rem, lays the body out as a subgrid of its two-column grid with the rail in the second column, starting at row 1; ApiEndpointCard shows only the path, as a button that opens the full URL in a popover (with its script, which places the popover), and names the URL in the copy button's label."
+      ],
+      "verify": [
+        "On a phone, an operation page reads title, endpoint box, page actions, description, then the request sample and the fields.",
+        "On a screen at least 1440px wide, the request sample starts level with the breadcrumbs and stays pinned while the page scrolls.",
+        "Clicking, tapping or pressing Enter on the endpoint path shows the full URL, and Escape closes it."
       ]
     }
   ]

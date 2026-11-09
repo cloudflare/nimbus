@@ -118,15 +118,12 @@ const deprecationHtml = page.deprecated
   {deprecationHtml && <Banner variant="caution" content={deprecationHtml} />}
 </div>
 
-{/* Header order (locked): title → description → endpoint → page actions. The
-    endpoint bar carries the sidebar method chip + verb + path; page actions sit
-    beneath so they read as page-level utilities, not part of the endpoint. */}
+{/* Header: title → endpoint → page actions. The description follows on its
+    own, so a long one never pushes the endpoint down; on one column the request
+    sample (the `sample` slot, with Try it) comes next, on the first screen. From
+    90rem the sample sits beside the header instead (ApiLayout). */}
 <div data-slot="page-header" class="mt-6 flex flex-col gap-4">
   <h1 class="mb-0 leading-tight text-foreground [text-wrap:balance]" style="font-size:var(--nb-h1-size);font-weight:var(--nb-h1-weight);letter-spacing:var(--nb-h1-tracking)">{title}</h1>
-
-  {!homeChunk && page.descriptionHtml && (
-    <div class="nb-md nb-md-intro text-muted-foreground [overflow-wrap:anywhere]" set:html={page.descriptionHtml} />
-  )}
 
   {page.kind === "operation" && (
     <ApiEndpointCard method={page.method} path={page.path} server={page.server} isWebhook={page.isWebhook} />
@@ -138,6 +135,12 @@ const deprecationHtml = page.deprecated
     </PageActions>
   )}
 </div>
+
+{!homeChunk && page.descriptionHtml && (
+  <div class="nb-md nb-md-intro mt-4 text-muted-foreground [overflow-wrap:anywhere]" set:html={page.descriptionHtml} />
+)}
+
+<slot name="sample" />
 
 {/* Section headings with an id get a "#" link that copies their URL. */}
 <div class="mt-8 flex flex-col gap-8" data-nb-heading-anchors>
