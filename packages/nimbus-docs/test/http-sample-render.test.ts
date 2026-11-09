@@ -167,6 +167,7 @@ describe("server URLs keep what the previous renderer kept", () => {
     ["https://x.test;foo", "'https://x.test/;foo/x'"],
     ["https://münich-{tenant}.example", "'https://xn--mnich-<tenant>-gsb.example/x'"],
     ["https://@x.test", "https://x.test/x"],
+    ["https://u@;foo", "'https:///;foo/x'"],
   ];
 
   test("user info that isn't valid percent-encoding leaves the samples out, as before", async () => {

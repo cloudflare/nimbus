@@ -151,7 +151,8 @@ function splitAuthority(scheme: string, rest: string): { authority: string; path
       /* Not a valid international name: keep it as written. */
     }
   }
-  const user = userinfo
+  // User info needs a host to sit in front of.
+  const user = userinfo && host
     ? `${[...decodeURIComponent(userinfo)].map((char) => (USERINFO_KEEPS.test(char) ? char : encodeURIComponent(char))).join("")}@`
     : "";
   const path = `${spill}${afterAuthority}`;
