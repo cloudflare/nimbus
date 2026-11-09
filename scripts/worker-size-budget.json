@@ -1,9 +1,9 @@
 {
   "version": 1,
   "worker": {
-    "baselineBytes": 5411480,
+    "baselineBytes": 6794040,
     "baselineGzipBytes": 1163910,
-    "maxBytes": 6500000,
+    "maxBytes": 7000000,
     "maxGzipBytes": 1500000
   },
   "agentEndpointSource": {

@@ -11,7 +11,6 @@
 import type { LlmsEndpointReference } from "../agent-endpoints.js";
 import type { StagedAgentEndpointManifest } from "./agent-endpoint-assets.js";
 import { readStagedAsset } from "./staged-asset-reader.js";
-import { renderMarkdownDocument } from "./api/markdown-record.js";
 import {
   assembleLlmsFullPart,
   flattenLlmsGroups,
@@ -118,7 +117,10 @@ async function pageMarkdown(manifest: StagedAgentEndpointManifest, page: LlmsPag
     return body.slice(asset.contentStart, asset.contentEnd);
   }
   const rendered = manifest.rendered.find((candidate) => candidate.collection === page.collection && candidate.id === page.id);
-  if (rendered) return (await renderMarkdownDocument(rendered, request)).content;
+  if (rendered) {
+    const { renderMarkdownDocument } = await import("./api/markdown-record.js");
+    return (await renderMarkdownDocument(rendered, request)).content;
+  }
   throw new Error(`nimbus-docs: no Markdown for "${page.collection}:${page.id}" to assemble llms-full.txt from.`);
 }
 

@@ -19,10 +19,8 @@ import {
   type LlmsFullBlock,
   type LlmsFullHeader,
 } from "./llms-full.js";
-import { absoluteSiteUrl } from "./api/markdown-document.js";
 import { selectApiVersion } from "./api/resolve-versions.js";
-import { formatLabel } from "./sidebar.js";
-import { toDocumentHref } from "./url.js";
+import { absoluteSiteUrl, toDocumentHref } from "./url.js";
 import type { LlmsEndpointReference } from "../agent-endpoints.js";
 
 /** Cloudflare serves static files up to 25 MiB; larger ones fail the deploy. */
@@ -267,6 +265,11 @@ export function flattenLlmsGroups<P extends LlmsPage>(groups: readonly LlmsGroup
 function groupIndex<P extends LlmsPage>(slug: string, members: readonly P[]): P | undefined {
   const url = toDocumentHref(`/${slug}`);
   return members.find((page) => page.url === url);
+}
+
+/** A slug as a label, the way the sidebar formats a folder name (`getting-started` → `Getting Started`). */
+function formatLabel(segment: string): string {
+  return segment.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 /** A section's name, as the sidebar names it: the index page's group label or title, else the formatted slug. */

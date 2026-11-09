@@ -16,7 +16,6 @@ import {
   readConfiguredMarkdownEndpointPayload,
   readConfiguredRenderedMarkdownPage,
 } from "./agent-endpoint-asset-reader.js";
-import { renderMarkdownDocument } from "./api/markdown-record.js";
 
 export const prerender = true;
 
@@ -95,7 +94,7 @@ async function pageText(
     // Not baked: an API page that renders on request takes the serialization
     // the route uses, so the search text is the content the `.md` carries.
     const page = await readConfiguredRenderedMarkdownPage(projectRoot, { collection, id: item.entry.id });
-    if (page) return (await renderMarkdownDocument(page)).content;
+    if (page) return (await (await import("./api/markdown-record.js")).renderMarkdownDocument(page)).content;
     return renderIndexedEntryMarkdown(item);
   }
 }

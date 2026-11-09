@@ -8,10 +8,9 @@
  */
 
 import { fromMarkdown } from "mdast-util-from-markdown";
-import { gfmTableFromMarkdown } from "mdast-util-gfm-table";
 import { gfmTable } from "micromark-extension-gfm-table";
 import { absolutizeMarkdownLinks, type MdastNode } from "../markdown-links.js";
-import { withBase } from "../url.js";
+import { absoluteSiteUrl, withBase } from "../url.js";
 import type { ApiPageProps } from "./api-view-types.js";
 import { renderApiPageMarkdown } from "./markdown.js";
 
@@ -52,13 +51,6 @@ export function markdownUrlOf(pageUrl: string): string {
   return route === "" ? "/index.md" : `${route}/index.md`;
 }
 
-export function absoluteSiteUrl(site: string, base: string, pathname: string): string {
-  if (/^[a-z][a-z0-9+.-]*:/iu.test(pathname)) return pathname;
-  const prefix = base === "/" ? "" : base.replace(/\/+$/u, "");
-  const normalized = pathname.startsWith("/") ? pathname : `/${pathname}`;
-  return new URL(`${prefix}${normalized}`, site).href;
-}
-
 // API titles come from spec summaries, which can span lines; a line break in a
 // `# title` would start a new heading.
 function oneLine(text: string): string {
@@ -67,9 +59,10 @@ function oneLine(text: string): string {
 
 // GFM tables, as the authored pages' parser reads them: a `|` splits a cell
 // before a code span can span it, so links sit where a GFM reader sees them.
-// The other GFM constructs move no link, so only the table tokenizer ships.
-const parse = (source: string) =>
-  fromMarkdown(source, { extensions: [gfmTable()], mdastExtensions: [gfmTableFromMarkdown()] }) as unknown as MdastNode;
+// Only the table tokenizer ships: the links inside cells come out with their
+// positions whether or not the tree has table nodes, and the mdast table
+// extension would bring the whole Markdown serializer with it.
+const parse = (source: string) => fromMarkdown(source, { extensions: [gfmTable()] }) as unknown as MdastNode;
 
 /** The "Documentation Index" note every page Markdown opens with, when a route serves `/llms.txt`. */
 export function llmsIndexNoteLines(site: ApiMarkdownSite): string[] {
