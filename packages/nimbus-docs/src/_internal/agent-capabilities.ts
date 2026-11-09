@@ -19,9 +19,11 @@ export function createAgentCapabilities(input: {
     ...(input.skillsIndexUrl ? { skillsIndexUrl: input.skillsIndexUrl } : {}),
     ...(input.mcpUrl ? { mcpUrl: input.mcpUrl } : {}),
     search:
-      input.search !== false && input.search?.provider !== "custom"
-        ? "pagefind"
-        : "unavailable",
+      input.search === false || input.search?.provider === "custom"
+        ? "unavailable"
+        : input.search?.provider === "ai-search"
+          ? "ai-search"
+          : "pagefind",
     versions: [
       ...new Set(
         input.versions

@@ -1,6 +1,7 @@
 import {
   documentationSearchTool,
   PagefindCompatibilityError,
+  parseSearchInput,
   searchFailure,
 } from "../_internal/agent-search-contract.js";
 import type {
@@ -11,7 +12,11 @@ import { mergeSearchIndexes, type MergeablePagefind } from "./search-indexes.js"
 
 export interface DocumentationWebMcpOptions extends DocumentationSearchOptions {
   title: string;
-  search: "pagefind" | "unavailable";
+  search: "pagefind" | "ai-search" | "unavailable";
+  /** `ai-search`: the instance's public endpoint origin. */
+  endpoint?: string;
+  /** `ai-search`: each version label and the version pair hashes it selects. */
+  versionChoices?: Record<string, readonly string[]>;
   /**
    * The Pagefind bundle to search and the other slices' bundles to merge into
    * it, as `searchIndex` in `virtual:nimbus/config` names them. Without
@@ -164,11 +169,70 @@ export function registerDocumentationWebMcp(
   return destroy;
 }
 
+/**
+ * @internal The `ai-search` tool: the dialog's transport and filters, with
+ * the label a caller picks mapped to its version pairs. Its code loads when
+ * the tool is first called.
+ */
+export function registerAiSearchWebMcp(
+  context: DocumentationModelContext,
+  options: DocumentationWebMcpOptions,
+): () => void {
+  if (options.search !== "ai-search" || !options.endpoint || registrations.has(context)) return () => {};
+  const lifetime = new AbortController();
+  registrations.set(context, lifetime);
+  const destroy = () => {
+    lifetime.abort();
+    if (registrations.get(context) === lifetime) registrations.delete(context);
+  };
+  const endpoint = options.endpoint;
+  void Promise.resolve()
+    .then(() => {
+      if (lifetime.signal.aborted) return;
+      return context.registerTool(
+        {
+          ...documentationSearchTool(options.title, options.versions),
+          annotations: { readOnlyHint: true, untrustedContentHint: true },
+          async execute(input, execution) {
+            lifetime.signal.throwIfAborted();
+            execution.signal.throwIfAborted();
+            const parsed = parseSearchInput(input, options.versions);
+            if (!parsed) return searchFailure("invalid_input");
+            const client = await import("./ai-search.js").catch(() => undefined);
+            if (!client)
+              return searchFailure(
+                "search_failed",
+                "Documentation search code could not be loaded. Check your connection and reload the page.",
+              );
+            const versions = parsed.version !== undefined ? options.versionChoices?.[parsed.version] ?? [] : undefined;
+            const response = await client.searchAiSearch(
+              { endpoint, site: options.site, base: options.base },
+              parsed.query,
+              {
+                filters: client.aiSearchFilters(undefined, versions ? { versions } : undefined),
+                limit: parsed.limit,
+                signal: execution.signal,
+              },
+            );
+            execution.signal.throwIfAborted();
+            if ("error" in response) return response;
+            return {
+              results: response.results.map((result) => ({ ...result, url: new URL(result.url, options.site).href })),
+            };
+          },
+        },
+        { signal: lifetime.signal },
+      );
+    })
+    .catch(destroy);
+  return destroy;
+}
+
 /** Current WebMCP draft (2026-10-02): Document.modelContext + registration signal. */
 export function initDocumentationWebMcp(
   options: DocumentationWebMcpOptions,
 ): () => void {
-  if (options.search !== "pagefind" || typeof document === "undefined")
+  if ((options.search !== "pagefind" && options.search !== "ai-search") || typeof document === "undefined")
     return () => {};
   let context: DocumentationModelContext | undefined;
   try {
@@ -179,6 +243,7 @@ export function initDocumentationWebMcp(
     return () => {};
   }
   if (!context || typeof context.registerTool !== "function") return () => {};
+  if (options.search === "ai-search") return registerAiSearchWebMcp(context, options);
   const base = `/${(options.base ?? "/").split("/").filter(Boolean).join("/")}`;
   const moduleUrl = new URL(
     options.bundle ? `${options.bundle}pagefind.js` : `${base === "/" ? "" : base}/pagefind/pagefind.js`,

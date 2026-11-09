@@ -1,0 +1,94 @@
+---
+title: Bring your own search
+description: Index your docs in any search service, and plug it into the search dialog.
+sidebar:
+  order: 3
+---
+
+Nimbus gives any search service two seams: a list of the pages to index, and the interface the search dialog calls. Cloudflare AI Search uses both; another service can too.
+
+## The pages to index
+
+Every build that writes the Markdown versions of your pages also writes `_nimbus/search-corpus.json` in the output. A site using `provider: "ai-search"` always writes it.
+
+```json
+{
+  "format": 1,
+  "site": "https://docs.example.com",
+  "base": "/",
+  "collections": ["docs"],
+  "pages": [
+    {
+      "url": "https://docs.example.com/guide/",
+      "title": "Guide",
+      "collection": "docs",
+      "version": "2d18…",
+      "deprecated": false,
+      "searchable": true,
+      "file": "guide/index.md",
+      "contentStart": 214,
+      "contentEnd": 3051,
+      "hash": "9f3c…"
+    }
+  ]
+}
+```
+
+It lists the pages `llms.txt` lists. Index the ones with `searchable: true`.
+
+Each page's text is the byte range `contentStart` to `contentEnd` of `file`, relative to the output directory: the page's title heading and body, without frontmatter.
+
+`hash` changes when the text or any of `url`, `title`, `version` and `deprecated` changes. Upload a page again only when its hash changed.
+
+`format` changes only in a major Nimbus version.
+
+### An indexer in a few lines
+
+```js title="scripts/index-search.mjs"
+import { readFile } from "node:fs/promises";
+
+const out = "dist"; // dist/client with a server adapter
+const corpus = JSON.parse(await readFile(`${out}/_nimbus/search-corpus.json`, "utf8"));
+
+for (const page of corpus.pages.filter((page) => page.searchable)) {
+  const bytes = await readFile(`${out}/${page.file}`);
+  const text = bytes.subarray(page.contentStart, page.contentEnd).toString("utf8");
+  await myIndex.upsert({
+    id: page.url,
+    text,
+    title: page.title,
+    version: page.version,
+    deprecated: page.deprecated,
+    hash: page.hash,
+  });
+}
+```
+
+Delete documents whose `url` is no longer in the list.
+
+## The search dialog
+
+The dialog calls a `SearchProvider`. Write one in `src/components/ui/search/providers/` and import it in `search.client.ts`:
+
+```ts title="src/components/ui/search/providers/my-search.ts"
+import { pageSearchScope } from "@cloudflare/nimbus-docs/client";
+import type { SearchProvider, SearchResponse } from "@cloudflare/nimbus-docs/types";
+
+export const provider: SearchProvider<SearchResponse> = {
+  options: { wait: 200 },
+  async search(query, { signal } = {}) {
+    const scope = pageSearchScope(); // this page's version, and whether it's deprecated
+    const response = await fetch(`https://search.example.com/?q=${encodeURIComponent(query)}`, { signal });
+    if (response.status === 429) return { error: { code: "search_failed", message: "Search is busy. Try again in a moment." } };
+    if (!response.ok) return { error: { code: "search_failed", message: "Search failed." } };
+    const hits = await response.json();
+    return { results: hits.map((hit) => ({ title: hit.title, url: new URL(hit.url).pathname })) };
+  },
+};
+```
+
+A plain `SearchProvider` returns a list of results. Typed `SearchProvider<SearchResponse>`, it returns `{ results }` or `{ error }`, whose message the dialog shows. Escape any `snippet` you return: the dialog renders it as HTML.
+
+Set `search: { provider: "custom" }` so the build skips Pagefind.
+
+`pageSearchScope()` reads the attributes the layout writes on `<body>`, from `getPageSearchScope()`. Filter on them the way the built-in providers do: leave out pages with `deprecated: true`, unless the reader is on a deprecated page. Then search that page's `version`.

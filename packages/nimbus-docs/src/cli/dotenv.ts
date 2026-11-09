@@ -18,8 +18,11 @@ export function loadDotenv(cwd: string): void {
     return;
   }
 
-  const registryUrl = parseDotenv(raw).get("NIMBUS_REGISTRY_URL");
-  if (process.env.NIMBUS_REGISTRY_URL === undefined && registryUrl !== undefined) {
-    process.env.NIMBUS_REGISTRY_URL = registryUrl;
+  // The registry override, and the credentials `search sync` reads. Nothing
+  // else: build variables stay out of the CLI's environment.
+  const values = parseDotenv(raw);
+  for (const name of ["NIMBUS_REGISTRY_URL", "CLOUDFLARE_ACCOUNT_ID", "NIMBUS_AI_SEARCH_TOKEN"]) {
+    const value = values.get(name);
+    if (process.env[name] === undefined && value !== undefined) process.env[name] = value;
   }
 }

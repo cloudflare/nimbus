@@ -14,6 +14,7 @@ import {
   type ConfigLocation,
   type ConfigParseResult,
 } from "../_internal/parse-nimbus-config.js";
+import { checkAiSearch } from "./ai-search.js";
 import { checkAuthoring } from "./authoring.js";
 import { checkEnv } from "./env.js";
 import { checkMigrations } from "./migrations.js";
@@ -93,7 +94,11 @@ export async function runChecks(
     ? await leaseCurrentSources(cwd)
     : { snapshots: new Map(), release: () => {} };
   try {
-    if (scopes.env) reports.push(checkEnv(cwd, parsed));
+    if (scopes.env) {
+      const report = checkEnv(cwd, parsed);
+      report.findings.push(...(await checkAiSearch(cwd, parsed, process.env)));
+      reports.push(report);
+    }
     if (scopes.structure) reports.push(await checkStructure(cwd, parsed, sources.snapshots, options.srcDir));
     if (scopes.migrations) reports.push(checkMigrations(cwd, options.srcDir));
     if (scopes.authoring) reports.push(checkAuthoring(cwd, sources.snapshots));

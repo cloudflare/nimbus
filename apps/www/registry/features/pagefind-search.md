@@ -31,7 +31,7 @@ Then wire the UI:
 - `Header.astro` imports `SearchTrigger` and renders it when `config.search !== false`.
 - `BaseLayout.astro` (or the user's top-level layout) imports `SearchDialog` and renders it once when `config.search !== false`.
 
-Do not add a separate Pagefind integration in `astro.config.ts`. The Nimbus integration runs Pagefind after `astro build` by default. To disable it, set `search: false` in `defineNimbusConfig(...)`. To use a custom backend, set `search: { provider: "custom" }` and swap the provider import in `SearchDialog.astro`.
+Do not add a separate Pagefind integration in `astro.config.ts`. The Nimbus integration runs Pagefind after `astro build` by default. To disable it, set `search: false` in `defineNimbusConfig(...)`. To use a custom backend, set `search: { provider: "custom" }` and swap the provider import in `search.client.ts`. To search a Cloudflare AI Search instance instead, see the `ai-search` feature.
 
 ## Verification
 

@@ -17,7 +17,7 @@ export interface AgentApiPublication {
 }
 
 export interface AgentCapabilities {
-  search: "pagefind" | "unavailable";
+  search: "pagefind" | "ai-search" | "unavailable";
   versions: string[];
   apis: AgentApiPublication[];
   homepageMarkdownUrl?: string;
@@ -115,7 +115,9 @@ export interface NimbusConfig {
   /**
    * Search backend. Absent means Pagefind. `false` disables framework search
    * plumbing. `{ provider: "custom" }` lets user code render a search UI
-   * without running Pagefind at build time.
+   * without running Pagefind at build time. `{ provider: "ai-search" }`
+   * searches a Cloudflare AI Search instance that `nimbus-docs search sync`
+   * fills from the site's Markdown pages.
    */
   search?: SearchConfig | false;
   /**
@@ -680,8 +682,49 @@ export interface FeaturesConfig {
   tableOfContents?: boolean;
 }
 
-export interface SearchConfig {
-  provider?: "pagefind" | "custom";
+export type SearchConfig = PagefindSearchConfig | CustomSearchConfig | AiSearchConfig;
+
+export interface PagefindSearchConfig {
+  provider?: "pagefind";
+}
+
+export interface CustomSearchConfig {
+  provider: "custom";
+}
+
+export interface AiSearchConfig {
+  provider: "ai-search";
+  /** The instance's public endpoint origin, e.g. `https://<id>.search.ai.cloudflare.com`. */
+  endpoint: string;
+  /** The instance `nimbus-docs search sync` pushes the pages to. */
+  instance: string;
+  /** Milliseconds the dialog waits after typing stops before it searches. Default 150. */
+  wait?: number;
+  /** The shortest query the dialog sends. Default 1. */
+  minQueryLength?: number;
+}
+
+export type { SearchScopeTable, SearchVersionPair } from "./_internal/search-scope.js";
+
+/** Where a page sits for search: its version pair, and whether that version is deprecated. */
+export interface PageSearchScope {
+  /** SHA-256 hex of the versioned unit and version id. */
+  version: string;
+  deprecated: boolean;
+}
+
+export type SearchErrorCode = "invalid_input" | "index_unavailable" | "search_failed";
+
+/** What `SearchProvider.search()` may resolve to besides a plain result list. */
+export type SearchResponse =
+  | { results: SearchResult[] }
+  | { error: { code: SearchErrorCode; message: string } };
+
+export interface SearchProviderOptions {
+  /** Milliseconds the dialog waits after typing stops. Default 150. */
+  wait?: number;
+  /** The shortest query the dialog sends. Default 1. */
+  minQueryLength?: number;
 }
 
 export interface SearchResult {
@@ -695,10 +738,17 @@ export interface SearchResult {
   subResults?: { title: string; url: string }[];
 }
 
-export interface SearchProvider {
+/**
+ * A search backend for the dialog. `search` resolves to a result list; a
+ * provider typed `SearchProvider<SearchResponse>` resolves to `{ results }` or
+ * `{ error }` instead, so the dialog can say what went wrong.
+ */
+export interface SearchProvider<Response extends SearchResult[] | SearchResponse = SearchResult[]> {
   /** Optional lazy setup hook, called before the first search. */
   init?(): Promise<void>;
-  search(query: string, opts?: { signal?: AbortSignal }): Promise<SearchResult[]>;
+  search(query: string, opts?: { signal?: AbortSignal }): Promise<Response>;
+  /** Typing behaviour the dialog applies for this provider. */
+  options?: SearchProviderOptions;
 }
 
 export interface HeadElement {

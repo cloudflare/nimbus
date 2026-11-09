@@ -56,6 +56,11 @@ export async function loadMountContext(): Promise<MountContext> {
   return _cachedMountContext;
 }
 
+/** The search scope table (`search-scope.ts`). */
+export async function loadSearchScope(): Promise<import("./search-scope.js").SearchScopeTable> {
+  return (await virtualConfig()).searchScope ?? { pairs: [], docs: {}, apis: {} };
+}
+
 /** Static-folder routes that import a route helper in a shape the build couldn't read. */
 export async function loadUnreadCollectionRoutes(): Promise<readonly UnreadRoute[]> {
   return (await virtualConfig()).unreadCollectionRoutes ?? [];

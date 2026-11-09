@@ -1,13 +1,14 @@
 import { mount, onShortcut } from "@cloudflare/nimbus-docs/client";
 import { shortcuts } from "@/lib/shortcuts";
-import type { SearchProvider, SearchResult } from "@cloudflare/nimbus-docs/types";
+import type { SearchProvider, SearchResponse, SearchResult } from "@cloudflare/nimbus-docs/types";
 import { provider } from "./providers/pagefind";
 
 export interface SearchConfig {
   input: HTMLInputElement;
   resultsContainer: HTMLElement;
   emptyState: HTMLElement;
-  provider: SearchProvider;
+  /** A provider returning a list or a `{ results }` / `{ error }` response. */
+  provider: SearchProvider<SearchResult[] | SearchResponse>;
   onNavigate?: () => void;
 }
 
@@ -139,11 +140,19 @@ export function initSearch(config: SearchConfig): SearchInstance {
     if (!(await ensureInitialized()) || signal.aborted) return;
 
     try {
-      const results = await provider.search(query, { signal });
+      const response = await provider.search(query, { signal });
       if (signal.aborted) return;
 
       clearResults();
       activeIndex = -1;
+
+      // A provider may say what went wrong instead of throwing.
+      if (!Array.isArray(response) && "error" in response) {
+        emptyState.style.display = "";
+        emptyState.textContent = response.error.message;
+        return;
+      }
+      const results = Array.isArray(response) ? response : response.results;
 
       if (results.length === 0) {
         emptyState.style.display = "";
@@ -163,19 +172,23 @@ export function initSearch(config: SearchConfig): SearchInstance {
     }
   }
 
+  // How long typing must pause before a search, and the shortest query sent.
+  const wait = provider.options?.wait ?? 150;
+  const minQueryLength = provider.options?.minQueryLength ?? 1;
+
   function handleInput(): void {
     activeController?.abort();
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       const query = input.value.trim();
-      if (!query) {
+      if (query.length < minQueryLength) {
         clearResults();
         emptyState.style.display = "";
         emptyState.textContent = "Type to search…";
         return;
       }
       void runSearch(query);
-    }, 150);
+    }, wait);
   }
 
   function handleKeydown(event: KeyboardEvent): void {

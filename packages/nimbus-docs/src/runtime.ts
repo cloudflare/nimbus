@@ -19,6 +19,7 @@ import {
   loadNestedLlmsSections,
   loadNimbusConfig,
   loadPrimaryCollectionAbsent,
+  loadSearchScope,
   loadUnreadCollectionRoutes,
   loadVersionAlternates,
 } from "./_internal/runtime-config.js";
@@ -2795,6 +2796,25 @@ export async function getVersionLandingUrl(
 }
 
 export { getPageLanguage, type PageLanguage } from "./_internal/page-language.js";
+
+/**
+ * Where a page sits for search: its version pair hash, and whether that
+ * version is deprecated. Layouts write it on `<body>` as
+ * `data-nb-search-version` and `data-nb-search-deprecated`, and search
+ * providers read it with `pageSearchScope()` from
+ * `@cloudflare/nimbus-docs/client`.
+ */
+export async function getPageSearchScope(page: {
+  collection?: string;
+  /** The API version id an API page renders. */
+  apiVersion?: string | null;
+}): Promise<import("./types.js").PageSearchScope> {
+  const { pageScopeOf } = await import("./_internal/search-scope.js");
+  return pageScopeOf(await loadSearchScope(), {
+    collection: page.collection ?? PRIMARY_COLLECTION,
+    apiVersion: page.apiVersion ?? undefined,
+  });
+}
 
 export async function getVersionStatus(
   collectionId: string,

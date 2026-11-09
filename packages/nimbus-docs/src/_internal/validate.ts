@@ -77,9 +77,53 @@ const featuresSchema = withStrictKeys(
   },
 ).default({ sidebar: true, tableOfContents: true });
 
+/** The AI Search instance-name rule: lowercase letters, digits, `-`, `_`, at most 64. */
+export const AI_SEARCH_INSTANCE = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
+
+/** An instance's public endpoint origin: HTTPS, no path, query, fragment or credentials. */
+export function aiSearchEndpointError(value: string): string | undefined {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return "must be an absolute URL";
+  }
+  // Plain http only on this machine, for a local stand-in.
+  const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  if (url.protocol !== "https:" && !(loopback && url.protocol === "http:")) return "must use https";
+  if (url.username || url.password) return "must not carry credentials";
+  if (url.pathname !== "/" || url.search || url.hash || /[?#]/u.test(value))
+    return 'must be the origin alone, without a path such as "/search"';
+  if (url.hostname === "api.cloudflare.com")
+    return "is the account REST API; use the instance's public endpoint (Settings → Public endpoint)";
+  return undefined;
+}
+
+/** `search: { provider: "ai-search", … }`; `check` runs it too, so check and build agree. */
+export const aiSearchSchema = withStrictKeys(
+  z.object({
+    provider: z.literal("ai-search"),
+    endpoint: z.string().superRefine((value, ctx) => {
+      const error = aiSearchEndpointError(value);
+      if (error)
+        ctx.addIssue({
+          code: "custom",
+          message: `search.endpoint ${error}, e.g. "https://<id>.search.ai.cloudflare.com"`,
+        });
+    }),
+    instance: z.string().regex(AI_SEARCH_INSTANCE, {
+      message: "search.instance must be lowercase letters, digits, - and _, at most 64 characters",
+    }),
+    wait: z.number().int().min(0).max(5000).optional(),
+    minQueryLength: z.number().int().min(1).max(100).optional(),
+  }),
+  { removedKeys: {}, contextLabel: "search field" },
+);
+
 const searchSchema = z
   .union([
     z.literal(false),
+    aiSearchSchema,
     z.object({
       provider: z.enum(["pagefind", "custom"]).default("pagefind"),
     }),

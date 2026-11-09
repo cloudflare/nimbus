@@ -26,6 +26,8 @@ import { NO_ROUTES } from "./collection-mount.js";
 import type { CollectionRoutes, UnreadRoute } from "./collection-routes.js";
 import type { VersionAlternatesTable } from "./version-alternates.js";
 
+import { versionChoices } from "./search-scope.js";
+
 const VIRTUAL_ID = "virtual:nimbus/config";
 const RESOLVED_ID = `\0${VIRTUAL_ID}`;
 
@@ -72,6 +74,8 @@ export interface VirtualConfigExtras {
     search: { bundle: string; merge: readonly string[] };
   } | null>;
   requestRenderingCollections: string[];
+  /** Search scope identity (`search-scope.ts`), read once routes are resolved. */
+  getSearchScope?: () => import("./search-scope.js").SearchScopeTable;
   /** Astro's `base`, for the whole-site search bundle's served URL. */
   base: string;
   /**
@@ -157,6 +161,7 @@ export function virtualConfigPlugin(
         const emptyCollections = (await extras.getEmptyCollections?.()) ?? [];
         const buildSlice = (await extras.getBuildSlice?.()) ?? null;
         const primaryCollectionAbsent = (await extras.getPrimaryCollectionAbsent?.()) ?? false;
+        const searchScope = extras.getSearchScope?.() ?? { pairs: [], docs: {}, apis: {} };
         return (
           `export const config = ${JSON.stringify(runtimeConfig)};\n` +
           `export const pageAssets = ${JSON.stringify(extras.getPageAssets?.() ?? {})};\n` +
@@ -173,7 +178,9 @@ export function virtualConfigPlugin(
           `export const collectionRoutes = ${JSON.stringify([...extras.collectionRoutes])};\n` +
           `export const unreadCollectionRoutes = ${JSON.stringify(extras.unreadCollectionRoutes)};\n` +
           `export const nestedLlmsSections = ${JSON.stringify(extras.getNestedLlmsSections?.() ?? false)};\n` +
-          `export const headDefaults = ${JSON.stringify(extras.headDefaults)};\n`
+          `export const headDefaults = ${JSON.stringify(extras.headDefaults)};\n` +
+          `export const searchScope = ${JSON.stringify(searchScope)};\n` +
+          `export const searchVersionChoices = ${JSON.stringify(versionChoices(searchScope))};\n`
         );
       }
       return undefined;
