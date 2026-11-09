@@ -162,7 +162,7 @@ if (versionStatus?.isHidden || homePart) {
         )}
         <ApiBody page={page} home={home}>
           {hasRail && (
-            <div slot="sample" data-api-place="rail" data-pagefind-ignore class="mt-8 min-[90rem]:col-start-2 min-[90rem]:row-span-13 min-[90rem]:row-start-1 min-[90rem]:-mt-8 min-[90rem]:self-start min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:h-[calc(100vh-3.5rem)] min-[90rem]:w-[29rem] min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1 2xl:w-(--nb-code-rail-width)">
+            <div slot="sample" data-api-place="rail" data-pagefind-ignore class="mt-8 min-[90rem]:col-start-2 min-[90rem]:row-span-12 min-[90rem]:row-start-1 min-[90rem]:-mt-8 min-[90rem]:self-start min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:h-[calc(100vh-3.5rem)] min-[90rem]:w-[29rem] min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1 2xl:w-(--nb-code-rail-width)">
               <ApiCodeRail
                 responses={page.responses}
                 samples={page.samples}
@@ -175,8 +175,8 @@ if (versionStatus?.isHidden || homePart) {
         </ApiBody>
         {nav.prevNext && !hasRail && <Pagination prevNext={nav.prevNext} data-pagefind-ignore />}
         {/* With a rail, previous/next comes after the body. From 90rem it takes
-            the grid's last row (13, which the rail also spans, so it
-            stays pinned to the end) from the body text's left edge (the body's padding
+            the grid's last row (13, after the rail's rows 1 to 12, so the
+            pinned rail never covers it) from the body text's left edge (the body's padding
             plus its centring inset in the first column) to the rail card's right
             edge. */}
         {hasRail && (

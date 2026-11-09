@@ -13,7 +13,6 @@ import ApiMethodChip from "@/components/ui/api-sidebar/ApiMethodChip.astro";
 import { methodVariant } from "@/components/ui/api-sidebar/method";
 import { Badge } from "@/components/ui/badge";
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
-import { cn } from "@/lib/cn";
 
 interface Props {
   method: string;
@@ -32,12 +31,13 @@ const serverQuery = at < 0 ? "" : server!.slice(at);
 const base = at < 0 ? (server ?? "") : server!.slice(0, at).replace(/\/+$/, "");
 const url = `${base}${path}${serverQuery}`;
 const copyLabel = server ? "Copy request URL" : "Copy path";
+// One popover per card on the page.
+const popoverId = `nb-url-${Math.random().toString(36).slice(2, 9)}`;
 const variant = methodVariant(method);
 ---
 
-{/* The method and URL read as one line of code, left to right in every language.
-    The wrapper holds the full-URL tooltip outside the card, which clips. */}
-<div class={cn("group/url relative", className)}>
+{/* The method and URL read as one line of code, left to right in every language. */}
+<div class={className}>
 <LayerCard orientation="horizontal" dir="ltr">
   <LayerCardHeader class="py-2 ps-2 pe-3">
     <ApiMethodChip method={method} display="glyph" size="md" decorative />
@@ -47,33 +47,26 @@ const variant = methodVariant(method);
   </LayerCardHeader>
   <LayerCardContent class="flex-row items-stretch gap-0 p-0">
     <div class="min-w-0 grow self-center px-3">
-      {/* The path only. With a server, the full URL shows on hover, on keyboard
-          focus and on tap (the path is focusable), and screen readers hear it
-          as the path's name. Search indexes the full URL once, from the tooltip. */}
-      {server ? (
-        <>
-          <code
-            tabindex="0"
-            aria-label={url}
-            data-nb-url-path
-            data-pagefind-ignore
-            class="flex min-w-0 cursor-default whitespace-nowrap rounded-sm font-mono text-[0.8125rem] text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <span class="max-w-full truncate">{path}</span>
-          </code>
-        </>
-      ) : (
-        <code class="flex min-w-0 whitespace-nowrap font-mono text-[0.8125rem] text-foreground">
-          <span class="max-w-full truncate">{path}</span>
-        </code>
-      )}
+      {/* The path only. Clicking, tapping or pressing Enter on it opens the
+          full URL in a popover (Escape or a click elsewhere closes it); a mouse
+          also gets it on hover. Search indexes the full URL once, from the popover. */}
+      <button
+        type="button"
+        popovertarget={popoverId}
+        title={url}
+        data-nb-url-path
+        data-pagefind-ignore
+        class="flex min-w-0 max-w-full cursor-pointer whitespace-nowrap rounded-sm border-0 bg-transparent p-0 font-mono text-[0.8125rem] text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span class="truncate">{path}</span>
+      </button>
     </div>
     {isWebhook && <Badge text="Webhook" variant="outline" class="me-3 self-center" />}
     <button
       type="button"
       data-nb-copy-url
       data-url={url}
-      aria-label={copyLabel}
+      aria-label={`${copyLabel}, ${url}`}
       title={copyLabel}
       class="group relative isolate flex shrink-0 cursor-pointer items-center justify-center overflow-hidden border-0 border-s border-border bg-inherit px-3 text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
     >
@@ -88,19 +81,42 @@ const variant = methodVariant(method);
     </button>
   </LayerCardContent>
 </LayerCard>
-{server && (
-  <span
-    aria-hidden="true"
-    class="pointer-events-none absolute start-0 top-full z-20 mt-1.5 hidden w-max max-w-[min(40rem,90vw)] break-all rounded-md border border-border bg-card px-2 py-1 font-mono text-xs text-foreground shadow-sm group-has-[[data-nb-url-path]:hover]/url:block group-has-[[data-nb-url-path]:focus]/url:block"
-  >
-    {url}
-  </span>
-)}
+<div
+  id={popoverId}
+  popover
+  dir="ltr"
+  data-nb-url-popover
+  class="m-0 w-max max-w-[min(40rem,calc(100vw-1rem))] break-all rounded-md border border-border bg-card px-2 py-1 font-mono text-xs text-foreground shadow-sm"
+>
+  {url}
+</div>
 </div>
 
 <script>
   // Copy the request URL. mount() re-binds per navigation.
   import { mount } from "@cloudflare/nimbus-docs/client";
+
+  // The full-URL popover opens under the path, kept inside the viewport.
+  mount("[data-nb-url-path]", (path) => {
+    const id = path.getAttribute("popovertarget");
+    const popover = id ? document.getElementById(id) : null;
+    if (!popover) return () => {};
+    const controller = new AbortController();
+    const place = () => {
+      if (!popover.matches(":popover-open")) return;
+      const anchor = path.getBoundingClientRect();
+      const width = popover.offsetWidth;
+      const left = Math.min(Math.max(8, anchor.left), Math.max(8, innerWidth - width - 8));
+      popover.style.position = "fixed";
+      popover.style.inset = "auto";
+      popover.style.left = `${left}px`;
+      popover.style.top = `${anchor.bottom + 6}px`;
+    };
+    popover.addEventListener("toggle", place, { signal: controller.signal });
+    addEventListener("scroll", place, { passive: true, signal: controller.signal });
+    addEventListener("resize", place, { signal: controller.signal });
+    return () => controller.abort();
+  });
 
   mount("[data-nb-copy-url]", (btn) => {
     if (!(btn instanceof HTMLButtonElement)) return () => {};
