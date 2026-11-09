@@ -66,6 +66,8 @@ import {
   type McpPageRecord,
 } from "./mcp/page-index.js";
 import { compareByPosition, type SidebarPosition } from "./llms-order.js";
+import { corpusHash, type SearchCorpusPage } from "./search-corpus.js";
+import type { PageSearchScope } from "../types.js";
 import { toDocumentHref, toRouteKey, withBase } from "./url.js";
 import type {
   GeneratedMarkdownComponentTransform,
@@ -114,13 +116,19 @@ export interface AgentEndpointAssetManifest {
   llmsAssets: LlmsEndpointAsset[];
   pageIndex?: PageIndexAsset;
   headings: PreparedHeadingRecord[];
+  /**
+   * Build only: one search-corpus record per discoverable page, its `file`
+   * the staged asset (`assets/<digest>.md`). Present when the bake was given
+   * a `searchScope`.
+   */
+  corpus?: Array<Omit<SearchCorpusPage, "file"> & { asset: string; markdownUrl: string }>;
 }
 
-/** What a deployed server reads: the manifest without the build-only headings. */
-export type StagedAgentEndpointManifest = Omit<AgentEndpointAssetManifest, "headings">;
+/** What a deployed server reads: the manifest without the build-only headings and corpus. */
+export type StagedAgentEndpointManifest = Omit<AgentEndpointAssetManifest, "headings" | "corpus">;
 
 function stagedManifest(manifest: AgentEndpointAssetManifest): StagedAgentEndpointManifest {
-  const { headings: _headings, ...staged } = manifest;
+  const { headings: _headings, corpus: _corpus, ...staged } = manifest;
   return staged;
 }
 
@@ -162,6 +170,11 @@ export interface BakeAgentEndpointAssetsOptions {
   decidePublic?: (entry: PreparedMarkdownEntry) => AgentEndpointVisibilityDecision;
   apiEntries?: readonly LlmsEndpointApiEntry[];
   loadApiEntries?: () => Promise<readonly LlmsEndpointApiEntry[]>;
+  /**
+   * A page's search scope (version pair, deprecation, product). When set, the
+   * bake also records the search corpus.
+   */
+  searchScope?: (page: { collection: string; route: string; apiVersion?: string }) => PageSearchScope;
   /** Reports build output that some hosts can't serve. */
   warn?: (message: string) => void;
   /** Reports what the bake did, such as splitting `llms-full.txt`. */
@@ -2012,6 +2025,42 @@ export async function bakeAgentEndpointAssets(
   const preparedLlmsPages: PreparedLlmsPage[] = [];
   const llmsRoutePages: PreparedLlmsPage[] = [];
   const indexPages: McpPageRecord[] = [];
+  const corpus: NonNullable<AgentEndpointAssetManifest["corpus"]> = [];
+  const corpusPage = (
+    entry: Pick<PreparedMarkdownEntry, "collection" | "id" | "data">,
+    page: PreparedLlmsPage,
+    asset: { path: string; body: string; contentStart: number; contentEnd: number },
+    apiVersion?: string,
+  ) => {
+    if (!options.searchScope || !isDiscoverable(entry)) return;
+    const scope = options.searchScope({
+      collection: entry.collection,
+      route: page.url,
+      ...(apiVersion !== undefined ? { apiVersion } : {}),
+    });
+    // From the page's `# Title` line, so the title is in the indexed text.
+    const heading = asset.body.lastIndexOf("\n# ", asset.contentStart) + 1;
+    const start = heading > 0 ? heading : asset.contentStart;
+    const before = Buffer.from(asset.body.slice(0, start), "utf8").byteLength;
+    const content = Buffer.from(asset.body.slice(start, asset.contentEnd), "utf8");
+    const record = {
+      url: absoluteUrl(options.site, options.base, page.url),
+      title: oneLine(page.title),
+      ...(page.description ? { description: page.description } : {}),
+      collection: entry.collection,
+      section: llmsSection(page, options),
+      version: scope.version,
+      deprecated: scope.deprecated,
+      product: scope.product,
+      searchable: isSearchable(entry),
+      asset: asset.path,
+      markdownUrl: page.markdownUrl,
+      contentStart: before,
+      contentEnd: before + content.byteLength,
+      bytes: content.byteLength,
+    };
+    corpus.push({ ...record, hash: corpusHash(content, record) });
+  };
   const componentRevisions = componentFingerprint(options.componentMap);
   const partialResolverRevision = options.partialResolver?.revision ?? "";
   const citationFingerprint = digest(
@@ -2120,6 +2169,8 @@ export async function bakeAgentEndpointAssets(
         }),
       );
       const extension = surface === "markdown" ? "md" : "mdx";
+      if (surface === "markdown")
+        corpusPage(entry, page, { path: `assets/${fingerprint}.${extension}`, body, contentStart, contentEnd });
       records.push({
         collection: entry.collection,
         id: entry.id,
@@ -2183,6 +2234,12 @@ export async function bakeAgentEndpointAssets(
         body: digest(body),
         citations: citationFingerprint,
       }),
+    );
+    corpusPage(
+      entry,
+      routePage,
+      { path: `assets/${fingerprint}.md`, body, contentStart, contentEnd },
+      typeof entry.data.version === "string" ? entry.data.version : undefined,
     );
     records.push({
       collection: entry.collection,
@@ -2349,6 +2406,7 @@ export async function bakeAgentEndpointAssets(
     llmsAssets: llmsRecords.map(withoutBody),
     ...(pageIndexRecord ? { pageIndex: withoutBody(pageIndexRecord) } : {}),
     headings: headingRecords,
+    ...(options.searchScope ? { corpus: corpus.sort((a, b) => compare(a.url, b.url)) } : {}),
   };
   const isFresh = () => {
     const current = agentEndpointAssetState.roots.get(root);

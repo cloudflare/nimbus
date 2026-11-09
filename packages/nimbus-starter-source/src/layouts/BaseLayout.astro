@@ -10,6 +10,7 @@ import { config } from "virtual:nimbus/config";
 import {
   getCollectionLlmsUrl,
   getPageLanguage,
+  getPageSearchScope,
   getVersionStatus,
   withBase,
 } from "@cloudflare/nimbus-docs/runtime";
@@ -52,6 +53,8 @@ const versionStatus = versionStatusKey
   ? await getVersionStatus(versionStatusKey)
   : null;
 const isHiddenVersion = versionStatus?.isHidden === true;
+// The page's version and product, which search providers scope a query by.
+const searchScope = await getPageSearchScope({ collection, entryId, apiVersion });
 const llmsIndexPath = collection
   ? await getCollectionLlmsUrl(collection)
   : "/llms.txt";
@@ -141,7 +144,12 @@ const resolvedMarkdownUrl =
     />
     <ClientRouter />
   </head>
-  <body class="min-h-screen bg-background text-foreground antialiased">
+  <body
+    class="min-h-screen bg-background text-foreground antialiased"
+    data-nb-search-version={searchScope.version}
+    data-nb-search-deprecated={String(searchScope.deprecated)}
+    data-nb-search-product={searchScope.product}
+  >
     <a
       href="#main-content"
       class="sr-only focus:not-sr-only focus:absolute focus:start-2 focus:top-2 focus:z-100 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:no-underline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"

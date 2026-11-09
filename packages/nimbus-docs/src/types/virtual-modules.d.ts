@@ -40,6 +40,10 @@ declare module "virtual:nimbus/config" {
     prefix: string;
     search: { bundle: string; merge: readonly string[] };
   } | null;
+  /** Which version pair and product each page searches in (`search-scope.ts`). */
+  export const searchScope: import("../_internal/search-scope.js").SearchScopeTable;
+  /** Each visible version label and the version pair hashes it selects in search. */
+  export const searchVersionChoices: Record<string, string[]>;
   /** The Pagefind bundle to load and the bundles to merge into it: served URLs, base included. */
   export const searchIndex: { bundle: string; merge: readonly string[] };
   export const requestRenderingCollections: readonly string[];

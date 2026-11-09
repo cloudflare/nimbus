@@ -154,6 +154,8 @@ import {
   publishAgentSkills,
 } from "./_internal/agent-skills.js";
 import { pageUrl, resolveAllApiCollections } from "./_internal/api/resolve-versions.js";
+import { buildSearchScopeTable, pageScopeOf, type SearchScopeTable } from "./_internal/search-scope.js";
+import { sha256Hex } from "./_internal/search-corpus.js";
 
 import { coalesce } from "./_internal/coalesce.js";
 import { virtualApiBuildConfigPlugin } from "./_internal/virtual-api-build-config.js";
@@ -644,6 +646,28 @@ export function nimbus(
   let sliceLayoutForBuild: BuildSliceLayout | null = null;
   // Where each collection is served, read from its route file at setup.
   let mountContextForBuild: MountContext = { versions: null, routes: NO_ROUTES };
+  // Search scope identity (`search-scope.ts`), from the resolved mounts.
+  let searchScopeCache: { routes: MountContext["routes"]; table: SearchScopeTable } | undefined;
+  const searchScopeTable = (): SearchScopeTable => {
+    if (searchScopeCache?.routes === mountContextForBuild.routes) return searchScopeCache.table;
+    const table = buildSearchScopeTable({
+      versions: config.versions ?? null,
+      apis: resolveAllApiCollections(config.api, mountContextForBuild).map((api) => ({
+        family: api.family,
+        familyPath: api.familyPath,
+        version: api.version,
+        label: api.label,
+        isDefault: api.isDefault,
+        deprecated: api.status === "deprecated",
+        hidden: api.hidden,
+      })),
+      products: config.products,
+      hash: sha256Hex,
+    });
+    searchScopeCache = { routes: mountContextForBuild.routes, table };
+    return table;
+  };
+  const aiSearch = config.search !== false && config.search?.provider === "ai-search" ? config.search : undefined;
   // What that map was resolved from, so the dev server can tell when a route
   // file change moves a collection.
   let mountStampForSetup = "";
@@ -1446,6 +1470,7 @@ export function nimbus(
             return agentEndpointAssets.bakeAgentEndpointAssets({
               root: projectRoot,
               routes: mountContextForBuild.routes,
+              searchScope: (page) => pageScopeOf(searchScopeTable(), page),
               // Indexes list pages as the sidebar reads them. Called after the
               // API entries load, which records their nav order.
               sidebarPosition: async (pages) => {
@@ -3102,6 +3127,7 @@ export function nimbus(
                 getNavLists: () => getApiSidebarListManifest(projectRoot),
                 getApiLists: () => getApiNavListManifest(projectRoot),
                 getIndexedCollections: getPageCollectionsForBuild,
+                getSearchScope: searchScopeTable,
                 getBuildSlice: async () => {
                   const layout = sliceLayoutForBuild;
                   if (!layout) return null;
@@ -3392,6 +3418,10 @@ export function nimbus(
             "  export const primaryCollectionAbsent: boolean;",
             "  /** The Pagefind bundle to load and the other slices' bundles to merge into it (none in a whole-site build): served URLs, base included. */",
             "  export const searchIndex: { bundle: string; merge: readonly string[] };",
+            "  /** Which version pair and product each page searches in. See `getPageSearchScope()`. */",
+            "  export const searchScope: import(\"@cloudflare/nimbus-docs/types\").SearchScopeTable;",
+            "  /** Each visible version label and the version pair hashes it selects in search. */",
+            "  export const searchVersionChoices: Record<string, string[]>;",
             "  /** Collections whose canonical routes render on request. Build-only. */",
             "  export const requestRenderingCollections: readonly string[];",
             "  /** Build-time cross-version alternates table. See `getVersionAlternates()`. */",
@@ -3718,7 +3748,8 @@ export function nimbus(
         const { clearNavCaches } = await import("./index.js");
         clearNavCaches();
         const agentEndpointAssets = await loadAgentEndpointAssets();
-        if (requestRenderingConfigured) {
+        // AI Search indexes the twins, so a site using it always builds them.
+        if (requestRenderingConfigured || aiSearch) {
           agentEndpointAssets.registerAgentEndpointAssetDemand(
             projectRootForBuild,
           );
@@ -4122,7 +4153,7 @@ export function nimbus(
 
         await writeShikiStyleSheet({ distDir: sliceDir, logger });
 
-        if (config.search !== false && config.search?.provider !== "custom") {
+        if (config.search !== false && config.search?.provider !== "custom" && !aiSearch) {
           await runPagefind(
             distDir,
             inventory.filter((entry) => entry.request && entry.searchable),
@@ -4131,6 +4162,29 @@ export function nimbus(
               ...(sliceOutput ? { outputPath: path.join(sliceDir, "pagefind") } : {}),
             },
           );
+        }
+        // The corpus manifest: every build that baked the twins writes one.
+        {
+          const agents = await loadAgentEndpointAssets();
+          if (agents.isAgentEndpointAssetRequested(projectRootForBuild)) {
+            const { writeSearchCorpus } = await import("./_internal/search-corpus-build.js");
+            const siteCollections = [
+              ...new Set([...(await getPageCollectionsForBuild()), ...apiCollectionsForBuild]),
+            ];
+            await writeSearchCorpus({
+              manifest: await agents.getAgentEndpointAssetManifest(projectRootForBuild),
+              outDir: distDir,
+              sliceDir,
+              site: config.site,
+              base: astroBaseForBuild,
+              slice: sliceOutput?.prefix ?? "",
+              collections: buildSliceForBuild ? [...buildSliceForBuild] : siteCollections,
+              siteCollections,
+              table: searchScopeTable(),
+              required: aiSearch !== undefined,
+              logger,
+            });
+          }
         }
         // The relocated bundle is left out of the walks, like the root one.
         const walkExcludes = sliceOutput ? [`${sliceOutput.prefix.slice(1)}/pagefind`] : [];

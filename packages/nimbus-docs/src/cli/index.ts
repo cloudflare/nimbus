@@ -48,6 +48,7 @@ import {
   unknownSourceMessage,
 } from "./source.js";
 import { initCommand } from "./init.js";
+import { SEARCH_HELP, searchCommand } from "./search/index.js";
 import { lintCommand, lintHelp } from "./lint.js";
 import { migrateCommand } from "./migrate.js";
 import {
@@ -101,6 +102,13 @@ interface CliArgs {
   json: boolean;
   migrations: boolean;
   "dry-run": boolean;
+  purge: boolean;
+  "allow-preview": boolean;
+  collection?: string;
+  instance?: string;
+  "token-env"?: string;
+  branch?: string;
+  "max-minutes"?: string;
   type?: string;
   format?: string;
   rule?: string;
@@ -132,6 +140,7 @@ const HELP = `
     outdated                       Show outdated starter, registry, and package API work
     diff [file]                    Show upstream/your changes to starter files (read-only)
     lint                           Lint .mdx content for authoring-quality issues
+    search sync                    Push the built site's pages into its AI Search instance (\`search --help\`)
 
   Flags:
     --yes, -y                      Assume yes for prompts; with --overwrite, replaces edited files too
@@ -218,14 +227,18 @@ function checkHelp(usage: string): string {
 
 async function main(): Promise<void> {
   const args = mri(process.argv.slice(2), {
-    boolean: ["yes", "print", "help", "version", "quiet", "color", "fix", "force", "overwrite", "all", "apply", "diff", "dry-run", "env", "structure", "lint", "types", "migrations", "json"],
-    string: ["type", "format", "rule", "root", "to", "adapter", "template-dir", "cwd", "src-dir", "from"],
+    boolean: ["yes", "print", "help", "version", "quiet", "color", "fix", "force", "overwrite", "all", "apply", "diff", "dry-run", "env", "structure", "lint", "types", "migrations", "json", "purge", "allow-preview"],
+    string: ["type", "format", "rule", "root", "to", "adapter", "template-dir", "cwd", "src-dir", "from", "collection", "instance", "token-env", "branch", "max-minutes"],
     default: { color: undefined },
     alias: { y: "yes", h: "help", v: "version" },
   }) as unknown as CliArgs;
 
   if (args.help && args._[0] === "check") {
     process.stdout.write(checkHelp(invocation("check [--fix] [--json]")));
+    return;
+  }
+  if (args.help && args._[0] === "search") {
+    process.stdout.write(SEARCH_HELP);
     return;
   }
   if (args.help && args._[0] === "lint") {
@@ -281,6 +294,23 @@ async function main(): Promise<void> {
       color: args.color,
       fix: args.fix,
     });
+    return;
+  }
+
+  if (command === "search") {
+    const code = await searchCommand(slug, {
+      manifests: rest,
+      dryRun: args["dry-run"],
+      purge: args.purge,
+      force: args.force,
+      allowPreview: args["allow-preview"],
+      collection: args.collection,
+      instance: args.instance,
+      tokenEnv: args["token-env"],
+      branch: args.branch,
+      maxMinutes: args["max-minutes"],
+    });
+    if (code !== 0) process.exit(code);
     return;
   }
 

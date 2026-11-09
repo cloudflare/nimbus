@@ -16,13 +16,14 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   outdated: ["all", "to", "template-dir", "json", "src-dir"],
   migrate: ["json", "print", "dry-run", "diff", "cwd", "src-dir", "from"],
   diff: ["all", "apply", "to", "template-dir"],
+  search: ["dry-run", "purge", "collection", "force", "instance", "token-env", "branch", "allow-preview", "max-minutes"],
 };
 // picocolors reads --color / --no-color from argv for every command's output;
 // --yes reads as "assume yes" anywhere, so it's harmless where nothing prompts.
 const GLOBAL_FLAGS = ["help", "version", "color", "yes"];
 const SHORT_FLAGS: Record<string, string> = { y: "yes", h: "help", v: "version" };
 // Flags that take a value: `--no-<flag>` would pass `false` as that value.
-const VALUE_FLAGS = new Set(["type", "format", "rule", "root", "to", "adapter", "template-dir", "cwd", "src-dir", "from"]);
+const VALUE_FLAGS = new Set(["type", "format", "rule", "root", "to", "adapter", "template-dir", "cwd", "src-dir", "from", "collection", "instance", "token-env", "branch", "max-minutes"]);
 
 /** The error for the first flag `command` doesn't take, or null when all are
  * valid. Unknown commands are left to the dispatcher's own error. */

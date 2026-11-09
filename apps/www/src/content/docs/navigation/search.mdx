@@ -42,3 +42,80 @@ const nimbusConfig = defineNimbusConfig({
 ```
 
 Or keep the UI but supply your own backend (such as a hosted search service) by implementing the `SearchProvider` interface and setting `search: { provider: "custom" }` — Nimbus then skips the Pagefind build step and lets your code render results.
+
+To search another service, see [Bring your own search](/navigation/bring-your-own-search).
+
+## Cloudflare AI Search
+
+Search can answer from a [Cloudflare AI Search](https://developers.cloudflare.com/ai-search/) instance instead of Pagefind. It matches meaning as well as words.
+
+The site's own Markdown pages, the text agents read, are pushed into the instance after each deploy. It works on any host and any rendering mode.
+
+```ts title="astro.config.ts"
+const nimbusConfig = defineNimbusConfig({
+  // …
+  search: {
+    provider: "ai-search",
+    endpoint: "https://<id>.search.ai.cloudflare.com", // the instance's public endpoint
+    instance: "my-docs", // the instance `search sync` pushes to
+  },
+});
+```
+
+Set it up with the recipe. It creates the instance, pushes the pages and switches the dialog:
+
+```sh
+npx nimbus-docs add ai-search --print | claude
+```
+
+### Keeping it fresh
+
+The build writes the list of pages to index. After each production deploy, push it:
+
+```sh
+npx nimbus-docs search sync
+```
+
+| Flag | What it does |
+|---|---|
+| `--dry-run` | Prints what would change, and changes nothing |
+| `--purge` | Removes the site's pages from the instance |
+| `--force` | Allows removing more than a quarter of a collection's pages |
+
+The command reads `CLOUDFLARE_ACCOUNT_ID` and `NIMBUS_AI_SEARCH_TOKEN` from the environment or `.env`. The token needs AI Search Edit and Run, which work on every instance in the account, so keep it to the sync job.
+
+Run it after the deploy, not before. Only changed pages are uploaded, so a typical run takes seconds. An edited page is out of results for the minute or so it takes to process.
+
+In CI, it runs only on pushes to `main`, and refuses on pull requests and previews. Pass `--branch` for another production branch. After a rollback, run it from the rolled-back checkout.
+
+`npx nimbus-docs check` checks the `search` config. With the token set, it also shows the instance's rate limit and worst-case daily cost, and lists pages the instance is missing or still holds.
+
+### What readers search
+
+A reader searches every version except deprecated ones. On a deprecated version's page, they search that version.
+
+With `products`, search on a product's pages stays in that product:
+
+```ts title="astro.config.ts"
+products: { sdk: ["sdk", "api/sdk"], platform: ["platform"] },
+```
+
+These filters shape what readers see. They aren't access control: the endpoint is public, so only public, searchable pages are ever pushed.
+
+### Cost and privacy
+
+The instance's rate limit is shared by every reader. Each search sends about one request per word typed. At worst, a limit of 120 requests a minute costs about $130 a day if every request is a paid query (AI Search pricing, from 2026-12-01).
+
+Each pause in typing sends the partial query and the reader's address to Cloudflare. Mention it in your privacy notice. Two options send fewer requests:
+
+```ts
+search: { provider: "ai-search", endpoint, instance, wait: 400, minQueryLength: 3 },
+```
+
+`wait` is how long typing must pause before a search, in milliseconds (default 150). `minQueryLength` is the shortest query sent (default 1).
+
+### Local dev and previews
+
+The dialog searches the published pages from any origin, and its results link to the origin you're on. Unsaved edits aren't searchable until they are deployed and synced.
+
+To switch back, run `npx nimbus-docs search sync --purge` and set `search: { provider: "pagefind" }`.

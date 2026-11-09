@@ -1305,6 +1305,54 @@
         "Docs pages look as before.",
         "A page of your own with <DocsLayout title=\"…\"> and no other props type-checks and renders with no sidebar, table of contents, breadcrumbs or previous/next links; with a sidebar slot it shows that sidebar."
       ]
+    },
+    {
+      "id": "search-provider-response",
+      "introducedIn": "0.20.0",
+      "mode": "review-required",
+      "changeset": "ai-search",
+      "summary": "SearchProvider.search() may now resolve to { results } or { error } as well as a result list, and a provider can set options.wait and options.minQueryLength. The search dialog shows a provider's error message instead of one generic line.",
+      "affected": "Sites with the starter's src/components/ui/search/search.client.ts.",
+      "instructions": [
+        "Take the change with nimbus-docs diff src/components/ui/search/search.client.ts --apply.",
+        "If you edited search.client.ts, merge by hand: after `const response = await provider.search(query, { signal })`, show response.error.message when the response is an object with error, and read the results as Array.isArray(response) ? response : response.results. Replace the fixed 150 ms debounce with provider.options?.wait ?? 150, and skip queries shorter than provider.options?.minQueryLength ?? 1."
+      ],
+      "verify": [
+        "The project typechecks.",
+        "Cmd/Ctrl+K opens search and a known query returns results as before."
+      ]
+    },
+    {
+      "id": "page-search-scope",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "ai-search",
+      "summary": "Optionally write each page's search scope on <body>, which the ai-search provider and your own providers read with pageSearchScope(). Needed only with search: { provider: \"ai-search\" } or a provider that uses it.",
+      "affected": "Sites with the starter's src/layouts/BaseLayout.astro.",
+      "instructions": [
+        "No action is needed for Pagefind search.",
+        "Take the change with nimbus-docs diff src/layouts/BaseLayout.astro --apply.",
+        "If you edited BaseLayout, merge by hand: import getPageSearchScope from @cloudflare/nimbus-docs/runtime, call it with { collection, entryId, apiVersion } from the props, and add data-nb-search-version, data-nb-search-deprecated and data-nb-search-product to <body> from its version, deprecated and product."
+      ],
+      "verify": [
+        "A built page's <body> carries the three data-nb-search attributes."
+      ]
+    },
+    {
+      "id": "webmcp-ai-search",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "ai-search",
+      "summary": "Optionally let browser agents search an AI Search site through WebMCP, as they search a Pagefind site.",
+      "affected": "Sites with the starter's src/components/WebMCP.astro that use search: { provider: \"ai-search\" }.",
+      "instructions": [
+        "No action is needed for Pagefind search.",
+        "Take the change with nimbus-docs diff src/components/WebMCP.astro --apply.",
+        "If you edited WebMCP.astro, merge by hand: also render the nimbus-webmcp meta when capabilities.search is \"ai-search\", with search, versions: Object.keys(searchVersionChoices), versionChoices: searchVersionChoices and endpoint: config.search.endpoint from virtual:nimbus/config, plus site, title and base as the Pagefind meta has them."
+      ],
+      "verify": [
+        "On an AI Search site, a page's head has the nimbus-webmcp meta with search set to ai-search."
+      ]
     }
   ]
 }

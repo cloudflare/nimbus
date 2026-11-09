@@ -290,6 +290,12 @@ export const BUNDLED_INDEX: BundledIndex = {
       "title": "Markdown and llms.txt endpoints",
       "description": "Add alternate Markdown/MDX versions, llms.txt indexes, llms-full.txt, robots.txt, and an AgentDirective to a Nimbus docs site."
     },
+    "ai-search": {
+      "name": "ai-search",
+      "type": "registry:feature",
+      "title": "AI search",
+      "description": "Search the site with a Cloudflare AI Search instance instead of Pagefind: set up the instance, push the pages, and switch the search dialog."
+    },
     "api-reference": {
       "name": "api-reference",
       "type": "registry:feature",

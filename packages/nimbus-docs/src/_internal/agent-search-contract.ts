@@ -94,3 +94,27 @@ export function searchFailure(
   };
   return { error: { code, message: message ?? messages[code] } };
 }
+
+/** The tool's input, checked as every backend checks it; `undefined` when invalid. */
+export function parseSearchInput(
+  input: unknown,
+  versions: readonly string[] | undefined,
+): { query: string; limit: number; version?: string } | undefined {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return undefined;
+  const record = input as Record<string, unknown>;
+  const { query, limit = SEARCH_LIMITS.defaultLimit, version } = record;
+  if (
+    Object.keys(record).some((key) => !["query", "limit", "version"].includes(key)) ||
+    typeof query !== "string" ||
+    query.length > SEARCH_LIMITS.query * 2 ||
+    !query.trim() ||
+    [...query].length > SEARCH_LIMITS.query ||
+    typeof limit !== "number" ||
+    !Number.isInteger(limit) ||
+    limit < 1 ||
+    limit > SEARCH_LIMITS.maxLimit ||
+    (version !== undefined && (typeof version !== "string" || !versions?.includes(version)))
+  )
+    return undefined;
+  return { query: query.trim(), limit, ...(version !== undefined ? { version: version as string } : {}) };
+}

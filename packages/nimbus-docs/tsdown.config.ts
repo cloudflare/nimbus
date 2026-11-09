@@ -16,6 +16,7 @@ export default defineConfig({
     adapters: "src/adapters.ts",
     "site-parts": "src/site-parts.ts",
     client: "src/client/index.ts",
+    "client/ai-search": "src/client/ai-search.ts",
     markdown: "src/markdown/index.ts",
     og: "src/og.ts",
     react: "src/react/index.ts",

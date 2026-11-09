@@ -85,6 +85,10 @@
 			"types": "./dist/client.d.ts",
 			"import": "./dist/client.js"
 		},
+		"./client/ai-search": {
+			"types": "./dist/client/ai-search.d.ts",
+			"import": "./dist/client/ai-search.js"
+		},
 		"./markdown": {
 			"types": "./dist/markdown.d.ts",
 			"import": "./dist/markdown.js"

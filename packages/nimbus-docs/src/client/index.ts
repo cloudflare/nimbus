@@ -31,6 +31,7 @@ export { codeCopy } from "./code-copy";
 export { headingAnchors } from "./heading-anchors";
 export { readUrlParam, writeUrlParam } from "./url-param";
 export { mergeSearchIndexes } from "./search-indexes";
+export { pageSearchScope } from "./search-scope";
 export type { MergeablePagefind } from "./search-indexes";
 export {
   onShortcut,

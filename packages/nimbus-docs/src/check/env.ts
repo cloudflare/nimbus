@@ -194,7 +194,7 @@ function checkPagefind(
   if (search === false) return;
   if (parsed.unresolved.includes("search")) return;
   if (search === undefined && parsed.unresolved.includes("...spread")) return;
-  if (usesCustomSearchProvider(search)) return;
+  if (usesOtherSearchProvider(search)) return;
 
   if (depInstalled(cwd, "pagefind")) return;
   findings.push({
@@ -213,13 +213,13 @@ function checkPagefind(
   });
 }
 
-/** `search: { provider: "custom" }` ships its own index — pagefind isn't required. */
-function usesCustomSearchProvider(search: unknown): boolean {
+/** Another provider (`custom`, `ai-search`) brings its own index: pagefind isn't required. */
+function usesOtherSearchProvider(search: unknown): boolean {
   return (
     typeof search === "object" &&
     search !== null &&
     "provider" in search &&
-    (search as { provider?: unknown }).provider === "custom"
+    (search as { provider?: unknown }).provider !== "pagefind"
   );
 }
 
