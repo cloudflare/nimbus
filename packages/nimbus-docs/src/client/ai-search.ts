@@ -148,7 +148,7 @@ export function normaliseAiSearchChunks(
     if (seen.has(path)) continue;
     seen.add(path);
     const title = typeof metadata.title === "string" && metadata.title.trim() ? metadata.title.trim() : path;
-    const heading = /^#{1,6}\s+(.+?)\s*#*\s*$/mu.exec(chunk.text)?.[1] ?? "";
+    const heading = firstHeading(chunk.text);
     sections.push({
       title,
       heading: heading === title ? "" : heading,
@@ -157,6 +157,20 @@ export function normaliseAiSearchChunks(
     });
   }
   return sections;
+}
+
+/** The text of the first ATX heading (`## Title ##`), without regexes that backtrack. */
+function firstHeading(markdown: string): string {
+  for (const line of markdown.split("\n")) {
+    let level = 0;
+    while (level < line.length && line[level] === "#") level += 1;
+    if (level < 1 || level > 6 || (line[level] !== " " && line[level] !== "\t")) continue;
+    const text = line.slice(level).trim();
+    let end = text.length;
+    while (end > 0 && text[end - 1] === "#") end -= 1;
+    return text.slice(0, end).trim();
+  }
+  return "";
 }
 
 /** Markdown to a short plain line: no headings, emphasis, link targets or code fences. */

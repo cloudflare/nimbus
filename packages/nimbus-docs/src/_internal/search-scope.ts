@@ -92,7 +92,9 @@ export function buildSearchScopeTable(input: SearchScopeInput): SearchScopeTable
 
 /** A page's product: the longest configured prefix its route sits under, else `site`. */
 export function productOf(table: SearchScopeTable, route: string): string {
-  const path = route.replace(/\/+$/u, "") || "/";
+  let end = route.length;
+  while (end > 0 && route[end - 1] === "/") end -= 1;
+  const path = route.slice(0, end) || "/";
   for (const { id, prefix } of table.products) {
     if (path === prefix || path.startsWith(`${prefix}/`)) return id;
   }
