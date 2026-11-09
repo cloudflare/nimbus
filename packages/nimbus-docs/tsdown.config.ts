@@ -80,7 +80,7 @@ export default defineConfig({
     // imports it, and only a site with agents.mcp injects that route.
     /^@modelcontextprotocol\//,
   ],
-  // Bundle the remark-lint stack, the Markdown serializer, and github-slugger
+  // Bundle the Markdown serializer and github-slugger
   // into dist so consuming projects don't gain new transitive deps. Their
   // logic is inlined into the published artifacts via `noExternal`.
   // `github-slugger` is used by the `nimbus/duplicate-slug` pre-build check
@@ -88,9 +88,6 @@ export default defineConfig({
   // `mdast-util-*` serializers write generated Markdown.
   noExternal: [
     "github-slugger",
-    "unified",
-    "vfile",
-    /^remark-lint-/,
     /^mdast-util-/,
   ],
   // Transitive deps of the `noExternal` packages (e.g. `mdast-util-phrasing`,

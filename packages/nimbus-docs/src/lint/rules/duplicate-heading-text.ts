@@ -4,26 +4,20 @@
  * second (and later) occurrence. Not auto-fixable — renaming needs
  * judgment.
  *
- * Detection is delegated to `remark-lint-no-duplicate-headings` via the
- * adapter. The wrapper re-walks the tree at each reported position to
+ * Detection is the `duplicateHeadings` detector (`../detectors.ts`).
+ * The wrapper re-walks the tree at each reported position to
  * recover the duplicate heading's text (and the first occurrence's line)
  * for the message — the dynamic info matters for navigability.
  */
 
-import remarkLintNoDuplicateHeadings from "remark-lint-no-duplicate-headings";
-
 import { collect, findNodeAt, startOf, textOf } from "../parse.js";
-import { runRemarkLintRule } from "../remark-lint-adapter.js";
+import { duplicateHeadings } from "../detectors.js";
 import type { Rule } from "../rule.js";
 
 export const duplicateHeadingText: Rule = {
   code: "nimbus/duplicate-heading-text",
   run(ctx) {
-    const reports = runRemarkLintRule(
-      remarkLintNoDuplicateHeadings,
-      ctx.file.tree,
-      { path: ctx.file.path, source: ctx.file.source },
-    );
+    const reports = duplicateHeadings(ctx.file.tree);
 
     if (reports.length === 0) return;
 

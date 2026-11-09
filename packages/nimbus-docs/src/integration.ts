@@ -28,6 +28,7 @@
 
 import fs from "node:fs";
 import { assertApiPagesLiveCollection } from "./_internal/page-assets-config.js";
+import { astroConfigHash } from "./_internal/astro-config-file.js";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -1355,6 +1356,83 @@ export function nimbus(
               string,
               Promise<import("./api/index.js").ApiModel>
             >();
+            // An API page's index in its nav, by collection and entry id, for
+            // reading order in the indexes.
+            const apiNavOrder = new Map<string, number>();
+            // An unbundled API's default-version pages, from its staged asset
+            // index: the prepared-markdown snapshot has none for it.
+            const assetApiEntries = new Map<string, Array<{ id: string; data: Record<string, unknown> }>>();
+            // A bundled API collection's pages go in their sidebar group's
+            // `llms.txt`, each version by its own nav: the prepared nav on
+            // server builds, else the model the Markdown bake also renders from.
+            const placeBundledApiEntries = async (
+              collection: string,
+              placed: Array<{ id: string; data: Record<string, unknown>; section?: string }>,
+              stored: ReadonlyMap<string, { id: string; data: unknown }>,
+            ): Promise<void> => {
+              const [{ apiLlmsPlacement }, { isPreparedApiPage }, apiLoader, { getApiNav }] = await Promise.all([
+                import("./_internal/api/llms-sections.js"),
+                import("./_internal/api/prepared.js"),
+                import("./_internal/api-loader.js"),
+                import("./api/index.js"),
+              ]);
+              const declaration = (config.api ?? []).find((candidate) => candidate.collection === collection);
+              if (!declaration) return;
+              const byVersion = new Map<string | null, typeof placed>();
+              for (const entry of placed) {
+                const version = typeof entry.data.version === "string" ? entry.data.version : null;
+                const bucket = byVersion.get(version);
+                if (bucket) bucket.push(entry);
+                else byVersion.set(version, [entry]);
+              }
+              const targets = apiLoader.resolveApiFamily(
+                declaration,
+                collectionMountPrefix(declaration.collection, mountContextForBuild),
+              );
+              for (const [version, versionEntries] of byVersion) {
+                const idOf = new Map<string, string>();
+                for (const entry of versionEntries) {
+                  if (typeof entry.data.coordinate === "string") idOf.set(entry.data.coordinate, entry.id);
+                }
+                let items: readonly import("./api/index.js").ApiNavItem[] | undefined;
+                const prepared = versionEntries.map((entry) => entry.data.prepared).find(isPreparedApiPage);
+                const navData = prepared && (stored.get(prepared.navEntryId)?.data as Record<string, unknown> | undefined)?.prepared;
+                if (navData && isPreparedApiPage(navData) && navData.nav) items = navData.nav.nav.items;
+                if (!items) {
+                  const target = targets.find((candidate) => candidate.version === version);
+                  if (!target) continue;
+                  let model = apiMarkdownModels.get(target.versionKey);
+                  if (!model) {
+                    model = apiLoader
+                      .resolveSpecSource(
+                        {
+                          collection: target.namespace,
+                          spec: target.spec,
+                          label: target.label,
+                          mountPath: target.mountPath,
+                          requireOperationId: target.requireOperationId,
+                          schemaPages: target.schemaPages,
+                          routes: target.routes,
+                          samples: target.samples,
+                          extensions: target.extensions,
+                        },
+                        projectRoot,
+                      )
+                      .then(apiLoader.buildApiModel);
+                    apiMarkdownModels.set(target.versionKey, model);
+                  }
+                  items = getApiNav(await model).items;
+                }
+                const { sections, order } = apiLlmsPlacement(items, (coordinate) => idOf.get(coordinate));
+                for (const entry of versionEntries) {
+                  if (typeof entry.data.coordinate !== "string") continue;
+                  const section = sections.get(entry.data.coordinate);
+                  if (section !== undefined) entry.section = section;
+                  const index = order.get(entry.data.coordinate);
+                  if (index !== undefined) apiNavOrder.set(`${collection}\0${entry.id}`, index);
+                }
+              }
+            };
             const hiddenApiVersions = new Map(
               (config.api ?? []).map((entry) => [
                 entry.collection,
@@ -1368,6 +1446,94 @@ export function nimbus(
             return agentEndpointAssets.bakeAgentEndpointAssets({
               root: projectRoot,
               routes: mountContextForBuild.routes,
+              // Indexes list pages as the sidebar reads them. Called after the
+              // API entries load, which records their nav order.
+              sidebarPosition: async (pages) => {
+                const [sidebar, { llmsSidebarPosition }, { resolveApiFamily }] = await Promise.all([
+                  import("./_internal/sidebar.js"),
+                  import("./_internal/llms-order.js"),
+                  import("./_internal/api/resolve-versions.js"),
+                ]);
+                const snapshot = getPreparedMarkdownSnapshot(projectRoot);
+                const mountOf = (collection: string) => collectionMountPrefix(collection, mountContextForBuild);
+                const entriesOf = (collection: string) =>
+                  (assetApiEntries.get(collection) ?? [...(snapshot?.collections.get(collection)?.entries.values() ?? [])])
+                    .filter((entry) => (entry.data as { draft?: unknown }).draft !== true)
+                    .map((entry) => ({ id: entry.id, collection, data: entry.data }));
+                type TreeEntries = Parameters<typeof sidebar.buildSidebarTree>[0];
+                const items = config.sidebar?.items as Parameters<typeof sidebar.collectSidebarCollectionRefs>[0];
+                const apiCollections = (config.api ?? []).map((entry) => entry.collection);
+                const versionOthers = config.versions?.others ?? [];
+                const referenced = sidebar.collectSidebarCollectionRefs(items);
+                const collections = [PRIMARY_COLLECTION, ...referenced.filter((name) => name !== PRIMARY_COLLECTION)];
+                const entriesByCollection = Object.fromEntries(
+                  collections.map((name) => [name, entriesOf(name)]),
+                ) as unknown as TreeEntries;
+                const knownRoots = new Set([
+                  ...apiCollections.map(mountOf).filter(Boolean),
+                  ...versionOthers.map((version) => `/${version}`),
+                  ...collections.map(mountOf).filter(Boolean),
+                ]);
+                const nested = [...(snapshot?.collections ?? [])]
+                  .filter(
+                    ([name, collection]) =>
+                      collection.role === "page" &&
+                      !collections.includes(name) &&
+                      !apiCollections.includes(name) &&
+                      !versionOthers.some((version) => name === `${PRIMARY_COLLECTION}-${version}`) &&
+                      mountOf(name).split("/").filter(Boolean).length >= 2,
+                  )
+                  .map(([name]) => ({
+                    collection: name,
+                    mount: mountOf(name),
+                    entries: entriesOf(name) as unknown as TreeEntries[string],
+                  }));
+                const tree = sidebar.buildSidebarTree(
+                  entriesByCollection,
+                  PRIMARY_COLLECTION,
+                  "\u0000",
+                  config.sidebar as Parameters<typeof sidebar.buildSidebarTree>[3],
+                  "",
+                  knownRoots,
+                  mountOf,
+                  nested,
+                );
+                // Each older docs version reads in its own sidebar's order.
+                const versionTrees = new Map(
+                  versionOthers.map((version) => {
+                    const collection = `${PRIMARY_COLLECTION}-${version}`;
+                    return [
+                      collection,
+                      sidebar.buildSidebarTree(
+                        { ...entriesByCollection, [collection]: entriesOf(collection) } as unknown as TreeEntries,
+                        collection,
+                        "\u0000",
+                        (config.sidebar
+                          ? { ...config.sidebar, items: sidebar.rewriteSidebarItemsForVersion(config.sidebar.items as unknown[], collection) }
+                          : undefined) as Parameters<typeof sidebar.buildSidebarTree>[3],
+                        `/${version}`,
+                        knownRoots,
+                        mountOf,
+                      ),
+                    ] as const;
+                  }),
+                );
+                return llmsSidebarPosition({
+                  tree,
+                  versionTrees,
+                  apiMounts: new Map(apiCollections.map((name) => [name, mountOf(name)])),
+                  apiNavOrder: (collection, id) => apiNavOrder.get(`${collection}\0${id}`),
+                  apiLandings: new Map(
+                    (config.api ?? []).map((entry) => [
+                      entry.collection,
+                      resolveApiFamily(entry, mountOf(entry.collection)).map((target) => target.mountPath || "/"),
+                    ]),
+                  ),
+                  apiUrls: new Map(
+                    apiCollections.map((name) => [name, pages.filter((page) => page.collection === name).map((page) => page.url)]),
+                  ),
+                });
+              },
               base: astroConfig.base || "/",
               site: config.site,
               title: config.title,
@@ -1404,7 +1570,9 @@ export function nimbus(
                   id: string;
                   data: Record<string, unknown>;
                   hidden: boolean;
+                  section?: string;
                 }> = [];
+                const { apiLlmsPlacement } = await import("./_internal/api/llms-sections.js");
                 if (apiCollectionsForBuild.length === 0) return apiEntries;
                 // Query-mode families publish twins and index lines for the
                 // default version only, at version-free URLs; a non-default
@@ -1433,10 +1601,27 @@ export function nimbus(
                         collection,
                         target.version,
                       );
+                    // Each page goes in its sidebar group's `llms.txt`.
+                    const { sections, order } = apiLlmsPlacement(index.metadata.nav.nav.items, (coordinate) => {
+                      const row = index.byId.get(coordinate);
+                      return row ? row.slug || "index" : undefined;
+                    });
+                    for (const row of index.rows) {
+                      const position = order.get(row.id);
+                      if (position !== undefined) apiNavOrder.set(`${collection}\0${row.slug || "index"}`, position);
+                    }
+                    assetApiEntries.set(
+                      collection,
+                      index.rows.map((row) => ({
+                        id: row.slug || "index",
+                        data: { coordinate: row.id, title: row.title, description: row.description },
+                      })),
+                    );
                     for (const row of index.rows)
                       apiEntries.push({
                         collection,
                         id: row.slug || "index",
+                        section: sections.get(row.id),
                         data: {
                           coordinate: row.id,
                           title: row.title,
@@ -1462,6 +1647,7 @@ export function nimbus(
                     );
                   }
                   const queryDefault = queryModeDefaults.get(collection);
+                  const firstOfCollection = apiEntries.length;
                   for (const entry of entries.values()) {
                     if (
                       queryDefault !== undefined &&
@@ -1482,6 +1668,11 @@ export function nimbus(
                           false),
                     });
                   }
+                  await placeBundledApiEntries(
+                    collection,
+                    apiEntries.slice(firstOfCollection),
+                    entries,
+                  );
                 }
                 return apiEntries;
               },
@@ -4113,7 +4304,11 @@ function materializeLintConfig(
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(
       path.join(dir, "lint.json"),
-      JSON.stringify({ version: 1, rules, collections, site, markdownFeatures, base }, null, 2) + "\n",
+      JSON.stringify(
+        { version: 1, rules, collections, site, markdownFeatures, base, configHash: astroConfigHash(projectRoot) },
+        null,
+        2,
+      ) + "\n",
       "utf8",
     );
   } catch {

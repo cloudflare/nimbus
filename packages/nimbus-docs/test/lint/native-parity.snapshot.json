@@ -1,0 +1,3355 @@
+{
+  "nimbus/single-h1 | none | md | default": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## A\n\n## B\n"
+  },
+  "nimbus/single-h1 | none | md | gfmOff": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## A\n\n## B\n"
+  },
+  "nimbus/single-h1 | none | md | headings": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## A\n\n## B\n"
+  },
+  "nimbus/single-h1 | one | md | default": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n## B\n"
+  },
+  "nimbus/single-h1 | one | md | gfmOff": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n## B\n"
+  },
+  "nimbus/single-h1 | one | md | headings": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n## B\n"
+  },
+  "nimbus/single-h1 | three | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 4
+      },
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 12,
+        "column": 1,
+        "endLine": 12,
+        "endColumn": 4
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n# B\n\ntext\n\n# C\n"
+  },
+  "nimbus/single-h1 | three | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 4
+      },
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 12,
+        "column": 1,
+        "endLine": 12,
+        "endColumn": 4
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n# B\n\ntext\n\n# C\n"
+  },
+  "nimbus/single-h1 | three | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 4
+      },
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 12,
+        "column": 1,
+        "endLine": 12,
+        "endColumn": 4
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n# B\n\ntext\n\n# C\n"
+  },
+  "nimbus/single-h1 | setext | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 9,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 4
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nA\n===\n\nB\n===\n"
+  },
+  "nimbus/single-h1 | setext | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 9,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 4
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nA\n===\n\nB\n===\n"
+  },
+  "nimbus/single-h1 | setext | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 9,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 4
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nA\n===\n\nB\n===\n"
+  },
+  "nimbus/single-h1 | html h1 | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 11
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n<h1>B</h1>\n"
+  },
+  "nimbus/single-h1 | html h1 | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 11
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n<h1>B</h1>\n"
+  },
+  "nimbus/single-h1 | html h1 | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 11
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n<h1>B</h1>\n"
+  },
+  "nimbus/single-h1 | jsx h1 | mdx | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.mdx",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 11
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n<h1>B</h1>\n"
+  },
+  "nimbus/single-h1 | jsx h1 | mdx | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.mdx",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 11
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n<h1>B</h1>\n"
+  },
+  "nimbus/single-h1 | jsx h1 | mdx | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.mdx",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 11
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n<h1>B</h1>\n"
+  },
+  "nimbus/single-h1 | nested | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 8,
+        "column": 3,
+        "endLine": 8,
+        "endColumn": 6
+      },
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 10,
+        "column": 3,
+        "endLine": 10,
+        "endColumn": 6
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n> # B\n\n- # C\n"
+  },
+  "nimbus/single-h1 | nested | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 8,
+        "column": 3,
+        "endLine": 8,
+        "endColumn": 6
+      },
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 10,
+        "column": 3,
+        "endLine": 10,
+        "endColumn": 6
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n> # B\n\n- # C\n"
+  },
+  "nimbus/single-h1 | nested | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 8,
+        "column": 3,
+        "endLine": 8,
+        "endColumn": 6
+      },
+      {
+        "code": "nimbus/single-h1",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "more than one top-level \"#\" heading — a page should have a single H1. Demote this to \"##\" or fold it into the page above.",
+        "line": 10,
+        "column": 3,
+        "endLine": 10,
+        "endColumn": 6
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n> # B\n\n- # C\n"
+  },
+  "nimbus/heading-hierarchy | ok | md | default": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n## B\n\n### C\n\n## D\n"
+  },
+  "nimbus/heading-hierarchy | ok | md | gfmOff": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n## B\n\n### C\n\n## D\n"
+  },
+  "nimbus/heading-hierarchy | ok | md | headings": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n# A\n\n## B\n\n### C\n\n## D\n"
+  },
+  "nimbus/heading-hierarchy | skip | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading level jumps from h2 to h4 — don't skip levels; use h3 instead.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 7
+      },
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading level jumps from h2 to h4 — don't skip levels; use h3 instead.",
+        "line": 14,
+        "column": 1,
+        "endLine": 14,
+        "endColumn": 7
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## A\n\n#### B\n\n##### C\n\n## D\n\n#### E\n"
+  },
+  "nimbus/heading-hierarchy | skip | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading level jumps from h2 to h4 — don't skip levels; use h3 instead.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 7
+      },
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading level jumps from h2 to h4 — don't skip levels; use h3 instead.",
+        "line": 14,
+        "column": 1,
+        "endLine": 14,
+        "endColumn": 7
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## A\n\n#### B\n\n##### C\n\n## D\n\n#### E\n"
+  },
+  "nimbus/heading-hierarchy | skip | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading level jumps from h2 to h4 — don't skip levels; use h3 instead.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 7
+      },
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading level jumps from h2 to h4 — don't skip levels; use h3 instead.",
+        "line": 14,
+        "column": 1,
+        "endLine": 14,
+        "endColumn": 7
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## A\n\n#### B\n\n##### C\n\n## D\n\n#### E\n"
+  },
+  "nimbus/heading-hierarchy | first deep | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading level jumps from h3 to h5 — don't skip levels; use h4 instead.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 8
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n### A\n\n##### B\n"
+  },
+  "nimbus/heading-hierarchy | first deep | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading level jumps from h3 to h5 — don't skip levels; use h4 instead.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 8
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n### A\n\n##### B\n"
+  },
+  "nimbus/heading-hierarchy | first deep | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading level jumps from h3 to h5 — don't skip levels; use h4 instead.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 8
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n### A\n\n##### B\n"
+  },
+  "nimbus/heading-hierarchy | html between | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading level jumps from h2 to h5 — don't skip levels; use h3 instead.",
+        "line": 10,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 8
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## A\n\n<h3>B</h3>\n\n##### C\n"
+  },
+  "nimbus/heading-hierarchy | html between | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading level jumps from h2 to h5 — don't skip levels; use h3 instead.",
+        "line": 10,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 8
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## A\n\n<h3>B</h3>\n\n##### C\n"
+  },
+  "nimbus/heading-hierarchy | html between | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading level jumps from h2 to h5 — don't skip levels; use h3 instead.",
+        "line": 10,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 8
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## A\n\n<h3>B</h3>\n\n##### C\n"
+  },
+  "nimbus/heading-hierarchy | jsx | mdx | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.mdx",
+        "message": "heading level skips — don't jump past a level. Insert the missing depth instead.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 11
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## A\n\n<h4>B</h4>\n\n### C\n"
+  },
+  "nimbus/heading-hierarchy | jsx | mdx | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.mdx",
+        "message": "heading level skips — don't jump past a level. Insert the missing depth instead.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 11
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## A\n\n<h4>B</h4>\n\n### C\n"
+  },
+  "nimbus/heading-hierarchy | jsx | mdx | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.mdx",
+        "message": "heading level skips — don't jump past a level. Insert the missing depth instead.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 11
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## A\n\n<h4>B</h4>\n\n### C\n"
+  },
+  "nimbus/heading-hierarchy | attributes | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/mdx-syntax",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "MDX failed to parse: 6:9: Could not parse expression with oxc: Expected `in` but found `)` (mdx-jsx:unexpected-character)",
+        "line": 1,
+        "column": 1
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## A {#a}\n\n#### B {#b}\n"
+  },
+  "nimbus/heading-hierarchy | attributes | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/mdx-syntax",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "MDX failed to parse: 6:9: Could not parse expression with oxc: Expected `in` but found `)` (mdx-jsx:unexpected-character)",
+        "line": 1,
+        "column": 1
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## A {#a}\n\n#### B {#b}\n"
+  },
+  "nimbus/heading-hierarchy | attributes | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-hierarchy",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading level jumps from h2 to h4 — don't skip levels; use h3 instead.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 12
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## A {#a}\n\n#### B {#b}\n"
+  },
+  "nimbus/code-block-lang | kinds | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 6,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 4
+      },
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 14,
+        "column": 1,
+        "endLine": 16,
+        "endColumn": 4
+      },
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 20,
+        "column": 4,
+        "endLine": 22,
+        "endColumn": 7
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n```\nx\n```\n\n```ts\ny\n```\n\n~~~\nz\n~~~\n\n    indented\n\n   ```\n   spaced\n   ```\n"
+  },
+  "nimbus/code-block-lang | kinds | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 6,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 4
+      },
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 14,
+        "column": 1,
+        "endLine": 16,
+        "endColumn": 4
+      },
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 20,
+        "column": 4,
+        "endLine": 22,
+        "endColumn": 7
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n```\nx\n```\n\n```ts\ny\n```\n\n~~~\nz\n~~~\n\n    indented\n\n   ```\n   spaced\n   ```\n"
+  },
+  "nimbus/code-block-lang | kinds | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 6,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 4
+      },
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 14,
+        "column": 1,
+        "endLine": 16,
+        "endColumn": 4
+      },
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 20,
+        "column": 4,
+        "endLine": 22,
+        "endColumn": 7
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n```\nx\n```\n\n```ts\ny\n```\n\n~~~\nz\n~~~\n\n    indented\n\n   ```\n   spaced\n   ```\n"
+  },
+  "nimbus/code-block-lang | nested | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 8,
+        "column": 3,
+        "endLine": 10,
+        "endColumn": 6
+      },
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 12,
+        "column": 3,
+        "endLine": 14,
+        "endColumn": 6
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n- item\n\n  ```\n  in list\n  ```\n\n> ```\n> in quote\n> ```\n"
+  },
+  "nimbus/code-block-lang | nested | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 8,
+        "column": 3,
+        "endLine": 10,
+        "endColumn": 6
+      },
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 12,
+        "column": 3,
+        "endLine": 14,
+        "endColumn": 6
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n- item\n\n  ```\n  in list\n  ```\n\n> ```\n> in quote\n> ```\n"
+  },
+  "nimbus/code-block-lang | nested | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 8,
+        "column": 3,
+        "endLine": 10,
+        "endColumn": 6
+      },
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 12,
+        "column": 3,
+        "endLine": 14,
+        "endColumn": 6
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n- item\n\n  ```\n  in list\n  ```\n\n> ```\n> in quote\n> ```\n"
+  },
+  "nimbus/code-block-lang | empty and long | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 6,
+        "column": 1,
+        "endLine": 7,
+        "endColumn": 5
+      },
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 9,
+        "column": 1,
+        "endLine": 11,
+        "endColumn": 4
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n````\n````\n\n``` \nmeta-less\n```\n"
+  },
+  "nimbus/code-block-lang | empty and long | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 6,
+        "column": 1,
+        "endLine": 7,
+        "endColumn": 5
+      },
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 9,
+        "column": 1,
+        "endLine": 11,
+        "endColumn": 4
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n````\n````\n\n``` \nmeta-less\n```\n"
+  },
+  "nimbus/code-block-lang | empty and long | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 6,
+        "column": 1,
+        "endLine": 7,
+        "endColumn": 5
+      },
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 9,
+        "column": 1,
+        "endLine": 11,
+        "endColumn": 4
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n````\n````\n\n``` \nmeta-less\n```\n"
+  },
+  "nimbus/code-block-lang | options | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 6,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 4
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n```\nx\n```\n\n```zz\ny\n```\n"
+  },
+  "nimbus/code-block-lang | options | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 6,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 4
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n```\nx\n```\n\n```zz\ny\n```\n"
+  },
+  "nimbus/code-block-lang | options | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/code-block-lang",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "fenced code block has no language — add one (e.g. ```ts) so highlighting, the copy button, and the language badge render.",
+        "line": 6,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 4
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n```\nx\n```\n\n```zz\ny\n```\n"
+  },
+  "nimbus/heading-punctuation | endings | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Colon:\" ends with \":\" — drop trailing punctuation from headings.",
+        "line": 6,
+        "column": 1,
+        "endLine": 6,
+        "endColumn": 10,
+        "fix": {
+          "description": "remove the trailing \":\"",
+          "edits": [
+            {
+              "range": [
+                57,
+                58
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Period.\" ends with \".\" — drop trailing punctuation from headings.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 11,
+        "fix": {
+          "description": "remove the trailing \".\"",
+          "edits": [
+            {
+              "range": [
+                69,
+                70
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Bang!\" ends with \"!\" — drop trailing punctuation from headings.",
+        "line": 10,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 9,
+        "fix": {
+          "description": "remove the trailing \"!\"",
+          "edits": [
+            {
+              "range": [
+                79,
+                80
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Both,;\" ends with \",;\" — drop trailing punctuation from headings.",
+        "line": 14,
+        "column": 1,
+        "endLine": 14,
+        "endColumn": 10,
+        "fix": {
+          "description": "remove the trailing \",;\"",
+          "edits": [
+            {
+              "range": [
+                103,
+                105
+              ],
+              "text": ""
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Colon\n\n## Period\n\n## Bang\n\n## Question?\n\n## Both\n\n## Fine\n"
+  },
+  "nimbus/heading-punctuation | endings | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Colon:\" ends with \":\" — drop trailing punctuation from headings.",
+        "line": 6,
+        "column": 1,
+        "endLine": 6,
+        "endColumn": 10,
+        "fix": {
+          "description": "remove the trailing \":\"",
+          "edits": [
+            {
+              "range": [
+                57,
+                58
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Period.\" ends with \".\" — drop trailing punctuation from headings.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 11,
+        "fix": {
+          "description": "remove the trailing \".\"",
+          "edits": [
+            {
+              "range": [
+                69,
+                70
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Bang!\" ends with \"!\" — drop trailing punctuation from headings.",
+        "line": 10,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 9,
+        "fix": {
+          "description": "remove the trailing \"!\"",
+          "edits": [
+            {
+              "range": [
+                79,
+                80
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Both,;\" ends with \",;\" — drop trailing punctuation from headings.",
+        "line": 14,
+        "column": 1,
+        "endLine": 14,
+        "endColumn": 10,
+        "fix": {
+          "description": "remove the trailing \",;\"",
+          "edits": [
+            {
+              "range": [
+                103,
+                105
+              ],
+              "text": ""
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Colon\n\n## Period\n\n## Bang\n\n## Question?\n\n## Both\n\n## Fine\n"
+  },
+  "nimbus/heading-punctuation | endings | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Colon:\" ends with \":\" — drop trailing punctuation from headings.",
+        "line": 6,
+        "column": 1,
+        "endLine": 6,
+        "endColumn": 10,
+        "fix": {
+          "description": "remove the trailing \":\"",
+          "edits": [
+            {
+              "range": [
+                57,
+                58
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Period.\" ends with \".\" — drop trailing punctuation from headings.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 11,
+        "fix": {
+          "description": "remove the trailing \".\"",
+          "edits": [
+            {
+              "range": [
+                69,
+                70
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Bang!\" ends with \"!\" — drop trailing punctuation from headings.",
+        "line": 10,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 9,
+        "fix": {
+          "description": "remove the trailing \"!\"",
+          "edits": [
+            {
+              "range": [
+                79,
+                80
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Both,;\" ends with \",;\" — drop trailing punctuation from headings.",
+        "line": 14,
+        "column": 1,
+        "endLine": 14,
+        "endColumn": 10,
+        "fix": {
+          "description": "remove the trailing \",;\"",
+          "edits": [
+            {
+              "range": [
+                103,
+                105
+              ],
+              "text": ""
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Colon\n\n## Period\n\n## Bang\n\n## Question?\n\n## Both\n\n## Fine\n"
+  },
+  "nimbus/heading-punctuation | inline tail | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Use .\" ends with \".\" — drop trailing punctuation from headings.",
+        "line": 6,
+        "column": 1,
+        "endLine": 6,
+        "endColumn": 12,
+        "fix": {
+          "description": "remove the trailing \".\"",
+          "edits": [
+            {
+              "range": [
+                59,
+                60
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"A word:\" ends with \":\" — drop trailing punctuation from headings.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 13,
+        "fix": {
+          "description": "remove the trailing \":\"",
+          "edits": [
+            {
+              "range": [
+                73,
+                74
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Link.\" ends with \".\" — drop trailing punctuation from headings.",
+        "line": 10,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 32,
+        "fix": {
+          "description": "remove the trailing \".\"",
+          "edits": [
+            {
+              "range": [
+                106,
+                107
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Bold!\" ends with \"!\" — drop trailing punctuation from headings.",
+        "line": 12,
+        "column": 1,
+        "endLine": 12,
+        "endColumn": 13,
+        "fix": {
+          "description": "remove the trailing \"!\"",
+          "edits": [
+            {
+              "range": [
+                120,
+                121
+              ],
+              "text": ""
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Use `x`\n\n## A *word*\n\n## [Link](https://example.com)\n\n## **Bold**\n"
+  },
+  "nimbus/heading-punctuation | inline tail | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Use .\" ends with \".\" — drop trailing punctuation from headings.",
+        "line": 6,
+        "column": 1,
+        "endLine": 6,
+        "endColumn": 12,
+        "fix": {
+          "description": "remove the trailing \".\"",
+          "edits": [
+            {
+              "range": [
+                59,
+                60
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"A word:\" ends with \":\" — drop trailing punctuation from headings.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 13,
+        "fix": {
+          "description": "remove the trailing \":\"",
+          "edits": [
+            {
+              "range": [
+                73,
+                74
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Link.\" ends with \".\" — drop trailing punctuation from headings.",
+        "line": 10,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 32,
+        "fix": {
+          "description": "remove the trailing \".\"",
+          "edits": [
+            {
+              "range": [
+                106,
+                107
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Bold!\" ends with \"!\" — drop trailing punctuation from headings.",
+        "line": 12,
+        "column": 1,
+        "endLine": 12,
+        "endColumn": 13,
+        "fix": {
+          "description": "remove the trailing \"!\"",
+          "edits": [
+            {
+              "range": [
+                120,
+                121
+              ],
+              "text": ""
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Use `x`\n\n## A *word*\n\n## [Link](https://example.com)\n\n## **Bold**\n"
+  },
+  "nimbus/heading-punctuation | inline tail | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Use .\" ends with \".\" — drop trailing punctuation from headings.",
+        "line": 6,
+        "column": 1,
+        "endLine": 6,
+        "endColumn": 12,
+        "fix": {
+          "description": "remove the trailing \".\"",
+          "edits": [
+            {
+              "range": [
+                59,
+                60
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"A word:\" ends with \":\" — drop trailing punctuation from headings.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 13,
+        "fix": {
+          "description": "remove the trailing \":\"",
+          "edits": [
+            {
+              "range": [
+                73,
+                74
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Link.\" ends with \".\" — drop trailing punctuation from headings.",
+        "line": 10,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 32,
+        "fix": {
+          "description": "remove the trailing \".\"",
+          "edits": [
+            {
+              "range": [
+                106,
+                107
+              ],
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Bold!\" ends with \"!\" — drop trailing punctuation from headings.",
+        "line": 12,
+        "column": 1,
+        "endLine": 12,
+        "endColumn": 13,
+        "fix": {
+          "description": "remove the trailing \"!\"",
+          "edits": [
+            {
+              "range": [
+                120,
+                121
+              ],
+              "text": ""
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Use `x`\n\n## A *word*\n\n## [Link](https://example.com)\n\n## **Bold**\n"
+  },
+  "nimbus/heading-punctuation | attributes | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/mdx-syntax",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "MDX failed to parse: 6:18: Could not parse expression with oxc: Expected `in` but found `)` (mdx-jsx:unexpected-character)",
+        "line": 1,
+        "column": 1
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Title: {#title}\n\n## Fine {#fine}\n"
+  },
+  "nimbus/heading-punctuation | attributes | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/mdx-syntax",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "MDX failed to parse: 6:18: Could not parse expression with oxc: Expected `in` but found `)` (mdx-jsx:unexpected-character)",
+        "line": 1,
+        "column": 1
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Title: {#title}\n\n## Fine {#fine}\n"
+  },
+  "nimbus/heading-punctuation | attributes | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Title:\" ends with \":\" — drop trailing punctuation from headings.",
+        "line": 6,
+        "column": 1,
+        "endLine": 6,
+        "endColumn": 19,
+        "fix": {
+          "description": "remove the trailing \":\"",
+          "edits": [
+            {
+              "range": [
+                57,
+                58
+              ],
+              "text": ""
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Title {#title}\n\n## Fine {#fine}\n"
+  },
+  "nimbus/heading-punctuation | jsx | mdx | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.mdx",
+        "message": "heading ends with trailing punctuation — drop it from the heading.",
+        "line": 6,
+        "column": 1,
+        "endLine": 6,
+        "endColumn": 16
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n<h2>Title:</h2>\n\n## Ok\n"
+  },
+  "nimbus/heading-punctuation | jsx | mdx | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.mdx",
+        "message": "heading ends with trailing punctuation — drop it from the heading.",
+        "line": 6,
+        "column": 1,
+        "endLine": 6,
+        "endColumn": 16
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n<h2>Title:</h2>\n\n## Ok\n"
+  },
+  "nimbus/heading-punctuation | jsx | mdx | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.mdx",
+        "message": "heading ends with trailing punctuation — drop it from the heading.",
+        "line": 6,
+        "column": 1,
+        "endLine": 6,
+        "endColumn": 16
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n<h2>Title:</h2>\n\n## Ok\n"
+  },
+  "nimbus/heading-punctuation | setext | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Title.\" ends with \".\" — drop trailing punctuation from headings.",
+        "line": 6,
+        "column": 1,
+        "endLine": 7,
+        "endColumn": 7,
+        "fix": {
+          "description": "remove the trailing \".\"",
+          "edits": [
+            {
+              "range": [
+                54,
+                55
+              ],
+              "text": ""
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nTitle\n------\n"
+  },
+  "nimbus/heading-punctuation | setext | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Title.\" ends with \".\" — drop trailing punctuation from headings.",
+        "line": 6,
+        "column": 1,
+        "endLine": 7,
+        "endColumn": 7,
+        "fix": {
+          "description": "remove the trailing \".\"",
+          "edits": [
+            {
+              "range": [
+                54,
+                55
+              ],
+              "text": ""
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nTitle\n------\n"
+  },
+  "nimbus/heading-punctuation | setext | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/heading-punctuation",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "heading \"Title.\" ends with \".\" — drop trailing punctuation from headings.",
+        "line": 6,
+        "column": 1,
+        "endLine": 7,
+        "endColumn": 7,
+        "fix": {
+          "description": "remove the trailing \".\"",
+          "edits": [
+            {
+              "range": [
+                54,
+                55
+              ],
+              "text": ""
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nTitle\n------\n"
+  },
+  "nimbus/duplicate-heading-text | dupes | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"setup\" (first used on line 6) — duplicate headings produce colliding anchor links.",
+        "line": 10,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 10
+      },
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"Setup\" (first used on line 6) — duplicate headings produce colliding anchor links.",
+        "line": 12,
+        "column": 1,
+        "endLine": 12,
+        "endColumn": 9
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Setup\n\n## Usage\n\n### setup\n\n## Setup\n"
+  },
+  "nimbus/duplicate-heading-text | dupes | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"setup\" (first used on line 6) — duplicate headings produce colliding anchor links.",
+        "line": 10,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 10
+      },
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"Setup\" (first used on line 6) — duplicate headings produce colliding anchor links.",
+        "line": 12,
+        "column": 1,
+        "endLine": 12,
+        "endColumn": 9
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Setup\n\n## Usage\n\n### setup\n\n## Setup\n"
+  },
+  "nimbus/duplicate-heading-text | dupes | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"setup\" (first used on line 6) — duplicate headings produce colliding anchor links.",
+        "line": 10,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 10
+      },
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"Setup\" (first used on line 6) — duplicate headings produce colliding anchor links.",
+        "line": 12,
+        "column": 1,
+        "endLine": 12,
+        "endColumn": 9
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Setup\n\n## Usage\n\n### setup\n\n## Setup\n"
+  },
+  "nimbus/duplicate-heading-text | spacing | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"Setup\" (first used on line 6) — duplicate headings produce colliding anchor links.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 9
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Setup \n\n## Setup\n\n## Set  up\n"
+  },
+  "nimbus/duplicate-heading-text | spacing | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"Setup\" (first used on line 6) — duplicate headings produce colliding anchor links.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 9
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Setup \n\n## Setup\n\n## Set  up\n"
+  },
+  "nimbus/duplicate-heading-text | spacing | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"Setup\" (first used on line 6) — duplicate headings produce colliding anchor links.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 9
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Setup \n\n## Setup\n\n## Set  up\n"
+  },
+  "nimbus/duplicate-heading-text | inline | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"Use x\" — duplicate headings produce colliding anchor links.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 9
+      },
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"Use x\" (first used on line 8) — duplicate headings produce colliding anchor links.",
+        "line": 10,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 11
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Use `x`\n\n## Use x\n\n## *Use* x\n"
+  },
+  "nimbus/duplicate-heading-text | inline | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"Use x\" — duplicate headings produce colliding anchor links.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 9
+      },
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"Use x\" (first used on line 8) — duplicate headings produce colliding anchor links.",
+        "line": 10,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 11
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Use `x`\n\n## Use x\n\n## *Use* x\n"
+  },
+  "nimbus/duplicate-heading-text | inline | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"Use x\" — duplicate headings produce colliding anchor links.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 9
+      },
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"Use x\" (first used on line 8) — duplicate headings produce colliding anchor links.",
+        "line": 10,
+        "column": 1,
+        "endLine": 10,
+        "endColumn": 11
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Use `x`\n\n## Use x\n\n## *Use* x\n"
+  },
+  "nimbus/duplicate-heading-text | jsx | mdx | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.mdx",
+        "message": "duplicate heading text — duplicate headings produce colliding anchor links.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 15
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Notes\n\n<h2>Notes</h2>\n"
+  },
+  "nimbus/duplicate-heading-text | jsx | mdx | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.mdx",
+        "message": "duplicate heading text — duplicate headings produce colliding anchor links.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 15
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Notes\n\n<h2>Notes</h2>\n"
+  },
+  "nimbus/duplicate-heading-text | jsx | mdx | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.mdx",
+        "message": "duplicate heading text — duplicate headings produce colliding anchor links.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 15
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## Notes\n\n<h2>Notes</h2>\n"
+  },
+  "nimbus/duplicate-heading-text | empty | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"\" — duplicate headings produce colliding anchor links.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 3
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n##\n\n##\n"
+  },
+  "nimbus/duplicate-heading-text | empty | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"\" — duplicate headings produce colliding anchor links.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 3
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n##\n\n##\n"
+  },
+  "nimbus/duplicate-heading-text | empty | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/duplicate-heading-text",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "duplicate heading \"\" — duplicate headings produce colliding anchor links.",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 3
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n##\n\n##\n"
+  },
+  "nimbus/list-marker-style | mixed | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 9,
+        "column": 1,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                58,
+                59
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 10,
+        "column": 1,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                62,
+                63
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"+\" — this project's list marker is \"-\".",
+        "line": 12,
+        "column": 1,
+        "fix": {
+          "description": "change \"+\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                67,
+                68
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n- a\n- b\n\n- c\n- d\n\n- e\n"
+  },
+  "nimbus/list-marker-style | mixed | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 9,
+        "column": 1,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                58,
+                59
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 10,
+        "column": 1,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                62,
+                63
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"+\" — this project's list marker is \"-\".",
+        "line": 12,
+        "column": 1,
+        "fix": {
+          "description": "change \"+\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                67,
+                68
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n- a\n- b\n\n- c\n- d\n\n- e\n"
+  },
+  "nimbus/list-marker-style | mixed | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 9,
+        "column": 1,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                58,
+                59
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 10,
+        "column": 1,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                62,
+                63
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"+\" — this project's list marker is \"-\".",
+        "line": 12,
+        "column": 1,
+        "fix": {
+          "description": "change \"+\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                67,
+                68
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n- a\n- b\n\n- c\n- d\n\n- e\n"
+  },
+  "nimbus/list-marker-style | asterisk | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"-\" — this project's list marker is \"*\".",
+        "line": 6,
+        "column": 1,
+        "fix": {
+          "description": "change \"-\" to \"*\"",
+          "edits": [
+            {
+              "range": [
+                49,
+                50
+              ],
+              "text": "*"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n* a\n\n* b\n"
+  },
+  "nimbus/list-marker-style | asterisk | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"-\" — this project's list marker is \"*\".",
+        "line": 6,
+        "column": 1,
+        "fix": {
+          "description": "change \"-\" to \"*\"",
+          "edits": [
+            {
+              "range": [
+                49,
+                50
+              ],
+              "text": "*"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n* a\n\n* b\n"
+  },
+  "nimbus/list-marker-style | asterisk | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"-\" — this project's list marker is \"*\".",
+        "line": 6,
+        "column": 1,
+        "fix": {
+          "description": "change \"-\" to \"*\"",
+          "edits": [
+            {
+              "range": [
+                49,
+                50
+              ],
+              "text": "*"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n* a\n\n* b\n"
+  },
+  "nimbus/list-marker-style | nested | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 7,
+        "column": 3,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                55,
+                56
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"+\" — this project's list marker is \"-\".",
+        "line": 8,
+        "column": 5,
+        "fix": {
+          "description": "change \"+\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                63,
+                64
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 13,
+        "column": 3,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                85,
+                86
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n- a\n  - b\n    - c\n\n1. one\n2. two\n\n> - quoted\n"
+  },
+  "nimbus/list-marker-style | nested | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 7,
+        "column": 3,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                55,
+                56
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"+\" — this project's list marker is \"-\".",
+        "line": 8,
+        "column": 5,
+        "fix": {
+          "description": "change \"+\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                63,
+                64
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 13,
+        "column": 3,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                85,
+                86
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n- a\n  - b\n    - c\n\n1. one\n2. two\n\n> - quoted\n"
+  },
+  "nimbus/list-marker-style | nested | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 7,
+        "column": 3,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                55,
+                56
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"+\" — this project's list marker is \"-\".",
+        "line": 8,
+        "column": 5,
+        "fix": {
+          "description": "change \"+\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                63,
+                64
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 13,
+        "column": 3,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                85,
+                86
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n- a\n  - b\n    - c\n\n1. one\n2. two\n\n> - quoted\n"
+  },
+  "nimbus/list-marker-style | task | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 6,
+        "column": 1,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                49,
+                50
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 7,
+        "column": 1,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                60,
+                61
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n- [ ] todo\n- [x] done\n"
+  },
+  "nimbus/list-marker-style | task | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 6,
+        "column": 1,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                49,
+                50
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 7,
+        "column": 1,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                60,
+                61
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n- [ ] todo\n- [x] done\n"
+  },
+  "nimbus/list-marker-style | task | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 6,
+        "column": 1,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                49,
+                50
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/list-marker-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bullet uses \"*\" — this project's list marker is \"-\".",
+        "line": 7,
+        "column": 1,
+        "fix": {
+          "description": "change \"*\" to \"-\"",
+          "edits": [
+            {
+              "range": [
+                60,
+                61
+              ],
+              "text": "-"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n- [ ] todo\n- [x] done\n"
+  },
+  "nimbus/emphasis-style | default | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/emphasis-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "italic uses \"_…_\" — this project's emphasis marker is \"*\".",
+        "line": 6,
+        "column": 6,
+        "endLine": 6,
+        "endColumn": 9,
+        "fix": {
+          "description": "change the \"_\" delimiters to \"*\"",
+          "edits": [
+            {
+              "range": [
+                54,
+                55
+              ],
+              "text": "*"
+            },
+            {
+              "range": [
+                56,
+                57
+              ],
+              "text": "*"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nSome *a* and *b* and __c__ and **d**.\n"
+  },
+  "nimbus/emphasis-style | default | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/emphasis-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "italic uses \"_…_\" — this project's emphasis marker is \"*\".",
+        "line": 6,
+        "column": 6,
+        "endLine": 6,
+        "endColumn": 9,
+        "fix": {
+          "description": "change the \"_\" delimiters to \"*\"",
+          "edits": [
+            {
+              "range": [
+                54,
+                55
+              ],
+              "text": "*"
+            },
+            {
+              "range": [
+                56,
+                57
+              ],
+              "text": "*"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nSome *a* and *b* and __c__ and **d**.\n"
+  },
+  "nimbus/emphasis-style | default | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/emphasis-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "italic uses \"_…_\" — this project's emphasis marker is \"*\".",
+        "line": 6,
+        "column": 6,
+        "endLine": 6,
+        "endColumn": 9,
+        "fix": {
+          "description": "change the \"_\" delimiters to \"*\"",
+          "edits": [
+            {
+              "range": [
+                54,
+                55
+              ],
+              "text": "*"
+            },
+            {
+              "range": [
+                56,
+                57
+              ],
+              "text": "*"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nSome *a* and *b* and __c__ and **d**.\n"
+  },
+  "nimbus/emphasis-style | underscore | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/emphasis-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "italic uses \"*…*\" — this project's emphasis marker is \"_\".",
+        "line": 6,
+        "column": 14,
+        "endLine": 6,
+        "endColumn": 17,
+        "fix": {
+          "description": "change the \"*\" delimiters to \"_\"",
+          "edits": [
+            {
+              "range": [
+                62,
+                63
+              ],
+              "text": "_"
+            },
+            {
+              "range": [
+                64,
+                65
+              ],
+              "text": "_"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nSome _a_ and _b_.\n"
+  },
+  "nimbus/emphasis-style | underscore | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/emphasis-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "italic uses \"*…*\" — this project's emphasis marker is \"_\".",
+        "line": 6,
+        "column": 14,
+        "endLine": 6,
+        "endColumn": 17,
+        "fix": {
+          "description": "change the \"*\" delimiters to \"_\"",
+          "edits": [
+            {
+              "range": [
+                62,
+                63
+              ],
+              "text": "_"
+            },
+            {
+              "range": [
+                64,
+                65
+              ],
+              "text": "_"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nSome _a_ and _b_.\n"
+  },
+  "nimbus/emphasis-style | underscore | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/emphasis-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "italic uses \"*…*\" — this project's emphasis marker is \"_\".",
+        "line": 6,
+        "column": 14,
+        "endLine": 6,
+        "endColumn": 17,
+        "fix": {
+          "description": "change the \"*\" delimiters to \"_\"",
+          "edits": [
+            {
+              "range": [
+                62,
+                63
+              ],
+              "text": "_"
+            },
+            {
+              "range": [
+                64,
+                65
+              ],
+              "text": "_"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nSome _a_ and _b_.\n"
+  },
+  "nimbus/emphasis-style | nested | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/emphasis-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "italic uses \"_…_\" — this project's emphasis marker is \"*\".",
+        "line": 6,
+        "column": 8,
+        "endLine": 6,
+        "endColumn": 12,
+        "fix": {
+          "description": "change the \"_\" delimiters to \"*\"",
+          "edits": [
+            {
+              "range": [
+                56,
+                57
+              ],
+              "text": "*"
+            },
+            {
+              "range": [
+                59,
+                60
+              ],
+              "text": "*"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/emphasis-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "italic uses \"_…_\" — this project's emphasis marker is \"*\".",
+        "line": 6,
+        "column": 24,
+        "endLine": 6,
+        "endColumn": 45,
+        "fix": {
+          "description": "change the \"_\" delimiters to \"*\"",
+          "edits": [
+            {
+              "range": [
+                72,
+                73
+              ],
+              "text": "*"
+            },
+            {
+              "range": [
+                92,
+                93
+              ],
+              "text": "*"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/emphasis-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "italic uses \"_…_\" — this project's emphasis marker is \"*\".",
+        "line": 8,
+        "column": 6,
+        "endLine": 8,
+        "endColumn": 15,
+        "fix": {
+          "description": "change the \"_\" delimiters to \"*\"",
+          "edits": [
+            {
+              "range": [
+                100,
+                101
+              ],
+              "text": "*"
+            },
+            {
+              "range": [
+                108,
+                109
+              ],
+              "text": "*"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n**bold *in* bold** and *outer *inner* outer*\n\n## A *heading*\n"
+  },
+  "nimbus/emphasis-style | nested | md | gfmOff": {
+    "diagnostics": [
+      {
+        "code": "nimbus/emphasis-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "italic uses \"_…_\" — this project's emphasis marker is \"*\".",
+        "line": 6,
+        "column": 8,
+        "endLine": 6,
+        "endColumn": 12,
+        "fix": {
+          "description": "change the \"_\" delimiters to \"*\"",
+          "edits": [
+            {
+              "range": [
+                56,
+                57
+              ],
+              "text": "*"
+            },
+            {
+              "range": [
+                59,
+                60
+              ],
+              "text": "*"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/emphasis-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "italic uses \"_…_\" — this project's emphasis marker is \"*\".",
+        "line": 6,
+        "column": 24,
+        "endLine": 6,
+        "endColumn": 45,
+        "fix": {
+          "description": "change the \"_\" delimiters to \"*\"",
+          "edits": [
+            {
+              "range": [
+                72,
+                73
+              ],
+              "text": "*"
+            },
+            {
+              "range": [
+                92,
+                93
+              ],
+              "text": "*"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/emphasis-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "italic uses \"_…_\" — this project's emphasis marker is \"*\".",
+        "line": 8,
+        "column": 6,
+        "endLine": 8,
+        "endColumn": 15,
+        "fix": {
+          "description": "change the \"_\" delimiters to \"*\"",
+          "edits": [
+            {
+              "range": [
+                100,
+                101
+              ],
+              "text": "*"
+            },
+            {
+              "range": [
+                108,
+                109
+              ],
+              "text": "*"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n**bold *in* bold** and *outer *inner* outer*\n\n## A *heading*\n"
+  },
+  "nimbus/emphasis-style | nested | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/emphasis-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "italic uses \"_…_\" — this project's emphasis marker is \"*\".",
+        "line": 6,
+        "column": 8,
+        "endLine": 6,
+        "endColumn": 12,
+        "fix": {
+          "description": "change the \"_\" delimiters to \"*\"",
+          "edits": [
+            {
+              "range": [
+                56,
+                57
+              ],
+              "text": "*"
+            },
+            {
+              "range": [
+                59,
+                60
+              ],
+              "text": "*"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/emphasis-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "italic uses \"_…_\" — this project's emphasis marker is \"*\".",
+        "line": 6,
+        "column": 24,
+        "endLine": 6,
+        "endColumn": 45,
+        "fix": {
+          "description": "change the \"_\" delimiters to \"*\"",
+          "edits": [
+            {
+              "range": [
+                72,
+                73
+              ],
+              "text": "*"
+            },
+            {
+              "range": [
+                92,
+                93
+              ],
+              "text": "*"
+            }
+          ]
+        }
+      },
+      {
+        "code": "nimbus/emphasis-style",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "italic uses \"_…_\" — this project's emphasis marker is \"*\".",
+        "line": 8,
+        "column": 6,
+        "endLine": 8,
+        "endColumn": 15,
+        "fix": {
+          "description": "change the \"_\" delimiters to \"*\"",
+          "edits": [
+            {
+              "range": [
+                100,
+                101
+              ],
+              "text": "*"
+            },
+            {
+              "range": [
+                108,
+                109
+              ],
+              "text": "*"
+            }
+          ]
+        }
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n**bold *in* bold** and *outer *inner* outer*\n\n## A *heading*\n"
+  },
+  "nimbus/emphasis-style | intraword | md | default": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nsnake_case_word and in*side*word\n"
+  },
+  "nimbus/emphasis-style | intraword | md | gfmOff": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nsnake_case_word and in*side*word\n"
+  },
+  "nimbus/emphasis-style | intraword | md | headings": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nsnake_case_word and in*side*word\n"
+  },
+  "nimbus/bare-url | kinds | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/bare-url",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bare URL in prose — wrap it in descriptive link text: [what it is](url).",
+        "line": 6,
+        "column": 5,
+        "endLine": 6,
+        "endColumn": 24
+      },
+      {
+        "code": "nimbus/bare-url",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bare URL in prose — wrap it in descriptive link text: [what it is](url).",
+        "line": 6,
+        "column": 29,
+        "endLine": 6,
+        "endColumn": 44
+      },
+      {
+        "code": "nimbus/bare-url",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bare URL in prose — wrap it in descriptive link text: [what it is](url).",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 28
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nSee https://example.com and www.example.com and [docs](https://example.net).\n\nhttp://example.org/path?q=1 at the start.\n"
+  },
+  "nimbus/bare-url | kinds | md | gfmOff": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nSee https://example.com and www.example.com and [docs](https://example.net).\n\nhttp://example.org/path?q=1 at the start.\n"
+  },
+  "nimbus/bare-url | kinds | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/bare-url",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bare URL in prose — wrap it in descriptive link text: [what it is](url).",
+        "line": 6,
+        "column": 5,
+        "endLine": 6,
+        "endColumn": 24
+      },
+      {
+        "code": "nimbus/bare-url",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bare URL in prose — wrap it in descriptive link text: [what it is](url).",
+        "line": 6,
+        "column": 29,
+        "endLine": 6,
+        "endColumn": 44
+      },
+      {
+        "code": "nimbus/bare-url",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bare URL in prose — wrap it in descriptive link text: [what it is](url).",
+        "line": 8,
+        "column": 1,
+        "endLine": 8,
+        "endColumn": 28
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nSee https://example.com and www.example.com and [docs](https://example.net).\n\nhttp://example.org/path?q=1 at the start.\n"
+  },
+  "nimbus/bare-url | mailto | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/bare-url",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bare URL in prose — wrap it in descriptive link text: [what it is](url).",
+        "line": 6,
+        "column": 10,
+        "endLine": 6,
+        "endColumn": 29
+      },
+      {
+        "code": "nimbus/bare-url",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bare URL in prose — wrap it in descriptive link text: [what it is](url).",
+        "line": 6,
+        "column": 40,
+        "endLine": 6,
+        "endColumn": 57
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nWrite to someone@example.com or mailto:other@example.com.\n"
+  },
+  "nimbus/bare-url | mailto | md | gfmOff": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nWrite to someone@example.com or mailto:other@example.com.\n"
+  },
+  "nimbus/bare-url | mailto | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/bare-url",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bare URL in prose — wrap it in descriptive link text: [what it is](url).",
+        "line": 6,
+        "column": 10,
+        "endLine": 6,
+        "endColumn": 29
+      },
+      {
+        "code": "nimbus/bare-url",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bare URL in prose — wrap it in descriptive link text: [what it is](url).",
+        "line": 6,
+        "column": 40,
+        "endLine": 6,
+        "endColumn": 57
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\nWrite to someone@example.com or mailto:other@example.com.\n"
+  },
+  "nimbus/bare-url | in code and headings | md | default": {
+    "diagnostics": [
+      {
+        "code": "nimbus/bare-url",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bare URL in prose — wrap it in descriptive link text: [what it is](url).",
+        "line": 6,
+        "column": 8,
+        "endLine": 6,
+        "endColumn": 27
+      },
+      {
+        "code": "nimbus/bare-url",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bare URL in prose — wrap it in descriptive link text: [what it is](url).",
+        "line": 14,
+        "column": 3,
+        "endLine": 14,
+        "endColumn": 18
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## See https://example.com\n\n`https://example.com` and\n\n```txt\nhttps://example.com\n```\n\n- www.example.com\n"
+  },
+  "nimbus/bare-url | in code and headings | md | gfmOff": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## See https://example.com\n\n`https://example.com` and\n\n```txt\nhttps://example.com\n```\n\n- www.example.com\n"
+  },
+  "nimbus/bare-url | in code and headings | md | headings": {
+    "diagnostics": [
+      {
+        "code": "nimbus/bare-url",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bare URL in prose — wrap it in descriptive link text: [what it is](url).",
+        "line": 6,
+        "column": 8,
+        "endLine": 6,
+        "endColumn": 27
+      },
+      {
+        "code": "nimbus/bare-url",
+        "severity": "error",
+        "source": "docs-compiler",
+        "file": "x.md",
+        "message": "bare URL in prose — wrap it in descriptive link text: [what it is](url).",
+        "line": 14,
+        "column": 3,
+        "endLine": 14,
+        "endColumn": 18
+      }
+    ],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n## See https://example.com\n\n`https://example.com` and\n\n```txt\nhttps://example.com\n```\n\n- www.example.com\n"
+  },
+  "nimbus/bare-url | link text is url | md | default": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n[https://example.com](https://example.com) and [example.com](http://example.com)\n"
+  },
+  "nimbus/bare-url | link text is url | md | gfmOff": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n[https://example.com](https://example.com) and [example.com](http://example.com)\n"
+  },
+  "nimbus/bare-url | link text is url | md | headings": {
+    "diagnostics": [],
+    "fixed": "---\ntitle: Test\ndescription: A description.\n---\n\n[https://example.com](https://example.com) and [example.com](http://example.com)\n"
+  }
+}

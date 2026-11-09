@@ -1466,6 +1466,70 @@ test("nested sections: a collection in another slice is linked from the section 
   assert.doesNotMatch(body, /cli/);
 });
 
+test("nested sections: collection links follow the sidebar with the section's other sub-sections", async () => {
+  const projectRoot = await root();
+  const routes = new Map([
+    ["sdk", { mount: "/reference/sdk", file: "src/pages/reference/sdk/[...slug].astro", aliases: [] }],
+    ["cli", { mount: "/reference/cli", file: "src/pages/reference/cli/[...slug].astro", aliases: [] }],
+  ]);
+  const urls = collectionUrlsKey({ versions: null, routes });
+  commit(projectRoot, "docs", [
+    { id: "reference", body: "Reference", data: { title: "Reference" } },
+    { id: "reference/basics/a", body: "A", data: { title: "A" } },
+    { id: "reference/basics/b", body: "B", data: { title: "B" } },
+  ], urls);
+  commit(projectRoot, "sdk", [{ id: "start", body: "SDK", data: { title: "SDK start" } }], urls);
+  commit(projectRoot, "cli", [{ id: "start", body: "CLI", data: { title: "CLI start" } }], urls);
+  // The sidebar reads Reference, then SDK, CLI, Basics.
+  const order = ["/reference", "/reference/sdk/start", "/reference/cli/start", "/reference/basics/a", "/reference/basics/b"];
+  const options = {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+    nestedSections: true,
+    routes,
+    sidebarPosition: async () => (page: { url: string }) => {
+      const index = order.indexOf(page.url.replace(/\/$/, ""));
+      return index === -1 ? undefined : index;
+    },
+  };
+  configure(projectRoot, options);
+  await bakeAgentEndpointAssets(options);
+  const body = (await readLlmsEndpointPayload(projectRoot, { scope: "section", surface: "index", section: "reference" })).body;
+  const sections = [...body.matchAll(/\/(reference\/[a-z]+)\/llms\.txt/g)].map((match) => match[1]);
+  assert.deepEqual(sections, ["reference/sdk", "reference/cli", "reference/basics"]);
+});
+
+test("a section another slice builds is listed where the sidebar links it", async () => {
+  const { llmsSidebarPosition } = await import("../src/_internal/llms-order.ts");
+  const projectRoot = await root();
+  commit(projectRoot, "docs", [
+    { id: "guide", body: "Guide", data: { title: "Guide" } },
+    { id: "zeta", body: "Zeta", data: { title: "Zeta" } },
+  ]);
+  const link = (label: string, href: string) => ({ type: "link" as const, label, href, order: 0 });
+  const options = {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+    absentSections: [{ slug: "api", label: "API" }],
+    // The sidebar reads Zeta, API, Guide.
+    sidebarPosition: async () =>
+      llmsSidebarPosition({
+        tree: [link("Zeta", "/zeta/"), link("API", "/api/"), link("Guide", "/guide/")],
+        apiMounts: new Map(),
+        apiNavOrder: () => undefined,
+      }),
+  };
+  configure(projectRoot, options);
+  await bakeAgentEndpointAssets(options);
+  const body = (await readLlmsEndpointPayload(projectRoot, { scope: "site", surface: "index" })).body;
+  const rows = [...body.matchAll(/^- \[([^\]]+)\]/gm)].map((match) => match[1]);
+  assert.deepEqual(rows, ["Zeta", "API", "Guide"]);
+});
+
 test("without nested sections, a top-level section lists every page under it", async () => {
   const projectRoot = await root();
   commit(projectRoot, "docs", [
@@ -1737,4 +1801,85 @@ test("spec text can't add a page heading to an API page's Markdown or llms-full.
   const apiBlock = body.slice(body.indexOf("# Title # Forged"), body.indexOf("# Guide"));
   assert.ok(apiBlock.includes("### Foo"));
   assert.doesNotMatch(apiBlock, /Starts a registration/);
+});
+
+// An API page is listed in its sidebar group's index (`section`), not by URL
+// folder: a route convention's `methods/` folder is no section.
+const thinApi = (id: string, title: string, section?: string) => ({
+  collection: "api",
+  id,
+  data: { title, coordinate: id },
+  ...(section ? { section } : {}),
+});
+const renderThin = async (candidate: { data: Record<string, unknown> }) => `# ${String(candidate.data.title)}\n`;
+
+test("nested sections: API operations are listed under their resource, with no methods section", async () => {
+  const projectRoot = await root();
+  const options = {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+    nestedSections: true,
+    apiEntries: [
+      thinApi("zero-trust", "Zero Trust", "zero-trust"),
+      thinApi("zero-trust/ip-profiles", "IP Profiles", "zero-trust/ip-profiles"),
+      thinApi("zero-trust/ip-profiles/methods/create", "Create IP profile", "zero-trust/ip-profiles"),
+      thinApi("zero-trust/ip-profiles/methods/delete", "Delete IP profile", "zero-trust/ip-profiles"),
+      // A resource with one operation is a group of two, not a lone `methods` index.
+      thinApi("zero-trust/seats", "Seats", "zero-trust/seats"),
+      thinApi("zero-trust/seats/methods/edit", "Edit seats", "zero-trust/seats"),
+      // A resource with no operations is a page of its parent.
+      thinApi("zero-trust/settings", "Settings", "zero-trust"),
+    ],
+    renderApiEntryMarkdown: renderThin,
+  };
+  configure(projectRoot, options);
+  const manifest = await bakeAgentEndpointAssets(options);
+  assert.deepEqual(
+    manifest.llmsAssets.filter((asset) => asset.scope === "section").map((asset) => asset.section).sort(),
+    ["api", "api/zero-trust", "api/zero-trust/ip-profiles", "api/zero-trust/seats"],
+  );
+  const section = async (name: string) =>
+    (await readLlmsEndpointPayload(projectRoot, { scope: "section", surface: "index", section: name })).body;
+  assert.equal(
+    await section("api/zero-trust/ip-profiles"),
+    [
+      "# IP Profiles",
+      "",
+      "## Pages",
+      "",
+      "- [IP Profiles](https://example.test/docs/api/zero-trust/ip-profiles/index.md)",
+      "- [Create IP profile](https://example.test/docs/api/zero-trust/ip-profiles/methods/create/index.md)",
+      "- [Delete IP profile](https://example.test/docs/api/zero-trust/ip-profiles/methods/delete/index.md)",
+      "",
+    ].join("\n"),
+  );
+  assert.match(await section("api/zero-trust"), /\[Settings\][\s\S]*## Sections[\s\S]*ip-profiles\/llms\.txt[\s\S]*seats\/llms\.txt/);
+});
+
+test("nested sections: an API mounted at the root lists each operation in its tag's index", async () => {
+  const projectRoot = await root();
+  const options = {
+    root: projectRoot,
+    base: "/",
+    site: "https://example.test",
+    title: "Test",
+    nestedSections: true,
+    routes: new Map([["api", { mount: "", file: "src/pages/[...slug].astro", aliases: [] }]]),
+    apiEntries: [
+      thinApi("tags/user-management", "User management", "tags/user-management"),
+      thinApi("users/list", "List users", "tags/user-management"),
+      thinApi("users/create", "Create user", "tags/user-management"),
+    ],
+    renderApiEntryMarkdown: renderThin,
+  };
+  configure(projectRoot, options);
+  const manifest = await bakeAgentEndpointAssets(options);
+  assert.deepEqual(
+    manifest.llmsAssets.filter((asset) => asset.scope === "section").map((asset) => asset.section).sort(),
+    ["tags", "tags/user-management"],
+  );
+  const body = (await readLlmsEndpointPayload(projectRoot, { scope: "section", surface: "index", section: "tags/user-management" })).body;
+  assert.match(body, /\[User management\][\s\S]*\[Create user\]\(https:\/\/example\.test\/users\/create\/index\.md\)[\s\S]*\[List users\]/);
 });

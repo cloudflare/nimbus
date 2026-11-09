@@ -10,6 +10,7 @@
  * are external in tsdown and resolved at the consumer's build time.
  */
 
+import { llmsSidebarPosition } from "./_internal/llms-order.js";
 import {
   loadApiCollections,
   loadEmptyCollections,
@@ -40,6 +41,7 @@ import {
   applyOverviewLeaf,
   buildSidebarTree,
   collectSidebarCollectionRefs,
+  rewriteSidebarItemsForVersion,
   sidebarReadsPrimary,
   cloneSidebarTree,
   deriveSidebarSections,
@@ -101,6 +103,7 @@ import {
   projectConfiguredApiNav,
   projectConfiguredApiPage,
   projectConfiguredApiPageProps,
+  projectConfiguredApiVersionNav,
 } from "./_internal/api-projector.js";
 
 import type {
@@ -631,6 +634,67 @@ export async function renderIndexedEntryMarkdown(
   });
 }
 
+/** Each API version's landing page URL, by collection. */
+async function apiLandingsOf(apiCollections: ReadonlySet<string>): Promise<Map<string, string[]>> {
+  const { apiAssetTargets } = await import("./_internal/api/page-assets-runtime.js");
+  const landings = new Map<string, string[]>();
+  for (const collection of apiCollections) {
+    landings.set(collection, (await apiAssetTargets(collection)).map((target) => target.mountPath || "/"));
+  }
+  return landings;
+}
+
+/**
+ * Each API page's index in its version's nav, from wherever the build keeps
+ * that nav: the prepared nav on the overview entry, the page-asset index, or
+ * the model a thin entry renders from.
+ */
+async function apiNavOrderOf(
+  entries: readonly IndexedEntry[],
+  apiCollections: ReadonlySet<string>,
+): Promise<(collection: string, id: string) => number | undefined> {
+  const [{ apiLlmsPlacement }, { isPreparedApiPage }, assets] = await Promise.all([
+    import("./_internal/api/llms-sections.js"),
+    import("./_internal/api/prepared.js"),
+    import("./_internal/api/page-assets-runtime.js"),
+  ]);
+  type Version = { collection: string; version: string | null; navEntryId?: string; pages: Map<string, string> };
+  const versions = new Map<string, Version>();
+  for (const { collection, entry } of entries) {
+    if (!apiCollections.has(collection)) continue;
+    const data = entry.data as { coordinate?: unknown; version?: unknown; prepared?: unknown };
+    if (typeof data.coordinate !== "string") continue;
+    const version = typeof data.version === "string" ? data.version : null;
+    const key = `${collection}\0${version ?? ""}`;
+    let group = versions.get(key);
+    if (!group) versions.set(key, (group = { collection, version, pages: new Map() }));
+    group.pages.set(data.coordinate, entry.id);
+    if (isPreparedApiPage(data.prepared)) group.navEntryId = data.prepared.navEntryId;
+  }
+  const navItems = async ({ collection, version, navEntryId }: Version) => {
+    if (navEntryId !== undefined) {
+      // The nav rides on the API's overview entry, which the indexes may not list.
+      const prepared = ((await getVisibleEntry(collection, navEntryId))?.data as { prepared?: unknown } | undefined)?.prepared;
+      return isPreparedApiPage(prepared) ? prepared.nav?.nav.items : undefined;
+    }
+    if (await assets.hasApiPageAssets(collection)) {
+      const target = (await assets.apiAssetTargets(collection)).find((candidate) => version === null ? candidate.isDefault : candidate.version === version);
+      return target ? assets.apiAssetMetadata(await assets.readApiAssetIndex(target)).nav.nav.items : undefined;
+    }
+    return (await projectConfiguredApiVersionNav(collection, version)).items;
+  };
+  const order = new Map<string, number>();
+  for (const group of versions.values()) {
+    const items = await navItems(group);
+    if (!items) continue;
+    for (const [coordinate, index] of apiLlmsPlacement(items, (coordinate) => group.pages.get(coordinate)).order) {
+      order.set(`${group.collection}\0${group.pages.get(coordinate)}`, index);
+    }
+  }
+  return (collection, id) => order.get(`${collection}\0${id}`);
+}
+
+
 /**
  * Render the full published documentation as one Markdown document for the
  * `llms-full.txt` route. One fetch returns every discoverable current page as
@@ -672,14 +736,30 @@ export async function renderLlmsFullMarkdown(options?: {
   );
 
   const apiCollections = new Set(await loadApiCollections());
+  // Blocks follow the sidebar's reading order, as the indexes do.
+  const mountContext = await loadMountContext();
+  const position = llmsSidebarPosition({
+    tree: await buildStructuralTree(),
+    apiMounts: new Map([...apiCollections].map((collection) => [collection, resolveCollectionPrefix(collection, mountContext)])),
+    apiNavOrder: await apiNavOrderOf(entries, apiCollections),
+    apiLandings: await apiLandingsOf(apiCollections),
+    apiUrls: new Map(
+      [...apiCollections].map((collection) => [
+        collection,
+        included.filter((item) => item.collection === collection).map((item) => item.url),
+      ]),
+    ),
+  });
   const blocks = await Promise.all(
     included.map(async (item) => {
+      const placed = position({ collection: item.collection, id: item.entry.id, url: item.url });
       const block = {
         title: item.title,
         description: item.description,
         url: item.url,
         markdownUrl: item.markdownUrl,
         markdown: await renderIndexedEntryMarkdown(item, { base: options?.base }),
+        ...(placed !== undefined ? { position: placed } : {}),
       };
       return apiCollections.has(item.collection) ? apiLlmsFullBlock(block) : block;
     }),
@@ -813,6 +893,14 @@ export function clearNavCaches(): void {
   clearContentCaches();
 }
 
+// In `astro dev`, pages render in a module runner (Node's, or workerd's) with
+// its own copy of these caches. Astro tells each runner when the content store
+// changes, and clears its own route cache on the same event.
+(import.meta as { hot?: { on(event: string, cb: () => void): void } }).hot?.on(
+  "astro:content-changed",
+  clearNavCaches,
+);
+
 function deepFreeze(items: readonly SidebarItem[]): void {
   for (const item of items) {
     if (item.type === "group") deepFreeze(item.children);
@@ -945,38 +1033,6 @@ async function nestedCollectionCandidates(
   );
 }
 
-/**
- * Substitute the primary collection (`docs`) for `effectivePrimary`
- * inside any sidebar item that autogenerates from a named collection.
- * Used by `buildStructuralTree` to make version pages render their
- * own collection's sidebar instead of the current version's.
- */
-function rewriteSidebarItemsForVersion(
-  items: unknown[] | undefined,
-  effectivePrimary: string,
-): unknown[] | undefined {
-  if (!items) return items;
-  return items.map((item) => {
-    if (!item || typeof item !== "object") return item;
-    const o = item as Record<string, unknown>;
-    const autogen = o.autogenerate as
-      { collection?: string; directory?: string } | undefined;
-    if (autogen && autogen.collection === PRIMARY_COLLECTION) {
-      return {
-        ...o,
-        autogenerate: { ...autogen, collection: effectivePrimary },
-      };
-    }
-    // Nested groups recurse so per-group autogen items rewrite too.
-    if (Array.isArray(o.items)) {
-      return {
-        ...o,
-        items: rewriteSidebarItemsForVersion(o.items, effectivePrimary),
-      };
-    }
-    return item;
-  });
-}
 
 /**
  * Resolve prev/next links for the current page.
@@ -1421,9 +1477,12 @@ async function resolveProseRoute<C extends string>(
  * also claims `/`, so a site keeps one or the other.
  */
 export const getDocsStaticPaths: GetStaticPaths = async () => {
-  // Docs-specific helper: always reads the `docs` collection. Other
-  // collections require their own `pages/<name>/[...slug].astro` with
-  // a one-line `getCollection("<name>")`-based getStaticPaths.
+  // Docs-specific helper: always reads the `docs` collection; other
+  // collections use getCollectionStaticPaths. A site whose content.config.ts
+  // declares no `docs` keeps the starter's route with nothing to serve, so its
+  // URLs are 404s. A `docs` that's declared but isn't a page collection is
+  // still an error.
+  if (await loadPrimaryCollectionAbsent()) return [];
   await assertPageCollection(PRIMARY_COLLECTION);
   return collectionPaths(PRIMARY_COLLECTION, await getVisibleEntries(["docs"]));
 };

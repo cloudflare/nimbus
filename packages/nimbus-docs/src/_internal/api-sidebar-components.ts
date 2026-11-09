@@ -52,7 +52,9 @@ export function navBuildId(
 
 /**
  * `sidebar: "on-demand"` relies on two starter components: `ApiSidebarItem`
- * renders collapsed groups as loadable, and `ApiLayout` mounts the loader.
+ * renders collapsed groups as loadable, and the sidebar panel mounts the
+ * loader. The panel's marker may live in any component, since a site can
+ * render the sidebar outside `ApiLayout` (`ApiSidebarPanel`, or its own).
  * With older copies, collapsed groups never open and page-less categories
  * link nowhere, so the integration fails the build with this message. Sites
  * that replaced these components (no file at the starter's path) are not
@@ -65,17 +67,20 @@ export function outdatedApiSidebarError(
 ): string | undefined {
   const onDemand = api.filter((entry) => entry.sidebar === "on-demand");
   if (onDemand.length === 0) return undefined;
-  const expected: Array<[file: string, marker: string]> = [
-    ["components/ui/api-sidebar/ApiSidebarItem.astro", "childrenHref"],
-    ["components/ui/api-layout/ApiLayout.astro", "data-nb-nav-build"],
-  ];
-  const outdated = expected.flatMap(([file, marker]) => {
+  const read = (file: string): string | undefined => {
     try {
-      return fs.readFileSync(path.join(srcDir, file), "utf8").includes(marker) ? [] : [file];
+      return fs.readFileSync(path.join(srcDir, file), "utf8");
     } catch {
-      return [];
+      return undefined;
     }
-  });
+  };
+  const outdated: string[] = [];
+  const item = "components/ui/api-sidebar/ApiSidebarItem.astro";
+  const itemSource = read(item);
+  if (itemSource !== undefined && !itemSource.includes("childrenHref")) outdated.push(item);
+  const layout = "components/ui/api-layout/ApiLayout.astro";
+  const layoutSource = read(layout);
+  if (layoutSource !== undefined && !rendersNavPanel(layoutSource, srcDir)) outdated.push(layout);
   if (outdated.length === 0) return undefined;
   const collections = onDemand.map((e) => `"${e.collection}"`).join(", ");
   return (
@@ -87,4 +92,23 @@ export function outdatedApiSidebarError(
     `If it warns that the registry is older than this project, the new components aren't published yet; ` +
     `keep \`sidebar: "full"\` until they are.`
   );
+}
+
+const NAV_PANEL_MARKER = "data-nb-nav-build";
+
+// The layout mounts the on-demand loader itself, or renders a component that
+// does: `ApiSidebarPanel`, or a site's own. A panel installed but not
+// rendered doesn't count.
+function rendersNavPanel(layoutSource: string, srcDir: string): boolean {
+  if (layoutSource.includes(NAV_PANEL_MARKER)) return true;
+  for (const file of walkFilesSync(path.join(srcDir, "components"), {
+    onReadError: "lenient",
+    extensions: [".astro"],
+  })) {
+    const name = path.basename(file.rel, ".astro");
+    if (new RegExp(`<${name}[\\s/>]`).test(layoutSource) && fs.readFileSync(file.abs, "utf8").includes(NAV_PANEL_MARKER)) {
+      return true;
+    }
+  }
+  return false;
 }

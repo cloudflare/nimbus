@@ -128,15 +128,21 @@ A page of your own can show the same sidebar as the API pages. `getApiNav` retur
 
 ```astro title="src/pages/cli.astro"
 ---
+import DocsLayout from "@/layouts/DocsLayout.astro";
+import { ApiSidebarPanel } from "@/components/ui/api-sidebar";
 import { getApiNav } from "@cloudflare/nimbus-docs/runtime";
-import { ApiSidebar } from "@/components/ui/api-sidebar";
 
 const result = await getApiNav(Astro, { collection: "api", href: "/api/d1/" });
 if (!result) return Astro.redirect("/404");
 ---
 
-<ApiSidebar items={result.nav.items} />
+<DocsLayout title="D1 CLI">
+  <ApiSidebarPanel slot="sidebar" nav={result.nav} version={result.version} />
+  <!-- the page -->
+</DocsLayout>
 ```
+
+`ApiSidebarPanel` is the sidebar `ApiLayout` renders: the filter, which searches the whole API when groups load on demand, groups that load when opened, and open groups and scroll kept across pages. `<li>` rows you put inside it, such as an overview link, come before the API's rows.
 
 Write `href` as the sidebar writes its own links: the API's mount path and, in query-version mode, its `?version=`, without the site base. `result.version` is the version it resolved to.
 

@@ -25,6 +25,8 @@ export interface ConfiguredApiProjectors {
   pageProps: ConfiguredApiPagePropsProjector;
   /** A page's navigation alone, without projecting the page. */
   nav: ConfiguredApiNavProjector;
+  /** A version's whole navigation, with no page active, for reading order. */
+  versionNav: (collection: string, version: string | null) => Promise<ApiNav>;
 }
 
 interface ApiProjectorState {
@@ -81,4 +83,9 @@ export function projectConfiguredApiNav(
   coordinate: string,
 ): Promise<ApiNav> {
   return configuredProjectors().nav(collection, version, coordinate);
+}
+
+/** A configured API version's whole navigation, for reading order. */
+export function projectConfiguredApiVersionNav(collection: string, version: string | null): Promise<ApiNav> {
+  return configuredProjectors().versionNav(collection, version);
 }

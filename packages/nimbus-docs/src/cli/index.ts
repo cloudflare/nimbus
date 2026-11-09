@@ -540,7 +540,7 @@ async function addCommand(
       `Resolved ${items.length} item${items.length === 1 ? "" : "s"}.`,
     );
   } catch (err) {
-    spinner.stop("Failed to resolve.");
+    spinner.error("Failed to resolve.");
     p.log.error((err as Error).message);
     process.exit(1);
   }
@@ -736,7 +736,7 @@ async function runAdapterInstall(
         spinner.stop(`Installed ${deps.length} dep${deps.length === 1 ? "" : "s"}.`);
         return { ok: true };
       } catch {
-        spinner.stop("Dependency install failed.");
+        spinner.error("Dependency install failed.");
         return {
           ok: false,
           message: `Couldn't install ${deps.join(", ")}. Run \`${display}\` manually, then re-run.`,
