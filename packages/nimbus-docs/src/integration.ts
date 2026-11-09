@@ -3758,6 +3758,8 @@ export function nimbus(
         if (agents.isAgentEndpointAssetRequested(projectRootForBuild))
           await agents.stageAgentEndpointAssets(projectRootForBuild, target);
         const agentsStaged = performance.now();
+        const { deployTryItPlans } = await import("./_internal/try-it/stage.js");
+        await deployTryItPlans(projectRootForBuild, target);
         const { apiNavListFiles } = await import("./_internal/api/nav-list.js");
         // A slice stages only the API collections it holds (see the
         // client-side staging plugin for the same rule).
@@ -3929,6 +3931,11 @@ export function nimbus(
         const distDir = fileURLToPath(dir);
         // Relative images the Markdown versions point at (markdown-images.ts).
         copyMarkdownImages(distDir, projectRootForBuild);
+        // Try it's request plans, for a static build (a server build copied them at build:ssr).
+        if (outputModeForBuild === "static") {
+          const { deployTryItPlans } = await import("./_internal/try-it/stage.js");
+          await deployTryItPlans(projectRootForBuild, distDir);
+        }
         // The build has read every page; a failed build releases at exit.
         releaseContentSourceLeases(projectRootForBuild);
         // A slice without the root collection: its site-wide files go under

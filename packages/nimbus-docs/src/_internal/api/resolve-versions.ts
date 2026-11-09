@@ -21,6 +21,7 @@
  * `mountPath` = `/family`).
  */
 
+import { resolveTryIt, type ResolvedTryIt } from "../try-it/config.js";
 import type {
   ApiRoutePolicy,
   ApiSamples,
@@ -65,6 +66,8 @@ export interface ResolvedApiVersion {
   publishSpec: boolean;
   /** Code sample policy. Family-wide. */
   samples?: ApiSamples;
+  /** Try it, with its defaults applied; absent when off. Family-wide. */
+  tryIt?: ResolvedTryIt;
   /** `x-*` names copied onto pages. Version override, else family. */
   extensions?: string[];
   /** Route convention for this target, or `undefined` for legacy operationId URLs. */
@@ -140,6 +143,7 @@ export function resolveApiFamily(entry: ApiSpec, familyPath: string): ResolvedAp
         schemaPages: entry.schemaPages ?? false,
         publishSpec: entry.publishSpec ?? true,
         samples: entry.samples,
+        ...tryItOf(entry),
         ...(entry.extensions ? { extensions: entry.extensions } : {}),
         routes: asRoutePolicy(entry.routes),
         sidebar: entry.sidebar ?? "full",
@@ -168,6 +172,7 @@ export function resolveApiFamily(entry: ApiSpec, familyPath: string): ResolvedAp
       schemaPages: entry.schemaPages ?? false,
       publishSpec: v.publishSpec ?? entry.publishSpec ?? true,
       samples: entry.samples,
+      ...tryItOf(entry),
       ...((v.extensions ?? entry.extensions) ? { extensions: v.extensions ?? entry.extensions } : {}),
       routes: asRoutePolicy(v.routes),
       sidebar: entry.sidebar ?? "full",
@@ -175,6 +180,11 @@ export function resolveApiFamily(entry: ApiSpec, familyPath: string): ResolvedAp
       versionParam: versionQueryParam(entry),
     };
   });
+}
+
+function tryItOf(entry: ApiSpec): { tryIt?: ResolvedTryIt } {
+  const tryIt = resolveTryIt(entry.tryIt);
+  return tryIt ? { tryIt } : {};
 }
 
 /** The query parameter that carries the version in query mode, by default. */

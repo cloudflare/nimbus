@@ -1,0 +1,263 @@
+// serializeRequest against OpenAPI's style examples and the support table.
+
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
+
+import type { PlanParam, RequestPlan, RequestValues } from "../src/_internal/try-it/plan.js";
+import { serializeRequest } from "../src/_internal/try-it/serialize.js";
+
+const param = (over: Partial<PlanParam> & Pick<PlanParam, "in" | "name">): PlanParam => {
+  const style = over.style ?? (over.in === "query" || over.in === "cookie" ? "form" : "simple");
+  return { required: over.in === "path", style, explode: style === "form", allowReserved: false, schema: {}, ...over };
+};
+
+const plan = (over: Partial<RequestPlan> = {}): RequestPlan => ({
+  kind: "openapi-http",
+  id: { family: "api", coordinate: "op" },
+  method: "GET",
+  path: "/items",
+  openapi: "3.1",
+  servers: [{ url: "https://api.example.com/v1", variables: [] }],
+  params: [],
+  auth: [],
+  ...over,
+});
+
+const send = (p: RequestPlan, values: Partial<RequestValues> = {}) => {
+  const out = serializeRequest(p, { params: {}, ...values });
+  if ("refused" in out) throw new Error(`refused: ${out.refused}`);
+  return out;
+};
+const refused = (p: RequestPlan, values: Partial<RequestValues> = {}) => {
+  const out = serializeRequest(p, { params: {}, ...values });
+  assert.ok("refused" in out, "expected a refusal");
+  return out.refused;
+};
+
+const blue = "blue";
+const list = ["blue", "black", "brown"];
+const rgb = { R: 100, G: 200, B: 150 };
+
+describe("OpenAPI's style examples", () => {
+  const pathCase = (style: string, explode: boolean, value: unknown) =>
+    send(plan({ path: "/c/{color}", params: [param({ in: "path", name: "color", style, explode })] }), {
+      params: { "path:color": value },
+    }).url.replace("https://api.example.com/v1/c/", "");
+  const queryCase = (style: string, explode: boolean, value: unknown) =>
+    send(plan({ params: [param({ in: "query", name: "color", style, explode })] }), {
+      params: { "query:color": value },
+    }).url.replace("https://api.example.com/v1/items?", "");
+
+  const table: [string, boolean, (s: string, e: boolean, v: unknown) => string, [string, string, string]][] = [
+    ["simple", false, pathCase, ["blue", "blue,black,brown", "R,100,G,200,B,150"]],
+    ["simple", true, pathCase, ["blue", "blue,black,brown", "R=100,G=200,B=150"]],
+    ["label", false, pathCase, [".blue", ".blue,black,brown", ".R,100,G,200,B,150"]],
+    ["label", true, pathCase, [".blue", ".blue.black.brown", ".R=100.G=200.B=150"]],
+    ["matrix", false, pathCase, [";color=blue", ";color=blue,black,brown", ";color=R,100,G,200,B,150"]],
+    ["matrix", true, pathCase, [";color=blue", ";color=blue;color=black;color=brown", ";R=100;G=200;B=150"]],
+    ["form", false, queryCase, ["color=blue", "color=blue,black,brown", "color=R,100,G,200,B,150"]],
+    ["form", true, queryCase, ["color=blue", "color=blue&color=black&color=brown", "R=100&G=200&B=150"]],
+  ];
+  for (const [style, explode, run, [scalar, array, object]] of table) {
+    test(`${style}, explode ${explode}`, () => {
+      assert.equal(run(style, explode, blue), scalar);
+      assert.equal(run(style, explode, list), array);
+      assert.equal(run(style, explode, rgb), object);
+    });
+  }
+
+  test("spaceDelimited and pipeDelimited, unexploded, arrays and objects", () => {
+    assert.equal(queryCase("spaceDelimited", false, list), "color=blue%20black%20brown");
+    assert.equal(queryCase("spaceDelimited", false, rgb), "color=R%20100%20G%20200%20B%20150");
+    assert.equal(queryCase("pipeDelimited", false, list), "color=blue%7Cblack%7Cbrown");
+  });
+
+  test("deepObject", () => {
+    assert.equal(queryCase("deepObject", true, rgb), "color[R]=100&color[G]=200&color[B]=150");
+  });
+
+  test("empty values", () => {
+    assert.equal(pathCase("matrix", false, ""), ";color");
+    assert.equal(queryCase("form", true, ""), "color=");
+  });
+
+  test("allowReserved keeps reserved characters in a query value", () => {
+    const p = plan({ params: [param({ in: "query", name: "q", allowReserved: true })] });
+    assert.equal(send(p, { params: { "query:q": "a/b?c:d" } }).url, "https://api.example.com/v1/items?q=a/b?c:d");
+    const strict = plan({ params: [param({ in: "query", name: "q" })] });
+    assert.equal(send(strict, { params: { "query:q": "a/b?c:d" } }).url, "https://api.example.com/v1/items?q=a%2Fb%3Fc%3Ad");
+  });
+
+  test("a JSON content parameter is sent as its JSON text", () => {
+    const p = plan({ params: [param({ in: "query", name: "filter", content: "application/json" })] });
+    assert.equal(send(p, { params: { "query:filter": { a: 1 } } }).url, "https://api.example.com/v1/items?filter=%7B%22a%22%3A1%7D");
+  });
+});
+
+describe("undefined combinations are refused, the rest sent", () => {
+  test("delimited with explode, deepObject without it, a style outside its location", () => {
+    assert.match(refused(plan({ params: [param({ in: "query", name: "c", style: "spaceDelimited", explode: true })] }), { params: { "query:c": list } }), /explode/);
+    assert.match(refused(plan({ params: [param({ in: "query", name: "c", style: "deepObject", explode: false })] }), { params: { "query:c": rgb } }), /deepObject/);
+    assert.match(refused(plan({ params: [param({ in: "header", name: "X-C", style: "form" })] }), { params: { "header:X-C": "a" } }), /form style/);
+    assert.match(refused(plan({ params: [param({ in: "query", name: "c", style: "deepObject", explode: true })] }), { params: { "query:c": { a: { b: 1 } } } }), /nested/);
+  });
+
+  test("absent, empty and required", () => {
+    const p = plan({ params: [param({ in: "query", name: "opt" }), param({ in: "query", name: "req", required: true })] });
+    assert.match(refused(p), /Fill in req/);
+    assert.equal(send(p, { params: { "query:req": "" } }).url, "https://api.example.com/v1/items?req=");
+    assert.equal(send(p, { params: { "query:req": "x", "query:opt": "" } }).url, "https://api.example.com/v1/items?opt=&req=x");
+  });
+
+  test("path values are encoded into one segment; dot segments refused", () => {
+    const p = plan({ path: "/f/{id}", params: [param({ in: "path", name: "id" })] });
+    for (const bad of [".", ".."]) assert.match(refused(p, { params: { "path:id": bad } }), /can't be \. or \.\./);
+    assert.equal(send(p, { params: { "path:id": "a%2Fb" } }).url, "https://api.example.com/v1/f/a%252Fb");
+    assert.equal(send(p, { params: { "path:id": "a b" } }).url, "https://api.example.com/v1/f/a%20b");
+    assert.equal(send(p, { params: { "path:id": "Europe/London" } }).url, "https://api.example.com/v1/f/Europe%2FLondon");
+  });
+
+  test("header parameters", () => {
+    const p = plan({ params: [param({ in: "header", name: "X-Tags" }), param({ in: "header", name: "Accept", ignored: true })] });
+    assert.deepEqual(send(p, { params: { "header:X-Tags": list, "header:Accept": "x" } }).headers, [["X-Tags", "blue,black,brown"]]);
+    assert.match(refused(p, { params: { "header:X-Tags": "a\r\nb" } }), /line break/);
+    assert.match(refused(plan({ params: [param({ in: "header", name: "Host" })] }), { params: { "header:Host": "x" } }), /can't be sent/);
+  });
+
+  test("TRACE and a body on GET", () => {
+    assert.match(refused(plan({ method: "TRACE", refused: "TRACE requests can't be sent from here." })), /TRACE/);
+    const get = plan({ body: { required: false, media: [{ mediaType: "application/json", kind: "json" }], examples: [] } });
+    assert.match(refused(get, { body: { mediaType: "application/json", value: {} } }), /GET request can't carry a body/);
+  });
+});
+
+describe("cookies, one header by Nimbus's convention", () => {
+  test("scalars, arrays and objects; percent-encoding outside cookie-octet", () => {
+    const p = plan({
+      params: [
+        param({ in: "cookie", name: "s", explode: false }),
+        param({ in: "cookie", name: "a", explode: false }),
+        param({ in: "cookie", name: "e" }),
+        param({ in: "cookie", name: "o" }),
+      ],
+      auth: [{ label: "API key in cookie", schemes: [{ scheme: "k", type: "apiKey", in: "cookie", name: "key" }] }],
+    });
+    const out = send(p, {
+      params: { "cookie:s": "a b;c", "cookie:a": ["x", "y"], "cookie:e": ["1", "2"], "cookie:o": { k: "v" } },
+      auth: { alternative: 0, credentials: { k: "sec" } },
+    });
+    assert.deepEqual(out.headers, [["Cookie", "s=a%20b%3Bc; a=x,y; e=1; e=2; k=v; key=sec"]]);
+  });
+});
+
+describe("servers", () => {
+  test("variables: path ones as one segment, authority ones as given", () => {
+    const p = plan({
+      servers: [{
+        url: "https://{region}.example.com/{base}",
+        variables: [
+          { name: "region", default: "eu", enum: ["eu", "us"], authority: true },
+          { name: "base", default: "v1", authority: false },
+        ],
+      }],
+    });
+    assert.equal(send(p).url, "https://eu.example.com/v1/items");
+    assert.equal(send(p, { server: { index: 0, variables: { region: "us", base: "v 2" } } }).url, "https://us.example.com/v%202/items");
+    assert.match(refused(p, { server: { index: 0, variables: { base: "a/b" } } }), /one path segment/);
+  });
+
+  test("relative servers and the default / resolve against the spec URL, else the docs origin", () => {
+    const rel = plan({ servers: [{ url: "/api", variables: [] }] });
+    assert.equal(serializeRequestUrl(rel, "https://docs.example.com"), "https://docs.example.com/api/items");
+    assert.equal(serializeRequestUrl({ ...rel, specUrl: "https://spec.example.com/x/openapi.json" }, "https://docs.example.com"), "https://spec.example.com/api/items");
+    assert.equal(serializeRequestUrl(plan({ servers: [{ url: "/", variables: [] }] }), "https://docs.example.com"), "https://docs.example.com/items");
+  });
+
+  test("an edited origin keeps the spec server's path", () => {
+    const out = send(plan(), { server: { index: 0, origin: "https://staging.example.com" } });
+    assert.equal(out.url, "https://staging.example.com/v1/items");
+    assert.match(refused(plan(), { server: { index: 0, origin: "https://staging.example.com/other" } }), /origin only/);
+    assert.match(refused(plan(), { server: { index: 0, origin: "ftp://x" } }), /http or https/);
+  });
+
+  test("a server's own query stays before the parameters", () => {
+    const p = plan({ servers: [{ url: "https://x.test/v1?key=1", variables: [] }], params: [param({ in: "query", name: "q" })] });
+    assert.equal(send(p, { params: { "query:q": "a" } }).url, "https://x.test/v1/items?key=1&q=a");
+  });
+
+  test("a non-http server is refused", () => {
+    assert.match(refused(plan({ servers: [{ url: "ws://x.test", variables: [] }] })), /http or https/);
+  });
+});
+
+function serializeRequestUrl(p: RequestPlan, origin: string): string {
+  const out = serializeRequest(p, { params: {} }, { origin });
+  if ("refused" in out) throw new Error(out.refused);
+  return out.url;
+}
+
+describe("auth", () => {
+  const schemes = plan({
+    auth: [
+      { label: "Bearer token", schemes: [{ scheme: "bearer", type: "bearer" }] },
+      { label: "Username and password", schemes: [{ scheme: "basic", type: "basic" }] },
+      { label: "API key in query", schemes: [{ scheme: "q", type: "apiKey", in: "query", name: "api_key" }] },
+      { label: "No auth", schemes: [] },
+      { label: "x (not supported here)", schemes: [], unsupported: "Mutual TLS can't be sent from a browser." },
+    ],
+  });
+  test("each type, with its secrets marked", () => {
+    const bearer = send(schemes, { auth: { alternative: 0, credentials: { bearer: "tok" } } });
+    assert.deepEqual(bearer.headers, [["Authorization", "Bearer tok"]]);
+    assert.deepEqual(bearer.secrets, [{ value: "tok", label: "token" }]);
+    const basic = send(schemes, { auth: { alternative: 1, credentials: { basic: { username: "ü", password: "p" } } } });
+    assert.deepEqual(basic.headers, [["Authorization", `Basic ${Buffer.from("ü:p").toString("base64")}`]]);
+    assert.equal(send(schemes, { auth: { alternative: 2, credentials: { q: "k y" } } }).url, "https://api.example.com/v1/items?api_key=k%20y");
+    assert.deepEqual(send(schemes, { auth: { alternative: 3, credentials: {} } }).headers, []);
+    assert.match(refused(schemes, { auth: { alternative: 4, credentials: {} } }), /Mutual TLS/);
+    assert.match(refused(schemes, { auth: { alternative: 0, credentials: {} } }), /Enter the token/);
+  });
+});
+
+describe("bodies", () => {
+  const post = (kind: "json" | "form" | "multipart" | "text" | "bytes", mediaType: string, required = true) =>
+    plan({ method: "POST", body: { required, media: [{ mediaType, kind }], examples: [] } });
+
+  test("JSON: the editor's text, as typed; invalid JSON refused", () => {
+    const out = send(post("json", "application/json"), { body: { mediaType: "application/json", value: '{"a": 1}' } });
+    assert.deepEqual(out.body, { kind: "json", mediaType: "application/json", text: '{"a": 1}' });
+    assert.deepEqual(out.headers, [["Content-Type", "application/json"]]);
+    assert.match(refused(post("json", "application/json"), { body: { mediaType: "application/json", value: "{" } }), /valid JSON/);
+  });
+
+  test("a URL-encoded form keeps order and repeats", () => {
+    const out = send(post("form", "application/x-www-form-urlencoded"), {
+      body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "a", value: "1" }, { name: "a", value: "x y" }] } },
+    });
+    assert.deepEqual(out.body, { kind: "form", fields: [{ name: "a", value: "1" }, { name: "a", value: "x y" }] });
+  });
+
+  test("multipart parts keep files and their content types", () => {
+    const file = new Blob(["hi"], { type: "text/plain" });
+    const out = send(post("multipart", "multipart/form-data"), {
+      body: { mediaType: "multipart/form-data", value: { fields: [{ name: "f", value: file, filename: "a.txt" }, { name: "n", value: "x" }] } },
+    });
+    assert.equal(out.body?.kind, "multipart");
+    assert.equal(out.headers.length, 0, "the client writes the multipart Content-Type with its boundary");
+  });
+
+  test("a required body must be sent; an optional one may be left out", () => {
+    assert.match(refused(post("json", "application/json")), /needs a body/);
+    assert.equal(send(post("json", "application/json", false)).body, undefined);
+  });
+
+  test("raw text and bytes", () => {
+    assert.deepEqual(send(post("text", "application/xml"), { body: { mediaType: "application/xml", value: "<a/>" } }).body, {
+      kind: "text",
+      mediaType: "application/xml",
+      text: "<a/>",
+    });
+    const bytes = send(post("bytes", "application/octet-stream"), { body: { mediaType: "application/octet-stream", value: new Blob([new Uint8Array([1, 2])]) } });
+    assert.equal(bytes.body?.kind, "bytes");
+  });
+});

@@ -19,6 +19,7 @@ import {
   sectionCoordinate,
   tagRouteSegment,
 } from "./coordinates.js";
+import { buildRequestPlan, stagedPlan } from "./request-plan.js";
 import { pointer, pointerAt } from "./pointer.js";
 import { bodyScalarShape } from "./schemas.js";
 import { resolveOperationRoute, routeSlugFault } from "./route-policy.js";
@@ -42,6 +43,7 @@ import type {
 import { dedupeParameters, mediaExample, resolveAuth } from "./facts.js";
 import {
   buildOperationSamples,
+  sampleParamValues,
   resolveExampleValue,
   resolveNamedExampleValues,
 } from "./samples.js";
@@ -487,6 +489,29 @@ export function assembleOperation(ctx: ParseContext, site: OperationSite): Opera
       generate: ctx.samples.generate,
       keepGenerated: ctx.samples.keepGenerated,
     });
+  }
+  if (site.sampleTarget && ctx.tryIt && op["x-nimbus-try-it"] !== false) {
+    const pathItem = ctx.doc.paths?.[site.sampleTarget.path];
+    facts.tryIt = stagedPlan(buildRequestPlan({
+      id: {
+        family: ctx.tryIt.family,
+        ...(ctx.tryIt.version ? { version: ctx.tryIt.version } : {}),
+        coordinate: coord,
+      },
+      method: site.sampleTarget.method,
+      path: site.sampleTarget.path,
+      ...(ctx.doc.openapi ? { openapiVersion: ctx.doc.openapi } : {}),
+      servers: [op.servers, pathItem?.servers, ctx.doc.servers],
+      params: allParams,
+      sampleValues: sampleParamValues(ctx.sampleTools, allParams),
+      media: mediaEntries,
+      bodyRequired: facts.bodyRequired === true,
+      ...(facts.bodyDescription ? { bodyDescription: facts.bodyDescription } : {}),
+      ...(facts.example ? { bodyExample: facts.example } : {}),
+      ...(facts.requestExamples ? { bodyExamples: facts.requestExamples.map(({ id, label, value }) => ({ id, label, value })) } : {}),
+      auth,
+      ...(ctx.doc.components?.securitySchemes ? { securitySchemes: ctx.doc.components.securitySchemes } : {}),
+    }));
   }
   const extensions = extensionValues(ctx.extensions, op);
   if (extensions) facts.extensions = extensions;

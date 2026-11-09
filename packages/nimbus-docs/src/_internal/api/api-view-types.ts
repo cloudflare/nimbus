@@ -4,6 +4,7 @@
  * The projection that produces these shapes lives in `view-model.ts`.
  */
 
+import type { TryItInfo, TryItSource } from "../try-it/plan.js";
 import type { RoutePolicy } from "./route-policy.js";
 import type { ApiExtensionValues, ApiJsonValue, ApiSamples, PrevNext } from "../../types.js";
 
@@ -45,6 +46,8 @@ export interface SpecSource {
   samples?: ApiSamples;
   /** `x-*` extension names whose values are copied onto pages. */
   extensions?: readonly string[];
+  /** Try it: the plan's identity and how requests may travel. Absent: off. */
+  tryIt?: TryItSource;
 }
 
 declare const ApiModelBrand: unique symbol;
@@ -222,6 +225,8 @@ export interface ApiOperationPage extends ApiPageBase {
   samples: ApiCodeSampleView[];
   /** The listed `x-*` fields this operation declares (`api[].extensions`). */
   extensions?: ApiExtensionValues;
+  /** Try it, when the API has it on: the plan to load on click and how it can travel. */
+  tryIt?: TryItInfo;
 }
 
 export interface ApiExampleView {

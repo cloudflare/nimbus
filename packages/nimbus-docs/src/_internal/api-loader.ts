@@ -33,6 +33,7 @@ import {
 } from "./api/resolve-versions.js";
 import type { ApiSidebarMode, ApiSpec } from "../types.js";
 import { unwrapModel } from "./api/model-handle.js";
+import type { OperationFacts } from "./api/model.js";
 import { operationPaths } from "./api/view-model.js";
 import {
   apiNavList,
@@ -71,6 +72,17 @@ export async function stageApiModelNavList(
   );
   await stageApiNavList(root, list);
   recordApiNavList(root, collection, version, list.filename, onDemandSidebar);
+}
+
+/** Write each of the model's Try it plans into the staging folder, where the
+ * dev server serves it and the build deploys it from (`_nimbus/try-it/`).
+ * Files are named by their content, so an unchanged plan is left alone. */
+export async function stageApiTryItPlans(root: string, model: ApiModel): Promise<void> {
+  const { stageTryItPlan } = await import("./try-it/stage.js");
+  for (const node of unwrapModel(model).nodes.values()) {
+    const tryIt = node.kind === "operation" ? (node.facts as OperationFacts).tryIt : undefined;
+    if (tryIt) await stageTryItPlan(root, tryIt.file, JSON.stringify(tryIt.plan));
+  }
 }
 
 /** Where a projected page's navigation is bounded. Omitted = the full tree. */

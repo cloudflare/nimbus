@@ -10,6 +10,7 @@
  * derive an identical `SpecSource` and each parses at most once per graph.
  */
 
+import type { TryItSource } from "../try-it/plan.js";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -32,6 +33,7 @@ export interface ApiSpecEntry {
   routes?: RoutePolicy;
   samples?: ApiSamples;
   extensions?: readonly string[];
+  tryIt?: TryItSource;
 }
 
 export async function resolveSpecSource(
@@ -47,6 +49,7 @@ export async function resolveSpecSource(
   const schemaPages = entry.schemaPages ? { schemaPages: true as const } : {};
   const samples = entry.samples?.keepGenerated?.length || entry.samples?.generate ? { samples: entry.samples } : {};
   const extensions = entry.extensions?.length ? { extensions: entry.extensions } : {};
+  const tryIt = entry.tryIt ? { tryIt: entry.tryIt } : {};
 
   if (typeof entry.spec !== "string") {
     return {
@@ -61,6 +64,7 @@ export async function resolveSpecSource(
       ...schemaPages,
       ...samples,
       ...extensions,
+      ...tryIt,
     };
   }
 
@@ -91,5 +95,6 @@ export async function resolveSpecSource(
     ...schemaPages,
     ...samples,
     ...extensions,
+    ...tryIt,
   };
 }

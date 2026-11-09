@@ -749,6 +749,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
         resolveApiFamily,
         resolveSpecSource,
         stageApiModelNavList,
+        stageApiTryItPlans,
         targetUrlFields,
       } = await loadApiLoader();
 
@@ -793,7 +794,10 @@ export function apiCollection(options?: ApiCollectionOptions): {
         extensions,
         routes,
         sidebar,
+        ...(entry?.tryIt !== undefined ? { tryIt: entry.tryIt } : {}),
       }, collectionMountPrefix(collection, getMountContext(context.config.root)));
+      // The proxy runs wherever the site serves on-request routes: with a server adapter.
+      const proxyRuns = Boolean(astroConfig.adapter);
 
       // M4: a non-default version id must not collide with a top-level page
       // slug of the default version (both would claim `/<collection>/<id>`).
@@ -872,6 +876,17 @@ export function apiCollection(options?: ApiCollectionOptions): {
                 routes: target.routes,
                 samples: target.samples,
                 extensions: target.extensions,
+                ...(target.tryIt
+                  ? {
+                      tryIt: {
+                        family: collection,
+                        ...(target.version ? { version: target.version } : {}),
+                        proxy: target.tryIt.proxy !== false && proxyRuns,
+                        credentials: target.tryIt.credentials,
+                        servers: target.tryIt.servers,
+                      },
+                    }
+                  : {}),
               },
               rootDir,
             );
@@ -899,6 +914,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
               model,
               target.sidebar === "on-demand",
             );
+            await stageApiTryItPlans(rootDir, model);
           } catch (err) {
             // `ApiBuildError` already formats a pointed diagnostic list; fail
             // with it (plus which spec failed) as the author's error, no stack.

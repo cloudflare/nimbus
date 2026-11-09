@@ -682,6 +682,14 @@ type ParamValues = Map<OpenApiParameter, string | undefined>;
 // type guess (`string`, `0`, a format's stock value), and a made-up identifier
 // names no real resource, so it gets the placeholder. Query and header
 // parameters keep the sampler's value, guesses included.
+/** Each parameter's value in the generated sample, as text; `undefined` where the sample shows a placeholder. */
+export function sampleParamValues(tools: SampleTools | null, params: OpenApiParameter[]): ParamValues {
+  if (tools) return paramValues(tools, params);
+  const values: ParamValues = new Map();
+  for (const p of params) values.set(p, scalarText([p.example, firstExample(p.examples)].find((c) => c !== undefined)));
+  return values;
+}
+
 function paramValues(tools: SampleTools, params: OpenApiParameter[]): ParamValues {
   const values: ParamValues = new Map();
   for (const p of params) {
