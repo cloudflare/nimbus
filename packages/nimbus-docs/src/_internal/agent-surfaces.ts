@@ -20,11 +20,17 @@ export interface AgentSurfaces {
   llmsFull: boolean;
 }
 
-/** Whether a recorded route would serve `url` (a site-relative, base-free path). */
+/**
+ * Whether a recorded route would serve `url` (a site-relative, base-free
+ * path). The site index is the one URL a pattern alone decides: the section
+ * route's regex matches `/llms.txt` with an empty section, which
+ * `llmsSectionRoute()` refuses, so only a route at `/llms.txt` serves it.
+ */
 export function publishesAgentUrl(
-  routes: readonly Pick<MarkdownRouteRecord, "regex">[],
+  routes: readonly Pick<MarkdownRouteRecord, "pattern" | "regex">[],
   url: string,
 ): boolean {
+  if (url === "/llms.txt") return routes.some((route) => route.pattern === "/llms.txt");
   return routes.some((route) => route.regex.test(url));
 }
 

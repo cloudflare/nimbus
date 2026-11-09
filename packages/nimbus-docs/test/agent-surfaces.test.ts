@@ -99,6 +99,13 @@ test("publishesAgentUrl answers from the recorded routes, per URL", () => {
   assert.equal(publishesAgentUrl(scoped, "/guide/index.md"), false);
   // A site's own `.md` route counts as much as the shared factory.
   assert.equal(publishesAgentUrl([route("/guide/index.md")], "/guide/index.md"), true);
+  // The section route's regex matches /llms.txt with an empty section, which
+  // the section factory refuses: only a route at /llms.txt serves the index.
+  const noRoot = STARTER.filter((r) => r.pattern !== "/llms.txt");
+  assert.equal(publishesAgentUrl(noRoot, "/llms.txt"), false);
+  assert.equal(publishesAgentUrl(noRoot, "/guide/llms.txt"), true);
+  assert.equal(agentSurfacesFromRoutes(noRoot).llms, false);
+  assert.equal(agentSurfacesFromRoutes(noRoot).llmsSections, true);
 });
 
 test("agentSurfacesFromRoutes reads the index and llms-full routes", () => {
@@ -336,4 +343,26 @@ test("a split full document carries no index line without an llms.txt route", as
   assert.match(full.body, /split by section/);
   assert.doesNotMatch(full.body, /Index: /);
   assert.doesNotMatch(full.body, /llms\.txt/);
+});
+
+test("deleting only the site index route keeps the section indexes and drops the root one", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, [
+    { id: "guide/one", body: "One body", title: "One" },
+    { id: "guide/two", body: "Two body", title: "Two" },
+  ]);
+  configureAgentEndpointAssetRoot(projectRoot, "build", () =>
+    bakeAgentEndpointAssets({
+      root: projectRoot,
+      base: "/docs",
+      site: "https://example.test",
+      title: "Test",
+      surfaces: surfaces(STARTER.filter((r) => r.pattern !== "/llms.txt")),
+    }),
+  );
+  const manifest = await ensureAgentEndpointAssets(projectRoot);
+  const indexes = manifest.llmsAssets.filter((asset) => asset.surface === "index").map((asset) => (asset.scope === "section" ? asset.section : "site"));
+  assert.deepEqual(indexes, ["guide"]);
+  const payload = await readMarkdownEndpointPayload(projectRoot, { collection: "docs", id: "guide/one", surface: "markdown" });
+  assert.doesNotMatch(payload.body, /Documentation Index/);
 });
