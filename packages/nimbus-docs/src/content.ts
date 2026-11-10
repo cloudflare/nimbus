@@ -833,8 +833,10 @@ export function apiCollection(options?: ApiCollectionOptions): {
               extensions,
               routes,
               sidebar,
+              ...(entry?.tryIt !== undefined ? { tryIt: entry.tryIt } : {}),
             },
             (message) => logger.warn(message),
+            { proxyRuns },
           );
           preparationNote = describeRebuilds(prepared.versions);
           const after = getApiAssetPreparationMetrics();

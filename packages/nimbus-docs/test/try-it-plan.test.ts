@@ -8,6 +8,9 @@ import type { ApiOperationPage } from "../src/_internal/api/api-view-types.js";
 import { unwrapModel } from "../src/_internal/api/model-handle.js";
 import type { OperationFacts } from "../src/_internal/api/model.js";
 import type { RequestPlan, TryItSource } from "../src/_internal/try-it/plan.js";
+import { prepareApiAssetFamily, readApiAssetPageForBuild } from "../src/_internal/api/page-assets-build.js";
+import { readTryItPolicies } from "../src/_internal/try-it/policy-plugin.js";
+import type { ApiSpec } from "../src/types.js";
 
 const spec = {
   openapi: "3.1.0",
@@ -157,5 +160,40 @@ describe("what a plan keeps", () => {
       { name: "note", required: false, schema: { type: "string" } },
     ]);
     assert.deepEqual(body.initial, { mediaType: "application/json", value: { name: "n" } });
+  });
+});
+
+describe("page assets (bundle: false)", () => {
+  test("pages carry their plans; plans and the policy are staged when prepared and when reused", async () => {
+    const { mkdtemp, readdir, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const path = await import("node:path");
+    const root = await mkdtemp(path.join(tmpdir(), "nimbus-try-assets-"));
+    const staged = () => readdir(path.join(root, ".astro/nimbus/try-it")).catch(() => [] as string[]);
+    const policies = () => Object.keys(readTryItPolicies(root, new Set(["api"])));
+    try {
+      const entry = { collection: "api", spec, tryIt: true } as unknown as ApiSpec;
+      const first = (await prepareApiAssetFamily(root, entry, () => {}, { proxyRuns: true })).versions[0]!.prepared;
+      assert.ok(first.tryIt && first.tryIt.plans.length >= 4, "a plan per operation that has one");
+      const page = (await readApiAssetPageForBuild(root, first.rows.find((row) => row.id === "getItem")!)) as unknown as ApiOperationPage;
+      assert.equal(page.tryIt?.kind, "http-request");
+      assert.deepEqual((await staged()).sort(), [...first.tryIt.plans].sort());
+      assert.deepEqual(policies(), ["api"]);
+
+      // .astro cleared, the page cache kept: reused, and staged again.
+      await rm(path.join(root, ".astro"), { recursive: true, force: true });
+      const again = (await prepareApiAssetFamily(root, entry, () => {}, { proxyRuns: true })).versions[0]!.prepared;
+      assert.equal(again.reused, true);
+      assert.deepEqual((await staged()).sort(), [...first.tryIt.plans].sort());
+      assert.deepEqual(policies(), ["api"]);
+
+      // Try it off: prepared again without plans, and the relay's policy goes.
+      const off = (await prepareApiAssetFamily(root, { collection: "api", spec } as unknown as ApiSpec)).versions[0]!.prepared;
+      assert.equal(off.reused, false);
+      assert.equal(off.tryIt, undefined);
+      assert.deepEqual(policies(), []);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

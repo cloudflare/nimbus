@@ -3,6 +3,7 @@ import { unusedExtensions, warnUnusedExtensions } from "./extensions.js";
 import { collectionMountPrefix } from "../collection-mount.js";
 import { projectMountContext } from "../project-mount-context.js";
 import {
+  access,
   readFile,
   writeFile,
   readdir,
@@ -40,6 +41,9 @@ import {
   getApiRouteProvenance,
 } from "../../api/index.js";
 import { resolveSpecSource } from "./resolve-spec.js";
+// Static: a dynamic import would wrap protocol's namespace with the Node runtime
+// helper, and protocol is in the browser bundle too.
+import { apiKey } from "../try-it/protocol.js";
 import { unwrapModel } from "./model-handle.js";
 import {
   operationPaths,
@@ -167,6 +171,9 @@ export interface PreparedApiAssetVersion {
   unusedExtensions?: string[];
   /** Why this process prepared the version instead of reusing it. */
   rebuilt?: RebuildReason;
+  /** Try it: each operation's plan file (kept in the cache under `try-it/`) and
+   *  the origins its servers resolve to, staged on every run. */
+  tryIt?: { plans: string[]; origins: string[] };
 }
 /** The inputs that differ from the last preparation of this version, none
  *  when its cache entry had gone missing, `first` when it was never prepared here. */
@@ -566,8 +573,20 @@ export async function prepareApiAssetVersion(
   writer: PageAssetWriter,
   environment: string,
   warn: (message: string) => void = () => {},
+  proxyRuns = false,
 ): Promise<PreparedApiAssetVersion> {
   await writer.initialize();
+  // As the bundled loader builds it: the request plans each operation page carries.
+  const tryIt = target.tryIt
+    ? {
+        family: target.family,
+        ...(target.version ? { version: target.version } : {}),
+        proxy: target.tryIt.proxy !== false && proxyRuns,
+        credentials: target.tryIt.credentials,
+        servers: target.tryIt.servers,
+        limits: target.tryIt.limits,
+      }
+    : undefined;
   const source = await resolveSpecSource(
     {
       collection: target.namespace,
@@ -578,6 +597,7 @@ export async function prepareApiAssetVersion(
       routes: target.routes,
       samples: target.samples,
       extensions: target.extensions,
+      ...(tryIt ? { tryIt } : {}),
     },
     root,
   );
@@ -596,6 +616,8 @@ export async function prepareApiAssetVersion(
     routes: target.routes,
     samples: target.samples,
     extensions: target.extensions,
+    // Only when on, so a site without Try it keeps its cache.
+    ...(tryIt ? { tryIt } : {}),
   };
   const inputHash = pageAssetDigest(JSON.stringify(inputs));
   const components = Object.fromEntries(
@@ -664,6 +686,8 @@ export async function prepareApiAssetVersion(
         throw new Error("Missing prepared asset");
       if (typeof value.codeStyleCSS !== "string")
         throw new Error("Missing cached syntax highlighting CSS");
+      if (tryIt && !value.tryIt) throw new Error("Missing Try it plans");
+      for (const plan of value.tryIt?.plans ?? []) await readFile(tryItPlanCache(writer, plan));
       restoreCodeStyleCSS(value.codeStyleCSS);
       preparationMetrics.versionCacheHits++;
       await rememberPreparationInputs(inputsFile, { inputHash, components }, previousInputs);
@@ -783,6 +807,7 @@ export async function prepareApiAssetVersion(
     };
     const unused = unusedExtensions(model, target.extensions);
     if (unused.length > 0) value.unusedExtensions = unused;
+    if (tryIt) value.tryIt = await cacheTryItPlans(writer, spine);
     if (!bypass) {
       await writeVersionCache(filename, value);
       await rememberPreparationInputs(inputsFile, { inputHash, components }, previousInputs);
@@ -925,16 +950,62 @@ const queueGlobals = globalThis as typeof globalThis & {
 const familyQueues = (queueGlobals[FAMILY_QUEUES] ??= new Map());
 
 /** Serialize content-loader and citation-watcher rebuilds without hiding input changes. */
+/** Where a version's Try it plan files are kept between builds. */
+const tryItPlanCache = (writer: PageAssetWriter, file: string) => path.join(writer.cacheDirectory, "try-it", file);
+
+/** Write each operation's plan into the cache (named by content); the origins its servers reach. */
+async function cacheTryItPlans(
+  writer: PageAssetWriter,
+  spine: ReturnType<typeof unwrapModel>,
+): Promise<{ plans: string[]; origins: string[] }> {
+  const { planOrigins } = await import("../try-it/stage.js");
+  const plans: string[] = [];
+  const origins = new Set<string>();
+  for (const node of spine.nodes.values()) {
+    const tryIt = node.kind === "operation" ? (node.facts as import("./model.js").OperationFacts).tryIt : undefined;
+    if (!tryIt) continue;
+    const file = tryItPlanCache(writer, tryIt.file);
+    try {
+      await access(file);
+    } catch {
+      await writeAtomic(file, JSON.stringify(tryIt.plan));
+    }
+    plans.push(tryIt.file);
+    for (const origin of planOrigins(tryIt.plan)) origins.add(origin);
+  }
+  return { plans, origins: [...origins].sort() };
+}
+
+/** Stage a version's plans and the relay's policy for it, prepared or reused. */
+async function stageTryItVersion(
+  root: string,
+  writer: PageAssetWriter,
+  target: ResolvedApiVersion,
+  prepared: PreparedApiAssetVersion,
+  proxyRuns: boolean,
+): Promise<void> {
+  const { stageTryItPlan, stageTryItPolicy } = await import("../try-it/stage.js");
+  for (const plan of prepared.tryIt?.plans ?? []) await stageTryItPlan(root, plan, await readFile(tryItPlanCache(writer, plan), "utf8"));
+  const key = apiKey({ family: target.family, ...(target.version ? { version: target.version } : {}) });
+  const proxy = prepared.tryIt && target.tryIt && target.tryIt.proxy !== false && proxyRuns ? target.tryIt.proxy : null;
+  await stageTryItPolicy(
+    root,
+    key,
+    proxy ? { origins: prepared.tryIt!.origins, extraOrigins: proxy.extraOrigins, limits: target.tryIt!.limits } : null,
+  );
+}
+
 export async function prepareApiAssetFamily(
   root: string,
   entry: import("../../types.js").ApiSpec,
   warn: (message: string) => void = () => {},
+  options: { proxyRuns?: boolean } = {},
 ): Promise<ApiFamilyPreparation> {
   const key = `${preparedMarkdownRootKey(root)}\0${entry.collection}`;
   const prior = familyQueues.get(key);
   const pending = (
     prior ? prior.catch(() => undefined) : Promise.resolve()
-  ).then(() => prepareApiAssetFamilyNow(root, entry, warn));
+  ).then(() => prepareApiAssetFamilyNow(root, entry, warn, options.proxyRuns ?? false));
   familyQueues.set(key, pending);
   try {
     return await pending;
@@ -948,6 +1019,7 @@ async function prepareApiAssetFamilyNow(
   root: string,
   entry: import("../../types.js").ApiSpec,
   warn: (message: string) => void = () => {},
+  proxyRuns = false,
 ): Promise<{
   versions: Array<{
     target: ResolvedApiVersion;
@@ -965,8 +1037,9 @@ async function prepareApiAssetFamilyNow(
     prepared: PreparedApiAssetVersion;
   }> = [];
   for (const target of resolveApiFamily(entry, collectionMountPrefix(entry.collection, projectMountContext(root)))) {
-    const prepared = await prepareApiAssetVersion(target, root, writer, environment, warn);
+    const prepared = await prepareApiAssetVersion(target, root, writer, environment, warn, proxyRuns);
     warnUnusedExtensions(target.family, target.version, prepared.unusedExtensions ?? [], warn);
+    await stageTryItVersion(root, writer, target, prepared, proxyRuns);
     versions.push({ target, prepared });
   }
   const matchKey = pageAssetDigest(

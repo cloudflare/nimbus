@@ -754,6 +754,7 @@ export function nimbus(
   const prepareCitationSources = async (
     root: string,
     warn: (message: string) => void,
+    proxyRuns: boolean,
   ) => {
     const preparedVersions = new Map<
       string,
@@ -763,7 +764,7 @@ export function nimbus(
       await import("./_internal/api/page-assets-build.js");
     for (const entry of config.api ?? []) {
       if (!pageAssetCollections.includes(entry.collection)) continue;
-      const { versions } = await prepareApiAssetFamily(root, entry, warn);
+      const { versions } = await prepareApiAssetFamily(root, entry, warn, { proxyRuns });
       for (const { target, prepared } of versions) {
         const filename = prepared.citationSummaryPath;
         preparedVersions.set(target.versionKey, {
@@ -2674,7 +2675,7 @@ export function nimbus(
             projectRoot,
             await prepareCitationSources(projectRoot, (message) =>
               logger.warn(message),
-            ),
+            Boolean(astroConfig.adapter)),
           );
           await ingestApiReferences(
             config.apiReferences,
@@ -3656,7 +3657,7 @@ export function nimbus(
                 projectRootForBuild,
                 await prepareCitationSources(projectRootForBuild, (message) =>
                   server.config.logger.warn(message),
-                ),
+                adapterNameForBuild !== null),
               );
               await ingestApiReferences(
                 config.apiReferences,
