@@ -11,6 +11,10 @@
  * lib/CSS files) so a docs-only site carries no extra API-specific files; the
  * auth→field projection lives in the co-located `./auth`. The operation's
  * request line is the `ApiEndpointCard` component.
+ *
+ * From 90rem `ApiLayout` lays this body out as a subgrid: each top-level child
+ * takes a row, the rail spans rows 1 to 12 and previous/next sits in row 13.
+ * Keep it to 12 top-level children (it has 5), or raise both numbers there.
  */
 import { Banner } from "@/components/ui/banner";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
