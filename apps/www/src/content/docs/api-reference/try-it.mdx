@@ -47,14 +47,16 @@ Without `tryIt`, pages are unchanged. Operations marked `x-nimbus-try-it: false`
 
 ## How requests travel
 
-The reader picks one of two delivery modes at the top of the panel:
+Requests go one of two ways:
 
-- **Via this docs site**: the request goes through a proxy route Nimbus adds at `/_nimbus/try`. It works whether or not the API allows browser calls. It's the default where the proxy runs.
-- **Direct from your browser**: the browser sends the request itself. The API must answer CORS requests from your docs origin, or the browser blocks the response.
+- **Via this docs site**: through a proxy route Nimbus adds at `/_nimbus/try`. It works whether or not the API allows browser calls. Requests go this way wherever the proxy runs.
+- **Direct from the browser**: the browser sends the request itself. The API must answer CORS requests from your docs origin, or the browser blocks the response. Requests go this way on a static site, and for APIs with `proxy: false`.
 
-The proxy runs on every adapter that serves on-request routes: Cloudflare, Node, Netlify and Vercel. A static site has no proxy, so Try it sends direct only. Setting `proxy: true` explicitly on a static site fails the build.
+The panel says which, in the Authorization card, before anyone enters a key.
 
-Nothing switches on its own. If a direct request fails at the network level, the panel offers "Send via this site" and says the first request may already have reached the API.
+The proxy runs on every adapter that serves on-request routes: Cloudflare, Node, Netlify and Vercel. A static site has no proxy. Setting `proxy: true` explicitly on a static site fails the build.
+
+Nothing switches on its own. If a direct request fails at the network level and the proxy runs, the panel offers "Send via this site" and says the first request may already have reached the API.
 
 ### Which to use
 
@@ -95,7 +97,7 @@ On Cloudflare, Stop and closing the panel cancel the API request only when Worke
 
 ## What is sent and stored
 
-The panel says before anything is entered where the key goes: through your site to the API, or from the browser to the API.
+Before anything is entered, the panel says where the key goes: through your site to the API, or from the browser to the API.
 
 - Keys stay in memory, per API and per server. Changing server empties the key field.
 - "Remember in this tab" keeps them in `sessionStorage`, only once the reader ticks it. Clear removes them.

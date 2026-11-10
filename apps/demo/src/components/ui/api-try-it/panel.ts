@@ -357,10 +357,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   };
   let bodyMedia = plan.body?.initial?.mediaType ?? plan.body?.media[0]?.mediaType ?? "";
   let bodyOn = Boolean(plan.body && (plan.body.required || plan.body.initial));
-  let delivery: DeliveryMode = (() => {
-    const kept = store("tab")?.getItem(`nb-tryit-delivery|${meta.base}|${apiKey}`) as DeliveryMode | null;
-    return kept && meta.info.deliveryModes.includes(kept) ? kept : (meta.info.deliveryModes[0] ?? "direct");
-  })();
+  // Via the docs site where the proxy runs, else direct. Only a failed direct send offers the other way.
+  let delivery: DeliveryMode = meta.info.deliveryModes[0] ?? "direct";
   let alternative = Math.max(0, plan.auth.findIndex((a) => a.schemes.length > 0 && !a.unsupported));
   if (plan.auth.length && plan.auth[alternative]?.unsupported) alternative = Math.max(0, plan.auth.findIndex((a) => !a.unsupported));
   // Credentials in memory, keyed by site base, API, the server's origin and the scheme.
@@ -828,7 +826,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     return el("div", { class: "nb-tid-section" }, el("h4", { class: "nb-tid-sectiontitle" }, label, el("span", {}, String(params.length))), rows, optional);
   };
 
-  // ---- Where the request goes, and what happens to the key ------------------------------
+  // ---- Where the key goes ------------------------------------------------------------------
   const transit = el("p", { class: "nb-tid-desc nb-tid-transit" });
   const renderTransit = () => {
     let apiHost = host;
@@ -844,30 +842,6 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
         ? `Sent through ${location.host} to ${apiHost}. Not logged. ${kept}${queryKey}`
         : `Sent from your browser to ${apiHost}. ${kept}${queryKey}${plan.send.credentials === "include" ? " Your browser's cookies for the API go with it." : ""}`;
   };
-  const deliveryCard = (): HTMLElement => {
-    const seg = el("div", { class: "nb-tid-seg nb-tid-delivery", role: "group", "aria-label": "Send the request" });
-    const reasons = new Map((meta.info.unavailable ?? []).map((u) => [u.delivery, u.reason]));
-    const option = (mode: DeliveryMode, label: string) => {
-      const b = el("button", { type: "button", "aria-pressed": String(mode === delivery) }, label);
-      const reason = reasons.get(mode) ?? (mode === "proxy" && !meta.proxy ? "Via this site: the site has no proxy." : undefined);
-      if (reason) {
-        b.disabled = true;
-        b.title = reason;
-      }
-      b.addEventListener("click", () => {
-        delivery = mode;
-        store("tab")?.setItem(`nb-tryit-delivery|${meta.base}|${apiKey}`, mode);
-        seg.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
-        render();
-      });
-      return b;
-    };
-    seg.append(option("proxy", "Via this docs site"), option("direct", "Direct from your browser"));
-    const notes = [...reasons.values()].map((r) => note(r));
-    if (plan.send.credentials === "include") notes.push(note("Browser cookies for the API go only with direct requests, never through this site."));
-    return card("Send", [el("div", { class: "nb-tid-rows" }, el("div", { class: "nb-tid-row" }, seg, transit, ...notes))]);
-  };
-
   // ---- Authorization ---------------------------------------------------------------------
   const authRows = el("div", { class: "nb-tid-rows" });
   const drawAuth = () => {
@@ -971,6 +945,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       body.push(el("div", { class: "nb-tid-row" }, el("label", { class: "nb-tid-name nb-tid-plain", for: id }, "Method"), select));
     }
     drawAuth();
+    body.unshift(el("div", { class: "nb-tid-rows" }, el("div", { class: "nb-tid-row" }, transit)));
     body.push(authRows);
     const tools: Node[] = [];
     if (meta.remember !== "none") tools.push(rememberNode);
@@ -1238,13 +1213,14 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
 
   const build = (): void => {
     form.replaceChildren();
-    const parts = [deliveryCard(), authCard(), serverCard, ...LOCATIONS.map(([loc, label]) => locationSection(loc, label)).filter(Boolean), bodyCard()];
+    const parts = [authCard(), serverCard, ...LOCATIONS.map(([loc, label]) => locationSection(loc, label)).filter(Boolean), bodyCard()];
     const paramSections = parts.filter((p): p is HTMLElement => p !== null && p.classList.contains("nb-tid-section"));
     const others = parts.filter((p): p is HTMLElement => p !== null && !p.classList.contains("nb-tid-section"));
     // Parameters share one card, a group per location.
     const params = paramSections.length ? card("Parameters", paramSections, { badge: badge(String(plan.params.filter((p) => !p.ignored).length)) }) : null;
-    const [send, auth, url, ...rest] = others;
-    for (const part of [send, auth, url, params, ...rest]) if (part) form.append(part);
+    const auth = plan.auth.length ? others.shift() : undefined;
+    const [url, ...rest] = others;
+    for (const part of [auth, url, params, ...rest]) if (part) form.append(part);
     drawServer();
     if (!plan.params.some((p) => !p.ignored) && !plan.body && !plan.auth.some((a) => a.schemes.length) && serverCard.hidden) {
       form.append(

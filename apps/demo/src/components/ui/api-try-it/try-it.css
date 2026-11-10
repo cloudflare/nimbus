@@ -1675,22 +1675,7 @@
 .nb-hl-fn { --shiki-light: #6f42c1; --shiki-dark: #b392f0; }
 .nb-hl-com { --shiki-light: #6a737d; --shiki-dark: #6a737d; }
 
-/* ---- Production additions: delivery, form foot, JSON and file fields --------------- */
-.nb-tid-delivery {
-  display: flex;
-  width: 100%;
-}
-.nb-tid-delivery button {
-  flex: 1 1 0;
-  height: 2rem;
-}
-.nb-tid-delivery button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-.nb-tid-transit {
-  margin-top: 0.375rem;
-}
+/* ---- Production additions: form foot, JSON and file fields ---------------------------- */
 .nb-tid-formfoot {
   display: flex;
   justify-content: flex-start;
@@ -1709,9 +1694,4 @@
 }
 .nb-tid-fielderr.nb-tid-advice {
   color: var(--color-muted-foreground);
-}
-@media (max-width: 767px) {
-  .nb-tid-delivery button {
-    height: 2.75rem;
-  }
 }
