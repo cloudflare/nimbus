@@ -18,11 +18,15 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, readlinkSync, rmSync } from "node:fs";
+import { readFileSync, readdirSync, readlinkSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 const runner = Number(process.argv[2]);
-const deadline = Date.now() + Number(process.argv[3]) * 1000;
+const seconds = Number(process.argv[3]);
+const deadline = Date.now() + seconds * 1000;
+const minutes = `${Math.round(seconds / 60)} minutes`;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const alive = (pid) => {
   try {
@@ -41,24 +45,39 @@ const cmdline = (pid) => {
   }
 };
 
+// One fd at a time: an fd closing mid-read drops only itself.
 const fds = (pid) => {
+  let names;
   try {
-    return readdirSync(`/proc/${pid}/fd`).map((fd) => [Number(fd), readlinkSync(`/proc/${pid}/fd/${fd}`)]);
+    names = readdirSync(`/proc/${pid}/fd`);
+  } catch {
+    return [];
+  }
+  return names.flatMap((fd) => {
+    try {
+      return [[Number(fd), readlinkSync(`/proc/${pid}/fd/${fd}`)]];
+    } catch {
+      return [];
+    }
+  });
+};
+
+const pids = () => readdirSync("/proc").filter((name) => /^\d+$/.test(name)).map(Number);
+
+const reportsIn = (dir, pid) => {
+  try {
+    // node names them report.<date>.<time>.<pid>.<thread>.<seq>.json
+    return readdirSync(dir).filter((name) => {
+      const match = /^report\.\d{8}\.\d{6}\.(\d+)\.\d+\.\d+\.json$/.exec(name);
+      return match && (pid === undefined || Number(match[1]) === pid);
+    });
   } catch {
     return [];
   }
 };
 
-const pids = () => readdirSync("/proc").filter((name) => /^\d+$/.test(name)).map(Number);
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function report() {
-  const minutes = Math.round(Number(process.argv[3]) / 60);
-  console.log(`::group::Tests still running after ${minutes} minutes: process tree`);
-  console.log(execFileSync("ps", ["-eo", "pid,ppid,stat,etimes,args", "--forest"], { encoding: "utf8" }));
-  console.log("::endgroup::");
-
+/** Test files still running, with the directory node writes their reports to. */
+function holders() {
   // A test file's output reaches the runner over socketpairs (libuv's stdio
   // pipes). Any process whose stdio is the far end of one keeps that file
   // "running". `ss -x` pairs each socket with its peer.
@@ -78,38 +97,45 @@ function report() {
     if (held.length === 0) continue;
     const args = cmdline(pid);
     const file = args.find((arg) => arg.endsWith(".test.ts"));
-    if (file) files.push({ pid, file });
-    console.log(`  ${pid} (fd ${held.map(([fd]) => fd).join(", ")}): ${file ? `test file ${file}` : args.join(" ").slice(0, 300)}`);
-  }
-
-  for (const { pid, file } of files) {
     let cwd;
     try {
       cwd = readlinkSync(`/proc/${pid}/cwd`);
-      process.kill(pid, "SIGUSR2"); // the runner starts each file with --report-signal=SIGUSR2
-    } catch {
-      continue;
-    }
-    summarise(pid, file, cwd);
+    } catch {}
+    if (file && cwd) files.push({ pid, file, cwd });
+    console.log(`  ${pid} (fd ${held.map(([fd]) => fd).join(", ")}): ${file ? `test file ${file}` : args.join(" ").slice(0, 300)}`);
   }
+  return files;
 }
 
-function summarise(pid, file, cwd) {
-  // Written synchronously by the signal handler; give the file a moment.
+/** Reads a SIGUSR2 report once it parses; null if none is complete in 5 s. */
+async function readReport(pid, cwd) {
   const until = Date.now() + 5000;
-  let path;
-  while (!path && Date.now() < until) {
-    path = readdirSync(cwd).find((name) => name.startsWith("report.") && name.includes(`.${pid}.`));
-    if (!path) execFileSync("sleep", ["0.2"]);
+  while (Date.now() < until) {
+    const [name] = reportsIn(cwd, pid);
+    if (name) {
+      try {
+        return JSON.parse(readFileSync(join(cwd, name), "utf8"));
+      } catch {
+        // Still being written.
+      }
+    }
+    await sleep(200);
   }
+  return null;
+}
+
+async function summarise({ pid, file, cwd }) {
+  try {
+    process.kill(pid, "SIGUSR2"); // the runner starts each file with --report-signal=SIGUSR2
+  } catch {
+    return; // exited since
+  }
+  const data = await readReport(pid, cwd);
   console.log(`::group::${file} (pid ${pid}): node report`);
-  if (!path) {
+  if (!data) {
     console.log("No report: the process didn't answer SIGUSR2, so its main thread is blocked.");
   } else {
-    const full = join(cwd, path);
-    // Only the parts that say what it waits on; the report also holds environment variables.
-    const data = JSON.parse(readFileSync(full, "utf8"));
-    rmSync(full, { force: true });
+    // Only what it waits on; the report also holds environment variables.
     console.log("JavaScript stack:", data.javascriptStack.message || "(empty: idle in the event loop)");
     for (const frame of data.javascriptStack.stack ?? []) console.log(`  ${frame}`);
     console.log("Handles keeping it alive:");
@@ -122,12 +148,28 @@ function summarise(pid, file, cwd) {
   console.log("::endgroup::");
 }
 
-while (alive(runner)) {
-  if (Date.now() > deadline) {
-    if (existsSync("/proc")) report();
-    console.log(`::error::Tests still running after ${Math.round(Number(process.argv[3]) / 60)} minutes; stopping them. The report above names what they wait on.`);
-    process.kill(runner, "SIGTERM");
-    break;
+while (alive(runner) && Date.now() <= deadline) await sleep(5000);
+
+if (alive(runner)) {
+  const dirs = new Set();
+  try {
+    console.log(`::group::Tests still running after ${minutes}: process tree`);
+    console.log(execFileSync("ps", ["-eo", "pid,ppid,stat,etimes,args", "--forest"], { encoding: "utf8" }));
+    console.log("::endgroup::");
+    for (const holder of holders()) {
+      dirs.add(holder.cwd);
+      await summarise(holder);
+    }
+  } catch (error) {
+    console.log(`The report failed: ${error.message}`);
+  } finally {
+    console.log(`::error::Tests still running after ${minutes}; stopping them. The report above names what they wait on.`);
+    try {
+      process.kill(runner, "SIGTERM");
+    } catch {}
+    // The runner stops its test files; then no report is still being written.
+    const until = Date.now() + 10000;
+    while (alive(runner) && Date.now() < until) await sleep(200);
+    for (const dir of dirs) for (const name of reportsIn(dir)) rmSync(join(dir, name), { force: true });
   }
-  await sleep(5000);
 }
