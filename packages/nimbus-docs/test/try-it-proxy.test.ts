@@ -6,14 +6,15 @@ import { describe, test } from "node:test";
 import { MAX_IN_FLIGHT, handleTryIt, type ProxyTable } from "../src/_internal/try-it/proxy.js";
 import { H_API, H_FAILURE, H_META, H_REQUEST, H_TRY, headerJson } from "../src/_internal/try-it/protocol.js";
 import { proxiedTryItKeys, readTryItPolicies } from "../src/_internal/try-it/policy-plugin.js";
-import { MAX_SERVER_ORIGINS, planOrigins, stageTryItPolicy } from "../src/_internal/try-it/stage.js";
+import { MAX_SERVER_ORIGINS, planOrigins, relayOrigins, stageTryItPolicy } from "../src/_internal/try-it/stage.js";
+import { isLocalHost } from "../src/_internal/try-it/config.js";
 import type { RequestPlan } from "../src/_internal/try-it/plan.js";
 import type { ApiSpec } from "../src/types.js";
 
 const SITE = "https://docs.example.com";
 const table = (limits: Partial<ProxyTable[string]["limits"]> = {}): ProxyTable => ({
   api: {
-    origins: ["https://api.example.com", "self"],
+    origins: ["https://api.example.com"],
     extraOrigins: ["https://*.uploads.example.com"],
     limits: { timeoutMs: 2_000, responseBytes: 100, uploadBytes: 50, ...limits },
   },
@@ -66,7 +67,13 @@ async function failure(response: Response) {
 describe("admission: refused with no upstream request", () => {
   const cases: [string, () => Request][] = [
     ["no Nimbus-Try", () => tryRequest({}, { headers: { [H_TRY]: "" } })],
-    ["a cross-site Origin", () => tryRequest({}, { headers: { Origin: "https://evil.example" } })],
+    ["a cross-site Origin", () => {
+      const request = tryRequest({}, { headers: { Origin: "https://evil.example" } });
+      const headers = new Headers(request.headers);
+      headers.delete("Sec-Fetch-Site");
+      return new Request(request.url, { method: "POST", headers });
+    }],
+    ["Sec-Fetch-Site same-site", () => tryRequest({}, { headers: { "Sec-Fetch-Site": "same-site" } })],
     ["Sec-Fetch-Site other than same-origin", () => tryRequest({}, { headers: { "Sec-Fetch-Site": "cross-site" } })],
     ["a GET", () => tryRequest({}, { method: "GET" })],
     ["a preflight", () => tryRequest({}, { method: "OPTIONS" })],
@@ -132,10 +139,34 @@ describe("upstream gets the request as built, nothing ambient", () => {
     assert.deepEqual(request!.headers, { "x-key": "secret", cookie: "pref=1", "content-type": "application/json" });
   });
 
-  test("a relative server is the docs origin", async () => {
+  test("the docs site's own origin isn't relayed: the browser sends there itself", async () => {
     const { sent, fetch } = upstream();
-    assert.equal((await handleTryIt(tryRequest({ url: `${SITE}/api/x` }), table(), { fetch })).status, 200);
-    assert.equal(sent.length, 1);
+    assert.equal((await handleTryIt(tryRequest({ url: `${SITE}/api/x` }), table(), { fetch })).status, 403);
+    assert.equal(sent.length, 0);
+  });
+
+  test("a Node server that reads its own URL as localhost still admits its pages, and relays nothing to itself", async () => {
+    // Astro's Node adapter without `allowedDomains`: request.url is http://localhost:4321.
+    const at = (headers: Record<string, string>, url = "https://api.example.com/v1/items") => {
+      const request = tryRequest({ url }, { headers });
+      const sent = new Headers(request.headers);
+      for (const [name, value] of Object.entries(headers)) if (value === "") sent.delete(name);
+      return new Request(request.url.replace(SITE, "http://localhost:4321"), { method: "POST", headers: sent });
+    };
+    const { sent, fetch } = upstream();
+    const browser = { Host: "docs.example.com", "Sec-Fetch-Site": "" };
+    assert.equal((await handleTryIt(at(browser), table(), { fetch })).status, 200, "Origin matches the Host the browser sent");
+    assert.equal((await handleTryIt(at({ Host: "docs.example.com" }), table(), { fetch })).status, 200, "Sec-Fetch-Site: same-origin");
+    assert.equal((await handleTryIt(at({ Host: "other.example", "Sec-Fetch-Site": "" }), table(), { fetch })).status, 403);
+    assert.equal((await handleTryIt(at(browser, "http://localhost:4321/_nimbus/try"), table(), { fetch })).status, 403);
+    assert.equal(sent.length, 2);
+  });
+
+  test("a local address the spec lists is refused, and says why", async () => {
+    const { sent, fetch } = upstream();
+    const body = await failure(await handleTryIt(tryRequest({ url: "http://127.0.0.1:8080/x" }), table(), { fetch }));
+    assert.match(body.reason, /local or private address/);
+    assert.equal(sent.length, 0);
   });
 });
 
@@ -294,5 +325,37 @@ describe("the relay's origins", () => {
     assert.deepEqual(planOrigins({ servers: [server(250)] } as unknown as RequestPlan, (url, count) => crowded.push([url, count])), []);
     assert.deepEqual(crowded, [["https://{tenant}.{region}.example.com/{v}", 5000]]);
     assert.ok(5000 > MAX_SERVER_ORIGINS);
+  });
+});
+
+describe("local and private addresses stay off the relay's list", () => {
+  const local = [
+    "http://localhost:8080", "http://LOCALHOST", "http://localhost.", "http://app.localhost", "http://api:3000",
+    "http://printer.local", "http://db.internal", "http://nas.home.arpa",
+    "http://127.0.0.1", "http://2130706433", "http://0x7f.1", "http://0177.0.0.1", "http://127.1", "http://0.0.0.0", "http://0",
+    "http://10.1.2.3", "http://172.16.0.1", "http://172.31.255.255", "http://192.168.1.1", "http://169.254.169.254", "http://100.64.0.1", "http://198.18.0.1",
+    "http://[::1]", "http://[::]", "http://[::ffff:127.0.0.1]", "http://[::ffff:10.0.0.1]", "http://[::127.0.0.1]", "http://[fc00::1]", "http://[fd12::1]",
+    "http://[fe80::1]", "http://[64:ff9b::a00:1]", "http://[2002:7f00:1::]", "http://[ff02::1]",
+  ];
+  const remote = [
+    "https://api.example.com", "https://172.32.0.1", "https://100.128.0.1", "https://8.8.8.8", "https://[2606:4700::1111]", "https://[::ffff:8.8.8.8]",
+    "https://[2002:808:808::]", "https://local.example.com", "https://internal.example.com",
+  ];
+  for (const url of local) test(`${url} is local`, () => assert.equal(isLocalHost(new URL(url).hostname), true));
+  for (const url of remote) test(`${url} isn't`, () => assert.equal(isLocalHost(new URL(url).hostname), false));
+
+  test("left out at staging with a warning naming the fix, unless extraOrigins lists it; an old cache's self dropped", () => {
+    const warnings: string[] = [];
+    const origins = ["https://api.example.com", "http://localhost:8080", "http://127.0.0.1:9000", "self"];
+    assert.deepEqual(relayOrigins({ origins, extraOrigins: ["http://127.0.0.1:9000"] }, (m) => warnings.push(m)), ["https://api.example.com"]);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0]!, /http:\/\/localhost:8080.*tryIt\.proxy\.extraOrigins/);
+  });
+
+  test("extraOrigins still lets the owner relay one", async () => {
+    const { sent, fetch } = upstream();
+    const own: ProxyTable = { api: { ...table().api!, extraOrigins: ["http://127.0.0.1:9000"] } };
+    assert.equal((await handleTryIt(tryRequest({ url: "http://127.0.0.1:9000/x" }), own, { fetch })).status, 200);
+    assert.equal(sent.length, 1);
   });
 });

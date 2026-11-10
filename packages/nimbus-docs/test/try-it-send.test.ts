@@ -21,6 +21,8 @@ interface Received {
 
 let server: Server;
 let origin = "";
+// The API on its own origin (the same server), so "proxy" sends go through the relay.
+let api = "";
 const received: Received[] = [];
 
 async function readAll(req: IncomingMessage): Promise<Buffer> {
@@ -30,7 +32,7 @@ async function readAll(req: IncomingMessage): Promise<Buffer> {
 }
 
 const table = (): ProxyTable => ({
-  api: { origins: ["self"], extraOrigins: [], limits: { timeoutMs: 5_000, responseBytes: 1_000_000, uploadBytes: 200_000 } },
+  api: { origins: [api], extraOrigins: [], limits: { timeoutMs: 5_000, responseBytes: 1_000_000, uploadBytes: 200_000 } },
 });
 
 before(async () => {
@@ -71,6 +73,7 @@ before(async () => {
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  api = `http://localhost:${(server.address() as AddressInfo).port}`;
 });
 after(() => {
   server.closeAllConnections();
@@ -87,7 +90,7 @@ const plan = (over: Partial<RequestPlan> = {}): RequestPlan => ({
   method: "POST",
   path: "/echo/{id}",
   openapi: "3.1",
-  servers: [{ url: "/", variables: [] }],
+  servers: [{ url: api, variables: [] }],
   params: [param({ in: "path", name: "id", required: true }), param({ in: "query", name: "tags", explode: false }), param({ in: "header", name: "X-Trace" })],
   auth: [{ label: "Bearer token", schemes: [{ scheme: "bearer", type: "bearer" }] }],
   send: { timeoutMs: 5_000, responseBytes: 1_000, uploadBytes: 150_000, credentials: "omit", servers: "spec" },
@@ -162,7 +165,7 @@ describe("the server receives exactly the serialised request", () => {
   });
 
   test("the live cURL sample sends what the request sends, credentials masked", () => {
-    const request = serializeRequest(plan({ method: "GET" }), values(), { origin: "https://api.example.com" });
+    const request = serializeRequest(plan({ method: "GET", servers: [{ url: "/", variables: [] }] }), values(), { origin: "https://api.example.com" });
     assert.ok(!("refused" in request));
     const curl = renderSample(request, "curl");
     assert.match(curl, /--url 'https:\/\/api\.example\.com\/echo\/a%20b\?tags=x,y'/);
@@ -230,6 +233,14 @@ describe("answers", () => {
       assert.equal(timed.failure, "timeout");
       assert.equal(new TextDecoder().decode(timed.partial?.body), "data: first\n\n");
     }
+  });
+
+  test("the docs site's own API goes direct, not through the relay", async () => {
+    const before = received.length;
+    const p = plan({ method: "GET", path: "/own", servers: [{ url: "/", variables: [] }], params: [], auth: [] });
+    const outcome = await sendRequest(p, { params: {} }, { delivery: "proxy", origin, proxyUrl: `${origin}/not-the-proxy` });
+    assert.ok(outcome.ok && outcome.via === "direct");
+    assert.deepEqual(received.slice(before).map((r) => r.url), ["/own"]);
   });
 
   test("a direct cookie parameter is refused; a page that isn't the proxy is a deployment error", async () => {

@@ -6,7 +6,7 @@ import type { RequestPlan, TryItInfo } from "../_internal/try-it/plan.js";
 
 export { parseExactJson, resolveServer, serializeRequest } from "../_internal/try-it/serialize.js";
 export { renderSample, maskText } from "../_internal/try-it/render.js";
-export { sendRequest, isTextMedia } from "../_internal/try-it/send.js";
+export { sendRequest, isTextMedia, sameOrigin } from "../_internal/try-it/send.js";
 export { validateValues, checkParam } from "../_internal/try-it/validate.js";
 export { paramKey } from "../_internal/try-it/plan.js";
 export type {

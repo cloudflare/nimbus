@@ -5,7 +5,7 @@
  * follows a redirect, and streams the answer back as inert bytes. Fetch API
  * only, so it runs on every adapter. Nothing is logged.
  */
-import { originMatches, type TryItLimits } from "./config.js";
+import { isLocalHost, originMatches, type TryItLimits } from "./config.js";
 import {
   H_API,
   H_FAILURE,
@@ -21,7 +21,7 @@ import { isTransportHeader } from "./serialize.js";
 
 /** One API entry's policy, from the build. */
 export interface ProxyPolicy {
-  /** Exact origins; `"self"` is the docs site's own origin (a relative server). */
+  /** The spec's servers' exact origins, local and private ones left out. */
   origins: string[];
   /** The owner's `extraOrigins`, wildcards included. */
   extraOrigins: string[];
@@ -59,13 +59,11 @@ export interface ProxyOptions {
 export async function handleTryIt(request: Request, table: ProxyTable, options: ProxyOptions = {}): Promise<Response> {
   // Admission, before the body is read. No CORS answers, ever: a cross-site
   // page has to preflight `Nimbus-Try`, and the preflight gets a plain 405.
+  // These checks stop other sites' pages; a client outside a browser can say
+  // anything, and reaches only the API's own servers.
   if (request.method !== "POST") return refusal(405, "refused", "The Try it proxy takes POST only.");
   if (request.headers.get(H_TRY) !== "1") return refusal(400, "refused", "Not a Try it request.");
-  const self = new URL(request.url).origin;
-  const origin = request.headers.get("origin");
-  if (origin !== null && origin !== self) return refusal(403, "refused", "The proxy takes requests from this site's own pages only.");
-  const site = request.headers.get("sec-fetch-site");
-  if (site !== null && site !== "same-origin") return refusal(403, "refused", "The proxy takes requests from this site's own pages only.");
+  if (!fromThisSite(request)) return refusal(403, "refused", "The proxy takes requests from this site's own pages only.");
   // Own entries only: `constructor` or `__proto__` names no API.
   const api = request.headers.get(H_API) ?? "";
   const policy = Object.hasOwn(table, api) ? table[api] : undefined;
@@ -79,7 +77,7 @@ export async function handleTryIt(request: Request, table: ProxyTable, options: 
   } catch {
     return refusal(400, "refused", "The request's metadata isn't valid JSON.");
   }
-  const checked = checkTarget(meta, policy, self);
+  const checked = checkTarget(meta, policy);
   if (typeof checked === "string") return refusal(403, "refused", checked);
   const length = request.headers.get("content-length");
   if (length !== null && Number(length) > policy.limits.uploadBytes) return tooLarge(policy);
@@ -140,12 +138,29 @@ export async function handleTryIt(request: Request, table: ProxyTable, options: 
   }
 }
 
+/** A browser on one of this site's pages. `Sec-Fetch-Site` says so where a
+ *  browser sends it; otherwise the Origin must be this site's. `request.url`
+ *  isn't always the public address (a Node server without `allowedDomains`
+ *  reads localhost), so the Host the browser sent counts too. */
+function fromThisSite(request: Request): boolean {
+  const site = request.headers.get("sec-fetch-site");
+  if (site !== null) return site === "same-origin";
+  const origin = request.headers.get("origin");
+  if (origin === null) return true;
+  if (origin === new URL(request.url).origin) return true;
+  try {
+    return new URL(origin).host === request.headers.get("host");
+  } catch {
+    return false;
+  }
+}
+
 function tooLarge(policy: ProxyPolicy): Response {
   return refusal(413, "refused", `The body is over this site's ${policy.limits.uploadBytes.toLocaleString("en")}-byte limit.`);
 }
 
 /** Why the target can't be sent, or the request when it can. */
-export function checkTarget(meta: ProxyRequestMeta, policy: ProxyPolicy, self: string): string | true {
+export function checkTarget(meta: ProxyRequestMeta, policy: ProxyPolicy): string | true {
   if (!meta || typeof meta.method !== "string" || typeof meta.url !== "string" || !Array.isArray(meta.headers)) {
     return "The request's metadata is incomplete.";
   }
@@ -159,9 +174,8 @@ export function checkTarget(meta: ProxyRequestMeta, policy: ProxyPolicy, self: s
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") return "The target must be http or https.";
   if (url.username || url.password) return "The target can't carry a username or password.";
-  const allowed =
-    policy.origins.some((o) => (o === "self" ? self : o) === url.origin) ||
-    policy.extraOrigins.some((pattern) => originMatches(url.origin, pattern));
+  const allowed = policy.origins.includes(url.origin) || policy.extraOrigins.some((pattern) => originMatches(url.origin, pattern));
+  if (!allowed && isLocalHost(url.hostname)) return `${url.origin} is a local or private address: this site's relay doesn't carry it.`;
   if (!allowed) return `${url.origin} isn't one of this API's servers.`;
   const seen = new Set<string>();
   for (const entry of meta.headers) {

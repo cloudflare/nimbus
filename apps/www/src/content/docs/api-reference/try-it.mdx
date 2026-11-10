@@ -68,7 +68,11 @@ Direct has limits the proxy doesn't. The browser hides where a redirect points, 
 
 The proxy relays the request the browser built. It sends it only to the API's own servers: the servers the spec declares (operation, path and document level, with each server variable's declared values) and any `extraOrigins` you list. Readers can't add destinations.
 
-> Enabling the proxy lets anyone who can reach the route send requests to any path on an allowed origin, within Nimbus's fixed checks. Allowed origins come from the resolved spec servers and `extraOrigins`, including every hostname a wildcard matches. Relative servers, including the default `/`, can resolve to your docs origin. Nimbus performs no private-address or DNS checks, at build time or at runtime: an allowed localhost or internal server, or a hostname that resolves to an internal address, may be reached from the proxy's own network (localhost means the machine the proxy runs on, not the reader's), subject to your platform's network restrictions. Enable it only for destinations and DNS you trust; otherwise set `proxy: false`.
+Local and private addresses are left out of that list, with a build warning. That covers `localhost`, single-label names such as `http://api:3000`, `.local` and `.internal` names, and loopback, private and link-local IPs. A spec's dev server is often one of them. To relay one anyway, for example in a staging build, list it in `extraOrigins`.
+
+Relative servers, including the default `/`, are your docs site's own origin. The browser sends those requests itself, never through the proxy.
+
+> Anyone who can reach the route can send requests to any path on an allowed origin, within the checks below. That includes every hostname a wildcard in `extraOrigins` matches. Nimbus reads addresses as written and doesn't look up DNS: a public hostname that resolves to an internal address is still relayed. List only destinations you trust, or set `proxy: false`.
 
 Its fixed checks:
 
@@ -76,7 +80,7 @@ Its fixed checks:
 | --- | --- |
 | `POST` with a `Nimbus-Try: 1` header only | Another site's page can't call it without a preflight, and the route never answers one. |
 | Same origin | An `Origin` or `Sec-Fetch-Site` from another site is refused. Non-browser callers can still reach it. |
-| Allowed origins | The target's scheme, host and port must match a spec server or an `extraOrigins` entry. |
+| Allowed origins | The target's scheme, host and port must match a spec server or an `extraOrigins` entry. Local and private addresses match only through `extraOrigins`. |
 | No ambient headers | The docs request's cookies, `Authorization`, `cf-*` and `x-forwarded-*` headers are never forwarded. Only the request's own headers go. |
 | No connection headers | `Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Upgrade`, `TE`, `Expect` and `Proxy-*` are refused. |
 | Redirects | Never followed. The panel shows `Location` instead. |

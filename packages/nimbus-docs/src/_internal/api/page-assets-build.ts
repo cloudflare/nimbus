@@ -986,6 +986,7 @@ async function stageTryItVersion(
   target: ResolvedApiVersion,
   prepared: PreparedApiAssetVersion,
   proxyRuns: boolean,
+  warn: (message: string) => void,
 ): Promise<void> {
   const { stageTryItPlan, stageTryItPolicy } = await import("../try-it/stage.js");
   for (const plan of prepared.tryIt?.plans ?? []) await stageTryItPlan(root, plan, await readFile(tryItPlanCache(writer, plan), "utf8"));
@@ -995,6 +996,7 @@ async function stageTryItVersion(
     root,
     key,
     proxy ? { origins: prepared.tryIt!.origins, extraOrigins: proxy.extraOrigins, limits: target.tryIt!.limits } : null,
+    warn,
   );
 }
 
@@ -1042,7 +1044,7 @@ async function prepareApiAssetFamilyNow(
   for (const target of resolveApiFamily(entry, collectionMountPrefix(entry.collection, projectMountContext(root)))) {
     const prepared = await prepareApiAssetVersion(target, root, writer, environment, warn, proxyRuns);
     warnUnusedExtensions(target.family, target.version, prepared.unusedExtensions ?? [], warn);
-    await stageTryItVersion(root, writer, target, prepared, proxyRuns);
+    await stageTryItVersion(root, writer, target, prepared, proxyRuns, warn);
     versions.push({ target, prepared });
   }
   const matchKey = pageAssetDigest(

@@ -99,6 +99,7 @@ export async function stageApiTryItPlans(
     root,
     key,
     proxy ? { origins: [...origins].sort(), extraOrigins: proxy.extraOrigins, limits: proxy.limits } : null,
+    warn,
   );
 }
 

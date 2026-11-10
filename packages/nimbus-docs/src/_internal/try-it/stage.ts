@@ -3,6 +3,7 @@ import { access, cp, mkdir, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { writeAtomic } from "../page-assets-build.js";
 import type { RequestPlan } from "./plan.js";
+import { isLocalHost, originMatches } from "./config.js";
 import type { ProxyPolicy } from "./proxy.js";
 
 export const STAGED_PLANS = path.join(".astro", "nimbus", "try-it");
@@ -35,11 +36,29 @@ export async function deployTryItPlans(root: string, clientDirectory: string): P
 /** Where each API entry's proxy policy is staged, for the route's virtual module. */
 export const STAGED_POLICIES = path.join(".astro", "nimbus", "try-it-policy");
 
-/** Write (or, with `null`, remove) one API entry's proxy policy. */
-export async function stageTryItPolicy(root: string, key: string, policy: ProxyPolicy | null): Promise<void> {
+/** Write (or, with `null`, remove) one API entry's proxy policy. A local or
+ *  private origin is left out, with a warning, unless `extraOrigins` lists it. */
+export async function stageTryItPolicy(root: string, key: string, policy: ProxyPolicy | null, warn: (message: string) => void = () => {}): Promise<void> {
   const file = path.join(root, STAGED_POLICIES, `${encodeURIComponent(key)}.json`);
-  if (policy) await writeAtomic(file, JSON.stringify({ key, ...policy }));
+  if (policy) await writeAtomic(file, JSON.stringify({ key, ...policy, origins: relayOrigins(policy, warn) }));
   else await rm(file, { force: true });
+}
+
+/** The spec's origins the relay carries: public ones. The owner lists a local one in `extraOrigins` to relay it. */
+export function relayOrigins(policy: Pick<ProxyPolicy, "origins" | "extraOrigins">, warn: (message: string) => void = () => {}): string[] {
+  return policy.origins.filter((origin) => {
+    let host: string;
+    try {
+      host = new URL(origin).hostname;
+    } catch {
+      return false; // `"self"` from an older build's cache: relative servers aren't relayed
+    }
+    if (!isLocalHost(host)) return true;
+    if (!policy.extraOrigins.some((pattern) => originMatches(origin, pattern))) {
+      warn(`Try it's relay won't carry ${origin}: it's a local or private address. To relay it anyway, add "${origin}" to the API's tryIt.proxy.extraOrigins.`);
+    }
+    return false;
+  });
 }
 
 /** How many origins one server's authority variables may spell; past it the
@@ -47,7 +66,7 @@ export async function stageTryItPolicy(root: string, key: string, policy: ProxyP
 export const MAX_SERVER_ORIGINS = 4096;
 
 /** The origins a plan's servers can resolve to: authority variables over their
- *  declared values (or their default), relative servers as `"self"`. A path
+ *  declared values (or their default); relative servers aren't relayed. A path
  *  variable never changes the origin, so only its default is used. */
 export function planOrigins(plan: RequestPlan, tooMany: (server: string, count: number) => void = () => {}): string[] {
   const out = new Set<string>();
@@ -67,9 +86,10 @@ export function planOrigins(plan: RequestPlan, tooMany: (server: string, count: 
       // A protocol-relative server takes the page's (or spec's) scheme: either.
       for (const candidate of url.startsWith("//") ? [`https:${url}`, `http:${url}`] : [url]) {
         try {
+          // A relative server is the docs site's own origin: the browser sends there directly.
           const resolved = new URL(candidate, "https://self.nimbus.invalid");
           if (resolved.protocol !== "http:" && resolved.protocol !== "https:") continue;
-          out.add(resolved.host === "self.nimbus.invalid" ? "self" : resolved.origin);
+          if (resolved.host !== "self.nimbus.invalid") out.add(resolved.origin);
         } catch {
           // A server that isn't a URL contributes nothing.
         }

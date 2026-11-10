@@ -52,6 +52,7 @@ export {
   renderSample,
   maskText,
   sendRequest,
+  sameOrigin,
   isTextMedia,
   validateValues,
   checkParam,

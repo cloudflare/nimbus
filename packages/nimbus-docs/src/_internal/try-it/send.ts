@@ -63,7 +63,18 @@ export async function sendRequest(plan: RequestPlan, values: RequestValues, opti
   const via = options.delivery;
   const serialized = serializeRequest(plan, values, options.origin ? { origin: options.origin } : {});
   if ("refused" in serialized) return { ok: false, via, failure: "refused", reason: serialized.refused };
+  // The docs site's own origin needs no relay, and the relay doesn't carry it: the browser sends there itself.
+  if (via === "proxy" && options.origin && sameOrigin(serialized.url, options.origin)) return send(plan, serialized, { ...options, delivery: "direct" });
   return send(plan, serialized, options);
+}
+
+/** Whether a request URL is on the docs site's own origin. */
+export function sameOrigin(url: string, origin: string): boolean {
+  try {
+    return new URL(url).origin === new URL(origin).origin;
+  } catch {
+    return false;
+  }
 }
 
 /** Send an already-serialised request. */
