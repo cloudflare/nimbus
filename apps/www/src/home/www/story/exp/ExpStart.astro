@@ -1,12 +1,14 @@
 ---
-/* Getting started CTA, for above the footer. Two big keycaps: press ⌘C (or click them) and the one command you need is on your clipboard. */
+/* Getting started CTA, for above the footer. Two big keycaps: press ⌘C (or click them) and the one command you need is on your clipboard.
+   Its styles live here, not in the homepage's stylesheet, so other pages (the community recipes showcase) can end on it too. */
+import "@fontsource-variable/bricolage-grotesque/opsz.css";
 import { Code } from "@/components/ui/code";
 
 const cmd = "npx @cloudflare/create-nimbus-docs@latest";
 ---
 <div class="relative flex flex-col items-center py-10 text-center" data-exp-start data-cmd={cmd}>
   <p class="text-[13px] leading-none text-muted-foreground">Get started</p>
-  <h3 class="mt-4 text-[26px] leading-8 md:text-[32px] md:leading-10">Your docs, five minutes from now.</h3>
+  <h3 class="exp-start-title mt-4 text-[26px] leading-8 md:text-[32px] md:leading-10">Your docs, five minutes from now.</h3>
   <p class="mt-3 text-[15px] leading-7 text-foreground/70" data-hint>Press <span class="font-mono text-foreground" data-combo>⌘C</span> to copy the one command you need. Or click the keys.</p>
 
   <button type="button" class="mt-10 flex gap-4 outline-none" aria-label="Copy the install command" data-caps>
@@ -18,9 +20,83 @@ const cmd = "npx @cloudflare/create-nimbus-docs@latest";
   <p class="mt-4 text-[13px] leading-5 text-muted-foreground transition-colors data-[copied]:text-success" data-after>Paste it in your terminal. A few questions later, the site is in your repo.</p>
 </div>
 
+<style is:global>
+/* The homepage's display face, set here so the line keeps it off the homepage too. */
+.exp-start-title { font-family: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.015em; }
+
+/* ---- Keycaps ---- */
+/* A physical key seen from slightly above: the body forms the walls (taller at the front),
+   the top face sits inset with a soft concave gradient, and three shadows ground it. */
+.keycap {
+  --kc-wall-hi: #ecebe7; --kc-wall-lo: #d3d2cd; --kc-top-hi: #ffffff; --kc-top-lo: #f3f2ef; --kc-ink: #2b2a27;
+  --kc-rim: rgba(255, 255, 255, 0.9); --kc-edge: rgba(0, 0, 0, 0.09);
+  --kc-drop: 0 0 0 1px rgba(0, 0, 0, 0.07), 0 1px 1px rgba(0, 0, 0, 0.06), 0 4px 6px -2px rgba(0, 0, 0, 0.08), 0 16px 28px -8px rgba(0, 0, 0, 0.16);
+  --kc-drop-down: 0 0 0 1px rgba(0, 0, 0, 0.07), 0 1px 1px rgba(0, 0, 0, 0.05), 0 2px 3px -1px rgba(0, 0, 0, 0.07), 0 8px 14px -6px rgba(0, 0, 0, 0.12);
+  position: relative;
+  display: block;
+  width: 88px;
+  height: 92px;
+  border-radius: 20px;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.04), transparent 12%, transparent 88%, rgba(0, 0, 0, 0.04)),
+    linear-gradient(180deg, var(--kc-wall-hi) 0%, var(--kc-wall-hi) 30%, var(--kc-wall-lo) 100%);
+  box-shadow: inset 0 1px 0 var(--kc-rim), inset 0 -1px 0 rgba(0, 0, 0, 0.08), var(--kc-drop);
+  transition: transform 90ms ease-out, box-shadow 90ms ease-out;
+}
+.keycap-top {
+  position: absolute;
+  inset: 4px 6px 12px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  background:
+    radial-gradient(120% 90% at 50% 20%, var(--kc-top-hi) 0%, var(--kc-top-lo) 70%),
+    var(--kc-top-lo);
+  box-shadow:
+    inset 0 1px 0 var(--kc-rim),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.035),
+    0 0 0 1px var(--kc-edge),
+    0 1px 1px rgba(0, 0, 0, 0.06),
+    0 2px 4px rgba(0, 0, 0, 0.05);
+  color: var(--kc-ink);
+  font: 500 28px/1 var(--nb-font-sans);
+  transition: inset 90ms ease-out;
+}
+.keycap[data-down] { transform: translateY(3px); box-shadow: inset 0 1px 0 var(--kc-rim), inset 0 -1px 0 rgba(0, 0, 0, 0.08), var(--kc-drop-down); }
+.keycap[data-down] .keycap-top { inset: 6px 6px 7px; }
+/* Dark keys separate from a dark desk by light, not shadow: a crisp specular on the top edge, walls
+   that fall from lit to near black, a concave dish that catches light low, and a deep contact shadow. */
+[data-mode="dark"] .keycap {
+  --kc-ink: #e4e5ea;
+  --kc-drop: 0 0 0 1px rgba(0, 0, 0, 0.85), 0 1px 0 1px rgba(255, 255, 255, 0.03), 0 2px 3px rgba(0, 0, 0, 0.7), 0 6px 10px -2px rgba(0, 0, 0, 0.7), 0 18px 32px -8px rgba(0, 0, 0, 0.9);
+  --kc-drop-down: 0 0 0 1px rgba(0, 0, 0, 0.85), 0 1px 0 1px rgba(255, 255, 255, 0.03), 0 1px 2px rgba(0, 0, 0, 0.7), 0 3px 6px -2px rgba(0, 0, 0, 0.7), 0 10px 18px -8px rgba(0, 0, 0, 0.8);
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.35), transparent 14%, transparent 86%, rgba(0, 0, 0, 0.35)),
+    linear-gradient(180deg, #3a3b42 0%, #26272d 22%, #18191d 70%, #101114 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), inset 0 -1px 0 rgba(255, 255, 255, 0.04), var(--kc-drop);
+}
+[data-mode="dark"] .keycap[data-down] { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(255, 255, 255, 0.03), var(--kc-drop-down); }
+[data-mode="dark"] .keycap-top {
+  background:
+    radial-gradient(110% 70% at 50% 115%, rgba(255, 255, 255, 0.07), transparent 65%),
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%),
+    linear-gradient(180deg, #2c2d33 0%, #25262b 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.45),
+    0 3px 5px rgba(0, 0, 0, 0.25);
+}
+@media (prefers-reduced-motion: reduce) { .keycap, .keycap-top { transition: none; } }
+</style>
+
 <script>
-  const root = document.querySelector<HTMLElement>("[data-exp-start]");
-  if (root) {
+  import { mount } from "@cloudflare/nimbus-docs/client";
+
+  // Through mount(), so the keys work again after a client-side navigation
+  // (docs pages use Astro's router) and its listeners go when the page does.
+  mount("[data-exp-start]", (root) => {
     const caps = Array.from(root.querySelectorAll<HTMLElement>("[data-cap]"));
     const after = root.querySelector<HTMLElement>("[data-after]")!, idle = after.textContent;
     const mac = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -35,15 +111,27 @@ const cmd = "npx @cloudflare/create-nimbus-docs@latest";
       window.clearTimeout(reset);
       reset = window.setTimeout(() => { delete after.dataset.copied; after.textContent = idle; }, 2400);
     };
-    root.querySelector<HTMLElement>("[data-caps]")!.addEventListener("click", () => { press(true); setTimeout(() => press(false), 140); copy(); });
+    const button = root.querySelector<HTMLElement>("[data-caps]")!;
+    const click = () => { press(true); setTimeout(() => press(false), 140); copy(); };
+    button.addEventListener("click", click);
     // The real shortcut works while the keys are on screen, unless the reader has text selected.
     let inView = false;
-    new IntersectionObserver(([e]) => { inView = e.isIntersecting; }, { threshold: 0.4 }).observe(root);
-    addEventListener("keydown", (e) => {
+    const observer = new IntersectionObserver(([e]) => { inView = e.isIntersecting; }, { threshold: 0.4 });
+    observer.observe(root);
+    const keydown = (e: KeyboardEvent) => {
       if (!inView || !(mac ? e.metaKey : e.ctrlKey) || e.key.toLowerCase() !== "c") return;
       if (String(getSelection() ?? "").length > 0) return;
       e.preventDefault(); press(true); copy();
-    });
-    addEventListener("keyup", () => press(false));
-  }
+    };
+    const keyup = () => press(false);
+    addEventListener("keydown", keydown);
+    addEventListener("keyup", keyup);
+    return () => {
+      button.removeEventListener("click", click);
+      observer.disconnect();
+      removeEventListener("keydown", keydown);
+      removeEventListener("keyup", keyup);
+      window.clearTimeout(reset);
+    };
+  });
 </script>

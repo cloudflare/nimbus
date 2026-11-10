@@ -29,8 +29,8 @@ test("a pinned dependency the site already has at that version installs nothing"
 test("a missing or older pin installs exactly; an unpinned dependency installs as before", () => {
   const dir = site({ dependencies: { "openapi-sampler": "1.6.0", clsx: "^2.0.0" } });
   assert.deepEqual(
-    dependenciesToInstall(dir, ["openapi-sampler@1.7.4", "@readme/httpsnippet@11.4.0", "clsx", "tailwind-merge"]),
-    { exact: ["openapi-sampler@1.7.4", "@readme/httpsnippet@11.4.0"], loose: ["tailwind-merge"] },
+    dependenciesToInstall(dir, ["openapi-sampler@1.7.4", "@scalar/openapi-parser@0.28.12", "clsx", "tailwind-merge"]),
+    { exact: ["openapi-sampler@1.7.4", "@scalar/openapi-parser@0.28.12"], loose: ["tailwind-merge"] },
   );
 });
 

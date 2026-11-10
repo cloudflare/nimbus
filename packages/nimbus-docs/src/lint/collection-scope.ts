@@ -9,13 +9,12 @@
 
 import path from "node:path";
 
-import picomatch from "picomatch";
-
 import { walkFilesSync } from "../_internal/fs-walk.js";
 import {
   parsePageCollectionFolders,
   placeStaticCollections,
 } from "../_internal/parse-content-collections.js";
+import { globPageMatcher, sourceOwner, type SourceCollection } from "../_internal/source-links.js";
 import { parseContentSourcePath, SOURCES_DIR } from "../_internal/source-paths.js";
 
 export interface PageCollectionLintScope {
@@ -30,8 +29,8 @@ export interface PageCollectionLintScope {
   displayPath: (absPath: string) => string | undefined;
   /** The source a file's snapshot belongs to: such a file is never written. */
   readOnlySource: (absPath: string) => string | undefined;
-  /** The folder a snapshot file's collection reads; `undefined` for any other file. */
-  sourceFolder: (absPath: string) => string | undefined;
+  /** The folder and pattern of a snapshot file's collection; `undefined` for any other file. */
+  sourceCollection: (absPath: string) => SourceCollection | undefined;
   /** One line per collection lint can't see. */
   notes: string[];
 }
@@ -50,7 +49,7 @@ export function pageCollectionLintScope(
     parsePageCollectionFolders(projectRoot, path.join(projectRoot, "src", "content.config.ts")),
     snapshots,
   );
-  const owners: Array<{ dir: string; collection: string }> = [];
+  const owners: Array<SourceCollection & { collection: string }> = [];
   const files = new Set<string>();
   const unplaced: string[] = [];
   const markdown = new Set<string>();
@@ -59,10 +58,7 @@ export function pageCollectionLintScope(
       unplaced.push(`${collection} (${place.reason})`);
       continue;
     }
-    const patterns = typeof place.pattern === "string" ? [place.pattern] : place.pattern;
-    const positive = patterns.filter((p) => !p.startsWith("!"));
-    const negative = patterns.filter((p) => p.startsWith("!")).map((p) => p.slice(1));
-    const matches = picomatch(positive, negative.length > 0 ? { ignore: negative } : {});
+    const matches = globPageMatcher(place.pattern);
     // Lint reads MDX; count the Markdown pages it leaves out, so a clean
     // result doesn't hide them. A Markdown partial isn't a page.
     if (place.role !== "partials") {
@@ -71,27 +67,30 @@ export function pageCollectionLintScope(
       }
     }
     if (inside(contentDir, place.dir)) continue;
-    owners.push({ dir: place.dir, collection });
+    owners.push({ folder: place.dir, matches, collection });
     for (const { abs, rel } of walkFilesSync(place.dir, { extensions: [".mdx"] })) {
       if (matches(rel)) files.add(abs);
     }
   }
-  // The deepest folder wins when one collection's folder holds another's.
-  owners.sort((a, b) => b.dir.length - a.dir.length);
   const sourceOf = (absPath: string) => {
     const relative = path.relative(projectRoot, absPath).split(path.sep).join("/");
     return relative.startsWith(`${SOURCES_DIR}/`) ? parseContentSourcePath(relative) : undefined;
   };
+  // A file belongs to the collection whose folder holds it and whose pattern
+  // matches it, as the build decides, so lint applies that collection's rules.
+  const ownerOf = (absPath: string) => sourceOwner(owners, absPath);
   return {
     files: [...files].sort(),
-    collectionOf: (absPath) => owners.find((owner) => inside(owner.dir, absPath))?.collection ?? null,
+    collectionOf: (absPath) => ownerOf(absPath)?.collection ?? null,
     displayPath: (absPath) => {
       const source = sourceOf(absPath);
       return source ? `${source.name}: ${source.path}` : undefined;
     },
     readOnlySource: (absPath) => sourceOf(absPath)?.name,
-    sourceFolder: (absPath) =>
-      sourceOf(absPath) ? owners.find((owner) => inside(owner.dir, absPath))?.dir : undefined,
+    sourceCollection: (absPath) => {
+      const owner = sourceOf(absPath) ? ownerOf(absPath) : undefined;
+      return owner && { folder: owner.folder, matches: owner.matches };
+    },
     notes: [
       ...(unplaced.length ? [`not inspected: ${unplaced.join(", ")}.`] : []),
       ...(markdown.size

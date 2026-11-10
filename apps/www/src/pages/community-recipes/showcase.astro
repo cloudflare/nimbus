@@ -1,0 +1,31 @@
+---
+/**
+ * /community-recipes/showcase: a landing page, not a doc. The docs layout in
+ * custom mode gives the header and nothing else; the page is the showcase,
+ * then the homepage's get-started section and footer. Its Markdown version is
+ * ./showcase/index.md.ts.
+ */
+import DocsLayout from "@/layouts/DocsLayout.astro";
+import CommunityRecipes from "@/components/community/CommunityRecipes.astro";
+import ExpStart from "@/home/www/story/exp/ExpStart.astro";
+import SiteFooter from "@/home/www/SiteFooter.astro";
+import { SHOWCASE } from "@/lib/community-recipes-markdown";
+
+export const prerender = true;
+---
+
+<DocsLayout
+  title={SHOWCASE.title}
+  description={SHOWCASE.description}
+  markdownUrl={SHOWCASE.markdownPath}
+  mode="custom"
+  sidebar={false}
+  headings={false}
+  breadcrumbs={[]}
+  prevNext={{}}
+>
+  <CommunityRecipes />
+  {/* The cells' own borders close the grid; space, not a second rule, separates it from what follows. */}
+  <section class="mt-16 py-10 md:mt-24"><ExpStart /></section>
+  <SiteFooter />
+</DocsLayout>

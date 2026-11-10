@@ -16,6 +16,8 @@ import { Banner } from "@/components/ui/banner";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { ApiFieldList, ApiUnionExplorer } from "@/components/ui/api-field-row";
 import { PageActions } from "@/components/ui/page-actions";
+import ConnectMcp from "@/components/ConnectMcp.astro";
+import { capabilities } from "virtual:nimbus/agent-capabilities";
 import ApiEndpointCard from "./ApiEndpointCard.astro";
 import ApiHome from "./ApiHome.astro";
 import ApiOperationList from "./ApiOperationList.astro";
@@ -127,7 +129,11 @@ const deprecationHtml = page.deprecated
     <ApiEndpointCard method={page.method} path={page.path} server={page.server} isWebhook={page.isWebhook} />
   )}
 
-  {!homeChunk && <PageActions markdownUrl={markdownUrl} />}
+  {!homeChunk && (
+    <PageActions markdownUrl={markdownUrl}>
+      {capabilities.mcpUrl && <ConnectMcp />}
+    </PageActions>
+  )}
 </div>
 
 {!homeChunk && page.descriptionHtml && (

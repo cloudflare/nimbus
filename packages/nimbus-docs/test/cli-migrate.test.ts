@@ -449,6 +449,40 @@ test("a clean consented run records an empty reviewed range", () => {
   assert.equal(JSON.parse(fs.readFileSync(nimbusFile, "utf8")).lastReviewedNimbusVersion, CURRENT_VERSION);
 });
 
+test("recording the reviewed version changes only that value in nimbus.json", () => {
+  const root = makeProject();
+  const nimbusFile = path.join(root, "nimbus.json");
+  // A site formatter's layout, not the 2-space one Nimbus writes.
+  const formatted = `${JSON.stringify({ $schema: "https://nimbus-docs.com/schema/nimbus.json", lastReviewedNimbusVersion: null }, null, 4)}\n`;
+  fs.writeFileSync(nimbusFile, formatted);
+
+  run(root, ["migrate", "--from", CURRENT_VERSION, "--yes", "--json"]);
+  run(root, ["migrate", "--from", CURRENT_VERSION, "--print"]);
+  const completed = run(root, ["migrate", "--from", CURRENT_VERSION, "--yes", "--json"]);
+  assert.equal(JSON.parse(completed.stdout).baseline.recorded, true, completed.stdout);
+  assert.equal(fs.readFileSync(nimbusFile, "utf8"), formatted.replace("null", JSON.stringify(CURRENT_VERSION)));
+});
+
+test("recording the reviewed version adds a missing key without reformatting, and settles a duplicated one", () => {
+  const record = (contents: string): string => {
+    const root = makeProject();
+    const nimbusFile = path.join(root, "nimbus.json");
+    fs.writeFileSync(nimbusFile, contents);
+    run(root, ["migrate", "--from", CURRENT_VERSION, "--yes", "--json"]);
+    run(root, ["migrate", "--from", CURRENT_VERSION, "--print"]);
+    const completed = run(root, ["migrate", "--from", CURRENT_VERSION, "--yes", "--json"]);
+    assert.equal(JSON.parse(completed.stdout).baseline.recorded, true, completed.stdout);
+    return fs.readFileSync(nimbusFile, "utf8");
+  };
+  const tabbed = '{\n\t"$schema": "https://nimbus-docs.com/schema/nimbus.json",\n\t"components": []\n}\n';
+  assert.equal(
+    record(tabbed),
+    `{\n\t"lastReviewedNimbusVersion": ${JSON.stringify(CURRENT_VERSION)},\n\t"$schema": "https://nimbus-docs.com/schema/nimbus.json",\n\t"components": []\n}\n`,
+  );
+  const twice = record('{ "lastReviewedNimbusVersion": "0.11.0", "lastReviewedNimbusVersion": null }\n');
+  assert.equal(JSON.parse(twice).lastReviewedNimbusVersion, CURRENT_VERSION);
+});
+
 test("failed completion writes do not claim the baseline was recorded", () => {
   const root = makeProject();
   const route = path.join(root, "src", "pages", "[...slug].astro");

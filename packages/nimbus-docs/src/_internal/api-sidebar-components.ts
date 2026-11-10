@@ -52,13 +52,13 @@ export function navBuildId(
 
 /**
  * `sidebar: "on-demand"` relies on two starter components: `ApiSidebarItem`
- * renders collapsed groups as loadable, and the sidebar panel mounts the
- * loader. The panel's marker may live in any component, since a site can
- * render the sidebar outside `ApiLayout` (`ApiSidebarPanel`, or its own).
- * With older copies, collapsed groups never open and page-less categories
- * link nowhere, so the integration fails the build with this message. Sites
- * that replaced these components (no file at the starter's path) are not
- * checked.
+ * renders collapsed groups as loadable, and `ApiSidebarPanel` mounts the
+ * loader. With the starter's older copies, collapsed groups never open and
+ * page-less categories link nowhere, so the integration fails the build with
+ * this message. Only the starter's own outdated shapes are recognised: a
+ * layout the site rewrote (its own panel, a wrapper around the panel, the
+ * sidebar rendered elsewhere) is the site's, and so is its loader. Sites that
+ * replaced these components (no file at the starter's path) are not checked.
  */
 export function outdatedApiSidebarError(
   api: readonly { collection: string; sidebar?: string }[],
@@ -80,7 +80,7 @@ export function outdatedApiSidebarError(
   if (itemSource !== undefined && !itemSource.includes("childrenHref")) outdated.push(item);
   const layout = "components/ui/api-layout/ApiLayout.astro";
   const layoutSource = read(layout);
-  if (layoutSource !== undefined && !rendersNavPanel(layoutSource, srcDir)) outdated.push(layout);
+  if (layoutSource !== undefined && isPreOnDemandLayout(layoutSource)) outdated.push(layout);
   if (outdated.length === 0) return undefined;
   const collections = onDemand.map((e) => `"${e.collection}"`).join(", ");
   return (
@@ -94,21 +94,13 @@ export function outdatedApiSidebarError(
   );
 }
 
-const NAV_PANEL_MARKER = "data-nb-nav-build";
-
-// The layout mounts the on-demand loader itself, or renders a component that
-// does: `ApiSidebarPanel`, or a site's own. A panel installed but not
-// rendered doesn't count.
-function rendersNavPanel(layoutSource: string, srcDir: string): boolean {
-  if (layoutSource.includes(NAV_PANEL_MARKER)) return true;
-  for (const file of walkFilesSync(path.join(srcDir, "components"), {
-    onReadError: "lenient",
-    extensions: [".astro"],
-  })) {
-    const name = path.basename(file.rel, ".astro");
-    if (new RegExp(`<${name}[\\s/>]`).test(layoutSource) && fs.readFileSync(file.abs, "utf8").includes(NAV_PANEL_MARKER)) {
-      return true;
-    }
-  }
-  return false;
+// The starter's layout before on-demand sidebars imported the plain tree from
+// the api-sidebar barrel and rendered `<ApiSidebar items={nav.items} />`; the
+// current one renders `ApiSidebarPanel`, which mounts the loader. Only that
+// historical shape is flagged, by its own two lines: the singleton import (an
+// alias or a longer specifier list is a site's edit) and the invocation, with
+// no panel tag anywhere in the file.
+const OLD_SIDEBAR_IMPORT = /^\s*import\s*\{\s*ApiSidebar\s*\}\s*from\s*["']@\/components\/ui\/api-sidebar["']/m;
+function isPreOnDemandLayout(source: string): boolean {
+  return OLD_SIDEBAR_IMPORT.test(source) && source.includes("<ApiSidebar items={") && !/<ApiSidebarPanel[\s/>]/.test(source);
 }

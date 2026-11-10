@@ -223,7 +223,7 @@ export async function parseOpenApi(source: SpecSource, onceKey?: string): Promis
       preDiagnostics.push({
         level: "warning",
         message:
-          `Generated code samples omitted — install openapi-sampler and @readme/httpsnippet to derive ${generate.join(", ")} examples, or set \`samples.generate: []\` to publish authored samples only.`,
+          `Generated code samples omitted — install openapi-sampler to derive ${generate.join(", ")} examples, or set \`samples.generate: []\` to publish authored samples only.`,
         source: label,
       });
     }

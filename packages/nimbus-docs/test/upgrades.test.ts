@@ -39,6 +39,7 @@ test("only universally skippable entries are optional", () => {
       "agent-files-follow-rendering",
       "api-auth-details",
       "api-code-rail-lines",
+      "api-code-sample-before-paint",
       "api-code-sample-ids",
       "api-collections-from-config",
       "api-home",

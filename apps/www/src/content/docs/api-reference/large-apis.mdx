@@ -50,7 +50,7 @@ Set `sidebar` on the `api` entry in the Nimbus config. A site that passes its en
 
 Every group page lists its operations and its subsections, and the [API home](#the-api-home) lists every operation, so all pages stay reachable in every mode.
 
-`"on-demand"` needs the `api-layout` and `api-sidebar` components from your installed release; the build names outdated files. These components use the 0.19 starter's styles, so a site scaffolded before 0.19.0 adopts the redesigned starter first; `nimbus-docs migrate` lists its steps.
+`"on-demand"` needs the `api-layout` and `api-sidebar` components from your installed release; the build names outdated files. `ApiSidebarPanel` is what puts the sidebar on a page: it mounts the loader that opens groups, and a layout of your own can render it anywhere, directly or through a component of yours. The build checks only the starter's `ApiLayout.astro` for its shape from before on-demand sidebars; a layout you rewrote is yours, loader included. These components use the 0.19 starter's styles, so a site scaffolded before 0.19.0 adopts the redesigned starter first; `nimbus-docs migrate` lists its steps.
 
 ## The API home
 
