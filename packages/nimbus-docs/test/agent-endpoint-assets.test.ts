@@ -1240,6 +1240,17 @@ test("dev doesn't re-read files it published, and rewrites one that went missing
   assert.equal(await readFile(removed!, "utf8"), body);
 });
 
+test("a build still reads back every file it would keep", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", countedPages());
+  commit(projectRoot, "partials", [{ id: "note", body: "Note.", data: {} }]);
+  const { rebake } = countingSite(projectRoot, "build");
+  const manifest = await ensureAgentEndpointAssets(projectRoot);
+  const kept = path.join(projectRoot, ".astro/nimbus/agent-endpoint-assets", manifest.markdownAssets[0]!.path);
+  await writeFile(kept, "x".repeat(Buffer.byteLength(await readFile(kept, "utf8"))));
+  await assert.rejects(rebake(), /asset collision/);
+});
+
 test("removes assets made obsolete by edits and deletions", async () => {
   const projectRoot = await root();
   commit(projectRoot, "docs", [

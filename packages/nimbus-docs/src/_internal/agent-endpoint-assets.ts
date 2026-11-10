@@ -453,6 +453,7 @@ async function publishManifest(
   isFresh: () => boolean,
   endpointAssets: ReadonlyArray<{ path: string; body: string }>,
   onPublished: () => void | Promise<void>,
+  trustPublished: boolean,
 ): Promise<boolean> {
   const prior = agentEndpointAssetState.publications.get(root) ?? Promise.resolve();
   let published = false;
@@ -476,7 +477,7 @@ async function publishManifest(
         endpointAssets.map(async (asset) => {
           const file = path.join(directory, asset.path);
           // This process wrote or checked it, and its name pins its body.
-          if (retained.has(asset.path) && (await isInPlace(file, asset.body))) return;
+          if (trustPublished && retained.has(asset.path) && (await isInPlace(file, asset.body))) return;
           if (await writeAsset(file, asset.body)) created.push(asset.path);
         }),
       );
@@ -2448,6 +2449,7 @@ export async function bakeAgentEndpointAssets(
           await cleanupAssets(root, directory, manifest);
         }
       },
+      configuredAtStart?.mode === "dev",
     ))
   ) {
     return manifest;
