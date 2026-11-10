@@ -6,7 +6,8 @@ import { describe, test } from "node:test";
 import { MAX_IN_FLIGHT, handleTryIt, type ProxyTable } from "../src/_internal/try-it/proxy.js";
 import { H_API, H_FAILURE, H_META, H_REQUEST, H_TRY, headerJson } from "../src/_internal/try-it/protocol.js";
 import { proxiedTryItKeys, readTryItPolicies } from "../src/_internal/try-it/policy-plugin.js";
-import { stageTryItPolicy } from "../src/_internal/try-it/stage.js";
+import { MAX_SERVER_ORIGINS, planOrigins, stageTryItPolicy } from "../src/_internal/try-it/stage.js";
+import type { RequestPlan } from "../src/_internal/try-it/plan.js";
 import type { ApiSpec } from "../src/types.js";
 
 const SITE = "https://docs.example.com";
@@ -195,6 +196,16 @@ describe("answers", () => {
     await assert.rejects(response.text(), /deadline passed/);
   });
 
+  test("a request already cancelled never reaches the API", async () => {
+    const { sent, fetch } = upstream();
+    const cancelled = new AbortController();
+    cancelled.abort();
+    const request = new Request(tryRequest({ method: "DELETE", url: "https://api.example.com/v1/items/1" }), { signal: cancelled.signal });
+    const response = await handleTryIt(request, table(), { fetch });
+    assert.equal(sent.length, 0);
+    assert.match((await failure(response)).reason, /cancelled before it was sent/);
+  });
+
   test("a stalled upload ends at the deadline", async () => {
     const { sent, fetch } = upstream();
     const body = new ReadableStream({ start() {} });
@@ -261,5 +272,25 @@ describe("the relay's policy table", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("the relay's origins", () => {
+  const server = (count: number) => ({
+    url: "https://{tenant}.{region}.example.com/{v}",
+    variables: [
+      { name: "tenant", default: "t0", enum: Array.from({ length: count }, (_, i) => `t${i}`), authority: true },
+      { name: "region", default: "r0", enum: Array.from({ length: 20 }, (_, i) => `r${i}`), authority: true },
+      { name: "v", default: "v1", enum: ["v1", "v2"], authority: false },
+    ],
+  });
+  test("every combination of authority variables, up to the limit; past it, none and a name", () => {
+    const origins = planOrigins({ servers: [server(20)] } as unknown as RequestPlan);
+    assert.equal(origins.length, 400, "path variables don't multiply origins");
+    assert.ok(origins.includes("https://t19.r19.example.com"));
+    const crowded: [string, number][] = [];
+    assert.deepEqual(planOrigins({ servers: [server(250)] } as unknown as RequestPlan, (url, count) => crowded.push([url, count])), []);
+    assert.deepEqual(crowded, [["https://{tenant}.{region}.example.com/{v}", 5000]]);
+    assert.ok(5000 > MAX_SERVER_ORIGINS);
   });
 });

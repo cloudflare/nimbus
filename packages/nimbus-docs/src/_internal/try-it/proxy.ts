@@ -96,6 +96,8 @@ export async function handleTryIt(request: Request, table: ProxyTable, options: 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new DOMException("deadline", "TimeoutError")), policy.limits.timeoutMs);
   const onAbort = () => controller.abort();
+  // Already cancelled: nothing reaches the API, a write included.
+  if (request.signal?.aborted) controller.abort();
   request.signal?.addEventListener("abort", onAbort);
   const finish = () => {
     clearTimeout(timer);
@@ -109,6 +111,10 @@ export async function handleTryIt(request: Request, table: ProxyTable, options: 
     if (body === "overflow") {
       finish();
       return tooLarge(policy);
+    }
+    if (controller.signal.aborted && !timedOut()) {
+      finish();
+      return refusal(400, "refused", "The request was cancelled before it was sent.");
     }
     let upstream: Response;
     try {

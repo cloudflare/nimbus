@@ -925,7 +925,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
               const proxy = target.tryIt && target.tryIt.proxy !== false && proxyRuns
                 ? { key, extraOrigins: target.tryIt.proxy.extraOrigins, limits: target.tryIt.limits }
                 : null;
-              await stageApiTryItPlans(rootDir, model, proxy, key);
+              await stageApiTryItPlans(rootDir, model, proxy, key, (message) => logger.warn(message));
             }
           } catch (err) {
             // `ApiBuildError` already formats a pointed diagnostic list; fail

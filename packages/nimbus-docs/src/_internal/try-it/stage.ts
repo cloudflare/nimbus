@@ -42,16 +42,27 @@ export async function stageTryItPolicy(root: string, key: string, policy: ProxyP
   else await rm(file, { force: true });
 }
 
+/** How many origins one server's authority variables may spell; past it the
+ *  relay lists none of that server's, and `tooMany` names it. */
+export const MAX_SERVER_ORIGINS = 4096;
+
 /** The origins a plan's servers can resolve to: authority variables over their
- *  declared values (or their default), relative servers as `"self"`. */
-export function planOrigins(plan: RequestPlan): string[] {
+ *  declared values (or their default), relative servers as `"self"`. A path
+ *  variable never changes the origin, so only its default is used. */
+export function planOrigins(plan: RequestPlan, tooMany: (server: string, count: number) => void = () => {}): string[] {
   const out = new Set<string>();
   for (const server of plan.servers) {
-    let urls = [server.url];
-    for (const variable of server.variables) {
-      const values = variable.authority ? (variable.enum?.length ? variable.enum : [variable.default]) : [variable.default];
-      urls = urls.flatMap((url) => values.map((value) => url.split(`{${variable.name}}`).join(value))).slice(0, 256);
+    const choices = server.variables.map((variable) =>
+      variable.authority && variable.enum?.length ? variable.enum : [variable.default]);
+    const count = choices.reduce((total, values) => total * values.length, 1);
+    if (count > MAX_SERVER_ORIGINS) {
+      tooMany(server.url, count);
+      continue;
     }
+    let urls = [server.url];
+    server.variables.forEach((variable, i) => {
+      urls = urls.flatMap((url) => choices[i]!.map((value) => url.split(`{${variable.name}}`).join(value)));
+    });
     for (const url of urls) {
       try {
         const resolved = new URL(url, "https://self.nimbus.invalid");

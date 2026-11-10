@@ -74,6 +74,11 @@ export async function send(plan: RequestPlan, request: HttpRequest, options: Sen
   if (via === "direct" && request.headers.some(([name]) => name.toLowerCase() === "cookie")) {
     return fail("refused", "Direct: cookie parameters can't be sent from a browser. Send it via this site.");
   }
+  // Over the limit before encoding (files are known by size): refused without reading them.
+  const floor = bodyFloor(request.body);
+  if (floor > plan.send.uploadBytes) {
+    return fail("refused", `The body is at least ${floor.toLocaleString("en")} bytes, over this site's ${plan.send.uploadBytes.toLocaleString("en")}-byte limit.`);
+  }
   let payload: { body?: BodyInit; contentType?: string; size: number };
   try {
     payload = await encodeBody(request.body);
@@ -214,6 +219,20 @@ async function proxyFailure(
     return fail(failure, body.reason, body.retryAfterSeconds !== undefined ? { retryAfterSeconds: body.retryAfterSeconds } : {});
   } catch {
     return fail("network", "This site's proxy sent a refusal it couldn't read.");
+  }
+}
+
+// The fewest bytes a body can encode to: its files and texts, without the framing.
+function bodyFloor(body: HttpBody | undefined): number {
+  if (!body) return 0;
+  const bytes = (value: string | Blob) => (typeof value === "string" ? new TextEncoder().encode(value).byteLength : value.size);
+  switch (body.kind) {
+    case "multipart":
+      return body.parts.reduce((total, part) => total + bytes(part.value), 0);
+    case "bytes":
+      return body.file.size;
+    default:
+      return 0;
   }
 }
 

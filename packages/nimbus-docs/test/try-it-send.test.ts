@@ -186,6 +186,16 @@ describe("answers", () => {
     }
   });
 
+  test("a file over uploadBytes is refused before the body is encoded", async () => {
+    const p = plan({ method: "POST", path: "/upload", params: [], auth: [], body: { required: true, examples: [], media: [{ mediaType: "multipart/form-data", kind: "multipart", fields: [] }] } });
+    const big = new Blob([new Uint8Array(200_000)]);
+    const before = received.length;
+    const outcome = await sendRequest(p, { params: {}, body: { mediaType: "multipart/form-data", value: { fields: [{ name: "f", value: big, filename: "a.bin" }] } } }, { delivery: "direct", origin });
+    assert.equal(outcome.ok, false);
+    if (!outcome.ok) assert.match(outcome.reason, /at least 200,000 bytes/);
+    assert.equal(received.length, before, "nothing sent");
+  });
+
   test("a body over responseBytes is cut and marked truncated on both modes", async () => {
     const p = plan({ method: "GET", path: "/big", params: [], auth: [] });
     for (const delivery of ["direct", "proxy"] as const) {

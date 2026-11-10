@@ -807,7 +807,7 @@ export async function prepareApiAssetVersion(
     };
     const unused = unusedExtensions(model, target.extensions);
     if (unused.length > 0) value.unusedExtensions = unused;
-    if (tryIt) value.tryIt = await cacheTryItPlans(writer, spine);
+    if (tryIt) value.tryIt = await cacheTryItPlans(writer, spine, warn);
     if (!bypass) {
       await writeVersionCache(filename, value);
       await rememberPreparationInputs(inputsFile, { inputHash, components }, previousInputs);
@@ -957,10 +957,12 @@ const tryItPlanCache = (writer: PageAssetWriter, file: string) => path.join(writ
 async function cacheTryItPlans(
   writer: PageAssetWriter,
   spine: ReturnType<typeof unwrapModel>,
+  warn: (message: string) => void,
 ): Promise<{ plans: string[]; origins: string[] }> {
-  const { planOrigins } = await import("../try-it/stage.js");
+  const { planOrigins, MAX_SERVER_ORIGINS } = await import("../try-it/stage.js");
   const plans: string[] = [];
   const origins = new Set<string>();
+  const crowded = new Map<string, number>();
   for (const node of spine.nodes.values()) {
     const tryIt = node.kind === "operation" ? (node.facts as import("./model.js").OperationFacts).tryIt : undefined;
     if (!tryIt) continue;
@@ -971,8 +973,9 @@ async function cacheTryItPlans(
       await writeAtomic(file, JSON.stringify(tryIt.plan));
     }
     plans.push(tryIt.file);
-    for (const origin of planOrigins(tryIt.plan)) origins.add(origin);
+    for (const origin of planOrigins(tryIt.plan, (server, count) => crowded.set(server, count))) origins.add(origin);
   }
+  for (const [server, count] of crowded) warn(`Try it's relay won't carry ${server}: its server variables spell ${count.toLocaleString("en")} origins, over ${MAX_SERVER_ORIGINS.toLocaleString("en")}. List fewer enum values, or send direct.`);
   return { plans, origins: [...origins].sort() };
 }
 
