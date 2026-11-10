@@ -1020,6 +1020,11 @@
   overflow: hidden;
   pointer-events: none;
 }
+/* The same tab width as the textarea over it, so a body keeps its tabs and still lines up. */
+.nb-tid-under pre,
+.nb-tid-under code {
+  tab-size: 2;
+}
 [data-nb-api-coderail] .nb-tid-under pre.astro-code {
   width: max-content;
   min-width: 100%;

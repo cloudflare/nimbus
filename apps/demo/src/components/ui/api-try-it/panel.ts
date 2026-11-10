@@ -1110,13 +1110,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     // The editor is a textarea laid exactly over highlighted code: it types; the code underneath shows.
     const under = el("div", { class: "nb-cr-body nb-tid-under", "aria-hidden": "true", inert: true });
     const paintUnder = () => paint(under, area.value.endsWith("\n") ? `${area.value} ` : area.value || " ", isJson ? "json" : "text", "");
+    // The body is sent as typed, tabs included (TSV, Makefiles): the code underneath shares the tab width.
     const set = () => {
-      if (area.value.includes("\t")) {
-        const tabsBefore = area.value.slice(0, area.selectionStart).split("\t").length - 1;
-        const at = area.selectionStart + tabsBefore;
-        area.value = area.value.replace(/\t/g, "  ");
-        area.setSelectionRange(at, at);
-      }
       bodyDrafts.set(media.mediaType, area.value);
       bodyError.textContent = "";
       area.removeAttribute("aria-invalid");
