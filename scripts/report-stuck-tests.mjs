@@ -67,10 +67,7 @@ const pids = () => readdirSync("/proc").filter((name) => /^\d+$/.test(name)).map
 const reportsIn = (dir, pid) => {
   try {
     // node names them report.<date>.<time>.<pid>.<thread>.<seq>.json
-    return readdirSync(dir).filter((name) => {
-      const match = /^report\.\d{8}\.\d{6}\.(\d+)\.\d+\.\d+\.json$/.exec(name);
-      return match && (pid === undefined || Number(match[1]) === pid);
-    });
+    return readdirSync(dir).filter((name) => Number(/^report\.\d{8}\.\d{6}\.(\d+)\.\d+\.\d+\.json$/.exec(name)?.[1]) === pid);
   } catch {
     return [];
   }
@@ -151,13 +148,13 @@ async function summarise({ pid, file, cwd }) {
 while (alive(runner) && Date.now() <= deadline) await sleep(5000);
 
 if (alive(runner)) {
-  const dirs = new Set();
+  const signalled = [];
   try {
     console.log(`::group::Tests still running after ${minutes}: process tree`);
     console.log(execFileSync("ps", ["-eo", "pid,ppid,stat,etimes,args", "--forest"], { encoding: "utf8" }));
     console.log("::endgroup::");
     for (const holder of holders()) {
-      dirs.add(holder.cwd);
+      signalled.push(holder);
       await summarise(holder);
     }
   } catch (error) {
@@ -170,6 +167,7 @@ if (alive(runner)) {
     // The runner stops its test files; then no report is still being written.
     const until = Date.now() + 10000;
     while (alive(runner) && Date.now() < until) await sleep(200);
-    for (const dir of dirs) for (const name of reportsIn(dir)) rmSync(join(dir, name), { force: true });
+    // Only the reports this asked for.
+    for (const { pid, cwd } of signalled) for (const name of reportsIn(cwd, pid)) rmSync(join(cwd, name), { force: true });
   }
 }
