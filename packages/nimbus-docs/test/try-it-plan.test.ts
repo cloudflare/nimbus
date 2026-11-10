@@ -163,6 +163,21 @@ describe("what a plan keeps", () => {
   });
 });
 
+describe("unsupported bodies", () => {
+  test("a multipart part with a required header is refused, naming it", async () => {
+    const withHeader = structuredClone(spec) as typeof spec;
+    const multipart = (withHeader.paths["/items/{id}"].put.requestBody.content as Record<string, { encoding: Record<string, unknown> }>)["multipart/form-data"];
+    multipart.encoding = { file: { contentType: "image/png", headers: { "X-Checksum": { required: true, schema: { type: "string" } }, "Content-Type": { required: true } } } };
+    const model = await buildApiModel({ collection: "api", spec: withHeader as unknown as Record<string, never>, tryIt: on });
+    const plan = [...unwrapModel(model).nodes.values()]
+      .map((node) => (node.kind === "operation" ? (node.facts as OperationFacts).tryIt?.plan : undefined))
+      .find((p) => p?.id.coordinate === "putItem")!;
+    const media = plan.body!.media.find((m) => m.mediaType === "multipart/form-data")!;
+    assert.match(media.refused!, /file part needs a X-Checksum header/);
+    assert.equal(plan.body!.media.find((m) => m.mediaType === "application/json")!.refused, undefined);
+  });
+});
+
 describe("page assets (bundle: false)", () => {
   test("pages carry their plans; plans and the policy are staged when prepared and when reused", async () => {
     const { mkdtemp, readdir, rm } = await import("node:fs/promises");

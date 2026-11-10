@@ -239,6 +239,13 @@ function planBody(input: RequestPlanInput): PlanBody | undefined {
     const kind = bodyKind(mediaType);
     const out: PlanMedia = { mediaType, kind };
     if (kind === "form" || kind === "multipart") out.fields = bodyFields(m.schema, m.encoding);
+    // A part header the spec requires has no field to fill in: refused, never sent without it.
+    if (kind === "multipart") {
+      for (const [field, enc] of Object.entries(m.encoding ?? {})) {
+        const header = Object.entries(enc?.headers ?? {}).find(([name, h]) => h?.required === true && name.toLowerCase() !== "content-type")?.[0];
+        if (header && !out.refused) out.refused = `The ${field} part needs a ${header} header, which Try it can't send yet.`;
+      }
+    }
     return out;
   });
   const body: PlanBody = {

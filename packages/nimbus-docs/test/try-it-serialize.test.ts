@@ -300,6 +300,7 @@ describe("bodies", () => {
     });
     assert.equal(wire(counted, [{ name: "count", value: "42" }, { name: "on", value: "true" }]), "count=42&on=true");
     assert.equal(wire(counted, [{ name: "count", value: "0x10" }]), "count=%220x10%22", "text that isn't a JSON number stays text");
+    assert.equal(wire(counted, [{ name: "count", value: "9007199254740993" }]), "count=%229007199254740993%22", "past 2^53 the digits are kept, never rounded");
     assert.match(refused(form(), { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "pt", value: "x" }] } } }), /pt must be a JSON object/);
   });
 
@@ -349,6 +350,11 @@ describe("bodies", () => {
     };
     assert.deepEqual(parts("3.1"), [["tags", "a,b", null]]);
     assert.deepEqual(parts("3.0"), [["tags", "a", "text/csv"], ["tags", "b", "text/csv"]]);
+  });
+
+  test("a refused media type says why", () => {
+    const p = plan({ method: "POST", body: { required: true, examples: [], media: [{ mediaType: "multipart/form-data", kind: "multipart", fields: [], refused: "The file part needs a X-Checksum header." }] } });
+    assert.match(refused(p, { body: { mediaType: "multipart/form-data", value: { fields: [] } } }), /X-Checksum/);
   });
 
   test("multipart parts keep files and their content types", () => {

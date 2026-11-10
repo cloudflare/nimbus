@@ -411,6 +411,7 @@ function serializeBody(plan: RequestPlan, values: RequestValues, method: string)
   if (method === "GET" || method === "HEAD") refuse(`A ${method} request can't carry a body.`);
   const media = plan.body.media.find((m) => m.mediaType === body.mediaType);
   if (!media) refuse(`${body.mediaType} isn't a media type this operation takes.`);
+  if (media!.refused) refuse(media!.refused);
   const { value } = body;
   switch (media!.kind) {
     case "json": {
@@ -449,7 +450,8 @@ function serializeBody(plan: RequestPlan, values: RequestValues, method: string)
 function fieldValue(name: string, text: string, field: PlanBodyField | undefined): unknown {
   const type = field?.schema.type;
   // A number or boolean is typed as one, so a JSON content type writes `42`, not `"42"`.
-  if ((type === "integer" || type === "number") && /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/.test(text)) return Number(text);
+  // Only when the number writes back exactly: a 64-bit id past 2^53 stays its digits.
+  if ((type === "integer" || type === "number") && /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/.test(text) && String(Number(text)) === text) return Number(text);
   if (type === "boolean" && (text === "true" || text === "false")) return text === "true";
   if (type !== "array" && type !== "object") return text;
   let parsed: unknown;

@@ -100,6 +100,8 @@ export interface PlanMedia {
   kind: PlanBodyKind;
   /** Form and multipart: the top-level fields, in schema order. */
   fields?: PlanBodyField[];
+  /** Why this media type can't be sent (a required part header). */
+  refused?: string;
 }
 
 export interface PlanBody {
