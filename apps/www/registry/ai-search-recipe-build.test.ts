@@ -1,5 +1,6 @@
-// The ai-search recipe's switch, applied to the starter: its provider file
-// type-checks and the dialog bundles it in place of Pagefind.
+// The ai-search recipe's switch, applied to the starter from the recipe's own
+// code: it type-checks, the dialog bundles the provider in place of Pagefind,
+// and pages carry the search scope and the WebMCP meta.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { cp, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
@@ -32,14 +33,39 @@ before(async () => {
     if (!name.startsWith(".")) await symlink(join(starter, "node_modules", name), join(site, "node_modules", name));
 
   const recipe = await readFile(join(here, "features/ai-search.md"), "utf8");
-  const step = recipe.slice(recipe.indexOf(`Create \`${provider}\``));
-  const code = step.match(/```ts\n([\s\S]*?)\n\s*```/)![1]!.replace(/^ {3}/gm, "");
-  await writeFile(join(site, provider), `${code}\n`);
+  /** The code blocks of the switch step that names `file`, unindented. */
+  const blocks = (file: string) => {
+    const step = recipe.slice(recipe.indexOf(`\`${file}\``));
+    const end = step.search(/\n\d\. /);
+    return [...step.slice(0, end).matchAll(/```(?:ts|astro)\n([\s\S]*?)\n\s*```/g)].map((m) => m[1]!.replace(/^ {3}/gm, ""));
+  };
+  const edit = async (file: string, change: (source: string) => string) => {
+    const before = await readFile(join(site, file), "utf8");
+    const after = change(before);
+    assert.notEqual(after, before, `${file} unchanged`);
+    await writeFile(join(site, file), after);
+  };
 
-  const client = join(site, "src/components/ui/search/search.client.ts");
-  const source = await readFile(client, "utf8");
-  assert.ok(source.includes('from "./providers/pagefind"'));
-  await writeFile(client, source.replace('from "./providers/pagefind"', 'from "./providers/ai-search"'));
+  await writeFile(join(site, provider), `${blocks(provider)[0]}\n`);
+
+  const [scope, body] = blocks("src/layouts/BaseLayout.astro");
+  await edit("src/layouts/BaseLayout.astro", (source) =>
+    source
+      .replace("  getVersionStatus,\n", "  getPageSearchScope,\n  getVersionStatus,\n")
+      .replace("const isHiddenVersion", `${scope}\nconst isHiddenVersion`)
+      .replace('<body class="min-h-screen bg-background text-foreground antialiased">', body!),
+  );
+
+  const [meta] = blocks("src/components/WebMCP.astro");
+  await edit("src/components/WebMCP.astro", (source) =>
+    source
+      .replace('import { searchIndex } from "virtual:nimbus/config";', 'import { config, searchIndex, searchVersionChoices } from "virtual:nimbus/config";')
+      .replace("\n)}\n", `\n)}\n${meta}\n`),
+  );
+
+  await edit("src/components/ui/search/search.client.ts", (source) =>
+    source.replace('from "./providers/pagefind"', 'from "./providers/ai-search"'),
+  );
 
   const config = join(site, "astro.config.ts");
   await writeFile(
@@ -55,11 +81,11 @@ after(async () => {
   if (site) await rm(site, { recursive: true, force: true });
 });
 
-test("the recipe's provider type-checks against the starter's dialog", () => {
+test("the recipe's switch type-checks against the starter", () => {
   astro("check");
 });
 
-test("the build bundles the provider and no Pagefind index", async () => {
+test("the build bundles the provider, writes the scope and the WebMCP meta, and no Pagefind index", async () => {
   astro("build");
   const dist = join(site, "dist");
   assert.ok(!existsSync(join(dist, "pagefind")));
@@ -67,4 +93,8 @@ test("the build bundles the provider and no Pagefind index", async () => {
   const scripts = (await readdir(join(dist, "_astro"))).filter((file) => file.endsWith(".js"));
   const bundled = await Promise.all(scripts.map((file) => readFile(join(dist, "_astro", file), "utf8")));
   assert.ok(bundled.some((js) => js.includes("in astro.config to use this provider")), "provider missing from the client bundle");
+
+  const home = await readFile(join(dist, "index.html"), "utf8");
+  assert.match(home, /<body[^>]*\sdata-nb-search-version="[^"]+"[^>]*\sdata-nb-search-deprecated="false"/);
+  assert.match(home, /<meta name="nimbus-webmcp" content="[^"]*&quot;search&quot;:&quot;ai-search&quot;[^"]*&quot;endpoint&quot;/);
 });

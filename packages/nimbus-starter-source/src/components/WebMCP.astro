@@ -1,6 +1,6 @@
 ---
 import { capabilities, options } from "virtual:nimbus/agent-capabilities";
-import { config, searchIndex, searchVersionChoices } from "virtual:nimbus/config";
+import { searchIndex } from "virtual:nimbus/config";
 ---
 
 {capabilities.search === "pagefind" && (
@@ -12,17 +12,6 @@ import { config, searchIndex, searchVersionChoices } from "virtual:nimbus/config
     base: options.base,
     bundle: searchIndex.bundle,
     merge: searchIndex.merge,
-  })} />
-)}
-{capabilities.search === "ai-search" && config.search && config.search.provider === "ai-search" && (
-  <meta name="nimbus-webmcp" content={JSON.stringify({
-    search: capabilities.search,
-    versions: Object.keys(searchVersionChoices),
-    versionChoices: searchVersionChoices,
-    endpoint: config.search.endpoint,
-    site: options.site,
-    title: options.title,
-    base: options.base,
   })} />
 )}
 

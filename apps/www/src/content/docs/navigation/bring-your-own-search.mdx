@@ -91,4 +91,4 @@ A plain `SearchProvider` returns a list of results. Typed `SearchProvider<Search
 
 Set `search: { provider: "custom" }` so the build skips Pagefind.
 
-`pageSearchScope()` reads the attributes the layout writes on `<body>`, from `getPageSearchScope()`. Filter on them the way the built-in providers do: leave out pages with `deprecated: true`, unless the reader is on a deprecated page. Then search that page's `version`.
+`pageSearchScope()` reads the page's version from attributes on `<body>`. The starter doesn't write them; add them from `getPageSearchScope()` as the `ai-search` recipe does (`npx nimbus-docs add ai-search --print`). Filter on them the way the built-in providers do: leave out pages with `deprecated: true`, unless the reader is on a deprecated page. Then search that page's `version`.

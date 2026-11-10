@@ -1321,38 +1321,6 @@
         "The project typechecks.",
         "Cmd/Ctrl+K opens search and a known query returns results as before."
       ]
-    },
-    {
-      "id": "page-search-scope",
-      "introducedIn": "0.20.0",
-      "mode": "optional",
-      "changeset": "ai-search",
-      "summary": "Optionally write each page's search scope on <body>, which the ai-search provider and your own providers read with pageSearchScope(). Needed only with search: { provider: \"ai-search\" } or a provider that uses it.",
-      "affected": "Sites with the starter's src/layouts/BaseLayout.astro.",
-      "instructions": [
-        "No action is needed for Pagefind search.",
-        "Take the change with nimbus-docs diff src/layouts/BaseLayout.astro --apply.",
-        "If you edited BaseLayout, merge by hand: import getPageSearchScope from @cloudflare/nimbus-docs/runtime, call it with { collection, apiVersion } from the props, and add data-nb-search-version and data-nb-search-deprecated to <body> from its version and deprecated."
-      ],
-      "verify": [
-        "A built page's <body> carries data-nb-search-version and data-nb-search-deprecated."
-      ]
-    },
-    {
-      "id": "webmcp-ai-search",
-      "introducedIn": "0.20.0",
-      "mode": "optional",
-      "changeset": "ai-search",
-      "summary": "Optionally let browser agents search an AI Search site through WebMCP, as they search a Pagefind site.",
-      "affected": "Sites with the starter's src/components/WebMCP.astro that use search: { provider: \"ai-search\" }.",
-      "instructions": [
-        "No action is needed for Pagefind search.",
-        "Take the change with nimbus-docs diff src/components/WebMCP.astro --apply.",
-        "If you edited WebMCP.astro, merge by hand: also render the nimbus-webmcp meta when capabilities.search is \"ai-search\", with search, versions: Object.keys(searchVersionChoices), versionChoices: searchVersionChoices and endpoint: config.search.endpoint from virtual:nimbus/config, plus site, title and base as the Pagefind meta has them."
-      ],
-      "verify": [
-        "On an AI Search site, a page's head has the nimbus-webmcp meta with search set to ai-search."
-      ]
     }
   ]
 }

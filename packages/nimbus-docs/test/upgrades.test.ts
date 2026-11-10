@@ -75,7 +75,6 @@ test("only universally skippable entries are optional", () => {
       "page-chrome-for-agents",
       "page-language",
       "page-not-found-head",
-      "page-search-scope",
       "page-urls-and-llms-routes",
       "pnpm-sharp",
       "publish-agent-skills",
@@ -87,7 +86,6 @@ test("only universally skippable entries are optional", () => {
       "starter-component-fixes",
       "starter-defects",
       "version-switcher-collections",
-      "webmcp-ai-search",
     ],
   );
   assert.equal(

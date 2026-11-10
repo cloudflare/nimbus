@@ -171,9 +171,41 @@ The response's chunks should include that page, each with `url`, `title`, `versi
 
    It turns each result into the dialog's title, link and snippet. The package's `searchAiSearch()` does the request and drops results that link off the site.
 2. In `src/components/ui/search/search.client.ts`, change the provider import to `import { provider } from "./providers/ai-search";`. Check the file handles a `{ results }` or `{ error }` response and `provider.options` (run `npx nimbus-docs outdated` and apply the `search-provider-response` entry if not).
-3. Apply the `page-search-scope` entry to `src/layouts/BaseLayout.astro` (the `data-nb-search-*` attributes on `<body>`), and the `webmcp-ai-search` entry to `src/components/WebMCP.astro`. Pages rendered by the user's own API routes must pass `apiVersion` to `BaseLayout`.
-4. Remove the `pagefind` dev dependency.
-5. Add the sync to the production deploy, **after** the deploy step. For GitHub Actions:
+3. In `src/layouts/BaseLayout.astro`, write the page's version on `<body>`, so a query searches the version the reader is on. Import `getPageSearchScope` from `@cloudflare/nimbus-docs/runtime`, and in the frontmatter add:
+
+   ```ts
+   const searchScope = await getPageSearchScope({ collection, apiVersion });
+   ```
+
+   Then add two attributes to `<body>`, keeping the ones it has:
+
+   ```astro
+   <body
+     class="min-h-screen bg-background text-foreground antialiased"
+     data-nb-search-version={searchScope.version}
+     data-nb-search-deprecated={String(searchScope.deprecated)}
+   >
+   ```
+
+   Pages rendered by the user's own API routes must pass `apiVersion` to `BaseLayout`.
+4. In `src/components/WebMCP.astro`, let browser agents search the instance. Import `config` and `searchVersionChoices` from `virtual:nimbus/config` beside `searchIndex`, and add after the Pagefind `<meta>`:
+
+   ```astro
+   {capabilities.search === "ai-search" && config.search && config.search.provider === "ai-search" && (
+     <meta name="nimbus-webmcp" content={JSON.stringify({
+       search: capabilities.search,
+       versions: Object.keys(searchVersionChoices),
+       versionChoices: searchVersionChoices,
+       endpoint: config.search.endpoint,
+       site: options.site,
+       title: options.title,
+       base: options.base,
+     })} />
+   )}
+   ```
+
+5. Remove the `pagefind` dev dependency.
+6. Add the sync to the production deploy, **after** the deploy step. For GitHub Actions:
 
    ```yaml
    - name: Sync search
@@ -194,7 +226,8 @@ Deploy. Search now answers from the instance.
 - Cmd/Ctrl+K on the deployed site finds a known page; results link to the site's own pages.
 - On a deprecated version's page, search returns that version's pages; elsewhere it leaves deprecated versions out.
 - The output has no `pagefind/` directory.
+- A built page's `<body>` carries `data-nb-search-version` and `data-nb-search-deprecated`, and its head has a `nimbus-webmcp` meta with `"search":"ai-search"`.
 
 ## Removing it
 
-Run `npx nimbus-docs search sync --purge`, set `search: { provider: "pagefind" }` (or remove `search`), switch the provider import back to `./providers/pagefind`, delete `src/components/ui/search/providers/ai-search.ts`, and add `pagefind` back as a dev dependency.
+Run `npx nimbus-docs search sync --purge`, set `search: { provider: "pagefind" }` (or remove `search`), switch the provider import back to `./providers/pagefind`, delete `src/components/ui/search/providers/ai-search.ts`, and add `pagefind` back as a dev dependency. The `<body>` attributes and the WebMCP `<meta>` do nothing on a Pagefind site; remove them or leave them.
