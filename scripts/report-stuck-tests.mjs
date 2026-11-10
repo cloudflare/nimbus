@@ -13,7 +13,8 @@
  * If the runner outlives <seconds>, this prints the process tree, every
  * process holding one of the runner's pipes, and for each test file still
  * running a node report summary (JavaScript stack and the handles keeping it
- * alive). Then it stops the runner so the step fails with the report. It
+ * alive; for a file too blocked to answer, its threads and native stacks).
+ * Then it stops the runner so the step fails with the report. It
  * exits on its own once the runner ends. Linux only (reads /proc).
  */
 
@@ -131,16 +132,55 @@ async function summarise({ pid, file, cwd }) {
   console.log(`::group::${file} (pid ${pid}): node report`);
   if (!data) {
     console.log("No report: the process didn't answer SIGUSR2, so its main thread is blocked.");
-  } else {
-    // Only what it waits on; the report also holds environment variables.
-    console.log("JavaScript stack:", data.javascriptStack.message || "(empty: idle in the event loop)");
-    for (const frame of data.javascriptStack.stack ?? []) console.log(`  ${frame}`);
-    console.log("Handles keeping it alive:");
-    for (const handle of data.libuv.filter((h) => h.is_active && h.is_referenced)) {
-      const { address, is_active, is_referenced, ...rest } = handle;
-      console.log(`  ${JSON.stringify(rest)}`);
+    console.log("::endgroup::");
+    nativeStacks(pid, file);
+    return;
+  }
+  // Only what it waits on; the report also holds environment variables.
+  console.log("JavaScript stack:", data.javascriptStack.message || "(empty: idle in the event loop)");
+  for (const frame of data.javascriptStack.stack ?? []) console.log(`  ${frame}`);
+  console.log("Handles keeping it alive:");
+  for (const handle of data.libuv.filter((h) => h.is_active && h.is_referenced)) {
+    const { address, is_active, is_referenced, ...rest } = handle;
+    console.log(`  ${JSON.stringify(rest)}`);
+  }
+  console.log(`Worker threads: ${data.workers.length}`);
+  console.log("::endgroup::");
+}
+
+/**
+ * A blocked main thread can't write a node report, so read where each thread
+ * waits from /proc, then a native backtrace of every thread from gdb (GitHub's
+ * runners allow passwordless sudo; gdb is installed if missing).
+ */
+function nativeStacks(pid, file) {
+  console.log(`::group::${file} (pid ${pid}): threads`);
+  let tids = [];
+  try {
+    tids = readdirSync(`/proc/${pid}/task`);
+  } catch {}
+  for (const tid of tids) {
+    const read = (name) => {
+      try {
+        return readFileSync(`/proc/${pid}/task/${tid}/${name}`, "utf8").trim();
+      } catch {
+        return "?";
+      }
+    };
+    console.log(`  ${tid} ${read("comm")}: waits in ${read("wchan")}, syscall ${read("syscall").split(" ")[0]}`);
+  }
+  console.log("::endgroup::");
+  console.log(`::group::${file} (pid ${pid}): native stacks`);
+  const run = (command, args, timeout) => execFileSync(command, args, { encoding: "utf8", timeout, stdio: ["ignore", "pipe", "pipe"] });
+  try {
+    try {
+      run("sh", ["-c", "command -v gdb"], 5000);
+    } catch {
+      run("sudo", ["-n", "sh", "-c", "apt-get update -qq && apt-get install -y -qq gdb"], 180000);
     }
-    console.log(`Worker threads: ${data.workers.length}`);
+    console.log(run("sudo", ["-n", "gdb", "-p", String(pid), "-batch", "-ex", "set print frame-arguments none", "-ex", "thread apply all bt 40"], 120000));
+  } catch (error) {
+    console.log(`No native stacks: ${error.message.split("\n")[0]}`);
   }
   console.log("::endgroup::");
 }

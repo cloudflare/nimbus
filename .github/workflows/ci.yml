@@ -95,13 +95,13 @@ jobs:
       # --test-timeout fails a hung test by name; --test-force-exit then exits
       # the process instead of waiting on whatever handle hung it. Neither
       # covers a test file that outlives its tests, so report-stuck-tests
-      # names what the run waits on after 12 minutes and stops it.
+      # names what the run waits on after 10 minutes and stops it.
       - if: matrix.shard != 'other'
         working-directory: packages/nimbus-docs
         run: |
           node --import tsx --test --test-concurrency=4 --test-timeout=300000 --test-force-exit --test-shard=${{ matrix.shard }} "test/**/*.test.ts" &
           tests=$!
-          node ../../scripts/report-stuck-tests.mjs "$tests" 720 &
+          node ../../scripts/report-stuck-tests.mjs "$tests" 600 &
           wait "$tests"
         env:
           RUN_PACKED_MIGRATION: ${{ github.ref == 'refs/heads/main' || startsWith(github.head_ref, 'changeset-release/') }}
