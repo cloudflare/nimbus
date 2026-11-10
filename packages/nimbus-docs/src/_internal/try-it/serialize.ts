@@ -74,10 +74,15 @@ function build(plan: RequestPlan, values: RequestValues, options: SerializeOptio
     if (param.refused) refuse(param.refused);
     const value = values.params[paramKey(param)];
     if (value === undefined) refuse(`Fill in ${param.name}.`);
-    checkPathValue(param.name, value);
     path = path.split(`{${param.name}}`).join(stylePath(param, value));
   }
   if (/\{[^{}]+\}/.test(path)) refuse(`The path ${plan.path} has a parameter the spec doesn't declare.`);
+  // Values are percent-encoded, `/` included, so segments line up with the
+  // template's; a filled-in segment that reads . or .. would move the request.
+  const template = plan.path.split("/");
+  path.split("/").forEach((segment, i) => {
+    if ((segment === "." || segment === "..") && template[i] !== segment) refuse(`A path value would make ${plan.path} read ${path}.`);
+  });
 
   const query: string[] = [];
   const headers: [string, string][] = [];
@@ -126,10 +131,12 @@ function serverBase(plan: RequestPlan, values: RequestValues, options: Serialize
     const value = values.server?.variables?.[variable.name] ?? variable.default;
     let filled = value;
     if (!variable.authority) {
-      if (value === "" || value === "." || value === ".." || /[/\\]|%2f|%5c/i.test(value)) {
-        refuse(`The server variable ${variable.name} must be one path segment.`);
+      // A path variable may span segments (`api/v2`); each is encoded on its own.
+      const segments = value.split("/");
+      if (/[\\]|%2f|%5c/i.test(value) || segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
+        refuse(`The server variable ${variable.name} must be path segments, such as v2 or api/v2.`);
       }
-      filled = encodeURIComponent(value);
+      filled = segments.map(encodeURIComponent).join("/");
     }
     url = url.split(`{${variable.name}}`).join(filled);
   }
@@ -210,23 +217,11 @@ function shapeOf(value: unknown): Shape {
   return "scalar";
 }
 
-// A `content` parameter: the value serialised as its media type (JSON), as one scalar.
+// A `content` parameter: the value serialised as its media type, as one scalar.
+// A JSON media type always serialises (a string keeps its quotes).
 function contentText(param: PlanParam, value: unknown): string {
-  if (typeof value === "string") return value;
-  return JSON.stringify(value);
-}
-
-function checkPathValue(name: string, value: unknown): void {
-  const pieces = Array.isArray(value)
-    ? value.map(scalarText)
-    : value !== null && typeof value === "object"
-      ? Object.entries(value as Record<string, unknown>).flat().map(scalarText)
-      : [scalarText(value)];
-  for (const piece of pieces) {
-    // Every value is percent-encoded into its segment, `/` and `%` included, so only
-    // a bare dot segment could move the request to another path.
-    if (piece === "." || piece === "..") refuse(`${name} can't be . or ..`);
-  }
+  if (/[/+]json(;|$)/i.test(param.content ?? "")) return JSON.stringify(value);
+  return typeof value === "string" ? value : JSON.stringify(value);
 }
 
 const pathEncode = (text: string): string => encodeURIComponent(text);
@@ -431,15 +426,49 @@ function serializeBody(plan: RequestPlan, values: RequestValues, method: string)
       if (typeof value !== "string") return refuse("Enter the body as text or choose a file.");
       return { kind: "text", mediaType: media!.mediaType, text: value };
     case "form": {
-      const fields = formValues(value).fields.map(({ name, value: v }) => {
+      const byName = new Map((media!.fields ?? []).map((field) => [field.name, field]));
+      const fields = formValues(value).fields.flatMap(({ name, value: v }) => {
         if (typeof v !== "string") refuse("A URL-encoded form can't carry a file.");
-        return { name, value: v as string };
+        return formField(name, v as string, byName.get(name));
       });
       return { kind: "form", fields };
     }
     case "multipart":
       return { kind: "multipart", parts: multipartParts(formValues(value), media!.fields ?? []) };
   }
+}
+
+// A list or object field is held as JSON text; read it back for its encoding.
+// Text that isn't a JSON list is one item of a list field.
+function structured(name: string, text: string, field: PlanBodyField | undefined): unknown[] | Record<string, unknown> | undefined {
+  const type = field?.schema.type;
+  if (type !== "array" && type !== "object") return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    if (type === "array") return [text];
+    return refuse(`${name} must be a JSON object.`);
+  }
+  if (type === "array") return Array.isArray(parsed) ? parsed : [text];
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return refuse(`${name} must be a JSON object.`);
+  return parsed as Record<string, unknown>;
+}
+
+// One URL-encoded field, as its `encoding` style and explode say (OpenAPI's form defaults).
+function formField(name: string, text: string, field: PlanBodyField | undefined): { name: string; value: string }[] {
+  const value = structured(name, text, field);
+  if (value === undefined) return [{ name, value: text }];
+  const style = field?.encoding?.style ?? "form";
+  const explode = field?.encoding?.explode ?? style === "form";
+  if (Array.isArray(value)) {
+    const list = items(value, name);
+    if (style === "spaceDelimited" || style === "pipeDelimited") return [{ name, value: list.join(style === "spaceDelimited" ? " " : "|") }];
+    return explode ? list.map((item) => ({ name, value: item })) : [{ name, value: list.join(",") }];
+  }
+  const pairs = entries(value, name);
+  if (style === "deepObject") return pairs.map(([k, v]) => ({ name: `${name}[${k}]`, value: v }));
+  return explode ? pairs.map(([k, v]) => ({ name: k, value: v })) : [{ name, value: pairs.flat().join(",") }];
 }
 
 function formValues(value: unknown): FormValues {
@@ -451,12 +480,23 @@ function formValues(value: unknown): FormValues {
 
 function multipartParts(values: FormValues, fields: PlanBodyField[]): HttpPart[] {
   const byName = new Map(fields.map((field) => [field.name, field]));
-  return values.fields.map(({ name, value, filename, contentType }) => {
-    const part: HttpPart = { name, value };
-    const declared = contentType ?? byName.get(name)?.encoding?.contentType?.split(",")[0]?.trim();
-    if (declared) part.contentType = declared;
-    if (filename !== undefined) part.filename = filename;
-    return part;
+  return values.fields.flatMap(({ name, value, filename, contentType }) => {
+    const field = byName.get(name);
+    const declared = contentType ?? field?.encoding?.contentType?.split(",")[0]?.trim();
+    const part = (v: string | Blob, type?: string): HttpPart => {
+      const out: HttpPart = { name, value: v };
+      if (type) out.contentType = type;
+      if (filename !== undefined) out.filename = filename;
+      return out;
+    };
+    if (typeof value !== "string") return [part(value, declared)];
+    // A list is a part per item; an object is one JSON part (OpenAPI's multipart defaults).
+    const parsed = structured(name, value, field);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => item !== null && typeof item === "object" ? part(JSON.stringify(item), declared ?? "application/json") : part(scalarText(item), declared));
+    }
+    if (parsed !== undefined) return [part(JSON.stringify(parsed), declared ?? "application/json")];
+    return [part(value, declared)];
   });
 }
 

@@ -181,6 +181,17 @@ describe("answers", () => {
     assert.ok(Date.now() - started < 1000);
   });
 
+  test("a body that stalls past the deadline errors instead of ending as if whole", async () => {
+    const stalled = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("partial"));
+      },
+    });
+    const fetch = (async () => new Response(stalled)) as typeof globalThis.fetch;
+    const response = await handleTryIt(tryRequest(), table({ timeoutMs: 150 }), { fetch });
+    await assert.rejects(response.text(), /deadline passed/);
+  });
+
   test("a stalled upload ends at the deadline", async () => {
     const { sent, fetch } = upstream();
     const body = new ReadableStream({ start() {} });

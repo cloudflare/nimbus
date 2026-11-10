@@ -252,7 +252,9 @@ function boundedStream(upstream: Response, limit: number, signal: AbortSignal, d
       try {
         const { done: end, value } = await reader.read();
         if (end) {
-          controller.close();
+          // Cancelling at the deadline ends the read too: that's a cut-off body, not a whole one.
+          if (signal.aborted) controller.error(new Error("The relay's deadline passed before the response finished."));
+          else controller.close();
           done();
           return;
         }

@@ -92,6 +92,10 @@ describe("OpenAPI's style examples", () => {
   test("a JSON content parameter is sent as its JSON text", () => {
     const p = plan({ params: [param({ in: "query", name: "filter", content: "application/json" })] });
     assert.equal(send(p, { params: { "query:filter": { a: 1 } } }).url, "https://api.example.com/v1/items?filter=%7B%22a%22%3A1%7D");
+    // A JSON string keeps its quotes; text content goes as typed.
+    assert.equal(send(p, { params: { "query:filter": "hello" } }).url, "https://api.example.com/v1/items?filter=%22hello%22");
+    const textual = plan({ params: [param({ in: "query", name: "q", content: "text/plain" })] });
+    assert.equal(send(textual, { params: { "query:q": "hello" } }).url, "https://api.example.com/v1/items?q=hello");
   });
 });
 
@@ -112,7 +116,11 @@ describe("undefined combinations are refused, the rest sent", () => {
 
   test("path values are encoded into one segment; dot segments refused", () => {
     const p = plan({ path: "/f/{id}", params: [param({ in: "path", name: "id" })] });
-    for (const bad of [".", ".."]) assert.match(refused(p, { params: { "path:id": bad } }), /can't be \. or \.\./);
+    for (const bad of [".", ".."]) assert.match(refused(p, { params: { "path:id": bad } }), /would make \/f\/\{id\} read/);
+    // Label style can build a dot segment out of empty items.
+    const label = plan({ path: "/accounts/{id}/settings", params: [param({ in: "path", name: "id", style: "label", explode: true })] });
+    assert.match(refused(label, { params: { "path:id": ["", ""] } }), /would make \/accounts\/\{id\}\/settings read \/accounts\/\.\.\/settings/);
+    assert.equal(send(label, { params: { "path:id": ["a", "b"] } }).url, "https://api.example.com/v1/accounts/.a.b/settings");
     assert.equal(send(p, { params: { "path:id": "a%2Fb" } }).url, "https://api.example.com/v1/f/a%252Fb");
     assert.equal(send(p, { params: { "path:id": "a b" } }).url, "https://api.example.com/v1/f/a%20b");
     assert.equal(send(p, { params: { "path:id": "Europe/London" } }).url, "https://api.example.com/v1/f/Europe%2FLondon");
@@ -152,7 +160,7 @@ describe("cookies, one header by Nimbus's convention", () => {
 });
 
 describe("servers", () => {
-  test("variables: path ones as one segment, authority ones as given", () => {
+  test("variables: path ones as encoded segments, authority ones as given", () => {
     const p = plan({
       servers: [{
         url: "https://{region}.example.com/{base}",
@@ -164,7 +172,10 @@ describe("servers", () => {
     });
     assert.equal(send(p).url, "https://eu.example.com/v1/items");
     assert.equal(send(p, { server: { index: 0, variables: { region: "us", base: "v 2" } } }).url, "https://us.example.com/v%202/items");
-    assert.match(refused(p, { server: { index: 0, variables: { base: "a/b" } } }), /one path segment/);
+    assert.equal(send(p, { server: { index: 0, variables: { base: "api/v 2" } } }).url, "https://eu.example.com/api/v%202/items");
+    for (const base of ["a/../b", "a//b", "..", "a%2Fb", "a\\b"]) {
+      assert.match(refused(p, { server: { index: 0, variables: { base } } }), /must be path segments/, base);
+    }
   });
 
   test("relative servers and the default / resolve against the spec URL, else the docs origin", () => {
@@ -236,6 +247,62 @@ describe("bodies", () => {
       body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "a", value: "1" }, { name: "a", value: "x y" }] } },
     });
     assert.deepEqual(out.body, { kind: "form", fields: [{ name: "a", value: "1" }, { name: "a", value: "x y" }] });
+  });
+
+  test("URL-encoded list and object fields follow their encoding", () => {
+    const form = (encoding?: { style?: string; explode?: boolean }) =>
+      plan({
+        method: "POST",
+        body: {
+          required: true,
+          examples: [],
+          media: [{
+            mediaType: "application/x-www-form-urlencoded",
+            kind: "form",
+            fields: [
+              { name: "tags", required: false, schema: { type: "array" }, ...(encoding ? { encoding } : {}) },
+              { name: "pt", required: false, schema: { type: "object" }, ...(encoding ? { encoding } : {}) },
+            ],
+          }],
+        },
+      });
+    const fields = (p: RequestPlan, values: { name: string; value: string }[]) => {
+      const out = send(p, { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: values } } });
+      return out.body?.kind === "form" ? out.body.fields.map(({ name, value }) => `${name}=${value}`) : [];
+    };
+    const tags = { name: "tags", value: '["a","b"]' };
+    const pt = { name: "pt", value: '{"x":1,"y":2}' };
+    assert.deepEqual(fields(form(), [tags, pt]), ["tags=a", "tags=b", "x=1", "y=2"], "form, exploded by default");
+    assert.deepEqual(fields(form({ explode: false }), [tags, pt]), ["tags=a,b", "pt=x,1,y,2"]);
+    assert.deepEqual(fields(form({ style: "pipeDelimited", explode: false }), [tags]), ["tags=a|b"]);
+    assert.deepEqual(fields(form({ style: "deepObject", explode: true }), [pt]), ["pt[x]=1", "pt[y]=2"]);
+    assert.deepEqual(fields(form(), [{ name: "tags", value: "solo" }]), ["tags=solo"], "plain text is one item of a list field");
+    assert.match(refused(form(), { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "pt", value: "x" }] } } }), /pt must be a JSON object/);
+  });
+
+  test("multipart list and object fields: a part per item, objects as JSON", () => {
+    const p = plan({
+      method: "POST",
+      body: {
+        required: true,
+        examples: [],
+        media: [{
+          mediaType: "multipart/form-data",
+          kind: "multipart",
+          fields: [
+            { name: "tags", required: false, schema: { type: "array" } },
+            { name: "meta", required: false, schema: { type: "object" } },
+            { name: "csv", required: false, schema: { type: "object" }, encoding: { contentType: "text/csv" } },
+          ],
+        }],
+      },
+    });
+    const out = send(p, {
+      body: { mediaType: "multipart/form-data", value: { fields: [{ name: "tags", value: '["a","b"]' }, { name: "meta", value: '{"k":1}' }, { name: "csv", value: '{"k":1}' }] } },
+    });
+    assert.equal(out.body?.kind, "multipart");
+    const parts = out.body?.kind === "multipart" ? out.body.parts.map(({ name, value, contentType }) => [name, value, contentType ?? null]) : [];
+    assert.deepEqual(parts, [["tags", "a", null], ["tags", "b", null], ["meta", '{"k":1}', "application/json"], ["csv", '{"k":1}', "text/csv"]]);
   });
 
   test("multipart parts keep files and their content types", () => {
