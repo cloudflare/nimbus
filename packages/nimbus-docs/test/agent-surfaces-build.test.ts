@@ -74,6 +74,46 @@ test("a request-rendered site without the Markdown route answers Accept: text/ma
   }
 });
 
+test("a request-rendered site with no search and no Markdown route builds a page that renders a partial", async () => {
+  // No route, no MCP and no Pagefind: the build bakes no body for the page,
+  // and the request-route inventory must not render one either (a partial
+  // expands in the bake, not in the runtime renderer).
+  const site = await fixture("---\ntitle: Root\n---\nRoot body.", "docs", false, undefined, {
+    rendering: { default: "request" },
+  });
+  try {
+    await rm(path.join(site.root, "src/pages/[...slug]/index.md.ts"));
+    const content = pathToFileURL(path.resolve(import.meta.dirname, "../src/content.ts")).href;
+    await site.write(
+      "src/content.config.ts",
+      `import { defineCollection } from "astro:content"; import { docsCollection, partialsCollection } from ${JSON.stringify(content)};\nexport const collections = { docs: defineCollection(docsCollection({ base: "docs" })), partials: defineCollection(partialsCollection()) };`,
+    );
+    await site.write("src/content/partials/snippet.mdx", "Snippet text.");
+    await site.write("src/content/docs/guide.mdx", '---\ntitle: Guide\n---\n## Start\n\n<Render file="snippet" />\n');
+    await site.write(
+      "src/pages/[...slug].astro",
+      `---\nimport { getDocsPage } from ${srcModule("index.ts")};\nconst page = await getDocsPage(Astro);\nif (page instanceof Response) return page;\n---\n<html><body>Page</body></html>`,
+    );
+    await site.write(
+      "server-entry.mjs",
+      'import { createApp } from "astro/app/entrypoint";\nexport const app = createApp();\n',
+    );
+    await build({
+      ...site.config,
+      output: "server",
+      adapter: testAdapter(path.join(site.root, "server-entry.mjs")),
+      build: { client: path.join(site.root, "dist"), server: path.join(site.root, ".server") },
+    } as never);
+    const baked = await manifest(site.root);
+    assert.deepEqual(baked.markdownAssets, []);
+    const { app } = (await import(pathToFileURL(path.join(site.root, ".server", "entry.mjs")).href)) as { app: App };
+    const page = await app.render(new Request("https://example.test/docs/guide/"));
+    assert.equal(page.status, 200);
+  } finally {
+    await rm(site.root, { recursive: true, force: true });
+  }
+});
+
 test("with every starter route the build is unchanged: twins, source, indexes, full document", async () => {
   const site = await fixture("---\ntitle: Root\n---\nRoot body.");
   try {
