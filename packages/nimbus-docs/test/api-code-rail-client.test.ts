@@ -3,12 +3,16 @@
  * reader picks one sample on a page by id, while the choice that follows them
  * to other operations and tabs is the sample's language. Navigation is
  * simulated with Astro's `astro:before-swap` and `astro:page-load` events,
- * which `mount` listens for.
+ * which `mount` listens for; `restoreChoice` runs between them, where the
+ * page's inline `choiceStateScript` would.
  */
 
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { JSDOM } from "jsdom";
+
+import { restoreChoice } from "../src/client/choice.ts";
+import { readUrlParam } from "../src/client/url-param.ts";
 
 const SYNC_KEY = "nb-api-code-rail__lang";
 
@@ -30,29 +34,30 @@ function rail(samples: Array<[id: string, lang: string]>): string {
   const options = samples.map(([id], i) => `<option value="${id}"${i === 0 ? " selected" : ""}>${id}</option>`);
   const panels = samples.map(
     ([id, lang], i) =>
-      `<div data-nb-lang-panel data-nb-lang-value="${id}" data-nb-sample-lang="${lang}"${i === 0 ? "" : " hidden"}>${id}</div>`,
+      `<div data-nb-choice-panel="${id}" data-nb-choice-kind="${lang}"${i === 0 ? "" : " hidden"}>${id}</div>`,
   );
-  return `<div data-nb-lang-picker><select data-nb-lang-select>${options.join("")}</select>${panels.join("")}</div>`;
+  return `<div data-nb-lang-picker data-nb-choice="${SYNC_KEY}" data-nb-choice-param="lang"><select data-nb-choice-select>${options.join("")}</select>${panels.join("")}</div>`;
 }
 
 // Swap the page the way Astro's client router does.
-function navigate(url: string, samples: Array<[string, string]>): void {
+function navigate(url: string, samples: Array<[string, string]>, { restore = true } = {}): void {
   document.dispatchEvent(new dom.window.Event("astro:before-swap"));
   history.replaceState(null, "", url);
   document.body.innerHTML = rail(samples);
+  if (restore) restoreChoice(readUrlParam);
   document.dispatchEvent(new dom.window.Event("astro:page-load"));
 }
 
 function visible(): string {
-  const shown = [...document.querySelectorAll<HTMLElement>("[data-nb-lang-panel]")].filter((p) => !p.hidden);
+  const shown = [...document.querySelectorAll<HTMLElement>("[data-nb-choice-panel]")].filter((p) => !p.hidden);
   assert.equal(shown.length, 1, "exactly one sample is visible");
-  const select = document.querySelector<HTMLSelectElement>("[data-nb-lang-select]")!;
-  assert.equal(select.value, shown[0]!.dataset.nbLangValue, "the picker matches the visible sample");
-  return shown[0]!.dataset.nbLangValue!;
+  const select = document.querySelector<HTMLSelectElement>("[data-nb-choice-select]")!;
+  assert.equal(select.value, shown[0]!.dataset.nbChoicePanel, "the picker matches the visible sample");
+  return shown[0]!.dataset.nbChoicePanel!;
 }
 
 function choose(id: string): void {
-  const select = document.querySelector<HTMLSelectElement>("[data-nb-lang-select]")!;
+  const select = document.querySelector<HTMLSelectElement>("[data-nb-choice-select]")!;
   select.value = id;
   select.dispatchEvent(new dom.window.Event("change"));
 }
@@ -113,5 +118,11 @@ test("another tab's language choice switches the rail, keeping a sample already 
   fromOtherTab("python");
   assert.equal(visible(), "python-2", "already showing a Python sample");
   fromOtherTab("curl");
+  assert.equal(visible(), "curl");
+});
+
+test("mounting leaves the restore to the inline script", () => {
+  localStorage.setItem(SYNC_KEY, "python");
+  navigate("https://x.dev/b?lang=typescript", DEFAULT_THREE, { restore: false });
   assert.equal(visible(), "curl");
 });

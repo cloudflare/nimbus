@@ -12,6 +12,7 @@
  *   nimbus-docs add <slug...>          → install (component path or feature path)
  *   nimbus-docs add <slug...> --yes    → component: no prompts, keeps differing files
  *   nimbus-docs add <feature> --print  → print an agent-handoff recipe
+ *   nimbus-docs add <url>              → hand off the recipe at a URL, like a feature
  *
  * Feature behavior: print markdown to stdout iff `--print` OR an agent is
  * detected; otherwise print human-friendly pipe instructions to stderr.
@@ -39,7 +40,7 @@ import { BUNDLED_INDEX, type RegistryEntryType } from "./_registry.generated.js"
 import { checkCommand } from "./check.js";
 import { installComponents, keptLines, registerHint, starterBaseline } from "./component.js";
 import { loadDotenv } from "./dotenv.js";
-import { humanInstructions, installFeature, shouldUseAgentHandoff } from "./feature.js";
+import { humanInstructions, installFeature, installRecipeUrl, isRecipeUrl, shouldUseAgentHandoff } from "./feature.js";
 import {
   formatSources,
   isSourceUrl,
@@ -120,6 +121,7 @@ const HELP = `
                                    List available registry items
     add                            Same as \`list\`
     add <slug...>                  Install components or hand off a feature
+    add <url>                      Hand the recipe at a URL to your coding agent, like a feature
     add source <name|url>          Add a content source: git (github, gitlab, bitbucket), notion,
                                    or a provider's docs URL; \`add source\` alone lists them
     add server-output --adapter <vercel|node|netlify|cloudflare>
@@ -348,7 +350,7 @@ async function main(): Promise<void> {
     // Every slug is checked before anything is installed, so `add a typo`
     // installs nothing rather than `a` and then stopping.
     const unknown = slugs.filter(
-      (s) => s !== "server-output" && !ADAPTER_SLUGS[s] && !getIndexEntry(s),
+      (s) => s !== "server-output" && !ADAPTER_SLUGS[s] && !getIndexEntry(s) && !isRecipeUrl(s),
     );
     if (unknown.length > 0) {
       p.log.error(
@@ -492,6 +494,11 @@ async function addCommand(
   const adapterId = ADAPTER_SLUGS[slug];
   if (adapterId) {
     await runAdapterInstall(adapterId, `adapter-${adapterId}`, flags.print);
+    return;
+  }
+
+  if (isRecipeUrl(slug)) {
+    await installRecipeUrl(slug, { print: flags.print });
     return;
   }
 

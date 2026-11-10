@@ -2,36 +2,78 @@
  * Relative links between the pages of a content-source collection, as a
  * repository writes them for GitHub (`[Options](2-options.md#signal)`),
  * become the pages' URLs on the site. A relative `.md`/`.mdx` link to a file
- * that isn't a page of the same collection (`../readme.md`) stays as written,
- * with one warning per file, since the site doesn't publish it.
+ * that isn't a page of the same collection (`../readme.md`, or a file its
+ * `pattern` excludes) stays as written, with one warning per file, since the
+ * site doesn't publish it.
  */
 
 import fs from "node:fs";
 import path from "node:path";
+
+import picomatch from "picomatch";
 
 import { canonicalEntryUrl, entryRouteUrl } from "./astro-slug.js";
 import { collectionMountPrefix, getMountContext } from "./collection-mount.js";
 import { frontmatterSlug } from "./scan-version-frontmatter.js";
 import { toDocumentHref } from "./url.js";
 
+/** The files a collection publishes: those its pattern matches in its folder. */
+export interface SourceCollection {
+  /** Absolute folder the collection's glob reads. */
+  folder: string;
+  /** Whether the collection's pattern matches a path relative to `folder`, in posix form. */
+  matches: (relativePosixPath: string) => boolean;
+}
+
 export interface SourceCollectionFolder {
   collection: string;
   /** Absolute folder the collection's glob reads. */
   folder: string;
+  /** The glob pattern the collection reads `folder` with. */
+  pattern: string | string[];
   /** Astro's `root`, to find where the collection is served. */
   root: URL;
 }
 
-const REGISTRY_KEY = Symbol.for("@cloudflare/nimbus-docs/source-collection-folders/v1");
+type RegisteredCollection = SourceCollectionFolder & SourceCollection;
+
+const REGISTRY_KEY = Symbol.for("@cloudflare/nimbus-docs/source-collections/v2");
 const shared = globalThis as typeof globalThis & {
-  [REGISTRY_KEY]?: Map<string, SourceCollectionFolder>;
+  [REGISTRY_KEY]?: { collections: Map<string, RegisteredCollection>; warned: Set<string> };
 };
-// Folder → collection, for every collection that reads a content source.
-const folders = (shared[REGISTRY_KEY] ??= new Map());
-const warned = new Set<string>();
+// Every collection that reads a content source, by project root and name,
+// and the warnings already printed, shared by each copy of this module.
+const { collections, warned } = (shared[REGISTRY_KEY] ??= { collections: new Map(), warned: new Set() });
+
+/**
+ * Matches paths the way Astro's glob loader selects files, which is
+ * tinyglobby's reading of the pattern: a leading `!` excludes (a leading
+ * `!(` is an extglob), each pattern is normalized (`docs//a.md/` is
+ * `docs/a.md`), and classes are POSIX (`[!C]*.md` leaves out `CHANGELOG.md`).
+ */
+export function globPageMatcher(pattern: string | readonly string[]): (relativePosixPath: string) => boolean {
+  const normalize = (p: string) => path.posix.normalize(p.endsWith("/") ? p.slice(0, -1) : p);
+  const match: string[] = [];
+  const ignore: string[] = [];
+  for (const p of typeof pattern === "string" ? [pattern] : pattern) {
+    if (!p) continue;
+    if (p[0] !== "!" || p[1] === "(") match.push(normalize(p));
+    else if (p[1] !== "!" || p[2] === "(") ignore.push(normalize(p.slice(1)));
+  }
+  return picomatch(match, { posix: true, ...(ignore.length > 0 ? { ignore } : {}) });
+}
 
 export function registerSourceCollectionFolder(entry: SourceCollectionFolder): void {
-  folders.set(path.resolve(entry.folder), { ...entry, folder: path.resolve(entry.folder) });
+  const folder = path.resolve(entry.folder);
+  const key = `${entry.root.href}\0${entry.collection}`;
+  // Re-registering moves the entry last: a collection the config no longer
+  // has stops being re-registered, so it loses ties to the current ones.
+  collections.delete(key);
+  collections.set(key, {
+    ...entry,
+    folder,
+    matches: globPageMatcher(entry.pattern),
+  });
 }
 
 function inside(dir: string, file: string): boolean {
@@ -39,10 +81,20 @@ function inside(dir: string, file: string): boolean {
   return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
-function collectionOf(file: string): SourceCollectionFolder | undefined {
-  let best: SourceCollectionFolder | undefined;
-  for (const entry of folders.values()) {
-    if (inside(entry.folder, file) && (!best || entry.folder.length > best.folder.length)) best = entry;
+function relativePosix(dir: string, file: string): string {
+  return path.relative(dir, file).split(path.sep).join("/");
+}
+
+/**
+ * The collection that publishes `file`: its folder holds the file and its
+ * pattern matches it. The deepest folder wins when several do, then the
+ * last of `entries`.
+ */
+export function sourceOwner<T extends SourceCollection>(entries: Iterable<T>, file: string): T | undefined {
+  let best: T | undefined;
+  for (const entry of entries) {
+    if (!inside(entry.folder, file) || !entry.matches(relativePosix(entry.folder, file))) continue;
+    if (!best || entry.folder.length >= best.folder.length) best = entry;
   }
   return best;
 }
@@ -70,13 +122,18 @@ export function sourcePageLink(raw: string, file: string): { target: string; suf
   return { target: path.resolve(path.dirname(file), decoded), suffix: match?.[2] ?? "" };
 }
 
-/** Whether `target` is a page of the collection that reads `folder`. */
-export function isSourcePage(folder: string, target: string): boolean {
-  return inside(folder, target) && PAGE_EXTENSION.test(target) && fs.existsSync(target);
+/** Whether `target` is a page of `collection`: inside its folder, matched by its pattern, and present. */
+export function isSourcePage(collection: SourceCollection, target: string): boolean {
+  return (
+    inside(collection.folder, target) &&
+    collection.matches(relativePosix(collection.folder, target)) &&
+    PAGE_EXTENSION.test(target) &&
+    fs.existsSync(target)
+  );
 }
 
-function pageUrl(owner: SourceCollectionFolder, target: string): string | undefined {
-  if (!isSourcePage(owner.folder, target)) return undefined;
+function pageUrl(owner: RegisteredCollection, target: string): string | undefined {
+  if (!isSourcePage(owner, target)) return undefined;
   const prefix = collectionMountPrefix(owner.collection, getMountContext(owner.root));
   let slug: string | undefined;
   try {
@@ -85,7 +142,7 @@ function pageUrl(owner: SourceCollectionFolder, target: string): string | undefi
     slug = undefined;
   }
   if (slug !== undefined) return toDocumentHref(entryRouteUrl(prefix, slug));
-  const id = path.relative(owner.folder, target).split(path.sep).join("/").replace(PAGE_EXTENSION, "");
+  const id = relativePosix(owner.folder, target).replace(PAGE_EXTENSION, "");
   return toDocumentHref(canonicalEntryUrl(prefix, id));
 }
 
@@ -95,10 +152,12 @@ function pageUrl(owner: SourceCollectionFolder, target: string): string | undefi
  * unchanged for a file that no source collection reads.
  */
 export function rewriteSourceLinks(source: string, filePath: string | undefined): string {
-  if (!filePath || folders.size === 0) return source;
+  if (!filePath || collections.size === 0) return source;
   const file = path.resolve(filePath);
-  const owner = collectionOf(file);
+  const owner = sourceOwner(collections.values(), file);
   if (!owner) return source;
+  // Links the site doesn't publish: files the pattern leaves out, and the rest.
+  const excluded = new Set<string>();
   const unresolved = new Set<string>();
   const rewrite = (raw: string): string => {
     const link = sourcePageLink(raw, file);
@@ -106,7 +165,7 @@ export function rewriteSourceLinks(source: string, filePath: string | undefined)
     const { suffix } = link;
     const url = pageUrl(owner, link.target);
     if (!url) {
-      unresolved.add(raw);
+      (inside(owner.folder, link.target) && fs.existsSync(link.target) ? excluded : unresolved).add(raw);
       return raw;
     }
     return `${url}${suffix.startsWith("?") ? suffix.replace(/^\?[^#]*/, "") : suffix}`;
@@ -128,13 +187,19 @@ export function rewriteSourceLinks(source: string, filePath: string | undefined)
       .replace(/^(\s*\[[^\]]+\]:\s*)(\S+)/, (_m, head: string, target: string) => `${head}${rewrite(target)}`)
       .replace(/(\bhref=")([^"]+)(")/g, (_m, open: string, target: string, close: string) => `${open}${rewrite(target)}${close}`);
   });
-  if (unresolved.size > 0) {
-    const key = `${file}\0${[...unresolved].join("\0")}`;
+  const count = excluded.size + unresolved.size;
+  if (count > 0) {
+    const key = `${file}\0${[...excluded, ...unresolved].join("\0")}`;
     if (!warned.has(key)) {
       warned.add(key);
+      const list = (links: Set<string>) => [...links].map((l) => `"${l}"`).join(", ");
+      const clauses = [
+        ...(excluded.size ? [`${list(excluded)}, which the collection's pattern doesn't publish`] : []),
+        ...(unresolved.size ? [`${list(unresolved)}, which isn't a page of this collection`] : []),
+      ];
       console.warn(
-        `[nimbus] ${owner.collection}: ${path.basename(file)} links to ${[...unresolved].map((l) => `"${l}"`).join(", ")}, ` +
-          "which isn't a page of this collection; the link stays as written.",
+        `[nimbus] ${owner.collection}: ${path.basename(file)} links to ${clauses.join(", and to ")}; ` +
+          `the link${count > 1 ? "s stay" : " stays"} as written.`,
       );
     }
   }
