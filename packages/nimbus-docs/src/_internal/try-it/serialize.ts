@@ -112,19 +112,25 @@ function build(plan: RequestPlan, values: RequestValues, options: SerializeOptio
     if (param.in === "query") query.push(...styleQuery(param, value));
     else if (param.in === "header") {
       if (!TOKEN.test(param.name) || isTransportHeader(param.name)) refuse(`The header ${param.name} can't be sent.`);
-      // A Cookie header parameter joins the cookie parameters and keys in one header, as the code samples send it.
-      if (param.name.toLowerCase() === "cookie") cookies.push(headerValue(param, value));
-      else headers.push([param.name, headerValue(param, value)]);
+      headers.push([param.name, headerValue(param, value)]);
     } else cookies.push(...styleCookie(param, value));
   }
 
   applyAuth(plan, values, { query, headers, cookies, secrets });
-  if (cookies.length > 0) headers.push(["Cookie", cookies.join("; ")]);
+  // One header of each, as the code samples send them: every Cookie header (a
+  // parameter's or a key's) first, then the cookies, joined; the last Authorization;
+  // and the body's own Content-Type over a parameter or key of that name.
+  const merged = [...take(headers, "cookie"), ...cookies].filter((cookie) => cookie !== "");
+  if (merged.length > 0) headers.push(["Cookie", merged.join("; ")]);
+  const authorization = take(headers, "authorization").at(-1);
+  if (authorization !== undefined) headers.push(["Authorization", authorization]);
 
   const body = serializeBody(plan, values, method);
-  if (body && (body.kind === "json" || body.kind === "text" || body.kind === "bytes")) {
-    headers.unshift(["Content-Type", body.mediaType]);
-  } else if (body?.kind === "form") headers.unshift(["Content-Type", "application/x-www-form-urlencoded"]);
+  const contentType = body && (body.kind === "json" || body.kind === "text" || body.kind === "bytes")
+    ? body.mediaType
+    : body?.kind === "form" ? "application/x-www-form-urlencoded" : undefined;
+  if (contentType !== undefined || body?.kind === "multipart") take(headers, "content-type");
+  if (contentType !== undefined) headers.unshift(["Content-Type", contentType]);
 
   for (const [name, value] of headers) {
     if (/[\r\n\0]/.test(value)) refuse(`The ${name} header can't hold a line break or NUL.`);
@@ -134,6 +140,16 @@ function build(plan: RequestPlan, values: RequestValues, options: SerializeOptio
   const search = [base.search.replace(/^\?/, ""), ...query].filter((part) => part !== "").join("&");
   const url = `${base.origin}${joinPath(base.pathname, path)}${search ? `?${search}` : ""}`;
   return { method, url, headers, ...(body ? { body } : {}), secrets };
+}
+
+/** Remove every header named `name` (any case) from `headers`; their values, in order. */
+function take(headers: [string, string][], name: string): string[] {
+  const values: string[] = [];
+  for (let i = 0; i < headers.length; ) {
+    if (headers[i]![0].toLowerCase() === name) values.push(headers.splice(i, 1)[0]![1]);
+    else i++;
+  }
+  return values;
 }
 
 // ---- Servers -------------------------------------------------------------------
@@ -496,6 +512,14 @@ function decimal(text: string): string | null {
 // A field's value from its text: a list or object field holds JSON, and text
 // that isn't a JSON list is one item of a list field.
 function fieldValue(name: string, text: string, field: PlanBodyField | undefined): unknown {
+  // A field the spec doesn't declare came from the sample: a list or object there is JSON text.
+  if (!field && /^\s*[[{]/.test(text)) {
+    try {
+      return parseExactJson(text);
+    } catch {
+      return text;
+    }
+  }
   const type = field?.schema.type;
   // A number or boolean is typed as one, so a JSON content type writes `42`, not `"42"`.
   if ((type === "integer" || type === "number") && /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/.test(text)) return exact(name, text);

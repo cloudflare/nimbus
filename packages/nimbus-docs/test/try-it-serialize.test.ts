@@ -159,13 +159,40 @@ describe("cookies, one header by Nimbus's convention", () => {
     assert.deepEqual(out.headers, [["Cookie", "s=a%20b%3Bc; a=x,y; e=1; e=2; k=v; key=sec"]]);
   });
 
-  test("a Cookie header parameter joins them: one Cookie header, as the samples send it", () => {
+  test("every Cookie header joins them, a parameter's or a key's first, as the samples send it", () => {
     const p = plan({
-      params: [param({ in: "header", name: "Cookie" })],
-      auth: [{ label: "API key in cookie", schemes: [{ scheme: "k", type: "apiKey", in: "cookie", name: "key" }] }],
+      params: [param({ in: "header", name: "Cookie" }), param({ in: "cookie", name: "pref" })],
+      auth: [{ label: "Keys", schemes: [
+        { scheme: "h", type: "apiKey", in: "header", name: "cookie" },
+        { scheme: "k", type: "apiKey", in: "cookie", name: "key" },
+      ] }],
     });
-    const out = send(p, { params: { "header:Cookie": "theme=dark" }, auth: { alternative: 0, credentials: { k: "sec" } } });
-    assert.deepEqual(out.headers, [["Cookie", "theme=dark; key=sec"]]);
+    const out = send(p, { params: { "header:Cookie": "theme=dark", "cookie:pref": "1" }, auth: { alternative: 0, credentials: { h: "sid=1", k: "sec" } } });
+    assert.deepEqual(out.headers, [["Cookie", "theme=dark; sid=1; pref=1; key=sec"]]);
+  });
+
+  test("an empty Cookie header parameter adds nothing", () => {
+    const p = plan({ params: [param({ in: "header", name: "Cookie", required: true })], auth: [{ label: "k", schemes: [{ scheme: "k", type: "apiKey", in: "cookie", name: "key" }] }] });
+    assert.deepEqual(send(p, { params: { "header:Cookie": "" }, auth: { alternative: 0, credentials: { k: "sec" } } }).headers, [["Cookie", "key=sec"]]);
+  });
+});
+
+describe("one header of each", () => {
+  test("two Authorization headers: the last, as the samples send it", () => {
+    const p = plan({ auth: [{ label: "Both", schemes: [
+      { scheme: "key", type: "apiKey", in: "header", name: "Authorization" },
+      { scheme: "bearer", type: "bearer" },
+    ] }] });
+    const out = send(p, { auth: { alternative: 0, credentials: { key: "Key x", bearer: "tok" } } });
+    assert.deepEqual(out.headers, [["Authorization", "Bearer tok"]]);
+  });
+
+  test("the body's Content-Type over a key of that name; multipart leaves it to the browser", () => {
+    const auth = [{ label: "k", schemes: [{ scheme: "k", type: "apiKey" as const, in: "header" as const, name: "Content-Type" }] }];
+    const json = plan({ method: "POST", auth, body: { required: true, examples: [], media: [{ mediaType: "application/json", kind: "json" }] } });
+    assert.deepEqual(send(json, { body: { mediaType: "application/json", value: "{}" }, auth: { alternative: 0, credentials: { k: "text/x" } } }).headers, [["Content-Type", "application/json"]]);
+    const multi = plan({ method: "POST", auth, body: { required: true, examples: [], media: [{ mediaType: "multipart/form-data", kind: "multipart", fields: [] }] } });
+    assert.deepEqual(send(multi, { body: { mediaType: "multipart/form-data", value: { fields: [] } }, auth: { alternative: 0, credentials: { k: "text/x" } } }).headers, []);
   });
 });
 
@@ -456,10 +483,21 @@ describe("required form fields", () => {
       },
     });
 
-  test("an empty or missing required field stops Send, a file part included", () => {
+  test("a missing required field stops Send, a file part included; one left empty is sent, as a parameter's is", () => {
     const p = formPlan("multipart", "multipart/form-data");
-    const issues = validateValues(p, { params: {}, body: { mediaType: "multipart/form-data", value: { fields: [{ name: "title", value: "" }] } } });
-    assert.deepEqual(issues.map((i) => [i.key, i.message, i.blocking]), [["body:title", "Required.", true], ["body:upload", "Choose a file.", true]]);
+    const missing = validateValues(p, { params: {}, body: { mediaType: "multipart/form-data", value: { fields: [] } } });
+    assert.deepEqual(missing.map((i) => [i.key, i.message, i.blocking]), [["body:title", "Required.", true], ["body:upload", "Choose a file.", true]]);
+    const empty = validateValues(p, { params: {}, body: { mediaType: "multipart/form-data", value: { fields: [{ name: "title", value: "" }, { name: "upload", value: new Blob([]) }] } } });
+    assert.deepEqual(empty, []);
+  });
+
+  test("a field the spec doesn't declare sends its list or object as the samples do", () => {
+    const form = plan({ method: "POST", body: { required: true, examples: [], media: [{ mediaType: "application/x-www-form-urlencoded", kind: "form", fields: [] }] } });
+    const out = send(form, { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "tags", value: '["p","q"]' }, { name: "meta", value: '{"x":1}' }, { name: "note", value: "[not json" }] } } });
+    assert.deepEqual(out.body, { kind: "form", fields: [{ name: "tags", value: "p" }, { name: "tags", value: "q" }, { name: "meta[x]", value: "1" }, { name: "note", value: "[not json" }] });
+    const multi = plan({ method: "POST", body: { required: true, examples: [], media: [{ mediaType: "multipart/form-data", kind: "multipart", fields: [] }] } });
+    const parts = send(multi, { body: { mediaType: "multipart/form-data", value: { fields: [{ name: "meta", value: '{"x":1}' }] } } });
+    assert.deepEqual(parts.body, { kind: "multipart", parts: [{ name: "meta", value: '{"x":1}', contentType: "application/json" }] });
   });
 
   test("filled in, nothing is flagged", () => {

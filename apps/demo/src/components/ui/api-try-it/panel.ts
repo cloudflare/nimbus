@@ -20,6 +20,7 @@ import {
   renderSample,
   resolveServer,
   sendRequest,
+  sameOrigin,
   serializeRequest,
   unlockScroll,
   validateValues,
@@ -29,6 +30,7 @@ import {
   type HttpRequest,
   type PlanAuth,
   type PlanBodyField,
+  type PlanSchema,
   type PlanMedia,
   type PlanParam,
   type RequestPlan,
@@ -352,6 +354,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   const startValue = (p: PlanParam): ParamValue => (p.initial !== undefined ? (p.initial as ParamValue) : initialEmpty(p));
   // The body as the sample sends it, per media type.
   const bodyDrafts = new Map<string, unknown>();
+  // Per form media type: the fields its sample sent that the spec doesn't declare, with their type.
+  const extraFields = new Map<string, Map<string, PlanSchema["type"]>>();
   const initialBody = (media: PlanMedia): unknown => {
     const seed = plan.body?.initial?.mediaType === media.mediaType ? plan.body.initial.value : undefined;
     if (media.kind === "json") return seed === undefined ? "" : JSON.stringify(seed, null, 2);
@@ -359,11 +363,19 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     if (media.kind === "bytes") return null;
     return formSeed(media, seed);
   };
+  const wireFields = (wire: string): Record<string, unknown> => {
+    const out: Record<string, unknown> = Object.create(null);
+    for (const [k, v] of new URLSearchParams(wire)) {
+      const had = out[k];
+      out[k] = had === undefined ? v : Array.isArray(had) ? [...had, v] : [had, v];
+    }
+    return out;
+  };
   const formSeed = (media: PlanMedia, seed: unknown): FormValues => {
-    // An example written as the wire form (`a=1&b=2`) reads as its fields.
+    // A URL-encoded example written as the wire form (`a=1&a=2&b=3`) reads as its fields, a repeated name as a list.
     const object: Record<string, unknown> =
-      typeof seed === "string"
-        ? [...new URLSearchParams(seed)].reduce<Record<string, unknown>>((out, [k, v]) => (Object.hasOwn(out, k) ? out : Object.assign(out, { [k]: v })), Object.create(null))
+      typeof seed === "string" && media.kind === "form"
+        ? wireFields(seed)
         : seed && typeof seed === "object" && !Array.isArray(seed) ? (seed as Record<string, unknown>) : {};
     const files = new Set((media.fields ?? []).filter((f) => f.file).map((f) => f.name));
     const fields: FormValues["fields"] = [];
@@ -372,8 +384,11 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     const names = [...(media.fields ?? []).map((f) => f.name), ...Object.keys(object)];
     for (const name of new Set(names)) {
       if (files.has(name)) continue; // the reader picks files
-      const v = Object.hasOwn(object, name) ? object[name] : undefined;
+      let v = Object.hasOwn(object, name) ? object[name] : undefined;
       if (v === undefined) continue;
+      // A repeated wire name is a list only where the spec allows one.
+      const spec = media.fields?.find((f) => f.name === name);
+      if (typeof seed === "string" && Array.isArray(v) && spec && spec.schema.type !== "array") v = v[0];
       // One value per field; a list or object as JSON, encoded on send as the spec says.
       fields.push({ name, value: text(v) });
     }
@@ -409,6 +424,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     values.server = { index: firstServer };
     values.params = initialParams() as Record<string, unknown>;
     bodyDrafts.clear();
+    extraFields.clear();
     for (const media of plan.body?.media ?? []) bodyDrafts.set(media.mediaType, initialBody(media));
     bodyMedia = plan.body?.initial?.mediaType ?? plan.body?.media[0]?.mediaType ?? "";
     bodyOn = Boolean(plan.body && (plan.body.required || plan.body.initial));
@@ -879,8 +895,9 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     }
     const kept = meta.remember === "none" ? "Not stored." : "Not stored unless you tick Remember.";
     const queryKey = schemes().some((s) => s.type === "apiKey" && s.in === "query") ? " Your key travels in the URL's query string." : "";
+    // The docs site's own API goes direct, whatever the choice.
     transit.textContent =
-      delivery === "proxy"
+      delivery === "proxy" && !sameOrigin(serverOrigin(), location.origin)
         ? `Sent through ${location.host} to ${apiHost}. Not logged. ${kept}${queryKey}`
         : `Sent from your browser to ${apiHost}. ${kept}${queryKey}${plan.send.credentials === "include" ? " Your browser's cookies for the API go with it." : ""}`;
   };
@@ -1159,11 +1176,17 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     const files = new Map<string, File[]>();
     for (const f of draft.fields) if (f.value instanceof File) files.set(f.name, [...(files.get(f.name) ?? []), f.value]);
     const textValues = new Map<string, string>(draft.fields.filter((f) => typeof f.value === "string").map((f) => [f.name, f.value as string]));
-    // The spec's fields, then any the sample sends that it doesn't declare.
+    // The spec's fields, then any the sample sends that it doesn't declare. Those
+    // stay listed once cleared, until Reset, so they can be filled in again.
     const declared = new Set((media.fields ?? []).map((f) => f.name));
+    const extras = extraFields.get(media.mediaType) ?? new Map<string, PlanSchema["type"]>();
+    extraFields.set(media.mediaType, extras);
+    for (const [name, value] of textValues) {
+      if (!declared.has(name) && !extras.has(name)) extras.set(name, /^\s*\[/.test(value) ? "array" : /^\s*\{/.test(value) ? "object" : "string");
+    }
     const shown: PlanBodyField[] = [
       ...(media.fields ?? []),
-      ...[...textValues.keys()].filter((name) => !declared.has(name)).map((name): PlanBodyField => ({ name, required: false, schema: {} })),
+      ...[...extras].map(([name, type]): PlanBodyField => ({ name, required: false, schema: type ? { type } : {} })),
     ];
     const collect = () => {
       const fields: FormValues["fields"] = [];

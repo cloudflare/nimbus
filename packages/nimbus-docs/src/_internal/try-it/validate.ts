@@ -37,13 +37,13 @@ export function validateValues(plan: RequestPlan, values: RequestValues): Issue[
         issues.push({ key: "body", message: `Not valid JSON: ${(error as Error).message}`, blocking: true });
       }
     }
-    // A form's required fields, a file part included: one that's missing or empty stops Send.
+    // A form's required fields, a file part included: one that's missing stops Send. Present
+    // and empty (a sample's `""`) is sent, as a required parameter's is.
     if ((media?.kind === "form" || media?.kind === "multipart") && body.value && typeof body.value === "object") {
       const given = (body.value as FormValues).fields ?? [];
       for (const field of media.fields ?? []) {
         if (!field.required) continue;
-        const filled = given.some((f) => f.name === field.name && (typeof f.value === "string" ? f.value !== "" : true));
-        if (!filled) issues.push({ key: `body:${field.name}`, message: field.file ? "Choose a file." : "Required.", blocking: true });
+        if (!given.some((f) => f.name === field.name)) issues.push({ key: `body:${field.name}`, message: field.file ? "Choose a file." : "Required.", blocking: true });
       }
     }
   } else if (plan.body?.required) {
