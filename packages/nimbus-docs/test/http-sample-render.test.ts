@@ -157,13 +157,18 @@ describe("sample URLs as WHATWG writes them", () => {
     ['https://x".test', `'https://x".test/x'`],
     ["https://x.test/a/../b", "https://x.test/b/x"],
     ["https://x.test/?0=z&2=a&1=b", "'https://x.test/x?0=z&2=a&1=b'"],
+    // The server's query as written: no byte decoded, re-encoded or replaced,
+    // except brackets and braces, which cURL would read as a glob.
+    ["https://x.test/?q=é%FF", "'https://x.test/x?q=%C3%A9%FF'"],
+    ["https://x.test/?q=%E2%82%AC%ZZ", "'https://x.test/x?q=%E2%82%AC%ZZ'"],
+    ["https://x.test/?q=%6E%70%68%30%71%30%7A", "'https://x.test/x?q=%6E%70%68%30%71%30%7A'"],
+    ["https://x.test/?q=%6E%70%68%30%71%30%7A&v={v}", "'https://x.test/x?q=%6E%70%68%30%71%30%7A&v=<v>'"],
+    ["https://x.test/?q=a+b&flag&a=1;b=2&tags[]=1&f[a]=1", "'https://x.test/x?q=a+b&flag&a=1;b=2&tags%5B%5D=1&f%5Ba%5D=1'"],
     ["{scheme}://api.test", "'<base-url>/x'"],
     ["https://münich-{tenant}.example", "'<base-url>/x'"],
   ];
   // What stays as it was.
   const kept: Array<[string, string]> = [
-    ["https://x.test/?q=é%FF", "'https://x.test/x?q=%C3%A9%EF%BF%BD'"],
-    ["https://x.test/?q=%E2%82%AC%ZZ", "'https://x.test/x?q=%E2%82%AC%25ZZ'"],
     ["https://User:PaSS@EXAMPLE.com", "https://User:PaSS@example.com/x"],
     ["https://x.test/?q={var}", "'https://x.test/x?q=<var>'"],
     ["https://x.test/#a{var}", "'https://x.test/x#a<var>'"],
@@ -171,8 +176,6 @@ describe("sample URLs as WHATWG writes them", () => {
     ["https://x.test\n/path", "https://x.test/path/x"],
     ['https://u"p:p@x.test', "https://u%22p:p@x.test/x"],
     ["https://münich.example", "https://xn--mnich-kva.example/x"],
-    ["https://x.test/?q=%6E%70%68%30%71%30%7A", "'https://x.test/x?q=nph0q0z'"],
-    ["https://x.test/?q=%6E%70%68%30%71%30%7A&v={v}", "'https://x.test/x?q=nph0q0z&v=<v>'"],
     ["https://x.test:8\t080", "https://x.test:8080/x"],
     ["https://x.test/?q=%EF%BB%BFabc", "'https://x.test/x?q=%EF%BB%BFabc'"],
     ["https://x.test:", "https://x.test/x"],
@@ -197,7 +200,7 @@ describe("sample URLs as WHATWG writes them", () => {
       url: [text("https://x.test/"), placeholder("id"), text("/../x?q=%6e%62%70%68%30%71%30%7a&bad=%FF")],
       query: [],
     });
-    assert.deepEqual(url, [{ text: "https://x.test/x?q=nbph0q0z&bad=%EF%BF%BD" }]);
+    assert.deepEqual(url, [{ text: "https://x.test/x?q=%6e%62%70%68%30%71%30%7a&bad=%FF" }]);
   });
 
   test("a full-width host that IDNA maps onto a token stays text", async () => {

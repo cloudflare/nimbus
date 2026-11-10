@@ -97,9 +97,10 @@ const TEMPORARY_ORIGIN = "https://nimbus-base.invalid";
 /**
  * The full URL the sample sends, as the WHATWG URL standard writes it (the
  * URL a browser, `fetch` or Try it sends): parsed with `new URL()`, the
- * server's own query read as `searchParams`, then the operation's query
- * fields after it in spec order (a name the server's query has keeps the
- * server's values), every name and value RFC 3986-encoded.
+ * server's own query as written (brackets and braces percent-encoded), then
+ * the operation's query fields after it in spec order (a name the server's
+ * query has keeps the server's values), each field's name and value RFC
+ * 3986-encoded.
  *
  * Placeholders take part as opaque tokens of letters and digits, which no step
  * changes, and become placeholder segments again at the end; a token prefix
@@ -154,11 +155,15 @@ function writeUrl(request: Pick<SampleRequest, "url" | "query">, stand: (segment
   }
   parsed ??= new URL(`${TEMPORARY_ORIGIN}${rest.startsWith("/") ? "" : "/"}${rest}`);
 
-  // The server's query first, then the operation's fields; the server keeps a name it has.
-  const pairs: [string, string][] = [...parsed.searchParams];
-  const serverNames = new Set(pairs.map(([name]) => name));
-  for (const { name, value } of request.query) if (!serverNames.has(name)) pairs.push([name, flat(value)]);
-  const query = pairs.map(([name, value]) => `${encodeQuery(name)}=${encodeQuery(value)}`).join("&");
+  // The server's query as WHATWG writes it, then the operation's fields; the
+  // server keeps a name it has. Brackets and braces are percent-encoded, which
+  // servers read the same, so cURL doesn't take them for a URL glob.
+  const serverNames = new Set(parsed.searchParams.keys());
+  const serverQuery = parsed.search.slice(1).replace(/[[\]{}]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  const fields = request.query
+    .filter(({ name }) => !serverNames.has(name))
+    .map(({ name, value }) => `${encodeQuery(name)}=${encodeQuery(flat(value))}`);
+  const query = [serverQuery, ...fields].filter(Boolean).join("&");
   const hash = parsed.hash;
   parsed.hash = "";
   parsed.search = "";
