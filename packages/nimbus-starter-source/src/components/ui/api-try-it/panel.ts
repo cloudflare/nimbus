@@ -16,6 +16,7 @@ import {
   lockScroll,
   maskText,
   paramKey,
+  parseExactJson,
   renderSample,
   sendRequest,
   serializeRequest,
@@ -104,6 +105,16 @@ const X = sv('<path d="M18 6 6 18M6 6l12 12"/>');
 const LAYER = "group/layer flex w-full overflow-hidden rounded-lg bg-muted text-sm ring ring-border";
 const LAYER_HEAD = "flex min-w-0 items-center gap-2 bg-muted px-3 text-[0.8125rem] font-medium leading-5 text-muted-foreground [overflow-wrap:anywhere] group-data-[orientation=horizontal]/layer:shrink-0";
 const LAYER_CONTENT = "relative flex overflow-hidden rounded-lg bg-card text-sm leading-6 text-foreground ring ring-border group-data-[orientation=horizontal]/layer:min-w-0 group-data-[orientation=horizontal]/layer:flex-1";
+
+// Why a JSON field's text can't be sent, or null: it doesn't parse, or holds a number it would round.
+const jsonProblem = (source: string): string | null => {
+  try {
+    parseExactJson(source);
+    return null;
+  } catch (error) {
+    return error instanceof RangeError ? error.message : "Not valid JSON.";
+  }
+};
 
 const text = (value: unknown): string =>
   value === undefined || value === null ? "" : typeof value === "string" ? value : JSON.stringify(value);
@@ -690,26 +701,24 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
         if (p.initial === undefined && (value === "" || value === undefined) && !badJson.has(key)) badJson.set(key, "");
         const unparsed = badJson.get(key);
         area.value = unparsed ?? JSON.stringify(value, null, 2);
-        const showInvalid = (invalid: boolean) => {
-          error.textContent = invalid ? "Not valid JSON." : "";
-          if (invalid) area.setAttribute("aria-invalid", "true");
+        const showInvalid = (problem: string | null) => {
+          error.textContent = problem ?? "";
+          if (problem) area.setAttribute("aria-invalid", "true");
           else area.removeAttribute("aria-invalid");
         };
-        showInvalid(unparsed !== undefined && unparsed !== "");
+        showInvalid(unparsed !== undefined && unparsed.trim() !== "" ? jsonProblem(unparsed) : null);
         area.addEventListener("input", () => {
-          let parsed: unknown;
-          try {
-            parsed = JSON.parse(area.value);
-          } catch {
+          const problem = jsonProblem(area.value);
+          if (problem) {
             badJson.set(key, area.value);
             resetButton.hidden = false;
-            showInvalid(area.value.trim() !== "");
+            showInvalid(area.value.trim() !== "" ? problem : null);
             render();
             return;
           }
           badJson.delete(key);
-          showInvalid(false);
-          set(parsed);
+          showInvalid(null);
+          set(JSON.parse(area.value));
         });
         return { control: area, focus: () => area.focus() };
       }
@@ -1477,7 +1486,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     const first = emptyPath
       ? { key: paramKey(emptyPath), message: "A path parameter can't be empty." }
       : unparsed
-        ? { key: unparsed, message: badJson.get(unparsed)!.trim() === "" ? "Fill in this value." : "Not valid JSON." }
+        ? { key: unparsed, message: badJson.get(unparsed)!.trim() === "" ? "Fill in this value." : jsonProblem(badJson.get(unparsed)!) ?? "Not valid JSON." }
         : issues[0];
     if (!first) return null;
     touched.add(first.key);
