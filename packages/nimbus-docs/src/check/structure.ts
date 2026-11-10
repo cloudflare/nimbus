@@ -584,16 +584,32 @@ function checkAgentSurfaces(
   if (!srcDir) return;
   const pagesDir = path.join(srcDir, "pages");
   if (!existsSync(pagesDir)) return;
-  const routes = [...walkFilesSync(pagesDir, { onReadError: "lenient", extensions: [".ts", ".js", ".mjs", ".cjs", ".mts", ".cts"] })].map(
-    (file) => file.rel.split(path.sep).join("/"),
-  );
+  // The endpoint files Astro's route scan takes: `.js` and `.ts`, outside
+  // `_`-prefixed and dot-prefixed folders and names (`.well-known` apart).
+  const routes = [...walkFilesSync(pagesDir, { onReadError: "lenient", extensions: [".ts", ".js"] })]
+    .map((file) => file.rel.split(path.sep).join("/"))
+    .filter(
+      (route) =>
+        !route.split("/").some((segment) => segment.startsWith("_") || (segment.startsWith(".") && segment !== ".well-known")),
+    );
+  const serving = (pattern: RegExp) => routes.filter((route) => pattern.test(route)).map((route) => `src/pages/${route}`);
+  const files = {
+    pageMarkdown: serving(/\.md\.[jt]s$/u),
+    source: serving(/\.mdx\.[jt]s$/u),
+    llms: serving(/^llms\.txt\.[jt]s$/u),
+    llmsSections: serving(/\/llms\.txt\.[jt]s$/u),
+    llmsFull: serving(/^llms-full\.txt\.[jt]s$/u),
+  };
   const surfaces = {
-    pageMarkdown: routes.some((route) => /\.md\.[cm]?[jt]s$/u.test(route)),
-    source: routes.some((route) => /\.mdx\.[cm]?[jt]s$/u.test(route)),
-    llms: routes.some((route) => /^llms\.txt\.[cm]?[jt]s$/u.test(route)),
-    llmsSections: routes.some((route) => /\/llms\.txt\.[cm]?[jt]s$/u.test(route)),
-    llmsFull: routes.some((route) => /(^|\/)llms-full\.txt\.[cm]?[jt]s$/u.test(route)),
+    pageMarkdown: files.pageMarkdown.length > 0,
+    source: files.source.length > 0,
+    llms: files.llms.length > 0,
+    llmsSections: files.llmsSections.length > 0,
+    llmsFull: files.llmsFull.length > 0,
     mcpBodies: !parsed.unresolved.includes("agents") && !!config?.agents?.mcp,
+    files: Object.fromEntries(
+      Object.entries(files).filter(([, found]) => found.length > 0).map(([key, found]) => [key, found.join(", ")]),
+    ),
   };
   // A site with every starter route says nothing: the line is for the one
   // that deleted a route and wonders where its Markdown went.

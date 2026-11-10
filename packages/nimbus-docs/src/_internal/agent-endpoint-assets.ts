@@ -2371,15 +2371,23 @@ export async function bakeAgentEndpointAssets(
   llmsRecords.sort((a, b) => compare(preparedLlmsKey(a), preparedLlmsKey(b)));
   const pageIndexRecord = options.mcpUrl ? mcpPageIndexAsset(indexPages, base, options) : undefined;
   if (options.surfaces) {
-    const { describeAgentSurfaces } = await import("./agent-surfaces.js");
+    const { describeAgentSurfaces, agentRouteFiles, isSectionLlmsPattern } = await import("./agent-surfaces.js");
+    const routes = options.surfaces.markdownRoutes;
     options.info?.(
       `Agent surfaces follow the site's routes: ${describeAgentSurfaces({
-        pageMarkdown: options.surfaces.markdownRoutes.some((route) => route.pattern.endsWith(".md")),
-        source: options.surfaces.markdownRoutes.some((route) => route.pattern.endsWith(".mdx")),
+        pageMarkdown: routes.some((route) => route.pattern.endsWith(".md")),
+        source: routes.some((route) => route.pattern.endsWith(".mdx")),
         llms: servesLlms(options),
         llmsSections: servesLlmsSections(options),
         llmsFull: servesLlmsFull(options),
         mcpBodies: !!options.mcpUrl,
+        files: {
+          pageMarkdown: agentRouteFiles(routes, (route) => route.pattern.endsWith(".md")),
+          source: agentRouteFiles(routes, (route) => route.pattern.endsWith(".mdx")),
+          llms: agentRouteFiles(routes, (route) => route.pattern === "/llms.txt"),
+          llmsSections: agentRouteFiles(routes, (route) => isSectionLlmsPattern(route.pattern)),
+          llmsFull: agentRouteFiles(routes, (route) => route.pattern === "/llms-full.txt"),
+        },
       }).join("; ")}.`,
     );
   }
