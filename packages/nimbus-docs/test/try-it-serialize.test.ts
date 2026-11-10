@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import type { PlanParam, RequestPlan, RequestValues } from "../src/_internal/try-it/plan.js";
-import { parseExactJson, serializeRequest } from "../src/_internal/try-it/serialize.js";
+import { parseExactJson, resolveServer, serializeRequest } from "../src/_internal/try-it/serialize.js";
+import { checkScalar } from "../src/_internal/try-it/validate.js";
 
 const param = (over: Partial<PlanParam> & Pick<PlanParam, "in" | "name">): PlanParam => {
   const style = over.style ?? (over.in === "query" || over.in === "cookie" ? "form" : "simple");
@@ -302,8 +303,8 @@ describe("bodies", () => {
     assert.equal(wire(counted, [{ name: "count", value: "0x10" }]), "count=%220x10%22", "text that isn't a JSON number stays text");
     assert.equal(wire(counted, [{ name: "count", value: "1e3" }, { name: "on", value: "false" }]), "count=1000&on=false", "any JSON number is a number");
     const big = (value: string) => refused(counted, { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "count", value }] } } });
-    assert.match(big("9007199254740993"), /count: 9007199254740993 is too large to send exactly/, "refused, never rounded");
-    assert.match(refused(form(), { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "tags", value: "[9007199254740993]" }] } } }), /too large/, "inside a list too");
+    assert.match(big("9007199254740993"), /count: 9007199254740993 can't be sent exactly/, "refused, never rounded");
+    assert.match(refused(form(), { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "tags", value: "[9007199254740993]" }] } } }), /can't be sent exactly/, "inside a list too");
     // A field named like a prototype key is a field like any other.
     const proto = plan({ method: "POST", body: { required: true, examples: [], media: [{ mediaType: "application/x-www-form-urlencoded", kind: "form", fields: [{ name: "__proto__", required: false, schema: { type: "string" } }] }] } });
     assert.equal(wire(proto, [{ name: "__proto__", value: "x" }]), "__proto__=x");
@@ -391,10 +392,10 @@ describe("bodies", () => {
 describe("parseExactJson", () => {
   test("parses JSON; refuses an integer a number would round, but not one in a string", () => {
     assert.deepEqual(parseExactJson('{"id": 42, "n": 1.5e3, "big": "9007199254740993"}'), { id: 42, n: 1500, big: "9007199254740993" });
-    for (const spelling of ["9007199254740993", "9007199254740993.0", "9007199254740993e0", "1e309", "-1e309"]) {
+    for (const spelling of ["9007199254740993", "9007199254740993.0", "9007199254740993e0", "1e309", "-1e309", "1e-400", "1.0000000000000001", "9007199254740991.1"]) {
       assert.throws(() => parseExactJson(`{"id": ${spelling}}`), RangeError, spelling);
     }
-    assert.deepEqual(parseExactJson("[1e3, 0.1, -0, 9007199254740991]"), [1000, 0.1, -0, 9007199254740991]);
+    assert.deepEqual(parseExactJson("[1e3, 1.50e2, 0.1, -0, 0.0, 9007199254740991, 2.5e-7]"), [1000, 150, 0.1, -0, 0, 9007199254740991, 2.5e-7]);
     assert.throws(() => parseExactJson("{"), SyntaxError);
   });
 });
@@ -411,5 +412,19 @@ describe("names a spec may use", () => {
     assert.equal(out.url, "https://api.example.com/v1/items");
     assert.deepEqual(out.headers, [["Authorization", "Bearer tok"]]);
     assert.match(refused(p, { auth: { alternative: 0, credentials: {} } }), /Enter the/);
+  });
+
+  test("resolveServer is the request's own server, an inherited variable name included", () => {
+    const p = plan({
+      servers: [{ url: "https://{constructor}.first.test/{version}", variables: [{ name: "constructor", default: "api", authority: true }, { name: "version", default: "v1", authority: false }] }],
+    });
+    const values = { params: {}, server: { index: 0, variables: { version: "v2" } } };
+    assert.equal(resolveServer(p, values)?.href, "https://api.first.test/v2");
+    assert.equal(new URL(send(p, values).url).origin, resolveServer(p, values)?.origin);
+    assert.equal(resolveServer(p, { params: {}, server: { index: 0, origin: "not a url" } }), null);
+  });
+
+  test("a custom format named like a prototype key isn't checked, and doesn't throw", () => {
+    for (const format of ["constructor", "toString", "__proto__"]) assert.deepEqual(checkScalar({ type: "string", format }, "x"), [], format);
   });
 });

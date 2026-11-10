@@ -48,6 +48,7 @@ export {
   loadRequestPlan,
   serializeRequest,
   parseExactJson,
+  resolveServer,
   renderSample,
   maskText,
   sendRequest,

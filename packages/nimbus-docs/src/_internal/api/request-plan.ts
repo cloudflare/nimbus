@@ -282,7 +282,7 @@ function bodyFields(schema: OpenApiSchema | undefined, encoding: Record<string, 
       if (isFile(s)) field.file = "one";
       else if (s?.type === "array" && isFile(s.items)) field.file = "many";
       if (typeof s?.description === "string") field.description = s.description;
-      const enc = encoding?.[name];
+      const enc = encoding && Object.hasOwn(encoding, name) ? encoding[name] : undefined;
       if (enc) {
         const e: NonNullable<PlanBodyField["encoding"]> = {};
         if (typeof enc.contentType === "string") e.contentType = enc.contentType;

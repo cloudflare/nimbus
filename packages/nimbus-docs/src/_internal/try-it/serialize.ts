@@ -63,6 +63,18 @@ export function serializeRequest(plan: RequestPlan, values: RequestValues, optio
   }
 }
 
+/** The server a request goes to, exactly as `serializeRequest` resolves it (an
+ *  edited origin applied, the server's path kept); `null` when it would refuse.
+ *  A panel scopes credentials by its origin, so a key only goes where it was entered. */
+export function resolveServer(plan: RequestPlan, values: RequestValues, options: SerializeOptions = {}): URL | null {
+  try {
+    return serverBase(plan, values, options);
+  } catch (error) {
+    if (error instanceof Refusal) return null;
+    throw error;
+  }
+}
+
 function build(plan: RequestPlan, values: RequestValues, options: SerializeOptions): HttpRequest {
   if (plan.refused) refuse(plan.refused);
   const method = plan.method.toUpperCase();
@@ -447,21 +459,36 @@ function serializeBody(plan: RequestPlan, values: RequestValues, method: string)
 }
 
 /**
- * `JSON.parse`, refusing an integer a JavaScript number can't hold (past 2^53),
- * which would otherwise be sent rounded: a different id than the one typed.
- * Throws a `RangeError` saying so, or the parser's `SyntaxError`.
+ * `JSON.parse`, refusing a number a JavaScript number can't hold exactly (an
+ * integer past 2^53, digits past double precision, 1e309, 1e-400), which would
+ * otherwise be sent changed: a different id than the one typed. Throws a
+ * `RangeError` saying so, or the parser's `SyntaxError`.
  */
 export function parseExactJson(text: string): unknown {
   const value: unknown = JSON.parse(text);
   for (const [token] of text.matchAll(/"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g)) {
     if (token.startsWith('"')) continue;
-    // By value, so 9007199254740993.0 or ...e0 can't slip past, and 1e309 isn't sent as null.
-    const n = Number(token);
-    if (!Number.isFinite(n) || (Number.isInteger(n) && !Number.isSafeInteger(n))) {
-      throw new RangeError(`${token} is too large to send exactly as a number; send it as a string ("${token}") if the API takes one.`);
+    // The number as parsed, written back, must be the same decimal as typed.
+    if (decimal(token) !== decimal(String(Number(token)))) {
+      throw new RangeError(`${token} can't be sent exactly as a number; send it as a string ("${token}") if the API takes one.`);
     }
   }
   return value;
+}
+
+// A decimal as digits and an exponent, without leading or trailing zeros
+// (1.50e2 and 150 are both 15e1); not a finite number (Infinity) is null.
+function decimal(text: string): string | null {
+  const match = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(text);
+  if (!match) return null;
+  const [, sign, whole, fraction = "", exp = "0"] = match;
+  let digits = (whole! + fraction).replace(/^0+/, "");
+  let exponent = Number(exp) - fraction.length;
+  while (digits.endsWith("0")) {
+    digits = digits.slice(0, -1);
+    exponent++;
+  }
+  return digits === "" ? "0" : `${sign}${digits}e${exponent}`;
 }
 
 // A field's value from its text: a list or object field holds JSON, and text

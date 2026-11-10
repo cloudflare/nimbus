@@ -178,6 +178,21 @@ describe("unsupported bodies", () => {
   });
 });
 
+describe("names a spec may use", () => {
+  test("an encoding entry is the field's own, never inherited", async () => {
+    const named = structuredClone(spec) as typeof spec;
+    const multipart = (named.paths["/items/{id}"].put.requestBody.content as Record<string, { schema: { properties: Record<string, unknown> }; encoding: Record<string, unknown> }>)["multipart/form-data"];
+    multipart.schema.properties = { ...multipart.schema.properties, constructor: { type: "object" } };
+    multipart.encoding = {};
+    const model = await buildApiModel({ collection: "api", spec: named as unknown as Record<string, never>, tryIt: on });
+    const plan = [...unwrapModel(model).nodes.values()]
+      .map((node) => (node.kind === "operation" ? (node.facts as OperationFacts).tryIt?.plan : undefined))
+      .find((p) => p?.id.coordinate === "putItem")!;
+    const field = plan.body!.media.find((m) => m.mediaType === "multipart/form-data")!.fields!.find((f) => f.name === "constructor")!;
+    assert.equal(field.encoding, undefined);
+  });
+});
+
 describe("page assets (bundle: false)", () => {
   test("pages carry their plans; plans and the policy are staged when prepared and when reused", async () => {
     const { mkdtemp, readdir, rm } = await import("node:fs/promises");

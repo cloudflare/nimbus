@@ -82,7 +82,8 @@ export function checkScalar(schema: PlanSchema, value: unknown): Omit<Issue, "ke
   if (schema.type === "boolean") {
     return text === "true" || text === "false" ? [] : [{ message: "true or false.", blocking: true }];
   }
-  const format = schema.format && FORMATS[schema.format];
+  // Own entries only: a format named `constructor` is just one we don't check.
+  const format = schema.format && Object.hasOwn(FORMATS, schema.format) ? FORMATS[schema.format] : undefined;
   if (format && !format.test(text)) out.push({ message: format.message, blocking: false });
   return out;
 }
