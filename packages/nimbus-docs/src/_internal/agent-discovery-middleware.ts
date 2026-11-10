@@ -46,6 +46,8 @@ async function pageEntry(context: APIContext) {
 
 async function homepageMarkdownFallback(context: APIContext): Promise<Response | undefined> {
   const summary = await context.rewrite("/llms.txt");
+  // A 304 is the index saying the client already holds it; it carries no Content-Type.
+  if (summary.status === 304) return summary;
   return summary.status === 200
     ? withHeaders(summary, (headers) => headers.set("Content-Type", "text/markdown; charset=utf-8"))
     : undefined;
@@ -82,7 +84,8 @@ async function markdownResponse(context: APIContext, pathname: string): Promise<
         } catch {}
       }
       const route = await context.rewrite(pathname);
-      const isMarkdown = route.headers.get("Content-Type")?.includes("text/markdown") ?? false;
+      // A 304 carries no Content-Type: it is the Markdown route saying the client already has it.
+      const isMarkdown = route.status === 304 || (route.headers.get("Content-Type")?.includes("text/markdown") ?? false);
       if (isMarkdown) return route;
       return new Response("Not found", { status: 404, headers: { "Content-Type": "text/markdown; charset=utf-8" } });
     }
@@ -116,7 +119,8 @@ async function negotiatedMarkdown(context: APIContext, pathname: string, atHome:
   for (const name of ["Content-Length", "Content-Encoding"]) headers.delete(name);
   if (markdown.ok) headers.set("Content-Type", markdown.headers.get("Content-Type") ?? "text/markdown; charset=utf-8");
   varyOnAccept(headers);
-  if (atHome && markdown.ok) {
+  // A 304 carries what its 200 would, so a cache revalidating the homepage keeps the links.
+  if (atHome && (markdown.ok || markdown.status === 304)) {
     const current: typeof capabilities = Reflect.get(context.locals, Symbol.for("nimbus.agent-capabilities")) ?? capabilities;
     for (const value of agentHomepageLinks(current, options)) headers.append("Link", value);
   }

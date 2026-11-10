@@ -633,6 +633,19 @@ test("agent-endpoint asset loader uses the Cloudflare assets binding only on Clo
   );
   assert.match(cloudflareSource ?? "", /cloudflare:workers/);
   assert.match(cloudflareSource ?? "", /env\.ASSETS/);
+  // The conditional headers go along, so the binding answers 304 itself; nothing else does.
+  const loader = new Function(
+    "env",
+    `${(cloudflareSource as string).replace(/^import .*$/m, "").replace("export function", "return function")}`,
+  )({ ASSETS: { fetch: (request: Request) => request } }) as (path: string, request: Request) => Request;
+  const forwarded = loader(
+    "/guide/index.md",
+    new Request("https://site.test/guide/", {
+      headers: { "If-None-Match": '"abc"', "If-Modified-Since": "Mon, 10 Nov 2026 00:00:00 GMT", Cookie: "secret", Accept: "text/markdown" },
+    }),
+  );
+  assert.equal(forwarded.url, "https://site.test/guide/index.md");
+  assert.deepEqual([...forwarded.headers], [["if-modified-since", "Mon, 10 Nov 2026 00:00:00 GMT"], ["if-none-match", '"abc"']]);
   const prerenderSource = await cloudflare.load.call(
     { environment: { name: "prerender" } },
     cloudflareId,
