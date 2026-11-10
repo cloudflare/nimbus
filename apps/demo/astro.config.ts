@@ -36,6 +36,7 @@ const nimbusConfig = defineNimbusConfig({
       collection: "api",
       label: "API reference",
       versionUrl: { in: "query" },
+      tryIt: true,
       requireOperationId: true,
       schemaPages: true,
       versions: [

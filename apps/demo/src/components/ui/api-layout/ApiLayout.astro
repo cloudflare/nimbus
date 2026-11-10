@@ -46,8 +46,8 @@ const currentSiblingUrl =
     : null;
 const currentSiblingHref = withBase(currentSiblingUrl ?? "/", import.meta.env.BASE_URL);
 
-// The rail column is reserved ONLY when it has content — a request sample or a
-// response example (mirrors ApiCodeRail's own gate). A bodyless GET with no
+// The rail column is reserved ONLY when it has content — a request sample, a
+// response example or Try it (mirrors ApiCodeRail's own gate). A bodyless GET with no
 // samples otherwise pins an empty sticky column at the page's right edge.
 // "On this page" for the API home: its tag groups and their sections. A
 // heading in a later part links to that part's page, so the link works without
@@ -76,9 +76,11 @@ const tocHeadings: TOCItem[] = homeHeadings
     return href ? { ...h, href } : h;
   });
 
+// Try it, when the route passes the panel in and the page's API has it on.
+const hasTryIt = page.kind === "operation" && page.tryIt !== undefined && Astro.slots.has("try-it");
 const hasRail =
   page.kind === "operation" &&
-  (page.samples.length > 0 || page.responses.some((r) => r.example !== undefined));
+  (page.samples.length > 0 || page.responses.some((r) => r.example !== undefined) || hasTryIt);
 
 const pagefindAttrs: Record<string, string> = {};
 const pagefindDeprecated = !versionStatus?.isHidden && Boolean(versionStatus?.isDeprecated);
@@ -169,7 +171,9 @@ if (versionStatus?.isHidden || homePart) {
                 title={page.title}
                 method={page.method}
                 coordinate={page.coordinate}
-              />
+              >
+                {hasTryIt && <slot name="try-it" slot="try-it" />}
+              </ApiCodeRail>
             </div>
           )}
         </ApiBody>

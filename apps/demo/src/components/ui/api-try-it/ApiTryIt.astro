@@ -1,0 +1,57 @@
+---
+/**
+ * ApiTryIt — Try it for one operation. Put it in the code rail through
+ * ApiLayout's `try-it` slot:
+ *
+ *   <ApiLayout ...>
+ *     <ApiTryIt slot="try-it" page={result.page} />
+ *   </ApiLayout>
+ *
+ * Before the click the page carries only the button, full width between the
+ * request sample and the response example in the method's colour. The panel
+ * (the form, live code and response) loads on click, with the request plan.
+ *
+ * Props:
+ * - `remember`: the most the reader is offered for keeping credentials:
+ *   `"tab"` (default) offers "Remember in this tab", `"device"` "Remember on
+ *   this device", `"none"` neither. Nothing is kept unless the reader ticks it.
+ * - `confirmWrites`: ask before sending anything but GET, HEAD and OPTIONS.
+ * - `server`: the server picked first, by index or by the start of its URL
+ *   (`"https://sandbox.example.com"`). Default: the spec's first.
+ */
+import type { ApiOperationPage } from "@cloudflare/nimbus-docs/api";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
+import { methodVariant } from "@/components/ui/api-sidebar/method";
+import "./try-it-button.css";
+
+interface Props {
+  page: Pick<ApiOperationPage, "tryIt" | "title" | "method" | "coordinate">;
+  remember?: "none" | "tab" | "device";
+  confirmWrites?: boolean;
+  server?: number | string;
+}
+
+const { page, remember = "tab", confirmWrites = false, server } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const meta = page.tryIt && {
+  info: page.tryIt,
+  base: withBase("/", base),
+  proxy: page.tryIt.deliveryModes.includes("proxy") ? withBase("/_nimbus/try", base) : null,
+  title: page.title,
+  remember,
+  confirmWrites,
+  ...(server !== undefined ? { server } : {}),
+};
+---
+
+{meta && (
+  <div class="nb-ti-bar" style={`--nb-ti-m: var(--nb-m-${methodVariant(page.method)})`}>
+    <button type="button" class="nb-ti-toggle" data-nb-tryit-open data-meta={JSON.stringify(meta)} aria-haspopup="dialog" hidden>
+      Try it
+    </button>
+  </div>
+)}
+
+<script>
+  import "./try-it.client";
+</script>

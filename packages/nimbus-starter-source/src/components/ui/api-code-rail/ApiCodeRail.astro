@@ -38,6 +38,8 @@ interface Props
 }
 
 const { responses, samples, title, method, coordinate, class: className } = Astro.props;
+// Try it, when the page's route passes one in: it sits between the request and its response.
+const tryIt = Astro.slots.has("try-it");
 
 // A sample's picker key. Packages before 0.16.0 give samples no `id`; their
 // language is unique per operation there, so it serves as the key.
@@ -89,7 +91,7 @@ const respPanelId = (i: number) => `${respUid}-panel-${i}`;
 ---
 
 <aside data-nb-api-coderail aria-label={railLabel} class={cn("flex flex-col gap-4", className)}>
-  {(samples.length > 0 || bodied.length > 0) && (
+  {(samples.length > 0 || bodied.length > 0 || tryIt) && (
     /* The rail shows whenever there is EITHER a request sample OR a response
        example — a webhook (delivered, not called) has no synthesised request
        sample yet still carries response examples, and would otherwise render an
@@ -120,6 +122,8 @@ const respPanelId = (i: number) => `${respUid}-panel-${i}`;
           ))}
         </div>
       )}
+
+      {tryIt && <slot name="try-it" />}
 
       {bodied.length > 0 && (
         <div class="nb-cr-respsection" data-nb-resp-toggle>
