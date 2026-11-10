@@ -77,8 +77,10 @@ const capture = (root: string, out: string) =>
   });
 let before: Capture;
 let after: Capture;
+let added = false;
 try {
-  execFileSync("git", ["worktree", "add", "--detach", tree, baseline], { cwd: repo, stdio: "ignore" });
+  execFileSync("git", ["worktree", "add", "--detach", tree, baseline], { cwd: repo, stdio: ["ignore", "ignore", "inherit"] });
+  added = true;
   // The baseline runs with this checkout's dependencies.
   symlinkSync(path.join(repo, "node_modules"), path.join(tree, "node_modules"));
   symlinkSync(path.join(pkg, "node_modules"), path.join(tree, "packages/nimbus-docs/node_modules"));
@@ -87,8 +89,12 @@ try {
   before = JSON.parse(readFileSync(path.join(work, "before.json"), "utf8"));
   after = JSON.parse(readFileSync(path.join(work, "after.json"), "utf8"));
 } finally {
-  execFileSync("git", ["worktree", "remove", "--force", tree], { cwd: repo, stdio: "ignore" });
-  rmSync(work, { recursive: true, force: true });
+  // Cleanup never hides the error that brought us here.
+  try {
+    if (added) execFileSync("git", ["worktree", "remove", "--force", tree], { cwd: repo, stdio: "ignore" });
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
 }
 
 const rules: Rule[] = allowFile ? JSON.parse(readFileSync(allowFile, "utf8")) : [];
@@ -96,7 +102,21 @@ const found = new Map<string, number>();
 const failures: string[] = [];
 let identical = 0;
 let total = 0;
-const squash = (text: string) => text.replace(/\s+/g, "");
+// Whitespace outside string literals: what a formatting change may touch. A
+// literal's contents (a header value, a URL, a body) must stay byte for byte.
+const squash = (text: string) => {
+  let out = "";
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]!;
+    if (c === "'" || c === '"' || c === "`") {
+      let j = i + 1;
+      while (j < text.length && text[j] !== c) j += text[j] === "\\" ? 2 : 1;
+      out += text.slice(i, j + 1);
+      i = j;
+    } else if (!/\s/.test(c)) out += c;
+  }
+  return out;
+};
 for (const [spec, operations] of Object.entries(before)) {
   for (const [coordinate, samples] of Object.entries(operations)) {
     const next = after[spec]?.[coordinate];

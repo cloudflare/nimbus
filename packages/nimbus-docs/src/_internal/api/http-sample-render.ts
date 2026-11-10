@@ -85,13 +85,10 @@ function encodeQuery(text: string): string {
   return encodeURIComponent(text).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
-/** `decodeURIComponent` that leaves text it can't decode as written. */
-function safeDecode(text: string): string {
-  try {
-    return decodeURIComponent(text);
-  } catch {
-    return text;
-  }
+/** Every `%XX` as the byte it encodes, whatever else the text holds: enough to
+ *  see an ASCII token spelled in percent-encoding next to a malformed byte. */
+function bytesDecoded(text: string): string {
+  return text.replace(/%([0-9A-Fa-f]{2})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
 }
 
 // Relative URLs (a `<base-url>` sample) are read against this origin, which is never written.
@@ -117,7 +114,7 @@ export function sampleUrl(request: Pick<SampleRequest, "url" | "query">): Segmen
     .map((segment) => (isPlaceholder(segment) ? "" : segment.text))
     .join("\n");
   // The literal text as written and as decoded, so a `%`-encoded token can't collide either.
-  const ownText = `${literal}\n${safeDecode(literal)}`.toLowerCase();
+  const ownText = `${literal}\n${bytesDecoded(literal)}`.toLowerCase();
   for (let attempt = 0; attempt < 1000; attempt++) {
     if (ownText.includes(`nbph${attempt}q`)) continue;
     const out = sampleUrlWith(request, `nbph${attempt}q`);

@@ -192,6 +192,19 @@ describe("sample URLs as WHATWG writes them", () => {
     });
   }
 
+  test("literal query text that spells a token stays text, beside a malformed byte", () => {
+    const url = sampleUrl({
+      url: [text("https://x.test/"), placeholder("id"), text("/../x?q=%6e%62%70%68%30%71%30%7a&bad=%FF")],
+      query: [],
+    });
+    assert.deepEqual(url, [{ text: "https://x.test/x?q=nbph0q0z&bad=%EF%BF%BD" }]);
+  });
+
+  test("a placeholder in a Unicode host label, percent-encoded or after a backslash", async () => {
+    assert.equal(await curlUrl("https://m%C3%BCnich-{tenant}.example"), "'<base-url>/x'");
+    assert.equal(await curlUrl("https://x.test\\m\u00fcnich-{tenant}"), "'https://x.test/m%C3%BCnich-<tenant>/x'");
+  });
+
   test("a relative server keeps its path, query and fragment after <base-url>", async () => {
     const url = await curlUrl("/v1?fixed=1#section", { params: [{ name: "field", in: "query", required: true, example: "a b" }] });
     assert.equal(url, "'<base-url>/v1/x?fixed=1&field=a%20b#section'");
