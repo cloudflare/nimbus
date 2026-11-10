@@ -72,7 +72,7 @@ import { copyMarkdownImages } from "./_internal/markdown-images-copy.js";
 import { setMarkdownImageSlicePrefix } from "./_internal/markdown-images.js";
 import { markdownImageSource, markdownImageType } from "./_internal/markdown-images-dev.js";
 import { mcpSdkMessage, serverAdapterFeature, serverAdapterMessage } from "./_internal/server-adapter.js";
-import { tryItPolicyPlugin } from "./_internal/try-it/policy-plugin.js";
+import { proxiedTryItKeys, tryItPolicyPlugin } from "./_internal/try-it/policy-plugin.js";
 import { deriveFootprint, footprintRoutes } from "./_internal/footprint.js";
 import { readDependencyNames } from "./check/probe.js";
 import { parseComponentsRegistry } from "./_internal/parse-components-registry.js";
@@ -3061,7 +3061,7 @@ export function nimbus(
                 () => building && outputModeForBuild === "server",
               ),
               markdownRoutes.plugin,
-              tryItPolicyPlugin(fileURLToPath(astroConfig.root)),
+              tryItPolicyPlugin(fileURLToPath(astroConfig.root), () => proxiedTryItKeys(config.api)),
               agentEndpointAssets.agentEndpointAssetLoaderPlugin(
                 () => adapterNameForBuild,
               ),

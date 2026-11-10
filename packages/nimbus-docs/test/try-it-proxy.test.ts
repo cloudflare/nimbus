@@ -5,6 +5,9 @@ import { describe, test } from "node:test";
 
 import { MAX_IN_FLIGHT, handleTryIt, type ProxyTable } from "../src/_internal/try-it/proxy.js";
 import { H_API, H_FAILURE, H_META, H_REQUEST, H_TRY, headerJson } from "../src/_internal/try-it/protocol.js";
+import { proxiedTryItKeys, readTryItPolicies } from "../src/_internal/try-it/policy-plugin.js";
+import { stageTryItPolicy } from "../src/_internal/try-it/stage.js";
+import type { ApiSpec } from "../src/types.js";
 
 const SITE = "https://docs.example.com";
 const table = (limits: Partial<ProxyTable[string]["limits"]> = {}): ProxyTable => ({
@@ -236,5 +239,27 @@ describe("the Cloudflare request signal", () => {
     assert.equal(cloudflareRequestSignalWarning(site('{ "compatibility_date": "2026-10-01", "compatibility_flags": ["enable_request_signal"] }')), null);
     assert.equal(cloudflareRequestSignalWarning(site('{ "compatibility_date": "2026-12-01" }')), null);
     assert.match(cloudflareRequestSignalWarning(site('{ "compatibility_date": "2026-12-01", "compatibility_flags": ["disable_request_signal"] }'))!, /disable_request_signal/);
+  });
+});
+
+describe("the relay's policy table", () => {
+  test("only APIs still configured, with the proxy on, keep a policy", async () => {
+    const { mkdtemp, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const path = await import("node:path");
+    const root = await mkdtemp(path.join(tmpdir(), "nimbus-try-policy-"));
+    try {
+      const policy = { origins: ["https://api.example.com"], extraOrigins: [], limits: { timeoutMs: 1_000, responseBytes: 10, uploadBytes: 10 } };
+      // Staged by an earlier build: "gone" has since left the config, "quiet" turned its proxy off.
+      for (const key of ["kept", "kept@v2", "gone", "quiet"]) await stageTryItPolicy(root, key, policy);
+      const api = [
+        { collection: "kept", versions: [{ version: "v2", spec: "a.json" }], tryIt: true },
+        { collection: "quiet", spec: "b.json", tryIt: { proxy: false } },
+      ] as unknown as ApiSpec[];
+      assert.deepEqual([...proxiedTryItKeys(api)], ["kept@v2"]);
+      assert.deepEqual(Object.keys(readTryItPolicies(root, proxiedTryItKeys(api))), ["kept@v2"]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
