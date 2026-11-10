@@ -47,7 +47,7 @@ describe("sample URLs, cookies and options on the wire", () => {
 
     test(`${lang}: the server's own query arrives as written`, { skip: sampleClientUnavailable[lang] }, async () => {
       const page = await operation({
-        servers: [{ url: `${capture.origin}/v1?q=a+b&flag&a=1;b=2&raw=%FF&filter[status]=on` }],
+        servers: [{ url: `${capture.origin}/v1?q=a+b&flag&a=1;b=2&raw=%FF&slash=%2F&bad=%ZZ&filter[status]=on#part{` }],
         paths: {
           "/items": {
             get: {
@@ -59,7 +59,7 @@ describe("sample URLs, cookies and options on the wire", () => {
         },
       }, "list");
       const request = await capture.run(page.samples.find((s) => s.lang === lang)!, { methods: ["GET"] });
-      assert.equal(request.url, "/v1/items?q=a+b&flag&a=1;b=2&raw=%FF&filter%5Bstatus%5D=on&limit=10");
+      assert.equal(request.url, "/v1/items?q=a+b&flag&a=1;b=2&raw=%FF&slash=%2F&bad=%25ZZ&filter%5Bstatus%5D=on&limit=10");
     });
 
     test(`${lang}: a Cookie header and a cookie API key both arrive`, { skip: sampleClientUnavailable[lang] }, async () => {

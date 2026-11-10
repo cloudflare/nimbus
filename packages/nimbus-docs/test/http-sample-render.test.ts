@@ -158,9 +158,14 @@ describe("sample URLs as WHATWG writes them", () => {
     ["https://x.test/a/../b", "https://x.test/b/x"],
     ["https://x.test/?0=z&2=a&1=b", "'https://x.test/x?0=z&2=a&1=b'"],
     // The server's query as written: no byte decoded, re-encoded or replaced,
-    // except brackets and braces, which cURL would read as a glob.
+    // except brackets and braces (a cURL glob) and a `%` that starts no escape
+    // (Python's requests would re-encode every other escape).
     ["https://x.test/?q=é%FF", "'https://x.test/x?q=%C3%A9%FF'"],
-    ["https://x.test/?q=%E2%82%AC%ZZ", "'https://x.test/x?q=%E2%82%AC%ZZ'"],
+    ["https://x.test/?q=%E2%82%AC%ZZ", "'https://x.test/x?q=%E2%82%AC%25ZZ'"],
+    ["https://x.test/?q=%2F&bad=%ZZ", "'https://x.test/x?q=%2F&bad=%25ZZ'"],
+    ["https://x.test/a[1]/b{/", "https://x.test/a%5B1%5D/b%7B/x"],
+    ["https://x.test/#section{", "'https://x.test/x#section%7B'"],
+    ["http://[::1]:8080/v1", "'http://[::1]:8080/v1/x'"],
     ["https://x.test/?q=%6E%70%68%30%71%30%7A", "'https://x.test/x?q=%6E%70%68%30%71%30%7A'"],
     ["https://x.test/?q=%6E%70%68%30%71%30%7A&v={v}", "'https://x.test/x?q=%6E%70%68%30%71%30%7A&v=<v>'"],
     ["https://x.test/?q=a+b&flag&a=1;b=2&tags[]=1&f[a]=1", "'https://x.test/x?q=a+b&flag&a=1;b=2&tags%5B%5D=1&f%5Ba%5D=1'"],

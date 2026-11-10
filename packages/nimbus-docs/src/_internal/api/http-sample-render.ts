@@ -97,7 +97,7 @@ const TEMPORARY_ORIGIN = "https://nimbus-base.invalid";
 /**
  * The full URL the sample sends, as the WHATWG URL standard writes it (the
  * URL a browser, `fetch` or Try it sends): parsed with `new URL()`, the
- * server's own query as written (brackets and braces percent-encoded), then
+ * server's own query as written (see `clientSafe` for the exceptions), then
  * the operation's query fields after it in spec order (a name the server's
  * query has keeps the server's values), each field's name and value RFC
  * 3986-encoded.
@@ -156,19 +156,28 @@ function writeUrl(request: Pick<SampleRequest, "url" | "query">, stand: (segment
   parsed ??= new URL(`${TEMPORARY_ORIGIN}${rest.startsWith("/") ? "" : "/"}${rest}`);
 
   // The server's query as WHATWG writes it, then the operation's fields; the
-  // server keeps a name it has. Brackets and braces are percent-encoded, which
-  // servers read the same, so cURL doesn't take them for a URL glob.
+  // server keeps a name it has.
   const serverNames = new Set(parsed.searchParams.keys());
-  const serverQuery = parsed.search.slice(1).replace(/[[\]{}]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
   const fields = request.query
     .filter(({ name }) => !serverNames.has(name))
     .map(({ name, value }) => `${encodeQuery(name)}=${encodeQuery(flat(value))}`);
-  const query = [serverQuery, ...fields].filter(Boolean).join("&");
-  const hash = parsed.hash;
+  const query = [clientSafe(parsed.search.slice(1)), ...fields].filter(Boolean).join("&");
+  const hash = clientSafe(parsed.hash);
   parsed.hash = "";
   parsed.search = "";
-  const head = lead ? `${lead}${parsed.pathname}` : parsed.href;
-  return `${head}${query ? `?${query}` : ""}${hash}`;
+  // Everything before the path (scheme, userinfo, host) stays as WHATWG writes it.
+  const head = lead || parsed.href.slice(0, parsed.href.length - parsed.pathname.length);
+  return `${head}${clientSafe(parsed.pathname)}${query ? `?${query}` : ""}${hash}`;
+}
+
+/**
+ * URL text WHATWG leaves raw that a sample's client would misread, encoded the
+ * way servers read the same: brackets and braces, which cURL takes for a glob,
+ * and a `%` that starts no escape, which makes Python's `requests` re-encode
+ * every other escape in the URL.
+ */
+function clientSafe(text: string): string {
+  return text.replace(/[[\]{}]|%(?![0-9A-Fa-f]{2})/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
 /** The URL with placeholders as `<prefix><n>z` tokens, or `undefined` when a token comes back wrong. */
