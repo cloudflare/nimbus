@@ -27,6 +27,16 @@ const nimbusConfig = defineNimbusConfig({
     items: [
       { autogenerate: { collection: "docs" } },
       { label: "Components", icon: "ph:puzzle-piece", autogenerate: { collection: "components" } },
+      // The showcase is an Astro page (src/pages/community-recipes/), so the
+      // group is listed here rather than from the content tree.
+      {
+        label: "Community recipes",
+        icon: "ph:users-three",
+        items: [
+          { label: "Overview", link: "/community-recipes" },
+          { label: "Showcase", link: "/community-recipes/showcase" },
+        ],
+      },
       // The glossary is an appendix, after the component catalog.
       { label: "Glossary", link: "/glossary" },
       { label: "Changelog", link: "/changelog/" },
