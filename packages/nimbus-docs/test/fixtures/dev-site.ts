@@ -2,7 +2,7 @@
 // for tests that edit files under a running server.
 
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
 import { after } from "node:test";
@@ -70,6 +70,29 @@ export async function until<T>(describe: string, read: () => T | Promise<T>, acc
 
 export const settle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Stops a dev server, then waits for Astro's debounced content-store write
+ * (500 ms after the last change, and not cancelled by `stop()`), so removing
+ * the site doesn't race it.
+ */
+export async function stopDevServer(server: { stop(): Promise<void> }, root: string): Promise<void> {
+  await server.stop();
+  const store = path.join(root, ".astro", "data-store.json");
+  const written = async () =>
+    (await Promise.all([store, `${store}.tmp`].map((file) => stat(file).then((info) => info.mtimeMs, () => 0)))).join();
+  const deadline = Date.now() + 10_000;
+  let last = await written();
+  let quietSince = Date.now();
+  while (Date.now() < deadline && Date.now() - quietSince < 1_000) {
+    await settle(100);
+    const current = await written();
+    if (current !== last) {
+      last = current;
+      quietSince = Date.now();
+    }
+  }
+}
+
 export interface DevSite {
   file(relative: string): string;
   write(relative: string, contents: string): Promise<void>;
@@ -131,7 +154,7 @@ export async function withDevSite(files: Record<string, string>, nimbusOptions: 
       mark: () => logs.length,
     });
   } finally {
-    await server.stop();
+    await stopDevServer(server, root);
     for (const [index, stream] of streams.entries()) stream.write = realWrites[index]!;
   }
 }

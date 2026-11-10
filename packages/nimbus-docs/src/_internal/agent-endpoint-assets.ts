@@ -1,4 +1,11 @@
-import { invalidateDevModules, isDevContentFile, type DevServerGraphs } from "./dev-invalidation.js";
+import {
+  ARTIFACTS_VIRTUAL_ID,
+  HEADINGS_VIRTUAL_ID,
+  invalidateDevModules,
+  isDevContentFile,
+  isPreparedModule,
+  type DevServerGraphs,
+} from "./dev-invalidation.js";
 import { createHash, randomUUID } from "node:crypto";
 import {
   constants,
@@ -237,8 +244,14 @@ interface AgentEndpointAssetState {
       markdownAssets?: Map<string, MarkdownEndpointAsset>;
       llmsAssets?: Map<string, LlmsEndpointAsset>;
       headings?: Map<string, PreparedHeadingRecord>;
+      rendered?: RenderedPages;
     }
   >;
+}
+
+interface RenderedPages {
+  context: string;
+  pages: Map<string, { body: string; filePath?: string; expanded: string; markdown: string }>;
 }
 
 const STATE_KEY = Symbol.for(
@@ -370,6 +383,11 @@ async function writeAsset(file: string, body: string): Promise<boolean> {
   }
 }
 
+async function isInPlace(file: string, body: string): Promise<boolean> {
+  const info = await lstat(file).catch(() => undefined);
+  return !!info?.isFile() && info.size === Buffer.byteLength(body, "utf8");
+}
+
 async function writeManifest(
   directory: string,
   manifest: AgentEndpointAssetManifest,
@@ -441,10 +459,10 @@ async function publishManifest(
   const operation = prior.then(async () => {
     if (!isFresh()) return;
     const created: string[] = [];
+    const retained = new Set(
+      previous ? manifestAssets(previous).map((asset) => asset.path) : [],
+    );
     const removeCreated = async () => {
-      const retained = new Set(
-        previous ? manifestAssets(previous).map((asset) => asset.path) : [],
-      );
       await Promise.all(
         created
           .filter((assetPath) => !retained.has(assetPath))
@@ -456,14 +474,10 @@ async function publishManifest(
     try {
       const writes = await Promise.allSettled(
         endpointAssets.map(async (asset) => {
-          if (
-            await writeAsset(
-              path.join(directory, asset.path),
-              asset.body,
-            )
-          ) {
-            created.push(asset.path);
-          }
+          const file = path.join(directory, asset.path);
+          // This process wrote or checked it, and its name pins its body.
+          if (retained.has(asset.path) && (await isInPlace(file, asset.body))) return;
+          if (await writeAsset(file, asset.body)) created.push(asset.path);
         }),
       );
       const failed = writes.find(
@@ -1478,9 +1492,7 @@ export interface PreparedHeadingsPlugin {
   handleHotUpdate(context: { server: DevServerGraphs }): void;
 }
 
-const HEADINGS_VIRTUAL_ID = "virtual:nimbus/headings";
 const HEADINGS_RESOLVED_ID = `\0${HEADINGS_VIRTUAL_ID}`;
-const ARTIFACTS_VIRTUAL_ID = "virtual:nimbus/agent-endpoint-assets";
 const ARTIFACTS_RESOLVED_ID = `\0${ARTIFACTS_VIRTUAL_ID}`;
 const ASSET_LOADER_VIRTUAL_ID = "virtual:nimbus/agent-endpoint-asset-loader";
 const ASSET_LOADER_RESOLVED_ID = `\0${ASSET_LOADER_VIRTUAL_ID}`;
@@ -1605,12 +1617,7 @@ export function agentEndpointHotUpdatePlugin(root: string): AgentEndpointHotUpda
     hotUpdate(context) {
       if (context.modules.length > 0 || !isDevContentFile(root, context.file)) return undefined;
       const affected = [...this.environment.moduleGraph.idToModuleMap]
-        .filter(
-          ([id]) =>
-            id === ARTIFACTS_RESOLVED_ID ||
-            id === HEADINGS_RESOLVED_ID ||
-            id.startsWith(`\0${HEADINGS_ENTRY_PREFIX}`),
-        )
+        .filter(([id]) => isPreparedModule(id))
         .map(([, module]) => module);
       return affected.length ? affected : undefined;
     },
@@ -2033,6 +2040,31 @@ export async function bakeAgentEndpointAssets(
         ]),
       )
     : undefined;
+  // Dev reuses a page's Markdown while its body, file path and the inputs every
+  // page shares are unchanged. That trusts each component's and the partial
+  // resolver's `revision` to change whenever its output does.
+  const rendered: RenderedPages | undefined =
+    configuredAtStart?.mode === "dev"
+      ? {
+          context: digest(
+            JSON.stringify({
+              base,
+              site: options.site,
+              components: componentRevisions,
+              partialResolver: partialResolverRevision,
+              citations: citationFingerprint,
+              partials: [...(partials?.entries.values() ?? [])].map(
+                (partial) => [partial.id, partial.filePath, partial.body, partial.data],
+              ),
+            }),
+          ),
+          pages: new Map(),
+        }
+      : undefined;
+  const reusable =
+    rendered && configuredAtStart?.rendered?.context === rendered.context
+      ? configuredAtStart.rendered.pages
+      : undefined;
   for (const entry of candidates) {
     const decision = decisions.get(`${entry.collection}\0${entry.id}`)!;
     if (decision.status === "exclude") continue;
@@ -2041,22 +2073,38 @@ export async function bakeAgentEndpointAssets(
         `nimbus-docs: prepared entry "${entry.collection}:${entry.id}" has no body.`,
       );
     }
-    const expanded = await expandPreparedPartials(entry.body, {
-      sourceId: `${entry.collection}:${entry.filePath ?? entry.id}`,
-      getPartial,
-      resolvePartialId: options.partialResolver?.resolve,
+    const pageKey = `${entry.collection}\0${entry.id}`;
+    const cached = reusable?.get(pageKey);
+    const reused =
+      cached?.body === entry.body && cached.filePath === entry.filePath
+        ? cached
+        : undefined;
+    const expanded =
+      reused?.expanded ??
+      (await expandPreparedPartials(entry.body, {
+        sourceId: `${entry.collection}:${entry.filePath ?? entry.id}`,
+        getPartial,
+        resolvePartialId: options.partialResolver?.resolve,
+      }));
+    const markdown =
+      reused?.markdown ??
+      absoluteMarkdownLinks(
+        renderEntryAsMarkdown(
+          { body: expanded, filePath: entry.filePath },
+          {
+            citationIndex: basedCitationIndex,
+            componentMap: renderers,
+            base,
+          },
+        ),
+        options.site,
+      );
+    rendered?.pages.set(pageKey, {
+      body: entry.body,
+      filePath: entry.filePath,
+      expanded,
+      markdown,
     });
-    const markdown = absoluteMarkdownLinks(
-      renderEntryAsMarkdown(
-        { body: expanded, filePath: entry.filePath },
-        {
-          citationIndex: basedCitationIndex,
-          componentMap: renderers,
-          base,
-        },
-      ),
-      options.site,
-    );
     const page = preparedLlmsPage(entry, markdown, options);
     llmsRoutePages.push(page);
     if (options.mcpUrl) indexPages.push(mcpPageRecord(entry, page, options));
@@ -2340,6 +2388,7 @@ export async function bakeAgentEndpointAssets(
   await assertNoSymlink(root, directory);
   await mkdir(path.join(directory, "assets"), { recursive: true });
   await assertNoSymlink(root, path.join(directory, "assets"));
+  if (rendered && configuredAtStart) configuredAtStart.rendered = rendered;
   const manifest: AgentEndpointAssetManifest = {
     version: AGENT_ENDPOINT_ASSET_MANIFEST_VERSION,
     generation: AGENT_ENDPOINT_ASSET_GENERATION,
