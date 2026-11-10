@@ -506,7 +506,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     return { mediaType: media.mediaType, value: draft ?? "" };
   };
   const requestValues = (placeholders: boolean): RequestValues => {
-    const creds: Record<string, Credential> = {};
+    // No prototype: a scheme may be named anything, __proto__ included.
+    const creds: Record<string, Credential> = Object.create(null);
     for (const s of schemes()) {
       const value = credentials.get(credKey(s.scheme));
       if (value !== undefined && value !== "") creds[s.scheme] = value;
@@ -1260,10 +1261,12 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     format.addEventListener("click", () => {
       const area = bodySlot.querySelector<HTMLTextAreaElement>(".nb-tid-editor");
       if (!area) return;
+      // Never rewrites a value: a number it would round stops it, and says so.
       try {
-        area.value = JSON.stringify(JSON.parse(area.value), null, 2);
+        area.value = JSON.stringify(parseExactJson(area.value), null, 2);
         area.dispatchEvent(new Event("input"));
-      } catch {
+      } catch (error) {
+        if (error instanceof RangeError) bodyError.textContent = error.message;
         area.focus();
       }
     });
