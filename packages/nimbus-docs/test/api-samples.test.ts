@@ -214,7 +214,7 @@ describe("derived example + code samples", () => {
 
   test("the sample tooling loads and honors the hyphen extension alias", async () => {
     const tools = await loadSampleTools();
-    assert.ok(tools, "openapi-sampler + @readme/httpsnippet resolve in this workspace");
+    assert.ok(tools, "openapi-sampler resolves in this workspace");
 
     const out = buildOperationSamples(tools, {
       method: "post",
@@ -239,27 +239,6 @@ describe("resilience — best-effort, never fatal", () => {
       params: [
         { name: "id", in: "path", required: true, schema: { type: "string", example: "\uD800" } },
       ],
-    });
-    assert.deepEqual(out, []);
-  });
-
-  test("a throwing snippet generator degrades to no samples, never throws", () => {
-    const broken: SampleTools = {
-      sampler: { sample: () => ({ a: "b" }) },
-      snippet: {
-        HTTPSnippet: class {
-          constructor() {
-            throw new Error("boom");
-          }
-        },
-      },
-    } as unknown as SampleTools;
-    const out = buildOperationSamples(broken, {
-      method: "post",
-      path: "/x",
-      auth: [],
-      params: [],
-      body: { mediaType: "application/json", value: { a: "b" } },
     });
     assert.deepEqual(out, []);
   });
@@ -917,7 +896,7 @@ describe("parameter and credential placeholders", () => {
     assert.ok(tools);
     const names = ["user'id", 'a"b', "c\\d"];
     const operations = [
-      // Path only: httpsnippet leaves the URL unquoted until a placeholder is restored.
+      // Path only: a URL with no placeholder stays unquoted when it is shell-safe.
       { path: `/u/{${names[0]}}`, params: [names[0]!], query: false },
       { path: names.map((name) => `/{${name}}`).join(""), params: names, query: true },
     ];
@@ -1315,7 +1294,7 @@ describe("generated request bodies", () => {
     }
   });
 
-  test("a body httpsnippet sends as text keeps its output and stays valid", async (t) => {
+  test("a body sent as text keeps its output and stays valid", async (t) => {
     if (!hasPython) t.diagnostic("python3 not found: skipping the Python value check");
     const text = "line one\nline \"two\" \\";
     const plain = await pythonFor(text, "text/plain");
@@ -1595,28 +1574,6 @@ describe("form request bodies", () => {
       assert.ok(!samples.curl.includes("--data") && !samples.curl.includes("Content-Type"), samples.curl);
       assert.ok(!samples.typescript.includes("body"), samples.typescript);
       assert.ok(!samples.python.includes("payload"), samples.python);
-    }
-  });
-
-  test("a body httpsnippet writes differently is left out rather than shown unescaped", async () => {
-    const tools = await loadSampleTools();
-    assert.ok(tools);
-    class Reformatted extends tools.snippet.HTTPSnippet {
-      convert(...args: Parameters<InstanceType<typeof tools.snippet.HTTPSnippet>["convert"]>) {
-        const out = super.convert(...args);
-        const first = Array.isArray(out) ? out[0] : out;
-        return typeof first === "string"
-          ? first.replace("payload = ", "payload  = ").replace("encodedParams.set(", "encodedParams.set (").replace("JSON.stringify(", "JSON.stringify (")
-          : out;
-      }
-    }
-    const changed = { ...tools, snippet: { ...tools.snippet, HTTPSnippet: Reformatted } } as typeof tools;
-    for (const [mediaType, value] of [[FORM, { note: "a\nb" }], ["application/json", { note: "a\nb" }], ["application/json", null]] as const) {
-      const out = buildOperationSamples(changed, { method: "post", path: "/x", auth: [], params: [], body: { mediaType, value } });
-      const langs = out.map((s) => s.lang);
-      assert.ok(!langs.includes("python"), `${mediaType}: ${langs}`);
-      assert.ok(!langs.includes("typescript"), `${mediaType}: ${langs}`);
-      assert.ok(langs.includes("curl"), `${mediaType}: ${langs}`);
     }
   });
 
@@ -1922,18 +1879,20 @@ describe("samples.keepGenerated", () => {
     assert.deepEqual(targets.map((t) => t.samples), [{ keepGenerated: ["curl"] }, { keepGenerated: ["curl"] }]);
   });
 
-  test("a conversion failure drops that language only and keeps authored samples", () => {
-    const flaky: SampleTools = {
-      sampler: { sample: () => undefined },
-      snippet: {
-        HTTPSnippet: class {
-          convert(target: string) {
-            if (target === "python") throw new Error("boom");
-            return `${target} sample`;
-          }
-        },
-      },
-    } as unknown as SampleTools;
+  test("a request that can't be built gives no samples, never throws", () => {
+    const tools = { sampler: { sample: () => undefined } } as unknown as SampleTools;
+    // A lone surrogate can't be URL-encoded: the request can't be built.
+    const out = buildOperationSamples(tools, {
+      method: "get",
+      path: "/x/{id}",
+      auth: [],
+      params: [{ name: "id", in: "path", required: true, example: "\uD800" }],
+    });
+    assert.deepEqual(out, []);
+  });
+
+  test("generated languages follow authored samples, and a request that can't be built keeps them", () => {
+    const flaky = { sampler: { sample: () => undefined } } as unknown as SampleTools;
     const input = {
       method: "get",
       path: "/x",
@@ -1948,7 +1907,7 @@ describe("samples.keepGenerated", () => {
     );
     assert.deepEqual(
       buildOperationSamples(flaky, { ...input, xCodeSamples: undefined }).map((s) => s.lang),
-      ["curl", "typescript"],
+      ["curl", "typescript", "python"],
     );
     const broken = buildOperationSamples(flaky, {
       ...input,
@@ -2052,42 +2011,13 @@ describe("read-only and write-only fields: refs, media types, webhooks, citation
 });
 
 describe("cURL heredoc", () => {
-  test("a heredoc whose delimiter stays unquoted leaves the cURL sample out", async () => {
+  test("a cURL JSON body holding a quote goes in a quoted heredoc", async () => {
     const tools = (await loadSampleTools())!;
-    const Real = tools.snippet.HTTPSnippet;
-    const changed: SampleTools = {
-      sampler: tools.sampler,
-      snippet: {
-        HTTPSnippet: class {
-          #inner: InstanceType<typeof Real>;
-          constructor(input: ConstructorParameters<typeof Real>[0]) { this.#inner = new Real(input); }
-          convert(target: string, client?: string) {
-            const out = this.#inner.convert(target, client);
-            const first = Array.isArray(out) ? out[0] : out;
-            return typeof first === "string" ? [first.replace("@- <<EOF\n", "@-  <<EOF\n")] : out;
-          }
-        },
-      },
-    };
     const input = {
       method: "post", path: "/x", auth: [], params: [],
       body: { mediaType: "application/json", value: { quote: "it's", env: "$HOME" } },
     };
     assert.match(buildOperationSamples(tools, input).find((s) => s.lang === "curl")!.source, /<<'EOF'/);
-    assert.deepEqual(buildOperationSamples(changed, input).map((s) => s.lang), ["typescript", "python"]);
-    const unusual: SampleTools = {
-      ...tools,
-      snippet: { HTTPSnippet: class extends Real {
-        convert(target: string, client?: string) {
-          const out = super.convert(target, client);
-          const first = Array.isArray(out) ? out[0] : out;
-          return typeof first === "string"
-            ? [first.replace("@- <<EOF\n", "@- <<EOF-2\n").replace(/\nEOF(?=\n|$)/, "\nEOF-2")]
-            : out;
-        }
-      } },
-    };
-    assert.deepEqual(buildOperationSamples(unusual, input).map((s) => s.lang), ["typescript", "python"]);
   });
 });
 
@@ -2137,7 +2067,7 @@ describe("authored samples without the generator packages", () => {
     assert.doesNotMatch(run([]), /samples omitted/);
     assert.match(
       run(null),
-      /Generated code samples omitted — install openapi-sampler and @readme\/httpsnippet to derive curl, typescript, python examples, or set `samples.generate: \[\]`/,
+      /Generated code samples omitted — install openapi-sampler to derive curl, typescript, python examples, or set `samples.generate: \[\]`/,
     );
   });
 });
