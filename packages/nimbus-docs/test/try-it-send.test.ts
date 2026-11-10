@@ -44,7 +44,12 @@ before(async () => {
       });
       const response = await handleTryIt(request, table());
       res.writeHead(response.status, Object.fromEntries(response.headers));
-      if (response.body) for await (const chunk of response.body) res.write(chunk);
+      try {
+        if (response.body) for await (const chunk of response.body) res.write(chunk);
+      } catch {
+        // Closing the server cuts a stalled stream off; that ends this exchange.
+        return res.destroy();
+      }
       return res.end();
     }
     received.push({ method: req.method!, url: req.url!, headers: req.headers, body });
