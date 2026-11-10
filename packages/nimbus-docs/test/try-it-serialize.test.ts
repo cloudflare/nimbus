@@ -5,7 +5,7 @@ import { describe, test } from "node:test";
 
 import type { PlanParam, RequestPlan, RequestValues } from "../src/_internal/try-it/plan.js";
 import { parseExactJson, resolveServer, serializeRequest } from "../src/_internal/try-it/serialize.js";
-import { checkScalar } from "../src/_internal/try-it/validate.js";
+import { checkScalar, validateValues } from "../src/_internal/try-it/validate.js";
 
 const param = (over: Partial<PlanParam> & Pick<PlanParam, "in" | "name">): PlanParam => {
   const style = over.style ?? (over.in === "query" || over.in === "cookie" ? "form" : "simple");
@@ -157,6 +157,15 @@ describe("cookies, one header by Nimbus's convention", () => {
       auth: { alternative: 0, credentials: { k: "sec" } },
     });
     assert.deepEqual(out.headers, [["Cookie", "s=a%20b%3Bc; a=x,y; e=1; e=2; k=v; key=sec"]]);
+  });
+
+  test("a Cookie header parameter joins them: one Cookie header, as the samples send it", () => {
+    const p = plan({
+      params: [param({ in: "header", name: "Cookie" })],
+      auth: [{ label: "API key in cookie", schemes: [{ scheme: "k", type: "apiKey", in: "cookie", name: "key" }] }],
+    });
+    const out = send(p, { params: { "header:Cookie": "theme=dark" }, auth: { alternative: 0, credentials: { k: "sec" } } });
+    assert.deepEqual(out.headers, [["Cookie", "theme=dark; key=sec"]]);
   });
 });
 
@@ -426,5 +435,36 @@ describe("names a spec may use", () => {
 
   test("a custom format named like a prototype key isn't checked, and doesn't throw", () => {
     for (const format of ["constructor", "toString", "__proto__"]) assert.deepEqual(checkScalar({ type: "string", format }, "x"), [], format);
+  });
+});
+
+describe("required form fields", () => {
+  const formPlan = (kind: "form" | "multipart", mediaType: string) =>
+    plan({
+      method: "POST",
+      body: {
+        required: true,
+        examples: [],
+        media: [{
+          mediaType,
+          kind,
+          fields: [
+            { name: "title", required: true, schema: { type: "string" } },
+            { name: "upload", required: kind === "multipart", schema: { type: "string", format: "binary" }, ...(kind === "multipart" ? { file: "one" as const } : {}) },
+          ],
+        }],
+      },
+    });
+
+  test("an empty or missing required field stops Send, a file part included", () => {
+    const p = formPlan("multipart", "multipart/form-data");
+    const issues = validateValues(p, { params: {}, body: { mediaType: "multipart/form-data", value: { fields: [{ name: "title", value: "" }] } } });
+    assert.deepEqual(issues.map((i) => [i.key, i.message, i.blocking]), [["body:title", "Required.", true], ["body:upload", "Choose a file.", true]]);
+  });
+
+  test("filled in, nothing is flagged", () => {
+    const p = formPlan("form", "application/x-www-form-urlencoded");
+    const issues = validateValues(p, { params: {}, body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "title", value: "hi" }] } } });
+    assert.deepEqual(issues, []);
   });
 });

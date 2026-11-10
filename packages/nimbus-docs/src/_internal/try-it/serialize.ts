@@ -112,7 +112,9 @@ function build(plan: RequestPlan, values: RequestValues, options: SerializeOptio
     if (param.in === "query") query.push(...styleQuery(param, value));
     else if (param.in === "header") {
       if (!TOKEN.test(param.name) || isTransportHeader(param.name)) refuse(`The header ${param.name} can't be sent.`);
-      headers.push([param.name, headerValue(param, value)]);
+      // A Cookie header parameter joins the cookie parameters and keys in one header, as the code samples send it.
+      if (param.name.toLowerCase() === "cookie") cookies.push(headerValue(param, value));
+      else headers.push([param.name, headerValue(param, value)]);
     } else cookies.push(...styleCookie(param, value));
   }
 

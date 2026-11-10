@@ -66,7 +66,9 @@ export async function handleTryIt(request: Request, table: ProxyTable, options: 
   if (origin !== null && origin !== self) return refusal(403, "refused", "The proxy takes requests from this site's own pages only.");
   const site = request.headers.get("sec-fetch-site");
   if (site !== null && site !== "same-origin") return refusal(403, "refused", "The proxy takes requests from this site's own pages only.");
-  const policy = table[request.headers.get(H_API) ?? ""];
+  // Own entries only: `constructor` or `__proto__` names no API.
+  const api = request.headers.get(H_API) ?? "";
+  const policy = Object.hasOwn(table, api) ? table[api] : undefined;
   if (!policy) return refusal(404, "refused", "Via this site: the proxy is off for this API.");
 
   const raw = request.headers.get(H_REQUEST) ?? "";
