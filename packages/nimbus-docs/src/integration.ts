@@ -67,7 +67,7 @@ import {
   type MountWarning,
   type UnreadRoute,
 } from "./_internal/collection-routes.js";
-import { cloudflareTrailingSlashWarning } from "./_internal/cloudflare-trailing-slash.js";
+import { cloudflareRequestSignalWarning, cloudflareTrailingSlashWarning } from "./_internal/cloudflare-trailing-slash.js";
 import { copyMarkdownImages } from "./_internal/markdown-images-copy.js";
 import { setMarkdownImageSlicePrefix } from "./_internal/markdown-images.js";
 import { markdownImageSource, markdownImageType } from "./_internal/markdown-images-dev.js";
@@ -2582,6 +2582,16 @@ export function nimbus(
           if (explicitProxy.length > 0 && !astroConfig.adapter) {
             throw authorError(serverAdapterMessage("Try it proxy", projectRoot));
           }
+          // The panel reaches the code rail through ApiLayout's try-it slot; an older layout has none.
+          if (tryItApis.length > 0) {
+            const layout = path.join(srcDir, "components", "ui", "api-layout", "ApiLayout.astro");
+            const source = fs.existsSync(layout) ? fs.readFileSync(layout, "utf8") : undefined;
+            if (source !== undefined && !source.includes('"try-it"')) {
+              params.logger.warn(
+                `tryIt is on, but ${path.relative(projectRoot, layout)} has no try-it slot, so the Try it button can't show. See the api-try-it upgrade entry (\`${invocation("migrate", projectRoot)}\`).`,
+              );
+            }
+          }
           const proxied = tryItApis.some((api) => !(typeof api.tryIt === "object" && api.tryIt.proxy === false));
           if (proxied && astroConfig.adapter) {
             const pattern = "/_nimbus/try";
@@ -2592,6 +2602,10 @@ export function nimbus(
               throw authorError(
                 `Nimbus serves ${pattern} for Try it's proxy. Move ${path.relative(projectRoot, owned)}, or set tryIt.proxy to false.`,
               );
+            if (astroConfig.adapter.name === "@astrojs/cloudflare") {
+              const warning = cloudflareRequestSignalWarning(projectRoot);
+              if (warning) params.logger.warn(warning);
+            }
             const entrypoint = new URL(`./_internal/try-it-route.${extension}`, import.meta.url);
             injectRoute({ pattern, entrypoint, prerender: false });
             managedRoutesForBuild.push({

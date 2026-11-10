@@ -18,6 +18,7 @@
       "api-shapes-beside-unions",
       "api-sidebar-filter",
       "api-sidebar-panel",
+      "api-try-it",
       "api-version-id-format",
       "api-version-picker",
       "api-version-url",
@@ -1327,6 +1328,24 @@
         "On a phone, an operation page reads title, endpoint box, page actions, description, then the request sample and the fields.",
         "On a screen at least 1440px wide, the request sample starts level with the breadcrumbs and stays pinned while the page scrolls.",
         "Clicking, tapping or pressing Enter on the endpoint path shows the full URL, and Escape closes it."
+      ]
+    },
+    {
+      "id": "api-try-it",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-try-it",
+      "summary": "Optionally let readers send requests from API pages: turn on tryIt for an API and install the api-try-it component, which puts a Try it button in the code rail between the request sample and the response example.",
+      "affected": "Sites with the api-layout registry component.",
+      "instructions": [
+        "No action is needed: API pages are unchanged until an API sets tryIt and its route renders the panel.",
+        "To add Try it, run nimbus-docs add api-try-it and follow the recipe it hands your coding agent: it sets tryIt on the APIs you choose and renders <ApiTryIt slot=\"try-it\" page={result.page} /> inside ApiLayout in each API route.",
+        "ApiLayout and ApiCodeRail take the panel through a try-it slot. If they are unmodified, update them with nimbus-docs add api-layout --overwrite and nimbus-docs add api-code-rail --overwrite.",
+        "If they are customized, merge by hand: ApiLayout adds page.tryIt with a try-it slot to the rail's condition (const hasTryIt = page.kind === \"operation\" && page.tryIt !== undefined && Astro.slots.has(\"try-it\")) and forwards it with <slot name=\"try-it\" slot=\"try-it\" /> inside <ApiCodeRail>; ApiCodeRail shows its card when Astro.slots.has(\"try-it\") and renders <slot name=\"try-it\" /> between the request sample and the response section."
+      ],
+      "verify": [
+        "An operation page shows a Try it button between the request sample and the response example.",
+        "Clicking it opens the panel with the sample's values filled in, and Send shows the API's response."
       ]
     }
   ]

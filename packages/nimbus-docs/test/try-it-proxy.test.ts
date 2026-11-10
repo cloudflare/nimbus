@@ -208,3 +208,21 @@ describe("in flight", () => {
     assert.equal((await handleTryIt(tryRequest(), table(), { fetch: ok })).status, 200);
   });
 });
+
+describe("the Cloudflare request signal", () => {
+  test("warns unless the abort signal reaches the route", async () => {
+    const { cloudflareRequestSignalWarning } = await import("../src/_internal/cloudflare-trailing-slash.js");
+    const { mkdtempSync, writeFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { tmpdir } = await import("node:os");
+    const site = (config: string) => {
+      const dir = mkdtempSync(join(tmpdir(), "nb-signal-"));
+      writeFileSync(join(dir, "wrangler.jsonc"), config);
+      return dir;
+    };
+    assert.match(cloudflareRequestSignalWarning(site('{ "compatibility_date": "2026-10-01" }'))!, /enable_request_signal/);
+    assert.equal(cloudflareRequestSignalWarning(site('{ "compatibility_date": "2026-10-01", "compatibility_flags": ["enable_request_signal"] }')), null);
+    assert.equal(cloudflareRequestSignalWarning(site('{ "compatibility_date": "2026-12-01" }')), null);
+    assert.match(cloudflareRequestSignalWarning(site('{ "compatibility_date": "2026-12-01", "compatibility_flags": ["disable_request_signal"] }'))!, /disable_request_signal/);
+  });
+});
