@@ -1293,7 +1293,7 @@ async function assertArtifactsAndSmoke(dist) {
     );
 
     await page.setViewportSize({ width: 1600, height: 1000 });
-    const language = page.locator("[data-nb-lang-select]");
+    const language = page.locator("[data-nb-api-coderail] [data-nb-choice-select]");
     const options = await language.locator("option").count();
     assert(
       options >= 2,
@@ -1306,7 +1306,7 @@ async function assertArtifactsAndSmoke(dist) {
     await language.selectOption(secondLanguage);
     assert(
       await page
-        .locator(`[data-nb-lang-panel][data-nb-lang-value="${secondLanguage}"]`)
+        .locator(`[data-nb-choice-panel="${secondLanguage}"]`)
         .isVisible(),
       "sample language did not switch",
     );

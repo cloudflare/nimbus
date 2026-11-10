@@ -22,6 +22,7 @@ import {
   runPreparedMarkdownTransaction,
 } from "../src/_internal/prepared-markdown-registry.ts";
 import {
+  AGENT_ENDPOINT_ASSET_GENERATION,
   bakePreparedHeadings,
   bakeAgentEndpointAssets,
   configureAgentEndpointAssetRoot,
@@ -42,7 +43,7 @@ import { renderApiPageMarkdown } from "../src/_internal/api/markdown.ts";
 import { fromMarkdown } from "mdast-util-from-markdown";
 
 const roots: string[] = [];
-const capability = { generation: 1, base: "/docs" };
+const capability = { generation: AGENT_ENDPOINT_ASSET_GENERATION, base: "/docs" };
 
 afterEach(async () => {
   clearPreparedMarkdownRegistry();
@@ -980,7 +981,7 @@ test("rejects stale collection capabilities", async () => {
     key,
     "docs",
     epoch,
-    { generation: 1, base: "/wrong" },
+    { generation: AGENT_ENDPOINT_ASSET_GENERATION, base: "/wrong" },
     [{ id: "guide", body: "Guide", data: { title: "Guide" } }] as never,
   );
   await assert.rejects(

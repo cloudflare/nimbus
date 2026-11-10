@@ -87,7 +87,7 @@
   background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23a1a1aa'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='m6%209%206%206%206-6'/%3E%3C/svg%3E");
 }
 /* A hidden sample panel drops out entirely — no stray copy button, no gap. */
-[data-nb-api-coderail] [data-nb-lang-panel][hidden] {
+[data-nb-api-coderail] [data-nb-choice-panel][hidden] {
   display: none;
 }
 
@@ -182,10 +182,23 @@
 [data-nb-api-coderail] .nb-cr-respsection .nb-code-copy {
   display: none;
 }
-/* The response body scrolls tall JSON; scrollbars come from globals.css. */
+/* The response body scrolls tall and wide JSON; scrollbars come from
+   globals.css. It is the example's one Tab stop, so it scrolls both ways and
+   the code inside never scrolls on its own. */
 [data-nb-api-coderail] .nb-cr-respbody {
   max-height: 20rem;
-  overflow-y: auto;
+  overflow: auto;
+}
+[data-nb-api-coderail] .nb-cr-respbody pre.astro-code {
+  overflow: visible;
+  width: max-content;
+  min-width: 100%;
+}
+/* A line's full-width highlight bleeds by the pre's own padding (0.75rem
+   here, not the 1rem elsewhere), so code that fits never scrolls sideways. */
+[data-nb-api-coderail] .nb-cr-respbody pre.astro-code .line {
+  margin-inline: -0.75rem;
+  padding-inline: 0.75rem;
 }
 
 /* Reset the shared <Code> figure so it sits flush inside the surface. The
@@ -288,8 +301,7 @@
     min-height: 8rem;
     overflow: auto;
   }
-  [data-nb-api-coderail] .nb-cr-body pre.astro-code,
-  [data-nb-api-coderail] .nb-cr-respbody pre.astro-code {
+  [data-nb-api-coderail] .nb-cr-body pre.astro-code {
     overflow: visible;
     width: max-content;
     min-width: 100%;
@@ -299,8 +311,5 @@
   [data-nb-api-coderail] pre.astro-code .line {
     margin-inline: -0.75rem;
     padding-inline: 0.75rem;
-  }
-  [data-nb-api-coderail] .nb-cr-respbody {
-    overflow: auto;
   }
 }

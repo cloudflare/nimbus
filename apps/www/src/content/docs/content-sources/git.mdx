@@ -66,7 +66,7 @@ Like any collection, each one needs a route file and a sidebar entry; `nimbus-do
 A repository's docs folder usually works as written:
 
 - **Titles.** A page with no `title` in its frontmatter takes its first heading (`## Promise API`), else its file name. The heading still shows in the page, under the title.
-- **Links between pages.** A relative link to another page of the collection, such as `2-options.md#signal`, becomes that page's URL on the site. A relative link to a file the collection doesn't publish, such as `../readme.md`, stays as written, and the build warns so you can point it at a page or a full URL.
+- **Links between pages.** A relative link to another page of the collection, such as `2-options.md#signal`, becomes that page's URL on the site. A relative link to a file the collection doesn't publish, such as `../readme.md` or a file the collection's `pattern` excludes, stays as written, and the build warns so you can point it at a page or a full URL.
 - **Lint.** `nimbus-docs lint` reads `.mdx` files; it says how many `.md` pages that leaves out.
 
 The pages are pages in every way a local page is: callouts, components (including ones imported beside the page), images, `api.ref:` citations, link checking, collision checks, MDX validation, Markdown versions, `llms.txt` and search. Two entries that resolve to one URL fail the build, whichever collections they come from.
