@@ -282,6 +282,24 @@ describe("bodies", () => {
     assert.equal(wire(form({ style: "spaceDelimited", explode: false }), [pt]), "pt=x%201%20y%202");
     assert.equal(wire(form({ style: "deepObject", explode: true }), [pt]), "pt%5Bx%5D=1&pt%5By%5D=2");
     assert.equal(wire(form(), [{ name: "tags", value: "solo" }]), "tags=solo", "plain text is one item of a list field");
+    // A number field with a JSON content type: the number, not a quoted string.
+    const counted = plan({
+      method: "POST",
+      body: {
+        required: true,
+        examples: [],
+        media: [{
+          mediaType: "application/x-www-form-urlencoded",
+          kind: "form",
+          fields: [
+            { name: "count", required: false, schema: { type: "integer" }, encoding: { contentType: "application/json" } },
+            { name: "on", required: false, schema: { type: "boolean" }, encoding: { contentType: "application/json" } },
+          ],
+        }],
+      },
+    });
+    assert.equal(wire(counted, [{ name: "count", value: "42" }, { name: "on", value: "true" }]), "count=42&on=true");
+    assert.equal(wire(counted, [{ name: "count", value: "0x10" }]), "count=%220x10%22", "text that isn't a JSON number stays text");
     assert.match(refused(form(), { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "pt", value: "x" }] } } }), /pt must be a JSON object/);
   });
 

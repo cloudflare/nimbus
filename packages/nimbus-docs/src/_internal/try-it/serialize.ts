@@ -448,6 +448,9 @@ function serializeBody(plan: RequestPlan, values: RequestValues, method: string)
 // that isn't a JSON list is one item of a list field.
 function fieldValue(name: string, text: string, field: PlanBodyField | undefined): unknown {
   const type = field?.schema.type;
+  // A number or boolean is typed as one, so a JSON content type writes `42`, not `"42"`.
+  if ((type === "integer" || type === "number") && /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/.test(text)) return Number(text);
+  if (type === "boolean" && (text === "true" || text === "false")) return text === "true";
   if (type !== "array" && type !== "object") return text;
   let parsed: unknown;
   try {
