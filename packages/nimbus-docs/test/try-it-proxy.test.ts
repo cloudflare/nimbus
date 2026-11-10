@@ -331,7 +331,7 @@ describe("the relay's origins", () => {
 describe("local and private addresses stay off the relay's list", () => {
   const local = [
     "http://localhost:8080", "http://LOCALHOST", "http://localhost.", "http://app.localhost", "http://api:3000",
-    "http://printer.local", "http://db.internal", "http://nas.home.arpa", "http://router.lan", "http://git.corp", "http://192.0.0.1", "http://[2001:0:4136:e378::1]",
+    "http://printer.local", "http://db.internal", "http://nas.home.arpa", "http://home.arpa", "http://router.lan", "http://git.corp", "http://192.0.0.1", "http://[2001:0:4136:e378::1]",
     "http://127.0.0.1", "http://2130706433", "http://0x7f.1", "http://0177.0.0.1", "http://127.1", "http://0.0.0.0", "http://0",
     "http://10.1.2.3", "http://172.16.0.1", "http://172.31.255.255", "http://192.168.1.1", "http://169.254.169.254", "http://100.64.0.1", "http://198.18.0.1",
     "http://[::1]", "http://[::]", "http://[::ffff:127.0.0.1]", "http://[::ffff:10.0.0.1]", "http://[::127.0.0.1]", "http://[fc00::1]", "http://[fd12::1]",

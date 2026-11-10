@@ -187,12 +187,14 @@ describe("one header of each", () => {
     assert.deepEqual(out.headers, [["Authorization", "Bearer tok"]]);
   });
 
-  test("the body's Content-Type over a key of that name; multipart leaves it to the browser", () => {
+  test("a key named Content-Type is refused with a body, never dropped; without one it's sent", () => {
     const auth = [{ label: "k", schemes: [{ scheme: "k", type: "apiKey" as const, in: "header" as const, name: "Content-Type" }] }];
+    const creds = { auth: { alternative: 0, credentials: { k: "text/x" } } };
     const json = plan({ method: "POST", auth, body: { required: true, examples: [], media: [{ mediaType: "application/json", kind: "json" }] } });
-    assert.deepEqual(send(json, { body: { mediaType: "application/json", value: "{}" }, auth: { alternative: 0, credentials: { k: "text/x" } } }).headers, [["Content-Type", "application/json"]]);
+    assert.match(refused(json, { body: { mediaType: "application/json", value: "{}" }, ...creds }), /Content-Type header/);
     const multi = plan({ method: "POST", auth, body: { required: true, examples: [], media: [{ mediaType: "multipart/form-data", kind: "multipart", fields: [] }] } });
-    assert.deepEqual(send(multi, { body: { mediaType: "multipart/form-data", value: { fields: [] } }, auth: { alternative: 0, credentials: { k: "text/x" } } }).headers, []);
+    assert.match(refused(multi, { body: { mediaType: "multipart/form-data", value: { fields: [] } }, ...creds }), /Content-Type header/);
+    assert.deepEqual(send(plan({ auth }), creds).headers, [["Content-Type", "text/x"]]);
   });
 });
 
@@ -493,10 +495,11 @@ describe("required form fields", () => {
 
   test("a field the spec doesn't declare sends its list or object as the samples do", () => {
     const form = plan({ method: "POST", body: { required: true, examples: [], media: [{ mediaType: "application/x-www-form-urlencoded", kind: "form", fields: [] }] } });
-    const out = send(form, { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "tags", value: '["p","q"]' }, { name: "meta", value: '{"x":1}' }, { name: "note", value: "[not json" }] } } });
-    assert.deepEqual(out.body, { kind: "form", fields: [{ name: "tags", value: "p" }, { name: "tags", value: "q" }, { name: "meta[x]", value: "1" }, { name: "note", value: "[not json" }] });
+    const out = send(form, { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "tags", value: '["p","q"]', json: true }, { name: "meta", value: '{"x":1}', json: true }, { name: "note", value: '["looks","like","json"]' }] } } });
+    // `note` is a string that only looks like JSON: one field, as the sample sends it.
+    assert.deepEqual(out.body, { kind: "form", fields: [{ name: "tags", value: "p" }, { name: "tags", value: "q" }, { name: "meta[x]", value: "1" }, { name: "note", value: '["looks","like","json"]' }] });
     const multi = plan({ method: "POST", body: { required: true, examples: [], media: [{ mediaType: "multipart/form-data", kind: "multipart", fields: [] }] } });
-    const parts = send(multi, { body: { mediaType: "multipart/form-data", value: { fields: [{ name: "meta", value: '{"x":1}' }] } } });
+    const parts = send(multi, { body: { mediaType: "multipart/form-data", value: { fields: [{ name: "meta", value: '{"x":1}', json: true }] } } });
     assert.deepEqual(parts.body, { kind: "multipart", parts: [{ name: "meta", value: '{"x":1}', contentType: "application/json" }] });
   });
 

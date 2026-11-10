@@ -389,8 +389,18 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       // A repeated wire name is a list only where the spec allows one.
       const spec = media.fields?.find((f) => f.name === name);
       if (typeof seed === "string" && Array.isArray(v) && spec && spec.schema.type !== "array") v = v[0];
-      // One value per field; a list or object as JSON, encoded on send as the spec says.
-      fields.push({ name, value: text(v) });
+      // A wire value is already encoded: one with a JSON content type is decoded once, so Send encodes it once.
+      if (typeof seed === "string" && typeof v === "string" && spec?.encoding?.contentType && /[/+]json(;|$)/i.test(spec.encoding.contentType)) {
+        try {
+          v = JSON.parse(v);
+        } catch {
+          // Not JSON: sent as the string it is.
+        }
+      }
+      // One value per field; a list or object as JSON, encoded on send as the spec says. An undeclared
+      // field marks its list or object, so a string that only looks like JSON stays a string.
+      const structured = !spec && v !== null && typeof v === "object";
+      fields.push({ name, value: text(v), ...(structured ? { json: true } : {}) });
     }
     return { fields };
   };
@@ -1181,8 +1191,9 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     const declared = new Set((media.fields ?? []).map((f) => f.name));
     const extras = extraFields.get(media.mediaType) ?? new Map<string, PlanSchema["type"]>();
     extraFields.set(media.mediaType, extras);
-    for (const [name, value] of textValues) {
-      if (!declared.has(name) && !extras.has(name)) extras.set(name, /^\s*\[/.test(value) ? "array" : /^\s*\{/.test(value) ? "object" : "string");
+    for (const f of draft.fields) {
+      if (declared.has(f.name) || extras.has(f.name) || typeof f.value !== "string") continue;
+      extras.set(f.name, f.json ? (/^\s*\[/.test(f.value) ? "array" : "object") : "string");
     }
     const shown: PlanBodyField[] = [
       ...(media.fields ?? []),
@@ -1192,7 +1203,10 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       const fields: FormValues["fields"] = [];
       for (const field of shown) {
         if (field.file) for (const f of files.get(field.name) ?? []) fields.push({ name: field.name, value: f, filename: f.name });
-        else if (textValues.has(field.name)) fields.push({ name: field.name, value: textValues.get(field.name)! });
+        else if (textValues.has(field.name)) {
+          const json = !declared.has(field.name) && (field.schema.type === "array" || field.schema.type === "object");
+          fields.push({ name: field.name, value: textValues.get(field.name)!, ...(json ? { json: true } : {}) });
+        }
       }
       bodyDrafts.set(media.mediaType, { fields });
       render();

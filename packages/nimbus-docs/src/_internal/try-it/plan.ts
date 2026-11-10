@@ -198,7 +198,8 @@ export interface RequestValues {
 
 /** A form or multipart body's fields, in order; names may repeat. */
 export interface FormValues {
-  fields: { name: string; value: string | Blob; filename?: string; contentType?: string }[];
+  /** `json`: the text is a list or object, as JSON, for a field the spec doesn't declare. */
+  fields: { name: string; value: string | Blob; filename?: string; contentType?: string; json?: boolean }[];
 }
 
 export type Credential = string | { username: string; password: string };

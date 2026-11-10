@@ -94,7 +94,7 @@ export function isLocalHost(hostname: string): boolean {
   const v4 = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(host);
   if (v4) return localIpv4(v4.slice(1).map(Number) as [number, number, number, number]);
   if (!host.includes(".")) return true; // localhost, or a docker or cluster service name
-  return /\.(localhost|local|internal|home\.arpa|lan|home|corp)$/.test(host);
+  return /(^|\.)home\.arpa$/.test(host) || /\.(localhost|local|internal|lan|home|corp)$/.test(host);
 }
 
 function localIpv4([a, b, c]: [number, number, number, number]): boolean {

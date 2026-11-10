@@ -129,7 +129,10 @@ function build(plan: RequestPlan, values: RequestValues, options: SerializeOptio
   const contentType = body && (body.kind === "json" || body.kind === "text" || body.kind === "bytes")
     ? body.mediaType
     : body?.kind === "form" ? "application/x-www-form-urlencoded" : undefined;
-  if (contentType !== undefined || body?.kind === "multipart") take(headers, "content-type");
+  // A key named Content-Type can't go with a body, whose type the header must name.
+  if ((contentType !== undefined || body?.kind === "multipart") && take(headers, "content-type").length > 0) {
+    refuse("This API wants a key in the Content-Type header, which a request with a body uses for the body's type.");
+  }
   if (contentType !== undefined) headers.unshift(["Content-Type", contentType]);
 
   for (const [name, value] of headers) {
@@ -511,9 +514,10 @@ function decimal(text: string): string | null {
 
 // A field's value from its text: a list or object field holds JSON, and text
 // that isn't a JSON list is one item of a list field.
-function fieldValue(name: string, text: string, field: PlanBodyField | undefined): unknown {
-  // A field the spec doesn't declare came from the sample: a list or object there is JSON text.
-  if (!field && /^\s*[[{]/.test(text)) {
+function fieldValue(name: string, text: string, field: PlanBodyField | undefined, json = false): unknown {
+  // A field the spec doesn't declare is text, or the sample's list or object as JSON.
+  if (!field) {
+    if (!json) return text;
     try {
       return parseExactJson(text);
     } catch {
@@ -550,8 +554,8 @@ function exact(name: string, text: string): unknown {
 function formObject(given: FormValues["fields"], planned: PlanBodyField[]): Record<string, unknown> {
   const byName = new Map(planned.map((field) => [field.name, field]));
   const out: Record<string, unknown> = Object.create(null);
-  for (const { name, value } of given) {
-    const next = fieldValue(name, value as string, byName.get(name));
+  for (const { name, value, json } of given) {
+    const next = fieldValue(name, value as string, byName.get(name), json);
     // A name given twice (older saved drafts) is a list.
     out[name] = Object.hasOwn(out, name) ? [...(Array.isArray(out[name]) ? out[name] as unknown[] : [out[name]]), next] : next;
   }
@@ -576,7 +580,7 @@ function formValues(value: unknown): FormValues {
 // of scalars repeats, and a scalar is a text part.
 function multipartParts(values: FormValues, planned: PlanBodyField[], styled: boolean): HttpPart[] {
   const byName = new Map(planned.map((field) => [field.name, field]));
-  return values.fields.flatMap(({ name, value, filename, contentType }) => {
+  return values.fields.flatMap(({ name, value, filename, contentType, json }) => {
     const field = byName.get(name);
     const rule = field?.encoding;
     const part = (v: string | Blob, type?: string): HttpPart => {
@@ -587,7 +591,7 @@ function multipartParts(values: FormValues, planned: PlanBodyField[], styled: bo
     };
     const declared = contentType ?? partContentType(rule?.contentType);
     if (typeof value !== "string") return [part(value, declared)];
-    const item = fieldValue(name, value, field);
+    const item = fieldValue(name, value, field, json);
     if (styled && rule && (rule.style !== undefined || rule.explode !== undefined || rule.allowReserved !== undefined)) {
       return formFields({ [name]: item }, { [name]: rule as OpenApiEncoding })
         .map((f): HttpPart => ({ name: f.name, value: f.encoded ? decodeForm(f.value) : f.value }));
