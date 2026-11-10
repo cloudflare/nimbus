@@ -6,6 +6,7 @@
       "api-auth-details",
       "api-body-request-example",
       "api-catalog-published-specs",
+      "api-code-sample-before-paint",
       "api-code-sample-ids",
       "api-collections-from-config",
       "api-page-polish",
@@ -1308,6 +1309,25 @@
       "verify": [
         "Docs pages look as before.",
         "A page of your own with <DocsLayout title=\"…\"> and no other props type-checks and renders with no sidebar, table of contents, breadcrumbs or previous/next links; with a sidebar slot it shows that sidebar."
+      ]
+    },
+    {
+      "id": "api-code-sample-before-paint",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "choice-before-paint",
+      "summary": "Optionally take the registry api-code-rail update, so a reader's saved or linked code sample shows from the first paint instead of replacing the first sample after the page loads.",
+      "affected": "Sites with the api-code-rail registry component. Without the update, a reader who picked another language sees the rail resize just after the page loads.",
+      "instructions": [
+        "No action is needed: the current rail keeps working as before.",
+        "api-code-rail is a registry component, which nimbus-docs diff doesn't cover. If it is unmodified, update it with nimbus-docs add api-code-rail --overwrite.",
+        "If it is customized, merge by hand. In ApiCodeRail.astro, add data-nb-choice=\"nb-api-code-rail__lang\" and data-nb-choice-param=\"lang\" to the element with data-nb-lang-picker; replace data-nb-lang-select on the <select> with data-nb-choice-select autocomplete=\"off\"; on each panel replace data-nb-lang-panel data-nb-lang-value={id} data-nb-sample-lang={sample.lang} with data-nb-choice-panel={id} data-nb-choice-kind={sample.lang}; and when the rail has samples, render <script is:inline aria-hidden=\"true\" set:html={choiceStateScript} /> right after </aside>, importing choiceStateScript from @cloudflare/nimbus-docs/runtime. In code-rail.css, select [data-nb-choice-panel][hidden]. In code-rail.client.ts, read those attributes, take the storage key and param from the rail's data-nb-choice and data-nb-choice-param, and remove the restore that ran when the rail mounted.",
+        "Whichever way you update, rename the old attributes in your own CSS, scripts and tests too, including dataset reads such as dataset.nbSampleLang: data-nb-lang-panel and data-nb-lang-value become data-nb-choice-panel (its value is the old data-nb-lang-value), data-nb-sample-lang becomes data-nb-choice-kind, and data-nb-lang-select becomes data-nb-choice-select."
+      ],
+      "verify": [
+        "With a language other than the first chosen on one operation, another operation's rail shows that language as the page appears, with no resize.",
+        "A link with ?lang=<sample id or language> opens that sample, and choosing a sample still updates ?lang= and is remembered.",
+        "After taking the update, a search of the whole site, including scripts and tests outside src, for data-nb-lang-panel, data-nb-lang-value, data-nb-sample-lang and data-nb-lang-select, and for nbLangPanel, nbLangValue, nbSampleLang and nbLangSelect, finds nothing."
       ]
     }
   ]
