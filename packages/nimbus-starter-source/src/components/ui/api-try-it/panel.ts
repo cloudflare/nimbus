@@ -1449,11 +1449,12 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     // A credential the chosen method needs comes first: it sits at the top of the form.
     const missing = schemes().find((s) => {
       const value = credentials.get(credKey(s.scheme));
-      return value === undefined || value === "" || (typeof value === "object" && !value.username);
+      // Basic needs a username or a password (`:token` is valid).
+      return value === undefined || value === "" || (typeof value === "object" && !value.username && !value.password);
     });
     if (missing && !plan.auth[alternative]?.unsupported) {
       const field = [...authRows.querySelectorAll<HTMLInputElement>("input[data-nb-tid-key]")].find((i) => i.value === "") ?? authRows.querySelector<HTMLInputElement>("input[data-nb-tid-key]");
-      live.textContent = missing.type === "basic" ? "Enter a username." : "Enter your key.";
+      live.textContent = missing.type === "basic" ? "Enter a username or password." : "Enter your key.";
       if (field) {
         field.setAttribute("aria-invalid", "true");
         field.addEventListener("input", () => field.removeAttribute("aria-invalid"), { once: true });
@@ -1483,6 +1484,9 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   };
   const send = async (): Promise<void> => {
     if (controller) return stop();
+    // A field that commits on change (the origin) commits now: Ctrl/Cmd+Enter sends what's typed.
+    const active = document.activeElement;
+    if (active instanceof HTMLInputElement && dialog.contains(active)) active.dispatchEvent(new Event("change"));
     if (!safe && meta.confirmWrites && !confirming) {
       confirming = true;
       sendState({ confirm: true });
