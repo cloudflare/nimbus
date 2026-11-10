@@ -112,7 +112,7 @@ export async function handleTryIt(request: Request, table: ProxyTable, options: 
     }
     let upstream: Response;
     try {
-      upstream = await (options.fetch ?? fetch)(upstreamRequest(meta, body, controller.signal));
+      upstream = await (options.fetch ?? fetch)(upstreamRequest(meta, body, controller.signal), { signal: controller.signal });
     } catch {
       finish();
       if (timedOut()) return refusal(504, "timeout", `No answer from the API after ${Math.round(policy.limits.timeoutMs / 1000)} s.`);

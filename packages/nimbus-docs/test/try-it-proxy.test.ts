@@ -173,7 +173,8 @@ describe("answers", () => {
   });
 
   test("a stalled answer ends at the deadline", async () => {
-    const fetch = ((request: Request) => new Promise((_, reject) => request.signal.addEventListener("abort", () => reject(new Error("aborted"))))) as typeof globalThis.fetch;
+    const fetch = ((_request: Request, init?: RequestInit) =>
+      new Promise((_, reject) => init?.signal?.addEventListener("abort", () => reject(new Error("aborted"))))) as typeof globalThis.fetch;
     const started = Date.now();
     const body = await failure(await handleTryIt(tryRequest(), table({ timeoutMs: 150 }), { fetch }));
     assert.equal(body.failure, "timeout");

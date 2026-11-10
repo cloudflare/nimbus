@@ -35,9 +35,9 @@ export function tryItPolicyPlugin(root: string): Plugin {
       return `export const table = ${JSON.stringify(readTryItPolicies(root))};\n`;
     },
     configureServer(server) {
-      // A spec edit restages its policy: the route reads the new one on its next load.
+      // A spec edit restages its policy; when the watcher reports it, the route reads the new one.
+      // The staging folder isn't added to the watcher: changes under .astro must not restart dev.
       const dir = path.join(root, STAGED_POLICIES);
-      server.watcher.add(dir);
       server.watcher.on("all", (_event, file) => {
         if (!file.startsWith(dir)) return;
         for (const environment of Object.values(server.environments)) {
