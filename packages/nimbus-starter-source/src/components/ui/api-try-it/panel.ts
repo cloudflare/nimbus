@@ -334,8 +334,10 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   })();
   const values: RequestValues = { server: { index: firstServer }, params: {} };
   const initialParams = (): Record<string, ParamValue> =>
-    Object.fromEntries(plan.params.filter((p) => p.initial !== undefined || p.required).map((p) => [paramKey(p), p.initial ?? initialEmpty(p)]));
+    Object.fromEntries(plan.params.filter((p) => p.initial !== undefined || p.required).map((p) => [paramKey(p), startValue(p)]));
   const initialEmpty = (p: PlanParam): ParamValue => (p.schema.type === "array" && !p.content ? [] : "");
+  // The sample's value, `null` and `""` included; empty only when it has none.
+  const startValue = (p: PlanParam): ParamValue => (p.initial !== undefined ? (p.initial as ParamValue) : initialEmpty(p));
   // The body as the sample sends it, per media type.
   const bodyDrafts = new Map<string, unknown>();
   const initialBody = (media: PlanMedia): unknown => {
@@ -640,8 +642,9 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       { class: "nb-tid-line" },
       el(
         tag,
-        { class: "nb-tid-name", ...(tag === "label" ? { for: id } : { id }) },
-        el("span", { class: "nb-tid-nametext" }, p.name, p.required ? el("span", { class: "nb-tid-reqmark", "aria-label": "required" }, "*") : null),
+        { class: "nb-tid-name", ...(tag === "label" ? { for: id } : {}) },
+        // The name alone labels the control; the type beside it isn't part of it.
+        el("span", { class: "nb-tid-nametext", ...(tag === "span" ? { id } : {}) }, p.name, p.required ? el("span", { class: "nb-tid-reqmark", "aria-label": "required" }, "*") : null),
         el("span", { class: "nb-tid-type" }, typeLabel(p)),
       ),
       ...tools,
@@ -654,7 +657,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   const paramRow = (p: PlanParam, onRemove?: () => void): { node: HTMLElement; focus: () => void } => {
     const key = paramKey(p);
     const id = fresh(key);
-    const initial = p.initial ?? initialEmpty(p);
+    const initial = startValue(p);
     const set = (value: unknown) => {
       values.params[key] = value;
       resetButton.hidden = JSON.stringify(value) === JSON.stringify(initial);
@@ -670,19 +673,21 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       tools.push(rm);
     }
     const error = el("p", { class: "nb-tid-fielderr", role: "status" });
+    // The visible name labels the row and, for a single control, the control itself.
+    const nameId = `${id}-name`;
     const row = (control: HTMLElement, ...rest: (Node | null)[]) =>
-      el("div", { class: "nb-tid-row", role: "group", "aria-labelledby": id }, nameLine(p, id, "span", tools), control, ...rest, help(p), error);
+      el("div", { class: "nb-tid-row", role: "group", "aria-labelledby": nameId }, nameLine(p, nameId, "span", tools), control, ...rest, help(p), error);
     let node: HTMLElement;
     let focus: () => void;
     let rerun: () => void = () => {};
-    const draw = () => {
+    const drawControl = () => {
       const value = values.params[key];
       const nullable = p.schema.nullable === true;
       if (needsJson(p)) {
         // A value a control can't keep faithfully: JSON, parsed as typed.
-        const area = el("textarea", { id, class: "nb-tid-input nb-tid-jsonfield", rows: "3", ...TEXT, ...NO_PM, "aria-labelledby": id });
-        // Nothing entered yet: an empty field, which Send asks to fill in.
-        if ((value === "" || value === undefined) && !badJson.has(key)) badJson.set(key, "");
+        const area = el("textarea", { id, class: "nb-tid-input nb-tid-jsonfield", rows: "3", ...TEXT, ...NO_PM });
+        // No sample value and nothing entered: an empty field, which Send asks to fill in.
+        if (p.initial === undefined && (value === "" || value === undefined) && !badJson.has(key)) badJson.set(key, "");
         const unparsed = badJson.get(key);
         area.value = unparsed ?? JSON.stringify(value, null, 2);
         const showInvalid = (invalid: boolean) => {
@@ -789,6 +794,11 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       input.addEventListener("input", () => set(input.value));
       return { control: input, focus: () => input.focus() };
     };
+    const draw = () => {
+      const drawn = drawControl();
+      if (drawn.control.matches("input, select, textarea")) drawn.control.setAttribute("aria-labelledby", nameId);
+      return drawn;
+    };
     const built = draw();
     controls.set(key, built.control);
     node = row(built.control);
@@ -820,7 +830,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     const syncOptional = () => (optional.hidden = ![...chips.values()].some((c) => !c.hidden));
     const addRow = (p: PlanParam, focusIt: boolean) => {
       const key = paramKey(p);
-      if (values.params[key] === undefined) values.params[key] = p.initial ?? initialEmpty(p);
+      if (values.params[key] === undefined) values.params[key] = startValue(p);
       const row = paramRow(
         p,
         p.required
