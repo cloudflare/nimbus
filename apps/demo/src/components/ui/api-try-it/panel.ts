@@ -196,6 +196,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   const plan = await loadRequestPlan({ tryIt: meta.info }, { base: meta.base });
   const rail = button.closest<HTMLElement>("[data-nb-api-coderail]") ?? button.parentElement!;
   const safe = SAFE.has(plan.method);
+  // GET and HEAD can't carry a body; OPTIONS can, though it's safe.
+  const bodyless = plan.method === "GET" || plan.method === "HEAD";
   const apiKey = plan.id.version ? `${plan.id.family}@${plan.id.version}` : plan.id.family;
   const storeId = `${meta.base}|${apiKey}|${plan.id.coordinate}`;
   const uid = (s: string) => `nb-tid-${plan.id.coordinate.replace(/[^a-zA-Z0-9_-]/g, "-")}-${s.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
@@ -350,8 +352,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       if (field.file) continue; // the reader picks files
       const v = object[field.name];
       if (v === undefined) continue;
-      if (Array.isArray(v) && field.schema.type === "array") v.forEach((item) => fields.push({ name: field.name, value: text(item) }));
-      else fields.push({ name: field.name, value: text(v) });
+      // One value per field; a list or object as JSON, encoded on send as the spec says.
+      fields.push({ name: field.name, value: text(v) });
     }
     return { fields };
   };
@@ -375,6 +377,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   let tab: "body" | "headers" = "body";
   let confirming = false;
   const touched = new Set<string>();
+  // JSON fields whose text doesn't parse: Send stops on them.
+  const badJson = new Set<string>();
   // Each field's control, by its value key (`query:limit`, `body`), for focusing the first invalid one.
   const controls = new Map<string, HTMLElement>();
 
@@ -386,6 +390,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     bodyMedia = plan.body?.initial?.mediaType ?? plan.body?.media[0]?.mediaType ?? "";
     bodyOn = Boolean(plan.body && (plan.body.required || plan.body.initial));
     touched.clear();
+    badJson.clear();
   };
   resetValues();
   // Values are kept per operation in the tab (never credentials or files).
@@ -479,7 +484,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
 
   // ---- The request ---------------------------------------------------------------------
   const bodyValue = (): RequestValues["body"] => {
-    if (!plan.body || !bodyOn || safe) return undefined;
+    if (!plan.body || !bodyOn || bodyless) return undefined;
     const media = plan.body.media.find((m) => m.mediaType === bodyMedia);
     if (!media) return undefined;
     const draft = bodyDrafts.get(media.mediaType);
@@ -502,7 +507,21 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     return out;
   };
   const current = (placeholders = false) => serializeRequest(plan, requestValues(placeholders), { origin: location.origin });
-  const fingerprint = (r: HttpRequest) => JSON.stringify([r.method, r.url, r.headers, r.body && "text" in r.body ? r.body.text : r.body?.kind ?? null]);
+  // A file counts by identity: two picks of the same name and size are two files.
+  const blobIds = new WeakMap<Blob, number>();
+  let blobCount = 0;
+  const blobId = (blob: Blob) => {
+    if (!blobIds.has(blob)) blobIds.set(blob, ++blobCount);
+    return blobIds.get(blob);
+  };
+  const bodyPrint = (body: HttpRequest["body"]) => {
+    if (!body) return null;
+    if ("text" in body) return body.text;
+    if (body.kind === "form") return body.fields;
+    if (body.kind === "multipart") return body.parts.map((part) => [part.name, typeof part.value === "string" ? part.value : blobId(part.value), part.filename, part.contentType]);
+    return blobId(body.file);
+  };
+  const fingerprint = (r: HttpRequest) => JSON.stringify([r.method, r.url, r.headers, bodyPrint(r.body)]);
 
   const sendLabel = (): { short: string; long: string } => {
     let target = host;
@@ -664,10 +683,13 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
         area.value = typeof value === "string" ? value : value === undefined ? "" : JSON.stringify(value, null, 2);
         area.addEventListener("input", () => {
           try {
-            set(JSON.parse(area.value));
+            const parsed = JSON.parse(area.value);
+            badJson.delete(key);
+            set(parsed);
             error.textContent = "";
             area.removeAttribute("aria-invalid");
           } catch {
+            badJson.add(key);
             set(area.value);
             error.textContent = "Not valid JSON.";
             area.setAttribute("aria-invalid", "true");
@@ -744,8 +766,10 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       if (p.schema.enum) {
         const options = [...p.schema.enum.map(text), ...(nullable && !p.schema.enum.includes(null) ? ["null"] : [])];
         const select = el("select", { id, class: "nb-tid-input nb-tid-select" }, ...options.map((o) => el("option", { value: o }, o)));
-        select.value = value === null ? "null" : text(value);
-        if (!options.includes(select.value)) select.value = options[0] ?? "";
+        const current = value === null ? "null" : text(value);
+        // No value yet: say so, rather than show an option that isn't the value.
+        if (!options.includes(current)) select.prepend(el("option", { value: "" }, "Choose a value"));
+        select.value = options.includes(current) ? current : "";
         select.addEventListener("change", () => set(select.value === "null" && nullable ? null : select.value));
         return { control: select, focus: () => select.focus() };
       }
@@ -1117,7 +1141,9 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   const formBody = (media: PlanMedia): HTMLElement => {
     const rows = el("div", { class: "nb-tid-rows" });
     const draft = (bodyDrafts.get(media.mediaType) as FormValues | undefined) ?? { fields: [] };
+    // Files already chosen in this draft stay chosen (a file input can't show them again).
     const files = new Map<string, File[]>();
+    for (const f of draft.fields) if (f.value instanceof File) files.set(f.name, [...(files.get(f.name) ?? []), f.value]);
     const textValues = new Map<string, string>(draft.fields.filter((f) => typeof f.value === "string").map((f) => [f.name, f.value as string]));
     const collect = () => {
       const fields: FormValues["fields"] = [];
@@ -1138,11 +1164,19 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       );
       if (field.file) {
         const input = el("input", { id, type: "file", class: "nb-tid-file", multiple: field.file === "many" });
+        const chosen = el("p", { class: "nb-tid-desc" });
+        const showChosen = () => {
+          const list = files.get(field.name) ?? [];
+          chosen.textContent = `Sending ${list.map((f) => `${f.name} (${size(f.size)})`).join(", ")}`;
+          chosen.hidden = list.length === 0;
+        };
+        showChosen();
         input.addEventListener("change", () => {
           files.set(field.name, [...(input.files ?? [])]);
+          showChosen();
           collect();
         });
-        return el("div", { class: "nb-tid-row" }, label, input, field.description ? el("p", { class: "nb-tid-desc" }, field.description) : null);
+        return el("div", { class: "nb-tid-row" }, label, input, chosen, field.description ? el("p", { class: "nb-tid-desc" }, field.description) : null);
       }
       const input = el("input", { id, class: "nb-tid-input", type: "text", ...TEXT, ...NO_PM });
       input.value = textValues.get(field.name) ?? "";
@@ -1158,7 +1192,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     return rows;
   };
   const bodyCard = (): HTMLElement | null => {
-    if (!plan.body || safe) return null;
+    if (!plan.body || bodyless) return null;
     const tools: Node[] = [];
     const typeBadge = badge(bodyMedia, true);
     if (plan.body.media.length > 1) {
@@ -1234,8 +1268,15 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     }
     const reset = el("button", { type: "button", class: "nb-tid-btn nb-tid-reset" }, "Reset the form");
     reset.addEventListener("click", () => {
+      const before = serverOrigin();
       resetValues();
       store("tab")?.removeItem(VALUES_KEY);
+      // The picker and the keys follow the server the reset went back to.
+      placePicker();
+      if (serverOrigin() !== before) {
+        loadRemembered();
+        rememberBox.checked = remember;
+      }
       build();
       render();
       live.textContent = "The form is back to the documented example.";
@@ -1281,7 +1322,14 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     return [b, el("p", { class: "nb-tid-help" }, "The first request may already have reached the API.")];
   };
 
+  // One download link at a time: the one it replaces is released.
+  let downloadUrl = "";
+  const freeDownload = () => {
+    if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+    downloadUrl = "";
+  };
   const bodyView = (bytes: Uint8Array, headers: [string, string][], textBody: string | undefined, truncated: boolean): Node[] => {
+    freeDownload();
     const type = headers.find(([n]) => n.toLowerCase() === "content-type")?.[1] ?? "";
     if (bytes.byteLength === 0) return [notice("The response has no body.")];
     const binary = textBody === undefined || bytes.subarray(0, 1024).includes(0);
@@ -1290,7 +1338,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       const box = el("div", { class: "nb-cr-body nb-tid-respcode" });
       paint(box, hexPreview(bytes), "text", "First 1 KB as hex");
       const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/octet-stream" });
-      const link = el("a", { class: "nb-tid-secondary", download: "response.bin", href: URL.createObjectURL(blob) }, "Download");
+      downloadUrl = URL.createObjectURL(blob);
+      const link = el("a", { class: "nb-tid-secondary", download: "response.bin", href: downloadUrl }, "Download");
       out.push(el("p", { class: "nb-tid-help" }, `${size(bytes.byteLength)} of ${type || "binary data"}. The first 1 KB as hex:`), box, link);
     } else {
       const shown = /json/i.test(type) || /^\s*[[{]/.test(textBody!) ? pretty(textBody!) : { code: textBody!, json: false };
@@ -1391,11 +1440,11 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     // A credential the chosen method needs comes first: it sits at the top of the form.
     const missing = schemes().find((s) => {
       const value = credentials.get(credKey(s.scheme));
-      return value === undefined || value === "" || (typeof value === "object" && (!value.username || !value.password));
+      return value === undefined || value === "" || (typeof value === "object" && !value.username);
     });
     if (missing && !plan.auth[alternative]?.unsupported) {
       const field = [...authRows.querySelectorAll<HTMLInputElement>("input[data-nb-tid-key]")].find((i) => i.value === "") ?? authRows.querySelector<HTMLInputElement>("input[data-nb-tid-key]");
-      live.textContent = missing.type === "basic" ? "Enter a username and password." : "Enter your key.";
+      live.textContent = missing.type === "basic" ? "Enter a username." : "Enter your key.";
       if (field) {
         field.setAttribute("aria-invalid", "true");
         field.addEventListener("input", () => field.removeAttribute("aria-invalid"), { once: true });
@@ -1406,7 +1455,12 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     }
     const issues = validateValues(plan, requestValues(false)).filter((i) => i.blocking);
     const emptyPath = plan.params.find((p) => p.in === "path" && values.params[paramKey(p)] === "");
-    const first = emptyPath ? { key: paramKey(emptyPath), message: "A path parameter can't be empty." } : issues[0];
+    const unparsed = [...badJson].find((k) => values.params[k] !== undefined);
+    const first = emptyPath
+      ? { key: paramKey(emptyPath), message: "A path parameter can't be empty." }
+      : unparsed
+        ? { key: unparsed, message: "Not valid JSON." }
+        : issues[0];
     if (!first) return null;
     touched.add(first.key);
     const name = first.key === "body" ? "Body" : first.key.split(":").slice(1).join(":");
@@ -1633,6 +1687,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     },
     destroy() {
       controller?.abort();
+      freeDownload();
       observer.disconnect();
       small.removeEventListener("change", onSmall);
       vv?.removeEventListener("resize", onViewport);
