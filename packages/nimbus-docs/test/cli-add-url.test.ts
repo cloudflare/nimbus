@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { after, before, test } from "node:test";
 
 import { provenanceNote } from "../src/cli/feature.ts";
+import { RECIPE_MAX_BYTES } from "../src/cli/resolver.ts";
 
 const CLI = fileURLToPath(new URL("../src/cli/index.ts", import.meta.url));
 const TSX = import.meta.resolve("tsx");
@@ -46,6 +47,14 @@ before(async () => {
       res.writeHead(200, { "content-type": "text/markdown", "content-length": "1000" });
       res.write("# Half");
       setTimeout(() => res.socket?.destroy(), 20);
+    } else if (url.pathname === "/elsewhere.md") {
+      // Another origin on this machine: localhost rather than 127.0.0.1.
+      res.writeHead(302, { location: `http://localhost:${(server.address() as { port: number }).port}/RECIPE.md` });
+      res.end();
+    } else if (url.pathname === "/huge.md") {
+      // No content-length, so only counting the bytes as they arrive catches it.
+      res.writeHead(200, { "content-type": "text/markdown" });
+      res.end("x".repeat(RECIPE_MAX_BYTES + 1));
     } else if (url.pathname === "/blob.md") {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       res.end("<!doctype html><title>GitHub</title>");
@@ -123,6 +132,32 @@ test("a redirect is followed", async () => {
   const moved = await run("add", `${origin}/moved.md`, "--print");
   assert.equal(moved.code, 0, moved.all);
   assert.equal(moved.stdout, handedOver(`${origin}/moved.md`, RECIPE), "the note names the URL the user gave");
+});
+
+test("a redirect to another origin is named in the note", async () => {
+  const moved = await run("add", `${origin}/elsewhere.md`, "--print");
+  assert.equal(moved.code, 0, moved.all);
+  const port = new URL(origin).port;
+  assert.equal(
+    moved.stdout,
+    `${provenanceNote(`${origin}/elsewhere.md`, new TextEncoder().encode(RECIPE), `http://localhost:${port}`)}\n\n${RECIPE}`,
+  );
+  assert.match(moved.stdout, new RegExp(`served by http://localhost:${port} after a redirect\\.`));
+});
+
+test("plain http off this machine fails before any request", async () => {
+  const before = requests;
+  const plain = await run("add", "http://example.com/RECIPE.md", "--print");
+  assert.equal(plain.code, 1);
+  assert.match(plain.all, /http:\/\/example\.com\/RECIPE\.md isn't https/);
+  assert.equal(requests, before);
+});
+
+test("a recipe over the size cap fails without reaching the agent", async () => {
+  const huge = await run("add", `${origin}/huge.md`, "--print");
+  assert.equal(huge.code, 1);
+  assert.match(huge.all, /\/huge\.md is over 1,000,000 bytes, too big for a recipe/);
+  assert.ok(!huge.stdout.includes("xxxx"), "nothing of it reaches the agent");
 });
 
 test("an HTML page, a 404 or an unreachable host fails naming the URL, without registry wording", async () => {

@@ -265,33 +265,103 @@ export async function fetchFeatureMarkdown(slug: string): Promise<string> {
   return fetchGuideMarkdown(`features/${slug}.md`, slug);
 }
 
+/** The most a recipe can be: a Markdown file, not a download. */
+export const RECIPE_MAX_BYTES = 1_000_000;
+const RECIPE_TIMEOUT_MS = 30_000;
+
+// What's served goes straight into an agent, so it travels over https: plain
+// http lets anyone on the network rewrite it. Only this machine is exempt.
+function safeTransport(url: URL): boolean {
+  return (
+    url.protocol === "https:" ||
+    ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+  );
+}
+
+export interface FetchedRecipe {
+  bytes: Uint8Array;
+  /** Where a redirect ended up, when that's a different origin. */
+  redirectedTo?: string;
+}
+
 /**
  * A recipe at a URL the user typed (`add <url>`). Not the registry: redirects
  * are followed (raw-file hosts redirect), and errors talk about the URL.
  */
-export async function fetchRecipeUrl(url: string): Promise<Uint8Array> {
+export async function fetchRecipeUrl(url: string): Promise<FetchedRecipe> {
+  if (!safeTransport(new URL(url))) {
+    throw new Error(`${url} isn't https. A recipe goes straight to your agent, so it has to be.`);
+  }
   let res: Response;
   try {
-    res = await fetch(url, { headers: { accept: "text/markdown, text/plain;q=0.9" } });
+    res = await fetch(url, {
+      headers: { accept: "text/markdown, text/plain;q=0.9" },
+      signal: AbortSignal.timeout(RECIPE_TIMEOUT_MS),
+    });
   } catch (err) {
-    const cause = (err as Error & { cause?: Error }).cause?.message ?? (err as Error).message;
-    throw new Error(`Could not fetch ${url}: ${cause}`);
+    throw new Error(`Could not fetch ${url}: ${failure(err)}`);
+  }
+  const served = new URL(res.url || url);
+  if (!safeTransport(served)) {
+    await res.body?.cancel();
+    throw new Error(`${url} redirected to ${served.origin}, which isn't https.`);
   }
   if (!res.ok) throw new Error(`${url} returned ${res.status}.`);
   // A recipe pipes straight into an agent; an HTML page is usually a GitHub
   // file page pasted instead of the raw file.
   if (contentType(res).includes("text/html")) {
+    await res.body?.cancel();
     throw new Error(
       `${url} returned an HTML page, not a recipe. Use the raw file's URL (on GitHub, the Raw button).`,
     );
   }
   // The bytes, not text: the provenance note's digest is of what was served.
-  try {
-    return new Uint8Array(await res.arrayBuffer());
-  } catch (err) {
-    const cause = (err as Error & { cause?: Error }).cause?.message ?? (err as Error).message;
-    throw new Error(`Could not read ${url}: ${cause}`);
+  const bytes = await readCapped(res, url);
+  const redirectedTo = served.origin !== new URL(url).origin ? served.origin : undefined;
+  return redirectedTo ? { bytes, redirectedTo } : { bytes };
+}
+
+const tooBig = (url: string) =>
+  new Error(`${url} is over ${RECIPE_MAX_BYTES.toLocaleString("en-US")} bytes, too big for a recipe.`);
+
+// Stops reading at the cap rather than holding whatever a host sends.
+async function readCapped(res: Response, url: string): Promise<Uint8Array> {
+  if (Number(res.headers.get("content-length")) > RECIPE_MAX_BYTES) {
+    await res.body?.cancel();
+    throw tooBig(url);
   }
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    const reader = res.body!.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > RECIPE_MAX_BYTES) {
+        await reader.cancel();
+        throw tooBig(url);
+      }
+      chunks.push(value);
+    }
+  } catch (err) {
+    if (size > RECIPE_MAX_BYTES) throw err;
+    throw new Error(`Could not read ${url}: ${failure(err)}`);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+
+function failure(err: unknown): string {
+  if (err instanceof Error && err.name === "TimeoutError") {
+    return `no answer in ${RECIPE_TIMEOUT_MS / 1000}s`;
+  }
+  return (err as Error & { cause?: Error }).cause?.message ?? (err as Error).message;
 }
 
 /**
