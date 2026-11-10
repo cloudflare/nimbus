@@ -287,7 +287,7 @@ describe("the relay's origins", () => {
   test("every combination of authority variables, up to the limit; past it, none and a name", () => {
     const origins = planOrigins({ servers: [server(20)] } as unknown as RequestPlan);
     assert.equal(origins.length, 400, "path variables don't multiply origins");
-    assert.ok(origins.includes("https://t19.r19.example.com"));
+    assert.ok(new Set(origins).has("https://t19.r19.example.com"), "the last combination too");
     const crowded: [string, number][] = [];
     assert.deepEqual(planOrigins({ servers: [server(250)] } as unknown as RequestPlan, (url, count) => crowded.push([url, count])), []);
     assert.deepEqual(crowded, [["https://{tenant}.{region}.example.com/{v}", 5000]]);

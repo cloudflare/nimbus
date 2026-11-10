@@ -70,6 +70,7 @@ export function highlight(code: string, lang: HighlightLang, label = ""): string
   }
   html += escape(plain);
   const lines = html.split("\n").map((line) => `<span class="line">${line}</span>`);
-  const aria = label ? ` aria-label="${escape(label)}"` : "";
+  // In an attribute, quotes are escaped too.
+  const aria = label ? ` aria-label="${escape(label).replace(/"/g, "&quot;")}"` : "";
   return `<pre class="astro-code" tabindex="0"${aria}><code>${lines.join("\n")}</code></pre>`;
 }
