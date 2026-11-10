@@ -11,6 +11,7 @@ mount("[data-nb-tryit-open]", (button) => {
   button.hidden = false;
   let panel: Panel | null = null;
   let loading = false;
+  let gone = false;
   const onClick = async () => {
     if (panel) return panel.open();
     if (loading) return;
@@ -19,7 +20,10 @@ mount("[data-nb-tryit-open]", (button) => {
     const label = button.textContent;
     try {
       const { createPanel } = await import("./panel");
-      panel = await createPanel(button);
+      const created = await createPanel(button);
+      // The page moved on while the form loaded: don't leave it behind.
+      if (gone) return created.destroy();
+      panel = created;
       panel.open();
       button.textContent = label;
     } catch {
@@ -32,6 +36,7 @@ mount("[data-nb-tryit-open]", (button) => {
   };
   button.addEventListener("click", onClick);
   return () => {
+    gone = true;
     button.removeEventListener("click", onClick);
     panel?.destroy();
   };

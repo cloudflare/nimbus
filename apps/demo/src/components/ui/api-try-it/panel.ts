@@ -377,8 +377,9 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   let tab: "body" | "headers" = "body";
   let confirming = false;
   const touched = new Set<string>();
-  // JSON fields whose text doesn't parse: Send stops on them.
-  const badJson = new Set<string>();
+  // JSON fields whose text doesn't parse, by key: their raw text. The value keeps
+  // the last JSON that parsed; Send stops on these.
+  const badJson = new Map<string, string>();
   // Each field's control, by its value key (`query:limit`, `body`), for focusing the first invalid one.
   const controls = new Map<string, HTMLElement>();
 
@@ -680,20 +681,28 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       if (needsJson(p)) {
         // A value a control can't keep faithfully: JSON, parsed as typed.
         const area = el("textarea", { id, class: "nb-tid-input nb-tid-jsonfield", rows: "3", ...TEXT, ...NO_PM, "aria-labelledby": id });
-        area.value = typeof value === "string" ? value : value === undefined ? "" : JSON.stringify(value, null, 2);
+        const unparsed = badJson.get(key);
+        area.value = unparsed ?? (value === undefined ? "" : JSON.stringify(value, null, 2));
+        const showInvalid = (invalid: boolean) => {
+          error.textContent = invalid ? "Not valid JSON." : "";
+          if (invalid) area.setAttribute("aria-invalid", "true");
+          else area.removeAttribute("aria-invalid");
+        };
+        showInvalid(unparsed !== undefined);
         area.addEventListener("input", () => {
+          let parsed: unknown;
           try {
-            const parsed = JSON.parse(area.value);
-            badJson.delete(key);
-            set(parsed);
-            error.textContent = "";
-            area.removeAttribute("aria-invalid");
+            parsed = JSON.parse(area.value);
           } catch {
-            badJson.add(key);
-            set(area.value);
-            error.textContent = "Not valid JSON.";
-            area.setAttribute("aria-invalid", "true");
+            badJson.set(key, area.value);
+            resetButton.hidden = false;
+            showInvalid(true);
+            render();
+            return;
           }
+          badJson.delete(key);
+          showInvalid(false);
+          set(parsed);
         });
         return { control: area, focus: () => area.focus() };
       }
@@ -785,6 +794,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     rerun = watch(p, built.control, error);
     resetButton.addEventListener("click", () => {
       values.params[key] = initial;
+      badJson.delete(key);
       const fresh2 = draw();
       (controls.get(key) ?? built.control).replaceWith(fresh2.control);
       controls.set(key, fresh2.control);
@@ -815,6 +825,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
           ? undefined
           : () => {
               delete values.params[key];
+              badJson.delete(key);
               row.node.remove();
               const chip = chips.get(key)!;
               chip.hidden = false;
@@ -1455,7 +1466,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     }
     const issues = validateValues(plan, requestValues(false)).filter((i) => i.blocking);
     const emptyPath = plan.params.find((p) => p.in === "path" && values.params[paramKey(p)] === "");
-    const unparsed = [...badJson].find((k) => values.params[k] !== undefined);
+    const [unparsed] = badJson.keys();
     const first = emptyPath
       ? { key: paramKey(emptyPath), message: "A path parameter can't be empty." }
       : unparsed
@@ -1686,6 +1697,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       else (firstEmpty ?? sendTop).focus({ preventScroll: true });
     },
     destroy() {
+      // A send still in flight never paints (or makes a download link) after this.
+      sendId++;
       controller?.abort();
       freeDownload();
       observer.disconnect();
