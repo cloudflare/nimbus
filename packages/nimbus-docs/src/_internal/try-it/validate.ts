@@ -3,7 +3,7 @@
  * Send; advisory ones only show. Values are read as entered, never trimmed or
  * normalised.
  */
-import type { PlanParam, PlanSchema, RequestPlan, RequestValues } from "./plan.js";
+import type { FormValues, PlanParam, PlanSchema, RequestPlan, RequestValues } from "./plan.js";
 import { paramKey } from "./plan.js";
 
 export interface Issue {
@@ -35,6 +35,15 @@ export function validateValues(plan: RequestPlan, values: RequestValues): Issue[
         JSON.parse(body.value);
       } catch (error) {
         issues.push({ key: "body", message: `Not valid JSON: ${(error as Error).message}`, blocking: true });
+      }
+    }
+    // A form's required fields, a file part included: one that's missing or empty stops Send.
+    if ((media?.kind === "form" || media?.kind === "multipart") && body.value && typeof body.value === "object") {
+      const given = (body.value as FormValues).fields ?? [];
+      for (const field of media.fields ?? []) {
+        if (!field.required) continue;
+        const filled = given.some((f) => f.name === field.name && (typeof f.value === "string" ? f.value !== "" : true));
+        if (!filled) issues.push({ key: `body:${field.name}`, message: field.file ? "Choose a file." : "Required.", blocking: true });
       }
     }
   } else if (plan.body?.required) {

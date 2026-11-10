@@ -360,15 +360,22 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     return formSeed(media, seed);
   };
   const formSeed = (media: PlanMedia, seed: unknown): FormValues => {
-    const object = seed && typeof seed === "object" && !Array.isArray(seed) ? (seed as Record<string, unknown>) : {};
+    // An example written as the wire form (`a=1&b=2`) reads as its fields.
+    const object: Record<string, unknown> =
+      typeof seed === "string"
+        ? [...new URLSearchParams(seed)].reduce<Record<string, unknown>>((out, [k, v]) => (Object.hasOwn(out, k) ? out : Object.assign(out, { [k]: v })), Object.create(null))
+        : seed && typeof seed === "object" && !Array.isArray(seed) ? (seed as Record<string, unknown>) : {};
+    const files = new Set((media.fields ?? []).filter((f) => f.file).map((f) => f.name));
     const fields: FormValues["fields"] = [];
-    for (const field of media.fields ?? []) {
-      if (field.file) continue; // the reader picks files
-      // Own entries only: a field named `constructor` isn't the object's.
-      const v = Object.hasOwn(object, field.name) ? object[field.name] : undefined;
+    // Every field the sample sends, the spec's own first: the untouched form sends what the sample shows.
+    // Own entries only: a field named `constructor` isn't the object's.
+    const names = [...(media.fields ?? []).map((f) => f.name), ...Object.keys(object)];
+    for (const name of new Set(names)) {
+      if (files.has(name)) continue; // the reader picks files
+      const v = Object.hasOwn(object, name) ? object[name] : undefined;
       if (v === undefined) continue;
       // One value per field; a list or object as JSON, encoded on send as the spec says.
-      fields.push({ name: field.name, value: text(v) });
+      fields.push({ name, value: text(v) });
     }
     return { fields };
   };
@@ -1152,9 +1159,15 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     const files = new Map<string, File[]>();
     for (const f of draft.fields) if (f.value instanceof File) files.set(f.name, [...(files.get(f.name) ?? []), f.value]);
     const textValues = new Map<string, string>(draft.fields.filter((f) => typeof f.value === "string").map((f) => [f.name, f.value as string]));
+    // The spec's fields, then any the sample sends that it doesn't declare.
+    const declared = new Set((media.fields ?? []).map((f) => f.name));
+    const shown: PlanBodyField[] = [
+      ...(media.fields ?? []),
+      ...[...textValues.keys()].filter((name) => !declared.has(name)).map((name): PlanBodyField => ({ name, required: false, schema: {} })),
+    ];
     const collect = () => {
       const fields: FormValues["fields"] = [];
-      for (const field of media.fields ?? []) {
+      for (const field of shown) {
         if (field.file) for (const f of files.get(field.name) ?? []) fields.push({ name: field.name, value: f, filename: f.name });
         else if (textValues.has(field.name)) fields.push({ name: field.name, value: textValues.get(field.name)! });
       }
@@ -1171,6 +1184,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       );
       if (field.file) {
         const input = el("input", { id, type: "file", class: "nb-tid-file", multiple: field.file === "many" });
+        controls.set(`body:${field.name}`, input);
         const chosen = el("p", { class: "nb-tid-desc" });
         const showChosen = () => {
           const list = files.get(field.name) ?? [];
@@ -1187,6 +1201,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       }
       const input = el("input", { id, class: "nb-tid-input", type: "text", ...TEXT, ...NO_PM });
       input.value = textValues.get(field.name) ?? "";
+      controls.set(`body:${field.name}`, input);
       input.addEventListener("input", () => {
         if (input.value === "" && !field.required) textValues.delete(field.name);
         else textValues.set(field.name, input.value);
@@ -1194,8 +1209,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       });
       return el("div", { class: "nb-tid-row" }, label, input, field.description ? el("p", { class: "nb-tid-desc" }, field.description) : null);
     };
-    for (const field of media.fields ?? []) rows.append(fieldRow(field));
-    if (!(media.fields ?? []).length) rows.append(note("The spec lists no fields for this body."));
+    for (const field of shown) rows.append(fieldRow(field));
+    if (!shown.length) rows.append(note("The spec lists no fields for this body."));
     return rows;
   };
   const bodyCard = (): HTMLElement | null => {
