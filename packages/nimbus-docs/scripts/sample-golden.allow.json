@@ -1,0 +1,8 @@
+[
+  {
+    "rule": "whitespace-only",
+    "lang": "typescript",
+    "count": 1308,
+    "why": "The options object wraps when its whole line, as written, passes 80 characters: a headers line of 81 to 90 characters now takes one header per line."
+  }
+]

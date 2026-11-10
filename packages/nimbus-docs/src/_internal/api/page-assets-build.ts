@@ -73,7 +73,7 @@ import { resolveApiAssetLinks } from "./page-assets-links.js";
 import { linkPolicy } from "../url.js";
 
 /** Bump when preparation semantics change without a package version change. */
-export const API_PAGE_PREPARATION_REVISION = 3;
+export const API_PAGE_PREPARATION_REVISION = 4;
 // The token classes the version being prepared uses, so its cache saves only
 // those styles. Shared on globalThis: two copies of this module load in one
 // process, and either may install the sink.
