@@ -391,7 +391,25 @@ describe("bodies", () => {
 describe("parseExactJson", () => {
   test("parses JSON; refuses an integer a number would round, but not one in a string", () => {
     assert.deepEqual(parseExactJson('{"id": 42, "n": 1.5e3, "big": "9007199254740993"}'), { id: 42, n: 1500, big: "9007199254740993" });
-    assert.throws(() => parseExactJson('{"id": 9007199254740993}'), RangeError);
+    for (const spelling of ["9007199254740993", "9007199254740993.0", "9007199254740993e0", "1e309", "-1e309"]) {
+      assert.throws(() => parseExactJson(`{"id": ${spelling}}`), RangeError, spelling);
+    }
+    assert.deepEqual(parseExactJson("[1e3, 0.1, -0, 9007199254740991]"), [1000, 0.1, -0, 9007199254740991]);
     assert.throws(() => parseExactJson("{"), SyntaxError);
+  });
+});
+
+describe("names a spec may use", () => {
+  test("a scheme or server variable named __proto__ is a name like any other", () => {
+    const p = plan({
+      servers: [{ url: "https://api.example.com/{__proto__}", variables: [{ name: "__proto__", default: "v1", authority: false }] }],
+      auth: [{ label: "Bearer token", schemes: [{ scheme: "__proto__", type: "bearer" }] }],
+    });
+    const credentials = Object.create(null) as Record<string, string>;
+    credentials["__proto__"] = "tok";
+    const out = send(p, { auth: { alternative: 0, credentials } });
+    assert.equal(out.url, "https://api.example.com/v1/items");
+    assert.deepEqual(out.headers, [["Authorization", "Bearer tok"]]);
+    assert.match(refused(p, { auth: { alternative: 0, credentials: {} } }), /Enter the/);
   });
 });

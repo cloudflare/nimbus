@@ -130,7 +130,8 @@ function serverBase(plan: RequestPlan, values: RequestValues, options: Serialize
   if (!server) refuse("Pick a server.");
   let url = server!.url;
   for (const variable of server!.variables) {
-    const value = values.server?.variables?.[variable.name] ?? variable.default;
+    const given = values.server?.variables;
+    const value = given && Object.hasOwn(given, variable.name) ? given[variable.name]! : variable.default;
     let filled = value;
     if (!variable.authority) {
       // A path variable may span segments (`api/v2`); each is encoded on its own.
@@ -353,7 +354,7 @@ function applyAuth(
   if (!alternative) refuse("Pick an authorization method.");
   if (alternative!.unsupported) refuse(alternative!.unsupported);
   for (const scheme of alternative!.schemes) {
-    const credential = values.auth?.credentials[scheme.scheme];
+    const credential = values.auth && Object.hasOwn(values.auth.credentials, scheme.scheme) ? values.auth.credentials[scheme.scheme] : undefined;
     if (credential === undefined || credential === "") refuse(`Enter the ${authLabel(scheme)}.`);
     sendCredential(scheme, credential!, out);
   }
@@ -453,7 +454,10 @@ function serializeBody(plan: RequestPlan, values: RequestValues, method: string)
 export function parseExactJson(text: string): unknown {
   const value: unknown = JSON.parse(text);
   for (const [token] of text.matchAll(/"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g)) {
-    if (/^-?\d+$/.test(token) && !Number.isSafeInteger(Number(token))) {
+    if (token.startsWith('"')) continue;
+    // By value, so 9007199254740993.0 or ...e0 can't slip past, and 1e309 isn't sent as null.
+    const n = Number(token);
+    if (!Number.isFinite(n) || (Number.isInteger(n) && !Number.isSafeInteger(n))) {
       throw new RangeError(`${token} is too large to send exactly as a number; send it as a string ("${token}") if the API takes one.`);
     }
   }
