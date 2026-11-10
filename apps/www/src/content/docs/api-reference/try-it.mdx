@@ -146,9 +146,9 @@ Writes never send from the keyboard. Only Send sends `POST`, `PUT`, `PATCH` and 
 | Part | Supported | Refused, with the reason shown |
 | --- | --- | --- |
 | Methods | All but `TRACE` and `CONNECT` | `TRACE`, `CONNECT` |
-| Servers | `http` and `https`, after server variables. Relative servers resolve against your docs origin. | Any other scheme |
+| Servers | `http` and `https`, after server variables. Relative servers resolve against your docs origin, and the browser sends to them directly. | Any other scheme |
 | Parameters | Path, query, header and cookie; every style OpenAPI defines (`matrix`, `label`, `simple`, `form`, `spaceDelimited`, `pipeDelimited`, `deepObject`) with `explode` and `allowReserved`; JSON `content` parameters | Combinations OpenAPI leaves undefined, such as `deepObject` without `explode`, and non-JSON `content` parameters |
-| Cookies | Cookie parameters and cookie API keys, via this site, as one `Cookie` header | Direct |
+| Cookies | Cookie parameters and cookie API keys, via this site, as one `Cookie` header | Direct, and an API on the docs' own origin |
 | Bodies | JSON, URL-encoded forms, `multipart/form-data` with files, and any other media type as text or a file | A body on `GET` or `HEAD` |
 | Auth | API keys in a header, query or cookie; HTTP bearer and basic; OAuth 2 and OpenID Connect as a pasted token | Mutual TLS, other HTTP schemes, and two schemes that need the same header |
 

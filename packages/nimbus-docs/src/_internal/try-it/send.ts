@@ -64,7 +64,12 @@ export async function sendRequest(plan: RequestPlan, values: RequestValues, opti
   const serialized = serializeRequest(plan, values, options.origin ? { origin: options.origin } : {});
   if ("refused" in serialized) return { ok: false, via, failure: "refused", reason: serialized.refused };
   // The docs site's own origin needs no relay, and the relay doesn't carry it: the browser sends there itself.
-  if (via === "proxy" && options.origin && sameOrigin(serialized.url, options.origin)) return send(plan, serialized, { ...options, delivery: "direct" });
+  if (options.origin && sameOrigin(serialized.url, options.origin)) {
+    if (serialized.headers.some(([name]) => name.toLowerCase() === "cookie")) {
+      return { ok: false, via: "direct", failure: "refused", reason: "This site's own API can't take cookie parameters or cookie keys from Try it: a browser can't set them, and this site's relay doesn't send to itself." };
+    }
+    if (via === "proxy") return send(plan, serialized, { ...options, delivery: "direct" });
+  }
   return send(plan, serialized, options);
 }
 

@@ -40,12 +40,15 @@ export const STAGED_POLICIES = path.join(".astro", "nimbus", "try-it-policy");
  *  private origin is left out, with a warning, unless `extraOrigins` lists it. */
 export async function stageTryItPolicy(root: string, key: string, policy: ProxyPolicy | null, warn: (message: string) => void = () => {}): Promise<void> {
   const file = path.join(root, STAGED_POLICIES, `${encodeURIComponent(key)}.json`);
-  if (policy) await writeAtomic(file, JSON.stringify({ key, ...policy, origins: relayOrigins(policy, warn) }));
+  if (policy) await writeAtomic(file, JSON.stringify({ key, ...policy, origins: relayOrigins(policy, key, warn) }));
   else await rm(file, { force: true });
 }
 
+/** Each API and origin warned about once per process: a build and dev stage policies more than once. */
+const warned = new Set<string>();
+
 /** The spec's origins the relay carries: public ones. The owner lists a local one in `extraOrigins` to relay it. */
-export function relayOrigins(policy: Pick<ProxyPolicy, "origins" | "extraOrigins">, warn: (message: string) => void = () => {}): string[] {
+export function relayOrigins(policy: Pick<ProxyPolicy, "origins" | "extraOrigins">, key: string, warn: (message: string) => void = () => {}): string[] {
   return policy.origins.filter((origin) => {
     let host: string;
     try {
@@ -54,8 +57,9 @@ export function relayOrigins(policy: Pick<ProxyPolicy, "origins" | "extraOrigins
       return false; // `"self"` from an older build's cache: relative servers aren't relayed
     }
     if (!isLocalHost(host)) return true;
-    if (!policy.extraOrigins.some((pattern) => originMatches(origin, pattern))) {
-      warn(`Try it's relay won't carry ${origin}: it's a local or private address. To relay it anyway, add "${origin}" to the API's tryIt.proxy.extraOrigins.`);
+    if (!policy.extraOrigins.some((pattern) => originMatches(origin, pattern)) && !warned.has(`${key}\0${origin}`)) {
+      warned.add(`${key}\0${origin}`);
+      warn(`Try it's relay for ${key} won't carry ${origin}: it's a local or private address. To relay it anyway, add "${origin}" to that API's tryIt.proxy.extraOrigins.`);
     }
     return false;
   });

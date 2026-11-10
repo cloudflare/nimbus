@@ -94,16 +94,17 @@ export function isLocalHost(hostname: string): boolean {
   const v4 = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(host);
   if (v4) return localIpv4(v4.slice(1).map(Number) as [number, number, number, number]);
   if (!host.includes(".")) return true; // localhost, or a docker or cluster service name
-  return /\.(localhost|local|internal|home\.arpa)$/.test(host);
+  return /\.(localhost|local|internal|home\.arpa|lan|home|corp)$/.test(host);
 }
 
-function localIpv4([a, b]: [number, number, number, number]): boolean {
+function localIpv4([a, b, c]: [number, number, number, number]): boolean {
   return (
     a === 0 || a === 10 || a === 127 || a >= 224 ||
     (a === 100 && b >= 64 && b <= 127) || // CGNAT
     (a === 169 && b === 254) || // link-local, cloud metadata included
     (a === 172 && b >= 16 && b <= 31) ||
     (a === 192 && b === 168) ||
+    (a === 192 && b === 0 && c === 0) ||
     (a === 198 && (b === 18 || b === 19))
   );
 }
@@ -119,6 +120,7 @@ function localIpv6(text: string): boolean {
   }
   if (g0 === 0x64 && g1 === 0xff9b) return true; // NAT64
   if (g0 === 0x2002) return v4(g1, g2); // 6to4
+  if (g0 === 0x2001 && g1 === 0) return true; // Teredo
   return (g0 & 0xfe00) === 0xfc00 || (g0 & 0xffc0) === 0xfe80 || (g0 & 0xffc0) === 0xfec0 || (g0 & 0xff00) === 0xff00;
 }
 

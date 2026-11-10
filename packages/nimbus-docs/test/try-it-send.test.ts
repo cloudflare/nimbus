@@ -243,6 +243,14 @@ describe("answers", () => {
     assert.deepEqual(received.slice(before).map((r) => r.url), ["/own"]);
   });
 
+  test("the docs site's own API with a cookie parameter is refused either way, and says why", async () => {
+    const p = plan({ method: "GET", path: "/own", servers: [{ url: "/", variables: [] }], params: [param({ in: "cookie", name: "pref", style: "form", explode: true })], auth: [] });
+    for (const delivery of ["proxy", "direct"] as const) {
+      const outcome = await sendRequest(p, { params: { "cookie:pref": "1" } }, { delivery, origin, proxyUrl: `${origin}/_nimbus/try` });
+      assert.ok(!outcome.ok && outcome.failure === "refused" && /own API can't take cookie/.test(outcome.reason));
+    }
+  });
+
   test("a direct cookie parameter is refused; a page that isn't the proxy is a deployment error", async () => {
     const p = plan({ method: "GET", path: "/x", params: [param({ in: "cookie", name: "pref", style: "form", explode: true })], auth: [] });
     const direct = await sendRequest(p, { params: { "cookie:pref": "1" } }, { delivery: "direct", origin });
