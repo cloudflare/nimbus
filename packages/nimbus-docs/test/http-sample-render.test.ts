@@ -206,6 +206,15 @@ describe("sample URLs as WHATWG writes them", () => {
     assert.match(out.find((s) => s.lang === "curl")!.source, /--url https:\/\/nbph0q0z\.example\/x/);
   });
 
+  test("host text that the parser normalises onto a token stays text", async () => {
+    const { buildOperationSamples } = await import("../src/_internal/api/samples.js");
+    const params = [{ name: "id", in: "path", required: true }];
+    for (const server of ["https://%EF%BD%8E%EF%BD%82%EF%BD%90%EF%BD%88%EF%BC%90%EF%BD%91%EF%BC%90%EF%BD%9A.example", "https://nb\u00adph0q0z.example"]) {
+      const out = buildOperationSamples(tools, { method: "get", path: "/{id}/../x", params, auth: [], server });
+      for (const sample of out) assert.match(sample.source, /https:\/\/nbph0q0z\.example\/x/, `${server} ${sample.lang}`);
+    }
+  });
+
   test("an encoded brace in a host is text, not a placeholder (WHATWG decodes it)", async () => {
     assert.equal(await curlUrl("https://a%7Bb%7D.example"), "'https://a{b}.example/x'");
   });

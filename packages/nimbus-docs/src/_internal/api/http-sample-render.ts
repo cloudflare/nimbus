@@ -113,10 +113,17 @@ export function sampleUrl(request: Pick<SampleRequest, "url" | "query">): Segmen
   const literal = [...values.flat(), ...request.query.map((field) => ({ text: field.name }))]
     .map((segment) => (isPlaceholder(segment) ? "" : segment.text))
     .join("\n");
-  // The literal text as written, as decoded and as IDNA maps a host (NFKC), so a
-  // token spelled in `%`-encoding or in full-width letters can't collide either.
-  const decoded = bytesDecoded(literal);
-  const ownText = [literal, decoded, literal.normalize("NFKC"), decoded.normalize("NFKC")].join("\n").toLowerCase();
+  // The literal text as written, as decoded, and as the URL itself writes it with
+  // every placeholder an inert `x`: whatever the parser's normalisation (IDNA,
+  // percent-decoding a host, dropping soft hyphens) makes of the request's own
+  // text, a token it spells can't collide.
+  let written = "";
+  try {
+    written = writeUrl(request, () => "x");
+  } catch {
+    // A URL that can't be written can't spell a token either.
+  }
+  const ownText = [literal, bytesDecoded(literal), written].join("\n").toLowerCase();
   for (let attempt = 0; attempt < 1000; attempt++) {
     if (ownText.includes(`nbph${attempt}q`)) continue;
     const out = sampleUrlWith(request, `nbph${attempt}q`);
@@ -125,23 +132,23 @@ export function sampleUrl(request: Pick<SampleRequest, "url" | "query">): Segmen
   throw new Error("No placeholder token fits this URL.");
 }
 
-/** The URL with placeholders as `<prefix><n>z` tokens, or `undefined` when a token comes back wrong. */
-function sampleUrlWith(request: Pick<SampleRequest, "url" | "query">, prefix: string): Segment[] | undefined {
-  const placeholders: Segment[] = [];
-  const token = (segment: Segment) => `${prefix}${placeholders.push(segment) - 1}z`;
-  const flat = (value: SampleValue) => value.map((segment) => (isPlaceholder(segment) ? token(segment) : segment.text)).join("");
-
-  // A leading `<base-url>` (no server, or a relative one) stays as it is.
+/**
+ * The URL as WHATWG writes it, each placeholder written as `stand(placeholder)`.
+ * A leading `<base-url>` placeholder (no server, or a relative one) stays in
+ * front and the rest is read against a temporary origin; an absolute URL that
+ * doesn't parse becomes `<base-url>` followed by what follows its authority.
+ */
+function writeUrl(request: Pick<SampleRequest, "url" | "query">, stand: (segment: Segment) => string): string {
+  const flat = (value: SampleValue) => value.map((segment) => (isPlaceholder(segment) ? stand(segment) : segment.text)).join("");
   const first = request.url[0];
-  let lead = first && isPlaceholder(first) && first.placeholder === "base-url" ? token(first) : "";
+  let lead = first && isPlaceholder(first) && first.placeholder === "base-url" ? stand(first) : "";
   let rest = flat(lead ? request.url.slice(1) : request.url).trim();
   let parsed: URL | undefined;
   if (!lead) {
     try {
       parsed = new URL(rest);
     } catch {
-      // Not a URL: `<base-url>` followed by what follows its authority.
-      lead = token({ placeholder: "base-url" });
+      lead = stand({ placeholder: "base-url" });
       rest = rest.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i, "");
     }
   }
@@ -156,8 +163,13 @@ function sampleUrlWith(request: Pick<SampleRequest, "url" | "query">, prefix: st
   parsed.hash = "";
   parsed.search = "";
   const head = lead ? `${lead}${parsed.pathname}` : parsed.href;
-  const url = `${head}${query ? `?${query}` : ""}${hash}`;
+  return `${head}${query ? `?${query}` : ""}${hash}`;
+}
 
+/** The URL with placeholders as `<prefix><n>z` tokens, or `undefined` when a token comes back wrong. */
+function sampleUrlWith(request: Pick<SampleRequest, "url" | "query">, prefix: string): Segment[] | undefined {
+  const placeholders: Segment[] = [];
+  const url = writeUrl(request, (segment) => `${prefix}${placeholders.push(segment) - 1}z`);
   const out: Segment[] = [];
   const seen = new Set<number>();
   let last = 0;
