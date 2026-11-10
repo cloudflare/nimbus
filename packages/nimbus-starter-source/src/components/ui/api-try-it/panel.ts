@@ -18,6 +18,7 @@ import {
   paramKey,
   parseExactJson,
   renderSample,
+  resolveServer,
   sendRequest,
   serializeRequest,
   unlockScroll,
@@ -363,7 +364,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     const fields: FormValues["fields"] = [];
     for (const field of media.fields ?? []) {
       if (field.file) continue; // the reader picks files
-      const v = object[field.name];
+      // Own entries only: a field named `constructor` isn't the object's.
+      const v = Object.hasOwn(object, field.name) ? object[field.name] : undefined;
       if (v === undefined) continue;
       // One value per field; a list or object as JSON, encoded on send as the spec says.
       fields.push({ name: field.name, value: text(v) });
@@ -433,38 +435,14 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   };
 
   // ---- Servers and credentials ----------------------------------------------------
-  const serverOrigin = (): string => {
-    const server = plan.servers[values.server?.index ?? 0];
-    if (values.server?.origin) {
-      try {
-        return new URL(values.server.origin).origin;
-      } catch {
-        return values.server.origin;
-      }
-    }
-    let url = server?.url ?? "/";
-    for (const v of server?.variables ?? []) url = url.split(`{${v.name}}`).join(values.server?.variables?.[v.name] ?? v.default);
-    try {
-      return new URL(url, plan.specUrl ?? location.origin).origin;
-    } catch {
-      return "";
-    }
-  };
-  // The server's URL as resolved (origin and the spec server's path), for the URL bar.
+  // The server exactly as the request resolves it: keys are kept per this origin,
+  // so one only ever goes to the server it was entered for.
+  const resolvedServer = () => resolveServer(plan, values, { origin: location.origin });
+  const serverOrigin = (): string => resolvedServer()?.origin ?? values.server?.origin ?? "";
+  // The server's URL (origin and the spec server's path), for the URL bar.
   const serverBase = (): string => {
-    const server = plan.servers[values.server?.index ?? 0];
-    let url = server?.url ?? "/";
-    for (const v of server?.variables ?? []) {
-      const value = values.server?.variables?.[v.name] ?? v.default;
-      url = url.split(`{${v.name}}`).join(v.authority ? value : encodeURIComponent(value));
-    }
-    try {
-      const resolved = new URL(url, plan.specUrl ?? location.origin);
-      const path = resolved.pathname.replace(/\/+$/, "");
-      return `${values.server?.origin ? serverOrigin() : resolved.origin}${path}`;
-    } catch {
-      return serverOrigin();
-    }
+    const resolved = resolvedServer();
+    return resolved ? `${resolved.origin}${resolved.pathname.replace(/\/+$/, "")}` : serverOrigin();
   };
   const credKey = (scheme: string) => `nb-tryit-cred|${meta.base}|${apiKey}|${serverOrigin()}|${scheme}`;
   const rememberStore = meta.remember === "none" ? null : store(meta.remember === "device" ? "device" : "tab");
@@ -1061,7 +1039,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       const control = v.enum
         ? el("select", { id, class: "nb-tid-input nb-tid-select" }, ...v.enum.map((o) => el("option", { value: o }, o)))
         : el("input", { id, class: "nb-tid-input", type: "text", ...TEXT, ...NO_PM });
-      control.value = values.server?.variables?.[v.name] ?? v.default;
+      const given = values.server?.variables;
+      control.value = given && Object.hasOwn(given, v.name) ? given[v.name]! : v.default;
       control.addEventListener(v.enum ? "change" : "input", () => {
         const before = serverOrigin();
         values.server = { ...values.server!, variables: { ...values.server?.variables, [v.name]: control.value } };
