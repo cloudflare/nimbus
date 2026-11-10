@@ -178,6 +178,20 @@ describe("unsupported bodies", () => {
   });
 });
 
+describe("protocol-relative servers", () => {
+  test("a variable after // is the host, and the relay takes either scheme", async () => {
+    const { planOrigins } = await import("../src/_internal/try-it/stage.js");
+    const relative = structuredClone(spec) as typeof spec & { servers: unknown[] };
+    relative.servers = [{ url: "//{host}/v1", variables: { host: { default: "api.example.com", enum: ["api.example.com", "staging.example.com"] } } }];
+    const model = await buildApiModel({ collection: "api", spec: relative as unknown as Record<string, never>, tryIt: on });
+    const plan = [...unwrapModel(model).nodes.values()]
+      .map((node) => (node.kind === "operation" ? (node.facts as OperationFacts).tryIt?.plan : undefined))
+      .find((p) => p?.id.coordinate === "other")!;
+    assert.equal(plan.servers[0]!.variables[0]!.authority, true);
+    assert.deepEqual(planOrigins(plan), ["http://api.example.com", "http://staging.example.com", "https://api.example.com", "https://staging.example.com"]);
+  });
+});
+
 describe("names a spec may use", () => {
   test("an encoding entry is the field's own, never inherited", async () => {
     const named = structuredClone(spec) as typeof spec;

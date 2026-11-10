@@ -64,12 +64,15 @@ export function planOrigins(plan: RequestPlan, tooMany: (server: string, count: 
       urls = urls.flatMap((url) => choices[i]!.map((value) => url.split(`{${variable.name}}`).join(value)));
     });
     for (const url of urls) {
-      try {
-        const resolved = new URL(url, "https://self.nimbus.invalid");
-        if (resolved.protocol !== "http:" && resolved.protocol !== "https:") continue;
-        out.add(resolved.host === "self.nimbus.invalid" ? "self" : resolved.origin);
-      } catch {
-        // A server that isn't a URL contributes nothing.
+      // A protocol-relative server takes the page's (or spec's) scheme: either.
+      for (const candidate of url.startsWith("//") ? [`https:${url}`, `http:${url}`] : [url]) {
+        try {
+          const resolved = new URL(candidate, "https://self.nimbus.invalid");
+          if (resolved.protocol !== "http:" && resolved.protocol !== "https:") continue;
+          out.add(resolved.host === "self.nimbus.invalid" ? "self" : resolved.origin);
+        } catch {
+          // A server that isn't a URL contributes nothing.
+        }
       }
     }
   }

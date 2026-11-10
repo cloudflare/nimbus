@@ -102,13 +102,15 @@ function serverVariables(server: OpenApiServer): PlanServer["variables"] {
   const names = [...new Set([...server.url.matchAll(/\{([^{}]+)\}/g)].map((m) => m[1]!))];
   // Variables become letters while the URL's authority is found.
   const probe = server.url.replace(/\{([^{}]+)\}/g, (_, name: string) => `\u0000${names.indexOf(name)}\u0000`);
+  // After `scheme://`, or after `//` for a protocol-relative server.
   const scheme = probe.indexOf("://");
-  const authorityEnd = scheme < 0 ? 0 : (() => {
-    const slash = probe.indexOf("/", scheme + 3);
+  const start = probe.startsWith("//") ? 2 : scheme < 0 ? -1 : scheme + 3;
+  const authorityEnd = start < 0 ? 0 : (() => {
+    const slash = probe.indexOf("/", start);
     return slash < 0 ? probe.length : slash;
   })();
   return names.map((name, i) => {
-    const declared = server.variables?.[name];
+    const declared = server.variables && Object.hasOwn(server.variables, name) ? server.variables[name] : undefined;
     const at = probe.indexOf(`\u0000${i}\u0000`);
     const variable: PlanServer["variables"][number] = {
       name,
