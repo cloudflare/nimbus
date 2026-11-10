@@ -114,7 +114,62 @@ The response's chunks should include that page, each with `url`, `title`, `versi
 
 ## 4. Switch the site
 
-1. If `src/components/ui/search/providers/ai-search.ts` doesn't exist, run `npx nimbus-docs add search --overwrite` to bring the current search folder, or copy that file from the Nimbus starter.
+1. Create `src/components/ui/search/providers/ai-search.ts`:
+
+   ```ts
+   import { pageSearchScope } from "@cloudflare/nimbus-docs/client";
+   import { aiSearchFilters, searchAiSearch } from "@cloudflare/nimbus-docs/client/ai-search";
+   import type { SearchProvider, SearchResponse, SearchResult } from "@cloudflare/nimbus-docs/types";
+   import { config } from "virtual:nimbus/config";
+
+   /**
+    * Search a Cloudflare AI Search instance's public endpoint, filled by
+    * `nimbus-docs search sync`. A query leaves out deprecated versions, except
+    * from a deprecated version's page, which searches that version.
+    */
+   const search = config.search && config.search.provider === "ai-search" ? config.search : undefined;
+
+   const escape = (text: string) =>
+     text.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
+
+   // The same query from the same scope answers from the last response.
+   let last: { key: string; response: SearchResponse } | undefined;
+
+   export const provider: SearchProvider<SearchResponse> = {
+     options: { wait: search?.wait, minQueryLength: search?.minQueryLength },
+
+     async search(query, { signal } = {}) {
+       if (!search) {
+         return { error: { code: "index_unavailable", message: 'Set search: { provider: "ai-search" } in astro.config to use this provider.' } };
+       }
+       const filters = aiSearchFilters(pageSearchScope());
+       const key = JSON.stringify([query, filters]);
+       if (last?.key === key) return last.response;
+
+       const found = await searchAiSearch(
+         { endpoint: search.endpoint, site: config.site, base: import.meta.env.BASE_URL },
+         query,
+         { filters, limit: 10, signal },
+       );
+       if ("error" in found) return found;
+       const response: SearchResponse = {
+         results: found.results.map((result): SearchResult => ({
+           title: result.title,
+           url: result.url,
+           snippet: escape(
+             [result.heading, result.excerpt.length > 180 ? `${result.excerpt.slice(0, 179)}…` : result.excerpt]
+               .filter(Boolean)
+               .join(" — "),
+           ),
+         })),
+       };
+       last = { key, response };
+       return response;
+     },
+   };
+   ```
+
+   It turns each result into the dialog's title, link and snippet. The package's `searchAiSearch()` does the request and drops results that link off the site.
 2. In `src/components/ui/search/search.client.ts`, change the provider import to `import { provider } from "./providers/ai-search";`. Check the file handles a `{ results }` or `{ error }` response and `provider.options` (run `npx nimbus-docs outdated` and apply the `search-provider-response` entry if not).
 3. Apply the `page-search-scope` entry to `src/layouts/BaseLayout.astro` (the `data-nb-search-*` attributes on `<body>`), and the `webmcp-ai-search` entry to `src/components/WebMCP.astro`. Pages rendered by the user's own API routes must pass `apiVersion` to `BaseLayout`.
 4. Remove the `pagefind` dev dependency.
@@ -142,4 +197,4 @@ Deploy. Search now answers from the instance.
 
 ## Removing it
 
-Run `npx nimbus-docs search sync --purge`, set `search: { provider: "pagefind" }` (or remove `search`), switch the provider import back to `./providers/pagefind`, and add `pagefind` back as a dev dependency.
+Run `npx nimbus-docs search sync --purge`, set `search: { provider: "pagefind" }` (or remove `search`), switch the provider import back to `./providers/pagefind`, delete `src/components/ui/search/providers/ai-search.ts`, and add `pagefind` back as a dev dependency.

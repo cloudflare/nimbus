@@ -112,4 +112,4 @@ search: { provider: "ai-search", endpoint, instance, wait: 400, minQueryLength: 
 
 The dialog searches the published pages from any origin, and its results link to the origin you're on. Unsaved edits aren't searchable until they are deployed and synced.
 
-To switch back, run `npx nimbus-docs search sync --purge`, set `search: { provider: "pagefind" }`, change the provider import in `search.client.ts` back to `./providers/pagefind`, and add `pagefind` back as a dev dependency.
+To switch back, run `npx nimbus-docs search sync --purge`, set `search: { provider: "pagefind" }`, change the provider import in `search.client.ts` back to `./providers/pagefind`, delete `providers/ai-search.ts`, and add `pagefind` back as a dev dependency.
