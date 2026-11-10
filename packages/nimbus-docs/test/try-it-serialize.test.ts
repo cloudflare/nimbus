@@ -249,8 +249,8 @@ describe("bodies", () => {
     assert.deepEqual(out.body, { kind: "form", fields: [{ name: "a", value: "1" }, { name: "a", value: "x y" }] });
   });
 
-  test("URL-encoded list and object fields follow their encoding", () => {
-    const form = (encoding?: { style?: string; explode?: boolean }) =>
+  test("URL-encoded list and object fields follow their encoding, as the code samples write them", () => {
+    const form = (encoding?: { style?: string; explode?: boolean; contentType?: string }) =>
       plan({
         method: "POST",
         body: {
@@ -266,18 +266,22 @@ describe("bodies", () => {
           }],
         },
       });
-    const fields = (p: RequestPlan, values: { name: string; value: string }[]) => {
+    // What goes on the wire: the fields encoded, or the already-encoded text.
+    const wire = (p: RequestPlan, values: { name: string; value: string }[]) => {
       const out = send(p, { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: values } } });
-      return out.body?.kind === "form" ? out.body.fields.map(({ name, value }) => `${name}=${value}`) : [];
+      if (out.body?.kind === "form") return new URLSearchParams(out.body.fields.map(({ name, value }) => [name, value])).toString();
+      return out.body?.kind === "text" ? out.body.text : "";
     };
     const tags = { name: "tags", value: '["a","b"]' };
     const pt = { name: "pt", value: '{"x":1,"y":2}' };
-    assert.deepEqual(fields(form(), [tags, pt]), ["tags=a", "tags=b", "x=1", "y=2"], "form, exploded by default");
-    assert.deepEqual(fields(form({ explode: false }), [tags, pt]), ["tags=a,b", "pt=x,1,y,2"]);
-    assert.deepEqual(fields(form({ style: "pipeDelimited", explode: false }), [tags, pt]), ["tags=a|b", "pt=x|1|y|2"]);
-    assert.deepEqual(fields(form({ style: "spaceDelimited", explode: false }), [pt]), ["pt=x 1 y 2"]);
-    assert.deepEqual(fields(form({ style: "deepObject", explode: true }), [pt]), ["pt[x]=1", "pt[y]=2"]);
-    assert.deepEqual(fields(form(), [{ name: "tags", value: "solo" }]), ["tags=solo"], "plain text is one item of a list field");
+    assert.equal(wire(form(), [tags, pt]), "tags=a&tags=b&pt%5Bx%5D=1&pt%5By%5D=2", "no encoding entry: repeat lists, nest objects");
+    assert.equal(wire(form({ contentType: "application/json" }), [pt]), "pt=%7B%22x%22%3A1%2C%22y%22%3A2%7D", "an entry without style rules: its content type");
+    assert.equal(wire(form({ style: "form" }), [tags, pt]), "tags=a&tags=b&x=1&y=2", "form explodes by default");
+    assert.equal(wire(form({ explode: false }), [tags, pt]), "tags=a,b&pt=x,1,y,2");
+    assert.equal(wire(form({ style: "pipeDelimited", explode: false }), [tags, pt]), "tags=a|b&pt=x|1|y|2");
+    assert.equal(wire(form({ style: "spaceDelimited", explode: false }), [pt]), "pt=x%201%20y%202");
+    assert.equal(wire(form({ style: "deepObject", explode: true }), [pt]), "pt%5Bx%5D=1&pt%5By%5D=2");
+    assert.equal(wire(form(), [{ name: "tags", value: "solo" }]), "tags=solo", "plain text is one item of a list field");
     assert.match(refused(form(), { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "pt", value: "x" }] } } }), /pt must be a JSON object/);
   });
 

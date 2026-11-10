@@ -146,7 +146,15 @@ function planParam(param: OpenApiParameter, sample: string | undefined): PlanPar
   // The form starts as the sample: path parameters and required query and header
   // parameters carry the sample's value; everything else starts absent.
   const inSample = param.in === "path" || (param.required === true && (param.in === "query" || param.in === "header"));
-  if (inSample && sample !== undefined) out.initial = contentEntry ? parsedSample(sample) : sample;
+  if (inSample) {
+    // A content parameter's example lives on its media type; the sample doesn't read it there.
+    const media = contentEntry?.[1];
+    const authored = media?.example !== undefined
+      ? media.example
+      : Object.values(media?.examples ?? {}).find((example) => example && "value" in example && example.value !== undefined)?.value;
+    if (authored !== undefined) out.initial = toJson(authored);
+    else if (sample !== undefined) out.initial = contentEntry ? parsedSample(sample) : sample;
+  }
   const examples = Object.entries(param.examples ?? {})
     .filter(([, example]) => example && "value" in example && example.value !== undefined)
     .map(([id, example]) => ({ id, value: toJson(example!.value) }));

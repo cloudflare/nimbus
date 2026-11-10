@@ -15,6 +15,8 @@ import type {
   RequestPlan,
   RequestValues,
 } from "./plan.js";
+import { decodeForm, formFields, formText, partContentType, serializeForm } from "../api/form-encoding.js";
+import type { OpenApiEncoding } from "../api/openapi-types.js";
 import { paramKey } from "./plan.js";
 
 export type Serialized = HttpRequest | { refused: string };
@@ -426,49 +428,52 @@ function serializeBody(plan: RequestPlan, values: RequestValues, method: string)
       if (typeof value !== "string") return refuse("Enter the body as text or choose a file.");
       return { kind: "text", mediaType: media!.mediaType, text: value };
     case "form": {
-      const byName = new Map((media!.fields ?? []).map((field) => [field.name, field]));
-      const fields = formValues(value).fields.flatMap(({ name, value: v }) => {
-        if (typeof v !== "string") refuse("A URL-encoded form can't carry a file.");
-        return formField(name, v as string, byName.get(name));
-      });
-      return { kind: "form", fields };
+      const planned = media!.fields ?? [];
+      const given = formValues(value).fields;
+      if (given.some((field) => typeof field.value !== "string")) refuse("A URL-encoded form can't carry a file.");
+      const fields = formFields(formObject(given, planned), encodings(planned));
+      // A style's separators are already encoded, as are reserved characters it
+      // keeps: such a form goes as its encoded text, as the code sample writes it.
+      if (fields.some((field) => field.allowReserved || field.encoded || field.name === "")) {
+        return { kind: "text", mediaType: media!.mediaType, text: serializeForm(fields) };
+      }
+      return { kind: "form", fields: fields.map(({ name, value: text }) => ({ name, value: text })) };
     }
     case "multipart":
       return { kind: "multipart", parts: multipartParts(formValues(value), media!.fields ?? [], !plan.openapi.startsWith("3.0")) };
   }
 }
 
-// A list or object field is held as JSON text; read it back for its encoding.
-// Text that isn't a JSON list is one item of a list field.
-function structured(name: string, text: string, field: PlanBodyField | undefined): unknown[] | Record<string, unknown> | undefined {
+// A field's value from its text: a list or object field holds JSON, and text
+// that isn't a JSON list is one item of a list field.
+function fieldValue(name: string, text: string, field: PlanBodyField | undefined): unknown {
   const type = field?.schema.type;
-  if (type !== "array" && type !== "object") return undefined;
+  if (type !== "array" && type !== "object") return text;
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
-    if (type === "array") return [text];
-    return refuse(`${name} must be a JSON object.`);
+    return type === "array" ? [text] : refuse(`${name} must be a JSON object.`);
   }
   if (type === "array") return Array.isArray(parsed) ? parsed : [text];
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return refuse(`${name} must be a JSON object.`);
-  return parsed as Record<string, unknown>;
+  return parsed;
 }
 
-// One URL-encoded field, as its `encoding` style and explode say (OpenAPI's form defaults).
-function formField(name: string, text: string, field: PlanBodyField | undefined): { name: string; value: string }[] {
-  const value = structured(name, text, field);
-  if (value === undefined) return [{ name, value: text }];
-  const style = field?.encoding?.style ?? "form";
-  const explode = field?.encoding?.explode ?? style === "form";
-  const delimiter = style === "spaceDelimited" ? " " : style === "pipeDelimited" ? "|" : ",";
-  if (Array.isArray(value)) {
-    const list = items(value, name);
-    return explode && delimiter === "," ? list.map((item) => ({ name, value: item })) : [{ name, value: list.join(delimiter) }];
+// The form's fields as one object, the shape the code samples encode.
+function formObject(given: FormValues["fields"], planned: PlanBodyField[]): Record<string, unknown> {
+  const byName = new Map(planned.map((field) => [field.name, field]));
+  const out: Record<string, unknown> = {};
+  for (const { name, value } of given) {
+    const next = fieldValue(name, value as string, byName.get(name));
+    // A name given twice (older saved drafts) is a list.
+    out[name] = Object.hasOwn(out, name) ? [...(Array.isArray(out[name]) ? out[name] as unknown[] : [out[name]]), next] : next;
   }
-  const pairs = entries(value, name);
-  if (style === "deepObject") return pairs.map(([k, v]) => ({ name: `${name}[${k}]`, value: v }));
-  return explode && delimiter === "," ? pairs.map(([k, v]) => ({ name: k, value: v })) : [{ name, value: pairs.flat().join(delimiter) }];
+  return out;
+}
+
+function encodings(planned: PlanBodyField[]): Record<string, OpenApiEncoding> {
+  return Object.fromEntries(planned.flatMap((field) => (field.encoding ? [[field.name, field.encoding as OpenApiEncoding]] : [])));
 }
 
 function formValues(value: unknown): FormValues {
@@ -478,32 +483,38 @@ function formValues(value: unknown): FormValues {
   return value as FormValues;
 }
 
-// `styled`: OpenAPI 3.1 applies an explicit style or explode to multipart too,
-// in place of the content type; 3.0 ignores them there.
-function multipartParts(values: FormValues, fields: PlanBodyField[], styled: boolean): HttpPart[] {
-  const byName = new Map(fields.map((field) => [field.name, field]));
+// A multipart body's parts, by the precedence the code samples use. `styled`:
+// OpenAPI 3.1 applies an explicit style, explode or allowReserved, in place of
+// the content type; 3.0 ignores them on multipart. Then a declared content type,
+// then the defaults: an object (or a list holding one) is one JSON part, a list
+// of scalars repeats, and a scalar is a text part.
+function multipartParts(values: FormValues, planned: PlanBodyField[], styled: boolean): HttpPart[] {
+  const byName = new Map(planned.map((field) => [field.name, field]));
   return values.fields.flatMap(({ name, value, filename, contentType }) => {
     const field = byName.get(name);
-    if (styled && typeof value === "string" && (field?.encoding?.style !== undefined || field?.encoding?.explode !== undefined)) {
-      return formField(name, value, field).map((pair): HttpPart => ({ name: pair.name, value: pair.value }));
-    }
-    const declared = contentType ?? field?.encoding?.contentType?.split(",")[0]?.trim();
+    const rule = field?.encoding;
     const part = (v: string | Blob, type?: string): HttpPart => {
       const out: HttpPart = { name, value: v };
       if (type) out.contentType = type;
       if (filename !== undefined) out.filename = filename;
       return out;
     };
+    const declared = contentType ?? partContentType(rule?.contentType);
     if (typeof value !== "string") return [part(value, declared)];
-    // A list is a part per item; an object is one JSON part (OpenAPI's multipart defaults).
-    const parsed = structured(name, value, field);
-    if (Array.isArray(parsed)) {
-      return parsed.map((item) => item !== null && typeof item === "object" ? part(JSON.stringify(item), declared ?? "application/json") : part(scalarText(item), declared));
+    const item = fieldValue(name, value, field);
+    if (styled && rule && (rule.style !== undefined || rule.explode !== undefined || rule.allowReserved !== undefined)) {
+      return formFields({ [name]: item }, { [name]: rule as OpenApiEncoding })
+        .map((f): HttpPart => ({ name: f.name, value: f.encoded ? decodeForm(f.value) : f.value }));
     }
-    if (parsed !== undefined) return [part(JSON.stringify(parsed), declared ?? "application/json")];
-    return [part(value, declared)];
+    const each = Array.isArray(item) ? item : [item];
+    if (declared && /[/+]json(;|$)/i.test(declared)) return [part(JSON.stringify(item), declared)];
+    if (declared) return each.map((entry) => part(formText(entry), declared));
+    if (isObject(item) || each.some(isObject)) return [part(JSON.stringify(item), "application/json")];
+    return each.map((entry) => part(formText(entry)));
   });
 }
+
+const isObject = (value: unknown) => value !== null && typeof value === "object" && !Array.isArray(value);
 
 /** Encode a URL-encoded form body's fields (`a=1&b=two+words`). */
 export function encodeForm(fields: readonly { name: string; value: string }[]): string {

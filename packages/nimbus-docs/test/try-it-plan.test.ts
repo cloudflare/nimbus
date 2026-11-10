@@ -34,7 +34,7 @@ const spec = {
           { name: "limit", in: "query", required: true, schema: { type: "integer", minimum: 1, maximum: 50 }, example: 10 },
           { name: "Accept", in: "header", schema: { type: "string" } },
           { name: "bad", in: "query", style: "deepObject", schema: { type: "object" } },
-          { name: "page", in: "query", required: true, example: 5, content: { "application/json": { schema: { type: "integer" } } } },
+          { name: "page", in: "query", required: true, content: { "application/json": { schema: { type: "integer" }, example: 5 } } },
         ],
         responses: { "200": { description: "ok" } },
       },
