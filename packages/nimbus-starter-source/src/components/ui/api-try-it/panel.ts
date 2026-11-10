@@ -681,14 +681,16 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       if (needsJson(p)) {
         // A value a control can't keep faithfully: JSON, parsed as typed.
         const area = el("textarea", { id, class: "nb-tid-input nb-tid-jsonfield", rows: "3", ...TEXT, ...NO_PM, "aria-labelledby": id });
+        // Nothing entered yet: an empty field, which Send asks to fill in.
+        if ((value === "" || value === undefined) && !badJson.has(key)) badJson.set(key, "");
         const unparsed = badJson.get(key);
-        area.value = unparsed ?? (value === undefined ? "" : JSON.stringify(value, null, 2));
+        area.value = unparsed ?? JSON.stringify(value, null, 2);
         const showInvalid = (invalid: boolean) => {
           error.textContent = invalid ? "Not valid JSON." : "";
           if (invalid) area.setAttribute("aria-invalid", "true");
           else area.removeAttribute("aria-invalid");
         };
-        showInvalid(unparsed !== undefined);
+        showInvalid(unparsed !== undefined && unparsed !== "");
         area.addEventListener("input", () => {
           let parsed: unknown;
           try {
@@ -696,7 +698,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
           } catch {
             badJson.set(key, area.value);
             resetButton.hidden = false;
-            showInvalid(true);
+            showInvalid(area.value.trim() !== "");
             render();
             return;
           }
@@ -1470,7 +1472,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     const first = emptyPath
       ? { key: paramKey(emptyPath), message: "A path parameter can't be empty." }
       : unparsed
-        ? { key: unparsed, message: "Not valid JSON." }
+        ? { key: unparsed, message: badJson.get(unparsed)!.trim() === "" ? "Fill in this value." : "Not valid JSON." }
         : issues[0];
     if (!first) return null;
     touched.add(first.key);
@@ -1699,6 +1701,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     destroy() {
       // A send still in flight never paints (or makes a download link) after this.
       sendId++;
+      stopClock();
       controller?.abort();
       freeDownload();
       observer.disconnect();
