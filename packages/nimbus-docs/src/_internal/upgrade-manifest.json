@@ -1315,16 +1315,17 @@
       "introducedIn": "0.20.0",
       "mode": "optional",
       "changeset": "agent-surfaces-follow-routes",
-      "summary": "Optionally let the agent directive and the base layout cope with a site that serves no llms.txt: the layout reads the new getPublishedLlmsUrl(), which returns null when no route serves an index, and the directive then names only the page's Markdown, or renders nothing.",
-      "affected": "Sites created from the starter that still have src/layouts/BaseLayout.astro or src/components/AgentDirective.astro and that delete src/pages/llms.txt.ts.",
+      "summary": "Optionally let the agent directive and the base layout cope with a site whose routes serve no llms.txt, or none for a collection: the layout reads the new getPublishedLlmsUrl(), which returns the index a route serves (the collection's own, else the site's) or null, and the directive then names only the page's Markdown, or renders nothing.",
+      "affected": "Sites created from the starter that still have src/layouts/BaseLayout.astro or src/components/AgentDirective.astro and that delete src/pages/llms.txt.ts or src/pages/[...section]/llms.txt.ts.",
       "instructions": [
-        "No action is needed while src/pages/llms.txt.ts exists: getPublishedLlmsUrl() returns the same path getCollectionLlmsUrl() did.",
+        "No action is needed while both src/pages/llms.txt.ts and src/pages/[...section]/llms.txt.ts exist: getPublishedLlmsUrl() returns the same path getCollectionLlmsUrl() did. Without the section route, the old layout still advertises /<collection>/llms.txt, which no route serves; take the change.",
         "Take the change with nimbus-docs diff src/layouts/BaseLayout.astro --apply and nimbus-docs diff src/components/AgentDirective.astro --apply.",
         "If you edited either file, merge by hand: in BaseLayout, read llmsIndexPath from getPublishedLlmsUrl(collection ?? undefined) and build basedLlmsUrl and llmsUrl only when it is not null; in AgentDirective, type llmsUrl as string | null | undefined and render the aside only when markdownUrl or llmsUrl is set, with a Markdown-only sentence when there is no index."
       ],
       "verify": [
         "With src/pages/llms.txt.ts present, every page's agent directive and <link rel=\"alternate\" type=\"text/markdown\"> read as before.",
-        "Delete src/pages/llms.txt.ts and build: no page links /llms.txt, and the directive names only the page's Markdown (or is absent when the Markdown route is gone too)."
+        "Delete src/pages/llms.txt.ts and build: no page links /llms.txt, and the directive names only the page's Markdown (or is absent when the Markdown route is gone too).",
+        "Delete src/pages/[...section]/llms.txt.ts instead and build: a mounted collection's pages link /llms.txt, not /<collection>/llms.txt."
       ]
     }
   ]
