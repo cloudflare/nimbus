@@ -34,6 +34,7 @@ const spec = {
           { name: "limit", in: "query", required: true, schema: { type: "integer", minimum: 1, maximum: 50 }, example: 10 },
           { name: "Accept", in: "header", schema: { type: "string" } },
           { name: "bad", in: "query", style: "deepObject", schema: { type: "object" } },
+          { name: "page", in: "query", required: true, example: 5, content: { "application/json": { schema: { type: "integer" } } } },
         ],
         responses: { "200": { description: "ok" } },
       },
@@ -135,6 +136,7 @@ describe("what a plan keeps", () => {
     assert.deepEqual([by("limit").schema.minimum, by("limit").schema.maximum], [1, 50]);
     assert.equal(by("Accept").ignored, true);
     assert.match(by("bad").refused!, /deepObject without explode/);
+    assert.equal(by("page").initial, 5, "a JSON content parameter starts as the value, not its text");
   });
 
   test("auth: alternatives with readable labels; clashes and unsupported schemes say why", async () => {

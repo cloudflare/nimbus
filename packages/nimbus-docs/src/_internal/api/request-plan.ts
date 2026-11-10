@@ -146,12 +146,21 @@ function planParam(param: OpenApiParameter, sample: string | undefined): PlanPar
   // The form starts as the sample: path parameters and required query and header
   // parameters carry the sample's value; everything else starts absent.
   const inSample = param.in === "path" || (param.required === true && (param.in === "query" || param.in === "header"));
-  if (inSample && sample !== undefined) out.initial = sample;
+  if (inSample && sample !== undefined) out.initial = contentEntry ? parsedSample(sample) : sample;
   const examples = Object.entries(param.examples ?? {})
     .filter(([, example]) => example && "value" in example && example.value !== undefined)
     .map(([id, example]) => ({ id, value: toJson(example!.value) }));
   if (examples.length > 0) out.examples = examples;
   return out;
+}
+
+// A JSON content parameter's sample is its JSON text; the form holds the value.
+function parsedSample(sample: string): JsonValue {
+  try {
+    return JSON.parse(sample) as JsonValue;
+  } catch {
+    return sample;
+  }
 }
 
 function refusal(param: OpenApiParameter, plan: PlanParam): string | undefined {

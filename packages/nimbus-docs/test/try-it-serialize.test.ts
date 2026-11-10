@@ -274,7 +274,8 @@ describe("bodies", () => {
     const pt = { name: "pt", value: '{"x":1,"y":2}' };
     assert.deepEqual(fields(form(), [tags, pt]), ["tags=a", "tags=b", "x=1", "y=2"], "form, exploded by default");
     assert.deepEqual(fields(form({ explode: false }), [tags, pt]), ["tags=a,b", "pt=x,1,y,2"]);
-    assert.deepEqual(fields(form({ style: "pipeDelimited", explode: false }), [tags]), ["tags=a|b"]);
+    assert.deepEqual(fields(form({ style: "pipeDelimited", explode: false }), [tags, pt]), ["tags=a|b", "pt=x|1|y|2"]);
+    assert.deepEqual(fields(form({ style: "spaceDelimited", explode: false }), [pt]), ["pt=x 1 y 2"]);
     assert.deepEqual(fields(form({ style: "deepObject", explode: true }), [pt]), ["pt[x]=1", "pt[y]=2"]);
     assert.deepEqual(fields(form(), [{ name: "tags", value: "solo" }]), ["tags=solo"], "plain text is one item of a list field");
     assert.match(refused(form(), { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "pt", value: "x" }] } } }), /pt must be a JSON object/);
@@ -303,6 +304,29 @@ describe("bodies", () => {
     assert.equal(out.body?.kind, "multipart");
     const parts = out.body?.kind === "multipart" ? out.body.parts.map(({ name, value, contentType }) => [name, value, contentType ?? null]) : [];
     assert.deepEqual(parts, [["tags", "a", null], ["tags", "b", null], ["meta", '{"k":1}', "application/json"], ["csv", '{"k":1}', "text/csv"]]);
+  });
+
+  test("multipart: an explicit style or explode applies in 3.1, in place of the content type; 3.0 ignores it", () => {
+    const p = (openapi: "3.0" | "3.1") =>
+      plan({
+        method: "POST",
+        openapi,
+        body: {
+          required: true,
+          examples: [],
+          media: [{
+            mediaType: "multipart/form-data",
+            kind: "multipart",
+            fields: [{ name: "tags", required: false, schema: { type: "array" }, encoding: { style: "form", explode: false, contentType: "text/csv" } }],
+          }],
+        },
+      });
+    const parts = (openapi: "3.0" | "3.1") => {
+      const out = send(p(openapi), { body: { mediaType: "multipart/form-data", value: { fields: [{ name: "tags", value: '["a","b"]' }] } } });
+      return out.body?.kind === "multipart" ? out.body.parts.map(({ name, value, contentType }) => [name, value, contentType ?? null]) : [];
+    };
+    assert.deepEqual(parts("3.1"), [["tags", "a,b", null]]);
+    assert.deepEqual(parts("3.0"), [["tags", "a", "text/csv"], ["tags", "b", "text/csv"]]);
   });
 
   test("multipart parts keep files and their content types", () => {

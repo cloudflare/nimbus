@@ -434,7 +434,7 @@ function serializeBody(plan: RequestPlan, values: RequestValues, method: string)
       return { kind: "form", fields };
     }
     case "multipart":
-      return { kind: "multipart", parts: multipartParts(formValues(value), media!.fields ?? []) };
+      return { kind: "multipart", parts: multipartParts(formValues(value), media!.fields ?? [], !plan.openapi.startsWith("3.0")) };
   }
 }
 
@@ -461,14 +461,14 @@ function formField(name: string, text: string, field: PlanBodyField | undefined)
   if (value === undefined) return [{ name, value: text }];
   const style = field?.encoding?.style ?? "form";
   const explode = field?.encoding?.explode ?? style === "form";
+  const delimiter = style === "spaceDelimited" ? " " : style === "pipeDelimited" ? "|" : ",";
   if (Array.isArray(value)) {
     const list = items(value, name);
-    if (style === "spaceDelimited" || style === "pipeDelimited") return [{ name, value: list.join(style === "spaceDelimited" ? " " : "|") }];
-    return explode ? list.map((item) => ({ name, value: item })) : [{ name, value: list.join(",") }];
+    return explode && delimiter === "," ? list.map((item) => ({ name, value: item })) : [{ name, value: list.join(delimiter) }];
   }
   const pairs = entries(value, name);
   if (style === "deepObject") return pairs.map(([k, v]) => ({ name: `${name}[${k}]`, value: v }));
-  return explode ? pairs.map(([k, v]) => ({ name: k, value: v })) : [{ name, value: pairs.flat().join(",") }];
+  return explode && delimiter === "," ? pairs.map(([k, v]) => ({ name: k, value: v })) : [{ name, value: pairs.flat().join(delimiter) }];
 }
 
 function formValues(value: unknown): FormValues {
@@ -478,10 +478,15 @@ function formValues(value: unknown): FormValues {
   return value as FormValues;
 }
 
-function multipartParts(values: FormValues, fields: PlanBodyField[]): HttpPart[] {
+// `styled`: OpenAPI 3.1 applies an explicit style or explode to multipart too,
+// in place of the content type; 3.0 ignores them there.
+function multipartParts(values: FormValues, fields: PlanBodyField[], styled: boolean): HttpPart[] {
   const byName = new Map(fields.map((field) => [field.name, field]));
   return values.fields.flatMap(({ name, value, filename, contentType }) => {
     const field = byName.get(name);
+    if (styled && typeof value === "string" && (field?.encoding?.style !== undefined || field?.encoding?.explode !== undefined)) {
+      return formField(name, value, field).map((pair): HttpPart => ({ name: pair.name, value: pair.value }));
+    }
     const declared = contentType ?? field?.encoding?.contentType?.split(",")[0]?.trim();
     const part = (v: string | Blob, type?: string): HttpPart => {
       const out: HttpPart = { name, value: v };
