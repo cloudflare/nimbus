@@ -95,7 +95,11 @@ function build(v: Version): Record<string, unknown> {
       contact: { name: "Weather API support", email: "support@weather.example" },
       termsOfService: "https://weather.example/terms",
     },
-    servers: [{ url: v === 3 ? "https://api.weather.example/v3-preview" : `https://api.weather.example/v${v}` }],
+    servers: [
+      { url: v === 3 ? "https://api.weather.example/v3-preview" : `https://api.weather.example/v${v}` },
+      // The demo's fixture API (fixture-api/): answers v2 with its documented responses, for Try it.
+      ...(v === 2 ? [{ url: "https://api.demo.nimbus-docs.com/v2", description: "Sandbox: test keys, fixed data" }] : []),
+    ],
     security: [v === 1 ? { apiKey: [] } : { bearer: [] }],
     tags,
     "x-tagGroups": [...groups].map(([name, members]) => ({ name, tags: members })),
