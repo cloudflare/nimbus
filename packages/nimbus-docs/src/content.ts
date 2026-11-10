@@ -18,6 +18,7 @@
  *   })),
  */
 
+import { apiKey } from "./_internal/try-it/protocol.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -916,7 +917,6 @@ export function apiCollection(options?: ApiCollectionOptions): {
               target.sidebar === "on-demand",
             );
             {
-              const { apiKey } = await import("./_internal/try-it/protocol.js");
               const key = apiKey({ family: collection, ...(target.version ? { version: target.version } : {}) });
               const proxy = target.tryIt && target.tryIt.proxy !== false && proxyRuns
                 ? { key, extraOrigins: target.tryIt.proxy.extraOrigins, limits: target.tryIt.limits }
