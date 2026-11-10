@@ -446,13 +446,19 @@ function sampleBase(server: string | undefined): Segment[] {
   // its labels split on every dot IDNA treats as one.
   const scheme = url.slice(0, url.indexOf("://"));
   const authority = url.slice(scheme.length + 3).split(/[/\\?#]/, 1)[0]!;
-  let host = authority.slice(authority.lastIndexOf("@") + 1);
-  try {
-    host = decodeURIComponent(host);
-  } catch {
-    // Not valid percent-encoding: check it as written.
-  }
-  const mixedLabel = host.split(/[.\u3002\uff0e\uff61]/).some((label) => /\{[^{}]+\}/.test(label) && /[^\x00-\x7f]/.test(label));
+  const host = authority.slice(authority.lastIndexOf("@") + 1);
+  const dots = /[.\u3002\uff0e\uff61]/;
+  // A placeholder is a `{name}` as written; non-ASCII may also be percent-encoded.
+  const mixedLabel = host.split(dots).some((label) => {
+    if (!/\{[^{}]+\}/.test(label)) return false;
+    let text = label;
+    try {
+      text = decodeURIComponent(label);
+    } catch {
+      // Not valid percent-encoding: check it as written.
+    }
+    return /[^\x00-\x7f]/.test(text);
+  });
   if (scheme.includes("{") || mixedLabel) return [placeholder("base-url")];
   return URL.canParse(probe(url)) ? variables(url) : [placeholder("base-url")];
 }

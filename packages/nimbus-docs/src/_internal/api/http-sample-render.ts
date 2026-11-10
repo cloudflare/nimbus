@@ -113,8 +113,10 @@ export function sampleUrl(request: Pick<SampleRequest, "url" | "query">): Segmen
   const literal = [...values.flat(), ...request.query.map((field) => ({ text: field.name }))]
     .map((segment) => (isPlaceholder(segment) ? "" : segment.text))
     .join("\n");
-  // The literal text as written and as decoded, so a `%`-encoded token can't collide either.
-  const ownText = `${literal}\n${bytesDecoded(literal)}`.toLowerCase();
+  // The literal text as written, as decoded and as IDNA maps a host (NFKC), so a
+  // token spelled in `%`-encoding or in full-width letters can't collide either.
+  const decoded = bytesDecoded(literal);
+  const ownText = [literal, decoded, literal.normalize("NFKC"), decoded.normalize("NFKC")].join("\n").toLowerCase();
   for (let attempt = 0; attempt < 1000; attempt++) {
     if (ownText.includes(`nbph${attempt}q`)) continue;
     const out = sampleUrlWith(request, `nbph${attempt}q`);

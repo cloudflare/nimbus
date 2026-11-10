@@ -200,6 +200,16 @@ describe("sample URLs as WHATWG writes them", () => {
     assert.deepEqual(url, [{ text: "https://x.test/x?q=nbph0q0z&bad=%EF%BF%BD" }]);
   });
 
+  test("a full-width host that IDNA maps onto a token stays text", async () => {
+    const { buildOperationSamples } = await import("../src/_internal/api/samples.js");
+    const out = buildOperationSamples(tools, { method: "get", path: "/{id}/../x", params: [], auth: [], server: "https://\uff4e\uff42\uff50\uff48\uff10\uff51\uff10\uff5a.example" });
+    assert.match(out.find((s) => s.lang === "curl")!.source, /--url https:\/\/nbph0q0z\.example\/x/);
+  });
+
+  test("an encoded brace in a host is text, not a placeholder (WHATWG decodes it)", async () => {
+    assert.equal(await curlUrl("https://a%7Bb%7D.example"), "'https://a{b}.example/x'");
+  });
+
   test("a placeholder in a Unicode host label, percent-encoded or after a backslash", async () => {
     assert.equal(await curlUrl("https://m%C3%BCnich-{tenant}.example"), "'<base-url>/x'");
     assert.equal(await curlUrl("https://x.test\\m\u00fcnich-{tenant}"), "'https://x.test/m%C3%BCnich-<tenant>/x'");
