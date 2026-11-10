@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import type { PlanParam, RequestPlan, RequestValues } from "../src/_internal/try-it/plan.js";
-import { serializeRequest } from "../src/_internal/try-it/serialize.js";
+import { parseExactJson, serializeRequest } from "../src/_internal/try-it/serialize.js";
 
 const param = (over: Partial<PlanParam> & Pick<PlanParam, "in" | "name">): PlanParam => {
   const style = over.style ?? (over.in === "query" || over.in === "cookie" ? "form" : "simple");
@@ -300,7 +300,13 @@ describe("bodies", () => {
     });
     assert.equal(wire(counted, [{ name: "count", value: "42" }, { name: "on", value: "true" }]), "count=42&on=true");
     assert.equal(wire(counted, [{ name: "count", value: "0x10" }]), "count=%220x10%22", "text that isn't a JSON number stays text");
-    assert.equal(wire(counted, [{ name: "count", value: "9007199254740993" }]), "count=%229007199254740993%22", "past 2^53 the digits are kept, never rounded");
+    assert.equal(wire(counted, [{ name: "count", value: "1e3" }, { name: "on", value: "false" }]), "count=1000&on=false", "any JSON number is a number");
+    const big = (value: string) => refused(counted, { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "count", value }] } } });
+    assert.match(big("9007199254740993"), /count: 9007199254740993 is too large to send exactly/, "refused, never rounded");
+    assert.match(refused(form(), { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "tags", value: "[9007199254740993]" }] } } }), /too large/, "inside a list too");
+    // A field named like a prototype key is a field like any other.
+    const proto = plan({ method: "POST", body: { required: true, examples: [], media: [{ mediaType: "application/x-www-form-urlencoded", kind: "form", fields: [{ name: "__proto__", required: false, schema: { type: "string" } }] }] } });
+    assert.equal(wire(proto, [{ name: "__proto__", value: "x" }]), "__proto__=x");
     assert.match(refused(form(), { body: { mediaType: "application/x-www-form-urlencoded", value: { fields: [{ name: "pt", value: "x" }] } } }), /pt must be a JSON object/);
   });
 
@@ -379,5 +385,13 @@ describe("bodies", () => {
     });
     const bytes = send(post("bytes", "application/octet-stream"), { body: { mediaType: "application/octet-stream", value: new Blob([new Uint8Array([1, 2])]) } });
     assert.equal(bytes.body?.kind, "bytes");
+  });
+});
+
+describe("parseExactJson", () => {
+  test("parses JSON; refuses an integer a number would round, but not one in a string", () => {
+    assert.deepEqual(parseExactJson('{"id": 42, "n": 1.5e3, "big": "9007199254740993"}'), { id: 42, n: 1500, big: "9007199254740993" });
+    assert.throws(() => parseExactJson('{"id": 9007199254740993}'), RangeError);
+    assert.throws(() => parseExactJson("{"), SyntaxError);
   });
 });

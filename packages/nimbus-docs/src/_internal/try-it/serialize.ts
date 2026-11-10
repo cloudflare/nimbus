@@ -445,13 +445,27 @@ function serializeBody(plan: RequestPlan, values: RequestValues, method: string)
   }
 }
 
+/**
+ * `JSON.parse`, refusing an integer a JavaScript number can't hold (past 2^53),
+ * which would otherwise be sent rounded: a different id than the one typed.
+ * Throws a `RangeError` saying so, or the parser's `SyntaxError`.
+ */
+export function parseExactJson(text: string): unknown {
+  const value: unknown = JSON.parse(text);
+  for (const [token] of text.matchAll(/"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g)) {
+    if (/^-?\d+$/.test(token) && !Number.isSafeInteger(Number(token))) {
+      throw new RangeError(`${token} is too large to send exactly as a number; send it as a string ("${token}") if the API takes one.`);
+    }
+  }
+  return value;
+}
+
 // A field's value from its text: a list or object field holds JSON, and text
 // that isn't a JSON list is one item of a list field.
 function fieldValue(name: string, text: string, field: PlanBodyField | undefined): unknown {
   const type = field?.schema.type;
   // A number or boolean is typed as one, so a JSON content type writes `42`, not `"42"`.
-  // Only when the number writes back exactly: a 64-bit id past 2^53 stays its digits.
-  if ((type === "integer" || type === "number") && /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/.test(text) && String(Number(text)) === text) return Number(text);
+  if ((type === "integer" || type === "number") && /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/.test(text)) return exact(name, text);
   if (type === "boolean" && (text === "true" || text === "false")) return text === "true";
   if (type !== "array" && type !== "object") return text;
   let parsed: unknown;
@@ -460,15 +474,25 @@ function fieldValue(name: string, text: string, field: PlanBodyField | undefined
   } catch {
     return type === "array" ? [text] : refuse(`${name} must be a JSON object.`);
   }
+  exact(name, text);
   if (type === "array") return Array.isArray(parsed) ? parsed : [text];
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return refuse(`${name} must be a JSON object.`);
   return parsed;
 }
 
-// The form's fields as one object, the shape the code samples encode.
+function exact(name: string, text: string): unknown {
+  try {
+    return parseExactJson(text);
+  } catch (error) {
+    return refuse(`${name}: ${(error as Error).message}`);
+  }
+}
+
+// The form's fields as one object, the shape the code samples encode. No
+// prototype, so a field named `__proto__` is a field like any other.
 function formObject(given: FormValues["fields"], planned: PlanBodyField[]): Record<string, unknown> {
   const byName = new Map(planned.map((field) => [field.name, field]));
-  const out: Record<string, unknown> = {};
+  const out: Record<string, unknown> = Object.create(null);
   for (const { name, value } of given) {
     const next = fieldValue(name, value as string, byName.get(name));
     // A name given twice (older saved drafts) is a list.

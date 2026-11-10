@@ -47,6 +47,7 @@ export type { Shortcuts, ShortcutKey, ShortcutOptions } from "./shortcuts";
 export {
   loadRequestPlan,
   serializeRequest,
+  parseExactJson,
   renderSample,
   maskText,
   sendRequest,
