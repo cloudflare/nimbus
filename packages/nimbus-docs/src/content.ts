@@ -168,7 +168,9 @@ const DEFAULT_PATTERN = "**/*.{md,mdx}";
 /** A quarter of the 64 MiB Workers script limit (uncompressed; there is no
  * compressed limit): developers.cloudflare.com/workers/platform/limits. */
 const BUNDLE_HINT_BYTES = 16 * 1024 * 1024;
-const NIMBUS_MARKDOWN_GENERATION = 1;
+// Bump with AGENT_ENDPOINT_ASSET_GENERATION when prepared bodies change, so
+// cached entries are prepared again; the bake refuses a mismatch.
+const NIMBUS_MARKDOWN_GENERATION = 2;
 // One cache across roles: wrapping an already-wrapped loader must return it
 // unchanged (whatever role it was wrapped with), or the nested wrappers would
 // queue the same collection transaction inside itself and deadlock the load.
@@ -486,7 +488,7 @@ function sourceGlob(source: string, rawBase: string | undefined, pattern: string
       }
       const rootDir = fileURLToPath(context.config.root);
       const relative = path.relative(rootDir, folder).split(path.sep).join("/");
-      registerSourceCollectionFolder({ collection: context.collection, folder, root: context.config.root });
+      registerSourceCollectionFolder({ collection: context.collection, folder, pattern, root: context.config.root });
       // A repository's docs often have no frontmatter: a page without a
       // `title` takes its first heading, else its file name.
       const parseData = Reflect.get(context, "parseData", context) as typeof context.parseData;

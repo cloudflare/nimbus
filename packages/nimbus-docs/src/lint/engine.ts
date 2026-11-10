@@ -11,6 +11,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import type { SourceCollection } from "../_internal/source-links.js";
 import {
   resolveRuleForCollection,
   ruleEnabledAnywhere,
@@ -76,8 +77,8 @@ export interface LintOptions {
    * writes such a file: its fixable findings stay in the report.
    */
   readOnlySource?: (absPath: string) => string | undefined;
-  /** The folder a snapshot file's collection reads, for rules that resolve relative links. */
-  sourceFolder?: (absPath: string) => string | undefined;
+  /** The folder and pattern of a snapshot file's collection, for rules that resolve relative links. */
+  sourceCollection?: (absPath: string) => SourceCollection | undefined;
 }
 
 export interface LintSummary {
@@ -164,7 +165,7 @@ export function lintFile(file: ParsedFile, opts: LintOptions = {}): Diagnostic[]
         options: resolved.options,
         site: opts.site,
         base: opts.base,
-        sourceFolder: opts.sourceFolder?.(file.absPath),
+        sourceCollection: opts.sourceCollection?.(file.absPath),
         optionsOf: (code) =>
           resolveRuleForCollection(code, rules, collections, file.collection).options,
         report: (report) => reports.push(report),
