@@ -438,7 +438,14 @@ function sampleBase(server: string | undefined): Segment[] {
     return [placeholder("base-url"), ...variables(`${url.startsWith("/") || url === "" ? "" : "/"}${url}`)];
   }
   // A placeholder where a URL can't hold one, such as the port, leaves no
-  // valid URL; the whole base is then the reader's to fill in.
+  // valid URL; the whole base is then the reader's to fill in. So does one in
+  // the scheme (a token scheme reads with different host and path rules), and
+  // one inside a host label with non-ASCII characters, whose ASCII form can
+  // only be computed once the reader fills it in.
+  const scheme = url.slice(0, url.indexOf("://"));
+  const host = url.slice(scheme.length + 3).split(/[/?#]/, 1)[0]!.split("@").pop()!;
+  const mixedLabel = host.split(".").some((label) => /\{[^{}]+\}/.test(label) && /[^\x00-\x7f]/.test(label));
+  if (scheme.includes("{") || mixedLabel) return [placeholder("base-url")];
   return URL.canParse(probe(url)) ? variables(url) : [placeholder("base-url")];
 }
 

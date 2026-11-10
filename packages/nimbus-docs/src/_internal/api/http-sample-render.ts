@@ -58,119 +58,58 @@ function cookieHeader(cookies: readonly SampleField[]): SampleValue | undefined 
   return out;
 }
 
+/**
+ * The request's cookies as one value: a `Cookie` header it sets (any case)
+ * first, then the cookies auth adds. Clients keep only one of a `Cookie`
+ * header and their own cookie option, so a request with both sends them
+ * merged. `undefined` when there are none.
+ */
+function mergedCookies(request: SampleRequest): SampleValue | undefined {
+  const values = request.headers.filter(({ name }) => name.toLowerCase() === "cookie").map(({ value }) => value);
+  const auth = cookieHeader(request.cookies);
+  if (auth) values.push(auth);
+  if (values.length === 0) return undefined;
+  return values.flatMap((value, i) => (i === 0 ? [...value] : [{ text: "; " }, ...value]));
+}
+
+const isCookie = (name: string) => name.toLowerCase() === "cookie";
+
 function mapText(value: SampleValue, fn: (text: string) => string): Segment[] {
   return value.map((segment) => (isPlaceholder(segment) ? segment : { text: fn(segment.text) }));
 }
 
 // ---- The URL ------------------------------------------------------------------
 
-// Characters a URL's path never carries raw: written percent-encoded.
-const AUTO_ESCAPE = /[{}|\\^`'"<> \r\n\t]/g;
-
 /** RFC 3986 encoding of a query key or value: unreserved characters stay. */
 function encodeQuery(text: string): string {
   return encodeURIComponent(text).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
-/** A server query (`?a=1&a=2`) read as name/value pairs, decoded as a form is. */
-function parseQuery(query: string): Array<[string, string]> {
-  if (query === "") return [];
-  return query.split("&").filter((pair) => pair !== "").map((pair) => {
-    const at = pair.indexOf("=");
-    const [name, value] = at < 0 ? [pair, ""] : [pair.slice(0, at), pair.slice(at + 1)];
-    return [decodeForm(name), decodeForm(value)];
-  });
-}
-
-/** Form decoding that never fails: valid `%XX` runs become UTF-8 text, invalid
- *  bytes the replacement character, and a malformed `%` stays as written. */
-function decodeForm(text: string): string {
-  const spaced = text.replaceAll("+", " ");
-  const bytes: number[] = [];
-  const encoder = new TextEncoder();
-  for (let i = 0; i < spaced.length; i++) {
-    const char = spaced[i]!;
-    if (char === "%" && /^[0-9A-Fa-f]{2}$/.test(spaced.slice(i + 1, i + 3))) {
-      bytes.push(parseInt(spaced.slice(i + 1, i + 3), 16));
-      i += 2;
-      continue;
-    }
-    const code = spaced.codePointAt(i)!;
-    const piece = String.fromCodePoint(code);
-    bytes.push(...encoder.encode(piece));
-    i += piece.length - 1;
+/** `decodeURIComponent` that leaves text it can't decode as written. */
+function safeDecode(text: string): string {
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text;
   }
-  // A byte-order mark is query data, not a marker to drop.
-  return new TextDecoder("utf-8", { ignoreBOM: true }).decode(new Uint8Array(bytes));
 }
 
-function escapeChar(char: string): string {
-  return `%${char.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`;
-}
-
-/** Names in the order an object lists them: integer-like names first, ascending, then the rest as added. */
-function objectOrder(names: string[]): string[] {
-  const index = (name: string) => (/^(0|[1-9]\d*)$/.test(name) && Number(name) < 2 ** 32 - 1 ? Number(name) : undefined);
-  const integers = names.filter((name) => index(name) !== undefined).sort((a, b) => index(a)! - index(b)!);
-  return [...integers, ...names.filter((name) => index(name) === undefined)];
-}
-
-// The characters user info keeps as written; any other is percent-encoded.
-const USERINFO_KEEPS = /^[A-Za-z0-9!'()*\-.:_~]$/;
-
-// A host ends at the first of these; what follows belongs to the path.
-const HOST_ENDS = /[%/?;#'{}|\\^`<>" ]/;
+// Relative URLs (a `<base-url>` sample) are read against this origin, which is never written.
+const TEMPORARY_ORIGIN = "https://nimbus-base.invalid";
 
 /**
- * Scheme, user info, host and port as samples have always written them, and
- * any text after the host that belongs to the path: tabs and newlines dropped
- * from the authority; the host ending at the first character a host can't
- * hold; scheme and host in lower case, an international host in its ASCII
- * form; user info decoded and re-encoded, keeping its colons, and dropped
- * when empty; the port as written, dropped when empty. IP addresses keep
- * their spelling. User info that isn't valid percent-encoding throws, which
- * leaves the sample out.
- */
-function splitAuthority(scheme: string, rest: string): { authority: string; path: string } {
-  const slash = rest.indexOf("/");
-  const authorityPart = (slash < 0 ? rest : rest.slice(0, slash)).replace(/[\t\r\n]/g, "");
-  const afterAuthority = slash < 0 ? "" : rest.slice(slash);
-  const at = authorityPart.lastIndexOf("@");
-  const userinfo = at < 0 ? undefined : authorityPart.slice(0, at);
-  const hostAndMore = authorityPart.slice(at + 1);
-  const end = hostAndMore.search(HOST_ENDS);
-  const hostPort = end < 0 ? hostAndMore : hostAndMore.slice(0, end);
-  const spill = end < 0 ? "" : hostAndMore.slice(end);
-  const portMatch = hostPort.startsWith("[") ? /\](:(\d*))?$/.exec(hostPort) : /:(\d*)$/.exec(hostPort);
-  const port = hostPort.startsWith("[") ? portMatch?.[2] : portMatch?.[1];
-  let host = (hostPort.startsWith("[") ? hostPort.slice(0, hostPort.indexOf("]") + 1) : portMatch ? hostPort.slice(0, portMatch.index) : hostPort).toLowerCase();
-  if (/[^\x00-\x7f]/.test(host)) {
-    try {
-      host = new URL(`http://${host}`).hostname;
-    } catch {
-      /* Not a valid international name: keep it as written. */
-    }
-  }
-  // User info needs a host to sit in front of.
-  const user = userinfo && host
-    ? `${[...decodeURIComponent(userinfo)].map((char) => (USERINFO_KEEPS.test(char) ? char : encodeURIComponent(char))).join("")}@`
-    : "";
-  const path = `${spill}${afterAuthority}`;
-  return {
-    authority: `${scheme.toLowerCase()}//${user}${host}${port ? `:${port}` : ""}`,
-    path: path === "" || path.startsWith("/") ? path : `/${path}`,
-  };
-}
-
-/**
- * The full URL the sample sends: the authority normalised, a bare host given
- * the path `/`, characters a path can't hold percent-encoded, and the query
- * parameters joined with any query the server URL already carries (the
- * server's own value wins for a shared name).
+ * The full URL the sample sends, as the WHATWG URL standard writes it (the
+ * URL a browser, `fetch` or Try it sends): parsed with `new URL()`, the
+ * server's own query read as `searchParams`, then the operation's query
+ * fields after it in spec order (a name the server's query has keeps the
+ * server's values), every name and value RFC 3986-encoded.
  *
  * Placeholders take part as opaque tokens of letters and digits, which no step
  * changes, and become placeholder segments again at the end; a token prefix
- * the request's own text contains is skipped.
+ * the request's own text contains is skipped. A sample whose URL starts with
+ * the `<base-url>` placeholder keeps it, and the rest is read against a
+ * temporary origin; an absolute URL that doesn't parse becomes `<base-url>`
+ * followed by its path.
  */
 export function sampleUrl(request: Pick<SampleRequest, "url" | "query">): Segment[] {
   const values = [request.url, ...request.query.map((field) => field.value)];
@@ -178,7 +117,7 @@ export function sampleUrl(request: Pick<SampleRequest, "url" | "query">): Segmen
     .map((segment) => (isPlaceholder(segment) ? "" : segment.text))
     .join("\n");
   // The literal text as written and as decoded, so a `%`-encoded token can't collide either.
-  const ownText = `${literal}\n${decodeForm(literal)}`.toLowerCase();
+  const ownText = `${literal}\n${safeDecode(literal)}`.toLowerCase();
   for (let attempt = 0; attempt < 1000; attempt++) {
     if (ownText.includes(`nbph${attempt}q`)) continue;
     const out = sampleUrlWith(request, `nbph${attempt}q`);
@@ -190,40 +129,36 @@ export function sampleUrl(request: Pick<SampleRequest, "url" | "query">): Segmen
 /** The URL with placeholders as `<prefix><n>z` tokens, or `undefined` when a token comes back wrong. */
 function sampleUrlWith(request: Pick<SampleRequest, "url" | "query">, prefix: string): Segment[] | undefined {
   const placeholders: Segment[] = [];
-  const flat = (value: SampleValue) =>
-    value.map((segment) => (isPlaceholder(segment) ? `${prefix}${placeholders.push(segment) - 1}z` : segment.text)).join("");
+  const token = (segment: Segment) => `${prefix}${placeholders.push(segment) - 1}z`;
+  const flat = (value: SampleValue) => value.map((segment) => (isPlaceholder(segment) ? token(segment) : segment.text)).join("");
 
-  let url = flat(request.url).trim();
-  const params = request.query.map(({ name, value }) => [name, flat(value)] as const);
-
-  const cut = url.search(/[?#]/);
-  let before = (cut < 0 ? url : url.slice(0, cut)).replaceAll("\\", "/");
-  const after = cut < 0 ? "" : url.slice(cut);
-  let authority = "";
-  const scheme = /^[a-z][a-z0-9+.-]*:(?=\/\/)/i.exec(before)?.[0];
-  if (scheme) {
-    const split = splitAuthority(scheme, before.slice(scheme.length + 2));
-    authority = split.authority;
-    before = split.path;
+  // A leading `<base-url>` (no server, or a relative one) stays as it is.
+  const first = request.url[0];
+  let lead = first && isPlaceholder(first) && first.placeholder === "base-url" ? token(first) : "";
+  let rest = flat(lead ? request.url.slice(1) : request.url).trim();
+  let parsed: URL | undefined;
+  if (!lead) {
+    try {
+      parsed = new URL(rest);
+    } catch {
+      // Not a URL: `<base-url>` followed by what follows its authority.
+      lead = token({ placeholder: "base-url" });
+      rest = rest.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i, "");
+    }
   }
-  let path = before.replace(AUTO_ESCAPE, escapeChar);
-  if (scheme && path === "") path = "/";
+  parsed ??= new URL(`${TEMPORARY_ORIGIN}${rest.startsWith("/") ? "" : "/"}${rest}`);
 
-  const hashAt = after.indexOf("#");
-  const serverQuery = (hashAt < 0 ? after : after.slice(0, hashAt)).replace(/^\?/, "");
-  const hash = hashAt < 0 ? "" : after.slice(hashAt).replace(AUTO_ESCAPE, escapeChar);
+  // The server's query first, then the operation's fields; the server keeps a name it has.
+  const pairs: [string, string][] = [...parsed.searchParams];
+  const serverNames = new Set(pairs.map(([name]) => name));
+  for (const { name, value } of request.query) if (!serverNames.has(name)) pairs.push([name, flat(value)]);
+  const query = pairs.map(([name, value]) => `${encodeQuery(name)}=${encodeQuery(value)}`).join("&");
+  const hash = parsed.hash;
+  parsed.hash = "";
+  parsed.search = "";
+  const head = lead ? `${lead}${parsed.pathname}` : parsed.href;
+  const url = `${head}${query ? `?${query}` : ""}${hash}`;
 
-  // The parameters by name, repeats kept in order; the server's own query wins for a shared name.
-  const byName = new Map<string, string[]>();
-  for (const [name, value] of params) byName.set(name, [...(byName.get(name) ?? []), value]);
-  const server = new Map<string, string[]>();
-  for (const [name, value] of parseQuery(serverQuery)) server.set(name, [...(server.get(name) ?? []), value]);
-  for (const [name, list] of server) byName.set(name, list);
-  const query = objectOrder([...byName.keys()])
-    .flatMap((name) => byName.get(name)!.map((value) => `${encodeQuery(name)}=${encodeQuery(value)}`))
-    .join("&");
-
-  url = `${authority}${path}${query ? `?${query}` : ""}${hash}`;
   const out: Segment[] = [];
   const seen = new Set<number>();
   let last = 0;
@@ -282,11 +217,13 @@ export function renderCurl(request: SampleRequest): string | undefined {
   if (body?.kind === "multipart") {
     for (const name of [...headers.keys()]) if (name.toLowerCase() === "content-type") headers.delete(name);
   }
+  // With auth cookies, a Cookie header the request sets joins them in --cookie:
+  // cURL drops --cookie when a Cookie header is given.
+  if (request.cookies.length > 0) for (const name of [...headers.keys()]) if (isCookie(name)) headers.delete(name);
   for (const name of [...headers.keys()].sort()) {
     lines.push(`--header ${shellArg([{ text: `${name}: ` }, ...headers.get(name)!])}`);
   }
-  const cookie = cookieHeader(request.cookies);
-  if (cookie) lines.push(`--cookie ${shellArg(cookie)}`);
+  if (request.cookies.length > 0) lines.push(`--cookie ${shellArg(mergedCookies(request)!)}`);
   if (body) {
     const data = curlBody(body);
     if (data === undefined) return undefined;
@@ -344,13 +281,12 @@ function jsString(value: string): string {
   return `'${escapeForTarget("node", value)}'`;
 }
 
-/** A node of the options object, with the width it counts for when deciding
- *  whether a container fits on one line. */
+/** A node of the options object: a container, or code written at an indentation. */
 type JsNode =
   | { kind: "object"; entries: Array<[string, JsNode]> }
-  | { kind: "code"; text: (indent: string) => string; width: number };
+  | { kind: "code"; text: (indent: string) => string };
 
-const code = (text: string, width = text.length): JsNode => ({ kind: "code", text: () => text, width });
+const code = (text: string): JsNode => ({ kind: "code", text: () => text });
 
 
 // A string as the options object writes it: single quotes, `\n` and `\r`
@@ -361,36 +297,40 @@ function optionString(value: SampleValue): JsNode {
   return code(literal);
 }
 
-/** A node's one-line width, or `undefined` when it doesn't fit on one line. */
-function inlineWidth(node: JsNode): number | undefined {
-  if (node.kind === "code") return node.width;
-  if (node.entries.length === 0) return 2;
-  let width = 2 + (node.entries.length - 1) * 2;
-  for (const [key, value] of node.entries) {
-    const child = inlineWidth(value);
-    width += optionKey(key).length + 2 + (child ?? multilineText(value, "").length);
+/** A node on one line, or `undefined` when it can't be written on one. */
+function inlineText(node: JsNode): string | undefined {
+  if (node.kind === "code") {
+    const text = node.text("");
+    return text.includes("\n") ? undefined : text;
   }
-  return width <= JS_INLINE_LIMIT ? width : undefined;
-}
-
-function multilineText(node: JsNode, pad: string): string {
-  return renderJsNode(node, pad, pad);
+  const entries: string[] = [];
+  for (const [key, value] of node.entries) {
+    const child = inlineText(value);
+    if (child === undefined) return undefined;
+    entries.push(`${optionKey(key)}: ${child}`);
+  }
+  return `{${entries.join(", ")}}`;
 }
 
 /**
- * The options object: a container stays on one line when that line fits in
- * 80 characters. `pad` is the container's own indentation, `linePad` the
- * indentation of the line it starts on; a code node written on one line
- * indents from `linePad`, one written on its own line from its entry's.
+ * The options object: a container stays on one line when its whole line, as
+ * written, is at most 80 characters (`before` and `after` are the line's text
+ * around it); otherwise one property per line, each judged the same way. `pad`
+ * is the container's own indentation.
  */
-function renderJsNode(node: JsNode, pad: string, linePad: string): string {
-  if (node.kind === "code") return node.text(linePad);
+function renderJsNode(node: JsNode, pad: string, before: number, after: number): string {
+  if (node.kind === "code") return node.text(pad);
   if (node.entries.length === 0) return "{}";
+  const inline = inlineText(node);
+  if (inline !== undefined && before + inline.length + after <= JS_INLINE_LIMIT) return inline;
   const inner = pad + JS_INDENT;
-  if (inlineWidth(node) !== undefined) {
-    return `{${node.entries.map(([key, value]) => `${optionKey(key)}: ${renderJsNode(value, inner, linePad)}`).join(", ")}}`;
-  }
-  return `{\n${node.entries.map(([key, value]) => `${inner}${optionKey(key)}: ${renderJsNode(value, inner, inner)}`).join(",\n")}\n${pad}}`;
+  const last = node.entries.length - 1;
+  return `{\n${node.entries
+    .map(([key, value], i) => {
+      const lead = `${inner}${optionKey(key)}: `;
+      return `${lead}${renderJsNode(value, inner, lead.length, i < last ? 1 : 0)}`;
+    })
+    .join(",\n")}\n${pad}}`;
 }
 
 function optionKey(key: string): string {
@@ -432,11 +372,6 @@ function jsPart(part: SampleMultipartPart, indent: string): string {
   return `${name}, new Blob([${value}], { type: ${jsString(part.contentType)} })`;
 }
 
-// The options object has always measured its body as a fixed-width slot when
-// deciding whether it fits on one line; keeping that keeps samples unchanged.
-const BODY_SLOT_JSON = 28;
-const BODY_SLOT_TEXT = 12;
-
 export function renderFetch(request: SampleRequest): string | undefined {
   const lines: string[] = [];
   const headers = headerMap(request.headers);
@@ -448,28 +383,31 @@ export function renderFetch(request: SampleRequest): string | undefined {
     if (body.parts.some((part) => part.kind === "file")) lines.push("import { readFile } from 'node:fs/promises';", "");
     lines.push("const formData = new FormData();");
     lines.push(...body.parts.map((part) => `formData.append(${jsPart(part, "")});`), "");
-    bodyNode = code("formData", "'formData'".length);
+    bodyNode = code("formData");
   } else if (body?.kind === "form") {
     lines.push("const encodedParams = new URLSearchParams();");
     lines.push(...body.fields.map((field) => `encodedParams.append(${jsString(field.name)}, ${jsString(field.value)});`), "");
-    bodyNode = code("encodedParams", "'encodedParams'".length);
+    bodyNode = code("encodedParams");
   } else if (body?.kind === "json") {
     // A JSON `null` on GET or HEAD sends no body.
     if (!(body.value === null && (request.method === "GET" || request.method === "HEAD"))) {
       const value = body.value;
-      bodyNode = { kind: "code", text: (indent) => `JSON.stringify(${jsLiteral(value, indent)})`, width: BODY_SLOT_JSON };
+      bodyNode = { kind: "code", text: (indent) => `JSON.stringify(${jsLiteral(value, indent)})` };
     }
   } else if (body?.kind === "text" || body?.kind === "encodedForm") {
-    if (body.text !== "") bodyNode = code(jsString(body.text), BODY_SLOT_TEXT);
+    if (body.text !== "") bodyNode = code(jsString(body.text));
   }
-  const headerEntries: Array<[string, JsNode]> = [...headers].map(([name, value]) => [name, optionString(value)]);
-  const cookie = cookieHeader(request.cookies);
-  if (cookie) headerEntries.push(["cookie", optionString(cookie)]);
+  // With auth cookies, a Cookie header the request sets joins them: fetch would
+  // join two entries with a comma, which servers read as one cookie.
+  const withAuth = request.cookies.length > 0;
+  const headerEntries: Array<[string, JsNode]> = [...headers]
+    .filter(([name]) => !(withAuth && isCookie(name)))
+    .map(([name, value]) => [name, optionString(value)]);
+  if (withAuth) headerEntries.push(["cookie", optionString(mergedCookies(request)!)]);
   if (headerEntries.length > 0) entries.push(["headers", { kind: "object", entries: headerEntries }]);
   if (bodyNode) entries.push(["body", bodyNode]);
   lines.push(`const url = '${inLiteral(sampleUrl(request), "node", (t) => escapeForTarget("node", t))}';`);
-  // A body that renders across lines indents from the line the option sits on.
-  lines.push(`const options = ${renderJsNode({ kind: "object", entries }, "", "")};`, "");
+  lines.push(`const options = ${renderJsNode({ kind: "object", entries }, "", "const options = ".length, 1)};`, "");
   lines.push("fetch(url, options)", "  .then(res => res.json())", "  .then(json => console.log(json))", "  .catch(err => console.error(err));");
   return lines.join("\n");
 }
@@ -543,10 +481,13 @@ function pythonHeaderEscape(text: string): string {
 
 export function renderPython(request: SampleRequest): string | undefined {
   const lines: string[] = ["import requests", "", `url = "${inLiteral(sampleUrl(request), "python", (t) => escapeForTarget("python", t))}"`, ""];
+  // One `cookie` entry: a `Cookie` header the request sets (any case), then
+  // the cookies auth adds. `requests` treats header names case-insensitively,
+  // so two entries would lose one.
   const headers = new Map<string, SampleValue>();
-  const cookie = cookieHeader(request.cookies);
+  const cookie = mergedCookies(request);
   if (cookie) headers.set("cookie", cookie);
-  for (const [name, value] of headerMap(request.headers)) headers.set(name, value);
+  for (const [name, value] of headerMap(request.headers)) if (!isCookie(name)) headers.set(name, value);
   const body = request.body;
   let payload: "json" | "data" | undefined;
   let files = false;
@@ -590,11 +531,11 @@ export function renderPython(request: SampleRequest): string | undefined {
   const names = [...headers.keys()];
   if (names.length === 0 && (payload || files)) lines.push("");
   else if (names.length === 1) {
-    lines.push(`headers = {"${names[0]}": "${inLiteral(headers.get(names[0]!)!, "python", pythonHeaderEscape)}"}`, "");
+    lines.push(`headers = {"${pythonHeaderEscape(names[0]!)}": "${inLiteral(headers.get(names[0]!)!, "python", pythonHeaderEscape)}"}`, "");
   } else if (names.length > 1) {
     lines.push("headers = {");
     names.forEach((name, i) => {
-      lines.push(`${PYTHON_INDENT}"${name}": "${inLiteral(headers.get(name)!, "python", pythonHeaderEscape)}"${i < names.length - 1 ? "," : ""}`);
+      lines.push(`${PYTHON_INDENT}"${pythonHeaderEscape(name)}": "${inLiteral(headers.get(name)!, "python", pythonHeaderEscape)}"${i < names.length - 1 ? "," : ""}`);
     });
     lines.push("}", "");
   }
