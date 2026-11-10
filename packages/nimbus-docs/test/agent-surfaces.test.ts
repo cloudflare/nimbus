@@ -68,6 +68,9 @@ function commit(root: string, entries: Array<{ id: string; body: string; title: 
   );
 }
 
+const REGEX_SYNTAX = new Set("^$\\.*+?()[]{}|/");
+const literal = (value: string) => [...value].map((char) => (REGEX_SYNTAX.has(char) ? `\\${char}` : char)).join("");
+
 /** Route records as `recordMarkdownRoutes` produces them, from patterns. */
 function route(pattern: string, shared?: "markdown" | "source" | "llms") {
   const source = pattern
@@ -78,7 +81,7 @@ function route(pattern: string, shared?: "markdown" | "source" | "llms") {
         ? "(?:(.*?)/)?"
         : segment.startsWith("[")
           ? "([^/]+)/"
-          : `${segment.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}/`,
+          : `${literal(segment)}/`,
     )
     .join("")
     .replace(/\/$/u, "");

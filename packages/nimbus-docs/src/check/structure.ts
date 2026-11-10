@@ -587,14 +587,12 @@ function checkAgentSurfaces(
   const routes = [...walkFilesSync(pagesDir, { onReadError: "lenient", extensions: [".ts", ".js", ".mjs", ".cjs", ".mts", ".cts"] })].map(
     (file) => file.rel.split(path.sep).join("/"),
   );
-  const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  const file = (name: string) => new RegExp(`(^|/)${escape(name)}\\.[cm]?[jt]s$`, "u");
   const surfaces = {
     pageMarkdown: routes.some((route) => /\.md\.[cm]?[jt]s$/u.test(route)),
     source: routes.some((route) => /\.mdx\.[cm]?[jt]s$/u.test(route)),
     llms: routes.some((route) => /^llms\.txt\.[cm]?[jt]s$/u.test(route)),
-    llmsSections: routes.some((route) => route.includes("/") && file("llms.txt").test(route)),
-    llmsFull: routes.some((route) => file("llms-full.txt").test(route)),
+    llmsSections: routes.some((route) => /\/llms\.txt\.[cm]?[jt]s$/u.test(route)),
+    llmsFull: routes.some((route) => /(^|\/)llms-full\.txt\.[cm]?[jt]s$/u.test(route)),
     mcpBodies: !parsed.unresolved.includes("agents") && !!config?.agents?.mcp,
   };
   // A site with every starter route says nothing: the line is for the one
