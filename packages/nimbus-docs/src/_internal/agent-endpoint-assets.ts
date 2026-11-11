@@ -1094,6 +1094,16 @@ function servesSectionIndex(group: PreparedLlmsGroup, options: BakeAgentEndpoint
   return (options.nestedSections === true || !group.slug.includes("/")) && publishes(options, `/${group.slug}/llms.txt`);
 }
 
+/** The full documents of the sections other slices build, where a route serves them. */
+function otherParts(options: BakeAgentEndpointAssetsOptions): string[] {
+  const parts = (options.absentSections ?? [])
+    .map((section) => `/${section.slug}/llms-full.txt`)
+    .filter((url) => publishes(options, url));
+  return parts.length > 0
+    ? [`Other parts have their own: ${parts.map((url) => absoluteUrl(options.site, options.base, url)).join(", ")}`]
+    : [];
+}
+
 function siteIndexAsset(
   leaves: readonly PreparedLlmsPage[],
   groups: readonly PreparedLlmsGroup[],
@@ -1115,12 +1125,17 @@ function siteIndexAsset(
         position: group.position,
         line: `- [${group.label}](${absoluteUrl(options.site, options.base, `/${group.slug}/llms.txt`)})`,
       })),
-    ...(options.absentSections ?? []).map((section) => ({
-      key: `/${section.slug}`,
-      position: section.position,
-      // The slice holding a nested section serves its llms-full.txt, not an llms.txt.
-      line: `- [${section.label}](${absoluteUrl(options.site, options.base, `/${section.slug}/${options.nestedSections === true || !section.slug.includes("/") ? "llms.txt" : "llms-full.txt"}`)})`,
-    })),
+    ...(options.absentSections ?? []).map((section) => {
+      // The slice holding a nested section serves its llms-full.txt, not an
+      // llms.txt. A document no route serves is not linked: the section's
+      // pages are.
+      const document = `/${section.slug}/${options.nestedSections === true || !section.slug.includes("/") ? "llms.txt" : "llms-full.txt"}`;
+      return {
+        key: `/${section.slug}`,
+        position: section.position,
+        line: `- [${section.label}](${absoluteUrl(options.site, options.base, publishes(options, document) ? document : `/${section.slug}/`)})`,
+      };
+    }),
   ].sort((a, b) =>
     compareByPosition(
       { position: "position" in a ? (a.position as number | undefined) : undefined, url: a.key },
@@ -1136,13 +1151,7 @@ function siteIndexAsset(
       ? []
       : [
           `Full documentation${options.absentSections?.length ? " of this part" : ""} (discoverable current pages, ${fullSplit ? "split by section" : "one document"}): ${absoluteUrl(options.site, options.base, "/llms-full.txt")}`,
-          ...(options.absentSections?.length
-            ? [
-                `Other parts have their own: ${options.absentSections
-                  .map((section) => absoluteUrl(options.site, options.base, `/${section.slug}/llms-full.txt`))
-                  .join(", ")}`,
-              ]
-            : []),
+          ...otherParts(options),
           "",
         ]),
     ...(options.mcpUrl

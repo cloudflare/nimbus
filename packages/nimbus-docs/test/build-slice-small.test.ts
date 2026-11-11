@@ -790,3 +790,20 @@ test("under a base, a slice build keeps only the other slices' redirects from th
     await site.remove();
   }
 });
+
+test("the root slice links an absent slice's pages when no route serves its index", async () => {
+  const site = await sliceSite({ pages: PAGES, starterRoutes: true, logLevel: "silent" });
+  try {
+    await rm(path.join(site.root, "src/pages/[...section]/llms.txt.ts"));
+    await rm(path.join(site.root, "src/pages/llms-full.txt.ts"));
+    await withBuildOnly("docs,api", () => build(site.config));
+    const rootLlms = await site.read("dist/llms.txt");
+    // The absent slice's section index and full document have no route:
+    // its label links its pages, and no full document is named.
+    assert.match(rootLlms, /^- \[Docs Es\]\(https:\/\/docs\.example\.test\/docs-es\/\)$/m);
+    assert.doesNotMatch(rootLlms, /llms-full\.txt/);
+    assert.doesNotMatch(rootLlms, /docs-es\/llms\.txt/);
+  } finally {
+    await site.remove();
+  }
+});
