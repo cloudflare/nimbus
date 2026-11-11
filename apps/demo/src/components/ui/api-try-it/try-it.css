@@ -270,6 +270,10 @@
   gap: 0.75rem;
   padding: 0.75rem;
 }
+/* Format in the Fields view: unseen, out of the tab order, its room kept. */
+.nb-tid-format[data-idle] {
+  visibility: hidden;
+}
 .nb-tid-card {
   flex: none;
   display: flex;
@@ -1592,17 +1596,28 @@
     flex: none;
   }
   .nb-tid-cardtools {
-    flex: 0 1 auto;
+    flex: 1 1 0%; /* the rest of the row; its own items wrap inside it */
     min-width: auto; /* never below its contents: the badge gives way first */
   }
   .nb-tid-cardtools:has(.nb-tid-example) {
     min-width: 0; /* a picker gives way instead: it shrinks, the rest keep their size */
   }
   .nb-tid-cardtools .nb-tid-example {
-    flex: 0 1 auto;
+    flex: 1 1 5rem; /* starts small, so it fills the row before anything wraps */
     min-width: 3rem;
     text-overflow: ellipsis;
   }
+  /* More tools than fit beside the title (Send a body, an example, Format): they
+     wrap onto further rows, at the right, the title staying on the first. */
+  .nb-tid-cardhead:has(.nb-tid-cardtools > :nth-child(4)) {
+    align-items: flex-start;
+  }
+  .nb-tid-cardtools {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 0.375rem;
+  }
+
   .nb-tid-lang {
     min-height: 1.875rem;
     height: 1.875rem;

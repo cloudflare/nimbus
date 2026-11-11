@@ -141,17 +141,29 @@ const text = (value: unknown): string =>
 // its viewport takes maximum-scale=1, which iOS honours for that zoom but not for
 // pinch zoom, so readers can still zoom; everywhere else the page is left alone.
 const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-let viewportWas: string | null = null;
-function holdFocusZoom(hold: boolean): void {
-  const meta = IOS ? document.querySelector<HTMLMetaElement>('meta[name="viewport"]') : null;
-  if (!meta) return;
-  if (hold && viewportWas === null) {
-    viewportWas = meta.content;
-    if (!/maximum-scale/.test(viewportWas)) meta.content = `${viewportWas}, maximum-scale=1`;
-  } else if (!hold && viewportWas !== null) {
-    meta.content = viewportWas;
-    viewportWas = null;
+// Held per open panel; the last release puts back the same tag's own content
+// (after a client-side navigation the old tag is gone and the new page's stays).
+let zoomHolds = 0;
+let heldViewport: { meta: HTMLMetaElement; content: string } | null = null;
+function holdFocusZoom(): () => void {
+  if (!IOS) return () => {};
+  if (zoomHolds++ === 0) {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    if (meta) {
+      heldViewport = { meta, content: meta.content };
+      meta.content = /maximum-scale\s*=/.test(meta.content)
+        ? meta.content.replace(/maximum-scale\s*=\s*[^,]*/, "maximum-scale=1")
+        : `${meta.content}, maximum-scale=1`;
+    }
   }
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    if (--zoomHolds > 0 || !heldViewport) return;
+    if (heldViewport.meta.isConnected) heldViewport.meta.content = heldViewport.content;
+    heldViewport = null;
+  };
 }
 
 function store(kind: "tab" | "device"): Storage | null {
@@ -1546,7 +1558,9 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       const fields = asFields(media!);
       viewSwitch.hidden = !(media?.kind === "json" && media.fields);
       viewSwitch.querySelectorAll<HTMLButtonElement>("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === (fields ? "fields" : "json"))));
-      format.hidden = media?.kind !== "json" || fields;
+      // In Fields, Format keeps its room unseen (try-it.css), so the switch never moves.
+      format.hidden = media?.kind !== "json";
+      format.toggleAttribute("data-idle", fields);
     };
     viewSwitch.addEventListener("click", (e) => {
       const b = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-view]");
@@ -2000,9 +2014,11 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     pressedOn = null;
   });
   // Closing stops waiting: a late answer never lands in a closed dialog.
+  let releaseZoom: (() => void) | null = null;
   const onClose = () => {
     unlockScroll();
-    holdFocusZoom(false);
+    releaseZoom?.();
+    releaseZoom = null;
     if (controller) stop();
     button.focus({ preventScroll: true });
   };
@@ -2037,7 +2053,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       if (from.width) dialog.style.setProperty("--nb-tid-from", `${from.left + from.width / 2}px ${from.top + from.height / 2}px`);
       dialog.showModal();
       lockScroll();
-      holdFocusZoom(true);
+      releaseZoom ??= holdFocusZoom();
       const firstEmpty = [...form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input:not([type=checkbox]):not([type=radio]):not([type=file]), textarea")].find(
         (i) => !i.disabled && i.value === "" && i.offsetParent !== null,
       );
@@ -2054,6 +2070,9 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       small.removeEventListener("change", onSmall);
       vv?.removeEventListener("resize", onViewport);
       vv?.removeEventListener("scroll", syncViewport);
+      // The close event comes later, maybe after the page has changed: let go now.
+      releaseZoom?.();
+      releaseZoom = null;
       if (dialog.open) {
         dialog.close();
       }
