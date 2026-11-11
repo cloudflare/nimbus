@@ -1366,6 +1366,24 @@
         "On a screen at least 1440px wide, the request sample starts level with the breadcrumbs and stays pinned while the page scrolls.",
         "Clicking, tapping or pressing Enter on the endpoint path shows the full URL, and Escape closes it."
       ]
+    },
+    {
+      "id": "agent-route-shape",
+      "introducedIn": "0.20.0",
+      "mode": "review-required",
+      "changeset": "agent-route-shape-and-body",
+      "summary": "Agent surfaces follow the route files under src/pages, and a document's ETag is over the bytes Nimbus sends. A route file that calls markdownRoute(), markdownSourceRoute(), llmsRoute(), llmsFullRoute() or llmsSectionRoute() from a shape Nimbus does not record (a dynamic last segment such as src/pages/[...slug].md.ts, or any name other than index.md, index.mdx, llms.txt or llms-full.txt) publishes nothing, and a wrapper around a factory's GET that changes the body hands out Nimbus's tag for bytes it no longer sends.",
+      "affected": "Sites with a route file that nimbus-docs check names in nimbus/agent-route-shape, and sites with a route file under src/pages that calls a factory's GET and changes its body (search src/pages for .GET(; check cannot see these). Skip if check names no file and no route file changes a body. A factory reached through a helper module is not named; read those files by hand.",
+      "instructions": [
+        "Run nimbus-docs check and read nimbus/agent-route-shape. For each file named, move the factory call to the file it suggests (src/pages/[...slug]/index.md.ts for markdownRoute(), under the same folder prefix the old file had), then delete the old file, or keep it for redirects only and pass the recorded route's URLs (/<page>/index.md) on to the new route: Astro may still send them to the old file first.",
+        "Replace a wrapper that changes a document's body with the factory's body option: markdownRoute({ body: (text, context) => ... }) and the same on the other four factories. The ETag and 304 are then over the text you return. A wrapper that only adds headers can stay.",
+        "Build and read the Agent surfaces line: Page Markdown should say served for N of N pages with the starter route, or the part a scoped route covers."
+      ],
+      "verify": [
+        "nimbus-docs check prints no nimbus/agent-route-shape finding.",
+        "A page's /<page>/index.md answers 200 with Content-Type: text/markdown and an ETag; the same request with that tag in If-None-Match answers 304.",
+        "After changing what body appends, a request with the previous tag answers 200 with the new text."
+      ]
     }
   ]
 }

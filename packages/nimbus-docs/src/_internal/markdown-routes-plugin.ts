@@ -44,7 +44,7 @@ const FACTORIES = {
 type ResolvedRouteInput = Pick<
   IntegrationResolvedRoute,
   "type" | "segments" | "pattern" | "patternRegex" | "params" | "entrypoint" | "isPrerendered"
->;
+> & { origin?: IntegrationResolvedRoute["origin"] };
 
 function markdownFileSegment(route: ResolvedRouteInput): string | undefined {
   if (route.type !== "endpoint") return undefined;
@@ -63,44 +63,154 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
+export type AgentRouteFactory = keyof typeof FACTORIES;
+
 /**
  * Which factory a route file calls, read from its source the way Astro reads
  * `export const prerender`: named (including aliased), namespace, and dynamic
  * imports from `agent-endpoints`. A factory reached through another module is
  * not detected; `findOwnMarkdownRoute` still resolves it by pattern.
  */
-export function sharedMarkdownRouteSurface(
-  source: string,
-): MarkdownRouteSurface | undefined {
+export function agentFactoryCall(source: string): AgentRouteFactory | undefined {
   const code = source
     .replace(/\/\*[\s\S]*?\*\//gu, "")
     .replace(/(^|[^:/\\])\/\/.*$/gmu, "$1");
-  const callees = new Map<string, MarkdownRouteSurface>();
+  const callees = new Map<string, AgentRouteFactory>();
   for (const [, specifiers] of code.matchAll(NAMED_IMPORT)) {
     for (const specifier of specifiers!.split(",")) {
       const [imported, local = imported] = specifier.trim().split(/\s+as\s+/u);
-      const surface = FACTORIES[imported as keyof typeof FACTORIES];
-      if (surface && local) callees.set(escapeRegExp(local), surface);
+      if (imported && imported in FACTORIES && local) {
+        callees.set(escapeRegExp(local), imported as AgentRouteFactory);
+      }
     }
   }
   const namespaces = [...code.matchAll(NAMESPACE_IMPORT)].map(([, name]) => name!);
-  for (const [factory, surface] of Object.entries(FACTORIES)) {
+  for (const factory of Object.keys(FACTORIES) as AgentRouteFactory[]) {
     for (const namespace of namespaces) {
-      callees.set(`${escapeRegExp(namespace)}\\s*\\.\\s*${factory}`, surface);
+      callees.set(`${escapeRegExp(namespace)}\\s*\\.\\s*${factory}`, factory);
     }
-    if (DYNAMIC_IMPORT.test(code)) callees.set(factory, surface);
+    if (DYNAMIC_IMPORT.test(code)) callees.set(factory, factory);
   }
-  for (const surface of ["source", "markdown", "llms"] as const) {
-    for (const [callee, calleeSurface] of callees) {
+  // The factories' declaration order is the precedence: source, markdown, llms.
+  for (const factory of Object.keys(FACTORIES) as AgentRouteFactory[]) {
+    for (const [callee, calleeFactory] of callees) {
       if (
-        calleeSurface === surface &&
+        calleeFactory === factory &&
         new RegExp(String.raw`(?<![\w$.])${callee}\s*\(`, "u").test(code)
       ) {
-        return surface;
+        return factory;
       }
     }
   }
   return undefined;
+}
+
+/** The surface the factory a route file calls serves; see {@link agentFactoryCall}. */
+export function sharedMarkdownRouteSurface(
+  source: string,
+): MarkdownRouteSurface | undefined {
+  const factory = agentFactoryCall(source);
+  return factory ? FACTORIES[factory] : undefined;
+}
+
+/** A project route file that calls a factory from a shape Nimbus doesn't record. */
+export interface UnreadAgentRoute {
+  entrypoint: string;
+  pattern: string;
+  factory: AgentRouteFactory;
+  /** The route file the call belongs in, under the route's static prefix. */
+  suggested: string;
+  /** A recorded route of the same surface this one may answer ahead of, if any. */
+  shadows?: string;
+}
+
+const STARTER_FILE: Record<AgentRouteFactory, string> = {
+  markdownRoute: "[...slug]/index.md.ts",
+  markdownSourceRoute: "[...slug]/index.mdx.ts",
+  llmsRoute: "llms.txt.ts",
+  llmsFullRoute: "llms-full.txt.ts",
+  llmsSectionRoute: "[...section]/llms.txt.ts",
+};
+
+/**
+ * Whether two route patterns can match one URL, segment by segment from the
+ * root: two static segments that differ are disjoint; a spread segment on
+ * either side (`[...x]`, or `[...x].md`) absorbs the rest; a single-param
+ * segment matches any one segment; running out on one side with no spread is
+ * disjoint. A match of patterns, not a request log: the warning says "may".
+ */
+export function patternsMayOverlap(a: string, b: string): boolean {
+  const left = a.split("/").filter(Boolean);
+  const right = b.split("/").filter(Boolean);
+  for (let index = 0; ; index += 1) {
+    const x = left[index];
+    const y = right[index];
+    if (x === undefined || y === undefined) return x === y;
+    if (x.includes("[...") || y.includes("[...")) return true;
+    if (!x.includes("[") && !y.includes("[") && x !== y) return false;
+  }
+}
+
+/**
+ * Every project endpoint route that `recordMarkdownRoutes` skips but whose
+ * source calls an agent factory directly: nothing is published for it, and
+ * Astro may still send requests to it ahead of a recorded route. The routes
+ * come in Astro's priority order, so a recorded route later in the list whose
+ * URLs this pattern also matches is one this file shadows.
+ */
+export function unreadAgentRoutes(
+  routes: readonly (ResolvedRouteInput & { origin?: string })[],
+  readSource: (entrypoint: string) => string | undefined,
+): UnreadAgentRoute[] {
+  const found: UnreadAgentRoute[] = [];
+  routes.forEach((route, index) => {
+    if (route.type !== "endpoint" || (route.origin !== undefined && route.origin !== "project")) return;
+    if (markdownFileSegment(route)) return;
+    const source = readSource(route.entrypoint);
+    const factory = source ? agentFactoryCall(source) : undefined;
+    if (!factory) return;
+    const segments = route.pattern.split("/").filter(Boolean);
+    const prefix = segments.slice(0, segments.findIndex((segment) => segment.includes("[")) ).join("/");
+    const suggested = `src/pages/${prefix ? `${prefix}/` : ""}${STARTER_FILE[factory]}`;
+    const surface = FACTORIES[factory];
+    const shadowed = routes.slice(index + 1).find((other) => {
+      const file = markdownFileSegment(other);
+      if (!file) return false;
+      const otherSurface: MarkdownRouteSurface = file.endsWith(".mdx") ? "source" : file.endsWith(".md") ? "markdown" : "llms";
+      return otherSurface === surface && patternsMayOverlap(route.pattern, other.pattern);
+    });
+    found.push({
+      entrypoint: route.entrypoint,
+      pattern: route.pattern,
+      factory,
+      suggested,
+      ...(shadowed ? { shadows: shadowed.entrypoint } : {}),
+    });
+  });
+  return found;
+}
+
+/** The build's warning for one unread route; `check` prints the first two sentences. */
+export function describeUnreadAgentRoute(route: UnreadAgentRoute, options: { shadowing: boolean } = { shadowing: true }): string {
+  const surface = FACTORIES[route.factory];
+  const published =
+    surface === "markdown"
+      ? "no page's Markdown URL, link or alternate comes from it"
+      : surface === "source"
+        ? "no page's source URL comes from it"
+        : "no llms.txt or llms-full.txt document is made for it";
+  const sentences = [
+    `${route.entrypoint} calls ${route.factory}(), but Nimbus records an agent route only where the last ` +
+      `segment is a static file name, so this file publishes nothing: ${published}.`,
+    `Move the call to ${route.suggested}.`,
+  ];
+  if (options.shadowing && route.shadows) {
+    sentences.push(
+      `Astro may send requests to this file ahead of ${route.shadows}, so delete it, or keep it for ` +
+        "redirects and pass the recorded route's URLs on to it.",
+    );
+  }
+  return sentences.join(" ");
 }
 
 export function recordMarkdownRoutes(
