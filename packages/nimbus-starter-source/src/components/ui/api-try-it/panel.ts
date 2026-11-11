@@ -657,16 +657,27 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   // `rawJson`: a JSON value is kept as its text, checked for syntax only, never re-written.
   // `check`: what the store can't take, beyond the schema's checks.
   type RowContext = { key: string; store: Store; rawJson?: boolean; check?: (value: unknown) => string | null };
+  // What the schema's checks see: a raw JSON field's value, not its text.
+  const checked = (p: PlanParam, value: unknown, rawJson?: boolean): unknown => {
+    if (!rawJson || !needsJson(p) || typeof value !== "string") return value;
+    if (!p.schema.type && !p.schema.enum) return undefined; // nothing to check it against
+    try {
+      return JSON.parse(value);
+    } catch {
+      return undefined;
+    }
+  };
   const paramContext = (p: PlanParam): RowContext => ({ key: paramKey(p), store: paramStore });
   // Checks run when a field loses focus, then live until it's fixed.
-  const watch = (p: PlanParam, control: HTMLElement, error: HTMLElement, { key, store, check }: RowContext = paramContext(p)) => {
+  const watch = (p: PlanParam, control: HTMLElement, error: HTMLElement, { key, store, check, rawJson }: RowContext = paramContext(p)) => {
     error.id = fresh("err");
     const help = control.closest(".nb-tid-row")?.querySelector<HTMLElement>(".nb-tid-desc[id]");
     control.setAttribute("aria-describedby", help ? `${help.id} ${error.id}` : error.id);
     const run = () => {
       const value = store.get(key);
       const own = value === undefined ? null : (check?.(value) ?? null);
-      const issues = value === undefined ? [] : [...checkParam(p, value), ...(own ? [{ message: own, blocking: true }] : [])];
+      const seen = checked(p, value, rawJson);
+      const issues = seen === undefined ? [] : [...checkParam(p, seen), ...(own ? [{ message: own, blocking: true }] : [])];
       const pathEmpty = p.in === "path" && value === "";
       const messages = [...(pathEmpty ? ["A path parameter can't be empty."] : []), ...issues.map((i) => i.message)];
       error.textContent = messages.join(" ");
@@ -1233,7 +1244,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   };
   const entryJson = (p: PlanParam, value: unknown): string | undefined => {
     if (value === null) return "null";
-    if (needsJson(p)) return typeof value === "string" && syntaxProblem(value) === null ? value : undefined;
+    // Its text as typed; a value it starts with (an added list's `[]`) as JSON.
+    if (needsJson(p)) return typeof value !== "string" ? JSON.stringify(value) : syntaxProblem(value) === null ? value : undefined;
     if (p.schema.type === "array") {
       const items = (Array.isArray(value) ? value : []).map((item) => scalarJson(p.schema.items ?? {}, item));
       return items.includes(undefined) ? undefined : `[${items.join(", ")}]`;
@@ -1244,6 +1256,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   // string without line breaks (an input drops them), a list of such.
   const fits = (schema: PlanSchema, value: unknown, raw?: string): boolean => {
     if (value === null) return false;
+    // Options that read alike (`"1"` and `1`): JSON, where each keeps its kind.
+    if (schema.enum && new Set(schema.enum.map(text)).size < schema.enum.length) return false;
     if (schema.enum) return schema.enum.some((o) => o !== null && typeof o !== "object" && o === value);
     switch (schema.type) {
       case "integer":
@@ -1343,7 +1357,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
         const value = kept.get(key);
         if (value === undefined || value === "" || badJson.has(key)) return [];
         const own = check(p)(value);
-        return [...checkParam(p, value).filter((i) => i.blocking).map((i) => i.message), ...(own ? [own] : [])].map((message) => ({ key, message }));
+        const seen = checked(p, value, true);
+        return [...(seen === undefined ? [] : checkParam(p, seen).filter((i) => i.blocking).map((i) => i.message)), ...(own ? [own] : [])].map((message) => ({ key, message }));
       });
     const nodes = rowsFor(params, (p) => ({ key: `body:${p.name}`, store: fieldStore, rawJson: true, check: check(p) }));
     const first = nodes[0]!.querySelector<HTMLElement>("input, select, textarea");
