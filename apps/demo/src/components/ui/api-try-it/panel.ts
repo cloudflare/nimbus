@@ -1322,8 +1322,14 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       const schema = field.schema.type || field.schema.enum || value === undefined || value === null ? field.schema : { ...field.schema, type: kindOf(value) };
       const p: PlanParam = { name: field.name, in: "query", style: "form", explode: true, allowReserved: false, required: field.required, schema, ...(field.description ? { description: field.description } : {}) };
       // Options that read alike (`"1"` and `1`): JSON from the start, given or not.
-      const alike = (e?: PlanSchema["enum"]) => Boolean(e && new Set(e.map(text)).size < e.length);
-      if (alike(schema.enum) || alike(schema.items?.enum)) asJsonValue.add(p);
+      // A nullable choice's own "null" counts.
+      const alike = (s?: PlanSchema) => {
+        if (!s?.enum) return false;
+        const shown = s.enum.map(text);
+        if (s.nullable && !s.enum.includes(null)) shown.push("null");
+        return new Set(shown).size < shown.length;
+      };
+      if (alike(schema) || alike(schema.items)) asJsonValue.add(p);
       if (raw !== undefined) {
         if (!fits(schema, value, raw)) asJsonValue.add(p);
         // A number keeps its digits as typed, JSON its text; a list its items as text.
@@ -1342,11 +1348,15 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       set: (key, value) => {
         kept.set(key, value);
         const p = byKey.get(key)!;
-        // An emptied number or choice isn't sent; Send asks for a required one.
-        if (value === "" && p.schema.type !== "string" && !needsJson(p)) return put(key.slice(5), undefined);
+        // An emptied number or choice isn't sent (unless "" is an option); Send asks for a required one.
+        if (value === "" && p.schema.type !== "string" && !needsJson(p) && !p.schema.enum?.includes("")) return put(key.slice(5), undefined);
         const raw = entryJson(p, value);
         // Not yet a value the schema takes: the entry keeps its last good one.
-        if (raw !== undefined) put(key.slice(5), raw);
+        if (raw !== undefined) {
+          put(key.slice(5), raw);
+          // Fixed: the switch's "Fix … first" has done its job.
+          if (bodyError.textContent?.startsWith("Fix ") && !fieldIssues().length) bodyError.textContent = "";
+        }
       },
       drop: (key) => {
         kept.delete(key);
