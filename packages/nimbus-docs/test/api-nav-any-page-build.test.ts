@@ -24,6 +24,7 @@ after(async () => {
 
 const moduleUrl = (relative: string) =>
   JSON.stringify(pathToFileURL(path.resolve(import.meta.dirname, relative)).href);
+const ENDPOINTS = JSON.stringify(pathToFileURL(path.resolve(import.meta.dirname, "../src/agent-endpoints.ts")).href);
 const RUNTIME = moduleUrl("../src/runtime.ts");
 const SRC = path.resolve(import.meta.dirname, "../src");
 const SPEC = path.resolve(import.meta.dirname, "fixtures/api/smallco.yaml");
@@ -115,7 +116,7 @@ const projected = counts && before ? { page: counts.page - before.page, nav: cou
 
 interface Site {
   root: string;
-  get(pathname: string): Promise<{ status: number; body: string }>;
+  get(pathname: string, headers?: Record<string, string>): Promise<{ status: number; body: string; contentType: string }>;
 }
 
 async function buildSite(options: {
@@ -205,9 +206,9 @@ export const collections = { apiPages: defineLiveCollection({ loader: apiPagesLo
       async get(pathname) {
         const file = path.join(root, "dist", pathname.slice(prefix.length), "index.html");
         try {
-          return { status: 200, body: await readFile(file, "utf8") };
+          return { status: 200, body: await readFile(file, "utf8"), contentType: "text/html" };
         } catch {
-          return { status: 404, body: "" };
+          return { status: 404, body: "", contentType: "" };
         }
       },
     };
@@ -217,9 +218,9 @@ export const collections = { apiPages: defineLiveCollection({ loader: apiPagesLo
   };
   return {
     root,
-    async get(pathname) {
-      const response = await app.render(new Request(`https://example.test${pathname}`, { redirect: "manual" }));
-      return { status: response.status, body: await response.text() };
+    async get(pathname, headers = {}) {
+      const response = await app.render(new Request(`https://example.test${pathname}`, { redirect: "manual", headers }));
+      return { status: response.status, body: await response.text(), contentType: response.headers.get("Content-Type") ?? "" };
     },
   };
 }
@@ -446,6 +447,48 @@ describe("bundle: false, query versions, served at the site root, on request", (
     const [, , , , legacy, missing] = probe.results;
     assert.equal(legacy, null, "the legacy version parameter redirects");
     assert.equal(missing, null);
+  });
+});
+
+describe("query versions at the site root: the homepage negotiates its Markdown for the default version only", () => {
+  let site: Site;
+  before(async () => {
+    site = await buildSite({
+      request: true,
+      base: "/",
+      apiOnly: true,
+      adapter: "@astrojs/node",
+      api: {
+        collection: "api",
+        versionUrl: { in: "query" },
+        bundle: false,
+        sidebar: "on-demand",
+        versions: [
+          { version: "v2", default: true, spec: SPEC },
+          { version: "v1", spec: SPEC },
+        ],
+      },
+      pages: {
+        "src/pages/[...slug].astro": navPage(false, "api"),
+        "src/pages/[...slug]/index.md.ts": `import { markdownRoute } from ${ENDPOINTS};\nexport const { GET, getStaticPaths } = markdownRoute();\n`,
+        "src/pages/llms.txt.ts": `import { llmsRoute } from ${ENDPOINTS};\nexport const { GET } = llmsRoute();\n`,
+      },
+    });
+  });
+
+  test("the default version's overview negotiates; another, an unknown or a hidden selection does not", async () => {
+    const markdown = { Accept: "text/markdown" };
+    const current = await site.get("/", markdown);
+    assert.equal(current.status, 200);
+    assert.match(current.contentType, /^text\/markdown/);
+    const direct = await site.get("/index.md");
+    assert.equal(current.body, direct.body, "the negotiated homepage is its .md");
+    const v1 = await site.get("/?version=v1", markdown);
+    assert.equal(v1.status, 200);
+    assert.match(v1.contentType, /^text\/html/, "another version's overview is not the default version's Markdown");
+    // An unknown version is the page route's 404, as without Accept.
+    assert.equal((await site.get("/?version=v9", markdown)).status, 404);
+    assert.equal((await site.get("/?version=v9")).status, 404);
   });
 });
 
