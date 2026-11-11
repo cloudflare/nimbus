@@ -678,24 +678,27 @@
   display: none;
 }
 
-/* Body: the card takes the room left; the code scrolls inside it, both ways. */
+/* Body: the card is as tall as what it holds: the editor its lines (to a point,
+   then the code scrolls inside), the fields their rows. */
 .nb-tid-card.nb-tid-grow {
-  flex: 1 1 0%;
-  min-height: 14rem;
+  flex: none;
 }
 .nb-tid-grow > .nb-tid-cardbody {
   flex: 1 1 auto;
   min-height: 0;
 }
-/* As fields, the body is as tall as its rows; only the editor takes the room left. */
-.nb-tid-card.nb-tid-grow:not(:has(.nb-tid-editorbox)) {
-  flex: none;
+/* The editor's wrapper passes the card's room on, so the editor fills it. */
+.nb-tid-bodyslot {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
   min-height: 0;
 }
 .nb-tid-editorbox {
   position: relative;
-  flex: 1 1 auto;
-  min-height: 10rem;
+  flex: none;
+  /* Its lines at the editor's 1.25rem, plus its 0.75rem padding top and bottom. */
+  height: clamp(6rem, calc(var(--nb-tid-lines, 8) * 1.25rem + 1.5rem), 24rem);
 }
 .nb-tid-editorbox[hidden] {
   display: none;
@@ -1223,11 +1226,6 @@
   .nb-tid-form {
     padding: 0.25rem 0 0;
     gap: 0.75rem;
-  }
-  /* The pane doesn't scroll on phones (the page does): Body gets a fixed height. */
-  .nb-tid-card.nb-tid-grow:has(.nb-tid-editorbox) {
-    flex: none;
-    height: 22rem;
   }
   .nb-tid-help {
     font-size: 0.8125rem;

@@ -1187,7 +1187,12 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     area.value = text(bodyDrafts.get(media.mediaType));
     // The editor is a textarea laid exactly over highlighted code: it types; the code underneath shows.
     const under = el("div", { class: "nb-cr-body nb-tid-under", "aria-hidden": "true", inert: true });
-    const paintUnder = () => paint(under, area.value.endsWith("\n") ? `${area.value} ` : area.value || " ", isJson ? "json" : "text", "");
+    const box = el("div", { class: "nb-tid-editorbox" });
+    const paintUnder = () => {
+      paint(under, area.value.endsWith("\n") ? `${area.value} ` : area.value || " ", isJson ? "json" : "text", "");
+      // As tall as its lines (try-it.css clamps it), so the card holds the body, not empty room.
+      box.style.setProperty("--nb-tid-lines", String(area.value.split("\n").length));
+    };
     // The body is sent as typed, tabs included (TSV, Makefiles): the code underneath shares the tab width.
     const set = () => {
       bodyDrafts.set(media.mediaType, area.value);
@@ -1219,7 +1224,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     });
     paintUnder();
     controls.set("body", area);
-    return el("div", { class: "nb-tid-editorbox" }, el("div", { class: "nb-tid-editorwrap" }, under, area));
+    box.append(el("div", { class: "nb-tid-editorwrap" }, under, area));
+    return box;
   };
   // ---- A JSON object body as fields --------------------------------------------------
   // The JSON text stays the one draft. A property's row is a parameter's row; a valid
