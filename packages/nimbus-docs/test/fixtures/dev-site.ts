@@ -155,6 +155,9 @@ export async function withDevSite(files: Record<string, string>, nimbusOptions: 
     const unfinished = !restartOver(since(0));
     try {
       await server.stop();
+    } catch (error) {
+      // The body's own failure is the one to report; a stop that fails after it is noise.
+      if (!failed) throw error;
     } finally {
       for (const [index, stream] of streams.entries()) stream.write = realWrites[index]!;
     }
