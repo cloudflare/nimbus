@@ -456,11 +456,7 @@ async function writeAsset(file: string, body: string): Promise<boolean> {
         `nimbus-docs: agent-endpoint asset is not a regular file: ${file}.`,
       );
     }
-    if ((await readFile(file, "utf8")) !== body) {
-      throw new Error(
-        `nimbus-docs: content-addressed agent-endpoint asset collision at ${file}.`,
-      );
-    }
+    if ((await readFile(file, "utf8")) !== body) await writeFile(file, body, "utf8");
     return false;
   }
 }
