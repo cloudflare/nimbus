@@ -862,7 +862,7 @@ export function nimbus(
     // with a root entry, the site's own route, or the shared route's llms
     // fallback. An llms.txt route alone publishes no homepage Markdown.
     const homepageFallback =
-      hasLlms && !publicHomepage && !sharedHomepage && owner?.shared === "markdown";
+      hasLlms && !publicHomepage && !sharedHomepage && owner !== undefined && owner.shared !== "source";
     const hasHomepageMarkdown =
       publicHomepage ||
       sharedHomepage ||
@@ -4188,11 +4188,13 @@ export function nimbus(
         const homepageMarkdownRoute = markdownRouteRecords.find((route) =>
           route.regex.test("/index.md"),
         );
-        // The llms index stands in for /index.md only where the shared Markdown
-        // route serves the homepage; without that route there is no /index.md.
+        // The llms index stands in for /index.md only where a Markdown route
+        // serves the homepage and wrote nothing there (the factory, called
+        // directly or through the site's own module, has no root entry to
+        // render); without that route there is no /index.md.
         if (
           !sliceOutput &&
-          homepageMarkdownRoute?.shared === "markdown" &&
+          homepageMarkdownRoute !== undefined &&
           homepageMarkdownRoute.prerendered !== false &&
           !fs.existsSync(homepageMarkdownPath) &&
           fs.existsSync(llmsPath)
