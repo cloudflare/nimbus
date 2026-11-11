@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, test } from "node:test";
 
-import { invalidateDevModules } from "../src/_internal/dev-invalidation.ts";
+import { invalidateDevModules, invalidatePreparedModules } from "../src/_internal/dev-invalidation.ts";
 import {
   agentEndpointAssetsRuntimePlugin,
   configureAgentEndpointAssetRoot,
@@ -31,6 +31,7 @@ function graph(loaded: string[] = []) {
       getModuleById: (id: string) => (loaded.includes(id) ? { id } : undefined),
       invalidateModule: (module: never) => void record.modules.push((module as { id: string }).id),
       invalidateAll: () => void record.all++,
+      idToModuleMap: new Map(loaded.map((id) => [id, { id }])),
     },
   };
 }
@@ -46,6 +47,22 @@ function server(loaded: Record<string, string[]> = {}) {
     },
   };
 }
+
+test("a content edit invalidates only the prepared modules, in every environment", () => {
+  const prepared = [
+    "\0virtual:nimbus/agent-endpoint-assets",
+    "\0virtual:nimbus/headings",
+    "\0virtual:nimbus/headings/eyJhIjoxfQ",
+    "\0virtual:nimbus/agent-capabilities",
+  ];
+  const others = ["\0virtual:nimbus/agent-endpoint-asset-loader", "\0virtual:nimbus/config", "/src/pages/index.astro"];
+  const site = server({ ssr: [...prepared, ...others], prerender: [prepared[0]!, others[1]!] });
+  invalidatePreparedModules(site.server);
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(site.graphs).map(([name, g]) => [name, [g.record.all, g.record.modules]])),
+    { client: [0, []], ssr: [0, prepared], prerender: [0, [prepared[0]]] },
+  );
+});
 
 test("the helper invalidates every environment's graph, whole or by id", () => {
   const whole = server();

@@ -291,7 +291,7 @@ import {
   preparedMarkdownRootKey,
 } from "./_internal/prepared-markdown-registry.js";
 import { currentPageLoadScope } from "./_internal/page-load-scope.js";
-import { invalidateDevModules, isDevContentFile } from "./_internal/dev-invalidation.js";
+import { invalidateDevModules, invalidatePreparedModules, isDevContentFile } from "./_internal/dev-invalidation.js";
 import type {
   GeneratedMarkdownComponentTransform,
   GeneratedMarkdownPartialResolver,
@@ -3667,7 +3667,7 @@ export function nimbus(
           (await loadAgentEndpointAssets()).invalidateAgentEndpointAssets(
             projectRootForBuild,
           );
-          invalidateDevModules(server);
+          invalidatePreparedModules(server);
         };
         server.watcher.on("add", invalidate);
         server.watcher.on("change", invalidate);
