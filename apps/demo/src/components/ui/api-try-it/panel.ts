@@ -678,7 +678,9 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       const value = store.get(key);
       const own = value === undefined ? null : (check?.(value) ?? null);
       const seen = checked(p, value, rawJson);
-      const issues = seen === undefined ? [] : [...checkParam(p, seen), ...(own ? [{ message: own, blocking: true }] : [])];
+      const found = seen === undefined ? [] : checkParam(p, seen);
+      // The store's own check only where the schema's passed: one message, not two.
+      const issues = [...found, ...(own && !found.some((i) => i.blocking) ? [{ message: own, blocking: true }] : [])];
       const pathEmpty = p.in === "path" && value === "";
       const messages = [...(pathEmpty ? ["A path parameter can't be empty."] : []), ...issues.map((i) => i.message)];
       error.textContent = messages.join(" ");
@@ -1375,7 +1377,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
         if (value === undefined || value === "" || badJson.has(key)) return [];
         const own = check(p)(value);
         const seen = checked(p, value, true);
-        return [...(seen === undefined ? [] : checkParam(p, seen).filter((i) => i.blocking).map((i) => i.message)), ...(own ? [own] : [])].map((message) => ({ key, message }));
+        const found = seen === undefined ? [] : checkParam(p, seen).filter((i) => i.blocking).map((i) => i.message);
+        return (found.length ? found : own ? [own] : []).map((message) => ({ key, message }));
       });
     const nodes = rowsFor(params, (p) => ({ key: `body:${p.name}`, store: fieldStore, rawJson: true, check: check(p) }));
     const first = nodes[0]!.querySelector<HTMLElement>("input, select, textarea");
