@@ -9,9 +9,9 @@ info:
     email: support@weather.example
   termsOfService: https://weather.example/terms
 servers:
-  - url: https://api.weather.example/v2
   - url: https://api.demo.nimbus-docs.com/v2
     description: "Sandbox: test keys, fixed data"
+  - url: https://api.weather.example/v2
 security:
   - bearer: []
 tags:
