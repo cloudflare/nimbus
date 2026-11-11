@@ -73,7 +73,7 @@ import { resolveApiAssetLinks } from "./page-assets-links.js";
 import { linkPolicy } from "../url.js";
 
 /** Bump when preparation semantics change without a package version change. */
-export const API_PAGE_PREPARATION_REVISION = 2;
+export const API_PAGE_PREPARATION_REVISION = 4;
 // The token classes the version being prepared uses, so its cache saves only
 // those styles. Shared on globalThis: two copies of this module load in one
 // process, and either may install the sink.
@@ -261,7 +261,6 @@ const PREPARATION_PACKAGES = [
   "@scalar/openapi-parser",
   "@scalar/json-magic",
   "openapi-sampler",
-  "@readme/httpsnippet",
   "shiki",
   "@shikijs/transformers",
   "yaml",
@@ -274,7 +273,6 @@ const PREPARATION_PACKAGES = [
 const OPTIONAL_PACKAGES = new Set([
   "@scalar/openapi-parser",
   "openapi-sampler",
-  "@readme/httpsnippet",
 ]);
 
 /** Node's package lookup, which also finds packages whose exports hide

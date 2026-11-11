@@ -349,29 +349,6 @@ describe("multipart samples", () => {
     assert.match(out[0]!.source, /--form-string 'q=%E0%A4,b'/);
   });
 
-  test("a sample whose marker lines httpsnippet no longer writes is left out", async () => {
-    const tools = (await loadSampleTools())!;
-    const Real = tools.snippet.HTTPSnippet;
-    const changed: SampleTools = {
-      sampler: tools.sampler,
-      snippet: {
-        HTTPSnippet: class {
-          #inner: InstanceType<typeof Real>;
-          constructor(input: ConstructorParameters<typeof Real>[0]) { this.#inner = new Real(input); }
-          convert(target: string, client?: string) {
-            const out = this.#inner.convert(target, client);
-            const first = Array.isArray(out) ? out[0] : out;
-            return typeof first === "string" ? [first.replace(/content-type|formData\.append|files = /, "changed")] : out;
-          }
-        },
-      },
-    };
-    const out = buildOperationSamples(changed, {
-      method: "post", path: "/x", auth: [], params: [],
-      body: { mediaType: "multipart/form-data", value: { file: "<file>", note: "x" }, schema: uploadSchema as never },
-    });
-    assert.deepEqual(out, []);
-  });
 });
 
 describe("multipart samples with text fields only", () => {

@@ -25,6 +25,7 @@ import {
   normalizeRouteComponent,
   routeComponentKeys,
 } from "../src/_internal/rendering-policy.js";
+import { AGENT_ENDPOINT_ASSET_GENERATION } from "../src/_internal/agent-endpoint-assets.js";
 import { getCodeStyleCSS } from "../src/_internal/code-style-registry.js";
 import { parseContentCollections } from "../src/_internal/parse-content-collections.js";
 import {
@@ -1010,7 +1011,7 @@ test("opaque version registrations still reach the request inventory", async (t)
       preparedRoot,
       collection,
       epoch,
-      { generation: 1, base: "/" },
+      { generation: AGENT_ENDPOINT_ASSET_GENERATION, base: "/" },
       [],
     );
   }
@@ -1260,7 +1261,7 @@ test("configured request routes are explained to the build invariant", async (t)
       preparedRoot,
       collection,
       epoch,
-      { generation: 1, base: "/" },
+      { generation: AGENT_ENDPOINT_ASSET_GENERATION, base: "/" },
       entries,
     );
   }
@@ -1487,7 +1488,7 @@ function commitPageCollections(
       preparedRoot,
       collection,
       epoch,
-      { generation: 1, base: "/" },
+      { generation: AGENT_ENDPOINT_ASSET_GENERATION, base: "/" },
       [],
     );
   }

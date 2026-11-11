@@ -1,0 +1,47 @@
+---
+/* The site footer: the homepage's, and the community recipes showcase's. */
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
+import Logo from "./Logo.astro";
+
+// Internal links carry the site's base, so the footer works wherever it's shared.
+const href = (path: string) => withBase(path, import.meta.env.BASE_URL);
+---
+
+<footer class="border-t border-border">
+  <div class="mx-auto grid max-w-[1440px] gap-10 px-6 py-16 md:grid-cols-2 md:gap-8">
+    <div class="flex flex-col justify-between gap-10">
+      <a href={href("/")} class="flex items-center" aria-label="Nimbus">
+        <Logo class="h-6 w-auto text-foreground" />
+      </a>
+      <p class="text-sm text-muted-foreground">© 2026 Cloudflare, Inc. MIT licensed.</p>
+    </div>
+    <div class="grid grid-cols-2 gap-8 text-sm sm:grid-cols-3">
+      <div>
+        <p class="text-[13px] leading-5 text-muted-foreground">Product</p>
+        <ul class="mt-4 space-y-2.5">
+          <li><a href={href("/quickstart")} class="hover:underline">Get started</a></li>
+          <li><a href={href("/components")} class="hover:underline">Components</a></li>
+          <li><a href={href("/registry")} class="hover:underline">Registry</a></li>
+          <li><a href={href("/cli")} class="hover:underline">CLI</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="text-[13px] leading-5 text-muted-foreground">Resources</p>
+        <ul class="mt-4 space-y-2.5">
+          <li><a href={href("/why-nimbus")} class="hover:underline">Philosophy</a></li>
+          <li><a href={href("/ai/docs-for-agents")} class="hover:underline">Docs for agents</a></li>
+          <li><a href={href("/writing/linting")} class="hover:underline">Linting</a></li>
+          <li><a href={href("/llms.txt")} class="hover:underline">llms.txt</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="text-[13px] leading-5 text-muted-foreground">Project</p>
+        <ul class="mt-4 space-y-2.5">
+          <li><a href="https://github.com/cloudflare/nimbus" class="hover:underline">GitHub</a></li>
+          <li><a href="https://www.npmjs.com/package/@cloudflare/nimbus-docs" class="hover:underline">npm</a></li>
+          <li><a href="https://cloudflare.com" class="hover:underline">Cloudflare</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</footer>
