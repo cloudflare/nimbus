@@ -71,6 +71,17 @@ test("files Astro's route scan skips do not count", async () => {
   assert.match(line ?? "", /llms-full\.txt: served/);
 });
 
+test("an index file stands for its folder, as Astro's route scan reads it", async () => {
+  const line = await surfacesLine([
+    "[...slug]/index.md/index.ts",
+    "[...slug]/index.mdx.js",
+    "llms.txt/index.ts",
+    "[...section]/llms.txt/index.js",
+    "llms-full.txt/index.ts",
+  ]);
+  assert.equal(line, undefined);
+});
+
 test("the site index and the full document count only at the root", async () => {
   const line = await surfacesLine([
     "[...slug]/index.md.ts",

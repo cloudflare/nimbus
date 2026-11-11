@@ -26,7 +26,7 @@ import {
 } from "../_internal/parse-content-collections.js";
 import { readPageCollectionsFile } from "../_internal/page-collections.js";
 import { planRouteFiles } from "../_internal/route-files.js";
-import { describeAgentSurfaces } from "../_internal/agent-surfaces.js";
+import { describeAgentSurfaces, isSectionLlmsPattern } from "../_internal/agent-surfaces.js";
 import { walkFilesSync } from "../_internal/fs-walk.js";
 import { DEFAULT_RENDERING_NOTE } from "../_internal/route-modes.js";
 import { invocation } from "../cli/pm.js";
@@ -586,19 +586,25 @@ function checkAgentSurfaces(
   if (!existsSync(pagesDir)) return;
   // The endpoint files Astro's route scan takes: `.js` and `.ts`, outside
   // `_`-prefixed and dot-prefixed folders and names (`.well-known` apart).
+  // Each file as the route pattern Astro gives it: the path without its
+  // extension, an `index` file standing for its folder.
   const routes = [...walkFilesSync(pagesDir, { onReadError: "lenient", extensions: [".ts", ".js"] })]
     .map((file) => file.rel.split(path.sep).join("/"))
     .filter(
       (route) =>
         !route.split("/").some((segment) => segment.startsWith("_") || (segment.startsWith(".") && segment !== ".well-known")),
-    );
-  const serving = (pattern: RegExp) => routes.filter((route) => pattern.test(route)).map((route) => `src/pages/${route}`);
+    )
+    .map((route) => {
+      const stem = route.replace(/\.[jt]s$/u, "");
+      return { file: `src/pages/${route}`, pattern: `/${stem === "index" ? "" : stem.replace(/\/index$/u, "")}` };
+    });
+  const serving = (test: (pattern: string) => boolean) => routes.filter((route) => test(route.pattern)).map((route) => route.file);
   const files = {
-    pageMarkdown: serving(/\.md\.[jt]s$/u),
-    source: serving(/\.mdx\.[jt]s$/u),
-    llms: serving(/^llms\.txt\.[jt]s$/u),
-    llmsSections: serving(/\/llms\.txt\.[jt]s$/u),
-    llmsFull: serving(/^llms-full\.txt\.[jt]s$/u),
+    pageMarkdown: serving((pattern) => pattern.endsWith(".md")),
+    source: serving((pattern) => pattern.endsWith(".mdx")),
+    llms: serving((pattern) => pattern === "/llms.txt"),
+    llmsSections: serving(isSectionLlmsPattern),
+    llmsFull: serving((pattern) => pattern === "/llms-full.txt"),
   };
   const surfaces = {
     pageMarkdown: files.pageMarkdown.length > 0,
