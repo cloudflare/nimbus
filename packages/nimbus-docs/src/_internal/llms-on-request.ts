@@ -211,7 +211,8 @@ async function cached(manifest: StagedAgentEndpointManifest, site: string, key: 
     if (cache) {
       try {
         const hit = await cache.match(request);
-        if (hit?.ok) return hit.text();
+        // Read inside the try: a cached body that fails to stream is a miss.
+        if (hit?.ok) return await hit.text();
       } catch {}
     }
     const body = await queued(render);
