@@ -619,6 +619,10 @@
   flex-direction: column;
   gap: 0.375rem;
 }
+/* Add item sits under the list's last item, not against it. */
+.nb-tid-list:not(:empty) + .nb-tid-listadd {
+  margin-top: 0.5rem;
+}
 .nb-tid-item {
   display: flex;
   align-items: center;
@@ -677,6 +681,11 @@
 }
 .nb-tid-grow > .nb-tid-cardbody {
   flex: 1 1 auto;
+  min-height: 0;
+}
+/* As fields, the body is as tall as its rows; only the editor takes the room left. */
+.nb-tid-card.nb-tid-grow:not(:has(.nb-tid-editorbox)) {
+  flex: none;
   min-height: 0;
 }
 .nb-tid-editorbox {
@@ -1212,7 +1221,7 @@
     gap: 0.75rem;
   }
   /* The pane doesn't scroll on phones (the page does): Body gets a fixed height. */
-  .nb-tid-card.nb-tid-grow {
+  .nb-tid-card.nb-tid-grow:has(.nb-tid-editorbox) {
     flex: none;
     height: 22rem;
   }
