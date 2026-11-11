@@ -113,6 +113,7 @@ export async function withDevSite(files: Record<string, string>, nimbusOptions: 
     const response = await fetch(`${origin}${route}`, { signal: AbortSignal.timeout(10_000) }).catch(() => undefined);
     return { status: response?.status ?? 0, body: (await response?.text()) ?? "" };
   };
+  let failure: unknown;
   try {
     await run({
       file,
@@ -130,20 +131,34 @@ export async function withDevSite(files: Record<string, string>, nimbusOptions: 
         }),
       mark: () => logs.length,
     });
+  } catch (error) {
+    failure = error;
+    throw error;
   } finally {
     // A route-file change restarts the dev server in place; stopping it while
     // that restart is in flight leaves the restarted server listening, and
-    // the test process never exits. Let the restart finish first.
+    // the test process never exits. A restart is over once Vite reports the
+    // replacement server listening ("server restarted.") and Astro has
+    // re-synced content after it, or once Astro gave up on the new config.
     const restarting = (text: string) => {
       const start = text.lastIndexOf("Restarting...");
-      return start >= 0 && text.indexOf("Synced content", start) < 0;
+      if (start < 0) return false;
+      const rest = text.slice(start);
+      if (rest.includes("Continuing with previous valid configuration")) return false;
+      const listening = rest.indexOf("server restarted.");
+      return listening < 0 || rest.indexOf("Synced content", listening) < 0;
     };
+    let unfinished = false;
     if (restarting(since(0))) {
       const deadline = Date.now() + 60_000;
       while (restarting(since(0)) && Date.now() < deadline) await settle(100);
+      unfinished = restarting(since(0));
     }
     await server.stop();
     for (const [index, stream] of streams.entries()) stream.write = realWrites[index]!;
+    if (unfinished && failure === undefined) {
+      assert.fail("the dev server was still restarting when the test ended; its restarted server may outlive the stop");
+    }
   }
 }
 
