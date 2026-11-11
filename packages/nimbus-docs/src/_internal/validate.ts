@@ -10,6 +10,7 @@ import type { NimbusConfig } from "../types.js";
 import { withStrictKeys, reportUnknownKeys } from "./strict-keys.js";
 import { prefixEntryFault, routeSlugFault } from "./api/route-policy.js";
 import { GENERATED_SAMPLE_LANGS } from "./api/samples.js";
+import { originPatternProblem } from "./try-it/config.js";
 import {
   isCommitRef,
   isSpecFromSource,
@@ -492,6 +493,45 @@ const samplesSchema = z
     }
   });
 
+const positive = (path: string) =>
+  z.number({ error: `"${path}" must be a number` }).positive({ error: `"${path}" must be above 0` }).optional();
+const tryItShape = {
+  servers: z.enum(["spec", "editable"], { error: '"api[].tryIt.servers" must be "spec" or "editable"' }).optional(),
+  credentials: z.enum(["omit", "include"], { error: '"api[].tryIt.credentials" must be "omit" or "include"' }).optional(),
+  limits: z
+    .object({
+      timeout: positive("api[].tryIt.limits.timeout"),
+      responseBytes: positive("api[].tryIt.limits.responseBytes"),
+      uploadBytes: positive("api[].tryIt.limits.uploadBytes"),
+    })
+    .strict()
+    .optional(),
+  proxy: z
+    .union([
+      z.boolean(),
+      z
+        .object({
+          extraOrigins: z
+            .array(z.string({ error: '"api[].tryIt.proxy.extraOrigins" entries must be strings' }))
+            .superRefine((origins, ctx) => {
+              origins.forEach((origin, i) => {
+                const problem = originPatternProblem(origin);
+                if (problem) {
+                  ctx.addIssue({ code: "custom", path: [i], message: `"api[].tryIt.proxy.extraOrigins" has "${origin}": ${problem}` });
+                }
+              });
+            })
+            .optional(),
+        })
+        .strict(),
+    ], { error: '"api[].tryIt.proxy" must be a boolean or { extraOrigins }' })
+    .optional(),
+};
+const tryItSchema = z.union([
+  z.boolean(),
+  z.object(tryItShape).strict(),
+], { error: '"api[].tryIt" must be a boolean or an object' });
+
 // An `x-*` specification extension name, as OpenAPI defines them; `x-nimbus-*`
 // is Nimbus's own.
 const extensionsSchema = (path: string) =>
@@ -606,6 +646,7 @@ const apiSpecShape = {
     .optional(),
   bundle: z.boolean({ error: '"api[].bundle" must be a boolean' }).optional(),
   samples: samplesSchema.optional(),
+  tryIt: tryItSchema.optional(),
   extensions: extensionsSchema("api[].extensions").optional(),
   routes: routePolicySchema.optional(),
   sidebar: z

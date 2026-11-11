@@ -409,6 +409,16 @@ export interface ApiSpec {
   /** Code sample policy. Applies to every version of a family. */
   samples?: ApiSamples;
   /**
+   * Let readers send requests from this API's pages with the `api-try-it`
+   * panel. `true` turns it on with the defaults; an object loosens them.
+   * Applies to every version of a family. Default off: pages are unchanged.
+   *
+   * On an adapter that serves on-request routes, requests can also go through
+   * the site's own proxy at `/_nimbus/try`, for APIs that don't answer browser
+   * (CORS) requests. Set `proxy: false` to send directly from the browser only.
+   */
+  tryIt?: boolean | ApiTryIt;
+  /**
    * OpenAPI specification extensions (`x-*` fields) to keep, by name, such as
    * `["x-acme-plans"]`. Each listed field's value is copied unchanged onto the
    * operation or field that declares it (`page.extensions`,
@@ -498,6 +508,39 @@ export type ApiJsonValue =
 /** The listed `x-*` values an operation or field declares: the types you
  *  declared in {@link ApiExtensions}, and JSON for any other name. */
 export type ApiExtensionValues = { [K in keyof ApiExtensions]?: ApiExtensions[K] } & Record<string, ApiJsonValue>;
+
+/** Try it's settings for one API. Each loosens a conservative default. See {@link ApiSpec.tryIt}. */
+export interface ApiTryIt {
+  /**
+   * `"spec"` (default): requests go to the spec's servers. `"editable"`: the
+   * reader may enter another origin (direct: any; through the proxy: one it
+   * allows). The spec server's path is always kept.
+   */
+  servers?: "spec" | "editable";
+  /**
+   * Whether direct requests carry the browser's cookies for the API.
+   * `"omit"` (default) or `"include"`, for an API on the docs' own site that
+   * uses a session cookie. With `"include"`, direct is the default delivery.
+   * The proxy never carries browser cookies.
+   */
+  credentials?: "omit" | "include";
+  /** Bounds on both delivery modes. Host limits still apply on top. */
+  limits?: {
+    /** Seconds for the whole exchange, body included. Default 30. */
+    timeout?: number;
+    /** Bytes of response body kept. Default 2,000,000. */
+    responseBytes?: number;
+    /** Bytes of request body sent. Default 4,000,000. */
+    uploadBytes?: number;
+  };
+  /**
+   * The site's proxy route for this API: on by default wherever the site
+   * serves on-request routes. `false` turns it off. `extraOrigins` adds
+   * origins it may reach beyond the spec's servers; one leading wildcard label
+   * is allowed (`https://*.api.example.com`), never a bare `*`.
+   */
+  proxy?: boolean | { extraOrigins?: string[] };
+}
 
 /** A language Nimbus generates code samples for. */
 export type ApiSampleLang = "curl" | "typescript" | "python";

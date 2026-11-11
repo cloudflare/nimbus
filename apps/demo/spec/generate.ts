@@ -86,6 +86,8 @@ function build(v: Version): Record<string, unknown> {
           },
         };
 
+  const slug = v === 3 ? "v3-preview" : `v${v}`;
+
   return {
     openapi: "3.1.0",
     info: {
@@ -95,7 +97,13 @@ function build(v: Version): Record<string, unknown> {
       contact: { name: "Weather API support", email: "support@weather.example" },
       termsOfService: "https://weather.example/terms",
     },
-    servers: [{ url: v === 3 ? "https://api.weather.example/v3-preview" : `https://api.weather.example/v${v}` }],
+    // The demo's fixture API (fixture-api/) first: it answers every version with
+    // its documented responses, so Try it and the code samples start on a host
+    // that answers.
+    servers: [
+      { url: `https://api.demo.nimbus-docs.com/${slug}`, description: "Sandbox: test keys, fixed data" },
+      { url: `https://api.weather.example/${slug}` },
+    ],
     security: [v === 1 ? { apiKey: [] } : { bearer: [] }],
     tags,
     "x-tagGroups": [...groups].map(([name, members]) => ({ name, tags: members })),

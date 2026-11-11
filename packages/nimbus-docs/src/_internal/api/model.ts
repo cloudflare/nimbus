@@ -11,6 +11,8 @@
  * does not populate them.
  */
 
+import type { RequestPlan, TryItSource } from "../try-it/plan.js";
+
 /**
  * Identity in the docs. Opaque to the spine, minted by the front-end. The
  * dotted display form (`create.amount`) is the key; the JSON Pointer into the
@@ -174,6 +176,8 @@ export interface OperationFacts {
   protocol: Record<string, unknown>;
   /** The configured `x-*` fields the operation declares, values unchanged. */
   extensions?: Record<string, unknown>;
+  /** Try it's request plan, when the API has try-it on, and the file it's staged as. Never put on the page. */
+  tryIt?: { plan: RequestPlan; file: string };
 }
 
 export type ParameterLocation = "path" | "query" | "header" | "cookie";
@@ -444,6 +448,8 @@ export interface DocsModel {
   urlBasePath?: string;
   /** Query string every same-version page link carries (query mode, non-default). */
   urlQuery?: string;
+  /** Try it, when on: how this API's requests may travel. */
+  tryIt?: TryItSource;
   nodes: Map<Coordinate, Node>;
   pages: PageGraph;
   nav: NavTree;

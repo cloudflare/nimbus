@@ -13,6 +13,7 @@
  * through a computed specifier so a prose-only build never resolves it.
  */
 
+import type { TryItSource } from "../try-it/plan.js";
 import { nearestPointer, pointer } from "./pointer.js";
 import {
   ApiBuildError,
@@ -81,6 +82,8 @@ export interface SpecSource {
   samples?: ApiSamples;
   /** `x-*` extension names whose values are copied onto pages. */
   extensions?: readonly string[];
+  /** Try it: the plan's identity and how requests may travel. Absent: off. */
+  tryIt?: TryItSource;
 }
 
 export interface ParseResult {
@@ -239,11 +242,13 @@ export async function parseOpenApi(source: SpecSource, onceKey?: string): Promis
       source.samples,
       source.extensions,
       parsed,
+      source.tryIt,
     );
     const model = walker.walk();
     if (source.mountPath !== undefined) model.mountPath = source.mountPath;
     if (source.urlBasePath !== undefined) model.urlBasePath = source.urlBasePath;
     if (source.urlQuery !== undefined) model.urlQuery = source.urlQuery;
+    if (source.tryIt !== undefined) model.tryIt = source.tryIt;
     walker.registry.throwIfErrors();
 
     const diagnostics: Diagnostic[] = [...preDiagnostics, ...walker.registry.getDiagnostics()];
@@ -482,6 +487,8 @@ class Walker implements ParseContext {
     /** The spec as written: a warning's source built inside a `$ref`'d object
      *  isn't in it, so it stops at the reference. */
     sourceDoc?: unknown,
+    /** Try it: build a request plan per called operation. */
+    readonly tryIt?: TryItSource,
   ) {
     this.written = (source) =>
       sourceDoc !== undefined && source?.startsWith("#") ? nearestPointer(sourceDoc, source) : source;

@@ -3,6 +3,7 @@ import { getApiRoute } from "@cloudflare/nimbus-docs/runtime";
 import Header from "@/components/Header.astro";
 import { API_HOME_CHUNK_SIZE, ApiLayout } from "@/components/ui/api-layout";
 import { VersionSwitcher } from "@/components/ui/version-switcher";
+import { ApiTryIt } from "@/components/ui/api-try-it";
 import BaseLayout from "@/layouts/BaseLayout.astro";
 
 const result = await getApiRoute(Astro, "api", { homeChunkSize: API_HOME_CHUNK_SIZE });
@@ -34,5 +35,7 @@ const socialImage = new URL(page.href, Astro.url).search
   <Header showSidebar collection={collection}>
     <VersionSwitcher slot="actions" apiCollection={collection} apiVersion={version} coordinate={coordinate} />
   </Header>
-  <ApiLayout page={page} nav={nav} collection={collection} version={version} coordinate={coordinate} home={home} />
+  <ApiLayout page={page} nav={nav} collection={collection} version={version} coordinate={coordinate} home={home}>
+    {page.kind === "operation" && <ApiTryIt slot="try-it" page={page} />}
+  </ApiLayout>
 </BaseLayout>

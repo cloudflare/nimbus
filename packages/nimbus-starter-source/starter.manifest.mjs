@@ -63,6 +63,7 @@ export const STARTER_MANIFEST = {
     "api-field-row",
     "api-layout",
     "api-sidebar",
+    "api-try-it",
     "code-group",
     "copy-prompt",
     "embed",

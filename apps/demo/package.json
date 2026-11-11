@@ -12,6 +12,9 @@
     "deploy": "wrangler deploy",
     "build:workers": "DEMO_NOINDEX=1 pnpm --filter \"@nimbus/demo-weather...\" build && printf '\\n/*\\n  X-Robots-Tag: noindex\\n' >> dist/client/_headers",
     "generate-spec": "tsx spec/generate.ts",
+    "fixture-api:routes": "node fixture-api/build-routes.mjs",
+    "fixture-api:dev": "wrangler dev --config fixture-api/wrangler.jsonc --port 8787",
+    "fixture-api:deploy": "wrangler deploy --config fixture-api/wrangler.jsonc",
     "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {

@@ -33,6 +33,8 @@ import {
 } from "./api/resolve-versions.js";
 import type { ApiSidebarMode, ApiSpec } from "../types.js";
 import { unwrapModel } from "./api/model-handle.js";
+import type { OperationFacts } from "./api/model.js";
+import type { TryItLimits } from "./try-it/config.js";
 import { operationPaths } from "./api/view-model.js";
 import {
   apiNavList,
@@ -71,6 +73,34 @@ export async function stageApiModelNavList(
   );
   await stageApiNavList(root, list);
   recordApiNavList(root, collection, version, list.filename, onDemandSidebar);
+}
+
+/** Write each of the model's Try it plans into the staging folder, where the
+ * dev server serves it and the build deploys it from (`_nimbus/try-it/`).
+ * Files are named by their content, so an unchanged plan is left alone. */
+export async function stageApiTryItPlans(
+  root: string,
+  model: ApiModel,
+  proxy: { key: string; extraOrigins: string[]; limits: TryItLimits } | null,
+  key: string,
+  warn: (message: string) => void = () => {},
+): Promise<void> {
+  const { stageTryItPlan, stageTryItPolicy, planOrigins, MAX_SERVER_ORIGINS } = await import("./try-it/stage.js");
+  const origins = new Set<string>();
+  const crowded = new Map<string, number>();
+  for (const node of unwrapModel(model).nodes.values()) {
+    const tryIt = node.kind === "operation" ? (node.facts as OperationFacts).tryIt : undefined;
+    if (!tryIt) continue;
+    await stageTryItPlan(root, tryIt.file, JSON.stringify(tryIt.plan));
+    for (const origin of planOrigins(tryIt.plan, (server, count) => crowded.set(server, count))) origins.add(origin);
+  }
+  if (proxy) for (const [server, count] of crowded) warn(`Try it's relay won't carry ${server}: its server variables spell ${count.toLocaleString("en")} origins, over ${MAX_SERVER_ORIGINS.toLocaleString("en")}. List fewer enum values, or send direct.`);
+  await stageTryItPolicy(
+    root,
+    key,
+    proxy ? { origins: [...origins].sort(), extraOrigins: proxy.extraOrigins, limits: proxy.limits } : null,
+    warn,
+  );
 }
 
 /** Where a projected page's navigation is bounded. Omitted = the full tree. */

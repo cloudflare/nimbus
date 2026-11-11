@@ -67,11 +67,12 @@ import {
   type MountWarning,
   type UnreadRoute,
 } from "./_internal/collection-routes.js";
-import { cloudflareTrailingSlashWarning } from "./_internal/cloudflare-trailing-slash.js";
+import { cloudflareRequestSignalWarning, cloudflareTrailingSlashWarning } from "./_internal/cloudflare-trailing-slash.js";
 import { copyMarkdownImages } from "./_internal/markdown-images-copy.js";
 import { setMarkdownImageSlicePrefix } from "./_internal/markdown-images.js";
 import { markdownImageSource, markdownImageType } from "./_internal/markdown-images-dev.js";
 import { mcpSdkMessage, serverAdapterFeature, serverAdapterMessage } from "./_internal/server-adapter.js";
+import { proxiedTryItKeys, tryItPolicyPlugin } from "./_internal/try-it/policy-plugin.js";
 import { deriveFootprint, footprintRoutes } from "./_internal/footprint.js";
 import { readDependencyNames } from "./check/probe.js";
 import { parseComponentsRegistry } from "./_internal/parse-components-registry.js";
@@ -801,6 +802,7 @@ export function nimbus(
   const prepareCitationSources = async (
     root: string,
     warn: (message: string) => void,
+    proxyRuns: boolean,
   ) => {
     const preparedVersions = new Map<
       string,
@@ -810,7 +812,7 @@ export function nimbus(
       await import("./_internal/api/page-assets-build.js");
     for (const entry of config.api ?? []) {
       if (!pageAssetCollections.includes(entry.collection)) continue;
-      const { versions } = await prepareApiAssetFamily(root, entry, warn);
+      const { versions } = await prepareApiAssetFamily(root, entry, warn, { proxyRuns });
       for (const { target, prepared } of versions) {
         const filename = prepared.citationSummaryPath;
         preparedVersions.set(target.versionKey, {
@@ -2646,6 +2648,47 @@ export function nimbus(
             });
           }
         }
+        {
+          // Try it's proxy: wherever an API has it on and the site serves on-request routes.
+          const tryItApis = (config.api ?? []).filter((api) => api.tryIt);
+          const explicitProxy = tryItApis.filter((api) => typeof api.tryIt === "object" && api.tryIt.proxy !== undefined && api.tryIt.proxy !== false);
+          if (explicitProxy.length > 0 && !astroConfig.adapter) {
+            throw authorError(serverAdapterMessage("Try it proxy", projectRoot));
+          }
+          // The panel reaches the code rail through ApiLayout's try-it slot; an older layout has none.
+          if (tryItApis.length > 0) {
+            const layout = path.join(srcDir, "components", "ui", "api-layout", "ApiLayout.astro");
+            const source = fs.existsSync(layout) ? fs.readFileSync(layout, "utf8") : undefined;
+            if (source !== undefined && !source.includes('"try-it"')) {
+              params.logger.warn(
+                `tryIt is on, but ${path.relative(projectRoot, layout)} has no try-it slot, so the Try it button can't show. See the api-try-it upgrade entry (\`${invocation("migrate", projectRoot)}\`).`,
+              );
+            }
+          }
+          const proxied = tryItApis.some((api) => !(typeof api.tryIt === "object" && api.tryIt.proxy === false));
+          if (proxied && astroConfig.adapter) {
+            const pattern = "/_nimbus/try";
+            const owned = [pattern, `${pattern}.html`, `${pattern}/index.html`]
+              .map((file) => path.join(publicDir, file))
+              .find((file) => fs.statSync(file, { throwIfNoEntry: false })?.isFile());
+            if (owned)
+              throw authorError(
+                `Nimbus serves ${pattern} for Try it's proxy. Move ${path.relative(projectRoot, owned)}, or set tryIt.proxy to false.`,
+              );
+            if (astroConfig.adapter.name === "@astrojs/cloudflare") {
+              const warning = cloudflareRequestSignalWarning(projectRoot);
+              if (warning) params.logger.warn(warning);
+            }
+            const entrypoint = new URL(`./_internal/try-it-route.${extension}`, import.meta.url);
+            injectRoute({ pattern, entrypoint, prerender: false });
+            managedRoutesForBuild.push({
+              pattern,
+              entrypoint: normalizeRouteEntrypoint(projectRoot, entrypoint.href)!,
+              owner: "infrastructure",
+              rendering: "request",
+            });
+          }
+        }
         for (const api of resolveAllApiCollections(config.api, mountContextForBuild)) {
           const owned = path.join(publicDir, api.mountPath, "openapi.json");
           if (api.publishSpec && fs.existsSync(owned))
@@ -2704,7 +2747,7 @@ export function nimbus(
             projectRoot,
             await prepareCitationSources(projectRoot, (message) =>
               logger.warn(message),
-            ),
+            Boolean(astroConfig.adapter)),
           );
           await ingestApiReferences(
             config.apiReferences,
@@ -3097,6 +3140,7 @@ export function nimbus(
                 () => building && outputModeForBuild === "server",
               ),
               markdownRoutes.plugin,
+              tryItPolicyPlugin(fileURLToPath(astroConfig.root), () => proxiedTryItKeys(config.api)),
               agentEndpointAssets.agentEndpointAssetLoaderPlugin(
                 () => adapterNameForBuild,
               ),
@@ -3694,7 +3738,7 @@ export function nimbus(
                 projectRootForBuild,
                 await prepareCitationSources(projectRootForBuild, (message) =>
                   server.config.logger.warn(message),
-                ),
+                adapterNameForBuild !== null),
               );
               await ingestApiReferences(
                 config.apiReferences,
@@ -3839,6 +3883,8 @@ export function nimbus(
         if (agents.isAgentEndpointAssetRequested(projectRootForBuild))
           await agents.stageAgentEndpointAssets(projectRootForBuild, target);
         const agentsStaged = performance.now();
+        const { deployTryItPlans } = await import("./_internal/try-it/stage.js");
+        await deployTryItPlans(projectRootForBuild, target);
         const { apiNavListFiles } = await import("./_internal/api/nav-list.js");
         // A slice stages only the API collections it holds (see the
         // client-side staging plugin for the same rule).
@@ -4027,6 +4073,11 @@ export function nimbus(
         const distDir = fileURLToPath(dir);
         // Relative images the Markdown versions point at (markdown-images.ts).
         copyMarkdownImages(distDir, projectRootForBuild);
+        // Try it's request plans, for a static build (a server build copied them at build:ssr).
+        if (outputModeForBuild === "static") {
+          const { deployTryItPlans } = await import("./_internal/try-it/stage.js");
+          await deployTryItPlans(projectRootForBuild, distDir);
+        }
         // The build has read every page; a failed build releases at exit.
         releaseContentSourceLeases(projectRootForBuild);
         // A slice without the root collection: its site-wide files go under

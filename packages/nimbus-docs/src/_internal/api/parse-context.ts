@@ -1,6 +1,7 @@
 import type { FieldSink } from "./field-walk.js";
 import type { OpenApiDocument } from "./openapi-types.js";
 import type { SampleTools } from "./samples.js";
+import type { TryItSource } from "../try-it/plan.js";
 import type { Coordinate, RouteProvenance } from "./model.js";
 import type { RoutePolicy } from "./route-policy.js";
 import type { ApiSamples } from "../../types.js";
@@ -21,6 +22,8 @@ export interface ParseContext extends FieldSink {
   readonly samples: ApiSamples;
   /** `x-*` extension names whose values are copied onto operations and fields. */
   readonly extensions: readonly string[];
+  /** Try it: when set, every called operation gets a request plan. */
+  readonly tryIt?: TryItSource;
   /** The active route convention, or `undefined` for legacy operationId URLs. */
   readonly routePolicy?: RoutePolicy;
   /** Publish a page per schema. When false, schemas are still parsed and their
