@@ -1159,6 +1159,149 @@ test("queues a follow-up bake when invalidated during in-flight work", async () 
   assert.equal(calls, 2);
 });
 
+function countingSite(projectRoot: string, mode: "build" | "dev") {
+  const counter = { renders: 0 };
+  const options = {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+    componentMap: {
+      Count: {
+        revision: "v1",
+        render: () => {
+          counter.renders += 1;
+          return "counted";
+        },
+      },
+    },
+  };
+  configureAgentEndpointAssetRoot(projectRoot, mode, () => bakeAgentEndpointAssets(options));
+  const rebake = () => {
+    invalidateAgentEndpointAssets(projectRoot);
+    return ensureAgentEndpointAssets(projectRoot);
+  };
+  return { counter, options, rebake };
+}
+
+const countedPages = (bodyOfB = "B") => [
+  { id: "a", body: '<Count />\n\n<Render file="note" />', data: { title: "A" } },
+  { id: "b", body: `<Count />\n\n${bodyOfB}`, data: { title: "B" } },
+  { id: "c", body: "<Count />\n\nC", data: { title: "C" } },
+];
+
+test("dev reuses an unchanged page's Markdown, byte-identical to a build", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", countedPages());
+  commit(projectRoot, "partials", [{ id: "note", body: "Note.", data: {} }]);
+  const { counter, options, rebake } = countingSite(projectRoot, "dev");
+  await ensureAgentEndpointAssets(projectRoot);
+  await rebake();
+  assert.equal(counter.renders, 3);
+
+  commit(projectRoot, "docs", countedPages("B, edited"));
+  const edited = await rebake();
+  assert.equal(counter.renders, 4);
+  configureAgentEndpointAssetRoot(projectRoot, "build", () => bakeAgentEndpointAssets(options));
+  assert.deepEqual(await bakeAgentEndpointAssets(options), edited);
+});
+
+test("dev renders every page again when a partial or a component revision changes", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", countedPages());
+  commit(projectRoot, "partials", [{ id: "note", body: "Note.", filePath: "note.mdx", data: {} }]);
+  const { counter, options, rebake } = countingSite(projectRoot, "dev");
+  const renders = async () => {
+    const before = counter.renders;
+    await rebake();
+    return counter.renders - before;
+  };
+  await ensureAgentEndpointAssets(projectRoot);
+
+  commit(projectRoot, "partials", [{ id: "note", body: "Note, edited.", filePath: "note.mdx", data: {} }]);
+  assert.equal(await renders(), 3);
+  commit(projectRoot, "partials", [{ id: "note", body: "Note, edited.", filePath: "note.md", data: {} }]);
+  assert.equal(await renders(), 3);
+  options.componentMap.Count.revision = "v2";
+  assert.equal(await renders(), 3);
+  assert.equal(await renders(), 0);
+});
+
+test("dev still rejects a page whose partial stopped being public", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", countedPages());
+  commit(projectRoot, "partials", [{ id: "note", body: "Note.", data: {} }]);
+  const { rebake } = countingSite(projectRoot, "dev");
+  await ensureAgentEndpointAssets(projectRoot);
+  commit(projectRoot, "partials", [{ id: "note", body: "Note.", data: { draft: true } }]);
+  await assert.rejects(rebake(), /partial "partials:note"/);
+});
+
+test("a build renders every page on every bake", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", countedPages());
+  commit(projectRoot, "partials", [{ id: "note", body: "Note.", data: {} }]);
+  const { counter, options } = countingSite(projectRoot, "build");
+  await bakeAgentEndpointAssets(options);
+  await bakeAgentEndpointAssets(options);
+  assert.equal(counter.renders, 6);
+});
+
+test("dev doesn't re-read files it published, and rewrites one that went missing", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", countedPages());
+  commit(projectRoot, "partials", [{ id: "note", body: "Note.", data: {} }]);
+  const { rebake } = countingSite(projectRoot, "dev");
+  const manifest = await ensureAgentEndpointAssets(projectRoot);
+  const directory = path.join(projectRoot, ".astro/nimbus/agent-endpoint-assets");
+  const [kept, removed] = manifest.markdownAssets.map((asset) => path.join(directory, asset.path));
+  const body = await readFile(removed!, "utf8");
+  const tampered = "x".repeat(Buffer.byteLength(await readFile(kept!, "utf8")));
+  await writeFile(kept!, tampered);
+  await rm(removed!);
+
+  await rebake();
+  assert.equal(await readFile(kept!, "utf8"), tampered);
+  assert.equal(await readFile(removed!, "utf8"), body);
+});
+
+test("a build still reads back every file it would keep, and repairs one that changed", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", countedPages());
+  commit(projectRoot, "partials", [{ id: "note", body: "Note.", data: {} }]);
+  const { rebake } = countingSite(projectRoot, "build");
+  const manifest = await ensureAgentEndpointAssets(projectRoot);
+  const kept = path.join(projectRoot, ".astro/nimbus/agent-endpoint-assets", manifest.markdownAssets[0]!.path);
+  const body = await readFile(kept, "utf8");
+  await writeFile(kept, "x".repeat(Buffer.byteLength(body)));
+  await rebake();
+  assert.equal(await readFile(kept, "utf8"), body);
+});
+
+
+for (const mode of ["dev", "build"] as const) {
+  test(`${mode} replaces a short or empty asset file and the bake succeeds`, async () => {
+    const projectRoot = await root();
+    commit(projectRoot, "docs", [
+      { id: "a", body: "Page A", data: { title: "A" } },
+      { id: "b", body: "Page B", data: { title: "B" } },
+    ]);
+    const options = { root: projectRoot, base: "/docs", site: "https://example.test", title: "Test" };
+    configureAgentEndpointAssetRoot(projectRoot, mode, () => bakeAgentEndpointAssets(options));
+    const manifest = await ensureAgentEndpointAssets(projectRoot);
+    const directory = path.join(projectRoot, ".astro/nimbus/agent-endpoint-assets");
+    const files = manifest.markdownAssets.slice(0, 2).map((asset) => path.join(directory, asset.path));
+    assert.equal(files.length, 2);
+    const bodies = await Promise.all(files.map((file) => readFile(file, "utf8")));
+    await writeFile(files[0]!, bodies[0]!.slice(0, 3));
+    await writeFile(files[1]!, "");
+
+    invalidateAgentEndpointAssets(projectRoot);
+    await ensureAgentEndpointAssets(projectRoot);
+    assert.deepEqual(await Promise.all(files.map((file) => readFile(file, "utf8"))), bodies);
+  });
+}
+
 test("removes assets made obsolete by edits and deletions", async () => {
   const projectRoot = await root();
   commit(projectRoot, "docs", [
