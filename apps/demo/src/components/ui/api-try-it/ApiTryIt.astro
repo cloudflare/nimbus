@@ -46,7 +46,7 @@ const meta = page.tryIt && {
 
 {meta && (
   <div class="nb-ti-bar" style={`--nb-ti-m: var(--nb-m-${methodVariant(page.method)})`}>
-    <button type="button" class="nb-ti-toggle" data-nb-tryit-open data-meta={JSON.stringify(meta)} aria-haspopup="dialog" hidden>
+    <button type="button" class="nb-ti-toggle" data-nb-tryit-open data-meta={JSON.stringify(meta)} aria-haspopup="dialog">
       Try it
     </button>
   </div>

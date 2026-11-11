@@ -1,6 +1,6 @@
 /**
  * The Try it button. The panel and its plan load on the first click; until
- * then nothing else runs. Without JavaScript the button stays hidden.
+ * then nothing else runs. Without JavaScript the button is hidden (try-it-button.css).
  */
 import { mount } from "@cloudflare/nimbus-docs/client";
 
@@ -8,7 +8,6 @@ type Panel = { open(): void; destroy(): void };
 
 mount("[data-nb-tryit-open]", (button) => {
   if (!(button instanceof HTMLButtonElement)) return () => {};
-  button.hidden = false;
   let panel: Panel | null = null;
   let loading = false;
   let gone = false;

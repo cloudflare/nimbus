@@ -7,8 +7,11 @@
 [data-nb-api-coderail] .nb-ti-bar:last-child {
   padding-bottom: 0.5rem;
 }
-[data-nb-api-coderail] .nb-ti-bar:has(.nb-ti-toggle[hidden]) {
-  display: none;
+/* Visible from the first paint so the rail doesn't shift; hidden without JavaScript, where it can't work. */
+@media (scripting: none) {
+  [data-nb-api-coderail] .nb-ti-bar {
+    display: none;
+  }
 }
 [data-nb-api-coderail] .nb-ti-toggle {
   width: 100%;
