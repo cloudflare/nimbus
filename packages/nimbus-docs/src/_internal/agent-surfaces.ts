@@ -91,6 +91,8 @@ export function describeAgentSurfaces(surfaces: {
   renderedPages?: number;
   /** The route files serving each surface, where known; the starter's names otherwise. */
   files?: Partial<Record<"pageMarkdown" | "source" | "llms" | "llmsSections" | "llmsFull", string>>;
+  /** Pages whose Markdown URL a route publishes, of the pages that could have one (the build knows; `check` doesn't). */
+  pages?: { covered: number; total: number };
 }): string[] {
   const line = (on: boolean, what: string, file: string, onRequest = false) =>
     on ? `${what}: ${onRequest ? "made on request" : "served"} (${file})` : `${what}: off (no ${file})`;
@@ -98,7 +100,7 @@ export function describeAgentSurfaces(surfaces: {
   const rendered = surfaces.renderedPages ? `; ${surfaces.renderedPages} API pages made on request` : "";
   return [
     surfaces.pageMarkdown
-      ? `${line(true, "Page Markdown", file("pageMarkdown", "src/pages/[...slug]/index.md.ts"))}${rendered}`
+      ? `Page Markdown: served${surfaces.pages ? ` for ${surfaces.pages.covered} of ${surfaces.pages.total} pages` : ""} (${file("pageMarkdown", "src/pages/[...slug]/index.md.ts")})${rendered}`
       : `Page Markdown: off (no src/pages/[...slug]/index.md.ts)${surfaces.mcpBodies ? "; bodies kept for agents.mcp" : ""}`,
     line(surfaces.source, "Page source (.mdx)", file("source", "src/pages/[...slug]/index.mdx.ts")),
     line(surfaces.llms, "llms.txt", file("llms", "src/pages/llms.txt.ts"), surfaces.onRequest?.llms),

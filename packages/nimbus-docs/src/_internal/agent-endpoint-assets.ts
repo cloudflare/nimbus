@@ -2102,9 +2102,13 @@ export async function bakeAgentEndpointAssets(
   if (options.surfaces) {
     const { describeAgentSurfaces, agentRouteFiles, isSectionLlmsPattern } = await import("./agent-surfaces.js");
     const routes = options.surfaces.markdownRoutes;
+    // Pages whose Markdown URL a route publishes, of those that could have
+    // one: a hidden version's page has none to publish.
+    const countable = llmsRoutePages.filter((page) => !page.historical);
     options.info?.(
       `Agent surfaces follow the site's routes: ${describeAgentSurfaces({
         pageMarkdown: routes.some((route) => route.pattern.endsWith(".md")),
+        pages: { covered: countable.filter((page) => page.markdownUrl).length, total: countable.length },
         source: routes.some((route) => route.pattern.endsWith(".mdx")),
         llms: servesLlms(options),
         llmsSections: servesLlmsSections(options),
