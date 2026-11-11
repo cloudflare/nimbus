@@ -1522,7 +1522,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     if (plan.body.media.some((m) => m.kind === "json" && m.fields)) tools.push(viewSwitch);
     drawBody();
     syncTools();
-    return card("Body", [bodySlot, bodyError], { badge: typeBadge, tools, grow: bodyOn });
+    // With a media type picker, the badge would only repeat it.
+    return card("Body", [bodySlot, bodyError], { badge: plan.body.media.length > 1 ? null : typeBadge, tools, grow: bodyOn });
   };
 
   const build = (): void => {

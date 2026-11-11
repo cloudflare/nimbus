@@ -280,6 +280,7 @@
   box-shadow: 0 0 0 1px var(--nb-border);
 }
 .nb-tid-cardhead {
+  flex: none; /* a tall card body never squeezes it */
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -1573,14 +1574,19 @@
   .nb-tid-cardhead .nb-tid-seg button {
     min-height: 2.5rem;
   }
-  /* The tools keep their size and the media type gives way; with the switch the
-     head is one height in both views, Format or not. */
-  .nb-tid-cardtools {
-    flex: none;
-  }
+  /* With the switch, the tools take a row of their own, right-aligned: the head is
+     one height in both views and the switch stays put. A media type picker gives way. */
   .nb-tid-cardhead:has(.nb-tid-seg:not([hidden])) {
-    min-height: 3.25rem;
-    padding-block: 0.25rem;
+    flex-wrap: wrap;
+    row-gap: 0.375rem;
+  }
+  .nb-tid-cardhead:has(.nb-tid-seg:not([hidden])) .nb-tid-cardtools {
+    flex: 1 0 100%;
+    justify-content: flex-end;
+  }
+  .nb-tid-cardtools .nb-tid-example {
+    flex: 0 1 auto;
+    min-width: 0;
   }
   .nb-tid-lang {
     min-height: 2.75rem;
