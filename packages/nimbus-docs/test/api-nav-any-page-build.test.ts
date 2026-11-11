@@ -128,6 +128,7 @@ async function buildSite(options: {
   adapter?: string;
   /** Leave out the docs collection: the API alone, as when it's served at `/`. */
   apiOnly?: boolean;
+  trailingSlash?: "always" | "never" | "ignore";
   /** Run before the server answers its first request. */
   beforeServe?: (root: string) => Promise<void>;
 }): Promise<Site> {
@@ -181,6 +182,7 @@ export const collections = { apiPages: defineLiveCollection({ loader: apiPagesLo
       },
     },
     base: options.base,
+    ...(options.trailingSlash ? { trailingSlash: options.trailingSlash } : {}),
     ...(adapter ? { output: "server" as const, adapter } : {}),
     logLevel: "silent",
     integrations: [
@@ -489,6 +491,45 @@ describe("query versions at the site root: the homepage negotiates its Markdown 
     // An unknown version is the page route's 404, as without Accept.
     assert.equal((await site.get("/?version=v9", markdown)).status, 404);
     assert.equal((await site.get("/?version=v9")).status, 404);
+  });
+});
+
+describe("query versions at a slashless base root: the same homepage rule", () => {
+  let site: Site;
+  before(async () => {
+    site = await buildSite({
+      request: true,
+      base: "/docs",
+      trailingSlash: "never",
+      apiOnly: true,
+      adapter: "@astrojs/node",
+      api: {
+        collection: "api",
+        versionUrl: { in: "query" },
+        bundle: false,
+        sidebar: "on-demand",
+        versions: [
+          { version: "v2", default: true, spec: SPEC },
+          { version: "v1", spec: SPEC },
+        ],
+      },
+      pages: {
+        "src/pages/[...slug].astro": navPage(false, "api"),
+        "src/pages/[...slug]/index.md.ts": `import { markdownRoute } from ${ENDPOINTS};\nexport const { GET, getStaticPaths } = markdownRoute();\n`,
+        "src/pages/llms.txt.ts": `import { llmsRoute } from ${ENDPOINTS};\nexport const { GET } = llmsRoute();\n`,
+      },
+    });
+  });
+
+  test("/docs negotiates the default version's Markdown; another version's selection is HTML; an unknown one is the 404", async () => {
+    const markdown = { Accept: "text/markdown" };
+    const current = await site.get("/docs", markdown);
+    assert.equal(current.status, 200);
+    assert.match(current.contentType, /^text\/markdown/);
+    const v1 = await site.get("/docs?version=v1", markdown);
+    assert.equal(v1.status, 200);
+    assert.match(v1.contentType, /^text\/html/);
+    assert.equal((await site.get("/docs?version=v9", markdown)).status, 404);
   });
 });
 
