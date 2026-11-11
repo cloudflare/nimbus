@@ -2912,6 +2912,8 @@ export function nimbus(
           await import("./_internal/markdown-processor-decorator.js");
         const { markdownSourcePlugin } =
           await import("./_internal/markdown-source-vite-plugin.js");
+        const { devContentStorePlugin } =
+          await import("./_internal/dev-content-store.js");
         const authoredLinkBase = astroConfig.base || "/";
         // One authored-source pipeline for `.md` (processor) and `.mdx` (Vite):
         // resolve `api.ref:` citations to logical routes, then normalize every
@@ -3070,6 +3072,10 @@ export function nimbus(
                     );
                 },
               },
+              ...(command === "dev" &&
+              (astroConfig.experimental?.collectionStorage ?? "single-file") === "single-file"
+                ? [devContentStorePlugin(path.join(projectRoot, ".astro", "data-store.json"))]
+                : []),
               markdownSourcePlugin({
                 contentDirs: authoredLinkSourceDirs,
                 isRecorded: isRecordedPageFile,
