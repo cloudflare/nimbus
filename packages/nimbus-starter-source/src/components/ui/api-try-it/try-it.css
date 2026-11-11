@@ -1569,6 +1569,10 @@
   .nb-tid-seg button {
     min-height: 2.75rem;
   }
+  /* In a card's head the switch is 44px with its track, as the head is. */
+  .nb-tid-cardhead .nb-tid-seg button {
+    min-height: 2.5rem;
+  }
   .nb-tid-lang {
     min-height: 2.75rem;
     height: 2.75rem;
@@ -1741,6 +1745,9 @@
 .nb-tid-jsonfield {
   height: auto;
   min-height: 4.5rem;
+  /* As tall as its JSON, up to a point; where unsupported, `rows` and the resize handle. */
+  field-sizing: content;
+  max-height: 16rem;
   padding-block: 0.5rem;
   font-family: var(--nb-font-mono, ui-monospace, monospace);
   resize: vertical;

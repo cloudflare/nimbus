@@ -9,7 +9,8 @@ export interface JsonEntry {
   raw: string;
 }
 
-/** The entries of `text` when it's one JSON object, in order; otherwise `null`. */
+/** The entries of `text` when it's one JSON object, each key once, in order;
+ *  otherwise `null`. A repeated key has no one value to edit. */
 export function jsonEntries(text: string): JsonEntry[] | null {
   let value: unknown;
   try {
@@ -20,9 +21,19 @@ export function jsonEntries(text: string): JsonEntry[] | null {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
   // Valid JSON from here: the scan only has to find where each value ends.
   const entries: JsonEntry[] = [];
+  const seen = new Set<string>();
   let i = text.indexOf("{") + 1;
+  // Where the scan's line starts, and whether only whitespace precedes it: a key's indent.
+  let lineStart = 0;
+  let blank = false;
   const skip = () => {
-    while (/\s/.test(text[i] ?? "")) i++;
+    while (/\s/.test(text[i] ?? "")) {
+      if (text[i] === "\n") {
+        lineStart = i + 1;
+        blank = true;
+      }
+      i++;
+    }
   };
   const string = (): string => {
     const start = i++;
@@ -33,10 +44,15 @@ export function jsonEntries(text: string): JsonEntry[] | null {
   for (;;) {
     skip();
     if (text[i] === "}") break;
-    if (text[i] === ",") i++;
+    if (text[i] === ",") {
+      i++;
+      blank = false;
+    }
     skip();
-    const keyStart = i;
+    const indent = blank ? i - lineStart : 0;
     const key = JSON.parse(string()) as string;
+    if (seen.has(key)) return null;
+    seen.add(key);
     skip();
     i++; // the colon
     skip();
@@ -55,7 +71,8 @@ export function jsonEntries(text: string): JsonEntry[] | null {
       } else if (c === "," && depth === 0) break;
       i++;
     }
-    entries.push({ key, raw: dedent(text.slice(start, i).trimEnd(), indentAt(text, keyStart)) });
+    entries.push({ key, raw: dedent(text.slice(start, i).trimEnd(), indent) });
+    blank = false;
   }
   return entries;
 }
@@ -65,13 +82,6 @@ export function jsonEntries(text: string): JsonEntry[] | null {
 export function jsonObject(entries: readonly JsonEntry[]): string {
   if (entries.length === 0) return "{}";
   return `{\n${entries.map((e) => `  ${JSON.stringify(e.key)}: ${e.raw.replace(/\n/g, "\n  ")}`).join(",\n")}\n}`;
-}
-
-// The whitespace a key's line starts with, when the key starts that line.
-function indentAt(text: string, at: number): number {
-  const lineStart = text.lastIndexOf("\n", at - 1) + 1;
-  const lead = text.slice(lineStart, at);
-  return /^[ \t]*$/.test(lead) ? lead.length : 0;
 }
 
 // Continuation lines lose the key's indent, so the value reads as if it stood alone.

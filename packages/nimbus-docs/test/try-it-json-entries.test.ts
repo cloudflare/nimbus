@@ -40,3 +40,15 @@ test("not one object: null", () => {
 test("a value that isn't JSON is written as typed", () => {
   assert.equal(jsonObject([{ key: "n", raw: "12a" }, { key: "o", raw: '{\n  "x": 1\n}' }]), '{\n  "n": 12a,\n  "o": {\n    "x": 1\n  }\n}');
 });
+
+test("a repeated key, however it's spelled: null", () => {
+  assert.equal(jsonEntries('{"x": 1, "x": 2}'), null);
+  assert.equal(jsonEntries('{"x": 1, "\\u0078": 2}'), null);
+});
+
+test("a large one-line object scans in linear time", () => {
+  const text = `{${Array.from({ length: 40_000 }, (_, i) => `"k${i}":${i}`).join(",")}}`;
+  const started = performance.now();
+  assert.equal(jsonEntries(text)!.length, 40_000);
+  assert.ok(performance.now() - started < 1000, "well under a second");
+});

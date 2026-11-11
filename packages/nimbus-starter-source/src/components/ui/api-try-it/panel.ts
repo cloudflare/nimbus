@@ -634,13 +634,24 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     if (s.type === "number") return "decimal";
     return s.format === "email" ? "email" : s.format === "uri" ? "url" : undefined;
   };
+  // Where a row's value lives: the parameters, or a JSON body's properties. `init`
+  // gives a row its starting value without counting as an edit.
+  type Store = { get(key: string): unknown; init(key: string, value: unknown): void; set(key: string, value: unknown): void; drop(key: string): void };
+  const paramStore: Store = {
+    get: (key) => values.params[key],
+    init: (key, value) => (values.params[key] = value),
+    set: (key, value) => (values.params[key] = value),
+    drop: (key) => delete values.params[key],
+  };
+  type RowContext = { key: string; store: Store };
+  const paramContext = (p: PlanParam): RowContext => ({ key: paramKey(p), store: paramStore });
   // Checks run when a field loses focus, then live until it's fixed.
-  const watch = (p: PlanParam, control: HTMLElement, error: HTMLElement) => {
-    const key = paramKey(p);
+  const watch = (p: PlanParam, control: HTMLElement, error: HTMLElement, { key, store }: RowContext = paramContext(p)) => {
     error.id = fresh("err");
-    control.setAttribute("aria-describedby", error.id);
+    const help = control.closest(".nb-tid-row")?.querySelector<HTMLElement>(".nb-tid-desc[id]");
+    control.setAttribute("aria-describedby", help ? `${help.id} ${error.id}` : error.id);
     const run = () => {
-      const value = values.params[key];
+      const value = store.get(key);
       const issues = value === undefined ? [] : checkParam(p, value);
       const pathEmpty = p.in === "path" && value === "";
       const messages = [...(pathEmpty ? ["A path parameter can't be empty."] : []), ...issues.map((i) => i.message)];
@@ -659,6 +670,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     return run;
   };
 
+  const reqMark = () => el("span", { class: "nb-tid-reqmark" }, el("span", { "aria-hidden": "true" }, "*"), el("span", { class: "sr-only" }, " (required)"));
   const nameLine = (p: PlanParam, id: string, tag: "label" | "span", tools: Node[]) =>
     el(
       "div",
@@ -667,27 +679,29 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
         tag,
         { class: "nb-tid-name", ...(tag === "label" ? { for: id } : {}) },
         // The name alone labels the control; the type beside it isn't part of it.
-        el("span", { class: "nb-tid-nametext", ...(tag === "span" ? { id } : {}) }, p.name, p.required ? el("span", { class: "nb-tid-reqmark", "aria-label": "required" }, "*") : null),
+        el("span", { class: "nb-tid-nametext", ...(tag === "span" ? { id } : {}) }, p.name, p.required ? reqMark() : null),
         el("span", { class: "nb-tid-type" }, typeLabel(p)),
       ),
       ...tools,
     );
-  const help = (p: PlanParam) => (p.description ? el("p", { class: "nb-tid-desc" }, p.description) : null);
+  const help = (p: PlanParam) => (p.description ? el("p", { class: "nb-tid-desc", id: fresh("desc") }, p.description) : null);
+  // A body property whose value isn't of its schema's kind: edited as JSON, as typed.
+  const asJsonValue = new WeakSet<PlanParam>();
   const needsJson = (p: PlanParam) =>
-    Boolean(p.content) || p.schema.type === "object" || (p.schema.type === "array" && (p.schema.items?.type === "object" || p.schema.items?.type === "array"));
+    Boolean(p.content) || asJsonValue.has(p) || p.schema.type === "object" || (p.schema.type === "array" && (p.schema.items?.type === "object" || p.schema.items?.type === "array"));
 
   // One parameter: name and type over the control its schema calls for.
-  const paramRow = (p: PlanParam, onRemove?: () => void): { node: HTMLElement; focus: () => void } => {
-    const key = paramKey(p);
+  const paramRow = (p: PlanParam, onRemove?: () => void, context: RowContext = paramContext(p)): { node: HTMLElement; focus: () => void } => {
+    const { key, store } = context;
     const id = fresh(key);
     const initial = startValue(p);
     const set = (value: unknown) => {
-      values.params[key] = value;
+      store.set(key, value);
       resetButton.hidden = JSON.stringify(value) === JSON.stringify(initial);
       render();
     };
     const resetButton = iconButton("nb-tid-rm", `Reset ${p.name}`, ph(P_RESET, "size-3.5"));
-    resetButton.hidden = JSON.stringify(values.params[key]) === JSON.stringify(initial);
+    resetButton.hidden = JSON.stringify(store.get(key)) === JSON.stringify(initial);
     const tools: Node[] = [resetButton];
     if (onRemove) {
       const rm = iconButton("nb-tid-rm", `Remove ${p.name}`, X);
@@ -704,7 +718,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     let focus: () => void;
     let rerun: () => void = () => {};
     const drawControl = () => {
-      const value = values.params[key];
+      const value = store.get(key);
       const nullable = p.schema.nullable === true;
       if (needsJson(p)) {
         // A value a control can't keep faithfully: JSON, parsed as typed.
@@ -734,7 +748,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
         });
         return { control: area, focus: () => area.focus() };
       }
-      if (p.schema.type === "boolean") {
+      if (p.schema.type === "boolean" && !p.schema.enum) {
         const options = ["true", "false", ...(nullable ? ["null"] : [])];
         const pick = value === null ? "null" : text(value);
         const radios = options.map((v) => {
@@ -755,7 +769,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
           const c = checkbox(text(o), { value: text(o) });
           c.box.checked = chosen.includes(text(o));
           c.box.addEventListener("change", () => {
-            const now = (Array.isArray(values.params[key]) ? (values.params[key] as string[]) : []).filter((x) => x !== c.box.value);
+            const now = (Array.isArray(store.get(key)) ? (store.get(key) as string[]) : []).filter((x) => x !== c.box.value);
             if (c.box.checked) now.push(c.box.value);
             set(now);
           });
@@ -824,14 +838,14 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     controls.set(key, built.control);
     node = row(built.control);
     focus = built.focus;
-    rerun = watch(p, built.control, error);
+    rerun = watch(p, built.control, error, context);
     resetButton.addEventListener("click", () => {
-      values.params[key] = initial;
+      store.set(key, initial);
       badJson.delete(key);
       const fresh2 = draw();
       (controls.get(key) ?? built.control).replaceWith(fresh2.control);
       controls.set(key, fresh2.control);
-      rerun = watch(p, fresh2.control, error);
+      rerun = watch(p, fresh2.control, error, context);
       error.textContent = "";
       resetButton.hidden = true;
       render();
@@ -845,19 +859,24 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   const locationSection = (location: PlanParam["in"], label: string): HTMLElement | null => {
     const params = plan.params.filter((p) => p.in === location && !p.ignored);
     if (!params.length) return null;
+    return el("div", { class: "nb-tid-section" }, el("h4", { class: "nb-tid-sectiontitle" }, label, el("span", {}, String(params.length))), ...rowsFor(params, paramContext));
+  };
+  // Present values as rows, absent optional ones a chip away.
+  const rowsFor = (params: PlanParam[], contextOf: (p: PlanParam) => RowContext): HTMLElement[] => {
     const rows = el("div", { class: "nb-tid-rows" });
     const optional = el("div", { class: "nb-tid-optional" }, el("span", { class: "nb-tid-optional-label" }, "Optional"));
     const chips = new Map<string, HTMLButtonElement>();
     const syncOptional = () => (optional.hidden = ![...chips.values()].some((c) => !c.hidden));
     const addRow = (p: PlanParam, focusIt: boolean) => {
-      const key = paramKey(p);
-      if (values.params[key] === undefined) values.params[key] = startValue(p);
+      const context = contextOf(p);
+      const { key, store } = context;
+      if (store.get(key) === undefined) store.init(key, startValue(p));
       const row = paramRow(
         p,
         p.required
           ? undefined
           : () => {
-              delete values.params[key];
+              store.drop(key);
               badJson.delete(key);
               row.node.remove();
               const chip = chips.get(key)!;
@@ -866,12 +885,13 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
               render();
               chip.focus();
             },
+        context,
       );
       rows.append(row.node);
       if (focusIt) row.focus();
     };
     for (const p of params) {
-      const key = paramKey(p);
+      const { key, store } = contextOf(p);
       if (p.refused) {
         rows.append(note(`${p.name}: ${p.refused}`, true));
         continue;
@@ -882,16 +902,19 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
           chip.hidden = true;
           syncOptional();
           addRow(p, true);
+          // An added property is part of the body at once, as an added parameter is.
+          const value = store.get(key);
+          if (value !== undefined) store.set(key, value);
           render();
         });
         chips.set(key, chip);
         optional.append(chip);
-        chip.hidden = values.params[key] !== undefined;
+        chip.hidden = store.get(key) !== undefined;
       }
-      if (p.required || values.params[key] !== undefined) addRow(p, false);
+      if (p.required || store.get(key) !== undefined) addRow(p, false);
     }
     syncOptional();
-    return el("div", { class: "nb-tid-section" }, el("h4", { class: "nb-tid-sectiontitle" }, label, el("span", {}, String(params.length))), rows, optional);
+    return [rows, optional];
   };
 
   // ---- Where the key goes ------------------------------------------------------------------
@@ -1120,6 +1143,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     const media = plan.body?.media.find((m) => m.mediaType === bodyMedia);
     bodySlot.replaceChildren();
     bodyError.textContent = "";
+    fieldIssues = () => [];
+    for (const key of [...badJson.keys()]) if (key.startsWith("body:")) badJson.delete(key);
     if (!media) return;
     if (asFields(media)) return bodySlot.append(jsonFieldsBody(media));
     if (media.kind === "json" || media.kind === "text") return bodySlot.append(editor(media));
@@ -1168,125 +1193,137 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     return el("div", { class: "nb-tid-editorbox" }, el("div", { class: "nb-tid-editorwrap" }, under, area));
   };
   // ---- A JSON object body as fields --------------------------------------------------
-  // The JSON text stays the one draft: each field edits its own entry, written back
-  // at once, and an entry no field touched keeps its text, numbers included.
+  // The JSON text stays the one draft. A property's row is a parameter's row; a valid
+  // value is written into its entry at once, an invalid one stays in its field. Entries
+  // no field changed keep their values as written, exact numbers included; the object
+  // itself is laid out afresh, two spaces per level.
   let editAs: "json" | "fields" = store("tab")?.getItem(BODY_VIEW_KEY) === "fields" ? "fields" : "json";
   const draftText = (media: PlanMedia) => text(bodyDrafts.get(media.mediaType));
   const entriesOf = (media: PlanMedia): JsonEntry[] | null => (draftText(media).trim() === "" ? [] : jsonEntries(draftText(media)));
   const asFields = (media: PlanMedia) => editAs === "fields" && media.kind === "json" && Boolean(media.fields) && entriesOf(media) !== null;
+  // The fields view's checks, for Send: what's typed but not yet valid.
+  let fieldIssues: () => { key: string; message: string }[] = () => [];
   const NUMBER = /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/;
-  type FieldControl = "text" | "number" | "choice" | "json";
-  // The control a value calls for: its schema's, unless the value typed is of another kind.
-  const controlFor = (schema: PlanSchema, raw: string | undefined): FieldControl => {
-    const value = raw === undefined ? undefined : (() => {
-      try {
-        return JSON.parse(raw) as unknown;
-      } catch {
-        return Symbol();
-      }
-    })();
-    const fits = (ok: (v: unknown) => boolean) => value === undefined || ok(value) || (value === null && schema.nullable === true);
-    if (schema.enum && fits((v) => schema.enum!.some((o) => JSON.stringify(o) === JSON.stringify(v)))) return "choice";
-    if (schema.type === "boolean" && fits((v) => typeof v === "boolean")) return "choice";
-    if (schema.type === "string" && fits((v) => typeof v === "string")) return "text";
-    if ((schema.type === "integer" || schema.type === "number") && (raw === undefined || NUMBER.test(raw))) return "number";
-    if (!schema.type && raw !== undefined) {
-      if (typeof value === "string") return "text";
-      if (NUMBER.test(raw)) return "number";
+  // A value as its entry's JSON; undefined while it isn't one the schema takes.
+  const scalarJson = (schema: PlanSchema, value: unknown): string | undefined => {
+    if (value === null) return "null";
+    const typed = text(value);
+    if (schema.enum) {
+      const option = schema.enum.find((o) => text(o) === typed);
+      return option === undefined ? undefined : JSON.stringify(option);
     }
-    return "json";
+    if (schema.type === "integer" || schema.type === "number") return NUMBER.test(typed) && (schema.type === "number" || Number.isInteger(Number(typed))) ? typed : undefined;
+    if (schema.type === "boolean") return typed === "true" || typed === "false" ? typed : undefined;
+    return JSON.stringify(typed);
   };
+  const entryJson = (p: PlanParam, value: unknown): string | undefined => {
+    if (value === null) return "null";
+    if (needsJson(p)) return JSON.stringify(value, null, 2);
+    if (p.schema.type === "array") {
+      const items = (Array.isArray(value) ? value : []).map((item) => scalarJson(p.schema.items ?? {}, item));
+      return items.includes(undefined) ? undefined : `[${items.join(", ")}]`;
+    }
+    return scalarJson(p.schema, value);
+  };
+  // Whether a control can show a value faithfully: one of the schema's kind, a
+  // string without line breaks (an input drops them), a list of such.
+  const fits = (schema: PlanSchema, value: unknown, raw?: string): boolean => {
+    if (value === null) return false;
+    if (schema.enum) return schema.enum.some((o) => o !== null && typeof o !== "object" && o === value);
+    switch (schema.type) {
+      case "integer":
+      case "number":
+        return typeof value === "number" && (raw === undefined || NUMBER.test(raw));
+      case "boolean":
+        return typeof value === "boolean";
+      case "string":
+        return typeof value === "string" && !/[\r\n]/.test(value);
+      case "array": {
+        const items = schema.items ?? {};
+        if (!Array.isArray(value)) return false;
+        if (items.type === "object" || items.type === "array" || (!items.type && !items.enum)) return true; // edited as JSON
+        // A number item keeps its digits only if a number reads back the same.
+        return value.every((v) => fits(items, v) && (typeof v !== "number" || NUMBER.test(String(v))));
+      }
+      case "object":
+        return typeof value === "object" && !Array.isArray(value);
+      default:
+        return typeof value === "string" && !/[\r\n]/.test(value);
+    }
+  };
+  const kindOf = (value: unknown): PlanSchema["type"] =>
+    value === null ? undefined : Array.isArray(value) ? "array" : typeof value === "object" ? "object" : typeof value === "number" ? "number" : typeof value === "boolean" ? "boolean" : "string";
   const jsonFieldsBody = (media: PlanMedia): HTMLElement => {
     const entries = entriesOf(media) ?? [];
     const declared = media.fields ?? [];
     const order = new Map(declared.map((f, i) => [f.name, i]));
-    // The spec's properties, then any the body sends that it doesn't declare.
-    const shown: PlanBodyField[] = [
+    // Undeclared properties stay listed once cleared, until Reset or another example.
+    const extras = extraFields.get(media.mediaType) ?? new Map<string, PlanSchema["type"]>();
+    extraFields.set(media.mediaType, extras);
+    for (const e of entries) if (!order.has(e.key) && !extras.has(e.key)) extras.set(e.key, kindOf(JSON.parse(e.raw)));
+    const fields: PlanBodyField[] = [
       ...declared,
-      ...entries.filter((e) => !order.has(e.key)).map((e): PlanBodyField => ({ name: e.key, required: false, schema: {} })),
+      ...[...extras].map(([name, type]): PlanBodyField => ({ name, required: false, schema: type ? { type } : {}, description: "Not in the spec." })),
     ];
-    const write = () => {
-      bodyDrafts.set(media.mediaType, jsonObject(entries));
-      render();
-    };
-    // A value given; undefined: the property isn't sent. A new one goes where the spec lists it.
     const put = (name: string, raw: string | undefined) => {
       const at = entries.findIndex((e) => e.key === name);
       if (raw === undefined) {
         if (at >= 0) entries.splice(at, 1);
       } else if (at >= 0) entries[at]!.raw = raw;
       else {
+        // A new one goes where the spec lists it.
         const rank = order.get(name) ?? Infinity;
         const before = entries.findIndex((e) => (order.get(e.key) ?? Infinity) > rank);
         entries.splice(before < 0 ? entries.length : before, 0, { key: name, raw });
       }
-      write();
+      bodyDrafts.set(media.mediaType, jsonObject(entries));
     };
-    const rows = el("div", { class: "nb-tid-rows" });
-    let first: HTMLElement | null = null;
-    for (const field of shown) {
-      const id = fresh(`json-${field.name}`);
+    // Each property as a parameter: its row, checks and controls are a parameter's.
+    // `in` only places it among the panel's rows; it's sent in the body.
+    const byKey = new Map<string, PlanParam>();
+    const kept = new Map<string, unknown>();
+    const params = fields.map((field): PlanParam => {
       const raw = entries.find((e) => e.key === field.name)?.raw;
-      const s = field.schema;
-      const kind = controlFor(s, raw);
-      const typeText = s.type === "array" ? `${s.items?.type ?? "any"}[]` : (s.type ?? "any");
-      const label = el(
-        "label",
-        { class: "nb-tid-name", for: id },
-        el("span", { class: "nb-tid-nametext" }, field.name, field.required ? el("span", { class: "nb-tid-reqmark", "aria-label": "required" }, "*") : null),
-        el("span", { class: "nb-tid-type" }, typeText),
-      );
-      const error = el("p", { class: "nb-tid-fielderr", role: "status", id: `${id}-err` });
-      const flag = (problem: string | null) => {
-        error.textContent = problem ?? "";
-        if (problem) control.setAttribute("aria-invalid", "true");
-        else control.removeAttribute("aria-invalid");
-      };
-      let control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
-      if (kind === "choice") {
-        const options = s.type === "boolean" ? [true, false] : [...(s.enum ?? [])];
-        if (s.nullable && !options.includes(null)) options.push(null);
-        const select = el("select", { id, class: "nb-tid-input nb-tid-select" }, ...options.map((o) => el("option", { value: JSON.stringify(o) }, text(o) || (o === null ? "null" : '""'))));
-        // Not sent: a choice of its own, or for a required property the prompt to make one.
-        select.prepend(el("option", { value: "" }, field.required ? "Choose a value" : "Not sent"));
-        select.value = raw === undefined ? "" : (options.map((o) => JSON.stringify(o)).find((o) => o === JSON.stringify(JSON.parse(raw))) ?? "");
-        select.addEventListener("change", () => put(field.name, select.value === "" ? undefined : select.value));
-        control = select;
-      } else if (kind === "json") {
-        const area = el("textarea", { id, class: "nb-tid-input nb-tid-jsonfield", rows: "3", ...TEXT, ...NO_PM });
-        area.value = raw ?? "";
-        const check = () => flag(area.value.trim() === "" ? null : jsonProblem(area.value));
-        area.addEventListener("input", () => {
-          check();
-          put(field.name, area.value.trim() === "" ? undefined : area.value);
-        });
-        control = area;
-        check();
-      } else {
-        const input = el("input", { id, class: "nb-tid-input", type: "text", inputmode: kind === "number" ? (s.type === "integer" ? "numeric" : "decimal") : undefined, ...TEXT, ...NO_PM });
-        input.value = raw === undefined ? "" : kind === "text" ? (JSON.parse(raw) as string) : raw;
-        const check = () => {
-          const v = input.value.trim();
-          if (kind !== "number" || v === "") return flag(null);
-          if (!NUMBER.test(v)) return flag(s.type === "integer" ? "Enter a whole number." : "Enter a number.");
-          if (s.type === "integer" && !Number.isInteger(Number(v))) return flag("Enter a whole number.");
-          flag(jsonProblem(v));
-        };
-        input.addEventListener("input", () => {
-          check();
-          // Empty: not sent, as a form's empty field isn't; a required string is sent empty.
-          if (input.value === "" && !(kind === "text" && field.required)) put(field.name, undefined);
-          else put(field.name, kind === "text" ? JSON.stringify(input.value) : input.value.trim());
-        });
-        control = input;
-        check();
+      const value = raw === undefined ? undefined : JSON.parse(raw);
+      // A schema without a type takes the value's, so a number stays a number.
+      const schema = field.schema.type || field.schema.enum || value === undefined ? field.schema : { ...field.schema, type: kindOf(value) };
+      const p: PlanParam = { name: field.name, in: "query", style: "form", explode: true, allowReserved: false, required: field.required, schema, ...(field.description ? { description: field.description } : {}) };
+      if (raw !== undefined) {
+        if (!fits(schema, value, raw)) asJsonValue.add(p);
+        // A number keeps its digits as typed; a list or object shows as JSON.
+        p.initial = (typeof value === "number" && !asJsonValue.has(p) ? raw : Array.isArray(value) && !needsJson(p) ? value.map(text) : value) as PlanParam["initial"];
+        kept.set(`body:${field.name}`, p.initial);
+        // JSON a control would rewrite (a number past exact) stays as typed, saying so.
+        if (needsJson(p) && jsonProblem(raw)) badJson.set(`body:${field.name}`, raw);
       }
-      control.setAttribute("aria-describedby", error.id);
-      first ??= control;
-      rows.append(el("div", { class: "nb-tid-row" }, label, control, field.description ? el("p", { class: "nb-tid-desc" }, field.description) : null, error));
-    }
+      byKey.set(`body:${field.name}`, p);
+      return p;
+    });
+    const fieldStore: Store = {
+      get: (key) => kept.get(key),
+      init: (key, value) => kept.set(key, value),
+      set: (key, value) => {
+        kept.set(key, value);
+        const raw = entryJson(byKey.get(key)!, value);
+        // Not yet a value the schema takes: the entry keeps its last good one.
+        if (raw !== undefined) put(key.slice(5), raw);
+      },
+      drop: (key) => {
+        kept.delete(key);
+        put(key.slice(5), undefined);
+      },
+    };
+    fieldIssues = () =>
+      params.flatMap((p) => {
+        const key = `body:${p.name}`;
+        const value = kept.get(key);
+        if (value === undefined || badJson.has(key)) return [];
+        return checkParam(p, value).filter((i) => i.blocking).map((i) => ({ key, message: i.message }));
+      });
+    const nodes = rowsFor(params, (p) => ({ key: `body:${p.name}`, store: fieldStore }));
+    const first = nodes[0]!.querySelector<HTMLElement>("input, select, textarea");
     if (first) controls.set("body", first);
-    return rows;
+    return el("div", { class: "nb-tid-section" }, ...nodes);
   };
   const fileBody = (media: PlanMedia): HTMLElement => {
     const id = uid("bodyfile");
@@ -1435,7 +1472,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       const next = b.dataset.view as "json" | "fields";
       // Fields need the body to be one object: until it is, the JSON stays, saying why.
       if (next === "fields" && entriesOf(media) === null) {
-        bodyError.textContent = "Fields need the body to be one JSON object. Fix the JSON, then switch.";
+        bodyError.textContent = "Fields need the body to be one JSON object, each property once. Fix the JSON, then switch.";
         return;
       }
       editAs = next;
@@ -1455,8 +1492,9 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
         area.focus();
       }
     });
-    if (plan.body.media.some((m) => m.kind === "json" && m.fields)) tools.push(viewSwitch);
+    // Format first: hidden with the fields, it leaves the switch where it was.
     if (plan.body.media.some((m) => m.kind === "json")) tools.push(format);
+    if (plan.body.media.some((m) => m.kind === "json" && m.fields)) tools.push(viewSwitch);
     drawBody();
     syncTools();
     return card("Body", [bodySlot, bodyError], { badge: typeBadge, tools, grow: bodyOn });
@@ -1678,12 +1716,13 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       ? { key: paramKey(emptyPath), message: "A path parameter can't be empty." }
       : unparsed
         ? { key: unparsed, message: badJson.get(unparsed)!.trim() === "" ? "Fill in this value." : jsonProblem(badJson.get(unparsed)!) ?? "Not valid JSON." }
-        : issues[0];
+        : (fieldIssues()[0] ?? issues[0]);
     if (!first) return null;
     touched.add(first.key);
     const name = first.key === "body" ? "Body" : first.key.split(":").slice(1).join(":");
     live.textContent = `${name}: ${first.message}`;
-    const target = controls.get(first.key);
+    // A body property shown as JSON: the editor.
+    const target = controls.get(first.key)?.isConnected ? controls.get(first.key) : first.key.startsWith("body:") ? controls.get("body") : undefined;
     if (!target || !target.isConnected) return form;
     target.dispatchEvent(new Event("focusout"));
     target.scrollIntoView({ block: "center", behavior: scrollBehavior() });
