@@ -75,7 +75,7 @@ export interface PlanParam {
 
 export type PlanBodyKind = "json" | "form" | "multipart" | "text" | "bytes";
 
-/** A form or multipart body's top-level field. */
+/** A form or multipart body's top-level field, or a JSON object body's property. */
 export interface PlanBodyField {
   name: string;
   required: boolean;
@@ -98,7 +98,8 @@ export interface PlanEncoding {
 export interface PlanMedia {
   mediaType: string;
   kind: PlanBodyKind;
-  /** Form and multipart: the top-level fields, in schema order. */
+  /** Form and multipart: the top-level fields, in schema order. JSON: the
+   *  object's properties, when the schema is one object (not oneOf or anyOf). */
   fields?: PlanBodyField[];
   /** Why this media type can't be sent (a required part header). */
   refused?: string;

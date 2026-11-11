@@ -31,10 +31,17 @@ export function validateValues(plan: RequestPlan, values: RequestValues): Issue[
   if (body) {
     const media = plan.body?.media.find((m) => m.mediaType === body.mediaType);
     if (media?.kind === "json" && typeof body.value === "string") {
+      let parsed: unknown;
       try {
-        JSON.parse(body.value);
+        parsed = JSON.parse(body.value);
       } catch (error) {
         issues.push({ key: "body", message: `Not valid JSON: ${(error as Error).message}`, blocking: true });
+      }
+      // An object body's required properties, as a form's required fields: one missing stops Send.
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        for (const field of media.fields ?? []) {
+          if (field.required && !Object.hasOwn(parsed, field.name)) issues.push({ key: `body:${field.name}`, message: "Required.", blocking: true });
+        }
       }
     }
     // A form's required fields, a file part included: one that's missing stops Send. Present
@@ -73,7 +80,7 @@ export function checkParam(param: PlanParam, value: unknown): Omit<Issue, "key">
 }
 
 export function checkScalar(schema: PlanSchema, value: unknown): Omit<Issue, "key">[] {
-  if (value === null) return schema.nullable ? [] : [{ message: "Can't be null.", blocking: true }];
+  if (value === null) return schema.nullable || schema.enum?.includes(null) ? [] : [{ message: "Can't be null.", blocking: true }];
   const text = typeof value === "string" ? value : String(value);
   const out: Omit<Issue, "key">[] = [];
   if (schema.enum && !schema.enum.some((option) => String(option) === text)) {

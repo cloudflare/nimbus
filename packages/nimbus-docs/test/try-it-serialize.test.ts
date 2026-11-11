@@ -537,3 +537,30 @@ describe("required form fields", () => {
     assert.deepEqual(issues, []);
   });
 });
+
+describe("required JSON properties", () => {
+  const p = plan({
+    method: "POST",
+    body: {
+      required: true,
+      examples: [],
+      media: [{ mediaType: "application/json", kind: "json", fields: [{ name: "url", required: true, schema: { type: "string" } }, { name: "note", required: false, schema: { type: "string" } }] }],
+    },
+  });
+  const check = (text: string) => validateValues(p, { params: {}, body: { mediaType: "application/json", value: text } }).map((i) => [i.key, i.message, i.blocking]);
+
+  test("one missing stops Send, by its key; present, even empty, is sent", () => {
+    assert.deepEqual(check('{"note": "n"}'), [["body:url", "Required.", true]]);
+    assert.deepEqual(check('{"url": ""}'), []);
+  });
+
+  test("a body that isn't an object is only checked as JSON", () => {
+    assert.deepEqual(check("[1]"), []);
+    assert.equal(check("{")[0]![0], "body");
+  });
+});
+
+test("null passes where the enum lists it", () => {
+  assert.deepEqual(checkScalar({ enum: [null, "x"] }, null), []);
+  assert.equal(checkScalar({ enum: ["x"] }, null)[0]!.message, "Can't be null.");
+});

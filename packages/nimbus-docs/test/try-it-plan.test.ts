@@ -241,3 +241,48 @@ describe("page assets (bundle: false)", () => {
     }
   });
 });
+
+describe("JSON body fields", () => {
+  const jsonFields = async (schema: Record<string, unknown>) => {
+    const s = structuredClone(spec) as typeof spec;
+    (s.paths["/items/{id}"].put.requestBody.content as Record<string, { schema: unknown }>)["application/json"]!.schema = schema;
+    const model = await buildApiModel({ collection: "api", spec: s as unknown as Record<string, never>, tryIt: on });
+    const plan = [...unwrapModel(model).nodes.values()]
+      .map((node) => (node.kind === "operation" ? (node.facts as OperationFacts).tryIt?.plan : undefined))
+      .find((p) => p?.id.coordinate === "putItem")!;
+    return plan.body!.media.find((m) => m.mediaType === "application/json")!.fields;
+  };
+
+  test("one object: its properties, allOf merged under the object's own required, read-only left out", async () => {
+    const fields = await jsonFields({
+      allOf: [{ type: "object", required: ["id"], properties: { id: { type: "integer", readOnly: true }, name: { type: "string", description: "Shown." } } }],
+      type: "object",
+      required: ["name"],
+      properties: { tags: { type: "array", items: { type: "string" } } },
+    });
+    assert.deepEqual(fields, [
+      { name: "name", required: true, schema: { type: "string" }, description: "Shown." },
+      { name: "tags", required: false, schema: { type: "array", items: { type: "string" } } },
+    ]);
+  });
+
+  test("a property of several types has no one schema: the value's own", async () => {
+    const fields = await jsonFields({
+      type: "object",
+      properties: { v: { type: ["number", "string"] }, n: { type: ["integer", "null"] }, xs: { type: "array", items: { type: ["number", "string"] } } },
+    });
+    assert.deepEqual(fields, [
+      { name: "v", required: false, schema: {} },
+      { name: "n", required: false, schema: { type: "integer", nullable: true } },
+      { name: "xs", required: false, schema: { type: "array", items: {} } },
+    ]);
+  });
+
+  test("a choice of shapes, a non-object or no properties: no fields", async () => {
+    assert.equal(await jsonFields({ oneOf: [{ type: "object", properties: { a: { type: "string" } } }, { type: "object", properties: { b: { type: "string" } } }] }), undefined);
+    assert.equal(await jsonFields({ type: "object", properties: { a: { type: "string" } }, anyOf: [{ required: ["a"] }] }), undefined);
+    assert.equal(await jsonFields({ allOf: [{ oneOf: [{ type: "object" }] }], properties: { a: { type: "string" } } }), undefined);
+    assert.equal(await jsonFields({ type: "array", items: { type: "object", properties: { a: { type: "string" } } } }), undefined);
+    assert.equal(await jsonFields({ type: "object" }), undefined);
+  });
+});

@@ -57,6 +57,8 @@ export {
   validateValues,
   checkParam,
   paramKey,
+  jsonEntries,
+  jsonObject,
 } from "./try-it";
 export type {
   Credential,
@@ -66,6 +68,7 @@ export type {
   HttpPart,
   HttpRequest,
   Issue,
+  JsonEntry,
   JsonValue as TryItJsonValue,
   PlanAuth,
   PlanAuthAlternative,

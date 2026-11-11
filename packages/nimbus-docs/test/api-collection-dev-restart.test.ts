@@ -16,6 +16,7 @@ import { dev } from "astro";
 import { lazyPreparedHeadingRecord } from "../src/_internal/lazy-headings.ts";
 import { getPreparedMarkdownSnapshot } from "../src/_internal/prepared-markdown-registry.ts";
 import { runningNimbusVersion } from "../src/_internal/upgrades.ts";
+import { stopDevServer } from "./fixtures/dev-site.ts";
 import { TEST_TMP } from "./fixtures/temp-root.js";
 
 // Astro's content sync can outlive server.stop() and write to the root after
@@ -258,6 +259,6 @@ export function GET() {
       (store) => store.includes("Ping A") && !store.includes("Ping B edited"),
     );
   } finally {
-    await server.stop();
+    await stopDevServer(server, root);
   }
 });

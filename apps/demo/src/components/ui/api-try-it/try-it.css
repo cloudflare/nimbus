@@ -53,36 +53,24 @@
 }
 
 /* ---- Opening and closing -------------------------------------------------------- */
-/* The modal settles in from the Try it button (--nb-tid-from, set on open) and
-   falls back a touch faster. Closing animates only where `overlay` transitions
-   (Chromium); elsewhere it closes at once. Reduced motion: both at once.
-   While it fades out, clicks reach the page. */
-.nb-tid:not([open]) {
-  pointer-events: none;
-}
+/* On a desktop the modal settles in from the Try it button (--nb-tid-from, set on
+   open) and falls back a touch faster. On a phone it's a full page: a solid sheet
+   that rises from the bottom and sinks back, never a page seen through another.
+   Closing is the panel's own ([data-closing], panel.ts), so it animates in every
+   browser. Reduced motion: both at once. */
 @media (prefers-reduced-motion: no-preference) {
-  .nb-tid {
-    transition: display 120ms allow-discrete, overlay 120ms allow-discrete;
-  }
-  .nb-tid::backdrop {
-    transition: opacity 120ms ease-out;
-  }
-  .nb-tid:not([open])::backdrop {
-    opacity: 0;
-  }
   .nb-tid[open]::backdrop {
     transition: opacity 150ms ease-out;
     @starting-style {
       opacity: 0;
     }
   }
+  .nb-tid[data-closing]::backdrop {
+    opacity: 0;
+    transition: opacity 120ms ease-out;
+  }
   .nb-tid-frame {
     transform-origin: var(--nb-tid-from, 50% 50%);
-    transition: opacity 120ms ease-out, transform 120ms ease-out;
-  }
-  .nb-tid:not([open]) .nb-tid-frame {
-    opacity: 0;
-    transform: scale(0.985);
   }
   .nb-tid[open] .nb-tid-frame {
     transition: opacity 110ms ease-out, transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -91,17 +79,34 @@
       transform: translateY(6px) scale(0.97);
     }
   }
-}
-/* Full page on small screens: it rises a little instead of growing. */
-@media (prefers-reduced-motion: no-preference) and (max-width: 767px) {
-  .nb-tid:not([open]) .nb-tid-frame {
-    transform: translateY(12px);
+  .nb-tid[data-closing] .nb-tid-frame {
+    opacity: 0;
+    transform: scale(0.985);
+    transition: opacity 120ms ease-out, transform 120ms ease-out;
   }
+}
+@media (prefers-reduced-motion: no-preference) and (max-width: 767px) {
   .nb-tid[open] .nb-tid-frame {
+    transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
     @starting-style {
-      transform: translateY(24px);
+      opacity: 1;
+      transform: translateY(100%);
     }
   }
+  .nb-tid[data-closing] .nb-tid-frame {
+    opacity: 1;
+    transform: translateY(100%);
+    transition: transform 240ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}
+/* While it goes, clicks reach nothing in it. */
+.nb-tid[data-closing] {
+  pointer-events: none;
+}
+/* The dialog itself never scrolls: focusing a control while the sheet is still
+   rising would scroll it into view, and the sheet would jump. Its panes scroll. */
+.nb-tid {
+  overflow: clip;
 }
 
 .nb-tid-head {
@@ -270,6 +275,10 @@
   gap: 0.75rem;
   padding: 0.75rem;
 }
+/* Format in the Fields view: unseen, out of the tab order, its room kept. */
+.nb-tid-format[data-idle] {
+  visibility: hidden;
+}
 .nb-tid-card {
   flex: none;
   display: flex;
@@ -280,6 +289,7 @@
   box-shadow: 0 0 0 1px var(--nb-border);
 }
 .nb-tid-cardhead {
+  flex: none; /* a tall card body never squeezes it */
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -618,10 +628,18 @@
   flex-direction: column;
   gap: 0.375rem;
 }
+/* Add item sits under the list's last item, not against it. */
+.nb-tid-list:not(:empty) + .nb-tid-listadd {
+  margin-top: 0.5rem;
+}
 .nb-tid-item {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+}
+/* An item's ✕ lines up with its property's ✕ above. */
+.nb-tid-item > .nb-tid-iconbtn {
+  margin-right: -0.25rem;
 }
 
 /* Parameters: a group per location, its optional ones a chip away. */
@@ -669,19 +687,27 @@
   display: none;
 }
 
-/* Body: the card takes the room left; the code scrolls inside it, both ways. */
+/* Body: the card is as tall as what it holds: the editor its lines (to a point,
+   then the code scrolls inside), the fields their rows. */
 .nb-tid-card.nb-tid-grow {
-  flex: 1 1 0%;
-  min-height: 14rem;
+  flex: none;
 }
 .nb-tid-grow > .nb-tid-cardbody {
   flex: 1 1 auto;
   min-height: 0;
 }
+/* The editor's wrapper passes the card's room on, so the editor fills it. */
+.nb-tid-bodyslot {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
 .nb-tid-editorbox {
   position: relative;
-  flex: 1 1 auto;
-  min-height: 10rem;
+  flex: none;
+  /* Its lines at the editor's 1.25rem, plus its 0.75rem padding top and bottom. */
+  height: clamp(6rem, calc(var(--nb-tid-lines, 8) * 1.25rem + 1.5rem), 24rem);
 }
 .nb-tid-editorbox[hidden] {
   display: none;
@@ -1124,9 +1150,10 @@
 }
 
 /* ---- Phones: one calm column, Send at the bottom ------------------------------------
-   Everything you type in is 16px (iOS zooms into anything smaller). Touch targets
-   are 44px. The code folds away; the response appears once there is one; the
-   bottom bar holds Send and, after a send, the result you can tap to jump to. */
+   The desktop dialog's sizes: 14px typed text, 36px fields, 28–30px controls (iOS
+   focus zoom is stopped in panel.ts). The code folds away; the response appears
+   once there is one; the bottom bar holds Send and, after a send, the result you
+   can tap to jump to. */
 @media (max-width: 767px) {
   .nb-tid-shell {
     display: flex;
@@ -1136,12 +1163,12 @@
     padding: calc(0.5rem + env(safe-area-inset-top)) 0.5rem 0.5rem 1rem;
   }
   .nb-tid-title {
-    font-size: 1rem;
+    font-size: 0.9375rem;
     font-weight: 600;
   }
   .nb-tid-esc {
-    width: 2.75rem;
-    height: 2.75rem;
+    width: 1.75rem;
+    height: 1.75rem;
     border: 0;
     background: transparent;
     color: var(--color-foreground);
@@ -1164,7 +1191,7 @@
   .nb-tid-url {
     max-height: none;
     padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     -webkit-line-clamp: 3;
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -1202,18 +1229,13 @@
     overflow: visible;
   }
 
-  /* Fields: a 44px touch target. */
+  /* Fields: the desktop dialog's sizes; the panel stops iOS zooming on focus (panel.ts). */
   .nb-tid-input {
-    height: 2.75rem;
+    height: 2.25rem;
   }
   .nb-tid-form {
     padding: 0.25rem 0 0;
     gap: 0.75rem;
-  }
-  /* The pane doesn't scroll on phones (the page does): Body gets a fixed height. */
-  .nb-tid-card.nb-tid-grow {
-    flex: none;
-    height: 22rem;
   }
   .nb-tid-help {
     font-size: 0.8125rem;
@@ -1229,12 +1251,12 @@
   .nb-tid-codetoggle {
     display: inline-flex;
     align-items: center;
-    min-height: 2.25rem;
+    min-height: 1.875rem;
     border: 0;
     background: transparent;
     padding: 0 0.25rem;
     font: inherit;
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     font-weight: 500;
     color: var(--color-info);
     cursor: pointer;
@@ -1271,7 +1293,7 @@
   .nb-tid-barstatus {
     flex: 1 1 auto;
     min-width: 0;
-    min-height: 2.75rem;
+    min-height: 2.5rem;
     border: 0;
     border-radius: 9px;
     padding: 0 0.75rem;
@@ -1291,10 +1313,10 @@
   }
   .nb-tid-send-bottom {
     flex: 1 1 auto;
-    height: 2.75rem;
+    height: 2.5rem;
     margin: 0;
     border-radius: 9px;
-    font-size: 1rem;
+    font-size: 0.875rem;
   }
   .nb-tid-barstatus:not([hidden]) + .nb-tid-send-bottom {
     flex: 0 0 auto;
@@ -1393,7 +1415,7 @@
   .nb-tid-envrow .nb-tid-base {
     flex: 1 1 auto;
     min-width: 0;
-    min-height: 2.75rem;
+    min-height: 2.25rem;
     margin: 0;
     border: 1px solid var(--tid-line);
     border-radius: 9px;
@@ -1410,19 +1432,19 @@
 
   /* Fields: names wrap rather than being cut; required stays visible, type goes. */
 
-  /* Every control at least 44px to tap. */
+  /* Controls at the desktop dialog's sizes, comfortably over the 24px target minimum. */
 
   .nb-tid-secondary {
-    min-height: 2.75rem;
+    min-height: 1.875rem;
   }
   .nb-tid-seg button {
-    min-height: 2.5rem;
-    padding: 0 0.875rem;
-    font-size: 0.875rem;
+    min-height: 1.75rem;
+    padding: 0 0.625rem;
+    font-size: 0.75rem;
   }
   .nb-tid-iconbtn {
-    width: 2.75rem;
-    height: 2.75rem;
+    width: 1.75rem;
+    height: 1.75rem;
   }
 
   /* Code: one row, "Request code" then, open, its language and copy at the end. */
@@ -1442,7 +1464,7 @@
     flex: 1 1 auto;
     min-width: 0;
     justify-content: space-between;
-    min-height: 2.75rem;
+    min-height: 1.875rem;
     padding: 0 0.25rem;
     color: var(--color-foreground);
   }
@@ -1564,14 +1586,46 @@
     order: 2;
   }
 
-  /* 44px on the controls themselves. */
+  /* The switch at the desktop dialog's size. */
 
   .nb-tid-seg button {
-    min-height: 2.75rem;
+    min-height: 1.75rem;
   }
+  .nb-tid-cardhead .nb-tid-seg button {
+    min-height: 1.75rem;
+  }
+  /* One row: the title and the switch keep their size; the media type (its badge or
+     its picker) gives way, truncated. The switch is last, so it stays put. */
+  .nb-tid-cardhead .nb-tid-cardtitle,
+  .nb-tid-cardtools > :not(.nb-tid-example) {
+    flex: none;
+  }
+  .nb-tid-cardtools {
+    flex: 1 1 0%; /* the rest of the row; its own items wrap inside it */
+    min-width: auto; /* never below its contents: the badge gives way first */
+  }
+  .nb-tid-cardtools:has(.nb-tid-example) {
+    min-width: 0; /* a picker gives way instead: it shrinks, the rest keep their size */
+  }
+  .nb-tid-cardtools .nb-tid-example {
+    flex: 1 1 5rem; /* starts small, so it fills the row before anything wraps */
+    min-width: 3rem;
+    text-overflow: ellipsis;
+  }
+  /* More tools than fit beside the title (Send a body, an example, Format): they
+     wrap onto further rows, at the right, the title staying on the first. */
+  .nb-tid-cardhead:has(.nb-tid-cardtools > :nth-child(4)) {
+    align-items: flex-start;
+  }
+  .nb-tid-cardtools {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 0.375rem;
+  }
+
   .nb-tid-lang {
-    min-height: 2.75rem;
-    height: 2.75rem;
+    min-height: 1.875rem;
+    height: 1.875rem;
   }
 
   /* Body heading: "Body … Format JSON", media type beneath. */
@@ -1711,8 +1765,9 @@
     0 12px 24px -8px color-mix(in oklab, black 60%, transparent);
 }
 
-/* Phones: everything typed in is 16px, so no browser zooms in on focus, and
-   page zoom is never restricted. The editor's highlighted copy matches it. */
+/* Phones: what's typed in is 14px, the dialog's desktop size. iOS would zoom in on
+   focus under 16px; the panel stops that while it's open (panel.ts), and pinch zoom
+   still works. The editor's highlighted copy matches. */
 @media (max-width: 767px) {
   .nb-tid input:not([type="checkbox"]):not([type="radio"]),
   .nb-tid select,
@@ -1720,7 +1775,22 @@
   .nb-tid textarea,
   .nb-tid .nb-tid-under pre,
   .nb-tid .nb-tid-under code {
-    font-size: 16px;
+    font-size: 14px;
+  }
+  .nb-tid .nb-tid-row {
+    padding-top: 0.875rem;
+    gap: 0.375rem;
+  }
+  .nb-tid .nb-tid-btn {
+    height: 1.875rem;
+    min-height: 1.875rem;
+  }
+  .nb-tid .nb-tid-cardhead {
+    min-height: 0;
+    padding-block: 0.375rem;
+  }
+  .nb-tid .nb-tid-check {
+    font-size: 0.75rem;
   }
 }
 
@@ -1741,6 +1811,9 @@
 .nb-tid-jsonfield {
   height: auto;
   min-height: 4.5rem;
+  /* As tall as its JSON, up to a point; where unsupported, `rows` and the resize handle. */
+  field-sizing: content;
+  max-height: 16rem;
   padding-block: 0.5rem;
   font-family: var(--nb-font-mono, ui-monospace, monospace);
   resize: vertical;

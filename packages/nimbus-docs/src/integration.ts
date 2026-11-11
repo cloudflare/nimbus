@@ -292,7 +292,7 @@ import {
   preparedMarkdownRootKey,
 } from "./_internal/prepared-markdown-registry.js";
 import { currentPageLoadScope } from "./_internal/page-load-scope.js";
-import { invalidateDevModules, isDevContentFile } from "./_internal/dev-invalidation.js";
+import { invalidateDevModules, invalidatePreparedModules, isDevContentFile } from "./_internal/dev-invalidation.js";
 import type {
   GeneratedMarkdownComponentTransform,
   GeneratedMarkdownPartialResolver,
@@ -1363,7 +1363,7 @@ export function nimbus(
         });
         applySourceSpecs(sourceSpecs, sourceSnapshots, projectRoot);
         beginPreparedMarkdownSession(astroConfig.root, {
-          lazyHeadings: command === "dev",
+          lazyHeadings: !building,
         });
         registerApiCollections(
           astroConfig.root,
@@ -2959,6 +2959,8 @@ export function nimbus(
           await import("./_internal/markdown-processor-decorator.js");
         const { markdownSourcePlugin } =
           await import("./_internal/markdown-source-vite-plugin.js");
+        const { devContentStorePlugin } =
+          await import("./_internal/dev-content-store.js");
         const authoredLinkBase = astroConfig.base || "/";
         // One authored-source pipeline for `.md` (processor) and `.mdx` (Vite):
         // resolve `api.ref:` citations to logical routes, then normalize every
@@ -3117,6 +3119,10 @@ export function nimbus(
                     );
                 },
               },
+              ...(command === "dev" &&
+              (astroConfig.experimental?.collectionStorage ?? "single-file") === "single-file"
+                ? [devContentStorePlugin(path.join(projectRoot, ".astro", "data-store.json"))]
+                : []),
               markdownSourcePlugin({
                 contentDirs: authoredLinkSourceDirs,
                 isRecorded: isRecordedPageFile,
@@ -3705,7 +3711,7 @@ export function nimbus(
           (await loadAgentEndpointAssets()).invalidateAgentEndpointAssets(
             projectRootForBuild,
           );
-          invalidateDevModules(server);
+          invalidatePreparedModules(server);
         };
         server.watcher.on("add", invalidate);
         server.watcher.on("change", invalidate);

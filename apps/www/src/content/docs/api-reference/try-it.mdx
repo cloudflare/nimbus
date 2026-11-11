@@ -139,7 +139,7 @@ The panel is your code. Its props:
 | `confirmWrites` | `false` | Ask before sending anything but `GET`, `HEAD` and `OPTIONS`. |
 | `server` | The spec's first | The server picked first, by index or by the start of its URL. |
 
-Writes never send from the keyboard. Only Send sends `POST`, `PUT`, `PATCH` and `DELETE`, and it names the method and host. ⌘↵ or Ctrl+↵ sends reads only.
+⌘↵ or Ctrl+↵ sends, as Send does. Enter in a field never sends. With `confirmWrites`, a write asks first, from the keyboard too.
 
 ## What can be sent
 
@@ -149,7 +149,7 @@ Writes never send from the keyboard. Only Send sends `POST`, `PUT`, `PATCH` and 
 | Servers | `http` and `https`, after server variables. Relative servers resolve against your docs origin, and the browser sends to them directly. | Any other scheme |
 | Parameters | Path, query, header and cookie; every style OpenAPI defines (`matrix`, `label`, `simple`, `form`, `spaceDelimited`, `pipeDelimited`, `deepObject`) with `explode` and `allowReserved`; JSON `content` parameters | Combinations OpenAPI leaves undefined, such as `deepObject` without `explode`, and non-JSON `content` parameters |
 | Cookies | Cookie parameters and cookie API keys, via this site, as one `Cookie` header | Direct, and an API on the docs' own origin |
-| Bodies | JSON, URL-encoded forms, `multipart/form-data` with files, and any other media type as text or a file | A body on `GET` or `HEAD` |
+| Bodies | JSON, URL-encoded forms, `multipart/form-data` with files, and any other media type as text or a file. A JSON object body can be edited as JSON or as fields, one per property | A body on `GET` or `HEAD` |
 | Auth | API keys in a header, query or cookie; HTTP bearer and basic; OAuth 2 and OpenID Connect as a pasted token | Mutual TLS, other HTTP schemes, two schemes that need the same header, and an API key in `Content-Type` on a request with a body |
 
 Header parameters named `Accept`, `Content-Type` or `Authorization` are ignored, as OpenAPI requires. The panel checks required fields, enums, numbers, booleans and JSON before sending. Ranges and formats such as `email` and `date-time` are advice only: the API decides.
