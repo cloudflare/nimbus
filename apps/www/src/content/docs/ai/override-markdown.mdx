@@ -131,7 +131,7 @@ export const { GET } = llmsRoute({
 });
 ```
 
-`body` can be async, and reads the request from its second argument, so a section the spec doesn't hold can be listed from your own data. On a split site, `llmsFullRoute()`'s `body` sees the index of parts; the parts themselves are Nimbus's own routes and are not changed. A homepage without a content entry serves `/index.md` as the `llms.txt` index, with that route's `body`: the baked file where the host keeps one, the route itself where it renders on request.
+`body` can be async, and reads the request from its second argument, so a section the spec doesn't hold can be listed from your own data. On a split site, `llmsFullRoute()`'s `body` sees the index of parts; the parts themselves are Nimbus's own routes and are not changed. A homepage without a content entry serves `/index.md` as the `llms.txt` index, with that route's `body`: the route itself where it renders on request, and the baked file on Cloudflare. On other adapters, a prerendered `llms.txt` can't be read on request, so `/index.md` serves Nimbus's index without your `body`.
 
 For section indexes, `llmsSectionRoute({ body })` keeps its `getStaticPaths`, which lists every section. To build a body from scratch, call `getLlmsPayload()` with a `reference` such as `{ scope: "section", surface: "index", section: "writing" }` (or `"reference/functions"` for a nested section); it returns `null` for an unknown index.
 
@@ -179,6 +179,8 @@ A page whose frontmatter sets `socialImage` uses that image instead, because the
 ## What an override changes
 
 An override changes only what that route serves. `llms-full.txt` and hosted MCP keep the Markdown Nimbus generates.
+
+A collection served under its own path, such as `/archive`, that [`rendering.collections`](/reference/rendering) gives a different mode from the shared route gets Nimbus's Markdown, without that route's `body` or wrapper. To change it, add a route file under that path, such as `src/pages/archive/[...slug]/index.md.ts`.
 
 The shared routes and routes that call an agent factory render the same way as the pages they describe: ahead of time on a static site, and in their collection's mode with a [`rendering` policy](/reference/rendering). `nimbus-docs check --fix` writes that mode into the file; for a route it can't edit, such as a wrapped one, it says what to change.
 

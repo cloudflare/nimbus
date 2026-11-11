@@ -1,7 +1,4 @@
-import type { APIRoute } from "astro";
 import { llmsRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
-
-const route = llmsRoute();
 
 // After the generated index: the pages it doesn't list, when the Weather API
 // is the right tool, and how an agent starts with it.
@@ -31,9 +28,6 @@ How an agent uses it:
 - Read these docs as tools: the MCP server at ${url("/mcp")}. Or install the Agent Skill listed at ${url("/.well-known/agent-skills/index.json")}.
 `;
 
-export const GET: APIRoute = async (context) => {
-  const response = await route.GET(context);
-  if (!response.ok) return response;
-  const url = (path: string) => new URL(path, context.site).href;
-  return new Response(`${await response.text()}${appendix(url)}`, { headers: response.headers });
-};
+export const { GET } = llmsRoute({
+  body: (text, context) => `${text}${appendix((path) => new URL(path, context.site).href)}`,
+});
