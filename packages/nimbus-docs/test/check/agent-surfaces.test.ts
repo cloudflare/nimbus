@@ -179,8 +179,19 @@ test("recorded shapes, redirect-only files and files Astro skips get no shape wa
   assert.deepEqual(found, []);
 });
 
-test("a custom srcDir is read from its real path and labelled as src/pages", async () => {
+test("a custom srcDir is read from its real path and named by it", async () => {
   const found = await shapeFindings({ "[...slug].md.ts": CALLS.named }, "site");
   assert.equal(found.length, 1);
-  assert.equal(found[0]!.file, "src/pages/[...slug].md.ts");
+  assert.equal(found[0]!.file, "site/pages/[...slug].md.ts");
+  assert.match(found[0]!.message, /^site\/pages\/\[\.\.\.slug\]\.md\.ts calls markdownRoute\(\)/);
+  assert.match(found[0]!.message, /Move the call to site\/pages\/\[\.\.\.slug\]\/index\.md\.ts\./);
+});
+
+test("response text naming a factory, and a full-document endpoint at its own name, are not findings", async () => {
+  const found = await shapeFindings({
+    "[...slug].md.ts": 'import { markdownRoute } from "@cloudflare/nimbus-docs/agent-endpoints";\nexport const GET = () => new Response(`Example: markdownRoute() and ${"llmsRoute()"}`);\n',
+    "all.txt.ts": 'import { llmsFullRoute } from "@cloudflare/nimbus-docs/agent-endpoints";\nexport const { GET } = llmsFullRoute();\n',
+    ...Object.fromEntries(STARTER.map((file) => [file, ""])),
+  });
+  assert.deepEqual(found, []);
 });

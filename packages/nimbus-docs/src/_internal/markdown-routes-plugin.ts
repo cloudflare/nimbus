@@ -59,6 +59,45 @@ function markdownFileSegment(route: ResolvedRouteInput): string | undefined {
   return /\.mdx?$/u.test(file) || file === "llms.txt" || file === "llms-full.txt" ? file : undefined;
 }
 
+/**
+ * Replaces the contents of string and template literals with spaces, keeping
+ * the quotes and the import specifiers (`from "…"`, `import("…")`), so a
+ * factory named in response text is not read as a call.
+ */
+export function blankLiterals(code: string): string {
+  let out = "";
+  let index = 0;
+  while (index < code.length) {
+    const char = code[index]!;
+    if (char === '"' || char === "'" || char === "`") {
+      const before = code.slice(0, index);
+      const keep = /(?:\bfrom|\bimport\s*\()\s*$/u.test(before);
+      let end = index + 1;
+      while (end < code.length && code[end] !== char) {
+        if (code[end] === "\\") end += 1;
+        else if (char === "`" && code[end] === "$" && code[end + 1] === "{") {
+          let depth = 1;
+          end += 2;
+          while (end < code.length && depth > 0) {
+            if (code[end] === "{") depth += 1;
+            else if (code[end] === "}") depth -= 1;
+            end += 1;
+          }
+          continue;
+        }
+        end += 1;
+      }
+      const literal = code.slice(index, end + 1);
+      out += keep ? literal : `${char}${literal.slice(1, -1).replace(/[^\n]/gu, " ")}${char}`;
+      index = end + 1;
+      continue;
+    }
+    out += char;
+    index += 1;
+  }
+  return out;
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
@@ -72,9 +111,11 @@ export type AgentRouteFactory = keyof typeof FACTORIES;
  * not detected; `findOwnMarkdownRoute` still resolves it by pattern.
  */
 export function agentFactoryCall(source: string): AgentRouteFactory | undefined {
-  const code = source
-    .replace(/\/\*[\s\S]*?\*\//gu, "")
-    .replace(/(^|[^:/\\])\/\/.*$/gmu, "$1");
+  const code = blankLiterals(
+    source
+      .replace(/\/\*[\s\S]*?\*\//gu, "")
+      .replace(/(^|[^:/\\])\/\/.*$/gmu, "$1"),
+  );
   const callees = new Map<string, AgentRouteFactory>();
   for (const [, specifiers] of code.matchAll(NAMED_IMPORT)) {
     for (const specifier of specifiers!.split(",")) {
@@ -142,13 +183,38 @@ const STARTER_FILE: Record<AgentRouteFactory, string> = {
 export function patternsMayOverlap(a: string, b: string): boolean {
   const left = a.split("/").filter(Boolean);
   const right = b.split("/").filter(Boolean);
+  // The last segments must be able to name one file: a static last segment
+  // on one side must match the other's last segment pattern.
+  const lastLeft = left.at(-1);
+  const lastRight = right.at(-1);
+  if (lastLeft && lastRight && !segmentsMayMatch(lastLeft, lastRight)) return false;
   for (let index = 0; ; index += 1) {
     const x = left[index];
     const y = right[index];
-    if (x === undefined || y === undefined) return x === y;
+    if (x === undefined || y === undefined) {
+      // A bare spread matches zero segments too, so a pattern that has only
+      // spreads left still overlaps one that ran out.
+      const rest = x === undefined ? right.slice(index) : left.slice(index);
+      return rest.every((segment) => /^\[\.\.\.[^\]]+\]$/u.test(segment));
+    }
     if (x.includes("[...") || y.includes("[...")) return true;
     if (!x.includes("[") && !y.includes("[") && x !== y) return false;
   }
+}
+
+/** Whether two single segments can match one path segment: static text must agree where both have it. */
+function segmentsMayMatch(a: string, b: string): boolean {
+  if (!a.includes("[")) return b.includes("[") ? segmentRegex(b).test(a) : a === b;
+  if (!b.includes("[")) return segmentRegex(a).test(b);
+  return true;
+}
+
+function segmentRegex(segment: string): RegExp {
+  const source = segment
+    .split(/(\[[^\]]+\])/u)
+    .map((part) => (part.startsWith("[") ? (part.startsWith("[...") ? ".*" : "[^/]+") : escapeRegExp(part)))
+    .join("");
+  return new RegExp(`^${source}$`, "u");
 }
 
 /**
@@ -168,10 +234,14 @@ export function unreadAgentRoutes(
     if (markdownFileSegment(route)) return;
     const source = readSource(route.entrypoint);
     const factory = source ? agentFactoryCall(source) : undefined;
-    if (!factory) return;
+    // The full document is served at whatever path calls `llmsFullRoute()`:
+    // the build reads the call, not the file name.
+    if (!factory || factory === "llmsFullRoute") return;
     const segments = route.pattern.split("/").filter(Boolean);
-    const prefix = segments.slice(0, segments.findIndex((segment) => segment.includes("[")) ).join("/");
-    const suggested = `src/pages/${prefix ? `${prefix}/` : ""}${STARTER_FILE[factory]}`;
+    const dynamicAt = segments.findIndex((segment) => segment.includes("["));
+    const prefix = segments.slice(0, dynamicAt < 0 ? segments.length - 1 : dynamicAt).join("/");
+    const pagesDir = route.entrypoint.slice(0, route.entrypoint.lastIndexOf("/pages/") + "/pages/".length) || "src/pages/";
+    const suggested = `${pagesDir}${prefix ? `${prefix}/` : ""}${STARTER_FILE[factory]}`;
     const surface = FACTORIES[factory];
     const shadowed = routes.slice(index + 1).find((other) => {
       const file = markdownFileSegment(other);

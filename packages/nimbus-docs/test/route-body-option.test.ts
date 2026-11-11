@@ -31,7 +31,7 @@ test("on request, every factory's body is tagged over the text it returns; a cli
   );
   await site.write(
     "src/pages/[...slug]/index.mdx.ts",
-    `import { markdownSourceRoute } from ${ENDPOINTS};\nexport const prerender = false;\nexport const { GET, getStaticPaths } = markdownSourceRoute({ body: (text) => \`\${text}\\n<!-- source -->\\n\` });\n`,
+    `import { markdownSourceRoute } from ${ENDPOINTS};\nexport const prerender = false;\nexport const { GET, getStaticPaths } = markdownSourceRoute({ body: (text, context) => { if (context.url.pathname.includes("caf")) throw new Error("secret detail"); return \`\${text}\\n<!-- source -->\\n\`; } });\n`,
   );
   await site.write(
     "src/pages/llms.txt.ts",
@@ -43,7 +43,7 @@ test("on request, every factory's body is tagged over the text it returns; a cli
   );
   await site.write(
     "src/pages/llms-full.txt.ts",
-    `import { llmsFullRoute } from ${ENDPOINTS};\nexport const prerender = false;\nexport const { GET } = llmsFullRoute({ body: () => { throw new Error("secret detail"); } });\n`,
+    `import { llmsFullRoute } from ${ENDPOINTS};\nexport const prerender = false;\nexport const { GET } = llmsFullRoute({ body: (text) => \`\${text}\\n<!-- full -->\\n\` });\n`,
   );
   const server = await dev({ ...site.config, output: "server", server: { host: "127.0.0.1", port: 0 } });
   try {
@@ -112,10 +112,18 @@ test("on request, every factory's body is tagged over the text it returns; a cli
     assert.equal(section.headers.get("ETag"), tagOf(""));
     assert.equal((await get("/docs/ref/llms.txt", { "If-None-Match": tagOf("") })).status, 304);
 
-    // Full document: a throwing body is a detail-free 500.
+    // Full document.
     const full = await get("/docs/llms-full.txt");
-    assert.equal(full.status, 500);
-    assert.doesNotMatch(await full.text(), /secret detail/);
+    const fullText = await full.text();
+    assert.equal(full.status, 200);
+    assert.match(fullText, /<!-- full -->\n$/);
+    assert.equal(full.headers.get("ETag"), tagOf(fullText));
+    assert.equal((await get("/docs/llms-full.txt", { "If-None-Match": full.headers.get("ETag")! })).status, 304);
+
+    // A throwing body is a detail-free 500.
+    const failing = await get("/docs/caf%C3%A9/index.mdx");
+    assert.equal(failing.status, 500);
+    assert.doesNotMatch(await failing.text(), /secret detail/);
   } finally {
     await server.stop();
     await rm(site.root, { recursive: true, force: true });
@@ -153,6 +161,7 @@ test("at build, body transforms the baked file, a scoped route its own pages, an
     // The control: no body, so its cache key stays and the second build skips it.
     "src/pages/[...slug]/index.mdx.ts": `import { markdownSourceRoute } from "@cloudflare/nimbus-docs/agent-endpoints";\nexport const prerender = true;\nexport const { GET, getStaticPaths } = markdownSourceRoute();\n`,
     "src/pages/llms.txt.ts": `import { llmsRoute } from "@cloudflare/nimbus-docs/agent-endpoints";\nexport const prerender = true;\nexport const { GET } = llmsRoute({ body: (text) => \`\${text}\\n## Index note\\n\` });\n`,
+    "src/pages/[...section]/llms.txt.ts": `import { readFileSync } from "node:fs";\nimport { llmsSectionRoute } from "@cloudflare/nimbus-docs/agent-endpoints";\nexport const prerender = true;\nexport const { GET, getStaticPaths } = llmsSectionRoute({ body: (text) => \`\${text}\\nSection stamp \${readFileSync(${JSON.stringify(stampPath)}, "utf8")}\\n\` });\n`,
   });
   const options = { experimental: { incrementalBuild: true }, logLevel: "info" as const, base: "/", packageImports: true };
   // The stamp file sits outside the module graph, in a sibling of the site root.
@@ -168,6 +177,7 @@ test("at build, body transforms the baked file, a scoped route its own pages, an
   assert.doesNotMatch(await dist("guides/setup/index.md"), /Stamp/);
   assert.doesNotMatch(await dist("faq/index.mdx"), /Stamp|Guides only/);
   assert.match(await dist("llms.txt"), /\n## Index note\n$/);
+  assert.match(await dist("guides/llms.txt"), /\nSection stamp first\n$/);
   // The homepage stand-in is the llms index, with its route's body and not the Markdown route's.
   assert.equal(await dist("index.md"), await dist("llms.txt"));
 
@@ -176,6 +186,8 @@ test("at build, body transforms the baked file, a scoped route its own pages, an
   assert.match(await dist("faq/index.md"), /\nStamp second\n$/, "a body that reads outside the module graph runs again");
   assert.equal(outcome(again.logs, "faq/index.md"), "rendered");
   assert.equal(outcome(again.logs, "guides/setup/index.md"), "rendered");
+  assert.equal(outcome(again.logs, "guides/llms.txt"), "rendered", "a section route with body drops its cache keys too");
+  assert.match(await dist("guides/llms.txt"), /\nSection stamp second\n$/);
   assert.equal(outcome(again.logs, "faq/index.mdx"), "skipped", "a route without body keeps its cache key");
 });
 
@@ -186,10 +198,55 @@ test("a body that throws fails a static build", { timeout: 240_000 }, async () =
         "src/content.config.ts": `import { defineCollection } from "astro:content";\nimport { docsCollection } from ${srcModule("content.ts")};\nexport const collections = { docs: defineCollection(docsCollection()) };\n`,
         "src/pages/[...slug].astro": PAGE,
         "src/content/docs/faq.mdx": doc("FAQ", "Questions."),
-        "src/pages/[...slug]/index.md.ts": `import { markdownRoute } from "@cloudflare/nimbus-docs/agent-endpoints";\nexport const prerender = true;\nexport const { GET, getStaticPaths } = markdownRoute({ body: () => { throw new Error("no"); } });\n`,
+        "src/pages/[...slug]/index.md.ts": `import { markdownRoute } from "@cloudflare/nimbus-docs/agent-endpoints";\nexport const prerender = true;\nexport const { GET, getStaticPaths } = markdownRoute({ body: () => { throw new Error("body-sentinel-7f3a"); } });\n`,
       },
       { packageImports: true, base: "/" },
     ),
-    /no/,
+    /body-sentinel-7f3a/,
   );
+});
+
+test("the homepage stand-in on a mixed site keeps the index's own text and tag, not the Markdown route's body", { timeout: 240_000 }, async () => {
+  // No root entry and Markdown on request with a body: the homepage's
+  // Markdown is the index, reached by rewrite or, where a baked index can't
+  // be, served by the Markdown factory as a stand-in; neither is its text.
+  const previousNodeEnv = process.env.NODE_ENV;
+  const site = await fixture(undefined, "docs", false, undefined, { rendering: { default: "request" } });
+  try {
+    process.env.NODE_ENV = "production";
+    await site.write(
+      "src/pages/[...slug].astro",
+      `---\nimport { getDocsStaticPaths } from ${srcModule("index.ts")};\nexport const getStaticPaths = getDocsStaticPaths;\n---\n<html><body>Page</body></html>`,
+    );
+    await site.write(
+      "src/pages/[...slug]/index.md.ts",
+      `import { markdownRoute } from ${ENDPOINTS};\nexport const prerender = false;\nexport const { GET, getStaticPaths } = markdownRoute({ body: (text) => \`\${text}\\nPage suffix\\n\` });\n`,
+    );
+    await site.write("server-entry.mjs", 'import { createApp } from "astro/app/entrypoint";\nexport const app = createApp();\n');
+    const { build } = await import("astro");
+    const { testAdapter } = await import("./fixtures/agent-site.js");
+    await build({
+      ...site.config,
+      output: "server",
+      adapter: testAdapter(path.join(site.root, "server-entry.mjs")),
+      build: { client: path.join(site.root, "dist"), server: path.join(site.root, ".server") },
+    } as never);
+    const { pathToFileURL } = await import("node:url");
+    const { app } = (await import(pathToFileURL(path.join(site.root, ".server/entry.mjs")).href)) as { app: { render(request: Request): Promise<Response> } };
+    const page = await app.render(new Request("https://example.test/docs/guide/index.md"));
+    assert.match(await page.text(), /\nPage suffix\n$/);
+    const home = await app.render(new Request("https://example.test/docs/index.md"));
+    assert.equal(home.status, 200);
+    const homeText = await home.text();
+    assert.doesNotMatch(homeText, /Page suffix/);
+    const index = await app.render(new Request("https://example.test/docs/llms.txt"));
+    assert.equal(homeText, await index.text(), "the index as Nimbus made it");
+    assert.equal(home.headers.get("ETag"), index.headers.get("ETag"));
+    assert.equal(home.headers.get("ETag"), tagOf(homeText));
+    assert.equal((await app.render(new Request("https://example.test/docs/index.md", { headers: { "If-None-Match": home.headers.get("ETag")! } }))).status, 304);
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    await rm(site.root, { recursive: true, force: true, maxRetries: 5 });
+  }
 });

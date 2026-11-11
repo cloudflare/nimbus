@@ -299,7 +299,7 @@ export interface MarkdownRoute {
  */
 async function endpointResponse(
   context: APIContext,
-  load: () => Promise<{ body: string; mediaType: string; digest?: string } | null>,
+  load: () => Promise<{ body: string; mediaType: string; digest?: string; standIn?: true } | null>,
   options?: AgentRouteOptions,
 ): Promise<Response> {
   try {
@@ -307,10 +307,11 @@ async function endpointResponse(
     if (!payload) return new Response("Not found", { status: 404 });
     // The document's own fingerprint, so a cache or client revalidates by
     // bytes, baked or rendered. A site's `body` changes the bytes, so the tag
-    // is taken over what it returns.
+    // is taken over what it returns; a stand-in for another route's document
+    // is not this route's text and keeps its own.
     let body = payload.body;
     let etag = payload.digest ? `"${payload.digest}"` : undefined;
-    if (options?.body) {
+    if (options?.body && !payload.standIn) {
       body = await options.body(body, context);
       etag = await entityTagOf(body);
     }
@@ -422,6 +423,7 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface, options?: AgentRo
                 body: fallback.body,
                 mediaType: "text/markdown; charset=utf-8",
                 digest: fallback.digest,
+                standIn: true,
               };
             }
           }

@@ -635,13 +635,14 @@ function checkAgentSurfaces(
     },
   );
   for (const route of unread) {
-    const label = scanned.find((entry) => entry.real === route.entrypoint)?.file ?? route.entrypoint;
+    const label = path.relative(cwd, route.entrypoint).split(path.sep).join("/");
+    const suggested = path.isAbsolute(route.suggested) ? path.relative(cwd, route.suggested).split(path.sep).join("/") : route.suggested;
     findings.push({
       scope: "structure",
       code: "nimbus/agent-route-shape",
       severity: "warn",
       file: label,
-      message: describeUnreadAgentRoute({ ...route, entrypoint: label }, { shadowing: false }),
+      message: describeUnreadAgentRoute({ ...route, entrypoint: label, suggested }, { shadowing: false }),
       fixable: false,
     });
   }

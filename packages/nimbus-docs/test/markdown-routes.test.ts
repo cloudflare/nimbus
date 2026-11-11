@@ -539,6 +539,10 @@ test("agentFactoryCall names the factory called, through every import form, with
   assert.equal(agentFactoryCall(`const { llmsFullRoute } = await import("@cloudflare/nimbus-docs/agent-endpoints");\nllmsFullRoute();`), "llmsFullRoute");
   assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\n// markdownRoute()\nexport const GET = () => new Response("x");`), undefined);
   assert.equal(agentFactoryCall(`import { markdownRoute } from "./helper";\nmarkdownRoute();`), undefined);
+  // A factory named in response text, a template or a string is not a call.
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nexport const GET = () => new Response("Example: markdownRoute()");`), undefined);
+  assert.equal(agentFactoryCall(`import { llmsRoute } ${ENDPOINTS}\nexport const GET = () => new Response(\`see \${"llmsRoute()"} here\`);`), undefined);
+  assert.equal(agentFactoryCall(`import { llmsRoute } ${ENDPOINTS}\nconst note = 'llmsRoute()';\nexport const { GET } = llmsRoute();`), "llmsRoute");
   assert.equal(sharedMarkdownRouteSurface(`import { llmsFullRoute } ${ENDPOINTS}\nllmsFullRoute();`), "llms");
 });
 
@@ -547,9 +551,15 @@ test("patternsMayOverlap walks segments: static mismatch is disjoint, a spread a
   assert.equal(patternsMayOverlap("/[...slug].md", "/[...slug]/index.md"), true);
   assert.equal(patternsMayOverlap("/blog/[...slug].md", "/docs/[...slug]/index.md"), false);
   assert.equal(patternsMayOverlap("/[section]/[...rest].md", "/blog/[...slug]/index.md"), true);
-  assert.equal(patternsMayOverlap("/markdown", "/[...slug]/index.md"), true);
+  assert.equal(patternsMayOverlap("/markdown", "/[...slug]/index.md"), false, "a static last segment that is not index.md never serves one");
   assert.equal(patternsMayOverlap("/feed.txt", "/llms.txt"), false);
   assert.equal(patternsMayOverlap("/a/b", "/a"), false);
+  // Static affixes on the last segment must agree; a bare spread matches nothing too.
+  assert.equal(patternsMayOverlap("/[...slug].json", "/[...slug]/index.md"), false);
+  assert.equal(patternsMayOverlap("/[...slug].md", "/[...slug]/index.md"), true);
+  assert.equal(patternsMayOverlap("/[...file].txt", "/[...section]/llms.txt"), true);
+  assert.equal(patternsMayOverlap("/a", "/a/[...rest]"), true);
+  assert.equal(patternsMayOverlap("/a/[...rest]/index.md", "/a"), false);
 });
 
 test("unreadAgentRoutes names a factory call from a shape Nimbus doesn't record, and the recorded route it may shadow", () => {
@@ -558,6 +568,8 @@ test("unreadAgentRoutes names a factory call from a shape Nimbus doesn't record,
     "src/pages/blog/[...slug].md.ts": `import { markdownRoute as md } ${ENDPOINTS}\nexport const GET = md().GET;`,
     "src/pages/redirects/[...slug].md.ts": "export const GET = (context) => context.redirect('/x', 301);",
     "src/pages/markdown.ts": `import { llmsRoute } ${ENDPOINTS}\nexport const { GET } = llmsRoute();`,
+    "src/pages/all.txt.ts": `import { llmsFullRoute } ${ENDPOINTS}\nexport const { GET } = llmsFullRoute();`,
+    "site/pages/notes/[...slug].md.ts": `import { markdownRoute } ${ENDPOINTS}\nexport const { GET } = markdownRoute();`,
     "src/pages/[...slug]/index.md.ts": `import { markdownRoute } ${ENDPOINTS}\nexport const { GET, getStaticPaths } = markdownRoute();`,
     "src/pages/docs/[...slug]/index.md.ts": "export const GET = () => new Response('own');",
     "src/pages/llms.txt.ts": `import { llmsRoute } ${ENDPOINTS}\nexport const { GET } = llmsRoute();`,
@@ -568,6 +580,8 @@ test("unreadAgentRoutes names a factory call from a shape Nimbus doesn't record,
     astroRoute("src/pages/redirects/[...slug].md.ts", "/redirects/[...slug].md"),
     astroRoute("src/pages/[...slug].md.ts", "/[...slug].md"),
     astroRoute("src/pages/markdown.ts", "/markdown"),
+    astroRoute("src/pages/all.txt.ts", "/all.txt"),
+    astroRoute("site/pages/notes/[...slug].md.ts", "/notes/[...slug].md"),
     astroRoute("src/pages/llms.txt.ts", "/llms.txt"),
     astroRoute("src/pages/docs/[...slug]/index.md.ts", "/docs/[...slug]/index.md"),
     astroRoute("src/pages/[...slug]/index.md.ts", "/[...slug]/index.md"),
@@ -591,6 +605,13 @@ test("unreadAgentRoutes names a factory call from a shape Nimbus doesn't record,
         shadows: "src/pages/docs/[...slug]/index.md.ts",
       },
       { entrypoint: "src/pages/markdown.ts", factory: "llmsRoute", suggested: "src/pages/llms.txt.ts", shadows: undefined },
+      // The suggestion follows the file's own pages folder; the full document at its own name is not reported.
+      {
+        entrypoint: "site/pages/notes/[...slug].md.ts",
+        factory: "markdownRoute",
+        suggested: "site/pages/notes/[...slug]/index.md.ts",
+        shadows: "src/pages/[...slug]/index.md.ts",
+      },
     ],
   );
   // A prefixed old route beside a disjoint recorded one shadows nothing.
@@ -612,4 +633,9 @@ test("unreadAgentRoutes names a factory call from a shape Nimbus doesn't record,
   assert.match(text, /Astro may send requests to this file ahead of src\/pages\/\[\.\.\.slug\]\/index\.md\.ts/);
   assert.doesNotMatch(describeUnreadAgentRoute(unread[0]!, { shadowing: false }), /Astro may send/);
   assert.match(describeUnreadAgentRoute(unread[2]!), /no llms\.txt or llms-full\.txt document is made for it\. Move the call to src\/pages\/llms\.txt\.ts\.$/);
+  assert.deepEqual(
+    recordMarkdownRoutes(routes, read).map((route) => route.entrypoint).includes("src/pages/all.txt.ts"),
+    false,
+    "the full-document alias is neither recorded nor reported: the build reads its call",
+  );
 });
