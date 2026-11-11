@@ -220,8 +220,17 @@ function servesLlms(options: BakeAgentEndpointAssetsOptions): boolean {
 function servesLlmsSections(options: BakeAgentEndpointAssetsOptions): boolean {
   return options.surfaces?.llmsSections ?? true;
 }
+/** A route at `/llms-full.txt`: the full document is linked from the indexes. */
 function servesLlmsFull(options: BakeAgentEndpointAssetsOptions): boolean {
   return options.surfaces?.llmsFull ?? options.fullDocument !== false;
+}
+/**
+ * The full document is baked when a route at `/llms-full.txt` serves it, or
+ * when the integration found `llmsFullRoute()` in a route file at another
+ * path (the site's own URL for it): that route reads the same payload.
+ */
+function bakesLlmsFull(options: BakeAgentEndpointAssetsOptions): boolean {
+  return servesLlmsFull(options) || options.fullDocument === true;
 }
 
 export interface BakePreparedHeadingsOptions {
@@ -2312,7 +2321,7 @@ export async function bakeAgentEndpointAssets(
       !versionSlugs.has(collectionLabel(page.collection, options.versions)),
   );
   // Without a route, the file would only be shipped, never served.
-  const full = !servesLlmsFull(options)
+  const full = !bakesLlmsFull(options)
     ? { bodies: [], split: false }
     : llmsFullBodies(llmsFullPages, options, base);
   const nestedLinks = nestedCollectionLinks(groups, options);
