@@ -660,7 +660,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   // What the schema's checks see: a raw JSON field's value, not its text.
   const checked = (p: PlanParam, value: unknown, rawJson?: boolean): unknown => {
     if (!rawJson || !needsJson(p) || typeof value !== "string") return value;
-    if (!p.schema.type && !p.schema.enum) return undefined; // nothing to check it against
+    // Nothing to check it against: no type, or a list of anything.
+    if ((!p.schema.type && !p.schema.enum) || (p.schema.type === "array" && !p.schema.items?.type && !p.schema.items?.enum)) return undefined;
     try {
       return JSON.parse(value);
     } catch {
@@ -1320,10 +1321,14 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       // A schema without a type takes the value's, so a number stays a number.
       const schema = field.schema.type || field.schema.enum || value === undefined || value === null ? field.schema : { ...field.schema, type: kindOf(value) };
       const p: PlanParam = { name: field.name, in: "query", style: "form", explode: true, allowReserved: false, required: field.required, schema, ...(field.description ? { description: field.description } : {}) };
+      // Options that read alike (`"1"` and `1`): JSON from the start, given or not.
+      const alike = (e?: PlanSchema["enum"]) => Boolean(e && new Set(e.map(text)).size < e.length);
+      if (alike(schema.enum) || alike(schema.items?.enum)) asJsonValue.add(p);
       if (raw !== undefined) {
         if (!fits(schema, value, raw)) asJsonValue.add(p);
         // A number keeps its digits as typed, JSON its text; a list its items as text.
-        p.initial = (needsJson(p) || typeof value === "number" ? raw : Array.isArray(value) ? value.map(text) : value) as PlanParam["initial"];
+        const option = schema.enum && typeof value === "number" ? schema.enum.find((o) => o === value) : undefined;
+        p.initial = (option !== undefined ? text(option) : needsJson(p) || typeof value === "number" ? raw : Array.isArray(value) ? value.map(text) : value) as PlanParam["initial"];
         kept.set(`body:${field.name}`, p.initial);
       } else if (schema.type === "array" && !schema.items?.type && !schema.items?.enum) {
         asJsonValue.add(p); // an untyped list not given yet: JSON, so its items keep their kinds
@@ -1510,6 +1515,15 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       const media = plan.body!.media.find((m) => m.mediaType === bodyMedia);
       if (!b || !media) return;
       const next = b.dataset.view as "json" | "fields";
+      const shown = asFields(media) ? "fields" : "json";
+      if (next === shown) return;
+      // A field not yet valid would be lost to a redraw: Fields stay until it's fixed.
+      const unfinished = shown === "fields" ? (fieldIssues()[0] ?? [...badJson.keys()].filter((k) => k.startsWith("body:")).map((key) => ({ key, message: "Not valid JSON." }))[0]) : undefined;
+      if (unfinished) {
+        bodyError.textContent = `Fix ${unfinished.key.slice(5)} first: ${unfinished.message}`;
+        controls.get(unfinished.key)?.focus();
+        return;
+      }
       // Fields need the body to be one object: until it is, the JSON stays, saying why.
       if (next === "fields" && entriesOf(media) === null) {
         bodyError.textContent = "Fields need the body to be one JSON object, each property once. Fix the JSON, then switch.";
