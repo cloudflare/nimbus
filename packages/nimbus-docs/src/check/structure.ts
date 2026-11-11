@@ -597,7 +597,10 @@ function checkAgentSurfaces(
     .map((route) => {
       const stem = route.replace(/\.[jt]s$/u, "");
       return { file: `src/pages/${route}`, pattern: `/${stem === "index" ? "" : stem.replace(/\/index$/u, "")}` };
-    });
+    })
+    // As the build records them: a static file name last (`[name].md` is no
+    // Markdown route).
+    .filter((route) => !route.pattern.split("/").at(-1)!.includes("["));
   const serving = (test: (pattern: string) => boolean) => routes.filter((route) => test(route.pattern)).map((route) => route.file);
   const files = {
     pageMarkdown: serving((pattern) => pattern.endsWith(".md")),

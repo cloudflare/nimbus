@@ -93,3 +93,14 @@ test("the site index and the full document count only at the root", async () => 
   assert.match(line ?? "", /Section llms\.txt: served/);
   assert.match(line ?? "", /llms-full\.txt: off/);
 });
+
+test("a dynamic file name is no Markdown route, as the build records it", async () => {
+  const line = await surfacesLine([
+    "[...slug]/[name].md.ts",
+    "[...slug]/index.mdx.ts",
+    "llms.txt.ts",
+    "[...section]/llms.txt.ts",
+    "llms-full.txt.ts",
+  ]);
+  assert.match(line ?? "", /Page Markdown: off/);
+});
