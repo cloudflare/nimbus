@@ -195,3 +195,40 @@ test("with Pagefind on, a request-rendered page's text is in the build cache, pa
     await rm(site.root, { recursive: true, force: true });
   }
 });
+
+test("a route that re-exports the Markdown factory from the site's own module still gets the homepage fallback", async () => {
+  // No root entry: the llms index stands in for /index.md, as it does when
+  // the route file calls the factory itself.
+  const site = await fixture(undefined);
+  try {
+    await site.write(
+      "src/lib/markdown.ts",
+      `import { markdownRoute } from ${srcModule("agent-endpoints.ts")};\nexport const { GET, getStaticPaths } = markdownRoute();\n`,
+    );
+    await site.write("src/pages/[...slug]/index.md.ts", 'export const prerender = true;\nexport { GET, getStaticPaths } from "../../lib/markdown.ts";\n');
+    await build(site.config);
+    assert.ok(existsSync(path.join(site.root, "dist/guide/index.md")));
+    assert.equal(await site.read("dist/index.md"), await site.read("dist/llms.txt"));
+    assert.match(await site.read("dist/.well-known/ard.json"), /text\/markdown/);
+  } finally {
+    await rm(site.root, { recursive: true, force: true });
+  }
+});
+
+test("the full document is baked for a route that serves it at the site's own path", async () => {
+  // No `/llms-full.txt` route, so the indexes name no full document; the
+  // site's `all.md` route reads the same payload and serves it there.
+  const site = await fixture("---\ntitle: Root\n---\nRoot body.");
+  try {
+    await site.write(
+      "src/pages/all.md.ts",
+      `import { llmsFullRoute } from ${srcModule("agent-endpoints.ts")};\nexport const prerender = true;\nexport const { GET } = llmsFullRoute();\n`,
+    );
+    await build(site.config);
+    assert.ok(!existsSync(path.join(site.root, "dist/llms-full.txt")));
+    assert.match(await site.read("dist/all.md"), /Hello discovery/);
+    assert.doesNotMatch(await site.read("dist/llms.txt"), /Full documentation/);
+  } finally {
+    await rm(site.root, { recursive: true, force: true });
+  }
+});
