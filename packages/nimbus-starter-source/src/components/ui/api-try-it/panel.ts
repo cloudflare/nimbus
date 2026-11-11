@@ -310,7 +310,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       "span",
       { class: "nb-tid-waitpill-idle" },
       "Not sent yet ",
-      safe ? el("span", { class: "nb-tid-hints" }, el("kbd", {}, isMac ? "⌘" : "Ctrl"), el("kbd", {}, "↵"), " to send") : null,
+      el("span", { class: "nb-tid-hints" }, el("kbd", {}, isMac ? "⌘" : "Ctrl"), el("kbd", {}, "↵"), " to send"),
     ),
     elapsedEl,
   );
@@ -1624,7 +1624,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
           "div",
           { class: "nb-tid-empty" },
           el("p", {}, "Nothing to fill in"),
-          safe ? el("p", { class: "nb-tid-hints" }, el("kbd", {}, isMac ? "⌘" : "Ctrl"), el("kbd", {}, "↵"), " to send") : null,
+          el("p", { class: "nb-tid-hints" }, el("kbd", {}, isMac ? "⌘" : "Ctrl"), el("kbd", {}, "↵"), " to send"),
         ),
       );
     }
@@ -1916,8 +1916,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     if (e.key === "Enter" && e.target instanceof HTMLInputElement) e.preventDefault();
   });
   const onKey = (e: KeyboardEvent) => {
-    // ⌘↵ / Ctrl+↵ sends only reads; a write is sent by its button alone.
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && safe) {
+    // ⌘↵ / Ctrl+↵ sends, as the button does: a write the site asks to confirm (confirmWrites) asks first.
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       void send();
     }
