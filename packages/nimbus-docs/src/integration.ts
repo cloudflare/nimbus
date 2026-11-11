@@ -138,6 +138,7 @@ import {
 import { validateNimbusConfig } from "./_internal/validate.js";
 import { makeHiddenSitemapFilter } from "./_internal/hidden-sitemap.js";
 import { navBuildId, outdatedApiSidebarError } from "./_internal/api-sidebar-components.js";
+import { agentSurfacesFromRoutes, publishesAgentUrl, type AgentSurfaces } from "./_internal/agent-surfaces.js";
 import { virtualConfigPlugin } from "./_internal/virtual-config.js";
 import { createAgentCapabilities } from "./_internal/agent-capabilities.js";
 import { getPreparedMarkdownEntry } from "./_internal/prepared-markdown-registry.js";
@@ -154,7 +155,8 @@ import {
   AGENT_SKILLS_INDEX_PATH,
   publishAgentSkills,
 } from "./_internal/agent-skills.js";
-import { pageUrl, resolveAllApiCollections } from "./_internal/api/resolve-versions.js";
+import { pageUrl, resolveAllApiCollections, versionQueryParam } from "./_internal/api/resolve-versions.js";
+import type { ApiVersionUrls } from "./_internal/llms-documents.js";
 
 import { coalesce } from "./_internal/coalesce.js";
 import { virtualApiBuildConfigPlugin } from "./_internal/virtual-api-build-config.js";
@@ -259,6 +261,8 @@ import {
   readRouteSource,
   recordMarkdownRoutes,
   sharedMarkdownRouteSurface,
+  describeUnreadAgentRoute,
+  unreadAgentRoutes,
 } from "./_internal/markdown-routes-plugin.js";
 import {
   findUnclaimedMarkdownPaths,
@@ -328,6 +332,33 @@ const REQUEST_ROUTE_INVENTORY_ENTRYPOINT = new URL(
 const initialDevWatchers = new Map<string, { close(): Promise<void> }>();
 
 type AgentEndpointAssetsModule = typeof import("./_internal/agent-endpoint-assets.js");
+
+/** Versioned API families by collection: how their versions appear in URLs, for per-version `llms-full` parts. */
+function apiVersionsForDocuments(api: NimbusConfig["api"]): Record<string, ApiVersionUrls> | undefined {
+  const families: Record<string, ApiVersionUrls> = {};
+  for (const entry of api ?? []) {
+    if (!entry.versions || entry.versions.length < 2) continue;
+    const fallback = entry.versions.find((version) => version.default) ?? entry.versions[0]!;
+    families[entry.collection] = {
+      mode: entry.versionUrl?.in === "query" ? "query" : "path",
+      param: versionQueryParam(entry),
+      defaultVersion: fallback.version,
+      versions: entry.versions.map((version) => version.version),
+    };
+  }
+  return Object.keys(families).length > 0 ? families : undefined;
+}
+
+/** The parts of the agent surfaces that change what the bake writes, for change detection. */
+function surfaceSummary(surfaces: AgentSurfaces): unknown {
+  return {
+    routes: surfaces.markdownRoutes.map((route) => `${route.pattern}\0${route.regex.source}`),
+    llms: surfaces.llms,
+    llmsSections: surfaces.llmsSections,
+    llmsFull: surfaces.llmsFull,
+    onRequest: surfaces.onRequest,
+  };
+}
 
 /** Whether an endpoint serves the site's llms-full.txt, by path or by call. */
 function servesLlmsFull(
@@ -612,6 +643,8 @@ export function nimbus(
   // `astro:routes:resolved`.
   let routeFileMismatches = new Map<string, RouteFileMismatch & { subject: string }>();
   let reportedRouteFileMismatches = "";
+  // The last unread-agent-route report, so dev warns once per route set.
+  let reportedUnreadAgentRoutes = "";
   // The mode `rendering` gives each collection's page route file, by
   // component key, and the subject its warning names.
   let managedPageRoutes = new Map<string, { mode: RenderingMode; subject: string }>();
@@ -619,6 +652,8 @@ export function nimbus(
   let endpointRoutesForBuild: EndpointRouteRecord[] = [];
   // Whether a route serves llms-full.txt; unknown until routes resolve.
   let servesFullDocument: boolean | undefined;
+  /** The agent surfaces the site's routes serve, once routes are resolved. */
+  let agentSurfacesForBuild: AgentSurfaces | undefined;
   // Whether the project's section llms route takes nested paths
   // (`[...section]/llms.txt`); decided from the resolved routes.
   let nestedLlmsSections: boolean | undefined;
@@ -654,6 +689,19 @@ export function nimbus(
   // setup watches it, so Astro restarts and setup declares the new routes.
   const collectionRoutesSentinel = (projectRoot: string) =>
     path.join(projectRoot, ".astro", "nimbus", "collection-routes.json");
+  // The agent route files setup declares mounted routes for. Adding or
+  // removing one in dev re-runs setup, as moving a collection route does:
+  // the routes injected at setup follow the files present then.
+  const AGENT_ROUTE_FILE = /(^|\/)(index\.mdx?|llms(?:-full)?\.txt)\.[cm]?[jt]s$/u;
+  const agentRouteFilesStamp = (srcDir: string): string => {
+    const pagesDir = path.join(srcDir, "pages");
+    if (!fs.existsSync(pagesDir)) return "";
+    return [...walkFilesSync(pagesDir, { onReadError: "lenient" })]
+      .map((file) => file.rel.split(path.sep).join("/"))
+      .filter((file) => AGENT_ROUTE_FILE.test(file))
+      .sort()
+      .join("\n");
+  };
   // Helper routes the reader couldn't follow, named when one renders in the wrong place.
   let unreadRoutesForBuild: UnreadRoute[] = [];
   let buildOnlyNoticePrinted = false;
@@ -829,16 +877,30 @@ export function nimbus(
           asset.collection,
           asset.id,
         );
+      } else if (
+        // An API served at the site root that renders on request: its
+        // overview's Markdown is described, not baked.
+        manifest.rendered.some((page) => page.published && page.url.replace(/\/+$/u, "") === "")
+      ) {
+        sharedHomepage = true;
       }
     }
     const hasLlms = endpointRoutesForBuild.some(
       (route) => route.pattern === "/llms.txt",
     );
+    // /index.md exists when something serves it: a public file, a shared route
+    // with a root entry, the site's own route, or the shared route's llms
+    // fallback. An llms.txt route alone publishes no homepage Markdown.
+    // The middleware answers /index.md with the llms index itself only for the
+    // shared factory route: a route of the site's own answers for itself (a
+    // re-export of the factory still gets the build's copy, see build:done).
+    const homepageFallback =
+      hasLlms && !publicHomepage && !sharedHomepage && owner?.shared === "markdown";
     const hasHomepageMarkdown =
-      hasLlms ||
       publicHomepage ||
       sharedHomepage ||
-      (owner !== undefined && owner.shared !== "markdown");
+      (owner !== undefined && owner.shared !== "markdown") ||
+      homepageFallback;
     // Every version publishes its spec file unless opted out, hidden ones
     // included; discovery surfaces then drop hidden versions.
     const specFiles: { collection: string; file: string; url: string; type: string; contents: string }[] = [];
@@ -867,8 +929,9 @@ export function nimbus(
       // Markdown references exist only for the default version of a
       // query-addressed or `bundle: false` collection.
       const hasMarkdown =
-        api.isDefault ||
-        (api.versionMode !== "query" && !pageAssetCollections.includes(api.family));
+        (api.isDefault ||
+          (api.versionMode !== "query" && !pageAssetCollections.includes(api.family))) &&
+        publishesAgentUrl(markdownRoutes.records(), `${api.mountPath}/index.md`);
       apis.push({
         collection: api.family,
         ...(api.version ? { version: api.version } : {}),
@@ -891,7 +954,7 @@ export function nimbus(
         title: config.title,
         base: astroBaseForBuild,
         output: outputModeForBuild,
-        homepageMarkdownFallback: hasLlms && !publicHomepage && !sharedHomepage && (!owner || owner.shared === "markdown"),
+        homepageMarkdownFallback: homepageFallback,
         ...(discoveryOff ? { discovery: false as const } : {}),
         ...(mcpServerForBuild ? { mcp: mcpServerForBuild } : {}),
       },
@@ -1183,7 +1246,7 @@ export function nimbus(
             `${mountDecision.errors.map((error) => error.message).join("\n\n")}\n\nSee ${COLLECTION_URLS_DOCS}.`,
           );
         mountContextForBuild = { versions: versionMounts(), routes: mountDecision.mounts };
-        mountStampForSetup = mountDecisionStamp(mountDecision);
+        mountStampForSetup = `${mountDecisionStamp(mountDecision)}\0${agentRouteFilesStamp(srcDir)}`;
         const routeWarnings: MountWarning[] = [...mountDecision.warnings, ...unreadRouteWarnings(routeScan.unread)];
         setMountContext(astroConfig.root, mountContextForBuild);
         // `NIMBUS_BUILD_ONLY`: build one collection or a set. Only a build
@@ -1547,6 +1610,15 @@ export function nimbus(
               componentMap: options.markdown?.componentMap,
               partialResolver,
               fullDocument: servesFullDocument ?? true,
+              // Request-rendered API pages are described, not baked: the Worker
+              // renders their Markdown from the records it holds.
+              requestRendered: (collection) => requestRenderingCollections.has(collection),
+              apiVersions: apiVersionsForDocuments(config.api),
+              ...(agentSurfacesForBuild ? { surfaces: agentSurfacesForBuild } : {}),
+              // Pagefind over request-rendered pages reads each page's text
+              // from the build cache, route or no route.
+              buildBodies:
+                requestRenderingCollections.size > 0 && config.search !== false && config.search?.provider !== "custom",
               nestedSections: nestedLlmsSections ?? false,
               ...(await sliceLlmsOptions()),
               // The size limit it reports is Cloudflare's: warn when the site
@@ -1573,67 +1645,80 @@ export function nimbus(
                   data: Record<string, unknown>;
                   hidden: boolean;
                   section?: string;
+                  historical?: boolean;
                 }> = [];
                 const { apiLlmsPlacement } = await import("./_internal/api/llms-sections.js");
                 if (apiCollectionsForBuild.length === 0) return apiEntries;
-                // Query-mode families publish twins and index lines for the
-                // default version only, at version-free URLs; a non-default
-                // entry's store id is not a route.
-                const queryModeDefaults = new Map<string, string>();
-                for (const entry of config.api ?? []) {
-                  if (entry.versionUrl?.in !== "query" || !entry.versions) continue;
-                  const fallback =
-                    entry.versions.find((v) => v.default) ?? entry.versions[0];
-                  queryModeDefaults.set(entry.collection, fallback!.version);
-                }
+                const { resolveApiFamily, pageUrl, apiPageSlug } = await import("./_internal/api/resolve-versions.js");
+                // Every version's render targets. A non-default version's
+                // pages carry their version identity so the full document's
+                // parts partition by it. Query-mode families publish twins and
+                // index lines for the default version only, at version-free
+                // URLs: a non-default entry's store id is not a route, so those
+                // pages are historical, listed by no index.
+                const families = new Map(
+                  (config.api ?? []).map((entry) => [
+                    entry.collection,
+                    resolveApiFamily(entry, collectionMountPrefix(entry.collection, mountContextForBuild)),
+                  ]),
+                );
                 const snapshot = getPreparedMarkdownSnapshot(projectRoot);
                 for (const collection of apiCollectionsForBuild) {
+                  const targets = families.get(collection) ?? [];
                   if (pageAssetCollections.includes(collection)) {
-                    const { resolveApiFamily } =
-                      await import("./_internal/api/resolve-versions.js");
-                    const target = resolveApiFamily(
-                      config.api!.find(
-                        (entry) => entry.collection === collection,
-                      )!,
-                      collectionMountPrefix(collection, mountContextForBuild),
-                    ).find((target) => target.isDefault)!;
-                    const index =
-                      await pageAssetsBuild.readApiAssetIndexForBuild(
-                        projectRoot,
-                        collection,
-                        target.version,
-                      );
-                    // Each page goes in its sidebar group's `llms.txt`.
-                    const { sections, order } = apiLlmsPlacement(index.metadata.nav.nav.items, (coordinate) => {
-                      const row = index.byId.get(coordinate);
-                      return row ? row.slug || "index" : undefined;
-                    });
-                    for (const row of index.rows) {
-                      const position = order.get(row.id);
-                      if (position !== undefined) apiNavOrder.set(`${collection}\0${row.slug || "index"}`, position);
-                    }
-                    assetApiEntries.set(
-                      collection,
-                      index.rows.map((row) => ({
-                        id: row.slug || "index",
-                        data: { coordinate: row.id, title: row.title, description: row.description },
-                      })),
-                    );
-                    for (const row of index.rows)
-                      apiEntries.push({
-                        collection,
-                        id: row.slug || "index",
-                        section: sections.get(row.id),
-                        data: {
-                          coordinate: row.id,
-                          title: row.title,
-                          description: row.description,
-                          ...(target.version
-                            ? { version: target.version }
-                            : {}),
-                        },
-                        hidden: target.hidden,
+                    for (const target of targets) {
+                      const index =
+                        await pageAssetsBuild.readApiAssetIndexForBuild(
+                          projectRoot,
+                          collection,
+                          target.version,
+                        );
+                      // Each page goes in its sidebar group's `llms.txt`. A
+                      // non-default version's ids carry the version, as the
+                      // bundled store's do, so its groups are its own.
+                      const idOf = (row: { slug: string }) =>
+                        target.isDefault ? row.slug || "index" : `${target.version}/${row.slug || "index"}`;
+                      const { sections, order } = apiLlmsPlacement(index.metadata.nav.nav.items, (coordinate) => {
+                        const row = index.byId.get(coordinate);
+                        return row ? idOf(row) : undefined;
                       });
+                      for (const row of index.rows) {
+                        const position = order.get(row.id);
+                        if (position !== undefined) apiNavOrder.set(`${collection}\0${idOf(row)}`, position);
+                      }
+                      if (target.isDefault) {
+                        assetApiEntries.set(
+                          collection,
+                          index.rows.map((row) => ({
+                            id: row.slug || "index",
+                            data: { coordinate: row.id, title: row.title, description: row.description },
+                          })),
+                        );
+                      }
+                      for (const row of index.rows)
+                        apiEntries.push({
+                          collection,
+                          id: idOf(row),
+                          section: sections.get(row.id),
+                          data: {
+                            coordinate: row.id,
+                            title: row.title,
+                            description: row.description,
+                            ...(target.version
+                              ? { version: target.version }
+                              : {}),
+                            ...(target.isDefault
+                              ? {}
+                              : { apiVersion: target.version, url: pageUrl(target, row.slug) }),
+                            // The pack's content-addressed file: the record's identity without reading it.
+                            fingerprint: `${row.location.filename}\0${row.location.key ?? ""}`,
+                            // The stored record's bytes: an estimate of its Markdown, so an on-request part can size itself unrendered.
+                            ...(row.bytes !== undefined ? { recordBytes: row.bytes } : {}),
+                          },
+                          hidden: target.hidden,
+                          ...(target.isDefault ? {} : { historical: target.versionMode === "query" }),
+                        });
+                    }
                     continue;
                   }
                   const entries =
@@ -1648,37 +1733,35 @@ export function nimbus(
                       indexError ?? missingApiCollectionMessage(collection),
                     );
                   }
-                  const queryDefault = queryModeDefaults.get(collection);
                   const firstOfCollection = apiEntries.length;
                   for (const entry of entries.values()) {
-                    if (
-                      queryDefault !== undefined &&
-                      typeof entry.data.version === "string" &&
-                      entry.data.version !== queryDefault
-                    ) {
-                      continue;
-                    }
+                    const version = typeof entry.data.version === "string" ? entry.data.version : undefined;
+                    const target = version === undefined ? undefined : targets.find((candidate) => candidate.version === version);
+                    const nonDefault = target !== undefined && !target.isDefault;
                     apiEntries.push({
                       collection,
                       id: entry.id,
-                      data: (entry.data ?? {}) as Record<string, unknown>,
+                      data: {
+                        ...((entry.data ?? {}) as Record<string, unknown>),
+                        ...(nonDefault
+                          ? { apiVersion: target.version, url: pageUrl(target, apiPageSlug(target, entry.id)) }
+                          : {}),
+                      },
                       hidden:
-                        typeof entry.data.version === "string" &&
-                        (hiddenApiVersions
-                          .get(collection)
-                          ?.has(entry.data.version) ??
-                          false),
+                        version !== undefined &&
+                        (hiddenApiVersions.get(collection)?.has(version) ?? false),
+                      ...(nonDefault && target.versionMode === "query" ? { historical: true } : {}),
                     });
                   }
                   await placeBundledApiEntries(
                     collection,
-                    apiEntries.slice(firstOfCollection),
+                    apiEntries.slice(firstOfCollection).filter((entry) => !entry.historical),
                     entries,
                   );
                 }
                 return apiEntries;
               },
-              renderApiEntryMarkdown: async (entry, base) => {
+              projectApiEntryPage: async (entry) => {
                 const coordinate = entry.data.coordinate;
                 if (typeof coordinate !== "string") {
                   throw new Error(
@@ -1720,22 +1803,15 @@ export function nimbus(
                   const row = index.byId.get(coordinate);
                   if (!row)
                     throw new Error(`Missing API Markdown page ${coordinate}.`);
-                  const [{ resolveApiAssetLinks }, { renderApiPageMarkdown }] =
-                    await Promise.all([
-                      import("./_internal/api/page-assets-links.js"),
-                      import("./api/index.js"),
-                    ]);
-                  return renderApiPageMarkdown(
-                    resolveApiAssetLinks(
-                      await pageAssetsBuild.readApiAssetPageForBuild(
-                        projectRoot,
-                        row,
-                      ),
-                      target,
-                      index,
-                    ) as import("./api/index.js").ApiPageProps,
-                    { base },
-                  );
+                  const { resolveApiAssetLinks } = await import("./_internal/api/page-assets-links.js");
+                  return resolveApiAssetLinks(
+                    await pageAssetsBuild.readApiAssetPageForBuild(
+                      projectRoot,
+                      row,
+                    ),
+                    target,
+                    index,
+                  ) as import("./api/index.js").ApiPageProps;
                 }
                 let model = apiMarkdownModels.get(modelKey);
                 if (!model) {
@@ -1757,12 +1833,8 @@ export function nimbus(
                     .then(apiLoader.buildApiModel);
                   apiMarkdownModels.set(modelKey, model);
                 }
-                const { getApiPageProps, renderApiPageMarkdown } =
-                  await import("./api/index.js");
-                return renderApiPageMarkdown(
-                  getApiPageProps(await model, coordinate),
-                  { base },
-                );
+                const { getApiPageProps } = await import("./api/index.js");
+                return getApiPageProps(await model, coordinate);
               },
             });
           },
@@ -3498,7 +3570,7 @@ export function nimbus(
           // Vite swaps in a new watcher on restart; this server is gone.
           if (server.watcher !== watcher) return;
           const decision = decideMounts(findCollectionRoutes(srcDirForBuild, projectRootForBuild).found);
-          const stamp = mountDecisionStamp(decision);
+          const stamp = `${mountDecisionStamp(decision)}\0${agentRouteFilesStamp(srcDirForBuild)}`;
           if (stamp === lastStamp) return;
           lastStamp = stamp;
           if (decision.errors.length === 0) {
@@ -3514,9 +3586,12 @@ export function nimbus(
         };
         const onPagesChange = (file: string) => {
           const relative = path.relative(pagesDir, file);
-          if (relative.startsWith("..") || path.isAbsolute(relative) || !relative.endsWith(".astro")) return;
-          const last = routeSegments(relative).at(-1);
-          if (!last || !/^\[.+\]$/u.test(last)) return;
+          if (relative.startsWith("..") || path.isAbsolute(relative)) return;
+          if (!AGENT_ROUTE_FILE.test(relative.split(path.sep).join("/"))) {
+            if (!relative.endsWith(".astro")) return;
+            const last = routeSegments(relative).at(-1);
+            if (!last || !/^\[.+\]$/u.test(last)) return;
+          }
           clearTimeout(collectionRoutesTimer);
           collectionRoutesTimer = setTimeout(recheckCollectionRoutes, 200);
           collectionRoutesTimer.unref?.();
@@ -3898,14 +3973,23 @@ export function nimbus(
           );
         }
         reportedRouteFileMismatches = report;
-        markdownRoutes.update(
-          recordMarkdownRoutes(
-            routes,
-            astroRootForBuild
-              ? readRouteSource(astroRootForBuild)
-              : () => undefined,
-          ),
-        );
+        const routeSource = astroRootForBuild ? readRouteSource(astroRootForBuild) : () => undefined;
+        markdownRoutes.update(recordMarkdownRoutes(routes, routeSource));
+        // A project file calling a factory from a shape Nimbus doesn't record
+        // publishes nothing, and may answer ahead of the recorded route.
+        const unreadReport = unreadAgentRoutes(routes, routeSource)
+          .map((route) =>
+            describeUnreadAgentRoute({
+              ...route,
+              entrypoint: normalizeRouteEntrypoint(projectRootForBuild, route.entrypoint) ?? route.entrypoint,
+              ...(route.shadows
+                ? { shadows: normalizeRouteEntrypoint(projectRootForBuild, route.shadows) ?? route.shadows }
+                : {}),
+            }),
+          )
+          .join("\n");
+        if (unreadReport && unreadReport !== reportedUnreadAgentRoutes) logger.warn(unreadReport);
+        reportedUnreadAgentRoutes = unreadReport;
         sitemapHasResolvedRootPage = routes.some(
           (route) =>
             route.type === "page" &&
@@ -3952,14 +4036,22 @@ export function nimbus(
         }
         // Dev re-resolves routes when a page file is added or removed.
         const nestedChanged = nestedLlmsSections !== undefined && nested !== nestedLlmsSections;
-        if ((servesFullDocument !== undefined && serves !== servesFullDocument) || nestedChanged)
+        // Which agent surfaces the routes serve: page Markdown and source per
+        // URL, the indexes and llms-full by their routes.
+        const surfaces: AgentSurfaces = agentSurfacesFromRoutes(markdownRoutes.records());
+        const surfacesChanged =
+          agentSurfacesForBuild !== undefined &&
+          JSON.stringify(surfaceSummary(agentSurfacesForBuild)) !== JSON.stringify(surfaceSummary(surfaces));
+        if ((servesFullDocument !== undefined && serves !== servesFullDocument) || nestedChanged || surfacesChanged)
           void loadAgentEndpointAssets().then((assets) =>
             assets.invalidateAgentEndpointAssets(projectRootForBuild),
           );
         servesFullDocument = serves;
         nestedLlmsSections = nested;
-        // `getCollectionLlmsUrl` reads it from the virtual config.
-        if (nestedChanged) reloadDevModules?.();
+        agentSurfacesForBuild = surfaces;
+        // `getCollectionLlmsUrl` reads it from the virtual config; the page
+        // index reads the routes module.
+        if (nestedChanged || surfacesChanged) reloadDevModules?.();
         resolvedRoutesForBuild = routes.map((r) => ({
           pattern: r.pattern,
           type: r.type,
@@ -4122,9 +4214,13 @@ export function nimbus(
           // the shadowing check.
           const shadowed = findShadowedLlmsFullFiles(
             endpointRoutesForBuild,
-            manifest.llmsAssets
-              .filter((asset) => asset.scope === "section" && asset.surface === "full")
-              .map(llmsAssetUrl),
+            [
+              ...manifest.llmsAssets
+                .filter((asset) => asset.scope === "section" && asset.surface === "full")
+                .map(llmsAssetUrl),
+              // Parts an on-request llms-full.txt advertises are owned the same way.
+              ...(manifest.renderedParts ?? []).map((slug) => `/${slug}/llms-full.txt`),
+            ],
           );
           if (shadowed.length > 0) {
             logger.warn(formatShadowedLlmsFullFiles(shadowed));
@@ -4134,6 +4230,10 @@ export function nimbus(
             endpointRoutesForBuild,
             [
               ...manifest.markdownAssets.map(({ url }) => url),
+              // Described pages: a prerendered route that owns one must still generate it.
+              ...manifest.rendered
+                .filter((page) => page.published)
+                .map((page) => (page.url.replace(/\/+$/u, "") === "" ? "/index.md" : `${page.url.replace(/\/+$/u, "")}/index.md`)),
               ...manifest.llmsAssets.map(llmsAssetUrl),
             ].filter((url) => !reported.has(url)),
             generated,
@@ -4191,9 +4291,14 @@ export function nimbus(
         const homepageMarkdownRoute = markdownRouteRecords.find((route) =>
           route.regex.test("/index.md"),
         );
+        // The llms index stands in for /index.md only where a Markdown route
+        // serves the homepage and wrote nothing there (the factory, called
+        // directly or through the site's own module, has no root entry to
+        // render); without that route there is no /index.md.
         if (
           !sliceOutput &&
-          homepageMarkdownRoute?.prerendered !== false &&
+          homepageMarkdownRoute !== undefined &&
+          homepageMarkdownRoute.prerendered !== false &&
           !fs.existsSync(homepageMarkdownPath) &&
           fs.existsSync(llmsPath)
         ) {

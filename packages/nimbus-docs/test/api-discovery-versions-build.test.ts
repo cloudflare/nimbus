@@ -89,6 +89,13 @@ if (page instanceof Response) return page;
 `,
   );
   for (const collection of ["qv", "big", "pets"]) await write(`src/pages/${collection}/[...slug].astro`, page(collection));
+  // Page Markdown is published only where a route serves it.
+  await write(
+    "src/pages/[...slug]/index.md.ts",
+    `import { markdownRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+export const { GET, getStaticPaths } = markdownRoute();
+`,
+  );
   // Each API page's section, as the starter's share cards ask for it.
   await write(
     "src/pages/sections.json.ts",
@@ -226,17 +233,26 @@ test("every advertised Markdown URL is served", async () => {
   const catalog = JSON.parse(await output(".well-known/api-catalog")) as { linkset: Entry[] };
   const manifest = JSON.parse(await output(".astro/nimbus/agent-endpoint-assets/manifest.json")) as {
     markdownAssets: Array<{ url: string; path: string }>;
+    rendered: Array<{ url: string; published: boolean }>;
   };
   const served = new Map(manifest.markdownAssets.map((asset) => [asset.url, asset.path]));
+  // A request-rendered API's pages are described, not baked: the Worker
+  // makes their Markdown when asked.
+  const rendered = new Set(
+    manifest.rendered.filter((page) => page.published).map((page) => `${page.url.replace(/\/$/, "")}/index.md`),
+  );
   const advertised = catalog.linkset.flatMap((entry) =>
     entry["service-doc"].filter((doc) => doc.type === "text/markdown").map((doc) => doc.href),
   );
   assert.equal(advertised.length, 4);
   for (const href of advertised) {
-    const asset = served.get(href.slice(ORIGIN.length));
-    assert.ok(asset, `${href} has no Markdown asset`);
+    const url = href.slice(ORIGIN.length);
+    if (rendered.has(url)) continue;
+    const asset = served.get(url);
+    assert.ok(asset, `${href} has no Markdown asset and is not rendered on request`);
     assert.ok(published(`dist/_nimbus/agent-endpoint-assets/${asset}`), `${href} asset not in dist`);
   }
+  assert.ok(rendered.size > 0, "the request-rendered APIs describe their pages");
 });
 
 test("specs publish for every version that allows it, hidden ones included, with no discovery for hidden", async () => {

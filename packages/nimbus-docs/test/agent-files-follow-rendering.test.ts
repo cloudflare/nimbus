@@ -75,7 +75,8 @@ test("request-rendered Markdown is reached through the in-process rewrite on a n
       assert.equal(negotiated.status, 200);
       assert.match(negotiated.headers.get("Content-Type") ?? "", /text\/markdown/);
       assert.match(negotiated.headers.get("Vary") ?? "", /Accept/);
-      assert.equal(negotiated.headers.get("X-Owner"), "page");
+      // Answered before the page's HTML renders: the Markdown route's headers, not the page's.
+      assert.equal(negotiated.headers.get("X-Owner"), null);
       assert.equal(await negotiated.text(), expected);
     } finally {
       globalThis.fetch = realFetch;
@@ -87,11 +88,19 @@ test("request-rendered Markdown is reached through the in-process rewrite on a n
     assert.equal(llms.status, 200);
     assert.match(await llms.text(), /Hello discovery|Guide/);
     assert.ok(!existsSync(path.join(site.root, "dist/llms-full.txt")));
+    // On request the full document is an index of parts made when asked;
+    // every part it lists is served.
     const full = await app.render(
       new Request("https://example.test/docs/llms-full.txt"),
     );
     assert.equal(full.status, 200);
-    assert.match(await full.text(), /Hello discovery/);
+    const fullIndex = await full.text();
+    assert.match(fullIndex, /served by section/);
+    assert.match(fullIndex, /\[Guide\]\(https:\/\/example\.test\/docs\/guide\/index\.md\)/);
+    for (const [, part] of fullIndex.matchAll(/\((https:\/\/example\.test\/docs\/[^)]*llms-full\.txt)\)/g)) {
+      const response = await app.render(new Request(part!));
+      assert.equal(response.status, 200, part);
+    }
   } finally {
     await rm(site.root, { recursive: true, force: true, maxRetries: 5 });
   }

@@ -14,6 +14,8 @@ export interface PageAssetRow {
   title: string;
   description?: string;
   location: PageAssetLocation;
+  /** The stored record's JSON bytes: an estimate of the Markdown made from it. */
+  bytes?: number;
 }
 export interface PageAssetIndex {
   revision: 1;
@@ -85,7 +87,8 @@ export function parsePageAssetIndex(value: unknown): ParsedPageAssetIndex {
       !row.id ||
       typeof row.slug !== "string" ||
       typeof row.title !== "string" ||
-      (row.description !== undefined && typeof row.description !== "string")
+      (row.description !== undefined && typeof row.description !== "string") ||
+      (row.bytes !== undefined && (typeof row.bytes !== "number" || !Number.isSafeInteger(row.bytes) || row.bytes < 0))
     ) {
       throw new Error("nimbus-docs: malformed page asset index row.");
     }

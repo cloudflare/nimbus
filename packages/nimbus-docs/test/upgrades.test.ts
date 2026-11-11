@@ -34,6 +34,7 @@ test("only universally skippable entries are optional", () => {
       .map((entry) => entry.id)
       .sort(),
     [
+      "agent-directive-optional-index",
       "agent-discovery-content-signals",
       "agent-discovery-opt-out",
       "agent-files-follow-rendering",

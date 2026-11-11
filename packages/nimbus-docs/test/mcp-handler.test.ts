@@ -303,7 +303,7 @@ test("tools/list returns get_page and list_pages with strict input schemas and r
     assert.equal(schema.additionalProperties, false);
     assert.equal((tool.annotations as { readOnlyHint?: boolean }).readOnlyHint, true);
   }
-  assert.deepEqual(Object.keys((tools[0]!.inputSchema as { properties: object }).properties), ["url"]);
+  assert.deepEqual(Object.keys((tools[0]!.inputSchema as { properties: object }).properties), ["url", "offset"]);
   assert.deepEqual(Object.keys((tools[1]!.inputSchema as { properties: object }).properties), ["section", "version", "cursor"]);
 });
 
@@ -439,6 +439,31 @@ test("get_page cuts long pages near the limit and says so", async () => {
   assert.equal([...(value.content as string)].length, MCP_PAGE_CONTENT_LIMIT);
 });
 
+test("get_page reads on from offset, so a page needs no Markdown URL to be read whole", async () => {
+  const long = "é".repeat(MCP_PAGE_CONTENT_LIMIT + 10);
+  const handler = handlerFor(INDEX, "/", { "/guide/index.md": long });
+  const first = await call(handler, "get_page", { url: "/guide/" });
+  assert.equal(first.value.nextOffset, MCP_PAGE_CONTENT_LIMIT);
+  const rest = await call(handler, "get_page", { url: "/guide/", offset: first.value.nextOffset });
+  assert.equal(rest.isError, false);
+  assert.equal(rest.value.offset, MCP_PAGE_CONTENT_LIMIT);
+  assert.equal([...(rest.value.content as string)].length, 10);
+  assert.equal("truncated" in rest.value, false);
+  assert.equal("nextOffset" in rest.value, false);
+});
+
+test("a page record without a Markdown URL lists and reads without one", async () => {
+  const { pages, ...rest } = INDEX;
+  const index: McpPageIndex = { ...rest, pages: pages.map(({ markdownUrl: _dropped, ...page }) => page) };
+  const handler = handlerFor(index, "/", { "/guide/index.md": "# guide\n\nBody.\n" });
+  const listed = await call(handler, "list_pages", {});
+  assert.ok((listed.value.pages as Array<Record<string, unknown>>).every((page) => !("markdownUrl" in page)));
+  const page = await call(handler, "get_page", { url: "/guide/" });
+  assert.equal(page.isError, false);
+  assert.equal("markdownUrl" in page.value, false);
+  assert.equal(page.value.content, "# guide\n\nBody.\n");
+});
+
 test("schema-invalid arguments are the SDK's tool error, and a body over 64 KB is 413", async () => {
   const handler = handlerFor(INDEX);
   for (const [name, args, detail] of [
@@ -515,4 +540,18 @@ test("a client asking for 2025-03-26, the revision that requires batches, is off
   assert.match(offered, /^\d{4}-\d{2}-\d{2}$/);
   const kept = await readRpcResponse(await handler.fetch(rpcRequest(URL_, "initialize", INITIALIZE_PARAMS)));
   assert.equal((kept.result as { protocolVersion: string }).protocolVersion, INITIALIZE_PARAMS.protocolVersion);
+});
+
+test("get_page cuts between code points, and an offset past the end reads nothing", async () => {
+  const long = "😀".repeat(MCP_PAGE_CONTENT_LIMIT + 5);
+  const handler = handlerFor(INDEX, "/", { "/guide/index.md": long });
+  const first = await call(handler, "get_page", { url: "/guide/" });
+  assert.equal([...(first.value.content as string)].length, MCP_PAGE_CONTENT_LIMIT);
+  assert.doesNotMatch(first.value.content as string, /[\uD800-\uDBFF]$/u);
+  const rest = await call(handler, "get_page", { url: "/guide/", offset: first.value.nextOffset });
+  assert.equal(rest.value.content, "😀".repeat(5));
+  const beyond = await call(handler, "get_page", { url: "/guide/", offset: MCP_PAGE_CONTENT_LIMIT * 2 });
+  assert.equal(beyond.isError, false);
+  assert.equal(beyond.value.content, "");
+  assert.equal("truncated" in beyond.value, false);
 });

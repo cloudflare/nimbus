@@ -38,6 +38,7 @@ From `@cloudflare/nimbus-docs`. The starter's `src/pages/[...slug].astro` uses t
 | `getVersionStatus(key)` | Whether a version is current, deprecated or hidden, for banners. |
 | `getPageLanguage(locale?)` | The page's language, `locale` or `config.locale`, and `dir: "rtl"` when it's written right to left: `{ lang, dir }` for `<html lang dir>`. |
 | `getCollectionLlmsUrl(collection)` | The `llms.txt` that indexes a collection. |
+| `getPublishedLlmsUrl(collection?)` | The `llms.txt` a route of the site serves for a collection: its own, else the site's, else `null`. |
 
 ## URLs
 

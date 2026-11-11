@@ -236,6 +236,11 @@ export const collections = {
 export const prerender = true;
 export const { GET, getStaticPaths } = markdownRoute();
 `,
+      // The source alternates exist only where a route serves them.
+      "src/pages/[...slug]/index.mdx.ts": `import { markdownSourceRoute } from ${srcModule("agent-endpoints.ts")};
+export const prerender = true;
+export const { GET, getStaticPaths } = markdownSourceRoute();
+`,
     },
     {
       versions: { current: "v2", others: ["v1", "v1.2"] },
