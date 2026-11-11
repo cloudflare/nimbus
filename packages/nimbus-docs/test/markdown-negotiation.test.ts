@@ -65,6 +65,12 @@ test("on server output a request-rendered page and the homepage negotiate; every
     assert.equal(page.headers.get("Vary"), "Accept");
     assert.match(page.headers.get("ETag") ?? "", /^"sha256:/);
     assert.equal(await page.text(), await (await fetch(`${origin}/docs/guide/index.md`)).text());
+    const unchanged = await fetch(`${origin}/docs/guide/`, {
+      headers: { ...markdown, "If-None-Match": page.headers.get("ETag")! },
+    });
+    assert.equal(unchanged.status, 304, "a client holding the Markdown revalidates for free");
+    assert.equal(unchanged.headers.get("ETag"), page.headers.get("ETag"));
+    assert.equal(unchanged.headers.get("Vary"), "Accept");
     const html = await fetch(`${origin}/docs/guide/`, { headers: { Accept: "*/*" } });
     assert.match(html.headers.get("Content-Type") ?? "", /text\/html/);
     assert.match(html.headers.get("Vary") ?? "", /(^|, )Accept$/);
@@ -203,7 +209,18 @@ test("production homepage Markdown reuses on-demand llms without shadowing an ow
   try {
     process.env.NODE_ENV = "production";
     await site.write("src/pages/[...slug].astro", `---\nimport { getDocsStaticPaths } from ${srcModule("index.ts")};\nexport const getStaticPaths = getDocsStaticPaths;\n---\n<html><body>Page</body></html>`);
-    await site.write("src/pages/llms.txt.ts", 'export const prerender = false;\nexport function GET() { return new Response("Owner documentation index.", { headers: { "Content-Type": "text/plain", "X-Owner": "index" } }); }\n');
+    await site.write(
+      "src/pages/llms.txt.ts",
+      [
+        "export const prerender = false;",
+        "export function GET({ request }) {",
+        '  const headers = { "Content-Type": "text/plain", "X-Owner": "index", ETag: \'"owner-index"\' };',
+        '  if (request.headers.get("If-None-Match") === \'"owner-index"\') return new Response(null, { status: 304, headers });',
+        '  return new Response("Owner documentation index.", { headers });',
+        "}",
+        "",
+      ].join("\n"),
+    );
     await site.write("server-entry.mjs", 'import { createApp } from "astro/app/entrypoint";\nexport const app = createApp();\n');
     for (const owner of [false, true]) {
       if (owner) await site.write("src/pages/index.md.ts", 'export const prerender = false;\nexport function GET() { return new Response("Owner homepage Markdown.", { headers: { "Content-Type": "text/markdown", "X-Owner": "home" } }); }\n');
@@ -217,6 +234,13 @@ test("production homepage Markdown reuses on-demand llms without shadowing an ow
         assert.match(response.headers.get("Content-Type") ?? "", /text\/markdown/);
         assert.equal(response.headers.get("X-Owner"), owner ? "home" : "index", `${method}: ${await response.clone().text()}`);
         assert.equal(await response.text(), method === "HEAD" ? "" : owner ? "Owner homepage Markdown." : "Owner documentation index.");
+      }
+      if (!owner) {
+        // The owner's index revalidates; its 304 is the homepage's answer, not a reason to render something else.
+        const unchanged = await app.render(new Request("https://example.test/docs/index.md", { headers: { "If-None-Match": '"owner-index"' } }));
+        assert.equal(unchanged.status, 304);
+        assert.equal(unchanged.headers.get("X-Owner"), "index");
+        assert.equal(unchanged.body, null);
       }
     }
   } finally {

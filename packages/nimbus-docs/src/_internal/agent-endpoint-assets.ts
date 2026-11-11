@@ -1277,7 +1277,13 @@ export function agentEndpointAssetLoaderPlugin(
         return (
           'import { env } from "cloudflare:workers";\n' +
           "export function fetchAgentEndpointAsset(path, request) {\n" +
-          "  return env.ASSETS?.fetch(new Request(new URL(path, request.url), { method: request.method })) ?? null;\n" +
+          "  // The conditional headers go along, so the assets binding answers 304 itself.\n" +
+          "  const headers = new Headers();\n" +
+          '  for (const name of ["If-None-Match", "If-Modified-Since"]) {\n' +
+          "    const value = request.headers.get(name);\n" +
+          "    if (value) headers.set(name, value);\n" +
+          "  }\n" +
+          "  return env.ASSETS?.fetch(new Request(new URL(path, request.url), { method: request.method, headers })) ?? null;\n" +
           "}\n"
         );
       }

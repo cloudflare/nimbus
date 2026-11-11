@@ -308,6 +308,32 @@ test("a part is assembled once per isolate: concurrent requests share the render
   assert.equal(renders().part, before + 1, "a memo hit renders nothing");
 });
 
+test("a part and the indexes answer 304 to a request holding their ETag", async () => {
+  const index = await live.app.render(new Request("https://live.test/llms-full.txt"));
+  const indexTag = index.headers.get("ETag")!;
+  const href = links(await index.text()).map(([, h]) => h!).find((h) => h.endsWith("/llms-full.txt"))!;
+  const part = await live.app.render(new Request(href));
+  const partTag = part.headers.get("ETag")!;
+  assert.match(partTag, /^"sha256:/);
+  const before = renders().part ?? 0;
+  for (const [url, etag] of [
+    [href, partTag],
+    ["https://live.test/llms-full.txt", indexTag],
+    ["https://live.test/llms.txt", (await live.app.render(new Request("https://live.test/llms.txt"))).headers.get("ETag")!],
+    // The injected per-mount route serves this one.
+    ["https://live.test/pets/llms.txt", (await live.app.render(new Request("https://live.test/pets/llms.txt"))).headers.get("ETag")!],
+  ]) {
+    assert.match(etag ?? "", /^"sha256:/, url);
+    const response = await live.app.render(new Request(url, { headers: { "If-None-Match": etag } }));
+    assert.equal(response.status, 304, url);
+    assert.equal(response.headers.get("ETag"), etag, url);
+    assert.equal(response.body, null, url);
+    const other = await live.app.render(new Request(url, { headers: { "If-None-Match": '"sha256:other"' } }));
+    assert.equal(other.status, 200, url);
+  }
+  assert.equal(renders().part, before, "the kept part answers both without assembling again");
+});
+
 test("with no Markdown route and no MCP, the parts still read every page's body", async () => {
   const manifest = await manifestOf(bodiesOnly);
   assert.deepEqual(manifest.onRequest, { llms: true, llmsSections: true, llmsFull: true });

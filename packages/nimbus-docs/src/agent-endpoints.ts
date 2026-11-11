@@ -5,6 +5,7 @@ import type {
   MarkdownEndpointAsset,
 } from "./_internal/agent-endpoint-assets.js";
 import { loadAgentEndpointManifest } from "./_internal/agent-endpoint-manifest.js";
+import { notModified } from "./_internal/conditional-request.js";
 import { readStagedAsset } from "./_internal/staged-asset-reader.js";
 import {
   findOwnMarkdownRoute,
@@ -280,8 +281,9 @@ export interface MarkdownRoute {
 
 /**
  * The response every route factory returns: the payload, a plain 404 when
- * there is none, and on request a detail-free 500 when loading fails. A
- * prerendered route rethrows so the build fails instead.
+ * there is none, `304` on request when the client already holds these
+ * bytes, and on request a detail-free 500 when loading fails. A prerendered
+ * route rethrows so the build fails instead.
  */
 async function endpointResponse(
   context: APIContext,
@@ -290,13 +292,15 @@ async function endpointResponse(
   try {
     const payload = await load();
     if (!payload) return new Response("Not found", { status: 404 });
+    // The document's own fingerprint, so a cache or client revalidates by
+    // bytes, baked or rendered.
+    const etag = payload.digest ? `"${payload.digest}"` : undefined;
+    if (etag && !context.isPrerendered) {
+      const unchanged = notModified(context.request, etag);
+      if (unchanged) return unchanged;
+    }
     return new Response(payload.body, {
-      headers: {
-        "Content-Type": payload.mediaType,
-        // The document's own fingerprint, so a cache or client revalidates
-        // by bytes, baked or rendered.
-        ...(payload.digest ? { ETag: `"${payload.digest}"` } : {}),
-      },
+      headers: { "Content-Type": payload.mediaType, ...(etag ? { ETag: etag } : {}) },
     });
   } catch (error) {
     if (context.isPrerendered) throw error;

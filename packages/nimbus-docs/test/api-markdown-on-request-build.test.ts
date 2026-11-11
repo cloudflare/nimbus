@@ -305,6 +305,32 @@ test("Accept: text/markdown is answered before the page's HTML renders, with the
   assert.equal(head.body, null);
 });
 
+test("a request holding the document's ETag is answered 304, direct, negotiated and HEAD, without rendering", async () => {
+  const url = "https://rendered.test/pets/listPets/index.md";
+  const etag = (await rendered.app.render(new Request(url))).headers.get("ETag")!;
+  const before = await rendered.renders();
+  const direct = await rendered.app.render(new Request(url, { headers: { "If-None-Match": etag } }));
+  assert.equal(direct.status, 304);
+  assert.equal(direct.headers.get("ETag"), etag);
+  assert.equal(direct.body, null);
+  const weak = await rendered.app.render(new Request(url, { headers: { "If-None-Match": `W/${etag}, "other"` } }));
+  assert.equal(weak.status, 304, "weak comparison over a list");
+  const stale = await rendered.app.render(new Request(url, { headers: { "If-None-Match": '"sha256:stale"' } }));
+  assert.equal(stale.status, 200, "another entity gets the document");
+  const negotiated = await rendered.app.render(
+    new Request("https://rendered.test/pets/listPets/", { headers: { Accept: "text/markdown", "If-None-Match": etag } }),
+  );
+  assert.equal(negotiated.status, 304);
+  assert.equal(negotiated.headers.get("ETag"), etag);
+  assert.match(negotiated.headers.get("Vary") ?? "", /Accept/);
+  assert.equal(negotiated.body, null);
+  const head = await rendered.app.render(
+    new Request("https://rendered.test/pets/listPets/", { method: "HEAD", headers: { Accept: "text/markdown", "If-None-Match": etag } }),
+  );
+  assert.equal(head.status, 304);
+  assert.equal(await rendered.renders(), before, "no HTML rendered for any of them");
+});
+
 test("the ETag is the document's digest, so any serialization input that changes the bytes changes it", async () => {
   const url = "/pets/listPets/index.md";
   const withIndex = await rendered.app.render(new Request(`https://rendered.test${url}`));
