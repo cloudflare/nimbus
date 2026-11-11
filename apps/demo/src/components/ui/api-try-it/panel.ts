@@ -1919,7 +1919,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     // ⌘↵ / Ctrl+↵ sends, as the button does: a write the site asks to confirm (confirmWrites) asks first.
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      void send();
+      // A held key repeats: only a fresh press sends, so it never confirms a write by itself.
+      if (!e.repeat) void send();
     }
   };
   dialog.addEventListener("keydown", onKey);
