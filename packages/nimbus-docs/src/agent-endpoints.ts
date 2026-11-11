@@ -261,7 +261,7 @@ async function markdownPayload(
     collection: asset.collection,
     id: asset.id,
     surface: asset.surface,
-    digest: asset.digest,
+    digest: `sha256:${asset.hash}`,
     mediaType: asset.mediaType,
     body,
     content: body.slice(asset.contentStart, asset.contentEnd),
@@ -398,6 +398,7 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
               return {
                 body: fallback.body,
                 mediaType: "text/markdown; charset=utf-8",
+                digest: fallback.digest,
               };
             }
           }
@@ -475,7 +476,7 @@ export async function getLlmsPayload(
   }
   return {
     ...reference,
-    digest: asset.digest,
+    digest: `sha256:${asset.hash}`,
     mediaType: asset.mediaType,
     body: await readAssetBody(asset.path, context),
   };

@@ -385,3 +385,24 @@ test("the runtime falls back to every URL only when Node itself refuses the virt
   assert.equal(unresolvableVirtualModule(Object.assign(new Error("Cannot find module 'left-pad'"), { code: "ERR_MODULE_NOT_FOUND" })), false);
   assert.equal(unresolvableVirtualModule(new TypeError("routes is not iterable")), false);
 });
+
+test("a baked asset's hash is the hash of its bytes, for the ETag; its digest stays the record's fingerprint", async () => {
+  const { createHash } = await import("node:crypto");
+  const projectRoot = await root();
+  commit(projectRoot, [{ id: "guide", body: "Guide body", title: "Guide" }]);
+  configureAgentEndpointAssetRoot(projectRoot, "build", () =>
+    bakeAgentEndpointAssets({
+      root: projectRoot,
+      base: "/docs",
+      site: "https://example.test",
+      title: "Test",
+      surfaces: surfaces(STARTER),
+    }),
+  );
+  const manifest = await ensureAgentEndpointAssets(projectRoot);
+  for (const asset of [...manifest.markdownAssets, ...manifest.llmsAssets]) {
+    const bytes = await readFile(path.join(projectRoot, ".astro", "nimbus", "agent-endpoint-assets", asset.path));
+    assert.equal(asset.hash, createHash("sha256").update(bytes).digest("hex"), asset.path);
+    assert.notEqual(`sha256:${asset.hash}`, asset.digest, `${asset.path} fingerprint is not the bytes`);
+  }
+});

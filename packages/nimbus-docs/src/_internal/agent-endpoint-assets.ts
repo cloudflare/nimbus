@@ -94,7 +94,10 @@ export const AGENT_ENDPOINT_ASSET_GENERATION = 2;
 
 export interface MarkdownEndpointAsset extends MarkdownEndpointReference {
   url: string;
+  /** The record's fingerprint (its inputs): the file name and the cache key. */
   digest: string;
+  /** SHA-256 of the file's bytes: the response's ETag. */
+  hash: string;
   mediaType: string;
   path: string;
   contentStart: number;
@@ -110,12 +113,14 @@ export interface MarkdownEndpointAsset extends MarkdownEndpointReference {
 
 export type LlmsEndpointAsset = LlmsEndpointReference & {
   digest: string;
+  hash: string;
   mediaType: string;
   path: string;
 };
 
 export interface PageIndexAsset {
   digest: string;
+  hash: string;
   mediaType: string;
   path: string;
 }
@@ -984,6 +989,7 @@ function mcpPageIndexAsset(
   );
   return {
     digest: `sha256:${fingerprint}`,
+    hash: digest(body),
     mediaType: "application/json",
     path: `assets/${fingerprint}.json`,
     body,
@@ -1784,6 +1790,7 @@ export async function bakeAgentEndpointAssets(
         surface,
         url: urls[surface],
         digest: `sha256:${fingerprint}`,
+    hash: digest(body),
         mediaType:
           surface === "markdown"
             ? "text/markdown; charset=utf-8"
@@ -1903,6 +1910,7 @@ export async function bakeAgentEndpointAssets(
       surface: "markdown",
       url,
       digest: `sha256:${fingerprint}`,
+    hash: digest(body),
       mediaType: "text/markdown; charset=utf-8",
       path: `assets/${fingerprint}.md`,
       contentStart,
@@ -2028,6 +2036,7 @@ export async function bakeAgentEndpointAssets(
       return {
         ...reference,
         digest: `sha256:${fingerprint}`,
+    hash: digest(body),
         mediaType: "text/plain; charset=utf-8",
         path: `assets/${fingerprint}.txt`,
         body,
