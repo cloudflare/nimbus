@@ -13,8 +13,13 @@ mount("[data-nb-tryit-open]", (button) => {
   let gone = false;
   // A press starts the load, so the click that follows waits less.
   let code: Promise<typeof import("./panel")> | null = null;
-  const load = () => (code ??= import("./panel"));
-  const onPress = () => void load().catch(() => (code = null));
+  // A load that failed (offline) is forgotten, so the next press or key tries again.
+  const load = () =>
+    (code ??= import("./panel").catch((error: unknown) => {
+      code = null;
+      throw error;
+    }));
+  const onPress = () => void load().catch(() => {});
   const onClick = async () => {
     if (panel) return panel.open();
     if (loading) return;

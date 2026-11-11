@@ -1838,6 +1838,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     return target;
   };
   const send = async (): Promise<void> => {
+    if (stopClosing) return; // closing: nothing sends
     if (controller) return stop();
     // A field that commits on change (the origin) commits now: Ctrl/Cmd+Enter sends what's typed.
     const active = document.activeElement;
@@ -2016,6 +2017,14 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   });
   // Closing stops waiting: a late answer never lands in a closed dialog.
   let releaseZoom: (() => void) | null = null;
+  // On open: the first empty field (a phone: Close, so the keyboard doesn't cover the page).
+  const focusFirst = () => {
+    const firstEmpty = [...form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input:not([type=checkbox]):not([type=radio]):not([type=file]), textarea")].find(
+      (i) => !i.disabled && i.value === "" && i.offsetParent !== null,
+    );
+    if (small.matches) close.focus({ preventScroll: true });
+    else (firstEmpty ?? sendTop).focus({ preventScroll: true });
+  };
   // The close animation is the panel's own (try-it.css, [data-closing]), so every
   // browser plays it; the dialog closes when it ends. Opening again stops it.
   const frame = dialog.querySelector<HTMLElement>(".nb-tid-frame")!;
@@ -2033,12 +2042,16 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       clearTimeout(timer);
       frame.removeEventListener("transitionend", onEnd);
       dialog.removeAttribute("data-closing");
+      frame.inert = false;
       stopClosing = null;
     };
     frame.addEventListener("transitionend", onEnd);
     dialog.setAttribute("data-closing", "");
+    // Going: nothing in it takes a click, a key or focus.
+    frame.inert = true;
   };
   const onClose = () => {
+    stopClosing?.();
     unlockScroll();
     releaseZoom?.();
     releaseZoom = null;
@@ -2048,6 +2061,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   dialog.addEventListener("close", onClose);
   // Escape closes as the button does, animated.
   dialog.addEventListener("cancel", (e) => {
+    // One the browser won't let the page hold (a repeated Escape) closes at once.
+    if (!e.cancelable) return;
     e.preventDefault();
     closeSmoothly();
   });
@@ -2072,8 +2087,11 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
 
   return {
     open() {
-      // Reopened while closing: it stays, as it was.
-      if (stopClosing) return stopClosing();
+      // Reopened while closing: it stays, as it was, and takes focus again.
+      if (stopClosing) {
+        stopClosing();
+        return focusFirst();
+      }
       if (dialog.open) return;
       syncViewport();
       placePicker();
@@ -2084,11 +2102,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       dialog.showModal();
       lockScroll();
       releaseZoom ??= holdFocusZoom();
-      const firstEmpty = [...form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input:not([type=checkbox]):not([type=radio]):not([type=file]), textarea")].find(
-        (i) => !i.disabled && i.value === "" && i.offsetParent !== null,
-      );
-      if (small.matches) close.focus({ preventScroll: true });
-      else (firstEmpty ?? sendTop).focus({ preventScroll: true });
+      focusFirst();
     },
     destroy() {
       // A send still in flight never paints (or makes a download link) after this.
