@@ -66,7 +66,8 @@ function markdownFileSegment(route: ResolvedRouteInput): string | undefined {
  * scanner reads code, template text and `${…}` expressions alike, so a
  * nested literal never moves a boundary. A `/` starts a regex where no
  * expression can end: after an operator, an opening bracket, a comma, a
- * keyword, a control statement's closing parenthesis, or at the start.
+ * keyword, a control statement's closing parenthesis, a closing brace, or at
+ * the start; a postfix `++`/`--` ends one.
  */
 export function blankLiterals(code: string): string {
   return scanCode(code, 0, undefined).out;
@@ -92,7 +93,11 @@ function scanCode(code: string, start: number, stop: "}" | undefined): { out: st
     if (trimmed === "") return false;
     const last = trimmed.at(-1)!;
     if (last === ")") return !closedControl;
-    if (/[\]}\w$"'`]/u.test(last)) {
+    // A closing brace ends a statement block far more often than an object
+    // literal that is then divided, so a `/` after one starts a regex.
+    if (last === "}") return false;
+    if (/\+\+$|--$/u.test(trimmed)) return true;
+    if (/[\]\w$"'`]/u.test(last)) {
       const word = /[A-Za-z_$][\w$]*$/u.exec(trimmed)?.[0];
       return !(word && KEYWORD.test(word));
     }

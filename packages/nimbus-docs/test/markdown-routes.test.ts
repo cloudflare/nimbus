@@ -557,6 +557,10 @@ test("agentFactoryCall names the factory called, through every import form, with
   assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nconst z = \`\${ /}/.test("x") ? markdownRoute() : "x" }\`;`), "markdownRoute");
   assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nconst n = (a)(b) / 2 / markdownRoute();`), "markdownRoute");
   assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nfunction f() { return /markdownRoute()/; }`), undefined);
+  // A regex after a statement block; division after a postfix increment.
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nif (true) {} /markdownRoute()/.test("x");`), undefined);
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nif (true) {} /"/.test("x"); export const { GET } = markdownRoute();`), "markdownRoute");
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nlet n = 1; const m = n++ / markdownRoute() / 2;`), "markdownRoute");
   assert.equal(sharedMarkdownRouteSurface(`import { llmsFullRoute } ${ENDPOINTS}\nllmsFullRoute();`), "llms");
 });
 
