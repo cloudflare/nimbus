@@ -389,18 +389,13 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       // A repeated wire name is a list only where the spec allows one.
       const spec = media.fields?.find((f) => f.name === name);
       if (typeof seed === "string" && Array.isArray(v) && spec && spec.schema.type !== "array") v = v[0];
-      // A wire value is already encoded: one with a JSON content type is decoded once, so Send encodes it once.
-      if (typeof seed === "string" && typeof v === "string" && spec?.encoding?.contentType && /[/+]json(;|$)/i.test(spec.encoding.contentType)) {
-        try {
-          v = JSON.parse(v);
-        } catch {
-          // Not JSON: sent as the string it is.
-        }
-      }
+      // A field with a JSON content type holds JSON text: a wire value already is, an object example's value is written as JSON.
+      const jsonField = Boolean(spec?.encoding?.contentType && /[/+]json(;|$)/i.test(spec.encoding.contentType));
+      const shown = jsonField && typeof seed !== "string" ? JSON.stringify(v) : text(v);
       // One value per field; a list or object as JSON, encoded on send as the spec says. An undeclared
       // field marks its list or object, so a string that only looks like JSON stays a string.
       const structured = !spec && v !== null && typeof v === "object";
-      fields.push({ name, value: text(v), ...(structured ? { json: true } : {}) });
+      fields.push({ name, value: shown, ...(structured ? { json: true } : {}) });
     }
     return { fields };
   };
@@ -1271,6 +1266,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
         const chosen = plan.body!.examples.find((e) => e.id === pick.value);
         const media = plan.body!.media.find((m) => m.mediaType === bodyMedia);
         if (!chosen || !media) return;
+        extraFields.delete(media.mediaType); // the new example's undeclared fields, with their own types
         bodyDrafts.set(media.mediaType, media.kind === "json" ? JSON.stringify(chosen.value, null, 2) : media.kind === "text" ? text(chosen.value) : formSeed(media, chosen.value));
         drawBody();
         render();

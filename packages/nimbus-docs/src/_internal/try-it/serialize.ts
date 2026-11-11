@@ -524,6 +524,16 @@ function fieldValue(name: string, text: string, field: PlanBodyField | undefined
       return text;
     }
   }
+  // A field with a JSON content type holds JSON text, exact numbers only; text that isn't JSON is a string.
+  const contentType = field?.encoding?.contentType;
+  if (contentType && /[/+]json(;|$)/i.test(contentType)) {
+    try {
+      JSON.parse(text);
+    } catch {
+      return text;
+    }
+    return exact(name, text);
+  }
   const type = field?.schema.type;
   // A number or boolean is typed as one, so a JSON content type writes `42`, not `"42"`.
   if ((type === "integer" || type === "number") && /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/.test(text)) return exact(name, text);

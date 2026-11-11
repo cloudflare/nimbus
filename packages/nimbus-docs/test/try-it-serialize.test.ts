@@ -467,6 +467,34 @@ describe("names a spec may use", () => {
   });
 });
 
+describe("a form field with a JSON content type holds JSON text", () => {
+  const jsonForm = () =>
+    plan({
+      method: "POST",
+      body: {
+        required: true,
+        examples: [],
+        media: [{
+          mediaType: "application/x-www-form-urlencoded",
+          kind: "form",
+          fields: ["n", "s", "u", "b", "big", "plain"].map((name) => ({ name, required: false, schema: name === "big" ? { type: "integer" as const } : {}, encoding: { contentType: "application/json" } })),
+        }],
+      },
+    });
+  const fields = (list: [string, string][]) => ({ body: { mediaType: "application/x-www-form-urlencoded", value: { fields: list.map(([name, value]) => ({ name, value })) } } });
+
+  test("null, numbers, booleans and strings as written; text that isn't JSON is a string, encoded once", () => {
+    const out = send(jsonForm(), fields([["n", "null"], ["s", '"hi"'], ["u", "123"], ["b", "true"], ["plain", "hello"]]));
+    assert.deepEqual(out.body, { kind: "form", fields: [
+      { name: "n", value: "null" }, { name: "s", value: '"hi"' }, { name: "u", value: "123" }, { name: "b", value: "true" }, { name: "plain", value: '"hello"' },
+    ] });
+  });
+
+  test("an integer a number would round is refused, never rounded", () => {
+    assert.match(refused(jsonForm(), fields([["big", "9007199254740993"]])), /big/);
+  });
+});
+
 describe("required form fields", () => {
   const formPlan = (kind: "form" | "multipart", mediaType: string) =>
     plan({
