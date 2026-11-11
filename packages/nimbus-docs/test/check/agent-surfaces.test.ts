@@ -104,3 +104,14 @@ test("a dynamic file name is no Markdown route, as the build records it", async 
   ]);
   assert.match(line ?? "", /Page Markdown: off/);
 });
+
+test("a section index in its dynamic form counts, as the build records it", async () => {
+  const line = await surfacesLine([
+    "[...slug]/index.md.ts",
+    "[...slug]/index.mdx.ts",
+    "llms.txt.ts",
+    "sdk/[llms].txt.ts",
+    "llms-full.txt.ts",
+  ]);
+  assert.equal(line, undefined);
+});
