@@ -267,10 +267,14 @@ describe("JSON body fields", () => {
   });
 
   test("a property of several types has no one schema: the value's own", async () => {
-    const fields = await jsonFields({ type: "object", properties: { v: { type: ["number", "string"] }, n: { type: ["integer", "null"] } } });
+    const fields = await jsonFields({
+      type: "object",
+      properties: { v: { type: ["number", "string"] }, n: { type: ["integer", "null"] }, xs: { type: "array", items: { type: ["number", "string"] } } },
+    });
     assert.deepEqual(fields, [
       { name: "v", required: false, schema: {} },
       { name: "n", required: false, schema: { type: "integer", nullable: true } },
+      { name: "xs", required: false, schema: { type: "array", items: {} } },
     ]);
   });
 

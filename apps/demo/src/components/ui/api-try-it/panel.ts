@@ -1325,8 +1325,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       // A nullable choice's own "null" counts.
       const alike = (s?: PlanSchema) => {
         if (!s?.enum) return false;
-        // The "null" choice and the option "null" read alike, whichever is listed.
-        if ((s.nullable || s.enum.includes(null)) && s.enum.includes("null")) return true;
+        // A listed null has no option of its own; the "null" choice and the option "null" read alike.
+        if (s.enum.includes(null) || (s.nullable && s.enum.includes("null"))) return true;
         const shown = s.enum.map(text);
         if (s.nullable && !s.enum.includes(null)) shown.push("null");
         return new Set(shown).size < shown.length;

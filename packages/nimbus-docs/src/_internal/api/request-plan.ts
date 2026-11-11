@@ -303,6 +303,11 @@ function bodyFields(schema: OpenApiSchema | undefined, encoding: Record<string, 
     });
 }
 
+// A choice of types (3.1's `type: [number, string]`) has no one control or check.
+function oneType(s: OpenApiSchema | undefined): boolean {
+  return !Array.isArray(s?.type) || s.type.filter((t) => t !== "null").length <= 1;
+}
+
 // A JSON body's properties, for a form over it: only when the schema is one
 // object, all of whose parts are objects too. A choice of shapes has no one form.
 function objectFields(schema: OpenApiSchema | undefined): PlanBodyField[] {
@@ -318,9 +323,9 @@ function objectFields(schema: OpenApiSchema | undefined): PlanBodyField[] {
   return properties(schema)
     .filter(([, s]) => s?.readOnly !== true)
     .map(([name, s, required]) => {
-      // A choice of types (3.1's `type: [number, string]`) has no one control: the value's own.
-      const types = Array.isArray(s?.type) ? s.type.filter((t) => t !== "null") : [];
-      const field: PlanBodyField = { name, required, schema: types.length > 1 ? {} : planSchema(s) };
+      const field: PlanBodyField = { name, required, schema: oneType(s) ? planSchema(s) : {} };
+      // A list's items of several types: any item, the value's own kind.
+      if (field.schema.type === "array" && s?.items && !oneType(s.items)) field.schema.items = {};
       if (typeof s?.description === "string") field.description = s.description;
       return field;
     });
