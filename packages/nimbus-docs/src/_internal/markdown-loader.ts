@@ -74,6 +74,7 @@ interface StoreMutationState {
    * the collection's files are walked instead.
    */
   candidates: PreparedMarkdownCollision[] | null;
+  stage: (() => Map<string, StoreEntry>) | null;
 }
 
 function discardStoreMutations(
@@ -82,6 +83,7 @@ function discardStoreMutations(
 ): void {
   state.overlay = null;
   state.baseline = null;
+  state.stage = null;
   state.count = previousCount;
 }
 
@@ -161,7 +163,7 @@ function proxyStore(
             data: { ...entry.data },
           }
         : entry;
-    const overlay = currentEntries();
+    const overlay = mutationState.stage?.();
     if (!overlay) {
       const current = store.get(prepared.id);
       noteCandidate(prepared, current);
@@ -188,14 +190,14 @@ function proxyStore(
     return changed;
   };
   const preparedDelete: LoaderContext["store"]["delete"] = (id) => {
-    const overlay = currentEntries();
+    const overlay = mutationState.stage?.();
     if (!overlay) return Reflect.apply(deleteEntry, store, [id]);
     const result = overlay.delete(id);
     if (result) recordMutation();
     return result;
   };
   const preparedClear: LoaderContext["store"]["clear"] = () => {
-    const overlay = currentEntries();
+    const overlay = mutationState.stage?.();
     if (!overlay) return Reflect.apply(clear, store, []);
     if (overlay.size > 0) recordMutation();
     overlay.clear();
@@ -263,18 +265,23 @@ function proxyWatcher(
         if (!isActive()) return undefined;
         const mutationCount = mutationState.count;
         if (mutationState.candidates) mutationState.candidates = [];
-        mutationState.baseline = new Map(
-          [...context.store.values()].map((entry) => [
-            entry.id,
-            structuredClone(entry),
-          ]),
-        );
-        mutationState.overlay = new Map(
-          [...mutationState.baseline].map(([id, entry]) => [
-            id,
-            structuredClone(entry),
-          ]),
-        );
+        mutationState.stage = () => {
+          if (!mutationState.overlay) {
+            mutationState.baseline = new Map(
+              [...context.store.values()].map((entry) => [
+                entry.id,
+                structuredClone(entry),
+              ]),
+            );
+            mutationState.overlay = new Map(
+              [...mutationState.baseline].map(([id, entry]) => [
+                id,
+                structuredClone(entry),
+              ]),
+            );
+          }
+          return mutationState.overlay;
+        };
         try {
           const result = await runInPageLoadScope(context.collection, () =>
             Reflect.apply(handler, this, args),
@@ -289,6 +296,7 @@ function proxyWatcher(
             const publish = () => {
               mutationState.overlay = null;
               mutationState.baseline = null;
+              mutationState.stage = null;
               const apply = (entries: ReadonlyMap<string, StoreEntry>) => {
                 for (const id of context.store.keys()) {
                   if (!entries.has(id)) context.store.delete(id);
@@ -310,6 +318,7 @@ function proxyWatcher(
           }
           mutationState.overlay = null;
           mutationState.baseline = null;
+          mutationState.stage = null;
           return result;
         } catch (error) {
           discardStoreMutations(mutationState, mutationCount);
@@ -561,6 +570,7 @@ export function prepareMarkdownLoader<T extends Loader>(
         count: 0,
         baseline: null,
         overlay: null,
+        stage: null,
         candidates: options.files ? null : [],
       };
       const runWatcherTransaction = <T>(operation: () => T | Promise<T>) =>
