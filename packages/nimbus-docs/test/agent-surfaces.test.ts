@@ -406,3 +406,45 @@ test("a baked asset's hash is the hash of its bytes, for the ETag; its digest st
     assert.notEqual(`sha256:${asset.hash}`, asset.digest, `${asset.path} fingerprint is not the bytes`);
   }
 });
+
+test("the surfaces line counts the pages the Markdown routes publish a URL for", async () => {
+  const cases: Array<{ routes: ReturnType<typeof route>[]; line: RegExp }> = [
+    { routes: STARTER, line: /Page Markdown: served for 2 of 2 pages \(src\/pages\/\[\.\.\.slug\]\/index\.md\.ts\)/ },
+    {
+      routes: [route("/changelog/[...slug]/index.md", "markdown"), route("/llms.txt", "llms")],
+      line: /Page Markdown: served for 1 of 2 pages \(src\/pages\/changelog\/\[\.\.\.slug\]\/index\.md\.ts\)/,
+    },
+    {
+      routes: [route("/silly/[...slug]/index.md", "markdown"), route("/llms.txt", "llms")],
+      line: /Page Markdown: served for 0 of 2 pages \(src\/pages\/silly\/\[\.\.\.slug\]\/index\.md\.ts\)/,
+    },
+  ];
+  for (const { routes, line } of cases) {
+    const projectRoot = await root();
+    commit(projectRoot, [
+      { id: "guide", body: "Guide body", title: "Guide" },
+      { id: "changelog/2026", body: "Entry body", title: "Entry" },
+    ]);
+    const lines: string[] = [];
+    configureAgentEndpointAssetRoot(projectRoot, "build", () =>
+      bakeAgentEndpointAssets({
+        root: projectRoot,
+        base: "/docs",
+        site: "https://example.test",
+        title: "Test",
+        surfaces: surfaces(routes),
+        info: (message) => lines.push(message),
+      }),
+    );
+    await ensureAgentEndpointAssets(projectRoot);
+    const surfacesLine = lines.find((entry) => entry.startsWith("Agent surfaces follow"));
+    assert.match(surfacesLine ?? "", line);
+    clearPreparedMarkdownRegistry();
+  }
+});
+
+test("describeAgentSurfaces prints the count only when the build gives one", () => {
+  const base = { pageMarkdown: true, source: true, llms: true, llmsSections: true, llmsFull: true, mcpBodies: false };
+  assert.match(describeAgentSurfaces(base)[0]!, /^Page Markdown: served \(src\/pages\/\[\.\.\.slug\]\/index\.md\.ts\)$/);
+  assert.match(describeAgentSurfaces({ ...base, pages: { covered: 12, total: 340 } })[0]!, /^Page Markdown: served for 12 of 340 pages \(/);
+});

@@ -260,6 +260,8 @@ import {
   readRouteSource,
   recordMarkdownRoutes,
   sharedMarkdownRouteSurface,
+  describeUnreadAgentRoute,
+  unreadAgentRoutes,
 } from "./_internal/markdown-routes-plugin.js";
 import {
   findUnclaimedMarkdownPaths,
@@ -640,6 +642,8 @@ export function nimbus(
   // `astro:routes:resolved`.
   let routeFileMismatches = new Map<string, RouteFileMismatch & { subject: string }>();
   let reportedRouteFileMismatches = "";
+  // The last unread-agent-route report, so dev warns once per route set.
+  let reportedUnreadAgentRoutes = "";
   // The mode `rendering` gives each collection's page route file, by
   // component key, and the subject its warning names.
   let managedPageRoutes = new Map<string, { mode: RenderingMode; subject: string }>();
@@ -3929,14 +3933,23 @@ export function nimbus(
           );
         }
         reportedRouteFileMismatches = report;
-        markdownRoutes.update(
-          recordMarkdownRoutes(
-            routes,
-            astroRootForBuild
-              ? readRouteSource(astroRootForBuild)
-              : () => undefined,
-          ),
-        );
+        const routeSource = astroRootForBuild ? readRouteSource(astroRootForBuild) : () => undefined;
+        markdownRoutes.update(recordMarkdownRoutes(routes, routeSource));
+        // A project file calling a factory from a shape Nimbus doesn't record
+        // publishes nothing, and may answer ahead of the recorded route.
+        const unreadReport = unreadAgentRoutes(routes, routeSource)
+          .map((route) =>
+            describeUnreadAgentRoute({
+              ...route,
+              entrypoint: normalizeRouteEntrypoint(projectRootForBuild, route.entrypoint) ?? route.entrypoint,
+              ...(route.shadows
+                ? { shadows: normalizeRouteEntrypoint(projectRootForBuild, route.shadows) ?? route.shadows }
+                : {}),
+            }),
+          )
+          .join("\n");
+        if (unreadReport && unreadReport !== reportedUnreadAgentRoutes) logger.warn(unreadReport);
+        reportedUnreadAgentRoutes = unreadReport;
         sitemapHasResolvedRootPage = routes.some(
           (route) =>
             route.type === "page" &&

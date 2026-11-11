@@ -5,7 +5,7 @@ import type {
   MarkdownEndpointAsset,
 } from "./_internal/agent-endpoint-assets.js";
 import { loadAgentEndpointManifest } from "./_internal/agent-endpoint-manifest.js";
-import { notModified } from "./_internal/conditional-request.js";
+import { entityTagOf, notModified } from "./_internal/conditional-request.js";
 import { readStagedAsset } from "./_internal/staged-asset-reader.js";
 import {
   findOwnMarkdownRoute,
@@ -46,6 +46,18 @@ export type LlmsEndpointPayload = LlmsEndpointReference & {
   mediaType: string;
   body: string;
 };
+
+/** Options every route factory takes. */
+export interface AgentRouteOptions {
+  /**
+   * Changes the text the route sends: called with the document Nimbus would
+   * send and the request's `APIContext`, on request and at build. The `ETag`
+   * is over the text returned, so a client revalidates against the bytes it
+   * holds. Wrapping `GET` to change the body instead keeps Nimbus's tag over
+   * its own bytes and answers `304` before the wrapper runs.
+   */
+  body?: (text: string, context: APIContext) => string | Promise<string>;
+}
 
 let markdownByIdentity:
   | Map<string, MarkdownEndpointAsset>
@@ -287,19 +299,29 @@ export interface MarkdownRoute {
  */
 async function endpointResponse(
   context: APIContext,
-  load: () => Promise<{ body: string; mediaType: string; digest?: string } | null>,
+  load: () => Promise<{ body: string; mediaType: string; digest?: string; standIn?: true } | Response | null>,
+  options?: AgentRouteOptions,
 ): Promise<Response> {
   try {
     const payload = await load();
     if (!payload) return new Response("Not found", { status: 404 });
+    // Another route's document, answered as that route emitted it.
+    if (payload instanceof Response) return payload;
     // The document's own fingerprint, so a cache or client revalidates by
-    // bytes, baked or rendered.
-    const etag = payload.digest ? `"${payload.digest}"` : undefined;
+    // bytes, baked or rendered. A site's `body` changes the bytes, so the tag
+    // is taken over what it returns; a stand-in for another route's document
+    // is not this route's text and keeps its own.
+    let body = payload.body;
+    let etag = payload.digest ? `"${payload.digest}"` : undefined;
+    if (options?.body && !payload.standIn) {
+      body = await options.body(body, context);
+      etag = await entityTagOf(body);
+    }
     if (etag && !context.isPrerendered) {
       const unchanged = notModified(context.request, etag);
       if (unchanged) return unchanged;
     }
-    return new Response(payload.body, {
+    return new Response(body, {
       headers: { "Content-Type": payload.mediaType, ...(etag ? { ETag: etag } : {}) },
     });
   } catch (error) {
@@ -323,7 +345,7 @@ function requestAssetUrl(url: URL, base: string): string | undefined {
   }
 }
 
-function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
+function createMarkdownRoute(surface: MarkdownEndpointSurface, options?: AgentRouteOptions): MarkdownRoute {
   return {
     async getStaticPaths({ routePattern }) {
       const [{ markdownAssets, renderedByUrl }, { routes }] = await Promise.all([
@@ -343,7 +365,7 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
           id: asset.id,
           surface: asset.surface,
         };
-        return [{ params, props: { reference }, cacheKey: asset.digest }];
+        return [{ params, props: { reference }, ...cacheKey(asset.digest, options) }];
       });
       // Request-rendered API pages this route owns while it is prerendered
       // (a mixed site, or a route of the site's own): rendered at build.
@@ -354,7 +376,7 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
           paths.push({
             params,
             props: { reference: { collection: page.collection, id: page.id, surface: "markdown" } },
-            cacheKey: renderedCacheKey(page),
+            ...cacheKey(renderedCacheKey(page), options),
           });
         }
       }
@@ -394,6 +416,11 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
           // serves the site llms index itself.
           const { base } = await loadAgentEndpointManifest(context.request);
           if (requestAssetUrl(context.url, base) === "/index.md") {
+            // The index as its route emitted it, where the host keeps the
+            // baked file (a site's `body` on that route included); the
+            // index's own payload otherwise.
+            const emitted = await emittedLlmsIndex(context, base);
+            if (emitted) return emitted;
             const fallback = await getLlmsPayload(
               { scope: "site", surface: "index" },
               { request: context.request },
@@ -403,6 +430,7 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
                 body: fallback.body,
                 mediaType: "text/markdown; charset=utf-8",
                 digest: fallback.digest,
+                standIn: true,
               };
             }
           }
@@ -413,8 +441,35 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
         )
           return null;
         return markdownPayload(asset, { request: context.request });
-      }),
+      }, options),
   };
+}
+
+/**
+ * The baked `/llms.txt` from the host's assets, as Markdown, or `null` where
+ * the host keeps no such file (no binding, or a 404). A failure to read one
+ * it keeps is thrown, so the route answers 500 rather than another text.
+ */
+async function emittedLlmsIndex(context: APIContext, base: string): Promise<Response | null> {
+  const { fetchAgentEndpointAsset } = await import("virtual:nimbus/agent-endpoint-asset-loader");
+  const prefix = base.replace(/\/+$/u, "");
+  const asset = await fetchAgentEndpointAsset(`${prefix}/llms.txt`, context.request);
+  if (!asset || asset.status === 404) return null;
+  if (asset.status === 304) return asset;
+  if (asset.status !== 200) throw new Error(`nimbus-docs: reading the baked llms.txt answered ${asset.status}.`);
+  const headers = new Headers(asset.headers);
+  headers.set("Content-Type", "text/markdown; charset=utf-8");
+  for (const name of ["Content-Length", "Content-Encoding"]) headers.delete(name);
+  return new Response(context.request.method === "HEAD" ? null : asset.body, { status: 200, headers });
+}
+
+/**
+ * The incremental build reuses a page whose cache key and modules are
+ * unchanged. A `body` may read something outside both, so with one every
+ * document renders again.
+ */
+function cacheKey(key: string, options: AgentRouteOptions | undefined): { cacheKey?: string } {
+  return options?.body ? {} : { cacheKey: key };
 }
 
 /**
@@ -434,8 +489,8 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
  * `src/pages/changelog/[...slug]/index.md.ts` takes over the changelog. The
  * file must stay prerendered; Nimbus fails the build otherwise.
  */
-export function markdownRoute(): MarkdownRoute {
-  return createMarkdownRoute("markdown");
+export function markdownRoute(options?: AgentRouteOptions): MarkdownRoute {
+  return createMarkdownRoute("markdown", options);
 }
 
 /**
@@ -443,8 +498,8 @@ export function markdownRoute(): MarkdownRoute {
  * collection with an authored body. API pages have no source and get no
  * `.mdx`. Same rules as {@link markdownRoute}.
  */
-export function markdownSourceRoute(): MarkdownRoute {
-  return createMarkdownRoute("source");
+export function markdownSourceRoute(options?: AgentRouteOptions): MarkdownRoute {
+  return createMarkdownRoute("source", options);
 }
 
 export async function getLlmsPayload(
@@ -552,14 +607,17 @@ export interface LlmsSectionRoute {
   GET: APIRoute;
 }
 
-function createLlmsRoute(surface: "index" | "full"): LlmsRoute {
+function createLlmsRoute(surface: "index" | "full", options?: AgentRouteOptions): LlmsRoute {
   return {
     GET: (context) =>
-      endpointResponse(context, () =>
-        getLlmsPayload(
-          { scope: "site", surface },
-          { request: context.request },
-        ),
+      endpointResponse(
+        context,
+        () =>
+          getLlmsPayload(
+            { scope: "site", surface },
+            { request: context.request },
+          ),
+        options,
       ),
   };
 }
@@ -576,15 +634,16 @@ function createLlmsRoute(surface: "index" | "full"): LlmsRoute {
  * ```
  *
  * `GET` returns 404 when the index is missing and, on request, a 500 without
- * details when its asset can't be read. Wrap `GET` to customize the response.
+ * details when its asset can't be read. Add headers by wrapping `GET`; change
+ * the text with `body`.
  */
-export function llmsRoute(): LlmsRoute {
-  return createLlmsRoute("index");
+export function llmsRoute(options?: AgentRouteOptions): LlmsRoute {
+  return createLlmsRoute("index", options);
 }
 
 /** The site's `/llms-full.txt`. Same rules as {@link llmsRoute}. */
-export function llmsFullRoute(): LlmsRoute {
-  return createLlmsRoute("full");
+export function llmsFullRoute(options?: AgentRouteOptions): LlmsRoute {
+  return createLlmsRoute("full", options);
 }
 
 /**
@@ -606,9 +665,11 @@ export function llmsFullRoute(): LlmsRoute {
  * `params.section` and returns 404 for an unknown section. Same error rules as
  * {@link llmsRoute}.
  */
-export function llmsSectionRoute(): LlmsSectionRoute {
+export function llmsSectionRoute(options?: AgentRouteOptions): LlmsSectionRoute {
   return {
-    getStaticPaths: getLlmsStaticPaths,
+    getStaticPaths: options?.body
+      ? async (context) => (await getLlmsStaticPaths(context)).map(({ cacheKey: _, ...rest }) => rest)
+      : getLlmsStaticPaths,
     GET: (context) =>
       endpointResponse(context, async () => {
         const reference =
@@ -622,6 +683,6 @@ export function llmsSectionRoute(): LlmsSectionRoute {
             : undefined);
         if (!reference) return null;
         return getLlmsPayload(reference, { request: context.request });
-      }),
+      }, options),
   };
 }
