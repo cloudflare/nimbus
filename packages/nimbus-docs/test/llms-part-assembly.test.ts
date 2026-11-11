@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  llmsFullPartsIndex,
   assembleLlmsFullPart,
   PART_READ_AHEAD,
   partBytesEstimate,
@@ -166,4 +167,25 @@ test("a page that fails fails the part, and the pages read ahead of it raise no 
   } finally {
     process.off("unhandledRejection", onUnhandled);
   }
+});
+
+test("the parts index names a section's default part only when the section has default-version pages", () => {
+  const versioned: LlmsDocumentContext = {
+    ...ctx,
+    apiVersions: { api: { mode: "query", param: "v", defaultVersion: "v2", versions: ["v2", "v1"] } },
+  };
+  // The API holds only a historical version's pages; another collection holds current ones.
+  const legacy = (id: string): LlmsPage => ({
+    collection: "api",
+    id: `v1/${id}`,
+    title: `Legacy ${id}`,
+    url: `/api/${id}/?v=v1`,
+    api: true,
+    apiVersion: "v1",
+  });
+  const current: LlmsPage = { collection: "core", id: "list", title: "List", url: "/core/list/", markdownUrl: "/core/list/index.md", api: true };
+  const index = llmsFullPartsIndex([current, legacy("a"), legacy("b")], versioned);
+  assert.match(index, /\(https:\/\/example\.test\/core\/llms-full\.txt\)/);
+  assert.match(index, /\(https:\/\/example\.test\/api\/llms-full\.txt\?v=v1\)/);
+  assert.doesNotMatch(index, /\(https:\/\/example\.test\/api\/llms-full\.txt\)/);
 });

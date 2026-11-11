@@ -741,9 +741,10 @@ export function llmsFullPartsIndex(pages: readonly LlmsPage[], ctx: LlmsDocument
     children: groups,
     members: leaves.filter((page) => page.apiVersion === undefined),
     header,
+    // A section holding only a non-default version's pages has no default part.
     sectionLine: (group) =>
       [
-        `- [${group.label}](${llmsFullUrl(header, partUrl(group, undefined, ctx))})`,
+        ...(partPages(group, undefined).length > 0 ? [`- [${group.label}](${llmsFullUrl(header, partUrl(group, undefined, ctx))})`] : []),
         ...sectionVersions(group, ctx).map(
           (version) => `- [${group.label} (${version})](${llmsFullUrl(header, partUrl(group, version, ctx))})`,
         ),
