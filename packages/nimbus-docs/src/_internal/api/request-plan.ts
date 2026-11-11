@@ -318,7 +318,9 @@ function objectFields(schema: OpenApiSchema | undefined): PlanBodyField[] {
   return properties(schema)
     .filter(([, s]) => s?.readOnly !== true)
     .map(([name, s, required]) => {
-      const field: PlanBodyField = { name, required, schema: planSchema(s) };
+      // A choice of types (3.1's `type: [number, string]`) has no one control: the value's own.
+      const types = Array.isArray(s?.type) ? s.type.filter((t) => t !== "null") : [];
+      const field: PlanBodyField = { name, required, schema: types.length > 1 ? {} : planSchema(s) };
       if (typeof s?.description === "string") field.description = s.description;
       return field;
     });

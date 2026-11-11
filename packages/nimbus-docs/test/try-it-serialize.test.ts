@@ -559,3 +559,8 @@ describe("required JSON properties", () => {
     assert.equal(check("{")[0]![0], "body");
   });
 });
+
+test("null passes where the enum lists it", () => {
+  assert.deepEqual(checkScalar({ enum: [null, "x"] }, null), []);
+  assert.equal(checkScalar({ enum: ["x"] }, null)[0]!.message, "Can't be null.");
+});

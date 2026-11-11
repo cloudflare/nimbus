@@ -80,7 +80,7 @@ export function checkParam(param: PlanParam, value: unknown): Omit<Issue, "key">
 }
 
 export function checkScalar(schema: PlanSchema, value: unknown): Omit<Issue, "key">[] {
-  if (value === null) return schema.nullable ? [] : [{ message: "Can't be null.", blocking: true }];
+  if (value === null) return schema.nullable || schema.enum?.includes(null) ? [] : [{ message: "Can't be null.", blocking: true }];
   const text = typeof value === "string" ? value : String(value);
   const out: Omit<Issue, "key">[] = [];
   if (schema.enum && !schema.enum.some((option) => String(option) === text)) {

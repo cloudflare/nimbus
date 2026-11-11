@@ -266,6 +266,14 @@ describe("JSON body fields", () => {
     ]);
   });
 
+  test("a property of several types has no one schema: the value's own", async () => {
+    const fields = await jsonFields({ type: "object", properties: { v: { type: ["number", "string"] }, n: { type: ["integer", "null"] } } });
+    assert.deepEqual(fields, [
+      { name: "v", required: false, schema: {} },
+      { name: "n", required: false, schema: { type: "integer", nullable: true } },
+    ]);
+  });
+
   test("a choice of shapes, a non-object or no properties: no fields", async () => {
     assert.equal(await jsonFields({ oneOf: [{ type: "object", properties: { a: { type: "string" } } }, { type: "object", properties: { b: { type: "string" } } }] }), undefined);
     assert.equal(await jsonFields({ type: "object", properties: { a: { type: "string" } }, anyOf: [{ required: ["a"] }] }), undefined);
