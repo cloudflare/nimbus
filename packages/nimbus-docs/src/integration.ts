@@ -1667,16 +1667,20 @@ export function nimbus(
                           collection,
                           target.version,
                         );
-                      // Each page goes in its sidebar group's `llms.txt`.
+                      // Each page goes in its sidebar group's `llms.txt`. A
+                      // non-default version's ids carry the version, as the
+                      // bundled store's do, so its groups are its own.
+                      const idOf = (row: { slug: string }) =>
+                        target.isDefault ? row.slug || "index" : `${target.version}/${row.slug || "index"}`;
                       const { sections, order } = apiLlmsPlacement(index.metadata.nav.nav.items, (coordinate) => {
                         const row = index.byId.get(coordinate);
-                        return row ? row.slug || "index" : undefined;
+                        return row ? idOf(row) : undefined;
                       });
+                      for (const row of index.rows) {
+                        const position = order.get(row.id);
+                        if (position !== undefined) apiNavOrder.set(`${collection}\0${idOf(row)}`, position);
+                      }
                       if (target.isDefault) {
-                        for (const row of index.rows) {
-                          const position = order.get(row.id);
-                          if (position !== undefined) apiNavOrder.set(`${collection}\0${row.slug || "index"}`, position);
-                        }
                         assetApiEntries.set(
                           collection,
                           index.rows.map((row) => ({
@@ -1688,7 +1692,7 @@ export function nimbus(
                       for (const row of index.rows)
                         apiEntries.push({
                           collection,
-                          id: target.isDefault ? row.slug || "index" : `${target.version}/${row.slug || "index"}`,
+                          id: idOf(row),
                           section: sections.get(row.id),
                           data: {
                             coordinate: row.id,
