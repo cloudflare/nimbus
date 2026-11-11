@@ -1,6 +1,6 @@
 /**
- * The Try it button. The panel and its plan load on the first click; until
- * then nothing else runs. Without JavaScript the button is hidden (try-it-button.css).
+ * The Try it button. The panel and its plan load on the first press (from the
+ * moment a finger or button goes down); until then nothing else runs. Without JavaScript the button is hidden (try-it-button.css).
  */
 import { mount } from "@cloudflare/nimbus-docs/client";
 
@@ -11,6 +11,10 @@ mount("[data-nb-tryit-open]", (button) => {
   let panel: Panel | null = null;
   let loading = false;
   let gone = false;
+  // A press starts the load, so the click that follows waits less.
+  let code: Promise<typeof import("./panel")> | null = null;
+  const load = () => (code ??= import("./panel"));
+  const onPress = () => void load().catch(() => (code = null));
   const onClick = async () => {
     if (panel) return panel.open();
     if (loading) return;
@@ -18,7 +22,7 @@ mount("[data-nb-tryit-open]", (button) => {
     button.setAttribute("aria-busy", "true");
     const label = button.textContent;
     try {
-      const { createPanel } = await import("./panel");
+      const { createPanel } = await load();
       const created = await createPanel(button);
       // The page moved on while the form loaded: don't leave it behind.
       if (gone) return created.destroy();
@@ -33,9 +37,11 @@ mount("[data-nb-tryit-open]", (button) => {
       button.removeAttribute("aria-busy");
     }
   };
+  button.addEventListener("pointerdown", onPress);
   button.addEventListener("click", onClick);
   return () => {
     gone = true;
+    button.removeEventListener("pointerdown", onPress);
     button.removeEventListener("click", onClick);
     panel?.destroy();
   };

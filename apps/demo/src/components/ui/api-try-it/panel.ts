@@ -1985,7 +1985,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     render();
   };
   small.addEventListener("change", onSmall);
-  close.addEventListener("click", () => dialog.close());
+  close.addEventListener("click", () => closeSmoothly());
   langSelect.addEventListener("change", () => {
     lang = langSelect.value as Lang;
     store("tab")?.setItem(LANG_KEY, lang);
@@ -2011,11 +2011,33 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   let pressedOn: EventTarget | null = null;
   dialog.addEventListener("pointerdown", (e) => (pressedOn = e.target));
   dialog.addEventListener("click", (e) => {
-    if (e.target === dialog && pressedOn === dialog) dialog.close();
+    if (e.target === dialog && pressedOn === dialog) closeSmoothly();
     pressedOn = null;
   });
   // Closing stops waiting: a late answer never lands in a closed dialog.
   let releaseZoom: (() => void) | null = null;
+  // The close animation is the panel's own (try-it.css, [data-closing]), so every
+  // browser plays it; the dialog closes when it ends. Opening again stops it.
+  const frame = dialog.querySelector<HTMLElement>(".nb-tid-frame")!;
+  let stopClosing: (() => void) | null = null;
+  const closeSmoothly = () => {
+    if (!dialog.open || stopClosing) return;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return dialog.close();
+    const finish = () => {
+      stopClosing?.();
+      dialog.close();
+    };
+    const onEnd = (e: TransitionEvent) => e.target === frame && e.propertyName === "transform" && finish();
+    const timer = window.setTimeout(finish, 400);
+    stopClosing = () => {
+      clearTimeout(timer);
+      frame.removeEventListener("transitionend", onEnd);
+      dialog.removeAttribute("data-closing");
+      stopClosing = null;
+    };
+    frame.addEventListener("transitionend", onEnd);
+    dialog.setAttribute("data-closing", "");
+  };
   const onClose = () => {
     unlockScroll();
     releaseZoom?.();
@@ -2024,6 +2046,11 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     button.focus({ preventScroll: true });
   };
   dialog.addEventListener("close", onClose);
+  // Escape closes as the button does, animated.
+  dialog.addEventListener("cancel", (e) => {
+    e.preventDefault();
+    closeSmoothly();
+  });
 
   // On phones the keyboard shrinks the visual viewport: size the dialog to what's visible.
   const vv = window.visualViewport;
@@ -2045,6 +2072,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
 
   return {
     open() {
+      // Reopened while closing: it stays, as it was.
+      if (stopClosing) return stopClosing();
       if (dialog.open) return;
       syncViewport();
       placePicker();
@@ -2074,6 +2103,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       // The close event comes later, maybe after the page has changed: let go now.
       releaseZoom?.();
       releaseZoom = null;
+      stopClosing?.();
       if (dialog.open) {
         dialog.close();
       }
