@@ -861,8 +861,11 @@ export function nimbus(
     // /index.md exists when something serves it: a public file, a shared route
     // with a root entry, the site's own route, or the shared route's llms
     // fallback. An llms.txt route alone publishes no homepage Markdown.
+    // The middleware answers /index.md with the llms index itself only for the
+    // shared factory route: a route of the site's own answers for itself (a
+    // re-export of the factory still gets the build's copy, see build:done).
     const homepageFallback =
-      hasLlms && !publicHomepage && !sharedHomepage && owner !== undefined && owner.shared !== "source";
+      hasLlms && !publicHomepage && !sharedHomepage && owner?.shared === "markdown";
     const hasHomepageMarkdown =
       publicHomepage ||
       sharedHomepage ||
