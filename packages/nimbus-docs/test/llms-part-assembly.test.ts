@@ -218,3 +218,15 @@ test("a path version's part URL carries the version after the collection's mount
   assert.deepEqual(resolvePartIdentity([root], "api/tags/v1", none, versioned), { group: tagNamedV1, version: undefined });
   assert.equal(resolvePartIdentity([root], "api/v9/tags", none, versioned), undefined);
 });
+
+test("a non-default version's leaf, outside every section, is linked from the parts index at its versioned URL", () => {
+  const versioned: LlmsDocumentContext = {
+    ...ctx,
+    routes: new Map([["api", { mount: "", aliases: [] }]]),
+    apiVersions: { api: { mode: "query", param: "v", defaultVersion: "v2", versions: ["v2", "v1"] } },
+  };
+  const current: LlmsPage = { collection: "api", id: "pets/list", title: "List", url: "/pets/list/", markdownUrl: "/pets/list/index.md", api: true, section: "pets" };
+  const legacy: LlmsPage = { collection: "api", id: "v1/legacy", title: "Legacy", url: "/legacy/?v=v1", api: true, apiVersion: "v1" };
+  const index = llmsFullPartsIndex([current, legacy], versioned);
+  assert.match(index, /- \[Legacy \(v1\)\]\(https:\/\/example\.test\/legacy\/\?v=v1\)/);
+});

@@ -755,7 +755,9 @@ export function llmsFullPartsIndex(pages: readonly LlmsPage[], ctx: LlmsDocument
     note: "The full documentation is served by section. Fetch the sections you need; each is one Markdown document.",
     index: servesLlms(ctx) ? "/llms.txt" : null,
     children: groups,
-    members: leaves.filter((page) => page.apiVersion === undefined),
+    // A leaf of a non-default version (a page outside every section) has no
+    // part to be in: it is linked itself, at its versioned URL.
+    members: leaves.map((page) => (page.apiVersion === undefined ? page : { ...page, title: `${page.title} (${page.apiVersion})` })),
     header,
     // A section holding only a non-default version's pages has no default part.
     sectionLine: (group) =>
