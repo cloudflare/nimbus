@@ -1357,7 +1357,7 @@ export function nimbus(
         });
         applySourceSpecs(sourceSpecs, sourceSnapshots, projectRoot);
         beginPreparedMarkdownSession(astroConfig.root, {
-          lazyHeadings: command === "dev",
+          lazyHeadings: !building,
         });
         registerApiCollections(
           astroConfig.root,
