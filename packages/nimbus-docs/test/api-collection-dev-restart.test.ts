@@ -4,10 +4,11 @@
 // restart, and spec edits still re-index after it.
 
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { rmSync } from "node:fs";
+import { mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
-import { after, test } from "node:test";
+import { test } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { dev } from "astro";
@@ -17,13 +18,11 @@ import { getPreparedMarkdownSnapshot } from "../src/_internal/prepared-markdown-
 import { runningNimbusVersion } from "../src/_internal/upgrades.ts";
 import { TEST_TMP } from "./fixtures/temp-root.js";
 
+// Astro's content sync can outlive server.stop() and write to the root after
+// the test; remove it at exit, once nothing writes to it.
 const roots: string[] = [];
-after(async () => {
-  await Promise.all(
-    roots
-      .splice(0)
-      .map((root) => rm(root, { recursive: true, force: true, maxRetries: 10 })),
-  );
+process.once("exit", () => {
+  for (const root of roots) rmSync(root, { recursive: true, force: true, maxRetries: 10 });
 });
 
 const moduleUrl = (relative: string) =>
