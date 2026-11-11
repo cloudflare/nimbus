@@ -22,3 +22,10 @@ export function notModified(request: Request | undefined, etag: string): Respons
   if (!ifNoneMatchMatches(request.headers.get("If-None-Match"), etag)) return null;
   return new Response(null, { status: 304, headers: { ETag: etag } });
 }
+
+/** The strong entity tag of `text`: a quoted `sha256:` digest of its UTF-8 bytes, as the baked documents carry. */
+export async function entityTagOf(text: string): Promise<string> {
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  const hex = [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `"sha256:${hex}"`;
+}
