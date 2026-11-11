@@ -25,6 +25,7 @@ const PAGE_EXEMPT: Record<string, string> = {
   "api-sidebar": "renders from a mounted OpenAPI ApiModel view-model, so it has no standalone preview — covered by the api-reference feature recipe",
   "api-code-rail": "renders from a mounted OpenAPI ApiModel view-model, so it has no standalone preview — covered by the api-reference feature recipe",
   "api-layout": "renders from a mounted OpenAPI ApiModel view-model, so it has no standalone preview — covered by the api-reference feature recipe",
+  "api-try-it": "renders from a mounted OpenAPI operation page with tryIt on, so it has no standalone preview — covered by the try-it feature recipe",
 };
 
 function listedInRegistry(mdx: string, slug: string): boolean {

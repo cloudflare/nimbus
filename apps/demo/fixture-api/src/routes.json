@@ -1,0 +1,1249 @@
+{
+  "base": "/v2",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/locations/search",
+      "pattern": "^/locations/search$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "q"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"id\": \"loc_oslo_no\",\n      \"name\": \"Oslo\",\n      \"region\": \"Oslo\",\n      \"country\": \"NO\",\n      \"timezone\": \"Europe/Oslo\",\n      \"coordinates\": {\n        \"latitude\": 59.9139,\n        \"longitude\": 10.7522,\n        \"elevation\": 23\n      },\n      \"population\": 709037\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/locations/reverse",
+      "pattern": "^/locations/reverse$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"loc_oslo_no\",\n  \"name\": \"Oslo\",\n  \"region\": \"Oslo\",\n  \"country\": \"NO\",\n  \"timezone\": \"Europe/Oslo\",\n  \"coordinates\": {\n    \"latitude\": 59.9139,\n    \"longitude\": 10.7522,\n    \"elevation\": 23\n  },\n  \"population\": 709037\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/forecasts/daily",
+      "pattern": "^/forecasts/daily$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"location\": {\n    \"id\": \"loc_oslo_no\",\n    \"name\": \"Oslo\",\n    \"region\": \"Oslo\",\n    \"country\": \"NO\",\n    \"timezone\": \"Europe/Oslo\",\n    \"coordinates\": {\n      \"latitude\": 59.9139,\n      \"longitude\": 10.7522,\n      \"elevation\": 23\n    },\n    \"population\": 709037\n  },\n  \"generated_at\": \"2026-01-14T06:00:00Z\",\n  \"units\": \"metric\",\n  \"model\": \"gfs-ecmwf-blend-4\",\n  \"days\": [\n    {\n      \"date\": \"2026-01-14\",\n      \"temperature_max\": -1,\n      \"temperature_min\": -6.1,\n      \"precipitation_sum\": 2.4,\n      \"precipitation_probability\": 60,\n      \"snowfall_sum\": 3.1,\n      \"wind_max\": 6.3,\n      \"sunrise\": \"2026-01-14T08:10:00Z\",\n      \"sunset\": \"2026-01-14T14:32:00Z\",\n      \"uv_index_max\": 0.5,\n      \"condition\": {\n        \"code\": 71,\n        \"label\": \"snow_light\",\n        \"text\": \"Light snow\"\n      }\n    }\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/forecasts/hourly",
+      "pattern": "^/forecasts/hourly$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"location\": {\n    \"id\": \"loc_oslo_no\",\n    \"name\": \"Oslo\",\n    \"region\": \"Oslo\",\n    \"country\": \"NO\",\n    \"timezone\": \"Europe/Oslo\",\n    \"coordinates\": {\n      \"latitude\": 59.9139,\n      \"longitude\": 10.7522,\n      \"elevation\": 23\n    },\n    \"population\": 709037\n  },\n  \"generated_at\": \"2026-01-14T06:00:00Z\",\n  \"units\": \"metric\",\n  \"model\": \"gfs-ecmwf-blend-4\",\n  \"hours\": [\n    {\n      \"time\": \"2026-01-14T08:00:00Z\",\n      \"temperature\": -3.3,\n      \"feels_like\": -7.4,\n      \"precipitation\": 0.3,\n      \"precipitation_probability\": 40,\n      \"wind\": {\n        \"speed\": 4.1,\n        \"gust\": 7.6,\n        \"direction\": 20\n      },\n      \"cloud_cover\": 95,\n      \"condition\": {\n        \"code\": 71,\n        \"label\": \"snow_light\",\n        \"text\": \"Light snow\"\n      }\n    }\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/forecasts/minutely",
+      "pattern": "^/forecasts/minutely$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"location\": {\n    \"id\": \"loc_oslo_no\",\n    \"name\": \"Oslo\",\n    \"region\": \"Oslo\",\n    \"country\": \"NO\",\n    \"timezone\": \"Europe/Oslo\",\n    \"coordinates\": {\n      \"latitude\": 59.9139,\n      \"longitude\": 10.7522,\n      \"elevation\": 23\n    },\n    \"population\": 709037\n  },\n  \"summary\": \"Light snow starting in 15 minutes.\",\n  \"minutes\": [\n    {\n      \"time\": \"2026-01-14T08:15:00Z\",\n      \"intensity\": 0.6,\n      \"probability\": 70\n    }\n  ]\n}"
+    },
+    {
+      "method": "POST",
+      "path": "/forecasts/batch",
+      "pattern": "^/forecasts/batch$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"results\": [\n    {\n      \"ref\": \"warehouse-12\",\n      \"status\": \"ok\",\n      \"forecast\": {}\n    }\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/forecasts/discussion",
+      "pattern": "^/forecasts/discussion$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "region"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"region\": \"eu-north\",\n  \"issued_at\": \"2026-01-14T05:30:00Z\",\n  \"author\": \"M. Haugen\",\n  \"text\": \"A shallow low tracks east across southern Norway this morning…\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/observations/nearest",
+      "pattern": "^/observations/nearest$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"obs_8812004\",\n  \"station\": {\n    \"id\": \"stn_01492\",\n    \"name\": \"Oslo – Blindern\"\n  },\n  \"observed_at\": \"2026-01-14T07:50:00Z\",\n  \"conditions\": {\n    \"temperature\": -3,\n    \"feels_like\": -7,\n    \"dew_point\": -5.1,\n    \"humidity\": 86,\n    \"pressure\": 1012.4,\n    \"wind\": {\n      \"speed\": 4.1,\n      \"gust\": 7.6,\n      \"direction\": 20\n    },\n    \"visibility\": 10,\n    \"cloud_cover\": 90,\n    \"uv_index\": 0.4,\n    \"condition\": {\n      \"code\": 71,\n      \"label\": \"snow_light\",\n      \"text\": \"Light snow\"\n    }\n  },\n  \"quality\": \"checked\",\n  \"raw_metar\": \"ENGM 140750Z 02008KT 6000 -SN BKN012 M03/M05 Q1012\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/observations/conditions",
+      "pattern": "^/observations/conditions$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"code\": 71,\n    \"label\": \"snow_light\",\n    \"text\": \"Light snow\"\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/stations",
+      "pattern": "^/stations$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"id\": \"stn_01492\",\n      \"wmo_id\": \"01492\",\n      \"icao\": \"string\",\n      \"name\": \"Oslo – Blindern\",\n      \"coordinates\": {\n        \"latitude\": 59.9139,\n        \"longitude\": 10.7522,\n        \"elevation\": 23\n      },\n      \"country\": \"NO\",\n      \"network\": \"synoptic\",\n      \"owner\": \"string\",\n      \"active\": true,\n      \"reporting_interval\": 10,\n      \"public\": true,\n      \"sensors\": [\n        {\n          \"id\": \"sen_4hT2\",\n          \"kind\": \"temperature\",\n          \"model\": \"Vaisala HMP155\",\n          \"height_m\": 2,\n          \"installed_on\": \"2024-05-02\",\n          \"last_calibrated_on\": \"2025-11-18\"\n        }\n      ]\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "POST",
+      "path": "/stations",
+      "pattern": "^/stations$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 201,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"stn_01492\",\n  \"wmo_id\": \"01492\",\n  \"icao\": \"string\",\n  \"name\": \"Oslo – Blindern\",\n  \"coordinates\": {\n    \"latitude\": 59.9139,\n    \"longitude\": 10.7522,\n    \"elevation\": 23\n  },\n  \"country\": \"NO\",\n  \"network\": \"synoptic\",\n  \"owner\": \"string\",\n  \"active\": true,\n  \"reporting_interval\": 10,\n  \"public\": true,\n  \"sensors\": [\n    {\n      \"id\": \"sen_4hT2\",\n      \"kind\": \"temperature\",\n      \"model\": \"Vaisala HMP155\",\n      \"height_m\": 2,\n      \"installed_on\": \"2024-05-02\",\n      \"last_calibrated_on\": \"2025-11-18\"\n    }\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/alerts",
+      "pattern": "^/alerts$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"event\": \"winter_storm\",\n      \"id\": \"alt_20260114_0042\",\n      \"status\": \"actual\",\n      \"severity\": \"severe\",\n      \"urgency\": \"expected\",\n      \"certainty\": \"likely\",\n      \"headline\": \"Heavy snow warning for Oslo and Akershus\",\n      \"description\": \"15–25 cm of snow expected between 18:00 and 06:00, locally more on high ground.\",\n      \"instruction\": \"Allow extra time for travel. Public transport may be disrupted.\",\n      \"sender\": \"Norwegian Meteorological Institute\",\n      \"areas\": [\n        {\n          \"zone_id\": \"zone_no_03\",\n          \"name\": \"Oslo\",\n          \"geometry\": {\n            \"type\": \"Polygon\",\n            \"coordinates\": [\n              [\n                [\n                  10.7\n                ]\n              ]\n            ]\n          }\n        }\n      ],\n      \"onset\": \"2026-01-14T17:00:00Z\",\n      \"expires\": \"2026-01-15T05:00:00Z\",\n      \"references\": [\n        \"alt_20260114_0031\"\n      ],\n      \"details\": {\n        \"snowfall_cm\": {\n          \"min\": 15,\n          \"max\": 25\n        },\n        \"ice_accretion_mm\": 0\n      }\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/alerts/point",
+      "pattern": "^/alerts/point$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"event\": \"winter_storm\",\n    \"id\": \"alt_20260114_0042\",\n    \"status\": \"actual\",\n    \"severity\": \"severe\",\n    \"urgency\": \"expected\",\n    \"certainty\": \"likely\",\n    \"headline\": \"Heavy snow warning for Oslo and Akershus\",\n    \"description\": \"15–25 cm of snow expected between 18:00 and 06:00, locally more on high ground.\",\n    \"instruction\": \"Allow extra time for travel. Public transport may be disrupted.\",\n    \"sender\": \"Norwegian Meteorological Institute\",\n    \"areas\": [\n      {\n        \"zone_id\": \"zone_no_03\",\n        \"name\": \"Oslo\",\n        \"geometry\": {\n          \"type\": \"Polygon\",\n          \"coordinates\": [\n            [\n              [\n                10.7\n              ]\n            ]\n          ]\n        }\n      }\n    ],\n    \"onset\": \"2026-01-14T17:00:00Z\",\n    \"expires\": \"2026-01-15T05:00:00Z\",\n    \"references\": [\n      \"alt_20260114_0031\"\n    ],\n    \"details\": {\n      \"snowfall_cm\": {\n        \"min\": 15,\n        \"max\": 25\n      },\n      \"ice_accretion_mm\": 0\n    }\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/alerts/zones",
+      "pattern": "^/alerts/zones$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "country"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"id\": \"zone_no_03\",\n      \"name\": \"Oslo\",\n      \"kind\": \"county\"\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/alerts/history",
+      "pattern": "^/alerts/history$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "start"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"event\": \"winter_storm\",\n      \"id\": \"alt_20260114_0042\",\n      \"status\": \"actual\",\n      \"severity\": \"severe\",\n      \"urgency\": \"expected\",\n      \"certainty\": \"likely\",\n      \"headline\": \"Heavy snow warning for Oslo and Akershus\",\n      \"description\": \"15–25 cm of snow expected between 18:00 and 06:00, locally more on high ground.\",\n      \"instruction\": \"Allow extra time for travel. Public transport may be disrupted.\",\n      \"sender\": \"Norwegian Meteorological Institute\",\n      \"areas\": [\n        {\n          \"zone_id\": \"zone_no_03\",\n          \"name\": \"Oslo\",\n          \"geometry\": {\n            \"type\": \"Polygon\",\n            \"coordinates\": [\n              [\n                [\n                  10.7\n                ]\n              ]\n            ]\n          }\n        }\n      ],\n      \"onset\": \"2026-01-14T17:00:00Z\",\n      \"expires\": \"2026-01-15T05:00:00Z\",\n      \"references\": [\n        \"alt_20260114_0031\"\n      ],\n      \"details\": {\n        \"snowfall_cm\": {\n          \"min\": 15,\n          \"max\": 25\n        },\n        \"ice_accretion_mm\": 0\n      }\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/alerts/subscriptions",
+      "pattern": "^/alerts/subscriptions$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"id\": \"sub_8Jd2\",\n      \"url\": \"https://example.com/hooks/weather\",\n      \"events\": [\n        \"alert.issued\"\n      ],\n      \"zones\": [\n        \"zone_no_03\"\n      ],\n      \"min_severity\": \"moderate\",\n      \"active\": true,\n      \"created_at\": \"2025-09-02T10:14:00Z\"\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "POST",
+      "path": "/alerts/subscriptions",
+      "pattern": "^/alerts/subscriptions$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 201,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"sub_8Jd2\",\n  \"url\": \"https://example.com/hooks/weather\",\n  \"events\": [\n    \"alert.issued\"\n  ],\n  \"zones\": [\n    \"zone_no_03\"\n  ],\n  \"min_severity\": \"moderate\",\n  \"active\": true,\n  \"created_at\": \"2025-09-02T10:14:00Z\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/layers",
+      "pattern": "^/layers$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"id\": \"radar\",\n    \"name\": \"Precipitation radar\",\n    \"min_zoom\": 0,\n    \"max_zoom\": 12,\n    \"update_interval\": 5,\n    \"legend_url\": \"https://tiles.weather.example/legends/radar.png\"\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/maps/static",
+      "pattern": "^/maps/static$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "layer",
+        "center"
+      ],
+      "status": 200,
+      "mediaType": "image/png",
+      "body": "string"
+    },
+    {
+      "method": "GET",
+      "path": "/maps/animation",
+      "pattern": "^/maps/animation$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "center"
+      ],
+      "status": 200,
+      "mediaType": "image/gif",
+      "body": "string"
+    },
+    {
+      "method": "GET",
+      "path": "/history/daily",
+      "pattern": "^/history/daily$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude",
+        "start_date",
+        "end_date"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"location\": {\n    \"id\": \"loc_oslo_no\",\n    \"name\": \"Oslo\",\n    \"region\": \"Oslo\",\n    \"country\": \"NO\",\n    \"timezone\": \"Europe/Oslo\",\n    \"coordinates\": {\n      \"latitude\": 59.9139,\n      \"longitude\": 10.7522,\n      \"elevation\": 23\n    },\n    \"population\": 709037\n  },\n  \"days\": [\n    {\n      \"date\": \"2026-01-14\",\n      \"temperature_max\": -1,\n      \"temperature_min\": -6.1,\n      \"precipitation_sum\": 2.4,\n      \"precipitation_probability\": 60,\n      \"snowfall_sum\": 3.1,\n      \"wind_max\": 6.3,\n      \"sunrise\": \"2026-01-14T08:10:00Z\",\n      \"sunset\": \"2026-01-14T14:32:00Z\",\n      \"uv_index_max\": 0.5,\n      \"condition\": {\n        \"code\": 71,\n        \"label\": \"snow_light\",\n        \"text\": \"Light snow\"\n      }\n    }\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/history/hourly",
+      "pattern": "^/history/hourly$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude",
+        "start_date",
+        "end_date"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"location\": {\n    \"id\": \"loc_oslo_no\",\n    \"name\": \"Oslo\",\n    \"region\": \"Oslo\",\n    \"country\": \"NO\",\n    \"timezone\": \"Europe/Oslo\",\n    \"coordinates\": {\n      \"latitude\": 59.9139,\n      \"longitude\": 10.7522,\n      \"elevation\": 23\n    },\n    \"population\": 709037\n  },\n  \"hours\": [\n    {\n      \"time\": \"2026-01-14T08:00:00Z\",\n      \"temperature\": -3.3,\n      \"feels_like\": -7.4,\n      \"precipitation\": 0.3,\n      \"precipitation_probability\": 40,\n      \"wind\": {\n        \"speed\": 4.1,\n        \"gust\": 7.6,\n        \"direction\": 20\n      },\n      \"cloud_cover\": 95,\n      \"condition\": {\n        \"code\": 71,\n        \"label\": \"snow_light\",\n        \"text\": \"Light snow\"\n      }\n    }\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/climate/normals",
+      "pattern": "^/climate/normals$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"period\": \"1991-2020\",\n  \"months\": [\n    {\n      \"month\": 1,\n      \"temperature_mean\": -2.3,\n      \"precipitation_total\": 63,\n      \"sunshine_hours\": 41\n    }\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/climate/records",
+      "pattern": "^/climate/records$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"variable\": \"temperature_max\",\n    \"value\": 35,\n    \"date\": \"1901-07-21\",\n    \"station\": \"stn_01492\"\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/climate/degree-days",
+      "pattern": "^/climate/degree-days$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude",
+        "start_date",
+        "end_date"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"date\": \"2025-01-01\",\n    \"heating\": 19.4,\n    \"cooling\": 0\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/exports",
+      "pattern": "^/exports$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"id\": \"exp_5mQ1\",\n      \"status\": \"running\",\n      \"progress\": 0.42,\n      \"rows\": 1204330,\n      \"download_url\": \"https://exports.weather.example/exp_5mQ1.csv.gz?sig=…\",\n      \"error\": \"string\",\n      \"created_at\": \"2026-01-14T08:01:00Z\",\n      \"expires_at\": \"2026-01-15T08:20:00Z\"\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "POST",
+      "path": "/exports",
+      "pattern": "^/exports$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 202,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"exp_5mQ1\",\n  \"status\": \"running\",\n  \"progress\": 0.42,\n  \"rows\": 1204330,\n  \"download_url\": \"https://exports.weather.example/exp_5mQ1.csv.gz?sig=…\",\n  \"error\": \"string\",\n  \"created_at\": \"2026-01-14T08:01:00Z\",\n  \"expires_at\": \"2026-01-15T08:20:00Z\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/air-quality/current",
+      "pattern": "^/air-quality/current$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"aqi\": 38,\n  \"category\": \"good\",\n  \"dominant_pollutant\": \"pm2_5\",\n  \"concentrations\": {\n    \"pm2_5\": 9.1,\n    \"pm10\": 9.1,\n    \"o3\": 9.1,\n    \"no2\": 9.1,\n    \"so2\": 9.1,\n    \"co\": 9.1\n  }\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/air-quality/forecast",
+      "pattern": "^/air-quality/forecast$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"time\": \"2026-01-14T08:00:00Z\",\n    \"aqi\": 41,\n    \"category\": \"good\"\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/air-quality/pollen",
+      "pattern": "^/air-quality/pollen$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"date\": \"2026-05-02\",\n    \"tree\": 4,\n    \"grass\": 1,\n    \"weed\": 0,\n    \"species\": [\n      {\n        \"name\": \"Birch\",\n        \"level\": 4\n      }\n    ]\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/air-quality/monitors",
+      "pattern": "^/air-quality/monitors$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "bbox"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"id\": \"aqm_no_0041\",\n      \"name\": \"Kirkeveien\",\n      \"operator\": \"Norwegian Institute for Air Research\"\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/marine/forecast",
+      "pattern": "^/marine/forecast$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"time\": \"2026-01-14T08:00:00Z\",\n    \"wave_height\": 1.8,\n    \"wave_period\": 7.2,\n    \"wave_direction\": 220,\n    \"swell_height\": 1.1,\n    \"sea_surface_temperature\": 4.6\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/marine/tides",
+      "pattern": "^/marine/tides$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "station"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"time\": \"2026-01-14T10:42:00Z\",\n    \"type\": \"high\",\n    \"height_m\": 0.41\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/marine/tide-stations",
+      "pattern": "^/marine/tide-stations$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"id\": \"tide_no_osl\",\n      \"name\": \"Oslo\",\n      \"coordinates\": {\n        \"latitude\": 59.9139,\n        \"longitude\": 10.7522,\n        \"elevation\": 23\n      }\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/aviation/sigmets",
+      "pattern": "^/aviation/sigmets$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"id\": \"sig_ENOR_A3\",\n    \"hazard\": \"icing\",\n    \"valid_from\": \"2026-01-14T06:00:00Z\",\n    \"valid_to\": \"2026-01-14T10:00:00Z\",\n    \"base_ft\": 4000,\n    \"top_ft\": 12000\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/aviation/pireps",
+      "pattern": "^/aviation/pireps$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "near"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"reported_at\": \"2026-01-14T07:31:00Z\",\n    \"aircraft\": \"B738\",\n    \"altitude_ft\": 9000,\n    \"turbulence\": \"light\",\n    \"icing\": \"moderate rime\"\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/tropical/storms",
+      "pattern": "^/tropical/storms$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"id\": \"al052025\",\n    \"name\": \"Erin\",\n    \"basin\": \"atlantic\",\n    \"classification\": \"hurricane\",\n    \"category\": 3,\n    \"max_wind\": 105,\n    \"min_pressure\": 958,\n    \"position\": {\n      \"latitude\": 59.9139,\n      \"longitude\": 10.7522,\n      \"elevation\": 23\n    },\n    \"movement\": {\n      \"direction\": 300,\n      \"speed\": 12\n    },\n    \"advisory_at\": \"2025-08-19T15:00:00Z\"\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/lightning/strikes",
+      "pattern": "^/lightning/strikes$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "bbox"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"time\": \"2026-07-02T14:03:17.402Z\",\n      \"position\": {\n        \"latitude\": 59.9139,\n        \"longitude\": 10.7522,\n        \"elevation\": 23\n      },\n      \"type\": \"cloud_to_ground\",\n      \"peak_current_ka\": -18.4\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/lightning/proximity",
+      "pattern": "^/lightning/proximity$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"strikes\": 4,\n  \"nearest_km\": 6.2,\n  \"last_strike_at\": \"2026-07-02T14:03:17Z\",\n  \"all_clear_at\": \"2026-07-02T14:33:17Z\",\n  \"safe\": false\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/lightning/density",
+      "pattern": "^/lightning/density$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"flashes_per_km2_year\": 0.6,\n  \"years\": \"2015-2024\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/agriculture/soil",
+      "pattern": "^/agriculture/soil$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"layers\": [\n    {\n      \"depth_cm\": \"0-7\",\n      \"temperature\": 1.2,\n      \"moisture\": 0.31\n    }\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/agriculture/growing-degree-days",
+      "pattern": "^/agriculture/growing-degree-days$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude",
+        "start_date"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"total\": 812.5,\n  \"days\": [\n    {\n      \"date\": \"2025-06-01\",\n      \"value\": 9.4\n    }\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/agriculture/frost-risk",
+      "pattern": "^/agriculture/frost-risk$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"night_of\": \"2026-05-03\",\n    \"probability\": 0.35,\n    \"min_ground_temperature\": -0.8\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/agriculture/evapotranspiration",
+      "pattern": "^/agriculture/evapotranspiration$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"date\": \"2025-07-14\",\n    \"et0\": 4.1\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/agriculture/spray-windows",
+      "pattern": "^/agriculture/spray-windows$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"start\": \"2025-07-15T04:00:00Z\",\n    \"end\": \"2025-07-15T08:00:00Z\",\n    \"rating\": \"good\",\n    \"limiting_factor\": \"wind\"\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/energy/solar",
+      "pattern": "^/energy/solar$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"time\": \"2026-01-14T08:00:00Z\",\n    \"ghi\": 412,\n    \"dni\": 610,\n    \"dhi\": 98,\n    \"poa\": 538\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/energy/wind",
+      "pattern": "^/energy/wind$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude",
+        "hub_height"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"time\": \"2026-01-14T08:00:00Z\",\n    \"speed\": 9.6,\n    \"direction\": 245,\n    \"air_density\": 1.262\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/energy/demand-drivers",
+      "pattern": "^/energy/demand-drivers$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [
+        "latitude",
+        "longitude"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"time\": \"2026-01-14T08:00:00Z\",\n    \"temperature\": -4.1,\n    \"heating_degree_hours\": 0.88\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/account/keys",
+      "pattern": "^/account/keys$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"id\": \"key_9bR4\",\n      \"name\": \"Production\",\n      \"prefix\": \"wx_live_9bR4\",\n      \"scopes\": [\n        \"weather:read\"\n      ],\n      \"allowed_origins\": [\n        \"https://example.com\"\n      ],\n      \"created_at\": \"2025-03-11T12:00:00Z\",\n      \"last_used_at\": \"2026-01-14T07:59:41Z\",\n      \"expires_at\": \"2026-12-31T23:59:59Z\"\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "POST",
+      "path": "/account/keys",
+      "pattern": "^/account/keys$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 201,
+      "mediaType": "application/json",
+      "body": "{\n  \"key\": {\n    \"id\": \"key_9bR4\",\n    \"name\": \"Production\",\n    \"prefix\": \"wx_live_9bR4\",\n    \"scopes\": [\n      \"weather:read\"\n    ],\n    \"allowed_origins\": [\n      \"https://example.com\"\n    ],\n    \"created_at\": \"2025-03-11T12:00:00Z\",\n    \"last_used_at\": \"2026-01-14T07:59:41Z\",\n    \"expires_at\": \"2026-12-31T23:59:59Z\"\n  },\n  \"secret\": \"wx_live_9bR4Tq0sXk1mZp8vYw2c\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/account/usage",
+      "pattern": "^/account/usage$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"period_start\": \"2026-01-01\",\n  \"period_end\": \"2026-01-31\",\n  \"calls\": 1482093,\n  \"included\": 2000000,\n  \"breakdown\": [\n    {\n      \"key\": \"2026-01-13\",\n      \"calls\": 104221\n    }\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/account/rate-limits",
+      "pattern": "^/account/rate-limits$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"product\": \"forecasts\",\n    \"per_second\": 50,\n    \"per_day\": 500000\n  }\n]"
+    },
+    {
+      "method": "GET",
+      "path": "/account/organization",
+      "pattern": "^/account/organization$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"org_7Tn1\",\n  \"name\": \"Nordlys Logistics\",\n  \"plan\": \"business\",\n  \"created_at\": \"2024-11-05T09:12:00Z\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/account/members",
+      "pattern": "^/account/members$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"id\": \"usr_2Hc8\",\n      \"email\": \"ingrid@example.com\",\n      \"role\": \"developer\",\n      \"joined_at\": \"2025-04-02T08:30:00Z\"\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "POST",
+      "path": "/account/members",
+      "pattern": "^/account/members$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 201,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"usr_2Hc8\",\n  \"email\": \"ingrid@example.com\",\n  \"role\": \"developer\",\n  \"joined_at\": \"2025-04-02T08:30:00Z\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/account/audit-log",
+      "pattern": "^/account/audit-log$",
+      "templated": false,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"id\": \"aud_k2P0\",\n      \"action\": \"key.revoked\",\n      \"actor\": \"usr_2Hc8\",\n      \"target\": \"key_9bR4\",\n      \"ip\": \"203.0.113.24\",\n      \"occurred_at\": \"2026-01-12T16:40:03Z\"\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/status",
+      "pattern": "^/status$",
+      "templated": false,
+      "auth": false,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"status\": \"operational\",\n  \"products\": [\n    {\n      \"name\": \"forecasts\",\n      \"status\": \"operational\"\n    }\n  ],\n  \"updated_at\": \"2026-01-14T08:00:00Z\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/ping",
+      "pattern": "^/ping$",
+      "templated": false,
+      "auth": false,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"ok\": true\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/locations/{location_id}",
+      "pattern": "^/locations/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"loc_oslo_no\",\n  \"name\": \"Oslo\",\n  \"region\": \"Oslo\",\n  \"country\": \"NO\",\n  \"timezone\": \"Europe/Oslo\",\n  \"coordinates\": {\n    \"latitude\": 59.9139,\n    \"longitude\": 10.7522,\n    \"elevation\": 23\n  },\n  \"population\": 709037\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/locations/{location_id}/nearby-stations",
+      "pattern": "^/locations/[^/]+/nearby-stations$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"station\": {\n        \"id\": \"stn_01492\",\n        \"wmo_id\": \"01492\",\n        \"icao\": \"string\",\n        \"name\": \"Oslo – Blindern\",\n        \"coordinates\": {\n          \"latitude\": 59.9139,\n          \"longitude\": 10.7522,\n          \"elevation\": 23\n        },\n        \"country\": \"NO\",\n        \"network\": \"synoptic\",\n        \"owner\": \"string\",\n        \"active\": true,\n        \"reporting_interval\": 10,\n        \"public\": true,\n        \"sensors\": [\n          {\n            \"id\": \"sen_4hT2\",\n            \"kind\": \"temperature\",\n            \"model\": \"Vaisala HMP155\",\n            \"height_m\": 2,\n            \"installed_on\": \"2024-05-02\",\n            \"last_calibrated_on\": \"2025-11-18\"\n          }\n        ]\n      },\n      \"distance_km\": 3.4\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/timezones/{timezone}",
+      "pattern": "^/timezones/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"Europe/Oslo\",\n  \"utc_offset\": \"+01:00\",\n  \"is_dst\": false,\n  \"next_transition\": \"2026-03-29T01:00:00Z\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/stations/{station_id}/observations/latest",
+      "pattern": "^/stations/[^/]+/observations/latest$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"obs_8812004\",\n  \"station\": {\n    \"id\": \"stn_01492\",\n    \"name\": \"Oslo – Blindern\"\n  },\n  \"observed_at\": \"2026-01-14T07:50:00Z\",\n  \"conditions\": {\n    \"temperature\": -3,\n    \"feels_like\": -7,\n    \"dew_point\": -5.1,\n    \"humidity\": 86,\n    \"pressure\": 1012.4,\n    \"wind\": {\n      \"speed\": 4.1,\n      \"gust\": 7.6,\n      \"direction\": 20\n    },\n    \"visibility\": 10,\n    \"cloud_cover\": 90,\n    \"uv_index\": 0.4,\n    \"condition\": {\n      \"code\": 71,\n      \"label\": \"snow_light\",\n      \"text\": \"Light snow\"\n    }\n  },\n  \"quality\": \"checked\",\n  \"raw_metar\": \"ENGM 140750Z 02008KT 6000 -SN BKN012 M03/M05 Q1012\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/stations/{station_id}/observations",
+      "pattern": "^/stations/[^/]+/observations$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"id\": \"obs_8812004\",\n      \"station\": {\n        \"id\": \"stn_01492\",\n        \"name\": \"Oslo – Blindern\"\n      },\n      \"observed_at\": \"2026-01-14T07:50:00Z\",\n      \"conditions\": {\n        \"temperature\": -3,\n        \"feels_like\": -7,\n        \"dew_point\": -5.1,\n        \"humidity\": 86,\n        \"pressure\": 1012.4,\n        \"wind\": {\n          \"speed\": 4.1,\n          \"gust\": 7.6,\n          \"direction\": 20\n        },\n        \"visibility\": 10,\n        \"cloud_cover\": 90,\n        \"uv_index\": 0.4,\n        \"condition\": {\n          \"code\": 71,\n          \"label\": \"snow_light\",\n          \"text\": \"Light snow\"\n        }\n      },\n      \"quality\": \"checked\",\n      \"raw_metar\": \"ENGM 140750Z 02008KT 6000 -SN BKN012 M03/M05 Q1012\"\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/observations/{observation_id}",
+      "pattern": "^/observations/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"obs_8812004\",\n  \"station\": {\n    \"id\": \"stn_01492\",\n    \"name\": \"Oslo – Blindern\"\n  },\n  \"observed_at\": \"2026-01-14T07:50:00Z\",\n  \"conditions\": {\n    \"temperature\": -3,\n    \"feels_like\": -7,\n    \"dew_point\": -5.1,\n    \"humidity\": 86,\n    \"pressure\": 1012.4,\n    \"wind\": {\n      \"speed\": 4.1,\n      \"gust\": 7.6,\n      \"direction\": 20\n    },\n    \"visibility\": 10,\n    \"cloud_cover\": 90,\n    \"uv_index\": 0.4,\n    \"condition\": {\n      \"code\": 71,\n      \"label\": \"snow_light\",\n      \"text\": \"Light snow\"\n    }\n  },\n  \"quality\": \"checked\",\n  \"raw_metar\": \"ENGM 140750Z 02008KT 6000 -SN BKN012 M03/M05 Q1012\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/observations/metar/{icao}",
+      "pattern": "^/observations/metar/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "text/plain",
+      "body": "ENGM 140750Z 02008KT 6000 -SN BKN012 M03/M05 Q1012"
+    },
+    {
+      "method": "GET",
+      "path": "/stations/{station_id}",
+      "pattern": "^/stations/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"stn_01492\",\n  \"wmo_id\": \"01492\",\n  \"icao\": \"string\",\n  \"name\": \"Oslo – Blindern\",\n  \"coordinates\": {\n    \"latitude\": 59.9139,\n    \"longitude\": 10.7522,\n    \"elevation\": 23\n  },\n  \"country\": \"NO\",\n  \"network\": \"synoptic\",\n  \"owner\": \"string\",\n  \"active\": true,\n  \"reporting_interval\": 10,\n  \"public\": true,\n  \"sensors\": [\n    {\n      \"id\": \"sen_4hT2\",\n      \"kind\": \"temperature\",\n      \"model\": \"Vaisala HMP155\",\n      \"height_m\": 2,\n      \"installed_on\": \"2024-05-02\",\n      \"last_calibrated_on\": \"2025-11-18\"\n    }\n  ]\n}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/stations/{station_id}",
+      "pattern": "^/stations/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 204
+    },
+    {
+      "method": "PATCH",
+      "path": "/stations/{station_id}",
+      "pattern": "^/stations/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"stn_01492\",\n  \"wmo_id\": \"01492\",\n  \"icao\": \"string\",\n  \"name\": \"Oslo – Blindern\",\n  \"coordinates\": {\n    \"latitude\": 59.9139,\n    \"longitude\": 10.7522,\n    \"elevation\": 23\n  },\n  \"country\": \"NO\",\n  \"network\": \"synoptic\",\n  \"owner\": \"string\",\n  \"active\": true,\n  \"reporting_interval\": 10,\n  \"public\": true,\n  \"sensors\": [\n    {\n      \"id\": \"sen_4hT2\",\n      \"kind\": \"temperature\",\n      \"model\": \"Vaisala HMP155\",\n      \"height_m\": 2,\n      \"installed_on\": \"2024-05-02\",\n      \"last_calibrated_on\": \"2025-11-18\"\n    }\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/stations/{station_id}/readings",
+      "pattern": "^/stations/[^/]+/readings$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"observed_at\": \"2026-01-14T07:55:00Z\",\n      \"temperature\": -2.6,\n      \"humidity\": 84,\n      \"pressure\": 1009.8,\n      \"wind_speed\": 3.9,\n      \"wind_direction\": 15,\n      \"precipitation\": 0.2\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "POST",
+      "path": "/stations/{station_id}/readings",
+      "pattern": "^/stations/[^/]+/readings$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 202,
+      "mediaType": "application/json",
+      "body": "{\n  \"accepted\": 288,\n  \"rejected\": [\n    {\n      \"index\": 17,\n      \"reason\": \"observed_at is in the future\"\n    }\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/stations/{station_id}/sensors",
+      "pattern": "^/stations/[^/]+/sensors$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"id\": \"sen_4hT2\",\n    \"kind\": \"temperature\",\n    \"model\": \"Vaisala HMP155\",\n    \"height_m\": 2,\n    \"installed_on\": \"2024-05-02\",\n    \"last_calibrated_on\": \"2025-11-18\"\n  }\n]"
+    },
+    {
+      "method": "POST",
+      "path": "/stations/{station_id}/sensors",
+      "pattern": "^/stations/[^/]+/sensors$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 201,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"sen_4hT2\",\n  \"kind\": \"temperature\",\n  \"model\": \"Vaisala HMP155\",\n  \"height_m\": 2,\n  \"installed_on\": \"2024-05-02\",\n  \"last_calibrated_on\": \"2025-11-18\"\n}"
+    },
+    {
+      "method": "POST",
+      "path": "/stations/{station_id}/sensors/{sensor_id}/calibrations",
+      "pattern": "^/stations/[^/]+/sensors/[^/]+/calibrations$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 201,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"sen_4hT2\",\n  \"kind\": \"temperature\",\n  \"model\": \"Vaisala HMP155\",\n  \"height_m\": 2,\n  \"installed_on\": \"2024-05-02\",\n  \"last_calibrated_on\": \"2025-11-18\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/stations/{station_id}/maintenance",
+      "pattern": "^/stations/[^/]+/maintenance$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "[\n  {\n    \"id\": \"mnt_92kd\",\n    \"starts_at\": \"2026-02-02T09:00:00Z\",\n    \"ends_at\": \"2026-02-02T12:00:00Z\",\n    \"reason\": \"Replacing the rain gauge.\"\n  }\n]"
+    },
+    {
+      "method": "POST",
+      "path": "/stations/{station_id}/maintenance",
+      "pattern": "^/stations/[^/]+/maintenance$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 201,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"mnt_92kd\",\n  \"starts_at\": \"2026-02-02T09:00:00Z\",\n  \"ends_at\": \"2026-02-02T12:00:00Z\",\n  \"reason\": \"Replacing the rain gauge.\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/stations/{station_id}/health",
+      "pattern": "^/stations/[^/]+/health$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"completeness\": 0.982,\n  \"last_report_at\": \"2026-01-14T07:55:00Z\",\n  \"suspect_readings\": 3,\n  \"issues\": [\n    \"clock_drift\"\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/alerts/{alert_id}",
+      "pattern": "^/alerts/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"event\": \"winter_storm\",\n  \"id\": \"alt_20260114_0042\",\n  \"status\": \"actual\",\n  \"severity\": \"severe\",\n  \"urgency\": \"expected\",\n  \"certainty\": \"likely\",\n  \"headline\": \"Heavy snow warning for Oslo and Akershus\",\n  \"description\": \"15–25 cm of snow expected between 18:00 and 06:00, locally more on high ground.\",\n  \"instruction\": \"Allow extra time for travel. Public transport may be disrupted.\",\n  \"sender\": \"Norwegian Meteorological Institute\",\n  \"areas\": [\n    {\n      \"zone_id\": \"zone_no_03\",\n      \"name\": \"Oslo\",\n      \"geometry\": {\n        \"type\": \"Polygon\",\n        \"coordinates\": [\n          [\n            [\n              10.7\n            ]\n          ]\n        ]\n      }\n    }\n  ],\n  \"onset\": \"2026-01-14T17:00:00Z\",\n  \"expires\": \"2026-01-15T05:00:00Z\",\n  \"references\": [\n    \"alt_20260114_0031\"\n  ],\n  \"details\": {\n    \"snowfall_cm\": {\n      \"min\": 15,\n      \"max\": 25\n    },\n    \"ice_accretion_mm\": 0\n  }\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/alerts/zones/{zone_id}",
+      "pattern": "^/alerts/zones/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"zone_id\": \"zone_no_03\",\n  \"name\": \"Oslo\",\n  \"geometry\": {\n    \"type\": \"Polygon\",\n    \"coordinates\": [\n      [\n        [\n          10.7\n        ]\n      ]\n    ]\n  }\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/alerts/subscriptions/{subscription_id}",
+      "pattern": "^/alerts/subscriptions/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"sub_8Jd2\",\n  \"url\": \"https://example.com/hooks/weather\",\n  \"events\": [\n    \"alert.issued\"\n  ],\n  \"zones\": [\n    \"zone_no_03\"\n  ],\n  \"min_severity\": \"moderate\",\n  \"active\": true,\n  \"created_at\": \"2025-09-02T10:14:00Z\"\n}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/alerts/subscriptions/{subscription_id}",
+      "pattern": "^/alerts/subscriptions/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 204
+    },
+    {
+      "method": "PATCH",
+      "path": "/alerts/subscriptions/{subscription_id}",
+      "pattern": "^/alerts/subscriptions/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"sub_8Jd2\",\n  \"url\": \"https://example.com/hooks/weather\",\n  \"events\": [\n    \"alert.issued\"\n  ],\n  \"zones\": [\n    \"zone_no_03\"\n  ],\n  \"min_severity\": \"moderate\",\n  \"active\": true,\n  \"created_at\": \"2025-09-02T10:14:00Z\"\n}"
+    },
+    {
+      "method": "POST",
+      "path": "/alerts/subscriptions/{subscription_id}/test",
+      "pattern": "^/alerts/subscriptions/[^/]+/test$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 202,
+      "mediaType": "application/json",
+      "body": "{\n  \"delivery_id\": \"dlv_0aP3\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/alerts/subscriptions/{subscription_id}/deliveries",
+      "pattern": "^/alerts/subscriptions/[^/]+/deliveries$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"id\": \"dlv_0aP3\",\n      \"event_id\": \"evt_3Lw9pQ\",\n      \"status_code\": 200,\n      \"attempt\": 1,\n      \"delivered_at\": \"2026-01-14T09:02:12Z\",\n      \"duration_ms\": 184\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "POST",
+      "path": "/alerts/subscriptions/{subscription_id}/deliveries/{delivery_id}/retry",
+      "pattern": "^/alerts/subscriptions/[^/]+/deliveries/[^/]+/retry$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 202
+    },
+    {
+      "method": "GET",
+      "path": "/tiles/{layer}/{z}/{x}/{y}.png",
+      "pattern": "^/tiles/[^/]+/[^/]+/[^/]+/[^/]+\\.png$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "image/png",
+      "body": "string"
+    },
+    {
+      "method": "GET",
+      "path": "/tiles/{layer}/{z}/{x}/{y}@2x.png",
+      "pattern": "^/tiles/[^/]+/[^/]+/[^/]+/[^/]+@2x\\.png$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "image/png",
+      "body": "string"
+    },
+    {
+      "method": "GET",
+      "path": "/layers/{layer}/frames",
+      "pattern": "^/layers/[^/]+/frames$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"past\": [\n    \"2026-01-14T07:50:00Z\"\n  ],\n  \"forecast\": [\n    \"2026-01-14T08:10:00Z\"\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/exports/{export_id}",
+      "pattern": "^/exports/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"exp_5mQ1\",\n  \"status\": \"running\",\n  \"progress\": 0.42,\n  \"rows\": 1204330,\n  \"download_url\": \"https://exports.weather.example/exp_5mQ1.csv.gz?sig=…\",\n  \"error\": \"string\",\n  \"created_at\": \"2026-01-14T08:01:00Z\",\n  \"expires_at\": \"2026-01-15T08:20:00Z\"\n}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/exports/{export_id}",
+      "pattern": "^/exports/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"exp_5mQ1\",\n  \"status\": \"running\",\n  \"progress\": 0.42,\n  \"rows\": 1204330,\n  \"download_url\": \"https://exports.weather.example/exp_5mQ1.csv.gz?sig=…\",\n  \"error\": \"string\",\n  \"created_at\": \"2026-01-14T08:01:00Z\",\n  \"expires_at\": \"2026-01-15T08:20:00Z\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/exports/{export_id}/download",
+      "pattern": "^/exports/[^/]+/download$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 303,
+      "mediaType": "text/csv",
+      "body": "time,latitude,longitude,temperature\n2015-01-01T00:00:00Z,59.9139,10.7522,-4.2"
+    },
+    {
+      "method": "GET",
+      "path": "/marine/buoys/{buoy_id}/observations",
+      "pattern": "^/marine/buoys/[^/]+/observations$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"data\": [\n    {\n      \"observed_at\": \"2026-01-14T07:00:00Z\",\n      \"wave_height\": 2.1,\n      \"water_temperature\": 5.2\n    }\n  ],\n  \"next_cursor\": \"c_2xQm8uY0\",\n  \"has_more\": true\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/aviation/airports/{icao}/metar",
+      "pattern": "^/aviation/airports/[^/]+/metar$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"raw\": \"ENGM 140750Z 02008KT 6000 -SN BKN012 M03/M05 Q1012\",\n  \"observed_at\": \"2026-01-14T07:50:00Z\",\n  \"flight_category\": \"MVFR\",\n  \"ceiling_ft\": 1200,\n  \"visibility_m\": 6000,\n  \"wind\": {\n    \"speed\": 4.1,\n    \"gust\": 7.6,\n    \"direction\": 20\n  }\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/aviation/airports/{icao}/taf",
+      "pattern": "^/aviation/airports/[^/]+/taf$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"raw\": \"TAF ENGM 140500Z 1406/1512 02010KT 9999 BKN015 TEMPO 1406/1412 4000 -SN BKN008\",\n  \"issued_at\": \"2026-01-14T05:00:00Z\",\n  \"periods\": [\n    {\n      \"from\": \"2026-01-14T06:00:00Z\",\n      \"to\": \"2026-01-14T12:00:00Z\",\n      \"change\": \"tempo\",\n      \"flight_category\": \"IFR\"\n    }\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/tropical/storms/{storm_id}",
+      "pattern": "^/tropical/storms/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"al052025\",\n  \"name\": \"Erin\",\n  \"basin\": \"atlantic\",\n  \"classification\": \"hurricane\",\n  \"category\": 3,\n  \"max_wind\": 105,\n  \"min_pressure\": 958,\n  \"position\": {\n    \"latitude\": 59.9139,\n    \"longitude\": 10.7522,\n    \"elevation\": 23\n  },\n  \"movement\": {\n    \"direction\": 300,\n    \"speed\": 12\n  },\n  \"advisory_at\": \"2025-08-19T15:00:00Z\"\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/tropical/storms/{storm_id}/track",
+      "pattern": "^/tropical/storms/[^/]+/track$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"past\": [\n    {\n      \"time\": \"2025-08-18T12:00:00Z\",\n      \"position\": {\n        \"latitude\": 59.9139,\n        \"longitude\": 10.7522,\n        \"elevation\": 23\n      },\n      \"max_wind\": 95\n    }\n  ],\n  \"forecast\": [\n    {\n      \"time\": \"2025-08-20T12:00:00Z\",\n      \"position\": {\n        \"latitude\": 59.9139,\n        \"longitude\": 10.7522,\n        \"elevation\": 23\n      },\n      \"max_wind\": 110\n    }\n  ]\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/tropical/storms/{storm_id}/cone",
+      "pattern": "^/tropical/storms/[^/]+/cone$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/geo+json",
+      "body": "{\n  \"type\": \"Feature\",\n  \"geometry\": {}\n}"
+    },
+    {
+      "method": "GET",
+      "path": "/tropical/seasons/{year}",
+      "pattern": "^/tropical/seasons/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [
+        "basin"
+      ],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"named_storms\": 14,\n  \"hurricanes\": 6,\n  \"major_hurricanes\": 3,\n  \"ace\": 132.4\n}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/account/keys/{key_id}",
+      "pattern": "^/account/keys/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 204
+    },
+    {
+      "method": "POST",
+      "path": "/account/keys/{key_id}/rotate",
+      "pattern": "^/account/keys/[^/]+/rotate$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"key\": {\n    \"id\": \"key_9bR4\",\n    \"name\": \"Production\",\n    \"prefix\": \"wx_live_9bR4\",\n    \"scopes\": [\n      \"weather:read\"\n    ],\n    \"allowed_origins\": [\n      \"https://example.com\"\n    ],\n    \"created_at\": \"2025-03-11T12:00:00Z\",\n    \"last_used_at\": \"2026-01-14T07:59:41Z\",\n    \"expires_at\": \"2026-12-31T23:59:59Z\"\n  },\n  \"secret\": \"wx_live_9bR4Tq0sXk1mZp8vYw2c\"\n}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/account/members/{member_id}",
+      "pattern": "^/account/members/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 204
+    },
+    {
+      "method": "PATCH",
+      "path": "/account/members/{member_id}",
+      "pattern": "^/account/members/[^/]+$",
+      "templated": true,
+      "auth": true,
+      "requiredQuery": [],
+      "status": 200,
+      "mediaType": "application/json",
+      "body": "{\n  \"id\": \"usr_2Hc8\",\n  \"email\": \"ingrid@example.com\",\n  \"role\": \"developer\",\n  \"joined_at\": \"2025-04-02T08:30:00Z\"\n}"
+    }
+  ],
+  "errors": {
+    "400": {
+      "error": {
+        "type": "invalid_request",
+        "code": "parameter_out_of_range",
+        "message": "latitude must be between -90 and 90.",
+        "request_id": "req_7Kq2LmB3x9"
+      }
+    },
+    "401": {
+      "error": {
+        "type": "invalid_request",
+        "code": "parameter_out_of_range",
+        "message": "latitude must be between -90 and 90.",
+        "request_id": "req_7Kq2LmB3x9"
+      }
+    },
+    "404": {
+      "error": {
+        "type": "invalid_request",
+        "code": "parameter_out_of_range",
+        "message": "latitude must be between -90 and 90.",
+        "request_id": "req_7Kq2LmB3x9"
+      }
+    },
+    "405": {
+      "error": {}
+    },
+    "429": {
+      "error": {
+        "type": "invalid_request",
+        "code": "parameter_out_of_range",
+        "message": "latitude must be between -90 and 90.",
+        "request_id": "req_7Kq2LmB3x9"
+      }
+    }
+  }
+}

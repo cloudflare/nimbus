@@ -18,6 +18,7 @@
  *   })),
  */
 
+import { apiKey } from "./_internal/try-it/protocol.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -751,6 +752,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
         resolveApiFamily,
         resolveSpecSource,
         stageApiModelNavList,
+        stageApiTryItPlans,
         targetUrlFields,
       } = await loadApiLoader();
 
@@ -795,7 +797,10 @@ export function apiCollection(options?: ApiCollectionOptions): {
         extensions,
         routes,
         sidebar,
+        ...(entry?.tryIt !== undefined ? { tryIt: entry.tryIt } : {}),
       }, collectionMountPrefix(collection, getMountContext(context.config.root)));
+      // The proxy runs wherever the site serves on-request routes: with a server adapter.
+      const proxyRuns = Boolean(astroConfig.adapter);
 
       // M4: a non-default version id must not collide with a top-level page
       // slug of the default version (both would claim `/<collection>/<id>`).
@@ -828,8 +833,10 @@ export function apiCollection(options?: ApiCollectionOptions): {
               extensions,
               routes,
               sidebar,
+              ...(entry?.tryIt !== undefined ? { tryIt: entry.tryIt } : {}),
             },
             (message) => logger.warn(message),
+            { proxyRuns },
           );
           preparationNote = describeRebuilds(prepared.versions);
           const after = getApiAssetPreparationMetrics();
@@ -874,6 +881,18 @@ export function apiCollection(options?: ApiCollectionOptions): {
                 routes: target.routes,
                 samples: target.samples,
                 extensions: target.extensions,
+                ...(target.tryIt
+                  ? {
+                      tryIt: {
+                        family: collection,
+                        ...(target.version ? { version: target.version } : {}),
+                        proxy: target.tryIt.proxy !== false && proxyRuns,
+                        credentials: target.tryIt.credentials,
+                        servers: target.tryIt.servers,
+                        limits: target.tryIt.limits,
+                      },
+                    }
+                  : {}),
               },
               rootDir,
             );
@@ -901,6 +920,13 @@ export function apiCollection(options?: ApiCollectionOptions): {
               model,
               target.sidebar === "on-demand",
             );
+            {
+              const key = apiKey({ family: collection, ...(target.version ? { version: target.version } : {}) });
+              const proxy = target.tryIt && target.tryIt.proxy !== false && proxyRuns
+                ? { key, extraOrigins: target.tryIt.proxy.extraOrigins, limits: target.tryIt.limits }
+                : null;
+              await stageApiTryItPlans(rootDir, model, proxy, key, (message) => logger.warn(message));
+            }
           } catch (err) {
             // `ApiBuildError` already formats a pointed diagnostic list; fail
             // with it (plus which spec failed) as the author's error, no stack.

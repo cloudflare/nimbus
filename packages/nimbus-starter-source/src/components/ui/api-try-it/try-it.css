@@ -1,0 +1,1827 @@
+/*
+ * Try it. The rail keeps one button; everything else is a modal from the
+ * search dialog's family (a recessed shell around raised layers):
+ *   - the URL bar is the page's request-line card, with the environment and
+ *     Send in it;
+ *   - the inputs sit on a raised layer at the left;
+ *   - at the right, the page's code rail made live: the request as code on the
+ *     raised layer, the response recessed beneath it.
+ * Below md the modal is a full page and the panes stack.
+ */
+
+/* ---- Tokens and shell ---------------------------------------------------------- */
+.nb-tid {
+  --tid-hair: color-mix(in oklab, var(--nb-foreground) 10%, transparent);
+  --tid-line: color-mix(in oklab, var(--nb-foreground) 16%, transparent);
+  --tid-line-strong: color-mix(in oklab, var(--nb-foreground) 26%, transparent);
+  --tid-ink-soft: var(--color-muted-foreground);
+  --tid-ink-faint: color-mix(in oklab, var(--nb-muted-foreground) 70%, transparent);
+  --tid-mono: var(--nb-font-mono, ui-monospace, monospace);
+  --tid-ring: var(--color-ring, var(--color-info));
+  font-size: 0.8125rem;
+  color: var(--color-foreground);
+}
+.nb-tid :focus-visible {
+  outline: 2px solid var(--tid-ring);
+  outline-offset: 1px;
+}
+.nb-tid [hidden] {
+  display: none !important;
+}
+.nb-tid-frame {
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 1.5rem;
+  pointer-events: none;
+}
+.nb-tid-shell {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  width: min(76rem, 100%);
+  height: min(50rem, 100%);
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--nb-muted);
+  box-shadow:
+    0 0 0 1px var(--tid-hair),
+    0 24px 48px -16px color-mix(in oklab, black 30%, transparent);
+}
+
+/* ---- Opening and closing -------------------------------------------------------- */
+/* On a desktop the modal settles in from the Try it button (--nb-tid-from, set on
+   open) and falls back a touch faster. On a phone it's a full page: a solid sheet
+   that rises from the bottom and sinks back, never a page seen through another.
+   Closing is the panel's own ([data-closing], panel.ts), so it animates in every
+   browser. Reduced motion: both at once. */
+@media (prefers-reduced-motion: no-preference) {
+  .nb-tid[open]::backdrop {
+    transition: opacity 150ms ease-out;
+    @starting-style {
+      opacity: 0;
+    }
+  }
+  .nb-tid[data-closing]::backdrop {
+    opacity: 0;
+    transition: opacity 120ms ease-out;
+  }
+  .nb-tid-frame {
+    transform-origin: var(--nb-tid-from, 50% 50%);
+  }
+  .nb-tid[open] .nb-tid-frame {
+    transition: opacity 110ms ease-out, transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+    @starting-style {
+      opacity: 0;
+      transform: translateY(6px) scale(0.97);
+    }
+  }
+  .nb-tid[data-closing] .nb-tid-frame {
+    opacity: 0;
+    transform: scale(0.985);
+    transition: opacity 120ms ease-out, transform 120ms ease-out;
+  }
+}
+@media (prefers-reduced-motion: no-preference) and (max-width: 767px) {
+  .nb-tid[open] .nb-tid-frame {
+    transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+    @starting-style {
+      opacity: 1;
+      transform: translateY(100%);
+    }
+  }
+  .nb-tid[data-closing] .nb-tid-frame {
+    opacity: 1;
+    transform: translateY(100%);
+    transition: transform 240ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}
+/* While it goes, clicks reach nothing in it. */
+.nb-tid[data-closing] {
+  pointer-events: none;
+}
+/* The dialog itself never scrolls: focusing a control while the sheet is still
+   rising would scroll it into view, and the sheet would jump. Its panes scroll. */
+.nb-tid {
+  overflow: clip;
+}
+
+.nb-tid-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem 0.5rem 1rem;
+}
+.nb-tid-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.nb-tid-esc {
+  flex: none;
+  border: 1px solid var(--tid-hair);
+  border-radius: 5px;
+  padding: 0.125rem 0.375rem;
+  background: var(--nb-muted);
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--tid-ink-soft);
+  cursor: pointer;
+}
+.nb-tid-esc:hover {
+  color: var(--color-foreground);
+  background: var(--nb-card);
+}
+
+/* ---- URL bar: method · environment · path · copy · Send ------------------------ */
+.nb-tid-bar {
+  flex: none;
+  padding: 0 0.5rem 0.5rem;
+}
+.nb-tid-url {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: center;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--tid-mono);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  color: var(--color-foreground);
+}
+.nb-tid-url-server {
+  color: var(--tid-ink-soft);
+}
+.nb-tid-base {
+  appearance: none;
+  -webkit-appearance: none;
+  field-sizing: content;
+  max-width: 100%;
+  margin: 0 0.125rem 0 -0.25rem;
+  border: 0;
+  border-radius: 4px;
+  padding: 0 1rem 0 0.25rem;
+  background: transparent url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23888'%20stroke-width='2.5'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='m6%209%206%206%206-6'/%3E%3C/svg%3E") no-repeat right 0.125rem center / 10px;
+  font: inherit;
+  color: var(--tid-ink-soft);
+  cursor: pointer;
+}
+.nb-tid-base:hover {
+  color: var(--color-foreground);
+  background-color: var(--nb-muted);
+}
+.nb-tid-copy {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  border: 0;
+  border-inline-start: 1px solid var(--tid-hair);
+  background: transparent;
+  color: var(--tid-ink-soft);
+  cursor: pointer;
+}
+.nb-tid-copy:hover {
+  color: var(--color-foreground);
+  background: var(--nb-muted);
+}
+.nb-tid [data-done] [data-icon-copy] {
+  display: none;
+}
+.nb-tid [data-done] [data-icon-done] {
+  display: inline !important;
+}
+.nb-tid-send {
+  flex: none;
+  align-self: center;
+  height: 2rem;
+  margin: 0 0.3125rem 0 0.25rem;
+  border: 0;
+  border-radius: 7px;
+  padding: 0 1rem;
+  background: var(--color-foreground);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--nb-background);
+  cursor: pointer;
+}
+.nb-tid-send:hover {
+  opacity: 0.88;
+}
+.nb-tid-send:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.nb-tid-send.nb-tid-stop {
+  background: transparent;
+  color: var(--color-danger);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-danger) 45%, transparent);
+}
+
+/* ---- Panes --------------------------------------------------------------------- */
+.nb-tid-panes {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 0.5rem;
+  padding: 0 0.5rem 0.5rem;
+}
+.nb-tid-raised {
+  border-radius: 9px;
+  background: var(--nb-card);
+  box-shadow: 0 0 0 1px var(--tid-hair);
+}
+.nb-tid-inputs {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.nb-tid-blocked {
+  margin: 0;
+  padding: 0 1rem 1rem;
+  font-size: 0.75rem;
+  color: var(--color-danger);
+}
+
+/* ---- Inputs ---------------------------------------------------------------------- */
+/* Cards in the page's LayerCard language: a recessed head (title, badge, tools)
+   over a raised body. Authorization, URL, Parameters (one card, a group per
+   location), Body (takes the room left; its code scrolls inside, both ways). */
+.nb-tid {
+  --tid-field-ring: color-mix(in oklab, var(--nb-foreground) 10%, transparent);
+  --tid-field-ring-hover: color-mix(in oklab, var(--nb-foreground) 18%, transparent);
+  --tid-shadow-xs: 0 1px 2px color-mix(in oklab, black 5%, transparent);
+  --tid-focus: color-mix(in oklab, var(--tid-ring) 50%, transparent);
+  --tid-sans: var(--nb-font-sans, system-ui, sans-serif);
+}
+.nb-tid-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+/* Format in the Fields view: unseen, out of the tab order, its room kept. */
+.nb-tid-format[data-idle] {
+  visibility: hidden;
+}
+.nb-tid-card {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: var(--radius-lg, 0.5rem);
+  background: var(--nb-muted);
+  box-shadow: 0 0 0 1px var(--nb-border);
+}
+.nb-tid-cardhead {
+  flex: none; /* a tall card body never squeezes it */
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem 0.5rem 1rem;
+  box-sizing: border-box;
+}
+.nb-tid-cardtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.nb-tid-cardtools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.nb-tid-cardbody {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: var(--radius-lg, 0.5rem);
+  background: var(--nb-card);
+  box-shadow: 0 0 0 1px var(--nb-border);
+}
+.nb-tid-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 1.25rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--nb-foreground) 9%, transparent);
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.nb-tid-badge-outline {
+  flex: 0 1 auto;
+  display: block;
+  min-width: 0;
+  height: 1.375rem;
+  line-height: 1.375rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--nb-card);
+  box-shadow: inset 0 0 0 1px var(--nb-border);
+}
+
+/* Rows: a label line (name · type), the control, a description, an error. */
+.nb-tid-rows {
+  display: flex;
+  flex-direction: column;
+}
+.nb-tid-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 1rem 1rem 0;
+}
+.nb-tid-row:last-child {
+  padding-bottom: 1rem;
+}
+.nb-tid-line {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.nb-tid-line > .nb-tid-name {
+  flex: 1 1 auto;
+}
+.nb-tid-name {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+  font-family: var(--tid-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.nb-tid-name.nb-tid-plain {
+  font-family: var(--tid-sans);
+  font-size: 0.875rem;
+}
+.nb-tid-reqmark {
+  margin-left: 0.125rem;
+  color: var(--color-danger);
+}
+.nb-tid-type {
+  flex: none;
+  margin-left: auto;
+  font-family: var(--tid-sans);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--tid-ink-faint);
+}
+.nb-tid-desc {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--tid-ink-soft);
+}
+.nb-tid-fielderr {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-danger);
+}
+.nb-tid-fielderr:empty {
+  display: none;
+}
+.nb-tid-note {
+  margin: 0;
+  padding: 1rem 1rem 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--tid-ink-soft);
+}
+.nb-tid-note:last-child {
+  padding-bottom: 1rem;
+}
+.nb-tid-note-warn {
+  color: var(--color-danger);
+}
+
+/* Fields: 36px, the card's surface, a fine ring; a soft ring on focus. */
+.nb-tid-input {
+  min-width: 0;
+  width: 100%;
+  height: 2.25rem;
+  box-sizing: border-box;
+  margin: 0;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 0.75rem;
+  background-color: var(--nb-card);
+  box-shadow: 0 0 0 1px var(--tid-field-ring);
+  font-family: var(--tid-sans);
+  font-size: 0.875rem;
+  color: var(--color-foreground);
+  text-overflow: ellipsis;
+  transition: box-shadow 120ms ease-out;
+}
+:root[data-mode="dark"] .nb-tid-input {
+  background-color: color-mix(in oklab, var(--nb-card) 92%, white);
+}
+.nb-tid-input:hover {
+  box-shadow: 0 0 0 1px var(--tid-field-ring-hover);
+}
+.nb-tid-input::placeholder {
+  color: var(--tid-ink-faint);
+}
+.nb-tid .nb-tid-input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1.5px var(--tid-focus);
+}
+.nb-tid-input[aria-invalid="true"] {
+  box-shadow: 0 0 0 1px var(--color-danger);
+}
+.nb-tid .nb-tid-input[aria-invalid="true"]:focus-visible {
+  box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--color-danger) 55%, transparent);
+}
+.nb-tid-select {
+  appearance: none;
+  padding-right: 2rem;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px var(--tid-field-ring), var(--tid-shadow-xs);
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23888'%20stroke-width='2.5'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='m6%209%206%206%206-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 10px;
+}
+.nb-tid-keyfield {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+.nb-tid-keyfield > .nb-tid-input {
+  padding-right: 2.5rem;
+}
+.nb-tid-cardbody .nb-tid-keyfield > .nb-tid-reveal {
+  position: absolute;
+  top: 50%;
+  right: 0.375rem;
+  translate: 0 -50%;
+}
+.nb-tid-reveal[aria-pressed="true"] {
+  color: var(--color-foreground);
+}
+.nb-tid-rm {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: -0.25rem -0.25rem -0.25rem 0;
+}
+/* Small icon buttons keep a 24px-plus touch target around the glyph. */
+.nb-tid-cardbody .nb-tid-iconbtn {
+  position: relative;
+}
+.nb-tid-cardbody .nb-tid-iconbtn::before {
+  content: "";
+  position: absolute;
+  inset: -0.25rem;
+}
+.nb-tid-cardbody .nb-tid-iconbtn:hover {
+  background: color-mix(in oklab, var(--nb-foreground) 7%, transparent);
+}
+
+/* Buttons: small secondary (Format, Add item, the optional chips). */
+.nb-tid-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.625rem;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 0.5rem;
+  background: var(--nb-card);
+  box-shadow: 0 0 0 1px var(--tid-field-ring), var(--tid-shadow-xs);
+  font-family: var(--tid-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-foreground);
+  cursor: pointer;
+}
+.nb-tid-btn:hover {
+  background: color-mix(in oklab, var(--nb-foreground) 4%, var(--nb-card));
+}
+.nb-tid-btn[hidden] {
+  display: none;
+}
+.nb-tid-chip {
+  max-width: 100%;
+  font-family: var(--tid-mono);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.nb-tid-cardtools .nb-tid-example {
+  width: auto;
+  max-width: 12rem;
+  height: 1.625rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  padding-left: 0.5rem;
+}
+
+/* Checkbox and radio: 16px, filled with ink when on. Real inputs underneath. */
+.nb-tid-check,
+.nb-tid-radio {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-foreground);
+  cursor: pointer;
+  user-select: none;
+}
+.nb-tid-check input,
+.nb-tid-radio input {
+  position: absolute;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.nb-tid-box,
+.nb-tid-dot {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
+  background: var(--nb-card);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--nb-foreground) 14%, transparent);
+  transition: background-color 100ms ease-out, box-shadow 100ms ease-out;
+}
+.nb-tid-box {
+  border-radius: 4px;
+}
+.nb-tid-dot {
+  border-radius: 999px;
+}
+.nb-tid-check:hover .nb-tid-box,
+.nb-tid-radio:hover .nb-tid-dot {
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--nb-foreground) 28%, transparent);
+}
+.nb-tid-check input:checked + .nb-tid-box,
+.nb-tid-radio input:checked + .nb-tid-dot {
+  background: var(--color-foreground);
+  box-shadow: 0 0 0 1px var(--color-foreground);
+}
+.nb-tid-check input:checked + .nb-tid-box::after {
+  content: "";
+  width: 0.75rem;
+  height: 0.75rem;
+  background: var(--nb-card);
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='3'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M20%206%209%2017l-5-5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.nb-tid-radio input:checked + .nb-tid-dot::after {
+  content: "";
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: var(--nb-card);
+}
+.nb-tid .nb-tid-check input:focus-visible + .nb-tid-box,
+.nb-tid .nb-tid-radio input:focus-visible + .nb-tid-dot {
+  outline: 2px solid var(--tid-ring);
+  outline-offset: 2px;
+}
+.nb-tid-cardtools .nb-tid-check {
+  font-size: 0.8125rem;
+  color: var(--tid-ink-soft);
+  white-space: nowrap;
+}
+.nb-tid-checks,
+.nb-tid-radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem 1.25rem;
+}
+.nb-tid-radios {
+  padding: 0.25rem 0;
+}
+.nb-tid-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+/* Add item sits under the list's last item, not against it. */
+.nb-tid-list:not(:empty) + .nb-tid-listadd {
+  margin-top: 0.5rem;
+}
+.nb-tid-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+/* An item's ✕ lines up with its property's ✕ above. */
+.nb-tid-item > .nb-tid-iconbtn {
+  margin-right: -0.25rem;
+}
+
+/* Parameters: a group per location, its optional ones a chip away. */
+.nb-tid-section + .nb-tid-section {
+  border-top: 1px solid var(--tid-hair);
+}
+.nb-tid-sectiontitle {
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 1rem 1rem 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--tid-ink-soft);
+}
+.nb-tid-sectiontitle span {
+  font-weight: 400;
+  color: var(--tid-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+.nb-tid-section .nb-tid-row:last-child {
+  padding-bottom: 0;
+}
+.nb-tid-optional {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.75rem 1rem 0;
+}
+.nb-tid-optional[hidden] {
+  display: none;
+}
+.nb-tid-optional-label {
+  margin-right: 0.25rem;
+  font-size: 0.6875rem;
+  color: var(--tid-ink-faint);
+}
+.nb-tid-section > :last-child,
+.nb-tid-section > .nb-tid-rows:has(+ .nb-tid-optional[hidden]) {
+  padding-bottom: 1rem;
+}
+.nb-tid-section > .nb-tid-rows:empty {
+  display: none;
+}
+
+/* Body: the card is as tall as what it holds: the editor its lines (to a point,
+   then the code scrolls inside), the fields their rows. */
+.nb-tid-card.nb-tid-grow {
+  flex: none;
+}
+.nb-tid-grow > .nb-tid-cardbody {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* The editor's wrapper passes the card's room on, so the editor fills it. */
+.nb-tid-bodyslot {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.nb-tid-editorbox {
+  position: relative;
+  flex: none;
+  /* Its lines at the editor's 1.25rem, plus its 0.75rem padding top and bottom. */
+  height: clamp(6rem, calc(var(--nb-tid-lines, 8) * 1.25rem + 1.5rem), 24rem);
+}
+.nb-tid-editorbox[hidden] {
+  display: none;
+}
+.nb-tid-editorbox > .nb-tid-editorwrap {
+  position: absolute;
+  inset: 0;
+}
+.nb-tid-editorbox .nb-tid-editor {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  overflow: auto;
+}
+.nb-tid-editorbox:focus-within {
+  border-radius: var(--radius-lg, 0.5rem);
+  box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--tid-ring) 55%, transparent);
+}
+.nb-tid-editorbox:has([aria-invalid="true"]) {
+  border-radius: var(--radius-lg, 0.5rem);
+  box-shadow: inset 0 0 0 1px var(--color-danger);
+}
+.nb-tid-cardbody > .nb-tid-error {
+  margin: 0;
+  padding: 0.5rem 1rem 0.75rem;
+}
+
+/* No input: one quiet line and the shortcut. */
+.nb-tid-empty {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  text-align: center;
+}
+.nb-tid-empty p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--tid-ink-soft);
+}
+.nb-tid-empty .nb-tid-hints {
+  font-size: 0.75rem;
+  color: var(--tid-ink-faint);
+}
+@media (hover: none) and (pointer: coarse) {
+  .nb-tid-empty .nb-tid-hints {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nb-tid-input,
+  .nb-tid-box,
+  .nb-tid-dot {
+    transition: none;
+  }
+}
+
+.nb-tid-help {
+  margin: 0;
+  padding-left: 0.125rem;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--tid-ink-soft);
+}
+.nb-tid-error {
+  margin: 0.375rem 0 0;
+  font-size: 0.6875rem;
+  color: var(--color-danger);
+}
+.nb-tid-error:empty {
+  display: none;
+}
+.nb-tid-notice {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--color-foreground);
+}
+
+.nb-tid-secondary {
+  align-self: flex-start;
+  height: 1.75rem;
+  border: 1px solid var(--tid-line-strong);
+  border-radius: 6px;
+  padding: 0 0.625rem;
+  background: var(--nb-background);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-foreground);
+  cursor: pointer;
+}
+
+/* ---- The code rail, live ----------------------------------------------------------- */
+.nb-tid-rail {
+  min-height: 0;
+  display: flex;
+}
+.nb-tid-railcard {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--nb-muted);
+}
+.nb-tid-railhead {
+  gap: 0.5rem;
+  padding-left: 0.75rem;
+}
+.nb-tid-railtitle {
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+.nb-tid-railhead .nb-tid-railtitle {
+  flex: 1 1 auto;
+}
+.nb-tid-lang {
+  flex: none;
+  appearance: none;
+  -webkit-appearance: none;
+  height: 1.75rem;
+  border: 1px solid var(--tid-line);
+  border-radius: 6px;
+  padding: 0 1.5rem 0 0.5rem;
+  background: var(--nb-background) url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23888'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='m6%209%206%206%206-6'/%3E%3C/svg%3E") no-repeat right 0.375rem center / 12px;
+  font: inherit;
+  font-weight: 500;
+  color: var(--color-foreground);
+  cursor: pointer;
+}
+.nb-tid-iconbtn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--tid-ink-soft);
+  cursor: pointer;
+}
+.nb-tid-iconbtn:hover {
+  color: var(--color-foreground);
+  background: var(--nb-card);
+}
+.nb-tid-samplewrap {
+  flex: none;
+  max-height: 42%;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--nb-card);
+  box-shadow: 0 0 0 1px var(--tid-hair);
+}
+.nb-tid-sample {
+  margin: 0;
+  padding: 0.75rem 0.875rem;
+  font-family: var(--tid-mono);
+  font-size: 0.75rem;
+  line-height: 1.65;
+  white-space: pre;
+  color: var(--color-foreground);
+}
+
+/* The response: recessed under the request, as on the page. */
+.nb-tid-response {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.nb-tid-resphead {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.5rem 0.375rem 0.75rem;
+}
+.nb-tid-status {
+  font-family: var(--tid-mono);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.nb-tid-ok {
+  color: var(--color-success);
+}
+.nb-tid-info {
+  color: var(--color-info);
+}
+.nb-tid-err {
+  color: var(--color-danger);
+}
+.nb-tid-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--tid-ink-soft);
+}
+.nb-tid-stale {
+  flex: none;
+  border-radius: 999px;
+  padding: 0.0625rem 0.5rem;
+  background: var(--nb-card);
+  box-shadow: 0 0 0 1px var(--tid-hair);
+  font-size: 0.6875rem;
+  color: var(--tid-ink-soft);
+}
+.nb-tid-seg {
+  flex: none;
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 7px;
+  background: color-mix(in oklab, var(--nb-foreground) 6%, transparent);
+}
+.nb-tid-seg button {
+  border: 0;
+  border-radius: 5px;
+  padding: 0.1875rem 0.5rem;
+  background: transparent;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--tid-ink-soft);
+  cursor: pointer;
+}
+.nb-tid-seg button[aria-selected="true"] {
+  background: var(--nb-card);
+  color: var(--color-foreground);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--nb-foreground) 12%, transparent);
+}
+.nb-tid-respbody {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  padding: 0 0.75rem 0.75rem;
+}
+.nb-tid-response[data-state="sending"] .nb-tid-respbody {
+  opacity: 0.55;
+  transition: opacity 160ms;
+}
+.nb-tid-resppre {
+  margin: 0;
+  font-family: var(--tid-mono);
+  font-size: 0.75rem;
+  line-height: 1.65;
+  white-space: pre;
+  color: var(--color-foreground);
+}
+.nb-tid-respnote {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.nb-tid-empty {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 8rem;
+  font-size: 0.8125rem;
+  color: var(--tid-ink-soft);
+}
+.nb-tid-hints {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1875rem;
+  font-size: 0.75rem;
+  color: var(--tid-ink-faint);
+}
+.nb-tid-hints kbd {
+  min-width: 1.125rem;
+  border: 1px solid var(--tid-hair);
+  border-radius: 4px;
+  padding: 0 0.25rem;
+  background: var(--nb-card);
+  font-family: inherit;
+  font-size: 0.6875rem;
+  text-align: center;
+  color: var(--tid-ink-soft);
+}
+.nb-tid-headers {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.25rem 1rem;
+  margin: 0;
+  font-family: var(--tid-mono);
+  font-size: 0.75rem;
+}
+.nb-tid-headers dt {
+  color: var(--tid-ink-soft);
+}
+.nb-tid-headers dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---- Small screens: a full page; the panes stack ------------------------------------- */
+@media (max-width: 767px) {
+  /* Top, not centred: with the keyboard up the shell is only as tall as what's visible. */
+  .nb-tid-frame {
+    padding: 0;
+    align-items: flex-start;
+  }
+  .nb-tid-shell {
+    width: 100%;
+    height: var(--nb-tid-vh, 100dvh);
+    border-radius: 0;
+    box-shadow: none;
+    transform: translateY(var(--nb-tid-vtop, 0px));
+  }
+  .nb-tid-head {
+    padding-top: calc(0.625rem + env(safe-area-inset-top));
+  }
+  .nb-tid-panes {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  }
+  .nb-tid-inputs {
+    flex: none;
+    overflow: visible;
+  }
+  .nb-tid-rail {
+    flex: none;
+  }
+  .nb-tid-samplewrap {
+    max-height: 14rem;
+  }
+  .nb-tid-respbody {
+    overflow: visible;
+  }
+
+  .nb-tid-url {
+    padding: 0.375rem 0.5rem;
+  }
+  .nb-tid-send {
+    padding: 0 0.75rem;
+  }
+}
+
+/* A long URL scrolls inside the bar; it never pushes the panes out of the dialog. */
+.nb-tid-url {
+  max-height: 4.75em;
+  overflow-y: auto;
+}
+
+/* ---- Code everywhere in the dialog is the code rail's code ------------------------- */
+/* The request sample and the response body use the rail's markup and styles
+   (figure.nb-code-figure > pre.astro-code, line numbers from code-rail.css). */
+[data-nb-api-coderail] .nb-tid-samplewrap pre.astro-code,
+[data-nb-api-coderail] .nb-tid-respcode pre.astro-code {
+  width: max-content;
+  min-width: 100%;
+}
+.nb-tid-respbody:has(.nb-tid-respcode) {
+  padding: 0;
+}
+.nb-tid-respcode {
+  min-height: 0;
+}
+
+/* The JSON editor: a textarea laid exactly over highlighted code. The code
+   underneath draws the colours and line numbers; the textarea, transparent,
+   takes the typing. Both share the rail's metrics (13px / 20px, 0.75rem pad,
+   2.25rem of line numbers). */
+.nb-tid-editorwrap {
+  position: relative;
+  display: block;
+  overflow: hidden;
+}
+.nb-tid-under {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+/* The same tab width as the textarea over it, so a body keeps its tabs and still lines up. */
+.nb-tid-under pre,
+.nb-tid-under code {
+  tab-size: 2;
+}
+[data-nb-api-coderail] .nb-tid-under pre.astro-code {
+  width: max-content;
+  min-width: 100%;
+  min-height: 100%;
+}
+.nb-tid-editor {
+  position: relative;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  border: 0;
+  padding: 0.75rem 0.75rem 0.75rem 3rem;
+  background: transparent;
+  font-family: var(--nb-font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  letter-spacing: normal;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto hidden;
+  resize: none;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--color-foreground);
+}
+.nb-tid-editor::selection {
+  background: color-mix(in oklab, var(--color-info) 28%, transparent);
+}
+.nb-tid-editor:focus-visible {
+  outline: none;
+}
+
+/* ---- Phone-only parts, hidden on wide screens ------------------------------------- */
+.nb-tid-actionbar,
+.nb-tid-codetoggle,
+.nb-tid-envrow,
+.nb-tid-esc-x {
+  display: none;
+}
+.nb-tid-esc {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Phones: one calm column, Send at the bottom ------------------------------------
+   The desktop dialog's sizes: 14px typed text, 36px fields, 28–30px controls (iOS
+   focus zoom is stopped in panel.ts). The code folds away; the response appears
+   once there is one; the bottom bar holds Send and, after a send, the result you
+   can tap to jump to. */
+@media (max-width: 767px) {
+  .nb-tid-shell {
+    display: flex;
+    flex-direction: column;
+  }
+  .nb-tid-head {
+    padding: calc(0.5rem + env(safe-area-inset-top)) 0.5rem 0.5rem 1rem;
+  }
+  .nb-tid-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+  .nb-tid-esc {
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 0;
+    background: transparent;
+    color: var(--color-foreground);
+  }
+  .nb-tid-esc-key {
+    display: none;
+  }
+  .nb-tid-esc-x {
+    display: inline;
+  }
+
+  /* Request line: method and path only. */
+  .nb-tid-bar {
+    padding: 0 0.75rem 0.5rem;
+  }
+  .nb-tid-bar .nb-tid-send,
+  .nb-tid-bar .nb-tid-copy {
+    display: none;
+  }
+  .nb-tid-url {
+    max-height: none;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+    -webkit-line-clamp: 3;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .nb-tid-envrow:not([hidden]) {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.125rem 0;
+    font-size: 0.8125rem;
+    color: var(--tid-ink-soft);
+  }
+  .nb-tid-envrow .nb-tid-base {
+    min-height: 2.25rem;
+    color: var(--color-foreground);
+    font-family: var(--tid-mono);
+    padding-right: 1.25rem;
+  }
+
+  /* One scrolling column. */
+  .nb-tid-panes {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 0.75rem 1rem;
+  }
+  .nb-tid-raised,
+  .nb-tid-inputs {
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  /* Fields: the desktop dialog's sizes; the panel stops iOS zooming on focus (panel.ts). */
+  .nb-tid-input {
+    height: 2.25rem;
+  }
+  .nb-tid-form {
+    padding: 0.25rem 0 0;
+    gap: 0.75rem;
+  }
+  .nb-tid-help {
+    font-size: 0.8125rem;
+  }
+
+  /* Code folds away; the response shows once there is one. */
+  .nb-tid-rail {
+    flex: none;
+  }
+  .nb-tid-railcard {
+    background: var(--nb-muted);
+  }
+  .nb-tid-codetoggle {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.875rem;
+    border: 0;
+    background: transparent;
+    padding: 0 0.25rem;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-info);
+    cursor: pointer;
+  }
+  .nb-tid-railcard:not([data-code-open]) .nb-tid-lang,
+  .nb-tid-railcard:not([data-code-open]) [data-nb-tid-copysample],
+  .nb-tid-railcard:not([data-code-open]) .nb-tid-samplewrap {
+    display: none;
+  }
+  .nb-tid-samplewrap {
+    max-height: 18rem;
+  }
+  .nb-tid-response:not([data-has]) {
+    display: none;
+  }
+  .nb-tid-resphead {
+    flex-wrap: wrap;
+    row-gap: 0.25rem;
+  }
+  .nb-tid-respbody {
+    overflow: visible;
+  }
+
+  /* The bottom bar. */
+  .nb-tid-actionbar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem calc(0.625rem + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--tid-hair);
+    background: var(--nb-muted);
+  }
+  .nb-tid-barstatus {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 2.5rem;
+    border: 0;
+    border-radius: 9px;
+    padding: 0 0.75rem;
+    background: var(--nb-card);
+    box-shadow: 0 0 0 1px var(--tid-hair);
+    font-family: var(--tid-mono);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
+  .nb-tid-barstatus[hidden] {
+    display: none;
+  }
+  .nb-tid-send-bottom {
+    flex: 1 1 auto;
+    height: 2.5rem;
+    margin: 0;
+    border-radius: 9px;
+    font-size: 0.875rem;
+  }
+  .nb-tid-barstatus:not([hidden]) + .nb-tid-send-bottom {
+    flex: 0 0 auto;
+    padding: 0 1.25rem;
+  }
+}
+
+/* ---- Round: walkthrough critique ------------------------------------------------------- */
+
+/* Response header: a summary (what came back) and the controls (how to look at it). */
+.nb-tid-resphead {
+  justify-content: space-between;
+}
+.nb-tid-respsummary {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+.nb-tid-respcontrols {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.nb-tid-seg button[aria-pressed="true"] {
+  background: var(--nb-card);
+  color: var(--color-foreground);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--nb-foreground) 12%, transparent);
+}
+
+/* An auth failure: the note and the way back, above the API's own answer. */
+.nb-tid-authnote {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0.75rem 0.5rem;
+  border-radius: 8px;
+  padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+  background: color-mix(in oklab, var(--color-danger) 8%, var(--nb-card));
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-danger) 22%, transparent);
+}
+.nb-tid-authnote .nb-tid-notice {
+  font-size: 0.8125rem;
+}
+.nb-tid-authnote .nb-tid-secondary {
+  flex: none;
+  align-self: center;
+}
+
+/* A long sample fades at its foot while there's more below. */
+.nb-tid-samplewrap.nb-tid-more {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent);
+}
+
+/* Desktop: the form fills the inputs pane, so Body can take what's left. */
+@media (min-width: 768px) {
+  .nb-tid-inputs {
+    display: flex;
+    flex-direction: column;
+  }
+  .nb-tid-form {
+    flex: 1 0 auto;
+  }
+}
+
+/* Phones, round two. */
+@media (max-width: 767px) {
+  /* Request line: method and path, one line, scrolls sideways if long. */
+  .nb-tid-url {
+    display: block;
+    -webkit-line-clamp: unset;
+    max-height: none;
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  .nb-tid-url::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Environment: first thing in the form, quiet, interface font. */
+  .nb-tid-envrow:not([hidden]) {
+    padding: 0.25rem 0 1.25rem;
+  }
+  .nb-tid-envrow .nb-tid-envlabel {
+    flex: none;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .nb-tid-envrow .nb-tid-base {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 2.25rem;
+    margin: 0;
+    border: 1px solid var(--tid-line);
+    border-radius: 9px;
+    padding: 0 2rem 0 0.75rem;
+    background-color: var(--nb-background);
+    background-position: right 0.75rem center;
+    font-family: inherit;
+    font-size: 0.875rem;
+    color: var(--color-foreground);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    field-sizing: fixed;
+  }
+
+  /* Fields: names wrap rather than being cut; required stays visible, type goes. */
+
+  /* Controls at the desktop dialog's sizes, comfortably over the 24px target minimum. */
+
+  .nb-tid-secondary {
+    min-height: 1.875rem;
+  }
+  .nb-tid-seg button {
+    min-height: 1.75rem;
+    padding: 0 0.625rem;
+    font-size: 0.75rem;
+  }
+  .nb-tid-iconbtn {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  /* Code: one row, "Request code" then, open, its language and copy at the end. */
+  .nb-tid-railhead {
+    flex-wrap: nowrap;
+    padding: 0 0.25rem 0 0.5rem;
+  }
+  .nb-tid-railhead .nb-tid-lang {
+    min-height: 1.75rem;
+    height: 1.75rem;
+    line-height: 1;
+  }
+  .nb-tid-railhead .nb-tid-railtitle {
+    display: none;
+  }
+  .nb-tid-codetoggle {
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: space-between;
+    min-height: 1.875rem;
+    padding: 0 0.25rem;
+    color: var(--color-foreground);
+  }
+  .nb-tid-caret {
+    transition: transform 160ms;
+  }
+  .nb-tid-codetoggle > span {
+    white-space: nowrap;
+  }
+  .nb-tid-codetoggle[aria-expanded="true"] {
+    justify-content: flex-start;
+    gap: 0.25rem;
+  }
+  .nb-tid-codetoggle[aria-expanded="true"] .nb-tid-caret {
+    transform: rotate(180deg);
+  }
+  .nb-tid-samplewrap {
+    max-height: none;
+    overflow: visible;
+  }
+  [data-nb-api-coderail] .nb-tid-samplewrap pre.astro-code {
+    overflow-x: auto;
+    width: auto;
+  }
+  .nb-tid-samplewrap.nb-tid-more {
+    mask-image: none;
+  }
+
+  /* Response header: summary on one row, controls on the next. */
+  .nb-tid-resphead {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.375rem;
+    padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+  }
+  .nb-tid-respsummary {
+    flex-wrap: wrap;
+    row-gap: 0.125rem;
+  }
+  .nb-tid-respcontrols {
+    justify-content: space-between;
+  }
+  .nb-tid-authnote {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Bottom bar: the result, and what tapping it does. */
+  .nb-tid-barstatus:not([hidden]) {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .nb-tid-barcode {
+    flex: none;
+  }
+  .nb-tid-baraction {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: inherit;
+    font-weight: 500;
+    color: var(--tid-ink-soft);
+  }
+  .nb-tid-barcaret {
+    flex: none;
+    color: var(--tid-ink-soft);
+    transition: transform 160ms;
+  }
+  .nb-tid-barstatus[data-dir="up"] .nb-tid-barcaret {
+    transform: rotate(180deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nb-tid-caret,
+  .nb-tid-barcaret {
+    transition: none;
+  }
+}
+
+/* Heading line of the body: Body · media type · Format JSON. */
+
+.nb-tid-authnote .nb-tid-secondary {
+  align-self: flex-start;
+}
+.nb-tid-barstatus {
+  font-family: inherit;
+}
+.nb-tid-barcode {
+  font-family: var(--tid-mono);
+  font-weight: 600;
+}
+
+/* ---- Round: critique 2 ------------------------------------------------------------------ */
+
+/* Borders from the theme's own tokens (as LayerCard uses), so light and dark both keep
+   their layering. */
+.nb-tid {
+  --tid-hair: var(--nb-border);
+  --tid-line: var(--nb-border-strong, var(--nb-border));
+  --tid-line-strong: color-mix(in oklab, var(--nb-border-strong, var(--nb-border)) 70%, var(--nb-foreground));
+}
+
+@media (max-width: 767px) {
+  /* Response: "Response 401 Unauthorized" on one line; timing and size beneath. */
+  .nb-tid-respsummary {
+    flex-wrap: wrap;
+    column-gap: 0.5rem;
+  }
+  .nb-tid-respsummary .nb-tid-status {
+    white-space: nowrap;
+  }
+  .nb-tid-respsummary .nb-tid-meta {
+    flex: 1 0 100%;
+    order: 3;
+  }
+  .nb-tid-respsummary .nb-tid-stale {
+    order: 2;
+  }
+
+  /* The switch at the desktop dialog's size. */
+
+  .nb-tid-seg button {
+    min-height: 1.75rem;
+  }
+  .nb-tid-cardhead .nb-tid-seg button {
+    min-height: 1.75rem;
+  }
+  /* One row: the title and the switch keep their size; the media type (its badge or
+     its picker) gives way, truncated. The switch is last, so it stays put. */
+  .nb-tid-cardhead .nb-tid-cardtitle,
+  .nb-tid-cardtools > :not(.nb-tid-example) {
+    flex: none;
+  }
+  .nb-tid-cardtools {
+    flex: 1 1 0%; /* the rest of the row; its own items wrap inside it */
+    min-width: auto; /* never below its contents: the badge gives way first */
+  }
+  .nb-tid-cardtools:has(.nb-tid-example) {
+    min-width: 0; /* a picker gives way instead: it shrinks, the rest keep their size */
+  }
+  .nb-tid-cardtools .nb-tid-example {
+    flex: 1 1 5rem; /* starts small, so it fills the row before anything wraps */
+    min-width: 3rem;
+    text-overflow: ellipsis;
+  }
+  /* More tools than fit beside the title (Send a body, an example, Format): they
+     wrap onto further rows, at the right, the title staying on the first. */
+  .nb-tid-cardhead:has(.nb-tid-cardtools > :nth-child(4)) {
+    align-items: flex-start;
+  }
+  .nb-tid-cardtools {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 0.375rem;
+  }
+
+  .nb-tid-lang {
+    min-height: 1.875rem;
+    height: 1.875rem;
+  }
+
+  /* Body heading: "Body … Format JSON", media type beneath. */
+
+  /* One server: shown quietly, nothing to pick. */
+  .nb-tid-envtext {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--tid-mono);
+    font-size: 0.875rem;
+    color: var(--tid-ink-soft);
+  }
+}
+
+/* Format JSON: a small button, the dialog's secondary style (not a link). */
+
+/* ---- Send, beside the request line ------------------------------------------------ */
+.nb-tid-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+.nb-tid-bar > .nb-tid-barcard {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.nb-tid-send.nb-tid-send-top {
+  align-self: stretch;
+  height: auto;
+  min-height: 2.5rem;
+  margin: 0;
+  border-radius: var(--radius-lg, 0.5rem);
+  padding: 0 1.25rem;
+}
+
+/* ---- The response, before and as it arrives ---------------------------------------- */
+.nb-tid-respbody {
+  position: relative;
+  min-height: 8rem;
+}
+.nb-tid-response[data-state="sending"] .nb-tid-respbody {
+  opacity: 1;
+}
+/* Faint while waiting or not yet sent; rises once the answer is in. */
+.nb-tid-respbody > :not(.nb-tid-waitpill) {
+  transition: opacity 140ms ease-out, filter 140ms ease-out;
+}
+.nb-tid-respbody[data-phase] > :not(.nb-tid-waitpill) {
+  opacity: 0.16;
+  filter: saturate(0);
+  pointer-events: none;
+  user-select: none;
+}
+.nb-tid-respbody[data-phase="sending"] > :not(.nb-tid-waitpill) {
+  animation: nb-tid-breathe 1.8s ease-in-out infinite;
+}
+@keyframes nb-tid-breathe {
+  0%,
+  100% {
+    opacity: 0.14;
+  }
+  50% {
+    opacity: 0.24;
+  }
+}
+.nb-tid-waitpill {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.5rem 0.875rem;
+  background: var(--nb-card);
+  line-height: 1.25rem;
+  /* A hint, not a control. */
+  pointer-events: none;
+  user-select: none;
+  /* A crisp hairline, a contact shadow and a soft ambient one, all faint. */
+  box-shadow:
+    0 0 0 0.5px color-mix(in oklab, var(--nb-foreground) 14%, transparent),
+    0 1px 1px color-mix(in oklab, black 4%, transparent),
+    0 2px 4px -1px color-mix(in oklab, black 4%, transparent),
+    0 10px 20px -8px color-mix(in oklab, black 8%, transparent);
+  font-family: var(--nb-font-sans, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  color: var(--tid-ink-soft);
+  transform: translate(-50%, -50%);
+  transition: opacity 100ms ease, transform 100ms ease;
+}
+.nb-tid-respbody:not([data-phase]) .nb-tid-waitpill,
+.nb-tid-respbody[data-phase="pill-out"] .nb-tid-waitpill {
+  opacity: 0;
+  transform: translate(-50%, calc(-50% + 4px));
+  pointer-events: none;
+}
+.nb-tid-waitpill-idle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+.nb-tid-waitpill-time {
+  font-family: var(--tid-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-foreground);
+}
+.nb-tid-respbody[data-phase="idle"] .nb-tid-waitpill-time,
+.nb-tid-respbody:not([data-phase="idle"]) .nb-tid-waitpill-idle {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nb-tid-respbody > *,
+  .nb-tid-respbody[data-phase="sending"] > :not(.nb-tid-waitpill) {
+    transition: none;
+    animation: none;
+  }
+}
+/* Keycaps sized to the line, so the hint's padding reads even. */
+.nb-tid-waitpill kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.125rem;
+  line-height: 1;
+}
+/* Dark: shadows barely read, so a lit top edge and a firmer ring do the lifting. */
+:root[data-mode="dark"] .nb-tid-waitpill {
+  background: color-mix(in oklab, var(--nb-card) 92%, white);
+  box-shadow:
+    0 0 0 0.5px color-mix(in oklab, white 14%, transparent),
+    inset 0 0.5px 0 color-mix(in oklab, white 10%, transparent),
+    0 2px 4px -1px color-mix(in oklab, black 40%, transparent),
+    0 12px 24px -8px color-mix(in oklab, black 60%, transparent);
+}
+
+/* Phones: what's typed in is 14px, the dialog's desktop size. iOS would zoom in on
+   focus under 16px; the panel stops that while it's open (panel.ts), and pinch zoom
+   still works. The editor's highlighted copy matches. */
+@media (max-width: 767px) {
+  .nb-tid input:not([type="checkbox"]):not([type="radio"]),
+  .nb-tid select,
+  .nb-tid select.nb-tid-base,
+  .nb-tid textarea,
+  .nb-tid .nb-tid-under pre,
+  .nb-tid .nb-tid-under code {
+    font-size: 14px;
+  }
+  .nb-tid .nb-tid-row {
+    padding-top: 0.875rem;
+    gap: 0.375rem;
+  }
+  .nb-tid .nb-tid-btn {
+    height: 1.875rem;
+    min-height: 1.875rem;
+  }
+  .nb-tid .nb-tid-cardhead {
+    min-height: 0;
+    padding-block: 0.375rem;
+  }
+  .nb-tid .nb-tid-check {
+    font-size: 0.75rem;
+  }
+}
+
+/* The panel's highlighter: GitHub light and dark, as the build's Shiki output. */
+.nb-hl-key { --shiki-light: #005cc5; --shiki-dark: #79b8ff; }
+.nb-hl-str { --shiki-light: #032f62; --shiki-dark: #9ecbff; }
+.nb-hl-num { --shiki-light: #005cc5; --shiki-dark: #79b8ff; }
+.nb-hl-kw { --shiki-light: #d73a49; --shiki-dark: #f97583; }
+.nb-hl-fn { --shiki-light: #6f42c1; --shiki-dark: #b392f0; }
+.nb-hl-com { --shiki-light: #6a737d; --shiki-dark: #6a737d; }
+
+/* ---- Production additions: form foot, JSON and file fields ---------------------------- */
+.nb-tid-formfoot {
+  display: flex;
+  justify-content: flex-start;
+  padding: 0.25rem 0 0.5rem;
+}
+.nb-tid-jsonfield {
+  height: auto;
+  min-height: 4.5rem;
+  /* As tall as its JSON, up to a point; where unsupported, `rows` and the resize handle. */
+  field-sizing: content;
+  max-height: 16rem;
+  padding-block: 0.5rem;
+  font-family: var(--nb-font-mono, ui-monospace, monospace);
+  resize: vertical;
+}
+.nb-tid-file {
+  font: inherit;
+  font-size: 0.8125rem;
+}
+.nb-tid-fielderr.nb-tid-advice {
+  color: var(--color-muted-foreground);
+}

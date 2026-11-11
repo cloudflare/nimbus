@@ -358,6 +358,15 @@ export const MANIFESTS = {
     registryDependencies: ["api-sidebar", "layer-card", "cn"],
   },
 
+  "api-try-it": {
+    type: "registry:ui",
+    title: "ApiTryIt",
+    description:
+      "Try it for API operation pages: a full-width button in the code rail (in the method's colour) that opens a panel to send the request, straight from the browser or through the site's proxy, with live code samples and the response. Only the button is on the page; the panel and the request plan load on click. Needs `tryIt` on the API entry and the api-layout's `try-it` slot.",
+    registryDependencies: ["api-layout", "api-code-rail", "api-sidebar", "layer-card"],
+    docs: "Set it up with `nimbus-docs add try-it`, which wires every API route and turns on `tryIt`. See https://nimbus-docs.com/api-reference/try-it/",
+  },
+
   "api-layout": {
     type: "registry:ui",
     title: "ApiLayout",

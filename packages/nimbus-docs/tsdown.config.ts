@@ -33,6 +33,7 @@ export default defineConfig({
       "src/_internal/request-route-inventory.ts",
     "_internal/version-switch-route": "src/_internal/version-switch-route.ts",
     "_internal/mcp/route": "src/_internal/mcp/route.ts",
+    "_internal/try-it-route": "src/_internal/try-it-route.ts",
     "_internal/mcp/card-route": "src/_internal/mcp/card-route.ts",
     "_internal/git-last-updated": "src/_internal/git-last-updated.ts",
     "_internal/agent-endpoint-assets":

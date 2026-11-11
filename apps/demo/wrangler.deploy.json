@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "nimbus-demo-weather",
   "compatibility_date": "2026-10-09",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": ["nodejs_compat", "enable_request_signal"],
   "routes": [{ "pattern": "demo.nimbus-docs.com", "custom_domain": true }],
   "preview_urls": false,
   "main": "entry.mjs",

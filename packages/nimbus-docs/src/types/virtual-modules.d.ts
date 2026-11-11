@@ -188,3 +188,7 @@ declare module "virtual:nimbus/staged-asset-loader" {
   ): Promise<Response | null> | Response | null;
   export function readStagedAssetFile(path: string): Promise<string | null>;
 }
+
+declare module "virtual:nimbus/try-it-policy" {
+  export const table: import("../_internal/try-it/proxy.js").ProxyTable;
+}

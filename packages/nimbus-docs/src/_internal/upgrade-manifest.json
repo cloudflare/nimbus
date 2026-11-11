@@ -1383,6 +1383,24 @@
         "nimbus-docs check prints no nimbus/agent-route-shape finding.",
         "A page's /<page>/index.md answers 200 with Content-Type: text/markdown and an ETag; the same request with that tag in If-None-Match answers 304.",
         "After changing what body appends, a request with the previous tag answers 200 with the new text."
+        ]
+      },
+      {
+      "id": "api-try-it",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-try-it",
+      "summary": "Optionally let readers send requests from API pages: turn on tryIt for an API and install the api-try-it component, which puts a Try it button in the code rail between the request sample and the response example.",
+      "affected": "Sites with the api-layout registry component.",
+      "instructions": [
+        "No action is needed: API pages are unchanged until an API sets tryIt and its route renders the panel.",
+        "To add Try it, run nimbus-docs add try-it and follow the recipe it hands your coding agent: it sets tryIt on the APIs you choose and renders <ApiTryIt slot=\"try-it\" page={result.page} /> inside ApiLayout in each API route.",
+        "ApiLayout and ApiCodeRail take the panel through a try-it slot. If they are unmodified, update them with nimbus-docs add api-layout --overwrite and nimbus-docs add api-code-rail --overwrite.",
+        "If they are customized, merge by hand: ApiLayout adds page.tryIt with a try-it slot to the rail's condition (const hasTryIt = page.kind === \"operation\" && page.tryIt !== undefined && Astro.slots.has(\"try-it\")) and forwards it with <slot name=\"try-it\" slot=\"try-it\" /> inside <ApiCodeRail>; ApiCodeRail shows its card when Astro.slots.has(\"try-it\") and renders <slot name=\"try-it\" /> between the request sample and the response section."
+      ],
+      "verify": [
+        "An operation page shows a Try it button between the request sample and the response example.",
+        "Clicking it opens the panel with the sample's values filled in, and Send shows the API's response."
       ]
     }
   ]

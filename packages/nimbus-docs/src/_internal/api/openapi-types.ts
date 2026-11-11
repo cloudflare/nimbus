@@ -44,6 +44,13 @@ export interface OpenApiInfo {
 export interface OpenApiServer {
   url: string;
   description?: string;
+  variables?: Record<string, OpenApiServerVariable | undefined>;
+}
+
+export interface OpenApiServerVariable {
+  default?: string;
+  enum?: string[];
+  description?: string;
 }
 
 export interface OpenApiTag {
@@ -75,6 +82,7 @@ export type HttpMethod = (typeof HTTP_METHODS)[number];
 
 export type OpenApiPathItem = {
   parameters?: OpenApiParameter[];
+  servers?: OpenApiServer[];
 } & Partial<Record<HttpMethod, OpenApiOperation>>;
 
 export interface OpenApiOperation {
@@ -87,12 +95,15 @@ export interface OpenApiOperation {
   requestBody?: OpenApiRequestBody;
   responses?: Record<string, OpenApiResponse>;
   security?: OpenApiSecurityRequirement[];
+  servers?: OpenApiServer[];
   /** The `x-codeSamples` vendor extension; spec-authored samples win over derived. */
   "x-codeSamples"?: unknown;
   "x-code-samples"?: unknown;
   /** Nimbus's own: the operation's place among its section's operations. Lower
    *  comes first; operations without it follow, in the spec's order. */
   "x-nimbus-order"?: number;
+  /** Nimbus's own: `false` leaves the operation out of Try it. */
+  "x-nimbus-try-it"?: boolean;
 }
 
 export interface OpenApiParameter {
@@ -104,6 +115,11 @@ export interface OpenApiParameter {
   schema?: OpenApiSchema;
   example?: unknown;
   examples?: Record<string, { value?: unknown; externalValue?: string } | undefined>;
+  style?: string;
+  explode?: boolean;
+  allowReserved?: boolean;
+  /** Instead of `schema`: the value's media type and schema (exactly one entry). */
+  content?: Record<string, OpenApiMediaType | undefined>;
 }
 
 export interface OpenApiRequestBody {
@@ -138,6 +154,7 @@ export interface OpenApiMediaType {
 
 export interface OpenApiEncoding {
   contentType?: string;
+  headers?: Record<string, OpenApiParameter | undefined>;
   style?: string;
   explode?: boolean;
   allowReserved?: boolean;
@@ -173,6 +190,7 @@ export interface OpenApiSchema {
   discriminator?: { propertyName: string; mapping?: Record<string, string> };
   minimum?: number;
   maximum?: number;
+  uniqueItems?: boolean;
   minLength?: number;
   maxLength?: number;
   pattern?: string;

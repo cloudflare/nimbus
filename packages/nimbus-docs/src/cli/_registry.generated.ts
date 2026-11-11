@@ -260,6 +260,12 @@ export const BUNDLED_INDEX: BundledIndex = {
       "title": "ApiCodeRail",
       "description": "An operation's code rail: a `LayerCard` of server-provided code samples with a synced language switcher, headed by the method chip (`ApiMethodChip`) and operation title, plus a status toggle that swaps between response examples. Reads an `ApiOperationPage`."
     },
+    "api-try-it": {
+      "name": "api-try-it",
+      "type": "registry:ui",
+      "title": "ApiTryIt",
+      "description": "Try it for API operation pages: a full-width button in the code rail (in the method's colour) that opens a panel to send the request, straight from the browser or through the site's proxy, with live code samples and the response. Only the button is on the page; the panel and the request plan load on click. Needs `tryIt` on the API entry and the api-layout's `try-it` slot."
+    },
     "api-layout": {
       "name": "api-layout",
       "type": "registry:ui",
@@ -391,6 +397,12 @@ export const BUNDLED_INDEX: BundledIndex = {
       "type": "registry:feature",
       "title": "Pagefind search",
       "description": "Add static Pagefind indexing and the Nimbus search dialog to an existing docs site."
+    },
+    "try-it": {
+      "name": "try-it",
+      "type": "registry:feature",
+      "title": "Try it",
+      "description": "Let readers send requests from API reference pages: a Try it button in each operation's code rail opens a panel that sends the request, straight from the browser or through the site's own proxy, with live code samples and the response. Needs the OpenAPI reference (`api-reference`)."
     },
     "git": {
       "name": "git",

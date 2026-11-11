@@ -1,0 +1,159 @@
+---
+title: Try it
+description: Let readers send requests from API reference pages and see the response.
+aiGenerated: true
+sidebar:
+  order: 4
+---
+
+Try it puts a button in each operation's code rail, between the request sample and the response example. It opens a panel with the request as the sample sends it. The reader adds their key, sends, and sees the status, timing, headers and body.
+
+The page carries only the button. The panel and the operation's request plan load on the first click, so pages stay as light as before.
+
+## Turn it on
+
+Ask your coding agent to run the recipe:
+
+```sh
+npx @cloudflare/nimbus-docs add try-it
+```
+
+It installs the `api-try-it` component, adds it to each API route, sets `tryIt` on the APIs you choose, and asks one question per API: does it answer browser (CORS) requests from your docs?
+
+By hand, set `tryIt` on the `api` entry:
+
+```ts title="astro.config.ts"
+api: [
+  {
+    collection: "api",
+    spec: "./src/api/openapi.yaml",
+    tryIt: true,
+  },
+],
+```
+
+Then render the panel inside `ApiLayout` in the API route:
+
+```astro title="src/pages/api/[...slug].astro"
+---
+import { ApiTryIt } from "@/components/ui/api-try-it";
+---
+<ApiLayout {...props}>
+  {page.kind === "operation" && <ApiTryIt slot="try-it" page={page} />}
+</ApiLayout>
+```
+
+Without `tryIt`, pages are unchanged. Operations marked `x-nimbus-try-it: false`, and webhooks, get no button.
+
+## How requests travel
+
+Requests go one of two ways:
+
+- **Via this docs site**: through a proxy route Nimbus adds at `/_nimbus/try`. It works whether or not the API allows browser calls. Requests go this way wherever the proxy runs.
+- **Direct from the browser**: the browser sends the request itself. The API must answer CORS requests from your docs origin, or the browser blocks the response. Requests go this way on a static site, and for APIs with `proxy: false`.
+
+The panel says which, in the Authorization card, before anyone enters a key.
+
+The proxy runs on every adapter that serves on-request routes: Cloudflare, Node, Netlify and Vercel. A static site has no proxy. Setting `proxy: true` explicitly on a static site fails the build.
+
+Nothing switches on its own. If a direct request fails at the network level and the proxy runs, the panel offers "Send via this site" and says the first request may already have reached the API.
+
+### Which to use
+
+If your API answers CORS requests from your docs, set `proxy: false`. Readers' keys then never pass through your site.
+
+Direct has limits the proxy doesn't. The browser hides where a redirect points, and it can't send cookie parameters or cookie API keys. Operations that need them are sent via this site only.
+
+## What the proxy does
+
+The proxy relays the request the browser built. It sends it only to the API's own servers: the servers the spec declares (operation, path and document level, with each server variable's declared values) and any `extraOrigins` you list. Readers can't add destinations.
+
+Local and private addresses are left out of that list, with a build warning. That covers `localhost`, single-label names such as `http://api:3000`, `.local` and `.internal` names, and loopback, private and link-local IPs. A spec's dev server is often one of them. To relay one anyway, for example in a staging build, list it in `extraOrigins`.
+
+Relative servers, including the default `/`, are your docs site's own origin. The browser sends those requests itself, never through the proxy.
+
+> Anyone who can reach the route can send requests to any path on an allowed origin, within the checks below. That includes every hostname a wildcard in `extraOrigins` matches. Nimbus reads addresses as written and doesn't look up DNS: a public hostname that resolves to an internal address is still relayed. List only destinations you trust, or set `proxy: false`.
+
+Its fixed checks:
+
+| Check | What it means |
+| --- | --- |
+| `POST` with a `Nimbus-Try: 1` header only | Another site's page can't call it without a preflight, and the route never answers one. |
+| Same origin | An `Origin` or `Sec-Fetch-Site` from another site is refused. Non-browser callers can still reach it. |
+| Allowed origins | The target's scheme, host and port must match a spec server or an `extraOrigins` entry. Local and private addresses match only through `extraOrigins`. |
+| No ambient headers | The docs request's cookies, `Authorization`, `cf-*` and `x-forwarded-*` headers are never forwarded. Only the request's own headers go. |
+| No connection headers | `Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Upgrade`, `TE`, `Expect` and `Proxy-*` are refused. |
+| Redirects | Never followed. The panel shows `Location` instead. |
+| Inert answers | The response comes back as a download-only byte stream, with `set-cookie` removed. The panel shows it as text. |
+| 16 at once | At most 16 requests in flight per instance; past that, the reader is asked to wait. |
+
+Nothing is logged: no requests, values or bodies.
+
+### Rate limits
+
+Nimbus doesn't rate-limit readers. Add a deployment-wide rule for `/_nimbus/try` in your platform's WAF or rate-limiting settings, or your reverse proxy. The 16-request cap is per instance, not per reader.
+
+### Host limits
+
+Your host's own limits apply before Nimbus sees a request, and Nimbus's settings can't raise them. Vercel caps request bodies at 4.5 MB. Netlify caps binary bodies at about 4.5 MB, functions at 60 seconds and streamed responses at 20 MB.
+
+On Cloudflare, Stop and closing the panel cancel the API request only when Workers pass the route the request's abort signal. Add `enable_request_signal` to `compatibility_flags` in `wrangler.jsonc`, or use a compatibility date of 2026-11-17 or later. The build warns until then.
+
+## What is sent and stored
+
+Before anything is entered, the panel says where the key goes: through your site to the API, or from the browser to the API.
+
+- Keys stay in memory, per API and per server. Changing server empties the key field.
+- "Remember in this tab" keeps them in `sessionStorage`, only once the reader ticks it. Clear removes them.
+- Keys never appear in your docs' URLs or the console. Live code samples and copied code show placeholders instead.
+- An API key sent in the query string travels in the API's URL. The panel says so.
+- Form values are kept per operation for the tab, never keys or files.
+
+## Settings
+
+`tryIt: true` uses the defaults. An object loosens them, each by name:
+
+| Setting | Default | Loosened |
+| --- | --- | --- |
+| `servers` | `"spec"`: the spec's servers. | `"editable"`: the reader can enter another origin. Direct sends to any origin; the proxy only to an allowed one. The spec server's path always stays. |
+| `credentials` | `"omit"`: direct requests carry no browser cookies. | `"include"`: for an API on the docs' own site that uses a session cookie. Direct becomes the default delivery mode. The proxy never carries browser cookies. |
+| `limits.timeout` | 30 seconds for the whole exchange. | Up to your platform's limits. |
+| `limits.responseBytes` | 2,000,000. Longer bodies are cut and marked. | Up to your platform's limits. |
+| `limits.uploadBytes` | 4,000,000. Bigger bodies are refused before sending. | Up to your platform's limits. |
+| `proxy` | On wherever on-request routes run. | `false` turns it off. |
+| `proxy.extraOrigins` | None. | Origins beyond the spec's servers, such as an upload host. One leading wildcard label is allowed (`https://*.api.example.com` matches `eu.api.example.com`, never `api.example.com`). A bare `*` fails the build. |
+
+```ts title="astro.config.ts"
+tryIt: {
+  servers: "editable",
+  limits: { timeout: 60 },
+  proxy: { extraOrigins: ["https://*.uploads.example.com"] },
+},
+```
+
+The panel is your code. Its props:
+
+| Prop | Default | |
+| --- | --- | --- |
+| `remember` | `"tab"` | The most readers are offered: `"tab"`, `"device"` ("Remember on this device", `localStorage`) or `"none"`. |
+| `confirmWrites` | `false` | Ask before sending anything but `GET`, `HEAD` and `OPTIONS`. |
+| `server` | The spec's first | The server picked first, by index or by the start of its URL. |
+
+⌘↵ or Ctrl+↵ sends, as Send does. Enter in a field never sends. With `confirmWrites`, a write asks first, from the keyboard too.
+
+## What can be sent
+
+| Part | Supported | Refused, with the reason shown |
+| --- | --- | --- |
+| Methods | All but `TRACE` and `CONNECT` | `TRACE`, `CONNECT` |
+| Servers | `http` and `https`, after server variables. Relative servers resolve against your docs origin, and the browser sends to them directly. | Any other scheme |
+| Parameters | Path, query, header and cookie; every style OpenAPI defines (`matrix`, `label`, `simple`, `form`, `spaceDelimited`, `pipeDelimited`, `deepObject`) with `explode` and `allowReserved`; JSON `content` parameters | Combinations OpenAPI leaves undefined, such as `deepObject` without `explode`, and non-JSON `content` parameters |
+| Cookies | Cookie parameters and cookie API keys, via this site, as one `Cookie` header | Direct, and an API on the docs' own origin |
+| Bodies | JSON, URL-encoded forms, `multipart/form-data` with files, and any other media type as text or a file. A JSON object body can be edited as JSON or as fields, one per property | A body on `GET` or `HEAD` |
+| Auth | API keys in a header, query or cookie; HTTP bearer and basic; OAuth 2 and OpenID Connect as a pasted token | Mutual TLS, other HTTP schemes, two schemes that need the same header, and an API key in `Content-Type` on a request with a body |
+
+Header parameters named `Accept`, `Content-Type` or `Authorization` are ignored, as OpenAPI requires. The panel checks required fields, enums, numbers, booleans and JSON before sending. Ranges and formats such as `email` and `date-time` are advice only: the API decides.
+
+## Build your own panel
+
+The mechanism is in `@cloudflare/nimbus-docs/client`, for a panel of your own: `loadRequestPlan`, `serializeRequest`, `validateValues`, `renderSample` and `sendRequest`. `sendRequest` never throws; it returns the response or a typed failure, with any partial output.

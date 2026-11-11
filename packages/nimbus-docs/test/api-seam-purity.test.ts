@@ -58,6 +58,9 @@ const ALLOWED_TYPES = [
   "ApiPageIndexEntry",
   "JsonValue",
   "SpecSource",
+  "TryItInfo",
+  "PlanId",
+  "DeliveryMode",
   "Diagnostic",
 ];
 

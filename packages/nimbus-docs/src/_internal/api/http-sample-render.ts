@@ -109,7 +109,8 @@ const TEMPORARY_ORIGIN = "https://nimbus-base.invalid";
  * temporary origin; an absolute URL that doesn't parse becomes `<base-url>`
  * followed by its path.
  */
-export function sampleUrl(request: Pick<SampleRequest, "url" | "query">): Segment[] {
+export function sampleUrl(request: Pick<SampleRequest, "url" | "query" | "rawUrl">): Segment[] {
+  if (request.rawUrl) return [...request.url];
   const values = [request.url, ...request.query.map((field) => field.value)];
   const literal = [...values.flat(), ...request.query.map((field) => ({ text: field.name }))]
     .map((segment) => (isPlaceholder(segment) ? "" : segment.text))

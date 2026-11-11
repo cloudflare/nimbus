@@ -54,6 +54,7 @@ test("only universally skippable entries are optional", () => {
       "api-sidebar-alignment",
       "api-sidebar-filter",
       "api-sidebar-panel",
+      "api-try-it",
       "api-version-picker",
       "branded-share-cards",
       "browser-documentation-search",
