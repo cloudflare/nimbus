@@ -60,135 +60,132 @@ function markdownFileSegment(route: ResolvedRouteInput): string | undefined {
 }
 
 /**
- * Replaces the contents of string, template and regex literals with spaces,
- * keeping the quotes and the import specifiers (`from "…"`, `import("…")`),
- * so a factory named in response text is not read as a call. A `/` starts a
- * regex where no expression can end: after an operator, a bracket, a comma,
- * a keyword, or at the start.
+ * Replaces the contents of string, template and regex literals and comments
+ * with spaces, keeping the quotes and the import specifiers (`from "…"`,
+ * `import("…")`), so a factory named in text is not read as a call. One
+ * scanner reads code, template text and `${…}` expressions alike, so a
+ * nested literal never moves a boundary. A `/` starts a regex where no
+ * expression can end: after an operator, an opening bracket, a comma, a
+ * keyword, a control statement's closing parenthesis, or at the start.
  */
 export function blankLiterals(code: string): string {
+  return scanCode(code, 0, undefined).out;
+}
+
+const CONTROL = /^(?:if|while|for|with|switch|catch)$/u;
+const KEYWORD = /^(?:return|typeof|instanceof|in|of|new|delete|void|throw|case|do|else|yield|await)$/u;
+
+/**
+ * Reads code from `start` until the unmatched `stop` (a `}` closing a template
+ * expression), or the end. Returns the blanked text and the index after it.
+ */
+function scanCode(code: string, start: number, stop: "}" | undefined): { out: string; end: number } {
   let out = "";
-  let index = 0;
+  let index = start;
+  let depth = 0;
+  // Each open parenthesis: whether a control keyword precedes it.
+  const parens: boolean[] = [];
+  let closedControl = false;
   const blank = (text: string) => text.replace(/[^\n]/gu, " ");
-  // The last non-space character written, to tell `/` as division from a regex.
   const expressionEnds = () => {
     const trimmed = out.trimEnd();
     if (trimmed === "") return false;
     const last = trimmed.at(-1)!;
-    if (/[)\]}\w$"'`]/u.test(last)) {
+    if (last === ")") return !closedControl;
+    if (/[\]}\w$"'`]/u.test(last)) {
       const word = /[A-Za-z_$][\w$]*$/u.exec(trimmed)?.[0];
-      return !(word && /^(?:return|typeof|instanceof|in|of|new|delete|void|throw|case|do|else|yield|await)$/u.test(word));
+      return !(word && KEYWORD.test(word));
     }
     return false;
-  };
-  const scanString = (quote: string, from: number): number => {
-    let end = from + 1;
-    while (end < code.length && code[end] !== quote) {
-      if (code[end] === "\\") end += 1;
-      else if (code[end] === "\n" && quote !== "`") break;
-      end += 1;
-    }
-    return end;
   };
   while (index < code.length) {
     const char = code[index]!;
     const next = code[index + 1];
+    if (stop === "}" && char === "}" && depth === 0) return { out, end: index };
     if (char === "/" && next === "/") {
-      const end = code.indexOf("\n", index);
-      const stop = end < 0 ? code.length : end;
-      out += blank(code.slice(index, stop));
-      index = stop;
+      const stopAt = code.indexOf("\n", index);
+      const to = stopAt < 0 ? code.length : stopAt;
+      out += blank(code.slice(index, to));
+      index = to;
       continue;
     }
     if (char === "/" && next === "*") {
-      const end = code.indexOf("*/", index + 2);
-      const stop = end < 0 ? code.length : end + 2;
-      out += blank(code.slice(index, stop));
-      index = stop;
+      const stopAt = code.indexOf("*/", index + 2);
+      const to = stopAt < 0 ? code.length : stopAt + 2;
+      out += blank(code.slice(index, to));
+      index = to;
       continue;
     }
     if (char === '"' || char === "'") {
       const keep = /(?:\bfrom|\bimport\s*\()\s*$/u.test(out);
-      const end = scanString(char, index);
-      const literal = code.slice(index, end + 1);
+      const to = scanString(code, char, index);
+      const literal = code.slice(index, to + 1);
       out += keep ? literal : `${char}${blank(literal.slice(1, -1))}${char}`;
-      index = end + 1;
+      index = to + 1;
       continue;
     }
     if (char === "`") {
-      // A template: its text blanked, each `${…}` expression scanned as code.
-      out += "`";
-      index += 1;
-      while (index < code.length && code[index] !== "`") {
-        if (code[index] === "\\") {
-          out += "  ";
-          index += 2;
-        } else if (code[index] === "$" && code[index + 1] === "{") {
-          let depth = 1;
-          let end = index + 2;
-          let inner = "";
-          while (end < code.length && depth > 0) {
-            const c = code[end]!;
-            if (c === "{") depth += 1;
-            else if (c === "}") depth -= 1;
-            if (c === '"' || c === "'" || c === "`") {
-              const stop = c === "`" ? templateEnd(code, end) : scanString(c, end);
-              inner += code.slice(end, stop + 1);
-              end = stop + 1;
-              continue;
-            }
-            if (depth > 0) inner += c;
-            end += 1;
-          }
-          out += `\${${blankLiterals(inner)}}`;
-          index = end;
-        } else {
-          out += code[index] === "\n" ? "\n" : " ";
-          index += 1;
-        }
-      }
-      out += "`";
-      index += 1;
+      const template = scanTemplate(code, index);
+      out += template.out;
+      index = template.end;
       continue;
     }
     if (char === "/" && !expressionEnds()) {
-      let end = index + 1;
+      let to = index + 1;
       let inClass = false;
-      while (end < code.length && code[end] !== "\n" && (inClass || code[end] !== "/")) {
-        if (code[end] === "\\") end += 1;
-        else if (code[end] === "[") inClass = true;
-        else if (code[end] === "]") inClass = false;
-        end += 1;
+      while (to < code.length && code[to] !== "\n" && (inClass || code[to] !== "/")) {
+        if (code[to] === "\\") to += 1;
+        else if (code[to] === "[") inClass = true;
+        else if (code[to] === "]") inClass = false;
+        to += 1;
       }
-      out += `/${blank(code.slice(index + 1, end))}/`;
-      index = end + 1;
+      out += `/${blank(code.slice(index + 1, to))}/`;
+      index = to + 1;
       continue;
     }
+    if (char === "(") {
+      const word = /[A-Za-z_$][\w$]*\s*$/u.exec(out)?.[0]?.trim();
+      parens.push(word !== undefined && CONTROL.test(word));
+    } else if (char === ")") {
+      closedControl = parens.pop() ?? false;
+    } else if (char === "{") depth += 1;
+    else if (char === "}") depth -= 1;
+    if (char !== ")" && !/\s/u.test(char)) closedControl = false;
     out += char;
     index += 1;
   }
-  return out;
+  return { out, end: index };
 }
 
-/** The index of the backtick that closes the template starting at `from`. */
-function templateEnd(code: string, from: number): number {
+/** The index of the quote that closes the string opened at `from` (or where its line ends). */
+function scanString(code: string, quote: string, from: number): number {
+  let to = from + 1;
+  while (to < code.length && code[to] !== quote) {
+    if (code[to] === "\\") to += 1;
+    else if (code[to] === "\n") break;
+    to += 1;
+  }
+  return to;
+}
+
+/** Blanks a template's text from its opening backtick, scanning each `${…}` as code. */
+function scanTemplate(code: string, from: number): { out: string; end: number } {
+  let out = "`";
   let index = from + 1;
   while (index < code.length && code[index] !== "`") {
-    if (code[index] === "\\") index += 1;
-    else if (code[index] === "$" && code[index + 1] === "{") {
-      let depth = 1;
+    if (code[index] === "\\") {
+      out += "  ";
       index += 2;
-      while (index < code.length && depth > 0) {
-        if (code[index] === "`") index = templateEnd(code, index);
-        else if (code[index] === "{") depth += 1;
-        else if (code[index] === "}") depth -= 1;
-        index += 1;
-      }
-      continue;
+    } else if (code[index] === "$" && code[index + 1] === "{") {
+      const inner = scanCode(code, index + 2, "}");
+      out += `\${${inner.out}}`;
+      index = inner.end + 1;
+    } else {
+      out += code[index] === "\n" ? "\n" : " ";
+      index += 1;
     }
-    index += 1;
   }
-  return index;
+  return { out: `${out}\``, end: index + 1 };
 }
 
 function escapeRegExp(value: string): string {

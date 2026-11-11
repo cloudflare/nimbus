@@ -445,22 +445,22 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface, options?: AgentRo
   };
 }
 
-/** The baked `/llms.txt` from the host's assets, as Markdown, or `null` where there is none. */
+/**
+ * The baked `/llms.txt` from the host's assets, as Markdown, or `null` where
+ * the host keeps no such file (no binding, or a 404). A failure to read one
+ * it keeps is thrown, so the route answers 500 rather than another text.
+ */
 async function emittedLlmsIndex(context: APIContext, base: string): Promise<Response | null> {
-  try {
-    const { fetchAgentEndpointAsset } = await import("virtual:nimbus/agent-endpoint-asset-loader");
-    const prefix = base.replace(/\/+$/u, "");
-    const asset = await fetchAgentEndpointAsset(`${prefix}/llms.txt`, context.request);
-    if (!asset) return null;
-    if (asset.status === 304) return asset;
-    if (asset.status !== 200) return null;
-    const headers = new Headers(asset.headers);
-    headers.set("Content-Type", "text/markdown; charset=utf-8");
-    for (const name of ["Content-Length", "Content-Encoding"]) headers.delete(name);
-    return new Response(context.request.method === "HEAD" ? null : asset.body, { status: 200, headers });
-  } catch {
-    return null;
-  }
+  const { fetchAgentEndpointAsset } = await import("virtual:nimbus/agent-endpoint-asset-loader");
+  const prefix = base.replace(/\/+$/u, "");
+  const asset = await fetchAgentEndpointAsset(`${prefix}/llms.txt`, context.request);
+  if (!asset || asset.status === 404) return null;
+  if (asset.status === 304) return asset;
+  if (asset.status !== 200) throw new Error(`nimbus-docs: reading the baked llms.txt answered ${asset.status}.`);
+  const headers = new Headers(asset.headers);
+  headers.set("Content-Type", "text/markdown; charset=utf-8");
+  for (const name of ["Content-Length", "Content-Encoding"]) headers.delete(name);
+  return new Response(context.request.method === "HEAD" ? null : asset.body, { status: 200, headers });
 }
 
 /**
