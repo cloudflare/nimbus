@@ -19,8 +19,8 @@ export interface LlmsFullBlock {
   url: string;
   /** The page's place in the sidebar's reading order, when the sidebar shows it. */
   position?: number;
-  /** Site-relative URL of the page's `.md` alternate. */
-  markdownUrl: string;
+  /** Site-relative URL of the page's `.md` alternate; absent when no route serves it. */
+  markdownUrl?: string | undefined;
   /** The page body as clean markdown (already downleveled). */
   markdown: string;
 }
@@ -44,8 +44,8 @@ export interface LlmsFullHeader {
   site?: string | undefined;
   /** Astro base path applied before URLs are made absolute. */
   base?: string | undefined;
-  /** The `llms.txt` the header links to. Default `/llms.txt`. */
-  index?: string | undefined;
+  /** The `llms.txt` the header links to. Default `/llms.txt`; `null` when no route serves one. */
+  index?: string | null | undefined;
 }
 
 /**
@@ -107,7 +107,7 @@ export function llmsFullUrl(header: LlmsFullHeader, p: string): string {
 function llmsFullHeaderText(header: LlmsFullHeader): string {
   const lines: string[] = [`# ${header.title}`, ""];
   if (header.description) lines.push(`> ${header.description}`, "");
-  lines.push(`Index: ${llmsFullUrl(header, header.index ?? "/llms.txt")}`, "");
+  if (header.index !== null) lines.push(`Index: ${llmsFullUrl(header, header.index ?? "/llms.txt")}`, "");
   return `${lines.join("\n")}\n`;
 }
 
@@ -115,7 +115,9 @@ function llmsFullBlockText(block: LlmsFullBlock, header: LlmsFullHeader): string
   const lines: string[] = [`# ${block.title}`, ""];
   if (block.description) lines.push(`> ${block.description}`, "");
   lines.push(
-    `Source: ${llmsFullUrl(header, block.url)} · Markdown: ${llmsFullUrl(header, block.markdownUrl)}`,
+    block.markdownUrl
+      ? `Source: ${llmsFullUrl(header, block.url)} · Markdown: ${llmsFullUrl(header, block.markdownUrl)}`
+      : `Source: ${llmsFullUrl(header, block.url)}`,
     "",
   );
   // A page with no body adds no blank run.

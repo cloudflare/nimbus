@@ -51,6 +51,8 @@ function agentRoutes(sectionFolder: string): Record<string, string> {
   const route = (factory: string, extra = "") =>
     `import { ${factory} } from ${endpoints};\nexport const prerender = true;\nexport const { GET${extra} } = ${factory}();\n`;
   return {
+    // Page Markdown is built only where a route serves it.
+    "src/pages/[...slug]/index.md.ts": route("markdownRoute", ", getStaticPaths"),
     "src/pages/llms.txt.ts": route("llmsRoute"),
     "src/pages/llms-full.txt.ts": route("llmsFullRoute"),
     [`src/pages/${sectionFolder}/llms.txt.ts`]: route("llmsSectionRoute", ", getStaticPaths"),

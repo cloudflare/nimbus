@@ -195,8 +195,11 @@ export async function getApiAssetPage(
       `Invalid prepared API page record for ${id}. Rebuild the site.`,
     );
   }
-  const { resolveApiAssetLinks } = await import("./page-assets-links.js");
-  const page = resolveApiAssetLinks(record, target, index) as ApiPageProps;
+  const [{ resolveApiAssetLinks }, { publishedAgentUrls }] = await Promise.all([
+    import("./page-assets-links.js"),
+    import("../agent-surfaces-runtime.js"),
+  ]);
+  const page = resolveApiAssetLinks(record, target, index, await publishedAgentUrls()) as ApiPageProps;
   return { page, nav: assetNav(target, index, id, page.kind === "api") };
 }
 

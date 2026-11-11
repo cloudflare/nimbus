@@ -111,6 +111,8 @@ async function markdownIndexes(request?: Request) {
     markdownByUrl = new Map();
     for (const asset of markdownAssets) {
       markdownByIdentity.set(markdownIdentity(asset), asset);
+      // A body kept only for the MCP server has no URL to serve.
+      if (asset.published === false) continue;
       markdownByUrl.set(asset.url, asset);
       markdownByRoute.set(
         markdownRouteIdentity({
@@ -157,7 +159,8 @@ export async function getMarkdownStaticPaths(options: {
     .filter(
       (asset) =>
         asset.collection === options.collection &&
-        asset.surface === options.surface,
+        asset.surface === options.surface &&
+        asset.published !== false,
     )
     .map((asset) => ({
       params: { slug: entryRouteKey(asset.id) || undefined },

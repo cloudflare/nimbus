@@ -26,6 +26,8 @@ import {
 } from "../_internal/parse-content-collections.js";
 import { readPageCollectionsFile } from "../_internal/page-collections.js";
 import { planRouteFiles } from "../_internal/route-files.js";
+import { describeAgentSurfaces, isSectionLlmsPattern } from "../_internal/agent-surfaces.js";
+import { walkFilesSync } from "../_internal/fs-walk.js";
 import { DEFAULT_RENDERING_NOTE } from "../_internal/route-modes.js";
 import { invocation } from "../cli/pm.js";
 import {
@@ -93,6 +95,7 @@ export async function checkStructure(
     if (feature) checkServerAdapter(cwd, findings, notes, feature);
   }
   checkRouteFiles(cwd, findings, notes, parsed, srcDirOverride);
+  checkAgentSurfaces(cwd, findings, parsed, config, srcDirOverride);
   await checkDuplicateRoutes(cwd, findings, snapshots, mountContext, parsed, srcDir, built);
   await checkMdxComponents(cwd, findings, notes, parsed);
   checkCloudflareTrailingSlash(cwd, findings);
@@ -561,6 +564,76 @@ function checkRouteFiles(
         : { kind: "route-file", path: file, suggestion: `run \`${invocation("check --fix", cwd)}\` to update it` },
     });
   }
+}
+
+/**
+ * Which agent surfaces the site's route files serve. One `info` line: the
+ * surfaces follow the files, so this is where to look when a page has no
+ * Markdown version or an index is missing. Build-free: it reads file names
+ * under `src/pages`, the way the build reads the resolved routes.
+ */
+function checkAgentSurfaces(
+  cwd: string,
+  findings: CheckFinding[],
+  parsed: ConfigParseResult,
+  config: NimbusConfig | null | undefined,
+  srcDirOverride: string | undefined,
+): void {
+  if (!parsed.ok) return;
+  const srcDir = resolveMigrationSrcDir(cwd, srcDirOverride).srcDir;
+  if (!srcDir) return;
+  const pagesDir = path.join(srcDir, "pages");
+  if (!existsSync(pagesDir)) return;
+  // The endpoint files Astro's route scan takes: `.js` and `.ts`, outside
+  // `_`-prefixed and dot-prefixed folders and names (`.well-known` apart).
+  // Each file as the route pattern Astro gives it: the path without its
+  // extension, an `index` file standing for its folder.
+  const routes = [...walkFilesSync(pagesDir, { onReadError: "lenient", extensions: [".ts", ".js"] })]
+    .map((file) => file.rel.split(path.sep).join("/"))
+    .filter(
+      (route) =>
+        !route.split("/").some((segment) => segment.startsWith("_") || (segment.startsWith(".") && segment !== ".well-known")),
+    )
+    .map((route) => {
+      const stem = route.replace(/\.[jt]s$/u, "");
+      return { file: `src/pages/${route}`, pattern: `/${stem === "index" ? "" : stem.replace(/\/index$/u, "")}` };
+    })
+    // As the build records them: a static file name last (`[name].md` is no
+    // Markdown route), with the section index's dynamic form the exception.
+    .filter((route) => {
+      const last = route.pattern.split("/").at(-1)!;
+      return !last.includes("[") || last === "[llms].txt";
+    });
+  const serving = (test: (pattern: string) => boolean) => routes.filter((route) => test(route.pattern)).map((route) => route.file);
+  const files = {
+    pageMarkdown: serving((pattern) => pattern.endsWith(".md")),
+    source: serving((pattern) => pattern.endsWith(".mdx")),
+    llms: serving((pattern) => pattern === "/llms.txt"),
+    llmsSections: serving(isSectionLlmsPattern),
+    llmsFull: serving((pattern) => pattern === "/llms-full.txt"),
+  };
+  const surfaces = {
+    pageMarkdown: files.pageMarkdown.length > 0,
+    source: files.source.length > 0,
+    llms: files.llms.length > 0,
+    llmsSections: files.llmsSections.length > 0,
+    llmsFull: files.llmsFull.length > 0,
+    mcpBodies: !parsed.unresolved.includes("agents") && !!config?.agents?.mcp,
+    files: Object.fromEntries(
+      Object.entries(files).filter(([, found]) => found.length > 0).map(([key, found]) => [key, found.join(", ")]),
+    ),
+  };
+  // A site with every starter route says nothing: the line is for the one
+  // that deleted a route and wonders where its Markdown went.
+  const allOn = surfaces.pageMarkdown && surfaces.source && surfaces.llms && surfaces.llmsSections && surfaces.llmsFull;
+  if (allOn) return;
+  findings.push({
+    scope: "structure",
+    code: "nimbus/agent-surfaces",
+    severity: "info",
+    message: `Agent surfaces follow the route files under src/pages: ${describeAgentSurfaces(surfaces).join("; ")}.`,
+    fixable: false,
+  });
 }
 
 function checkConfigZod(

@@ -1,4 +1,5 @@
 import { invalidateDevModules, isDevContentFile, type DevServerGraphs } from "./dev-invalidation.js";
+import { publishesAgentUrl, type AgentSurfaces } from "./agent-surfaces.js";
 import { createHash, randomUUID } from "node:crypto";
 import {
   constants,
@@ -88,6 +89,11 @@ export interface MarkdownEndpointAsset extends MarkdownEndpointReference {
   path: string;
   contentStart: number;
   contentEnd: number;
+  /**
+   * `false` when no route of the site serves `url`: the body is kept for the
+   * MCP server, which reads pages by path, and nothing links or serves it.
+   */
+  published?: false;
 }
 
 /** Cloudflare serves static files up to 25 MiB; larger ones fail the deploy. */
@@ -168,8 +174,19 @@ export interface BakeAgentEndpointAssetsOptions {
   info?: (message: string) => void;
   /** Tests only: a smaller `llms-full.txt` limit than Cloudflare's. */
   llmsFullLimitBytes?: number;
-  /** Whether a route serves `/llms-full.txt`. Default true. */
+  /** Whether a route serves `/llms-full.txt`. Default true. `surfaces` wins when given. */
   fullDocument?: boolean;
+  /**
+   * The agent surfaces the site's routes serve. Without it every surface is
+   * taken as served, as a site with every starter route.
+   */
+  surfaces?: AgentSurfaces;
+  /**
+   * Keep every page's Markdown body in the build cache even when no route
+   * publishes it: Pagefind over request-rendered pages reads the text there.
+   * Such bodies are never staged into the deploy.
+   */
+  buildBodies?: boolean;
   /**
    * A partial build without the root collection: write one `llms-full.txt`
    * per named top-level section (the slice's collections, by label) instead
@@ -191,6 +208,29 @@ export interface BakeAgentEndpointAssetsOptions {
     entry: LlmsEndpointApiEntry,
     base: string,
   ) => Promise<string>;
+}
+
+/** Whether a route of the site serves `url`; every URL when no surfaces were given. */
+function publishes(options: BakeAgentEndpointAssetsOptions, url: string): boolean {
+  return options.surfaces ? publishesAgentUrl(options.surfaces.markdownRoutes, url) : true;
+}
+function servesLlms(options: BakeAgentEndpointAssetsOptions): boolean {
+  return options.surfaces?.llms ?? true;
+}
+function servesLlmsSections(options: BakeAgentEndpointAssetsOptions): boolean {
+  return options.surfaces?.llmsSections ?? true;
+}
+/** A route at `/llms-full.txt`: the full document is linked from the indexes. */
+function servesLlmsFull(options: BakeAgentEndpointAssetsOptions): boolean {
+  return options.surfaces?.llmsFull ?? options.fullDocument !== false;
+}
+/**
+ * The full document is baked when a route at `/llms-full.txt` serves it, or
+ * when the integration found `llmsFullRoute()` in a route file at another
+ * path (the site's own URL for it): that route reads the same payload.
+ */
+function bakesLlmsFull(options: BakeAgentEndpointAssetsOptions): boolean {
+  return servesLlmsFull(options) || options.fullDocument === true;
 }
 
 export interface BakePreparedHeadingsOptions {
@@ -719,21 +759,28 @@ function markdownAsset(
   const prefix = [
     ...frontmatter(entry, options, { fields, description: entryDescription(entry) }),
     "",
+    ...llmsIndexNote(options),
+    `# ${title}`,
+    "",
+  ].join("\n");
+  // The source line names the `.mdx` only when a route serves it.
+  const suffix = publishes(options, urls.source)
+    ? ["", `Source: ${absoluteUrl(options.site, options.base, urls.source)}`, ""].join("\n")
+    : "";
+  // A frontmatter-only page is its title and source, with no blank body between.
+  if (markdown.trim() === "") return envelopedAsset(`${prefix}\n`, "", suffix.slice(1));
+  return envelopedAsset(`${prefix}\n`, markdown, suffix ? `\n${suffix}` : "\n");
+}
+
+/** The "Documentation Index" note every page Markdown opens with, when a route serves `/llms.txt`. */
+function llmsIndexNote(options: BakeAgentEndpointAssetsOptions): string[] {
+  if (!servesLlms(options)) return [];
+  return [
     "> Documentation Index",
     `> Fetch the complete documentation index at: ${absoluteUrl(options.site, options.base, "/llms.txt")}`,
     "> Use this file to discover all available pages before exploring further.",
     "",
-    `# ${title}`,
-    "",
-  ].join("\n");
-  const suffix = [
-    "",
-    `Source: ${absoluteUrl(options.site, options.base, urls.source)}`,
-    "",
-  ].join("\n");
-  // A frontmatter-only page is its title and source, with no blank body between.
-  if (markdown.trim() === "") return envelopedAsset(`${prefix}\n`, "", suffix.slice(1));
-  return envelopedAsset(`${prefix}\n`, markdown, `\n${suffix}`);
+  ];
 }
 
 // API pages have no authored source, so `Source:` points at the Markdown URL
@@ -747,18 +794,13 @@ function apiMarkdownAsset(
   const prefix = [
     ...frontmatter(entry, options),
     "",
-    "> Documentation Index",
-    `> Fetch the complete documentation index at: ${absoluteUrl(options.site, options.base, "/llms.txt")}`,
-    "> Use this file to discover all available pages before exploring further.",
-    "",
+    ...llmsIndexNote(options),
     `# ${oneLine(typeof entry.data.title === "string" && entry.data.title.length > 0 ? entry.data.title : entry.id)}`,
     "",
   ].join("\n");
-  const suffix = [
-    "",
-    `Source: ${absoluteUrl(options.site, options.base, markdownUrl)}`,
-    "",
-  ].join("\n");
+  // The source is the Markdown URL when a route serves it, else the page.
+  const source = publishes(options, markdownUrl) ? markdownUrl : preparedLlmsPage(entry, "", options, true).url;
+  const suffix = ["", `Source: ${absoluteUrl(options.site, options.base, source)}`, ""].join("\n");
   return envelopedAsset(`${prefix}\n`, markdown, `\n${suffix}`);
 }
 
@@ -780,7 +822,8 @@ interface PreparedLlmsPage {
   title: string;
   description?: string;
   url: string;
-  markdownUrl: string;
+  /** The page's `.md` URL when a route of the site serves it. */
+  markdownUrl?: string;
   markdown: string;
   /** `sidebar.group.label` on a group's index page. */
   groupLabel?: string;
@@ -828,7 +871,9 @@ function preparedLlmsPage(
         : entry.id,
     description: entryDescription(entry),
     url: toDocumentHref(route),
-    markdownUrl: route === "/" ? "/index.md" : `${route}/index.md`,
+    ...(publishes(options, route === "/" ? "/index.md" : `${route}/index.md`)
+      ? { markdownUrl: route === "/" ? "/index.md" : `${route}/index.md` }
+      : {}),
     markdown,
     groupLabel: sidebarGroupLabel(entry.data),
     ...(api ? { api } : {}),
@@ -885,8 +930,9 @@ function mcpPageRecord(
     title: page.title,
     ...(page.description ? { description: page.description } : {}),
     url: absoluteUrl(options.site, options.base, page.url),
-    markdownUrl: absoluteUrl(options.site, options.base, page.markdownUrl),
-    markdownPath: page.markdownUrl,
+    ...(page.markdownUrl ? { markdownUrl: absoluteUrl(options.site, options.base, page.markdownUrl) } : {}),
+    // The asset's own path, published or not: the MCP server reads bodies by it.
+    markdownPath: preparedMarkdownUrls(entry, options).markdown,
     section: llmsSection(page, options),
     ...(version ? { version } : {}),
     ...(deprecated ? { deprecated: true as const } : {}),
@@ -1039,7 +1085,8 @@ function flattenLlmsGroups(groups: readonly PreparedLlmsGroup[]): PreparedLlmsGr
 
 /** A section's index page: the member whose path ends at the section. */
 function groupIndex(slug: string, members: readonly PreparedLlmsPage[]): PreparedLlmsPage | undefined {
-  return members.find((page) => page.markdownUrl === `/${slug}/index.md`);
+  const url = toDocumentHref(`/${slug}`);
+  return members.find((page) => page.url === url);
 }
 
 /** A section's name, as the sidebar names it: the index page's group label or title, else the formatted slug. */
@@ -1053,7 +1100,17 @@ function groupLabel(slug: string, members: readonly PreparedLlmsPage[]): string 
  * URL (`products/sdk`) gets no `llms.txt`, and the site index lists its pages.
  */
 function servesSectionIndex(group: PreparedLlmsGroup, options: BakeAgentEndpointAssetsOptions): boolean {
-  return options.nestedSections === true || !group.slug.includes("/");
+  return (options.nestedSections === true || !group.slug.includes("/")) && publishes(options, `/${group.slug}/llms.txt`);
+}
+
+/** The full documents of the sections other slices build, where a route serves them. */
+function otherParts(options: BakeAgentEndpointAssetsOptions): string[] {
+  const parts = (options.absentSections ?? [])
+    .map((section) => `/${section.slug}/llms-full.txt`)
+    .filter((url) => publishes(options, url));
+  return parts.length > 0
+    ? [`Other parts have their own: ${parts.map((url) => absoluteUrl(options.site, options.base, url)).join(", ")}`]
+    : [];
 }
 
 function siteIndexAsset(
@@ -1068,7 +1125,7 @@ function siteIndexAsset(
     ...[...leaves, ...listed.filter((group) => !served(group)).flatMap((group) => group.members)].map((page) => ({
       key: page.url,
       position: page.position,
-      line: `- [${page.title}](${absoluteUrl(options.site, options.base, page.markdownUrl)})${page.description ? ` — ${page.description}` : ""}`,
+      line: `- [${page.title}](${absoluteUrl(options.site, options.base, page.markdownUrl ?? page.url)})${page.description ? ` — ${page.description}` : ""}`,
     })),
     ...listed
       .filter(served)
@@ -1077,12 +1134,17 @@ function siteIndexAsset(
         position: group.position,
         line: `- [${group.label}](${absoluteUrl(options.site, options.base, `/${group.slug}/llms.txt`)})`,
       })),
-    ...(options.absentSections ?? []).map((section) => ({
-      key: `/${section.slug}`,
-      position: section.position,
-      // The slice holding a nested section serves its llms-full.txt, not an llms.txt.
-      line: `- [${section.label}](${absoluteUrl(options.site, options.base, `/${section.slug}/${options.nestedSections === true || !section.slug.includes("/") ? "llms.txt" : "llms-full.txt"}`)})`,
-    })),
+    ...(options.absentSections ?? []).map((section) => {
+      // The slice holding a nested section serves its llms-full.txt, not an
+      // llms.txt. A document no route serves is not linked: the section's
+      // pages are.
+      const document = `/${section.slug}/${options.nestedSections === true || !section.slug.includes("/") ? "llms.txt" : "llms-full.txt"}`;
+      return {
+        key: `/${section.slug}`,
+        position: section.position,
+        line: `- [${section.label}](${absoluteUrl(options.site, options.base, publishes(options, document) ? document : `/${section.slug}/`)})`,
+      };
+    }),
   ].sort((a, b) =>
     compareByPosition(
       { position: "position" in a ? (a.position as number | undefined) : undefined, url: a.key },
@@ -1094,17 +1156,11 @@ function siteIndexAsset(
     "",
     blockquote(options.description ?? "Documentation index for AI agents."),
     "",
-    ...(options.fullDocument === false
+    ...(!servesLlmsFull(options)
       ? []
       : [
           `Full documentation${options.absentSections?.length ? " of this part" : ""} (discoverable current pages, ${fullSplit ? "split by section" : "one document"}): ${absoluteUrl(options.site, options.base, "/llms-full.txt")}`,
-          ...(options.absentSections?.length
-            ? [
-                `Other parts have their own: ${options.absentSections
-                  .map((section) => absoluteUrl(options.site, options.base, `/${section.slug}/llms-full.txt`))
-                  .join(", ")}`,
-              ]
-            : []),
+          ...otherParts(options),
           "",
         ]),
     ...(options.mcpUrl
@@ -1164,7 +1220,7 @@ function sectionIndexAsset(
           "",
           ...group.members.map(
             (page) =>
-              `- [${page.title}](${absoluteUrl(options.site, options.base, page.markdownUrl)})${page.description ? ` — ${page.description}` : ""}`,
+              `- [${page.title}](${absoluteUrl(options.site, options.base, page.markdownUrl ?? page.url)})${page.description ? ` — ${page.description}` : ""}`,
           ),
           "",
         ]
@@ -1234,6 +1290,7 @@ function llmsFullBodies(
     description: options.description,
     site: options.site,
     base,
+    ...(servesLlms(options) ? {} : { index: null }),
   };
   const blocks = new Map(pages.map((page) => [page, llmsFullBlock(page)]));
   const blockBytes = new Map(
@@ -1270,8 +1327,14 @@ function llmsFullBodies(
     ...header,
     title: `${options.title} — ${group.label}`,
     description: undefined,
-    // A section links its own llms.txt where the route serves one.
-    index: sectionIndex || !group.slug.includes("/") ? `/${group.slug}/llms.txt` : "/llms.txt",
+    // A section links its own llms.txt where a route serves one, else the
+    // site's, else nothing.
+    index:
+      (sectionIndex || !group.slug.includes("/")) && publishes(options, `/${group.slug}/llms.txt`)
+        ? `/${group.slug}/llms.txt`
+        : servesLlms(options)
+          ? "/llms.txt"
+          : null,
   });
   const sizes = new Map<PreparedLlmsGroup, number>();
   const sizeOf = (group: PreparedLlmsGroup) => {
@@ -1283,7 +1346,7 @@ function llmsFullBodies(
     return bytes;
   };
   const pageLine = (page: PreparedLlmsPage) =>
-    `- [${page.title}](${llmsFullUrl(header, page.markdownUrl)})`;
+    `- [${page.title}](${llmsFullUrl(header, page.markdownUrl ?? page.url)})`;
   // A size is only given for a file served whole; an index says it's split.
   const sectionLine = (group: PreparedLlmsGroup) => {
     const bytes = sizeOf(group);
@@ -1293,7 +1356,7 @@ function llmsFullBodies(
   const indexBody = (
     title: string,
     note: string,
-    index: string,
+    index: string | null,
     children: readonly PreparedLlmsGroup[],
     members: readonly PreparedLlmsPage[],
   ) =>
@@ -1302,8 +1365,7 @@ function llmsFullBodies(
       "",
       `> ${note}`,
       "",
-      `Index: ${llmsFullUrl(header, index)}`,
-      "",
+      ...(index === null ? [] : [`Index: ${llmsFullUrl(header, index)}`, ""]),
       ...(children.length > 0 ? ["## Sections", "", ...children.map(sectionLine), ""] : []),
       ...(members.length > 0 ? ["## Pages", "", ...[...members].sort(compareByPosition).map(pageLine), ""] : []),
     ].join("\n");
@@ -1316,7 +1378,7 @@ function llmsFullBodies(
       body: indexBody(
         options.title,
         `The full documentation is over ${mebibytes(limit)}, so it's split by section. Fetch the sections you need.`,
-        "/llms.txt",
+        servesLlms(options) ? "/llms.txt" : null,
         groups,
         leaves,
       ),
@@ -1663,7 +1725,13 @@ export async function stageAgentEndpointAssets(
   limitBytes = LLMS_FULL_LIMIT_BYTES,
 ): Promise<void> {
   const projectRoot = preparedMarkdownRootKey(root);
-  const manifest = await ensureAgentEndpointAssets(projectRoot);
+  const baked = await ensureAgentEndpointAssets(projectRoot);
+  // A body no route publishes ships only when the MCP server reads it; a body
+  // kept for the build's own consumers stays in the build cache.
+  const manifest: AgentEndpointAssetManifest = {
+    ...baked,
+    markdownAssets: baked.markdownAssets.filter((asset) => asset.published !== false || baked.pageIndex),
+  };
   // Every agent endpoint reads this one file, so a server build cannot ship without it.
   const manifestBody = JSON.stringify(stagedManifest(manifest));
   const manifestBytes = utf8Length(manifestBody);
@@ -1705,6 +1773,9 @@ export async function stageAgentEndpointAssets(
       }),
     );
   }
+  // A site whose routes serve no agent file still ships the manifest, so the
+  // server knows there is nothing to serve.
+  await mkdir(targetRoot, { recursive: true });
   await writeFile(path.join(targetRoot, "manifest.json"), manifestBody, "utf8");
 }
 
@@ -2100,6 +2171,9 @@ export async function bakeAgentEndpointAssets(
     const urls = preparedMarkdownUrls(entry, options);
     const fields = snapshot.collections.get(entry.collection)?.markdownFields ?? [];
     for (const surface of ["markdown", "source"] as const) {
+      // No route, no file: except the `.md` body the MCP server reads by path.
+      const published = publishes(options, urls[surface]);
+      if (!published && !(surface === "markdown" && (options.mcpUrl || options.buildBodies))) continue;
       const asset =
         surface === "markdown"
           ? markdownAsset(entry, markdown, options, fields)
@@ -2133,6 +2207,7 @@ export async function bakeAgentEndpointAssets(
         path: `assets/${fingerprint}.${extension}`,
         contentStart,
         contentEnd,
+        ...(published ? {} : { published: false as const }),
         body,
       });
     }
@@ -2166,6 +2241,8 @@ export async function bakeAgentEndpointAssets(
       preparedLlmsPages.push(preparedLlmsPage(entry, markdown, options, true));
     }
     const url = preparedMarkdownUrls(entry, options).markdown;
+    const published = publishes(options, url);
+    if (!published && !options.mcpUrl && !options.buildBodies) continue;
     const { body, contentStart, contentEnd } = apiMarkdownAsset(
       entry,
       markdown,
@@ -2194,6 +2271,7 @@ export async function bakeAgentEndpointAssets(
       path: `assets/${fingerprint}.md`,
       contentStart,
       contentEnd,
+      ...(published ? {} : { published: false as const }),
       body,
     });
   }
@@ -2243,19 +2321,23 @@ export async function bakeAgentEndpointAssets(
       !versionSlugs.has(collectionLabel(page.collection, options.versions)),
   );
   // Without a route, the file would only be shipped, never served.
-  const full =
-    options.fullDocument === false
-      ? { bodies: [], split: false }
-      : llmsFullBodies(llmsFullPages, options, base);
+  const full = !bakesLlmsFull(options)
+    ? { bodies: [], split: false }
+    : llmsFullBodies(llmsFullPages, options, base);
   const nestedLinks = nestedCollectionLinks(groups, options);
   const llmsBodies: Array<{
     reference: LlmsEndpointReference;
     body: string;
   }> = [
-    {
-      reference: { scope: "site", surface: "index" },
-      body: siteIndexAsset(leaves, groups, options, full.split),
-    },
+    // Each index exists only where a route serves it.
+    ...(servesLlms(options)
+      ? [
+          {
+            reference: { scope: "site", surface: "index" } as LlmsEndpointReference,
+            body: siteIndexAsset(leaves, groups, options, full.split),
+          },
+        ]
+      : []),
     ...full.bodies,
     ...flattenLlmsGroups(groups).filter((group) => servesSectionIndex(group, options)).map((group) => ({
       reference: {
@@ -2306,6 +2388,27 @@ export async function bakeAgentEndpointAssets(
     });
   llmsRecords.sort((a, b) => compare(preparedLlmsKey(a), preparedLlmsKey(b)));
   const pageIndexRecord = options.mcpUrl ? mcpPageIndexAsset(indexPages, base, options) : undefined;
+  if (options.surfaces) {
+    const { describeAgentSurfaces, agentRouteFiles, isSectionLlmsPattern } = await import("./agent-surfaces.js");
+    const routes = options.surfaces.markdownRoutes;
+    options.info?.(
+      `Agent surfaces follow the site's routes: ${describeAgentSurfaces({
+        pageMarkdown: routes.some((route) => route.pattern.endsWith(".md")),
+        source: routes.some((route) => route.pattern.endsWith(".mdx")),
+        llms: servesLlms(options),
+        llmsSections: servesLlmsSections(options),
+        llmsFull: servesLlmsFull(options),
+        mcpBodies: !!options.mcpUrl,
+        files: {
+          pageMarkdown: agentRouteFiles(routes, (route) => route.pattern.endsWith(".md")),
+          source: agentRouteFiles(routes, (route) => route.pattern.endsWith(".mdx")),
+          llms: agentRouteFiles(routes, (route) => route.pattern === "/llms.txt"),
+          llmsSections: agentRouteFiles(routes, (route) => isSectionLlmsPattern(route.pattern)),
+          llmsFull: agentRouteFiles(routes, (route) => route.pattern === "/llms-full.txt"),
+        },
+      }).join("; ")}.`,
+    );
+  }
   headingRecords.sort(
     (a, b) => compare(a.collection, b.collection) || compare(a.id, b.id),
   );

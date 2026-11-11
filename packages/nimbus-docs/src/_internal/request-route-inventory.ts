@@ -24,6 +24,9 @@ export async function GET() {
     );
   }
   const config = await loadNimbusConfig();
+  // Only Pagefind reads page text from here; another provider, or none,
+  // leaves the build with no body to read.
+  const pagefind = config.search !== false && config.search?.provider !== "custom";
   const requestCollections = new Set(await loadRequestRenderingCollections());
   const apiCollections = new Set(await loadApiCollections());
   const entries = await getIndexedEntries();
@@ -60,7 +63,9 @@ export async function GET() {
     if (item.description) route.description = item.description;
     if (item.version) route.version = item.version;
     if (versionStatus?.isDeprecated) route.deprecated = true;
-    if (route.request && searchable) {
+    if (route.request && searchable && pagefind) {
+      // Pagefind's text for a page rendered on request: the build keeps a
+      // body for every such page while Pagefind is on, route or no route.
       route.content = (
         await readConfiguredMarkdownEndpointPayload(projectRoot, {
           collection,

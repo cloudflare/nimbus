@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -193,7 +194,7 @@ test("a noindex entry in another collection does not hide the llms homepage fall
   }
 });
 
-test("owner homepage Markdown and llms fallback do not inherit an unused root entry's noindex", async () => {
+test("owner homepage Markdown does not inherit an unused root entry's noindex, and no Markdown route means no homepage Markdown", async () => {
   for (const owner of [false, true]) {
     const site = await fixture(
       "---\ntitle: Unused root\nnoindex: true\n---\nUnused body.",
@@ -203,15 +204,17 @@ test("owner homepage Markdown and llms fallback do not inherit an unused root en
       if (owner)
         await site.write("public/index.md", "Owner homepage Markdown.");
       await build(site.config);
-      assert.equal(
-        await site.read("dist/index.md"),
-        owner ? "Owner homepage Markdown." : await site.read("dist/llms.txt"),
-      );
-      assert.match(
-        await site.read("dist/.well-known/ard.json"),
-        /text\/markdown/,
-      );
-      assert.match(await site.read("dist/_headers"), /rel="alternate"/);
+      if (owner) {
+        assert.equal(await site.read("dist/index.md"), "Owner homepage Markdown.");
+        assert.match(await site.read("dist/.well-known/ard.json"), /text\/markdown/);
+        assert.match(await site.read("dist/_headers"), /rel="alternate"/);
+      } else {
+        // With no route serving /index.md, an llms.txt route alone publishes
+        // no homepage Markdown: no file, no catalog entry, no alternate link.
+        assert.ok(!existsSync(path.join(site.root, "dist/index.md")));
+        assert.doesNotMatch(await site.read("dist/.well-known/ard.json"), /text\/markdown/);
+        assert.doesNotMatch(await site.read("dist/_headers"), /rel="alternate"/);
+      }
     } finally {
       await rm(site.root, { recursive: true, force: true });
     }

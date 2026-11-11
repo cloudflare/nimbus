@@ -1,0 +1,8 @@
+---
+"@cloudflare/nimbus-docs": minor
+---
+
+- Agent surfaces follow the site's route files: delete `src/pages/[...slug]/index.md.ts` and no page Markdown is built, linked, advertised or negotiated; the same goes for the `.mdx` source, `llms.txt`, the section indexes and `llms-full.txt`, each by its own route. A Markdown route that covers part of the site publishes Markdown for that part only.
+- `IndexedEntry.markdownUrl` and the page helpers' `markdownUrl` are `undefined` when no route serves them. New `getPublishedLlmsUrl()` returns the `llms.txt` a route serves for a collection, or `null`; `getCollectionLlmsUrl()` is unchanged.
+- The MCP server reads every page whether or not its Markdown is published; `list_pages` and `get_page` return `markdownUrl` only when it is, and `get_page` takes an `offset` to read on from a cut.
+- The build log and `nimbus-docs check` (`nimbus/agent-surfaces`) say which surfaces the routes serve, naming the route files. `astro dev` restarts when one of those files is added or removed.

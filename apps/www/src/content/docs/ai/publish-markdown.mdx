@@ -144,6 +144,22 @@ Each command should return content with a success status. A `404` means the rout
 
 If a section index is missing, check that the section has discoverable pages and appears in `/llms.txt`.
 
+## Serve the surfaces you want
+
+The route files decide what the site publishes for agents. Each surface exists only where a route of yours serves it, and Nimbus bakes, links and negotiates nothing for a surface without one:
+
+| Delete | What stops |
+|---|---|
+| `src/pages/[...slug]/index.md.ts` | Page Markdown: no `index.md` files are built, `llms.txt` links the pages themselves, pages carry no `<link rel="alternate" type="text/markdown">`, and a page URL answers `Accept: text/markdown` with its HTML. Whatever your host does with that header is the host's business. |
+| `src/pages/[...slug]/index.mdx.ts` | The `.mdx` source versions, and the `Source:` line at the end of each page's Markdown. |
+| `src/pages/llms.txt.ts` | The site index, and the "Documentation Index" note at the top of each page's Markdown. |
+| `src/pages/[...section]/llms.txt.ts` | The per-section indexes. |
+| `src/pages/llms-full.txt.ts` | The full document. |
+
+A Markdown route that serves only part of the site, such as `src/pages/changelog/[...slug]/index.md.ts`, publishes Markdown for the pages it matches and nothing for the rest. With `agents: { mcp: true }`, the MCP server keeps reading every page's Markdown whether or not a route publishes it; `get_page` then returns no `markdownUrl` and pages through long content with `offset`.
+
+The build log says which surfaces the routes serve, and `nimbus-docs check` reports the same as `nimbus/agent-surfaces`.
+
 ## Direct rendering
 
 `renderEntryAsMarkdown()` and `getEntryMarkdown()` remain available for entry bodies that do not contain `<Render>`. Passing a body with `<Render>` throws. Use the endpoints above for alternate authored Markdown versions and `llms.txt` indexes. `getEntryMarkdown()` also loads API citation data and is intended for prerendered routes.

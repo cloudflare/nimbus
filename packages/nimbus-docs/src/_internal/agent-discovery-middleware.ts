@@ -152,10 +152,11 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
   // answers from its files before any middleware runs.
   const live = options.output === "server" && !context.isPrerendered && (response.headers.get("Content-Type")?.includes("text/html") ?? false);
   const entry = live && !atHome ? await pageEntry(context) : undefined;
-  const negotiates = live && (atHome ? !!capabilities.homepageMarkdownUrl : !!entry);
+  // A page negotiates only when a route of the site serves its Markdown.
+  const negotiates = live && (atHome ? !!capabilities.homepageMarkdownUrl : !!entry?.markdownUrl);
   let markdown: Response | undefined;
   if (negotiates && prefersMarkdown(context.request.headers.get("Accept"))) {
-    markdown = await publishedMarkdown(context, atHome ? "/index.md" : entry!.markdownUrl);
+    markdown = await publishedMarkdown(context, atHome ? "/index.md" : entry!.markdownUrl!);
   }
   if (!negotiates && !atHome) return response;
   // The Markdown form keeps the page's own response headers and swaps the body.
