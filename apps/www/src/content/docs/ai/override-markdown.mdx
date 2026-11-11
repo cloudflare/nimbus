@@ -9,15 +9,29 @@ sidebar:
 
 The starter's `src/pages/[...slug]/index.md.ts` and `src/pages/[...slug]/index.mdx.ts` routes serve the Markdown and source versions of every page. You can change what they serve at three levels:
 
-- Wrap the shared route to change the output for every page.
+- Pass `body` to the shared route to change the text for every page, or wrap its `GET` to add headers.
 - Replace the shared route with your own code.
 - Add a more specific route file to take over one collection.
 
 The examples use the `.md` route. The `.mdx` route works the same way with `markdownSourceRoute()`. The `llms.txt` routes and the OG card route follow the same pattern; see [Override an `llms.txt` index](#override-an-llmstxt-index) and [Customize OG cards](#customize-og-cards).
 
+## Change the text
+
+Pass `body` to the shared route. It takes the Markdown Nimbus would send and Astro's `APIContext`, and returns the text to send, or a promise of it. This example adds a license line to every Markdown version:
+
+```ts title="src/pages/[...slug]/index.md.ts"
+import { markdownRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+
+export const { GET, getStaticPaths } = markdownRoute({
+  body: (markdown) => `${markdown}\nLicensed under CC BY 4.0.\n`,
+});
+```
+
+The response's `ETag` is over the text `body` returns, so a client that holds it revalidates with `304` only while it is unchanged. `body` runs on request and, for a prerendered route, at build, where every page renders again on each build so what it reads is current.
+
 ## Wrap the shared route
 
-Call the shared route's `GET`, then change its response. This example adds a license line to every Markdown version:
+To add headers, call the shared route's `GET` and change its response:
 
 ```ts title="src/pages/[...slug]/index.md.ts"
 import type { APIRoute } from "astro";
@@ -28,13 +42,12 @@ export const getStaticPaths = route.getStaticPaths;
 
 export const GET: APIRoute = async (context) => {
   const response = await route.GET(context);
-  if (!response.ok) return response;
-  const body = await response.text();
-  return new Response(`${body}\nLicensed under CC BY 4.0.\n`, {
-    headers: response.headers,
-  });
+  response.headers.set("X-Robots-Tag", "noai");
+  return response;
 };
 ```
+
+A wrapper must not change the body: Nimbus's `ETag` is over its own bytes, and its `GET` answers `304` to a client that holds them before your wrapper runs. Use `body` to change the text.
 
 ## Replace the shared route
 
@@ -73,24 +86,17 @@ To list pages yourself, `getMarkdownStaticPaths({ collection, surface })` return
 
 Astro gives a more specific route priority. Add a route file under a collection's URL prefix, and it serves that collection's Markdown versions. The shared route skips every URL the more specific route's pattern matches.
 
-`markdownRoute()` works in any route file and serves only the URLs its route matches. Wrap it to customize one collection:
+`markdownRoute()` works in any route file and serves only the URLs its route matches. Pass `body` to customize one collection:
 
 ```ts title="src/pages/blog/[...slug]/index.md.ts"
-import type { APIRoute } from "astro";
 import { markdownRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
 
-const route = markdownRoute();
-export const getStaticPaths = route.getStaticPaths;
-
-export const GET: APIRoute = async (context) => {
-  const response = await route.GET(context);
-  if (!response.ok) return response;
-  const body = await response.text();
-  return new Response(`${body}\nSubscribe at https://example.com/blog/rss.xml\n`, {
-    headers: response.headers,
-  });
-};
+export const { GET, getStaticPaths } = markdownRoute({
+  body: (markdown) => `${markdown}\nSubscribe at https://example.com/blog/rss.xml\n`,
+});
 ```
+
+The route file's last segment must be a static file name, as here. A file such as `src/pages/blog/[...slug].md.ts` is not a Markdown route to Nimbus: nothing is published for it, and the build and `nimbus-docs check` say so.
 
 Or write the route with the public helpers. This route builds a `changelog` collection's frontmatter itself. To add fields from a page's frontmatter, [`markdownFields`](/ai/publish-markdown#add-your-own-frontmatter) needs no route; write one for anything it can't produce:
 
@@ -115,25 +121,19 @@ A more specific route must generate every page its pattern matches. If it skips 
 
 ## Override an `llms.txt` index
 
-The starter's `llms.txt` routes call `llmsRoute()`, `llmsFullRoute()`, and `llmsSectionRoute()`. Wrap the returned `GET` the same way. This example adds a support link to `/llms.txt`:
+The starter's `llms.txt` routes call `llmsRoute()`, `llmsFullRoute()`, and `llmsSectionRoute()`. Each takes `body` the same way. This example adds a support link to `/llms.txt`:
 
 ```ts title="src/pages/llms.txt.ts"
-import type { APIRoute } from "astro";
 import { llmsRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
 
-const route = llmsRoute();
-
-export const GET: APIRoute = async (context) => {
-  const response = await route.GET(context);
-  if (!response.ok) return response;
-  const body = await response.text();
-  return new Response(`${body}\n## Support\n\n- [Contact support](https://example.com/support)\n`, {
-    headers: response.headers,
-  });
-};
+export const { GET } = llmsRoute({
+  body: (index) => `${index}\n## Support\n\n- [Contact support](https://example.com/support)\n`,
+});
 ```
 
-For section indexes, keep `llmsSectionRoute()`'s `getStaticPaths`, which lists every section, and wrap its `GET`. To build a body from scratch, call `getLlmsPayload()` with a `reference` such as `{ scope: "section", surface: "index", section: "writing" }` (or `"reference/functions"` for a nested section); it returns `null` for an unknown index.
+`body` can be async, and reads the request from its second argument, so a section the spec doesn't hold can be listed from your own data. On a split site, `llmsFullRoute()`'s `body` sees the index of parts; the parts themselves are Nimbus's own routes and are not changed. A homepage without a content entry serves `/index.md` as the `llms.txt` index, with that route's `body`: the baked file where the host keeps one, the route itself where it renders on request.
+
+For section indexes, `llmsSectionRoute({ body })` keeps its `getStaticPaths`, which lists every section. To build a body from scratch, call `getLlmsPayload()` with a `reference` such as `{ scope: "section", surface: "index", section: "writing" }` (or `"reference/functions"` for a nested section); it returns `null` for an unknown index.
 
 ## Customize OG cards
 

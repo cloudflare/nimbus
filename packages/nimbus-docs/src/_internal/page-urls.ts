@@ -8,7 +8,8 @@ import { toDocumentHref } from "./url.js";
  */
 export interface PageUrls {
   url: string;
-  markdownUrl: string;
+  /** `undefined` when no route of the site serves the page's `.md` URL. */
+  markdownUrl: string | undefined;
   sourceUrl: string | undefined;
   ogImageUrl: string;
 }
@@ -26,20 +27,28 @@ export const OG_CARD = {
   size: { width: 1200, height: 630 },
 } as const;
 
-/** `ogImageUrl` is `/og/<route>.png`, with `index` for the site root. */
+/**
+ * `ogImageUrl` is `/og/<route>.png`, with `index` for the site root.
+ * `publishes` says whether a route of the site serves a `.md` or `.mdx` URL;
+ * without it every alternate is taken as served.
+ */
 export function pageUrls(
   prefix: string,
   entry: { id: string; body?: unknown; filePath?: string },
+  publishes: (url: string) => boolean = () => true,
 ): PageUrls {
   const route = entryRouteUrl(prefix, entry.id);
   const page = route === "/" ? "" : route;
+  const markdownUrl = `${page}/index.md`;
+  const sourceUrl = `${page}/index.mdx`;
   return {
     url: toDocumentHref(route),
-    markdownUrl: `${page}/index.md`,
+    markdownUrl: publishes(markdownUrl) ? markdownUrl : undefined,
     // A frontmatter-only Markdown file has no body but still has a source.
     sourceUrl:
-      (typeof entry.body === "string" && entry.body.length > 0) || /\.mdx?$/iu.test(entry.filePath ?? "")
-        ? `${page}/index.mdx`
+      ((typeof entry.body === "string" && entry.body.length > 0) || /\.mdx?$/iu.test(entry.filePath ?? "")) &&
+      publishes(sourceUrl)
+        ? sourceUrl
         : undefined,
     ogImageUrl: `${OG_IMAGE_ROUTE}${page.slice(1) || "index"}.png`,
   };

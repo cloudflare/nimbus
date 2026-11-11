@@ -8,6 +8,7 @@
 import type { APIRoute, GetStaticPaths } from "astro";
 import { getLlmsPayload } from "../agent-endpoints.js";
 import { loadAgentEndpointManifest } from "./agent-endpoint-manifest.js";
+import { notModified } from "./conditional-request.js";
 import { findOwnMarkdownRoute, higherMarkdownRouteOwner } from "./markdown-routes.js";
 
 // Spelled as a constant: the build tells a route that serves `/llms-full.txt`
@@ -53,9 +54,12 @@ export const GET: APIRoute = async (context) => {
       ? await getLlmsPayload({ scope: "section", surface: FULL, section }, { request: context.request })
       : null;
     if (!payload) return new Response("Not found", { status: 404 });
-    return new Response(payload.body, {
-      headers: { "Content-Type": payload.mediaType },
-    });
+    const etag = `"${payload.digest}"`;
+    if (!context.isPrerendered) {
+      const unchanged = notModified(context.request, etag);
+      if (unchanged) return unchanged;
+    }
+    return new Response(payload.body, { headers: { "Content-Type": payload.mediaType, ETag: etag } });
   } catch (error) {
     if (context.isPrerendered) throw error;
     console.error(error);

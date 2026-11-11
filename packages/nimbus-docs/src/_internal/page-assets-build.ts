@@ -229,8 +229,17 @@ export class PageAssetWriter {
 
   /** Returns the stable record hash; call finishVersion before location(hash). */
   async add(record: unknown): Promise<string> {
-    await this.initialize();
+    return (await this.addRecord(record)).hash;
+  }
+
+  /** {@link add}, with the record's stored JSON bytes. */
+  async addRecord(record: unknown): Promise<{ hash: string; bytes: number }> {
     const bytes = JSON.stringify(record);
+    return { hash: await this.addSerialized(bytes), bytes: Buffer.byteLength(bytes) };
+  }
+
+  private async addSerialized(bytes: string): Promise<string> {
+    await this.initialize();
     const hash = pageAssetDigest(bytes);
     const existing = this.known.get(hash);
     if (existing && (await this.stage(existing))) {

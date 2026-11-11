@@ -8,11 +8,16 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { register } from "node:module";
 import path from "node:path";
 import { after, before, test } from "node:test";
 
-import { readLlmsEndpointPayload } from "../src/_internal/agent-endpoint-assets.js";
-import { agentSites, srcModule } from "./fixtures/agent-site.ts";
+import { agentSites, siteApp, srcModule } from "./fixtures/agent-site.ts";
+
+// The request-rendered site reads its manifest and page records through the
+// Workers assets binding: stub it to read `dist/`.
+register(new URL("./fixtures/mcp/workers-loader.mjs", import.meta.url));
+const assetRoots = ((globalThis as { __nimbusTestAssetRoots?: Map<string, { dir: string; base: string }> }).__nimbusTestAssetRoots ??= new Map());
 import { TEST_TMP } from "./fixtures/temp-root.js";
 
 const sites = agentSites();
@@ -80,25 +85,26 @@ if (result instanceof Response) return result;
       },
     );
     const dist = path.join(site.root, "dist");
-    // On server output the section indexes are served on request from the
-    // assets the build baked; this harness has no Cloudflare runtime to serve
-    // them, so it reads the baked index as the route would.
+    // On server output the API's routes render on request, so its section
+    // indexes are made from the page list when asked: the server answers.
+    if (request) assetRoots.set("example.test", { dir: path.join(site.root, "dist"), base: "/docs" });
+    const app = request ? await siteApp(site) : undefined;
+    const fetchDoc = async (file: string): Promise<Response> =>
+      app!.render(new Request(`https://example.test/docs/${file}`));
+    // A route the policy builds ahead of time wrote its file; one it renders
+    // on request answers from the server.
     const read = async (file: string): Promise<string> => {
-      if (request) {
-        const section = file.replace(/\/llms\.txt$/, "");
-        return (await readLlmsEndpointPayload(site.root, { scope: "section", surface: "index", section })).body;
-      }
       const full = path.join(dist, file);
-      assert.ok(existsSync(full), `${file} is built`);
-      return readFile(full, "utf8");
+      if (existsSync(full)) return readFile(full, "utf8");
+      assert.ok(request, `${file} is built`);
+      const response = await fetchDoc(file);
+      assert.equal(response.status, 200, file);
+      return response.text();
     };
     const missing = async (file: string): Promise<boolean> => {
-      if (!request) return !existsSync(path.join(dist, file));
-      const section = file.replace(/\/llms\.txt$/, "");
-      return readLlmsEndpointPayload(site.root, { scope: "section", surface: "index", section }).then(
-        () => false,
-        () => true,
-      );
+      if (existsSync(path.join(dist, file))) return false;
+      if (!request) return true;
+      return (await fetchDoc(file)).status === 404;
     };
 
     const users = await read("tags/users/llms.txt");
@@ -113,10 +119,27 @@ if (result instanceof Response) return result;
     assert.doesNotMatch(accounts, /\/users\/list\/index\.md\)[\s\S]*v2/);
     assert.ok(await missing("v1/tags/users/llms.txt"), "v1 has no Users tag");
 
+    const fullDocument = await read("llms-full.txt");
+    if (/served by section/.test(fullDocument)) {
+      // On request the full document is an index of parts, one per section
+      // and one more per other version; a version's part holds only its pages.
+      const index = fullDocument;
+      const parts = [...index.matchAll(/^- \[([^\]]*)\]\(https:\/\/example\.test\/docs\/([^)]*llms-full\.txt[^)]*)\)/gm)].map((m) => [m[1]!, m[2]!]);
+      const versioned = parts.filter(([label]) => / \(v1\)$/.test(label));
+      const current = parts.filter(([label]) => !/ \(v1\)$/.test(label));
+      assert.ok(versioned.length > 0 && current.length > 0, index);
+      for (const [, url] of versioned) {
+        const sources = [...(await read(url)).matchAll(/^Source: (\S+)/gm)].map((m) => new URL(m[1]!).pathname);
+        assert.ok(sources.length > 0 && sources.every((source) => source.startsWith("/docs/v1/")), `${url}: ${sources.join(", ")}`);
+      }
+      for (const [, url] of current) {
+        const sources = [...(await read(url)).matchAll(/^Source: (\S+)/gm)].map((m) => new URL(m[1]!).pathname);
+        assert.ok(sources.length > 0 && sources.every((source) => !source.startsWith("/docs/v1/")), `${url}: ${sources.join(", ")}`);
+      }
+      return;
+    }
     // Each version reads as a block in llms-full.txt, its overview first.
-    const fullText = request
-      ? (await readLlmsEndpointPayload(site.root, { scope: "site", surface: "full" })).body
-      : await readFile(path.join(dist, "llms-full.txt"), "utf8");
+    const fullText = fullDocument;
     const sources = [...fullText.matchAll(/^Source: (\S+)/gm)].map((match) => new URL(match[1]!).pathname);
     const v1 = sources.filter((source) => source.startsWith("/docs/v1/"));
     assert.ok(v1.length > 0, sources.join(", "));

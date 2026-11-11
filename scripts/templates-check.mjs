@@ -253,13 +253,30 @@ async function verifyRuntime(site, lane, port, expectedHomepageMarkdown, base = 
           "utf8",
         ),
       );
-      const asset = manifest.llmsAssets.find(
+      // A request-rendered section index is made from the page list, so it
+      // is served with no file behind it; a baked one is a file.
+      const sectionIndex = await fetch(`${siteUrl}/runtime-section/llms.txt`, {
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (sectionIndex.status !== 200 || !(await sectionIndex.text()).includes("runtime-section")) {
+        throw new Error(`section llms.txt returned ${sectionIndex.status}`);
+      }
+      const llmsAsset = manifest.llmsAssets.find(
         (entry) =>
           entry.scope === "section" &&
           entry.section === "runtime-section" &&
           entry.surface === "index",
       );
-      if (!asset) throw new Error("runtime fixture has no known llms.txt asset");
+      if (!llmsAsset && !manifest.onRequest?.llmsSections) {
+        throw new Error("runtime fixture has no known llms.txt asset and does not make it on request");
+      }
+      // A known asset whose file is gone is a 500 that says nothing more: the
+      // section index when it is a file, else a page's baked Markdown.
+      const asset =
+        llmsAsset ??
+        manifest.markdownAssets.find((entry) => entry.surface === "markdown" && entry.published !== false);
+      if (!asset) throw new Error("runtime fixture has no known agent asset");
+      const assetUrl = llmsAsset ? "/runtime-section/llms.txt" : asset.url;
       rmSync(
         join(
           site,
@@ -271,7 +288,7 @@ async function verifyRuntime(site, lane, port, expectedHomepageMarkdown, base = 
           asset.path,
         ),
       );
-      const missingAsset = await fetch(`${siteUrl}/runtime-section/llms.txt`, {
+      const missingAsset = await fetch(`${siteUrl}${assetUrl}`, {
         signal: AbortSignal.timeout(5_000),
       });
       const missingAssetBody = await missingAsset.text();

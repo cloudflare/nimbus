@@ -12,8 +12,8 @@ export interface McpPageRecord {
   description?: string;
   /** Absolute page URL, as search returns it. */
   url: string;
-  /** Absolute URL of the page's Markdown twin. */
-  markdownUrl: string;
+  /** Absolute URL of the page's Markdown twin, when a route of the site serves it. */
+  markdownUrl?: string;
   /** Site-relative Markdown path without the base; the Markdown asset's `url`. */
   markdownPath: string;
   /** The `llms.txt` section this page belongs to (its top-level slug). */
