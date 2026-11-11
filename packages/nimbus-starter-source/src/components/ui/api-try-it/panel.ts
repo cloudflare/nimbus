@@ -574,7 +574,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     for (const b of sendButtons) {
       if (state.stop) b.textContent = "Stop";
       else if (state.confirm) b.textContent = `Confirm ${plan.method}`;
-      else b.textContent = b === sendBottom ? label.long : label.short;
+      else b.textContent = label.short; // the same words wherever it sits; the label names the host
       b.setAttribute("aria-label", state.stop ? "Stop" : state.confirm ? `Confirm: ${label.long}` : label.long);
       b.classList.toggle("nb-tid-stop", Boolean(state.stop));
       if (state.disabled !== undefined) b.disabled = state.disabled;
@@ -841,7 +841,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
           collect();
         });
         for (const v of Array.isArray(value) ? value : []) addItem(text(v), false);
-        return { control: el("div", {}, list, el("div", {}, add)), focus: () => (list.querySelector<HTMLElement>("input, select") ?? add).focus() };
+        return { control: el("div", {}, list, el("div", { class: "nb-tid-listadd" }, add)), focus: () => (list.querySelector<HTMLElement>("input, select") ?? add).focus() };
       }
       if (p.schema.enum) {
         const options = [...p.schema.enum.map(text), ...(nullable && !p.schema.enum.includes(null) ? ["null"] : [])];
