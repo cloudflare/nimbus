@@ -54,7 +54,7 @@ export const GET: APIRoute = async (context) => {
       : null;
     if (!payload) return new Response("Not found", { status: 404 });
     return new Response(payload.body, {
-      headers: { "Content-Type": payload.mediaType },
+      headers: { "Content-Type": payload.mediaType, ETag: `"${payload.digest}"` },
     });
   } catch (error) {
     if (context.isPrerendered) throw error;

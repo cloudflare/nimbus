@@ -100,7 +100,7 @@ Then run the Cloudflare adapter installer. It keeps an existing rendering policy
 
 The installer also updates the API route file to render on request, dropping the `getStaticPaths` Astro would ignore. After changing `rendering` yourself, run `nimbus-docs check --fix`; see [Choose build or request rendering](/reference/rendering).
 
-The recipe's API catch-all uses Nimbus runtime helpers to resolve either mode. Alternate Markdown versions and `llms.txt` indexes follow the rendering policy too, serving content prepared at build time. Coordinate data, search records, and sitemaps stay build output, and requests read prepared content entries rather than parsing the OpenAPI document.
+The recipe's API catch-all uses Nimbus runtime helpers to resolve either mode. Alternate Markdown versions and `llms.txt` indexes follow the rendering policy too: the indexes serve content prepared at build time, and a request-rendered API page makes its Markdown when asked for, from the same prepared page data as its HTML. Coordinate data, search records, and sitemaps stay build output, and requests read prepared content entries rather than parsing the OpenAPI document.
 
 ## Many versions
 

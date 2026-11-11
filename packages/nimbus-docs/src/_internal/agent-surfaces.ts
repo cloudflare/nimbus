@@ -10,7 +10,7 @@
 import type { MarkdownRouteRecord } from "./markdown-routes.js";
 
 /** A recorded route as the surfaces need it; the entrypoint names it in the log. */
-export type AgentSurfaceRoute = Pick<MarkdownRouteRecord, "pattern" | "regex" | "shared"> & { entrypoint?: string };
+export type AgentSurfaceRoute = Pick<MarkdownRouteRecord, "pattern" | "regex" | "shared" | "prerendered"> & { entrypoint?: string };
 
 export interface AgentSurfaces {
   /** Every recorded `.md`, `.mdx`, `llms.txt` and `llms-full.txt` endpoint route. */
@@ -21,6 +21,11 @@ export interface AgentSurfaces {
   llmsSections: boolean;
   /** A route serves `/llms-full.txt`. */
   llmsFull: boolean;
+  /**
+   * Which of those routes render on request. Such a document is not baked:
+   * the Worker makes it from the page list when asked.
+   */
+  onRequest: { llms: boolean; llmsSections: boolean; llmsFull: boolean };
 }
 
 /**
@@ -39,11 +44,28 @@ export function publishesAgentUrl(
 
 /** The surfaces a set of recorded routes serves. */
 export function agentSurfacesFromRoutes(routes: readonly AgentSurfaceRoute[]): AgentSurfaces {
+  const site = routes.find((route) => route.pattern === "/llms.txt");
+  const full = routes.find((route) => route.pattern === "/llms-full.txt");
+  const sections = routes.filter((route) => isSectionLlmsPattern(route.pattern));
+  // A mount's own llms-full route (a split file) reads the baked part.
+  const fullParts = routes.filter(
+    (route) => route.pattern !== "/llms-full.txt" && /\/llms-full\.txt$|\/\[llms\]\.txt$/u.test(route.pattern),
+  );
+  const onRequest = (candidates: readonly { prerendered: boolean }[]) =>
+    candidates.length > 0 && candidates.every((route) => route.prerendered === false);
   return {
     markdownRoutes: routes,
-    llms: routes.some((route) => route.pattern === "/llms.txt"),
-    llmsSections: routes.some((route) => isSectionLlmsPattern(route.pattern)),
-    llmsFull: routes.some((route) => route.pattern === "/llms-full.txt"),
+    llms: site !== undefined,
+    llmsSections: sections.length > 0,
+    llmsFull: full !== undefined,
+    // A document is made on request only when every route that serves it
+    // or one of its parts renders on request; a prerendered mount route
+    // reads a baked file, so the whole surface is then baked.
+    onRequest: {
+      llms: site?.prerendered === false,
+      llmsSections: onRequest(sections),
+      llmsFull: full !== undefined && onRequest([full, ...fullParts]),
+    },
   };
 }
 
@@ -52,6 +74,7 @@ export const ALL_AGENT_SURFACES: Readonly<Omit<AgentSurfaces, "markdownRoutes">>
   llms: true,
   llmsSections: true,
   llmsFull: true,
+  onRequest: { llms: false, llmsSections: false, llmsFull: false },
 };
 
 /** One line per surface, for the build log and `check`. */
@@ -62,20 +85,25 @@ export function describeAgentSurfaces(surfaces: {
   llmsSections: boolean;
   llmsFull: boolean;
   mcpBodies: boolean;
+  /** Documents whose routes render on request, made from the page list when asked. */
+  onRequest?: { llms: boolean; llmsSections: boolean; llmsFull: boolean };
+  /** API pages whose Markdown renders on request. */
+  renderedPages?: number;
   /** The route files serving each surface, where known; the starter's names otherwise. */
   files?: Partial<Record<"pageMarkdown" | "source" | "llms" | "llmsSections" | "llmsFull", string>>;
 }): string[] {
-  const line = (on: boolean, what: string, file: string) =>
-    on ? `${what}: served (${file})` : `${what}: off (no ${file})`;
+  const line = (on: boolean, what: string, file: string, onRequest = false) =>
+    on ? `${what}: ${onRequest ? "made on request" : "served"} (${file})` : `${what}: off (no ${file})`;
   const file = (key: keyof NonNullable<typeof surfaces.files>, starter: string) => surfaces.files?.[key] ?? starter;
+  const rendered = surfaces.renderedPages ? `; ${surfaces.renderedPages} API pages made on request` : "";
   return [
     surfaces.pageMarkdown
-      ? line(true, "Page Markdown", file("pageMarkdown", "src/pages/[...slug]/index.md.ts"))
+      ? `${line(true, "Page Markdown", file("pageMarkdown", "src/pages/[...slug]/index.md.ts"))}${rendered}`
       : `Page Markdown: off (no src/pages/[...slug]/index.md.ts)${surfaces.mcpBodies ? "; bodies kept for agents.mcp" : ""}`,
     line(surfaces.source, "Page source (.mdx)", file("source", "src/pages/[...slug]/index.mdx.ts")),
-    line(surfaces.llms, "llms.txt", file("llms", "src/pages/llms.txt.ts")),
-    line(surfaces.llmsSections, "Section llms.txt", file("llmsSections", "src/pages/[...section]/llms.txt.ts")),
-    line(surfaces.llmsFull, "llms-full.txt", file("llmsFull", "src/pages/llms-full.txt.ts")),
+    line(surfaces.llms, "llms.txt", file("llms", "src/pages/llms.txt.ts"), surfaces.onRequest?.llms),
+    line(surfaces.llmsSections, "Section llms.txt", file("llmsSections", "src/pages/[...section]/llms.txt.ts"), surfaces.onRequest?.llmsSections),
+    line(surfaces.llmsFull, "llms-full.txt", file("llmsFull", "src/pages/llms-full.txt.ts"), surfaces.onRequest?.llmsFull),
   ];
 }
 

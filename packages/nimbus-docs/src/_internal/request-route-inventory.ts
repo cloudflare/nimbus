@@ -12,7 +12,10 @@ import {
   loadNimbusConfig,
 } from "./runtime-config.js";
 import { getIndexedEntries, getVersionStatus } from "../runtime.js";
-import { readConfiguredMarkdownEndpointPayload } from "./agent-endpoint-asset-reader.js";
+import {
+  readConfiguredMarkdownEndpointPayload,
+  readConfiguredRenderedMarkdownPage,
+} from "./agent-endpoint-asset-reader.js";
 
 export const prerender = true;
 
@@ -65,14 +68,9 @@ export async function GET() {
     if (versionStatus?.isDeprecated) route.deprecated = true;
     if (route.request && searchable && pagefind) {
       // Pagefind's text for a page rendered on request: the build keeps a
-      // body for every such page while Pagefind is on, route or no route.
-      route.content = (
-        await readConfiguredMarkdownEndpointPayload(projectRoot, {
-          collection,
-          id: item.entry.id,
-          surface: "markdown",
-        })
-      ).content;
+      // body for every such page while Pagefind is on, route or no route,
+      // except an API page the Worker renders, whose text is made the same way.
+      route.content = await pageText(projectRoot, collection, item);
     }
     routes.push(route);
   }
@@ -80,4 +78,22 @@ export async function GET() {
   return new Response(JSON.stringify(routes), {
     headers: { "Content-Type": "application/json" },
   });
+}
+
+async function pageText(
+  projectRoot: string,
+  collection: string,
+  item: Awaited<ReturnType<typeof getIndexedEntries>>[number],
+): Promise<string> {
+  const baked = await readConfiguredMarkdownEndpointPayload(projectRoot, {
+    collection,
+    id: item.entry.id,
+    surface: "markdown",
+  }).catch(() => undefined);
+  if (baked) return baked.content;
+  // Not baked: an API page that renders on request takes the serialization
+  // the route uses, so the search text is the content the `.md` carries.
+  const page = await readConfiguredRenderedMarkdownPage(projectRoot, { collection, id: item.entry.id });
+  if (page) return (await (await import("./api/markdown-record.js")).renderMarkdownDocument(page)).content;
+  throw new Error(`nimbus-docs: no Markdown body for "${collection}:${item.entry.id}" to index; the build should have kept one.`);
 }

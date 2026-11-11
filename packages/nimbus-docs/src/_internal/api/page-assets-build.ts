@@ -112,7 +112,7 @@ const buildPreparations: Map<string, PreparedApiAssetVersion> =
 const rebuildReasons = (preparationGlobals[REBUILD_REASONS] ??= new Map());
 const preparedRecordMemos = new WeakMap<
   PageAssetWriter,
-  Map<string, { hash: string; classes: string[] }>
+  Map<string, { hash: string; classes: string[]; bytes: number }>
 >();
 const PREPARED_RECORD_MEMO_BYTES = 8 * 1024 * 1024;
 // Two 64-character digests, UTF-16 strings plus conservative Map-entry overhead,
@@ -709,7 +709,7 @@ export async function prepareApiAssetVersion(
       );
       const recordMemo =
         preparedRecordMemos.get(writer) ??
-        new Map<string, { hash: string; classes: string[] }>();
+        new Map<string, { hash: string; classes: string[]; bytes: number }>();
       preparedRecordMemos.set(writer, recordMemo);
       let memo = recordMemo.get(projectedHash);
       if (memo) {
@@ -723,10 +723,11 @@ export async function prepareApiAssetVersion(
           prepareApiPageCode(pageProps),
         );
         for (const name of pageClasses) usedTokenClasses.add(name);
-        memo = { hash: await writer.add(prepared), classes: [...pageClasses] };
+        const { hash, bytes } = await writer.addRecord(prepared);
+        memo = { hash, classes: [...pageClasses], bytes };
       }
       recordMemo.set(projectedHash, memo);
-      const recordHash = memo.hash;
+      const { hash: recordHash, bytes: recordBytes } = memo;
       while (
         recordMemo.size * PREPARED_RECORD_MEMO_ENTRY_BYTES >
         PREPARED_RECORD_MEMO_BYTES
@@ -741,6 +742,7 @@ export async function prepareApiAssetVersion(
           ? {}
           : { description: page.description }),
         location: { filename: "" },
+        bytes: recordBytes,
       });
     }
     });

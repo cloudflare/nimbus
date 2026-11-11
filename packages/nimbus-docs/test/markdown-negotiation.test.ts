@@ -60,15 +60,19 @@ test("on server output a request-rendered page and the homepage negotiate; every
     const page = await fetch(`${origin}/docs/guide/`, { headers: markdown });
     assert.equal(page.status, 200);
     assert.match(page.headers.get("Content-Type") ?? "", /text\/markdown/);
-    assert.equal(page.headers.get("Vary"), "Cookie, Accept");
+    // Negotiation answers before the page's HTML renders, so the Markdown
+    // route's headers apply, not the page's.
+    assert.equal(page.headers.get("Vary"), "Accept");
+    assert.match(page.headers.get("ETag") ?? "", /^"sha256:/);
     assert.equal(await page.text(), await (await fetch(`${origin}/docs/guide/index.md`)).text());
     const html = await fetch(`${origin}/docs/guide/`, { headers: { Accept: "*/*" } });
     assert.match(html.headers.get("Content-Type") ?? "", /text\/html/);
     assert.match(html.headers.get("Vary") ?? "", /(^|, )Accept$/);
-    // A page's own Vary and other headers survive both forms.
+    // A page's own headers belong to its HTML, which a Markdown request never renders.
     const owned = await fetch(`${origin}/docs/guide/`, { headers: markdown });
-    assert.equal(owned.headers.get("X-Owner"), "page");
-    assert.match(owned.headers.get("Vary") ?? "", /^Cookie, Accept$/);
+    assert.equal(owned.headers.get("X-Owner"), null);
+    assert.equal(html.headers.get("X-Owner"), "page");
+    assert.match(html.headers.get("Vary") ?? "", /^Cookie, Accept$/);
     const head = await fetch(`${origin}/docs/guide/`, { method: "HEAD", headers: markdown });
     assert.match(head.headers.get("Content-Type") ?? "", /text\/markdown/);
     assert.equal(await head.text(), "");
@@ -77,8 +81,11 @@ test("on server output a request-rendered page and the homepage negotiate; every
     assert.equal(home.headers.get("Vary"), "Accept");
     assert.equal(await home.text(), await (await fetch(`${origin}/docs/index.md`)).text());
     const homeHtml = await fetch(`${origin}/docs/`);
-    assert.equal(home.headers.get("Link"), homeHtml.headers.get("Link"));
-    assert.match(home.headers.get("Link") ?? "", /rel="help".*rel="ard"/);
+    // The HTML form carries the page's own Link and the discovery links; the
+    // Markdown form, answered without rendering the page, the discovery links.
+    assert.match(homeHtml.headers.get("Link") ?? "", /rel="help".*rel="ard"/);
+    assert.equal(home.headers.get("Link"), homeHtml.headers.get("Link")!.replace(/^<[^>]*>; rel="help", /, ""));
+    assert.match(home.headers.get("Link") ?? "", /^<[^>]*>; rel="ard"/);
     // Endpoints, assets, and a URL no entry owns pass through untouched.
     for (const route of ["/docs/llms.txt", "/docs/guide/index.md", "/docs/.well-known/ard.json", "/docs/nowhere/"]) {
       const response = await fetch(origin + route, { headers: markdown });
@@ -303,7 +310,8 @@ export async function GET(context) {
         assert.equal(response.status, 200);
         assert.match(response.headers.get("Content-Type") ?? "", /text\/markdown/);
         assert.match(response.headers.get("Vary") ?? "", /Accept/);
-        if (route !== "/") assert.equal(response.headers.get("X-Owner"), "page");
+        // The Markdown form is the deployed file's; the page's headers are its HTML's.
+        assert.equal(response.headers.get("X-Owner"), null);
         const alternate = `${origin}${base}${route === "/" ? "/index.md" : `${route}index.md`}`;
         const expected = await (await fetch(alternate)).text();
         assert.equal(await response.text(), expected);

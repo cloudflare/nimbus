@@ -25,7 +25,7 @@ import {
   parseContentCollections,
 } from "../_internal/parse-content-collections.js";
 import { readPageCollectionsFile } from "../_internal/page-collections.js";
-import { planRouteFiles } from "../_internal/route-files.js";
+import { planRouteFiles, projectRouteFiles } from "../_internal/route-files.js";
 import { describeAgentSurfaces, isSectionLlmsPattern } from "../_internal/agent-surfaces.js";
 import { walkFilesSync } from "../_internal/fs-walk.js";
 import { DEFAULT_RENDERING_NOTE } from "../_internal/route-modes.js";
@@ -623,15 +623,47 @@ function checkAgentSurfaces(
       Object.entries(files).filter(([, found]) => found.length > 0).map(([key, found]) => [key, found.join(", ")]),
     ),
   };
-  // A site with every starter route says nothing: the line is for the one
-  // that deleted a route and wonders where its Markdown went.
+  // Which documents the rendering policy makes on request: the mode each
+  // agent route file takes, as the build reads it.
+  const project = projectRouteFiles(cwd, srcDirOverride);
+  let onRequest: { llms: boolean; llmsSections: boolean; llmsFull: boolean } | undefined;
+  if (project.ok && project.configured) {
+    const prefix = `${path.relative(cwd, pagesDir).split(path.sep).join("/")}/`;
+    const agentFiles = project.files
+      .filter((entry) => entry.target.page === undefined && entry.file.startsWith(prefix))
+      .map((entry) => ({ rel: entry.file.slice(prefix.length), request: entry.target.mode === "request" }));
+    const stem = (rel: string) => rel.replace(/\.[cm]?[jt]s$/u, "");
+    const site = agentFiles.find((entry) => stem(entry.rel) === "llms.txt");
+    const full = agentFiles.find((entry) => stem(entry.rel) === "llms-full.txt");
+    const under = (rel: string, ...names: string[]) => rel.includes("/") && names.some((name) => stem(rel).endsWith(`/${name}`));
+    const sections = agentFiles.filter((entry) => under(entry.rel, "llms.txt", "[llms].txt"));
+    const parts = agentFiles.filter((entry) => under(entry.rel, "llms-full.txt", "[llms].txt"));
+    const every = (entries: Array<{ request: boolean }>) => entries.length > 0 && entries.every((entry) => entry.request);
+    // A collection mounted away from the root in another mode than the
+    // root's gets an injected llms route of its own, in its mode, which the
+    // build counts as serving part of the surface: a build-rendered mount
+    // keeps the sections and the full document baked.
+    const mounts = project.files
+      .filter((entry) => entry.target.page !== undefined && entry.target.page.collection !== "docs")
+      .map((entry) => ({ request: entry.target.mode === "request" }));
+    const mountsOnRequest = mounts.every((entry) => entry.request);
+    onRequest = {
+      llms: site?.request === true,
+      llmsSections: every(sections) && mountsOnRequest,
+      llmsFull: full !== undefined && every([full, ...parts]) && mountsOnRequest,
+    };
+  }
+  // A site with every starter route, every one built ahead of time, says
+  // nothing: the line is for the one that deleted a route and wonders where
+  // its Markdown went, or whose documents are made on request.
   const allOn = surfaces.pageMarkdown && surfaces.source && surfaces.llms && surfaces.llmsSections && surfaces.llmsFull;
-  if (allOn) return;
+  const anyOnRequest = onRequest !== undefined && (onRequest.llms || onRequest.llmsSections || onRequest.llmsFull);
+  if (allOn && !anyOnRequest) return;
   findings.push({
     scope: "structure",
     code: "nimbus/agent-surfaces",
     severity: "info",
-    message: `Agent surfaces follow the route files under src/pages: ${describeAgentSurfaces(surfaces).join("; ")}.`,
+    message: `Agent surfaces follow the route files under src/pages: ${describeAgentSurfaces({ ...surfaces, ...(onRequest ? { onRequest } : {}) }).join("; ")}.`,
     fixable: false,
   });
 }
