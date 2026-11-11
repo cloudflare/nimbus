@@ -18,9 +18,9 @@ export function publishedAgentUrls(): Promise<(url: string) => boolean> {
     import("virtual:nimbus/markdown-routes")
       .then(({ routes }) => (url: string) => publishesAgentUrl(routes, url))
       .catch((error: unknown) => {
-        // Only a runtime with no resolver for the virtual module (Node outside
-        // Vite) falls back; a module that resolved and failed is a real error.
-        if (!unresolvableModule(error)) throw error;
+        // Only Node's own loader refusing the `virtual:` scheme (a runtime
+        // outside Vite) falls back; any other failure is the site's to see.
+        if (!unresolvableVirtualModule(error)) throw error;
         return () => true;
       });
   // Dev re-resolves routes when a page file is added or removed; read them each time.
@@ -29,12 +29,13 @@ export function publishedAgentUrls(): Promise<(url: string) => boolean> {
   return predicate;
 }
 
-function unresolvableModule(error: unknown): boolean {
-  const code = (error as { code?: unknown } | null)?.code;
-  if (code === "ERR_MODULE_NOT_FOUND" || code === "ERR_UNSUPPORTED_ESM_URL_SCHEME" || code === "ERR_UNKNOWN_FILE_EXTENSION")
-    return true;
-  const message = error instanceof Error ? error.message : String(error);
-  return /Cannot find (?:module|package)|Failed to (?:resolve|load)|Unknown (?:file extension|scheme)|Only URLs with a scheme/iu.test(message);
+/**
+ * Node's default ESM loader rejecting the `virtual:` scheme: the one failure
+ * that means the runtime runs outside the integration (a test on Node).
+ */
+export function unresolvableVirtualModule(error: unknown): boolean {
+  const { code, message } = (error ?? {}) as { code?: unknown; message?: unknown };
+  return code === "ERR_UNSUPPORTED_ESM_URL_SCHEME" && typeof message === "string" && message.includes("'virtual:'");
 }
 
 /** Dev only: forget the routes after they change. */

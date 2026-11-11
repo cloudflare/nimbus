@@ -373,3 +373,14 @@ test("deleting only the site index route keeps the section indexes and drops the
   const payload = await readMarkdownEndpointPayload(projectRoot, { collection: "docs", id: "guide/one", surface: "markdown" });
   assert.doesNotMatch(payload.body, /Documentation Index/);
 });
+
+test("the runtime falls back to every URL only when Node itself refuses the virtual module", async () => {
+  const { unresolvableVirtualModule } = await import("../src/_internal/agent-surfaces-runtime.ts");
+  const refused = Object.assign(new Error("Only URLs with a scheme in: file, data, and node are supported by the default ESM loader. Received protocol 'virtual:'"), {
+    code: "ERR_UNSUPPORTED_ESM_URL_SCHEME",
+  });
+  assert.equal(unresolvableVirtualModule(refused), true);
+  assert.equal(unresolvableVirtualModule(Object.assign(new Error("Failed to load resolved virtual module"), { code: "ERR_LOAD_URL" })), false);
+  assert.equal(unresolvableVirtualModule(Object.assign(new Error("Cannot find module 'left-pad'"), { code: "ERR_MODULE_NOT_FOUND" })), false);
+  assert.equal(unresolvableVirtualModule(new TypeError("routes is not iterable")), false);
+});
