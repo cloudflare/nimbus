@@ -124,6 +124,16 @@ const jsonProblem = (source: string): string | null => {
   }
 };
 
+// Syntax only: a value sent as typed keeps its digits, so any number is exact.
+const syntaxProblem = (source: string): string | null => {
+  try {
+    JSON.parse(source);
+    return null;
+  } catch {
+    return "Not valid JSON.";
+  }
+};
+
 const text = (value: unknown): string =>
   value === undefined || value === null ? "" : typeof value === "string" ? value : JSON.stringify(value);
 
@@ -624,7 +634,8 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   const typeLabel = (p: PlanParam) => {
     if (p.content) return p.content;
     const s = p.schema;
-    const type = s.type === "array" ? `${s.items?.type ?? "string"}[]` : (s.type ?? "string");
+    const untyped = asJsonValue.has(p) ? "any" : "string";
+    const type = s.type === "array" ? `${s.items?.type ?? untyped}[]` : (s.type ?? untyped);
     const format = s.type === "array" ? s.items?.format : s.format;
     return [type, format ?? range(p)].filter(Boolean).join(", ");
   };
@@ -643,16 +654,19 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     set: (key, value) => (values.params[key] = value),
     drop: (key) => delete values.params[key],
   };
-  type RowContext = { key: string; store: Store };
+  // `rawJson`: a JSON value is kept as its text, checked for syntax only, never re-written.
+  // `check`: what the store can't take, beyond the schema's checks.
+  type RowContext = { key: string; store: Store; rawJson?: boolean; check?: (value: unknown) => string | null };
   const paramContext = (p: PlanParam): RowContext => ({ key: paramKey(p), store: paramStore });
   // Checks run when a field loses focus, then live until it's fixed.
-  const watch = (p: PlanParam, control: HTMLElement, error: HTMLElement, { key, store }: RowContext = paramContext(p)) => {
+  const watch = (p: PlanParam, control: HTMLElement, error: HTMLElement, { key, store, check }: RowContext = paramContext(p)) => {
     error.id = fresh("err");
     const help = control.closest(".nb-tid-row")?.querySelector<HTMLElement>(".nb-tid-desc[id]");
     control.setAttribute("aria-describedby", help ? `${help.id} ${error.id}` : error.id);
     const run = () => {
       const value = store.get(key);
-      const issues = value === undefined ? [] : checkParam(p, value);
+      const own = value === undefined ? null : (check?.(value) ?? null);
+      const issues = value === undefined ? [] : [...checkParam(p, value), ...(own ? [{ message: own, blocking: true }] : [])];
       const pathEmpty = p.in === "path" && value === "";
       const messages = [...(pathEmpty ? ["A path parameter can't be empty."] : []), ...issues.map((i) => i.message)];
       error.textContent = messages.join(" ");
@@ -692,7 +706,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
 
   // One parameter: name and type over the control its schema calls for.
   const paramRow = (p: PlanParam, onRemove?: () => void, context: RowContext = paramContext(p)): { node: HTMLElement; focus: () => void } => {
-    const { key, store } = context;
+    const { key, store, rawJson } = context;
     const id = fresh(key);
     const initial = startValue(p);
     const set = (value: unknown) => {
@@ -721,20 +735,21 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       const value = store.get(key);
       const nullable = p.schema.nullable === true;
       if (needsJson(p)) {
-        // A value a control can't keep faithfully: JSON, parsed as typed.
+        // A value a control can't keep faithfully: JSON, parsed as typed (a body's: kept as typed).
         const area = el("textarea", { id, class: "nb-tid-input nb-tid-jsonfield", rows: "3", ...TEXT, ...NO_PM });
+        const problemIn = rawJson ? syntaxProblem : jsonProblem;
         // No sample value and nothing entered: an empty field, which Send asks to fill in.
         if (p.initial === undefined && (value === "" || value === undefined) && !badJson.has(key)) badJson.set(key, "");
         const unparsed = badJson.get(key);
-        area.value = unparsed ?? JSON.stringify(value, null, 2);
+        area.value = unparsed ?? (rawJson ? text(value) : JSON.stringify(value, null, 2));
         const showInvalid = (problem: string | null) => {
           error.textContent = problem ?? "";
           if (problem) area.setAttribute("aria-invalid", "true");
           else area.removeAttribute("aria-invalid");
         };
-        showInvalid(unparsed !== undefined && unparsed.trim() !== "" ? jsonProblem(unparsed) : null);
+        showInvalid(unparsed !== undefined && unparsed.trim() !== "" ? problemIn(unparsed) : null);
         area.addEventListener("input", () => {
-          const problem = jsonProblem(area.value);
+          const problem = problemIn(area.value);
           if (problem) {
             badJson.set(key, area.value);
             resetButton.hidden = false;
@@ -744,7 +759,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
           }
           badJson.delete(key);
           showInvalid(null);
-          set(JSON.parse(area.value));
+          set(rawJson ? area.value : JSON.parse(area.value));
         });
         return { control: area, focus: () => area.focus() };
       }
@@ -1218,7 +1233,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   };
   const entryJson = (p: PlanParam, value: unknown): string | undefined => {
     if (value === null) return "null";
-    if (needsJson(p)) return JSON.stringify(value, null, 2);
+    if (needsJson(p)) return typeof value === "string" && syntaxProblem(value) === null ? value : undefined;
     if (p.schema.type === "array") {
       const items = (Array.isArray(value) ? value : []).map((item) => scalarJson(p.schema.items ?? {}, item));
       return items.includes(undefined) ? undefined : `[${items.join(", ")}]`;
@@ -1241,7 +1256,10 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       case "array": {
         const items = schema.items ?? {};
         if (!Array.isArray(value)) return false;
-        if (items.type === "object" || items.type === "array" || (!items.type && !items.enum)) return true; // edited as JSON
+        // Items of no one kind, or a number a list would round: edited as JSON.
+        if (!items.type && !items.enum) return false;
+        if (raw !== undefined && jsonProblem(raw)) return false;
+        if (items.type === "object" || items.type === "array") return true;
         // A number item keeps its digits only if a number reads back the same.
         return value.every((v) => fits(items, v) && (typeof v !== "number" || NUMBER.test(String(v))));
       }
@@ -1286,15 +1304,15 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       const raw = entries.find((e) => e.key === field.name)?.raw;
       const value = raw === undefined ? undefined : JSON.parse(raw);
       // A schema without a type takes the value's, so a number stays a number.
-      const schema = field.schema.type || field.schema.enum || value === undefined ? field.schema : { ...field.schema, type: kindOf(value) };
+      const schema = field.schema.type || field.schema.enum || value === undefined || value === null ? field.schema : { ...field.schema, type: kindOf(value) };
       const p: PlanParam = { name: field.name, in: "query", style: "form", explode: true, allowReserved: false, required: field.required, schema, ...(field.description ? { description: field.description } : {}) };
       if (raw !== undefined) {
         if (!fits(schema, value, raw)) asJsonValue.add(p);
-        // A number keeps its digits as typed; a list or object shows as JSON.
-        p.initial = (typeof value === "number" && !asJsonValue.has(p) ? raw : Array.isArray(value) && !needsJson(p) ? value.map(text) : value) as PlanParam["initial"];
+        // A number keeps its digits as typed, JSON its text; a list its items as text.
+        p.initial = (needsJson(p) || typeof value === "number" ? raw : Array.isArray(value) ? value.map(text) : value) as PlanParam["initial"];
         kept.set(`body:${field.name}`, p.initial);
-        // JSON a control would rewrite (a number past exact) stays as typed, saying so.
-        if (needsJson(p) && jsonProblem(raw)) badJson.set(`body:${field.name}`, raw);
+      } else if (schema.type === "array" && !schema.items?.type && !schema.items?.enum) {
+        asJsonValue.add(p); // an untyped list not given yet: JSON, so its items keep their kinds
       }
       byKey.set(`body:${field.name}`, p);
       return p;
@@ -1304,7 +1322,10 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       init: (key, value) => kept.set(key, value),
       set: (key, value) => {
         kept.set(key, value);
-        const raw = entryJson(byKey.get(key)!, value);
+        const p = byKey.get(key)!;
+        // An emptied number or choice isn't sent; Send asks for a required one.
+        if (value === "" && p.schema.type !== "string" && !needsJson(p)) return put(key.slice(5), undefined);
+        const raw = entryJson(p, value);
         // Not yet a value the schema takes: the entry keeps its last good one.
         if (raw !== undefined) put(key.slice(5), raw);
       },
@@ -1313,14 +1334,18 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
         put(key.slice(5), undefined);
       },
     };
+    // A value its schema's checks pass but JSON can't hold as typed (`.5`, `01`).
+    const check = (p: PlanParam) => (value: unknown) =>
+      value === "" || needsJson(p) || entryJson(p, value) !== undefined ? null : p.schema.type === "array" ? "An item isn't one this list takes." : "Write the number as JSON does, like 0.5 or 12.";
     fieldIssues = () =>
       params.flatMap((p) => {
         const key = `body:${p.name}`;
         const value = kept.get(key);
-        if (value === undefined || badJson.has(key)) return [];
-        return checkParam(p, value).filter((i) => i.blocking).map((i) => ({ key, message: i.message }));
+        if (value === undefined || value === "" || badJson.has(key)) return [];
+        const own = check(p)(value);
+        return [...checkParam(p, value).filter((i) => i.blocking).map((i) => i.message), ...(own ? [own] : [])].map((message) => ({ key, message }));
       });
-    const nodes = rowsFor(params, (p) => ({ key: `body:${p.name}`, store: fieldStore }));
+    const nodes = rowsFor(params, (p) => ({ key: `body:${p.name}`, store: fieldStore, rawJson: true, check: check(p) }));
     const first = nodes[0]!.querySelector<HTMLElement>("input, select, textarea");
     if (first) controls.set("body", first);
     return el("div", { class: "nb-tid-section" }, ...nodes);
@@ -1711,12 +1736,13 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     }
     const issues = validateValues(plan, requestValues(false)).filter((i) => i.blocking);
     const emptyPath = plan.params.find((p) => p.in === "path" && values.params[paramKey(p)] === "");
-    const [unparsed] = badJson.keys();
+    // An omitted body's fields don't count.
+    const unparsed = [...badJson.keys()].find((key) => bodyOn || !key.startsWith("body:"));
     const first = emptyPath
       ? { key: paramKey(emptyPath), message: "A path parameter can't be empty." }
       : unparsed
         ? { key: unparsed, message: badJson.get(unparsed)!.trim() === "" ? "Fill in this value." : jsonProblem(badJson.get(unparsed)!) ?? "Not valid JSON." }
-        : (fieldIssues()[0] ?? issues[0]);
+        : ((bodyOn ? fieldIssues()[0] : undefined) ?? issues[0]);
     if (!first) return null;
     touched.add(first.key);
     const name = first.key === "body" ? "Body" : first.key.split(":").slice(1).join(":");

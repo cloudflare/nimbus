@@ -1573,6 +1573,15 @@
   .nb-tid-cardhead .nb-tid-seg button {
     min-height: 2.5rem;
   }
+  /* The tools keep their size and the media type gives way; with the switch the
+     head is one height in both views, Format or not. */
+  .nb-tid-cardtools {
+    flex: none;
+  }
+  .nb-tid-cardhead:has(.nb-tid-seg:not([hidden])) {
+    min-height: 3.25rem;
+    padding-block: 0.25rem;
+  }
   .nb-tid-lang {
     min-height: 2.75rem;
     height: 2.75rem;
