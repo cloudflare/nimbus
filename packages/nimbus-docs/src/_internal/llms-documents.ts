@@ -673,16 +673,27 @@ export function sectionVersions(group: LlmsGroup, ctx: LlmsDocumentContext): str
   return family.versions.filter((version) => version !== family.defaultVersion && present.has(version));
 }
 
-/** A part's URL: `/<section>/llms-full.txt`, with the version in the query or the path for a non-default version. */
+/** The mount of an API collection as a slug (`api`, `products/sdk`, or `""` at the root). */
+function mountSlug(collection: string, ctx: LlmsDocumentContext): string {
+  return collectionMountPrefix(collection, mountContextOf(ctx)).replace(/^\/+|\/+$/gu, "");
+}
+
+/**
+ * A part's URL: `/<section>/llms-full.txt`, with a non-default version in the
+ * query, or in the path right after the collection's mount, where its pages'
+ * URLs carry it (`/api/v1/tags/llms-full.txt`): a tag named after a version
+ * then stays a different URL.
+ */
 export function partUrl(group: LlmsGroup, version: string | undefined, ctx: LlmsDocumentContext): string {
   const plain = `/${group.slug}/llms-full.txt`;
   if (version === undefined) return plain;
   const collection = sectionApiCollection(group, ctx);
   const family = collection ? ctx.apiVersions?.[collection] : undefined;
   if (!family) return plain;
-  return family.mode === "query"
-    ? `${plain}?${family.param}=${encodeURIComponent(version)}`
-    : `/${group.slug}/${version}/llms-full.txt`;
+  if (family.mode === "query") return `${plain}?${family.param}=${encodeURIComponent(version)}`;
+  const mount = mountSlug(collection!, ctx);
+  const rest = group.slug === mount ? "" : mount ? group.slug.slice(mount.length + 1) : group.slug;
+  return `/${[mount, version, rest].filter(Boolean).join("/")}/llms-full.txt`;
 }
 
 /**
@@ -712,17 +723,22 @@ export function resolvePartIdentity(
     }
     return { group: exact, version: undefined };
   }
-  // A path-mode version: `/<section>/<version>/llms-full.txt`.
-  const at = section.lastIndexOf("/");
-  if (at < 0) return undefined;
-  const slug = section.slice(0, at);
-  const version = section.slice(at + 1);
-  const group = flattenLlmsGroups(groups).find((candidate) => candidate.slug === slug);
-  if (!group) return undefined;
-  const collection = sectionApiCollection(group, ctx);
-  const family = collection ? ctx.apiVersions?.[collection] : undefined;
-  if (!family || family.mode !== "path" || !family.versions.includes(version) || version === family.defaultVersion) return undefined;
-  return { group, version };
+  // A path-mode version, right after its collection's mount:
+  // `/<mount>/<version>/<rest>/llms-full.txt`.
+  for (const [collection, family] of Object.entries(ctx.apiVersions ?? {})) {
+    if (family.mode !== "path") continue;
+    const mount = mountSlug(collection, ctx);
+    const prefix = mount ? `${mount}/` : "";
+    if (!section.startsWith(prefix)) continue;
+    const remainder = section.slice(prefix.length);
+    const version = remainder.split("/")[0]!;
+    if (!family.versions.includes(version) || version === family.defaultVersion) continue;
+    const rest = remainder.slice(version.length + 1);
+    const slug = [mount, rest].filter(Boolean).join("/");
+    const group = flattenLlmsGroups(groups).find((candidate) => candidate.slug === slug);
+    if (group && sectionApiCollection(group, ctx) === collection) return { group, version };
+  }
+  return undefined;
 }
 
 /**

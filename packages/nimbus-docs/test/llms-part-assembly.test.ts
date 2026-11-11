@@ -8,6 +8,8 @@ import { test } from "node:test";
 
 import {
   llmsFullPartsIndex,
+  partUrl,
+  resolvePartIdentity,
   assembleLlmsFullPart,
   PART_READ_AHEAD,
   partBytesEstimate,
@@ -188,4 +190,31 @@ test("the parts index names a section's default part only when the section has d
   assert.match(index, /\(https:\/\/example\.test\/core\/llms-full\.txt\)/);
   assert.match(index, /\(https:\/\/example\.test\/api\/llms-full\.txt\?v=v1\)/);
   assert.doesNotMatch(index, /\(https:\/\/example\.test\/api\/llms-full\.txt\)/);
+});
+
+test("a path version's part URL carries the version after the collection's mount, so a tag named after a version is another URL", () => {
+  const versioned: LlmsDocumentContext = {
+    ...ctx,
+    apiVersions: { api: { mode: "path", param: "", defaultVersion: "v2", versions: ["v2", "v1"] } },
+  };
+  const page = (id: string, version?: string): LlmsPage => ({
+    collection: "api",
+    id: version ? `${version}/${id}` : id,
+    title: id,
+    url: version ? `/api/${version}/${id}/` : `/api/${id}/`,
+    api: true,
+    ...(version ? { apiVersion: version } : {}),
+  });
+  const tags: LlmsGroup = { slug: "api/tags", label: "Tags", kind: "secondary", members: [page("tags/list"), page("tags/list", "v1")], children: [] };
+  const tagNamedV1: LlmsGroup = { slug: "api/tags/v1", label: "V1", kind: "secondary", members: [page("tags/v1/x")], children: [] };
+  tags.children.push(tagNamedV1);
+  const root: LlmsGroup = { slug: "api", label: "API", kind: "secondary", members: [page("index")], children: [tags] };
+  assert.equal(partUrl(tags, "v1", versioned), "/api/v1/tags/llms-full.txt");
+  assert.equal(partUrl(root, "v1", versioned), "/api/v1/llms-full.txt");
+  assert.equal(partUrl(tagNamedV1, undefined, versioned), "/api/tags/v1/llms-full.txt");
+  const none = new URLSearchParams();
+  assert.deepEqual(resolvePartIdentity([root], "api/v1/tags", none, versioned), { group: tags, version: "v1" });
+  assert.deepEqual(resolvePartIdentity([root], "api/v1", none, versioned), { group: root, version: "v1" });
+  assert.deepEqual(resolvePartIdentity([root], "api/tags/v1", none, versioned), { group: tagNamedV1, version: undefined });
+  assert.equal(resolvePartIdentity([root], "api/v9/tags", none, versioned), undefined);
 });
