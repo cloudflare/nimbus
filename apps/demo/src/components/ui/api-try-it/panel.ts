@@ -1738,6 +1738,9 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       syncViewport();
       placePicker();
       render();
+      // The modal grows from the button (try-it.css); the frame fills the viewport.
+      const from = button.getBoundingClientRect();
+      if (from.width) dialog.style.setProperty("--nb-tid-from", `${from.left + from.width / 2}px ${from.top + from.height / 2}px`);
       dialog.showModal();
       lockScroll();
       const firstEmpty = [...form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input:not([type=checkbox]):not([type=radio]):not([type=file]), textarea")].find(
