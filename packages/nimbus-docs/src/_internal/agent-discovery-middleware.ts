@@ -21,6 +21,13 @@ function varyOnAccept(headers: Headers): void {
 
 /** The indexed entry behind a page URL, so Markdown is found by identity. */
 async function pageEntry(context: APIContext) {
+  const entry = await routeEntry(context);
+  if (!entry) return undefined;
+  return (await versionSelectsDefault(context, entry.collection)) ? entry : undefined;
+}
+
+/** The content entry whose URL is the request's path, if one is. */
+async function routeEntry(context: APIContext) {
   const prefix = options.base.replace(/\/+$/, "");
   const pathname = context.url.pathname;
   if (prefix && !pathname.startsWith(`${prefix}/`)) return undefined;
@@ -28,8 +35,15 @@ async function pageEntry(context: APIContext) {
   // Separate destructured imports keep the Worker tree-shakable; a
   // `Promise.all` of whole modules pulls in the Markdown renderer.
   const { getIndexedEntries } = await import("../runtime.js");
-  const entry = (await getIndexedEntries()).find((item) => toRouteKey(item.url) === route);
-  if (!entry) return undefined;
+  return (await getIndexedEntries()).find((item) => toRouteKey(item.url) === route);
+}
+
+/**
+ * Whether the request's version selection is the collection's default (or
+ * the collection has no query versions). Only the default version's pages
+ * have Markdown.
+ */
+async function versionSelectsDefault(context: APIContext, collection: string): Promise<boolean> {
   // Query-addressed versions: the index holds only the default version, so a
   // pathname match under `?version=<non-default>` would negotiate the
   // DEFAULT version's Markdown beneath another version's HTML. Those pages
@@ -37,11 +51,19 @@ async function pageEntry(context: APIContext) {
   // collections return no routing and keep ignoring the parameter.
   const { loadNimbusConfig } = await import("./runtime-config.js");
   const { apiQueryRouting, selectApiVersion } = await import("./api/resolve-versions.js");
-  const routing = apiQueryRouting((await loadNimbusConfig()).api, entry.collection);
-  if (routing && selectApiVersion(context.url.searchParams, routing) !== routing.defaultVersion) {
-    return undefined;
-  }
-  return entry;
+  const routing = apiQueryRouting((await loadNimbusConfig()).api, collection);
+  return !routing || selectApiVersion(context.url.searchParams, routing) === routing.defaultVersion;
+}
+
+/**
+ * Whether the homepage negotiates: a route serves its Markdown and, when a
+ * content entry owns `/` (a root-mounted API's overview), the request selects
+ * that entry's default version. With no entry at `/`, the llms fallback stands.
+ */
+async function homepageNegotiates(context: APIContext): Promise<boolean> {
+  if (!capabilities.homepageMarkdownUrl) return false;
+  const entry = await routeEntry(context);
+  return !entry || versionSelectsDefault(context, entry.collection);
 }
 
 async function homepageMarkdownFallback(context: APIContext): Promise<Response | undefined> {
@@ -86,7 +108,8 @@ async function markdownResponse(context: APIContext, pathname: string): Promise<
       const route = await context.rewrite(pathname);
       // A 304 carries no Content-Type: it is the Markdown route saying the client already has it.
       const isMarkdown = route.status === 304 || (route.headers.get("Content-Type")?.includes("text/markdown") ?? false);
-      if (isMarkdown) return route;
+      // The owner's own failure reads the same negotiated as direct.
+      if (isMarkdown || route.status >= 500) return route;
       return new Response("Not found", { status: 404, headers: { "Content-Type": "text/markdown; charset=utf-8" } });
     }
     if (!asset) {
@@ -188,7 +211,7 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
   // with no published Markdown, and clients preferring HTML, render as usual.
   if (live && prefersMarkdown(context.request.headers.get("Accept"))) {
     const markdownPath = atHome
-      ? capabilities.homepageMarkdownUrl
+      ? (await homepageNegotiates(context))
         ? "/index.md"
         : undefined
       : (await pageEntry(context))?.markdownUrl;
@@ -207,7 +230,7 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
   if (response.status !== 200) return response;
   const html = live && (response.headers.get("Content-Type")?.includes("text/html") ?? false);
   // A page negotiates only when a route of the site serves its Markdown.
-  const negotiates = html && (atHome ? !!capabilities.homepageMarkdownUrl : !!(await pageEntry(context))?.markdownUrl);
+  const negotiates = html && (atHome ? await homepageNegotiates(context) : !!(await pageEntry(context))?.markdownUrl);
   if (!negotiates && !atHome) return response;
   const headers = new Headers(response.headers);
   if (negotiates) varyOnAccept(headers);
