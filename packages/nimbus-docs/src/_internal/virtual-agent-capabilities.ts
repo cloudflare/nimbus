@@ -10,6 +10,7 @@ import {
   apiCatalogLink,
 } from "./agent-api-catalog.js";
 import { withBase } from "./url.js";
+import { AGENT_CAPABILITIES_VIRTUAL_ID } from "./dev-invalidation.js";
 import { AGENT_SKILLS_PATH } from "./agent-skills.js";
 import type { AgentSkillsPublication } from "./agent-skills.js";
 export function virtualAgentCapabilitiesPlugin(
@@ -24,7 +25,7 @@ export function virtualAgentCapabilitiesPlugin(
   load(source: string): Promise<string | undefined>;
   configureServer(server: Pick<ViteDevServer, "middlewares">): void;
 } {
-  const id = "virtual:nimbus/agent-capabilities";
+  const id = AGENT_CAPABILITIES_VIRTUAL_ID;
   return {
     name: "nimbus-docs:agent-capabilities",
     configureServer(server) {
