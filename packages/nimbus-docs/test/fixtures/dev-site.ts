@@ -131,6 +131,17 @@ export async function withDevSite(files: Record<string, string>, nimbusOptions: 
       mark: () => logs.length,
     });
   } finally {
+    // A route-file change restarts the dev server in place; stopping it while
+    // that restart is in flight leaves the restarted server listening, and
+    // the test process never exits. Let the restart finish first.
+    const restarting = (text: string) => {
+      const start = text.lastIndexOf("Restarting...");
+      return start >= 0 && text.indexOf("Synced content", start) < 0;
+    };
+    if (restarting(since(0))) {
+      const deadline = Date.now() + 60_000;
+      while (restarting(since(0)) && Date.now() < deadline) await settle(100);
+    }
     await server.stop();
     for (const [index, stream] of streams.entries()) stream.write = realWrites[index]!;
   }
