@@ -267,7 +267,8 @@ function properties(schema: OpenApiSchema | undefined, seen = new Set<OpenApiSch
   const own = Object.entries(schema.properties ?? {}).map(([name, s]): [string, OpenApiSchema, boolean] => [name, s, required.has(name)]);
   const merged = (schema.allOf ?? []).flatMap((member) => properties(member, seen));
   const out = new Map<string, [string, OpenApiSchema, boolean]>();
-  for (const entry of [...merged, ...own]) out.set(entry[0], entry);
+  // The object's own `required` covers the properties its allOf brings in too.
+  for (const [name, s, req] of [...merged, ...own]) out.set(name, [name, s, req || required.has(name)]);
   return [...out.values()];
 }
 
