@@ -185,6 +185,7 @@
 		"mdast-util-math": "^3.0.0",
 		"mdast-util-mdx": "^3.0.0",
 		"mdast-util-to-markdown": "^2.2.1",
+		"micromark-extension-gfm-autolink-literal": "^2.1.0",
 		"micromark-extension-gfm-table": "^2.1.2",
 		"mri": "^1.2.0",
 		"picomatch": "^4.0.7",

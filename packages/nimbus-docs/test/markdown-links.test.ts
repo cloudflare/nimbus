@@ -1,15 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { fromMarkdown } from "mdast-util-from-markdown";
-import { gfmTable } from "micromark-extension-gfm-table";
-import { absolutizeMarkdownLinks, type MdastNode } from "../src/_internal/markdown-links.ts";
+import { parseApiMarkdown as runtimeParse } from "../src/_internal/api/markdown-document.ts";
+import { absolutizeMarkdownLinks } from "../src/_internal/markdown-links.ts";
 import { absoluteMarkdownLinks } from "../src/_internal/transform.ts";
 
 // The API serialization parses with mdast-util-from-markdown plus GFM where
 // authored pages parse with Sätteri; both must place the origin at the same
 // bytes, or a request-rendered page differs from the baked file.
-const runtimeParse = (source: string) =>
-  fromMarkdown(source, { extensions: [gfmTable()] }) as unknown as MdastNode;
 
 const SITE = "https://docs.example";
 
@@ -30,6 +27,8 @@ const CASES: Array<[string, string]> = [
   ["html inline", "<span>[x](/x)</span> and [y](/y)"],
   ["nested emphasis", "**bold [link](/bold)** and *em [l](/em)*"],
   ["parens in url", "[p](/path/(group)/x) and [q](/q)"],
+  ["footnote definition", "Text[^a] and [l](/l).\n\n[^a]: See [the note](/foot)."],
+  ["www autolink literal", "See www.example.com/[foo](/bar) and [k](/k)."],
 ];
 
 for (const [name, source] of CASES) {
