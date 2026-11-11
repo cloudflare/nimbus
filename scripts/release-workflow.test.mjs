@@ -5,6 +5,7 @@
 
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+import { posix } from "node:path";
 import test from "node:test";
 import { parse } from "yaml";
 
@@ -62,6 +63,18 @@ test("a credentialed Wrangler run reads only a checked-in config", () => {
         if (!/(^|\/)dist\//.test(config)) {
           const dir = step["working-directory"] ?? ".";
           assert.ok(existsSync(new URL(`../${dir}/${config}`, import.meta.url)), `${name}: ${config} is checked in`);
+          // Nothing in the job may replace it: no download over its folder,
+          // and no command that writes the file.
+          const folder = posix.normalize(posix.join(dir, posix.dirname(config)));
+          for (const download of job.steps.filter((s) => String(s.uses).startsWith("actions/download-artifact@"))) {
+            const into = posix.normalize(String(download.with?.path ?? "."));
+            assert.ok(into !== "." && folder !== into && !folder.startsWith(`${into}/`), `${name} downloads over ${config}`);
+          }
+          for (const line of steps.flatMap((s) => s.run.split("\n"))) {
+            if (line.includes(config) && !line.includes(`--config ${config}`)) {
+              assert.doesNotMatch(line, /\b(?:cp|mv|tee|install|ln)\b|>/, `${name} writes ${config}`);
+            }
+          }
           continue;
         }
         // A config in the build's output must be a checked-in file copied

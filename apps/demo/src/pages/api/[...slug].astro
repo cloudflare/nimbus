@@ -36,6 +36,6 @@ const socialImage = new URL(page.href, Astro.url).search
     <VersionSwitcher slot="actions" apiCollection={collection} apiVersion={version} coordinate={coordinate} />
   </Header>
   <ApiLayout page={page} nav={nav} collection={collection} version={version} coordinate={coordinate} home={home}>
-    {page.kind === "operation" && <ApiTryIt slot="try-it" page={page} server="https://api.demo.nimbus-docs.com" />}
+    {page.kind === "operation" && <ApiTryIt slot="try-it" page={page} />}
   </ApiLayout>
 </BaseLayout>

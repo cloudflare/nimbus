@@ -471,10 +471,12 @@ jobs:
           if [ -f fixture-api/wrangler.jsonc ]; then
             pnpm exec wrangler deploy --config fixture-api/wrangler.jsonc --tsconfig "$PWD/tsconfig.json"
             sandbox=https://api.demo.nimbus-docs.com
+            # The limit is per key, so a key of this run's own can't be used up by anyone else.
+            key="wx_test_release_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
             probe() { curl --fail --show-error --silent --retry 5 --retry-delay 3 -o /dev/null "$@"; }
-            probe "$sandbox/v1/locations/search?q=Oslo&key=wx_test_release"
-            probe -H "Authorization: Bearer wx_test_release" "$sandbox/v2/locations/search?q=Oslo"
-            probe -H "Authorization: Bearer wx_test_release" "$sandbox/v3-preview/locations/search?q=Oslo"
+            probe "$sandbox/v1/locations/search?q=Oslo&key=$key"
+            probe -H "Authorization: Bearer $key" "$sandbox/v2/locations/search?q=Oslo"
+            probe -H "Authorization: Bearer $key" "$sandbox/v3-preview/locations/search?q=Oslo"
           fi
           pnpm exec wrangler deploy --config dist/server/wrangler.json --tsconfig "$PWD/tsconfig.json"
           curl --fail --show-error --silent --retry 5 --retry-delay 3 -o /dev/null https://demo.nimbus-docs.com/

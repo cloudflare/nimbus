@@ -189,7 +189,7 @@ jobs:
           fi
 
       # The release deploys the sandbox API from this config; it must bundle.
-      - run: pnpm exec wrangler deploy --dry-run --config fixture-api/wrangler.jsonc --outdir "$RUNNER_TEMP/fixture-api"
+      - run: pnpm exec wrangler deploy --dry-run --config fixture-api/wrangler.jsonc --tsconfig "$PWD/tsconfig.json" --outdir "$RUNNER_TEMP/fixture-api"
         working-directory: apps/demo
 
       - run: pnpm --filter "@nimbus/demo-weather^..." build

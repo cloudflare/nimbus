@@ -125,10 +125,15 @@ Pushes to `main` build but never update production; only the release deploy does
 | Preview URLs      | `<name>.nimbus-docs.com`; `workers.dev` off           | `<name>.demo.nimbus-docs.com` (`previews_enabled` on the custom domain); `workers.dev` off |
 | Build watch paths | Default (include `*`, exclude nothing)                | Default                                                    |
 
-Build commands, www then the demo:
+Build command for `nimbus-docs` (www):
 
 ```sh
 n=$(printf %s "$WORKERS_CI_BRANCH" | tr A-Z a-z | sed 's/[^a-z0-9-]/-/g; s/--*/-/g; s/^-//; s/-$//') && case "$WORKERS_CI_BRANCH" in dependabot/*|templates|fork-*) exit 1 ;; esac && [ "$n" != demo ] && pnpm install --frozen-lockfile && pnpm run build:workers
+```
+
+Build command for `nimbus-demo-weather` (demo):
+
+```sh
 n=$(printf %s "$WORKERS_CI_BRANCH" | tr A-Z a-z | sed 's/[^a-z0-9-]/-/g; s/--*/-/g; s/^-//; s/-$//') && case "$WORKERS_CI_BRANCH" in dependabot/*|templates|fork-*) exit 1 ;; esac && [ "$n" != api ] && pnpm install --frozen-lockfile && pnpm run build:workers
 ```
 
