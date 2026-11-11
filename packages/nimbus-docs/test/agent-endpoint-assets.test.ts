@@ -1265,16 +1265,42 @@ test("dev doesn't re-read files it published, and rewrites one that went missing
   assert.equal(await readFile(removed!, "utf8"), body);
 });
 
-test("a build still reads back every file it would keep", async () => {
+test("a build still reads back every file it would keep, and repairs one that changed", async () => {
   const projectRoot = await root();
   commit(projectRoot, "docs", countedPages());
   commit(projectRoot, "partials", [{ id: "note", body: "Note.", data: {} }]);
   const { rebake } = countingSite(projectRoot, "build");
   const manifest = await ensureAgentEndpointAssets(projectRoot);
   const kept = path.join(projectRoot, ".astro/nimbus/agent-endpoint-assets", manifest.markdownAssets[0]!.path);
-  await writeFile(kept, "x".repeat(Buffer.byteLength(await readFile(kept, "utf8"))));
-  await assert.rejects(rebake(), /asset collision/);
+  const body = await readFile(kept, "utf8");
+  await writeFile(kept, "x".repeat(Buffer.byteLength(body)));
+  await rebake();
+  assert.equal(await readFile(kept, "utf8"), body);
 });
+
+
+for (const mode of ["dev", "build"] as const) {
+  test(`${mode} replaces a short or empty asset file and the bake succeeds`, async () => {
+    const projectRoot = await root();
+    commit(projectRoot, "docs", [
+      { id: "a", body: "Page A", data: { title: "A" } },
+      { id: "b", body: "Page B", data: { title: "B" } },
+    ]);
+    const options = { root: projectRoot, base: "/docs", site: "https://example.test", title: "Test" };
+    configureAgentEndpointAssetRoot(projectRoot, mode, () => bakeAgentEndpointAssets(options));
+    const manifest = await ensureAgentEndpointAssets(projectRoot);
+    const directory = path.join(projectRoot, ".astro/nimbus/agent-endpoint-assets");
+    const files = manifest.markdownAssets.slice(0, 2).map((asset) => path.join(directory, asset.path));
+    assert.equal(files.length, 2);
+    const bodies = await Promise.all(files.map((file) => readFile(file, "utf8")));
+    await writeFile(files[0]!, bodies[0]!.slice(0, 3));
+    await writeFile(files[1]!, "");
+
+    invalidateAgentEndpointAssets(projectRoot);
+    await ensureAgentEndpointAssets(projectRoot);
+    assert.deepEqual(await Promise.all(files.map((file) => readFile(file, "utf8"))), bodies);
+  });
+}
 
 test("removes assets made obsolete by edits and deletions", async () => {
   const projectRoot = await root();
