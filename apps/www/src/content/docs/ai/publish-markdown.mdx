@@ -158,7 +158,9 @@ The route files decide what the site publishes for agents. Each surface exists o
 
 A Markdown route that serves only part of the site, such as `src/pages/changelog/[...slug]/index.md.ts`, publishes Markdown for the pages it matches and nothing for the rest. With `agents: { mcp: true }`, the MCP server keeps reading every page's Markdown whether or not a route publishes it; `get_page` then returns no `markdownUrl` and pages through long content with `offset`.
 
-The build log says which surfaces the routes serve, and `nimbus-docs check` reports the same as `nimbus/agent-surfaces`.
+A route counts only at the shape Nimbus records: an endpoint whose last segment is a static file name, `[...slug]/index.md.ts`, not `[...slug].md.ts`. A route file that calls one of the factories from any other shape publishes nothing, and Astro may still send requests to it ahead of the recorded route. The build and `nimbus-docs check` name such a file (`nimbus/agent-route-shape`) and the file to move the call to.
+
+The build log says which surfaces the routes serve and how many pages the Markdown routes cover (`Page Markdown: served for 12 of 340 pages`); `nimbus-docs check` reports the surfaces as `nimbus/agent-surfaces`.
 
 ## Direct rendering
 
