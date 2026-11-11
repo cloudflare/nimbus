@@ -32,6 +32,8 @@ drive-by AI-generated PR is cheap to write and expensive to review.
 
 CI on a pull request from a fork waits for a maintainer to approve the run.
 
+A PR listing a [community recipe](https://nimbus-docs.com/community-recipes) merges when its author owns the repo in the recipe's URL, or the owner says yes in the PR, and the recipe isn't a copy of someone else's.
+
 ## For maintainers
 
 Before you open a PR:

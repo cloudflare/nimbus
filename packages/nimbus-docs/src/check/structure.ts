@@ -26,7 +26,7 @@ import {
 } from "../_internal/parse-content-collections.js";
 import { readPageCollectionsFile } from "../_internal/page-collections.js";
 import { planRouteFiles, projectRouteFiles } from "../_internal/route-files.js";
-import { describeAgentSurfaces } from "../_internal/agent-surfaces.js";
+import { describeAgentSurfaces, isSectionLlmsPattern } from "../_internal/agent-surfaces.js";
 import { walkFilesSync } from "../_internal/fs-walk.js";
 import { DEFAULT_RENDERING_NOTE } from "../_internal/route-modes.js";
 import { invocation } from "../cli/pm.js";
@@ -584,18 +584,44 @@ function checkAgentSurfaces(
   if (!srcDir) return;
   const pagesDir = path.join(srcDir, "pages");
   if (!existsSync(pagesDir)) return;
-  const routes = [...walkFilesSync(pagesDir, { onReadError: "lenient", extensions: [".ts", ".js", ".mjs", ".cjs", ".mts", ".cts"] })].map(
-    (file) => file.rel.split(path.sep).join("/"),
-  );
-  const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  const file = (name: string) => new RegExp(`(^|/)${escape(name)}\\.[cm]?[jt]s$`, "u");
+  // The endpoint files Astro's route scan takes: `.js` and `.ts`, outside
+  // `_`-prefixed and dot-prefixed folders and names (`.well-known` apart).
+  // Each file as the route pattern Astro gives it: the path without its
+  // extension, an `index` file standing for its folder.
+  const routes = [...walkFilesSync(pagesDir, { onReadError: "lenient", extensions: [".ts", ".js"] })]
+    .map((file) => file.rel.split(path.sep).join("/"))
+    .filter(
+      (route) =>
+        !route.split("/").some((segment) => segment.startsWith("_") || (segment.startsWith(".") && segment !== ".well-known")),
+    )
+    .map((route) => {
+      const stem = route.replace(/\.[jt]s$/u, "");
+      return { file: `src/pages/${route}`, pattern: `/${stem === "index" ? "" : stem.replace(/\/index$/u, "")}` };
+    })
+    // As the build records them: a static file name last (`[name].md` is no
+    // Markdown route), with the section index's dynamic form the exception.
+    .filter((route) => {
+      const last = route.pattern.split("/").at(-1)!;
+      return !last.includes("[") || last === "[llms].txt";
+    });
+  const serving = (test: (pattern: string) => boolean) => routes.filter((route) => test(route.pattern)).map((route) => route.file);
+  const files = {
+    pageMarkdown: serving((pattern) => pattern.endsWith(".md")),
+    source: serving((pattern) => pattern.endsWith(".mdx")),
+    llms: serving((pattern) => pattern === "/llms.txt"),
+    llmsSections: serving(isSectionLlmsPattern),
+    llmsFull: serving((pattern) => pattern === "/llms-full.txt"),
+  };
   const surfaces = {
-    pageMarkdown: routes.some((route) => /\.md\.[cm]?[jt]s$/u.test(route)),
-    source: routes.some((route) => /\.mdx\.[cm]?[jt]s$/u.test(route)),
-    llms: routes.some((route) => /^llms\.txt\.[cm]?[jt]s$/u.test(route)),
-    llmsSections: routes.some((route) => route.includes("/") && file("llms.txt").test(route)),
-    llmsFull: routes.some((route) => file("llms-full.txt").test(route)),
+    pageMarkdown: files.pageMarkdown.length > 0,
+    source: files.source.length > 0,
+    llms: files.llms.length > 0,
+    llmsSections: files.llmsSections.length > 0,
+    llmsFull: files.llmsFull.length > 0,
     mcpBodies: !parsed.unresolved.includes("agents") && !!config?.agents?.mcp,
+    files: Object.fromEntries(
+      Object.entries(files).filter(([, found]) => found.length > 0).map(([key, found]) => [key, found.join(", ")]),
+    ),
   };
   // Which documents the rendering policy makes on request: the mode each
   // agent route file takes, as the build reads it.
@@ -606,11 +632,12 @@ function checkAgentSurfaces(
     const agentFiles = project.files
       .filter((entry) => entry.target.page === undefined && entry.file.startsWith(prefix))
       .map((entry) => ({ rel: entry.file.slice(prefix.length), request: entry.target.mode === "request" }));
-    const isFile = (name: string) => new RegExp(`^${escape(name)}\\.[cm]?[jt]s$`, "u");
-    const site = agentFiles.find((entry) => isFile("llms.txt").test(entry.rel));
-    const full = agentFiles.find((entry) => isFile("llms-full.txt").test(entry.rel));
-    const sections = agentFiles.filter((entry) => entry.rel.includes("/") && (file("llms.txt").test(entry.rel) || file("[llms].txt").test(entry.rel)));
-    const parts = agentFiles.filter((entry) => entry.rel.includes("/") && (file("llms-full.txt").test(entry.rel) || file("[llms].txt").test(entry.rel)));
+    const stem = (rel: string) => rel.replace(/\.[cm]?[jt]s$/u, "");
+    const site = agentFiles.find((entry) => stem(entry.rel) === "llms.txt");
+    const full = agentFiles.find((entry) => stem(entry.rel) === "llms-full.txt");
+    const under = (rel: string, ...names: string[]) => rel.includes("/") && names.some((name) => stem(rel).endsWith(`/${name}`));
+    const sections = agentFiles.filter((entry) => under(entry.rel, "llms.txt", "[llms].txt"));
+    const parts = agentFiles.filter((entry) => under(entry.rel, "llms-full.txt", "[llms].txt"));
     const every = (entries: Array<{ request: boolean }>) => entries.length > 0 && entries.every((entry) => entry.request);
     // A collection mounted away from the root in another mode than the
     // root's gets an injected llms route of its own, in its mode, which the

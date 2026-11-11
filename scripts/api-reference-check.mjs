@@ -79,7 +79,6 @@ const GLOBAL_TIMEOUT_MS = Number(
 );
 const DEFAULT_PHASE_TIMEOUT_MS = 10 * 60_000;
 const PEERS = {
-  "@readme/httpsnippet": "11.4.0",
   "@scalar/openapi-parser": "0.28.12",
   "openapi-sampler": "1.7.4",
 };
@@ -1294,7 +1293,7 @@ async function assertArtifactsAndSmoke(dist) {
     );
 
     await page.setViewportSize({ width: 1600, height: 1000 });
-    const language = page.locator("[data-nb-lang-select]");
+    const language = page.locator("[data-nb-api-coderail] [data-nb-choice-select]");
     const options = await language.locator("option").count();
     assert(
       options >= 2,
@@ -1307,7 +1306,7 @@ async function assertArtifactsAndSmoke(dist) {
     await language.selectOption(secondLanguage);
     assert(
       await page
-        .locator(`[data-nb-lang-panel][data-nb-lang-value="${secondLanguage}"]`)
+        .locator(`[data-nb-choice-panel="${secondLanguage}"]`)
         .isVisible(),
       "sample language did not switch",
     );

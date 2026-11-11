@@ -90,7 +90,7 @@ import type {
 } from "../agent-endpoints.js";
 
 export const AGENT_ENDPOINT_ASSET_MANIFEST_VERSION = 7;
-export const AGENT_ENDPOINT_ASSET_GENERATION = 1;
+export const AGENT_ENDPOINT_ASSET_GENERATION = 2;
 
 export interface MarkdownEndpointAsset extends MarkdownEndpointReference {
   url: string;
@@ -264,8 +264,17 @@ function onRequest(options: BakeAgentEndpointAssetsOptions): { llms: boolean; ll
   return options.surfaces?.onRequest ?? { llms: false, llmsSections: false, llmsFull: false };
 }
 
+/** A route at `/llms-full.txt`: the full document is linked from the indexes. */
 function servesLlmsFull(options: BakeAgentEndpointAssetsOptions): boolean {
   return options.surfaces?.llmsFull ?? options.fullDocument !== false;
+}
+/**
+ * The full document is baked when a route at `/llms-full.txt` serves it, or
+ * when the integration found `llmsFullRoute()` in a route file at another
+ * path (the site's own URL for it): that route reads the same payload.
+ */
+function bakesLlmsFull(options: BakeAgentEndpointAssetsOptions): boolean {
+  return servesLlmsFull(options) || options.fullDocument === true;
 }
 
 export interface BakePreparedHeadingsOptions {
@@ -1952,9 +1961,10 @@ export async function bakeAgentEndpointAssets(
       !versionSlugs.has(collectionLabel(page.collection, options.versions)),
   );
   const rendersOnRequest = onRequest(options);
-  // Without a route, the file would only be shipped, never served; a route
-  // that renders on request makes the document from the page list when asked.
-  const full = !servesLlmsFull(options) || rendersOnRequest.llmsFull
+  // Without a route, the file would only be shipped, never served (a route at
+  // another path still reads the baked payload); a route that renders on
+  // request makes the document from the page list when asked.
+  const full = !bakesLlmsFull(options) || rendersOnRequest.llmsFull
     ? { bodies: [], split: rendersOnRequest.llmsFull }
     : llmsFullBodies(llmsFullPages, ctx, (page) => page.markdown, {
         ...(options.llmsFullLimitBytes !== undefined ? { limit: options.llmsFullLimitBytes } : {}),
@@ -2026,17 +2036,25 @@ export async function bakeAgentEndpointAssets(
   llmsRecords.sort((a, b) => compare(preparedLlmsKey(a), preparedLlmsKey(b)));
   const pageIndexRecord = options.mcpUrl ? mcpPageIndexAsset(indexPages, base, options) : undefined;
   if (options.surfaces) {
-    const { describeAgentSurfaces } = await import("./agent-surfaces.js");
+    const { describeAgentSurfaces, agentRouteFiles, isSectionLlmsPattern } = await import("./agent-surfaces.js");
+    const routes = options.surfaces.markdownRoutes;
     options.info?.(
       `Agent surfaces follow the site's routes: ${describeAgentSurfaces({
-        pageMarkdown: options.surfaces.markdownRoutes.some((route) => route.pattern.endsWith(".md")),
-        source: options.surfaces.markdownRoutes.some((route) => route.pattern.endsWith(".mdx")),
+        pageMarkdown: routes.some((route) => route.pattern.endsWith(".md")),
+        source: routes.some((route) => route.pattern.endsWith(".mdx")),
         llms: servesLlms(options),
         llmsSections: servesLlmsSections(options),
         llmsFull: servesLlmsFull(options),
         mcpBodies: !!options.mcpUrl,
         onRequest: rendersOnRequest,
         renderedPages: renderedPages.length,
+        files: {
+          pageMarkdown: agentRouteFiles(routes, (route) => route.pattern.endsWith(".md")),
+          source: agentRouteFiles(routes, (route) => route.pattern.endsWith(".mdx")),
+          llms: agentRouteFiles(routes, (route) => route.pattern === "/llms.txt"),
+          llmsSections: agentRouteFiles(routes, (route) => isSectionLlmsPattern(route.pattern)),
+          llmsFull: agentRouteFiles(routes, (route) => route.pattern === "/llms-full.txt"),
+        },
       }).join("; ")}.`,
     );
   }

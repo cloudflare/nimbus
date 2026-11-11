@@ -294,6 +294,12 @@ export function servesSectionIndex(group: Pick<LlmsGroup, "slug">, ctx: LlmsDocu
   return (ctx.nestedSections === true || !group.slug.includes("/")) && ctx.publishes(`/${group.slug}/llms.txt`);
 }
 
+/** The full documents of the sections other slices build, where a route serves them. */
+function otherParts(ctx: LlmsDocumentContext): string[] {
+  const parts = (ctx.absentSections ?? []).map((section) => `/${section.slug}/llms-full.txt`).filter((url) => ctx.publishes(url));
+  return parts.length > 0 ? [`Other parts have their own: ${parts.map((url) => absoluteUrl(ctx, url)).join(", ")}`] : [];
+}
+
 /** The site's `/llms.txt`. `fullSplit`: whether `/llms-full.txt` is one document or an index of parts. */
 export function siteIndexDocument(
   leaves: readonly LlmsPage[],
@@ -316,12 +322,17 @@ export function siteIndexDocument(
         position: group.position,
         line: `- [${group.label}](${absoluteUrl(ctx, `/${group.slug}/llms.txt`)})`,
       })),
-    ...(ctx.absentSections ?? []).map((section) => ({
-      key: `/${section.slug}`,
-      position: section.position,
-      // The slice holding a nested section serves its llms-full.txt, not an llms.txt.
-      line: `- [${section.label}](${absoluteUrl(ctx, `/${section.slug}/${ctx.nestedSections === true || !section.slug.includes("/") ? "llms.txt" : "llms-full.txt"}`)})`,
-    })),
+    ...(ctx.absentSections ?? []).map((section) => {
+      // The slice holding a nested section serves its llms-full.txt, not an
+      // llms.txt. A document no route serves is not linked: the section's
+      // pages are.
+      const document = `/${section.slug}/${ctx.nestedSections === true || !section.slug.includes("/") ? "llms.txt" : "llms-full.txt"}`;
+      return {
+        key: `/${section.slug}`,
+        position: section.position,
+        line: `- [${section.label}](${absoluteUrl(ctx, ctx.publishes(document) ? document : `/${section.slug}/`)})`,
+      };
+    }),
   ].sort((a, b) =>
     compareByPosition(
       { position: "position" in a ? (a.position as number | undefined) : undefined, url: a.key },
@@ -337,13 +348,7 @@ export function siteIndexDocument(
       ? []
       : [
           `Full documentation${ctx.absentSections?.length ? " of this part" : ""} (discoverable current pages, ${fullSplit ? "split by section" : "one document"}): ${absoluteUrl(ctx, "/llms-full.txt")}`,
-          ...(ctx.absentSections?.length
-            ? [
-                `Other parts have their own: ${ctx.absentSections
-                  .map((section) => absoluteUrl(ctx, `/${section.slug}/llms-full.txt`))
-                  .join(", ")}`,
-              ]
-            : []),
+          ...otherParts(ctx),
           "",
         ]),
     ...(ctx.mcpUrl

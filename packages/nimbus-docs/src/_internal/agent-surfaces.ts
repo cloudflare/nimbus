@@ -9,9 +9,12 @@
 
 import type { MarkdownRouteRecord } from "./markdown-routes.js";
 
+/** A recorded route as the surfaces need it; the entrypoint names it in the log. */
+export type AgentSurfaceRoute = Pick<MarkdownRouteRecord, "pattern" | "regex" | "shared" | "prerendered"> & { entrypoint?: string };
+
 export interface AgentSurfaces {
   /** Every recorded `.md`, `.mdx`, `llms.txt` and `llms-full.txt` endpoint route. */
-  markdownRoutes: readonly Pick<MarkdownRouteRecord, "pattern" | "regex" | "shared">[];
+  markdownRoutes: readonly AgentSurfaceRoute[];
   /** A route serves `/llms.txt`. */
   llms: boolean;
   /** A route serves section indexes (`/<section>/llms.txt`). */
@@ -40,14 +43,10 @@ export function publishesAgentUrl(
 }
 
 /** The surfaces a set of recorded routes serves. */
-export function agentSurfacesFromRoutes(
-  routes: readonly Pick<MarkdownRouteRecord, "pattern" | "regex" | "shared" | "prerendered">[],
-): AgentSurfaces {
-  const isSection = (route: { pattern: string }) =>
-    route.pattern !== "/llms.txt" && /\/llms\.txt$|\/\[llms\]\.txt$/u.test(route.pattern);
+export function agentSurfacesFromRoutes(routes: readonly AgentSurfaceRoute[]): AgentSurfaces {
   const site = routes.find((route) => route.pattern === "/llms.txt");
   const full = routes.find((route) => route.pattern === "/llms-full.txt");
-  const sections = routes.filter(isSection);
+  const sections = routes.filter((route) => isSectionLlmsPattern(route.pattern));
   // A mount's own llms-full route (a split file) reads the baked part.
   const fullParts = routes.filter(
     (route) => route.pattern !== "/llms-full.txt" && /\/llms-full\.txt$|\/\[llms\]\.txt$/u.test(route.pattern),
@@ -90,17 +89,44 @@ export function describeAgentSurfaces(surfaces: {
   onRequest?: { llms: boolean; llmsSections: boolean; llmsFull: boolean };
   /** API pages whose Markdown renders on request. */
   renderedPages?: number;
+  /** The route files serving each surface, where known; the starter's names otherwise. */
+  files?: Partial<Record<"pageMarkdown" | "source" | "llms" | "llmsSections" | "llmsFull", string>>;
 }): string[] {
   const line = (on: boolean, what: string, file: string, onRequest = false) =>
     on ? `${what}: ${onRequest ? "made on request" : "served"} (${file})` : `${what}: off (no ${file})`;
+  const file = (key: keyof NonNullable<typeof surfaces.files>, starter: string) => surfaces.files?.[key] ?? starter;
   const rendered = surfaces.renderedPages ? `; ${surfaces.renderedPages} API pages made on request` : "";
   return [
     surfaces.pageMarkdown
-      ? `${line(true, "Page Markdown", "src/pages/[...slug]/index.md.ts")}${rendered}`
+      ? `${line(true, "Page Markdown", file("pageMarkdown", "src/pages/[...slug]/index.md.ts"))}${rendered}`
       : `Page Markdown: off (no src/pages/[...slug]/index.md.ts)${surfaces.mcpBodies ? "; bodies kept for agents.mcp" : ""}`,
-    line(surfaces.source, "Page source (.mdx)", "src/pages/[...slug]/index.mdx.ts"),
-    line(surfaces.llms, "llms.txt", "src/pages/llms.txt.ts", surfaces.onRequest?.llms),
-    line(surfaces.llmsSections, "Section llms.txt", "src/pages/[...section]/llms.txt.ts", surfaces.onRequest?.llmsSections),
-    line(surfaces.llmsFull, "llms-full.txt", "src/pages/llms-full.txt.ts", surfaces.onRequest?.llmsFull),
+    line(surfaces.source, "Page source (.mdx)", file("source", "src/pages/[...slug]/index.mdx.ts")),
+    line(surfaces.llms, "llms.txt", file("llms", "src/pages/llms.txt.ts"), surfaces.onRequest?.llms),
+    line(surfaces.llmsSections, "Section llms.txt", file("llmsSections", "src/pages/[...section]/llms.txt.ts"), surfaces.onRequest?.llmsSections),
+    line(surfaces.llmsFull, "llms-full.txt", file("llmsFull", "src/pages/llms-full.txt.ts"), surfaces.onRequest?.llmsFull),
   ];
+}
+
+/** Whether a route pattern is a section index (`/<section>/llms.txt`), not the site's. */
+export function isSectionLlmsPattern(pattern: string): boolean {
+  return pattern !== "/llms.txt" && /\/llms\.txt$|\/\[llms\]\.txt$/u.test(pattern);
+}
+
+/**
+ * The project's own route files among `routes` that `test` picks, named for
+ * the log; routes injected from module paths outside `src/` are left out.
+ */
+export function agentRouteFiles(
+  routes: readonly { pattern: string; entrypoint?: string }[],
+  test: (route: { pattern: string }) => boolean,
+): string | undefined {
+  const files = [
+    ...new Set(
+      routes
+        .filter(test)
+        .map((route) => route.entrypoint)
+        .filter((file): file is string => typeof file === "string" && file.startsWith("src/")),
+    ),
+  ];
+  return files.length > 0 ? files.join(", ") : undefined;
 }

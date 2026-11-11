@@ -684,6 +684,19 @@ export function nimbus(
   // setup watches it, so Astro restarts and setup declares the new routes.
   const collectionRoutesSentinel = (projectRoot: string) =>
     path.join(projectRoot, ".astro", "nimbus", "collection-routes.json");
+  // The agent route files setup declares mounted routes for. Adding or
+  // removing one in dev re-runs setup, as moving a collection route does:
+  // the routes injected at setup follow the files present then.
+  const AGENT_ROUTE_FILE = /(^|\/)(index\.mdx?|llms(?:-full)?\.txt)\.[cm]?[jt]s$/u;
+  const agentRouteFilesStamp = (srcDir: string): string => {
+    const pagesDir = path.join(srcDir, "pages");
+    if (!fs.existsSync(pagesDir)) return "";
+    return [...walkFilesSync(pagesDir, { onReadError: "lenient" })]
+      .map((file) => file.rel.split(path.sep).join("/"))
+      .filter((file) => AGENT_ROUTE_FILE.test(file))
+      .sort()
+      .join("\n");
+  };
   // Helper routes the reader couldn't follow, named when one renders in the wrong place.
   let unreadRoutesForBuild: UnreadRoute[] = [];
   let buildOnlyNoticePrinted = false;
@@ -873,7 +886,7 @@ export function nimbus(
     // with a root entry, the site's own route, or the shared route's llms
     // fallback. An llms.txt route alone publishes no homepage Markdown.
     const homepageFallback =
-      hasLlms && !publicHomepage && !sharedHomepage && owner?.shared === "markdown";
+      hasLlms && !publicHomepage && !sharedHomepage && owner !== undefined && owner.shared !== "source";
     const hasHomepageMarkdown =
       publicHomepage ||
       sharedHomepage ||
@@ -1224,7 +1237,7 @@ export function nimbus(
             `${mountDecision.errors.map((error) => error.message).join("\n\n")}\n\nSee ${COLLECTION_URLS_DOCS}.`,
           );
         mountContextForBuild = { versions: versionMounts(), routes: mountDecision.mounts };
-        mountStampForSetup = mountDecisionStamp(mountDecision);
+        mountStampForSetup = `${mountDecisionStamp(mountDecision)}\0${agentRouteFilesStamp(srcDir)}`;
         const routeWarnings: MountWarning[] = [...mountDecision.warnings, ...unreadRouteWarnings(routeScan.unread)];
         setMountContext(astroConfig.root, mountContextForBuild);
         // `NIMBUS_BUILD_ONLY`: build one collection or a set. Only a build
@@ -3502,7 +3515,7 @@ export function nimbus(
           // Vite swaps in a new watcher on restart; this server is gone.
           if (server.watcher !== watcher) return;
           const decision = decideMounts(findCollectionRoutes(srcDirForBuild, projectRootForBuild).found);
-          const stamp = mountDecisionStamp(decision);
+          const stamp = `${mountDecisionStamp(decision)}\0${agentRouteFilesStamp(srcDirForBuild)}`;
           if (stamp === lastStamp) return;
           lastStamp = stamp;
           if (decision.errors.length === 0) {
@@ -3518,9 +3531,12 @@ export function nimbus(
         };
         const onPagesChange = (file: string) => {
           const relative = path.relative(pagesDir, file);
-          if (relative.startsWith("..") || path.isAbsolute(relative) || !relative.endsWith(".astro")) return;
-          const last = routeSegments(relative).at(-1);
-          if (!last || !/^\[.+\]$/u.test(last)) return;
+          if (relative.startsWith("..") || path.isAbsolute(relative)) return;
+          if (!AGENT_ROUTE_FILE.test(relative.split(path.sep).join("/"))) {
+            if (!relative.endsWith(".astro")) return;
+            const last = routeSegments(relative).at(-1);
+            if (!last || !/^\[.+\]$/u.test(last)) return;
+          }
           clearTimeout(collectionRoutesTimer);
           collectionRoutesTimer = setTimeout(recheckCollectionRoutes, 200);
           collectionRoutesTimer.unref?.();
@@ -4204,11 +4220,13 @@ export function nimbus(
         const homepageMarkdownRoute = markdownRouteRecords.find((route) =>
           route.regex.test("/index.md"),
         );
-        // The llms index stands in for /index.md only where the shared Markdown
-        // route serves the homepage; without that route there is no /index.md.
+        // The llms index stands in for /index.md only where a Markdown route
+        // serves the homepage and wrote nothing there (the factory, called
+        // directly or through the site's own module, has no root entry to
+        // render); without that route there is no /index.md.
         if (
           !sliceOutput &&
-          homepageMarkdownRoute?.shared === "markdown" &&
+          homepageMarkdownRoute !== undefined &&
           homepageMarkdownRoute.prerendered !== false &&
           !fs.existsSync(homepageMarkdownPath) &&
           fs.existsSync(llmsPath)

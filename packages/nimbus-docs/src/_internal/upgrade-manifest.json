@@ -6,8 +6,10 @@
       "api-auth-details",
       "api-body-request-example",
       "api-catalog-published-specs",
+      "api-code-sample-before-paint",
       "api-code-sample-ids",
       "api-collections-from-config",
+      "api-page-layout",
       "api-page-polish",
       "api-parameter-examples-and-home-toc",
       "api-query-version-mode",
@@ -1315,16 +1317,54 @@
       "introducedIn": "0.20.0",
       "mode": "optional",
       "changeset": "agent-surfaces-follow-routes",
-      "summary": "Optionally let the agent directive and the base layout cope with a site that serves no llms.txt: the layout reads the new getPublishedLlmsUrl(), which returns null when no route serves an index, and the directive then names only the page's Markdown, or renders nothing.",
-      "affected": "Sites created from the starter that still have src/layouts/BaseLayout.astro or src/components/AgentDirective.astro and that delete src/pages/llms.txt.ts.",
+      "summary": "Optionally let the agent directive and the base layout cope with a site whose routes serve no llms.txt, or none for a collection: the layout reads the new getPublishedLlmsUrl(), which returns the index a route serves (the collection's own, else the site's) or null, and the directive then names only the page's Markdown, or renders nothing.",
+      "affected": "Sites created from the starter that still have src/layouts/BaseLayout.astro or src/components/AgentDirective.astro and that delete src/pages/llms.txt.ts or src/pages/[...section]/llms.txt.ts.",
       "instructions": [
-        "No action is needed while src/pages/llms.txt.ts exists: getPublishedLlmsUrl() returns the same path getCollectionLlmsUrl() did.",
+        "No action is needed while both src/pages/llms.txt.ts and src/pages/[...section]/llms.txt.ts exist: getPublishedLlmsUrl() returns the same path getCollectionLlmsUrl() did. Without the section route, the old layout still advertises /<collection>/llms.txt, which no route serves; take the change.",
         "Take the change with nimbus-docs diff src/layouts/BaseLayout.astro --apply and nimbus-docs diff src/components/AgentDirective.astro --apply.",
         "If you edited either file, merge by hand: in BaseLayout, read llmsIndexPath from getPublishedLlmsUrl(collection ?? undefined) and build basedLlmsUrl and llmsUrl only when it is not null; in AgentDirective, type llmsUrl as string | null | undefined and render the aside only when markdownUrl or llmsUrl is set, with a Markdown-only sentence when there is no index."
       ],
       "verify": [
         "With src/pages/llms.txt.ts present, every page's agent directive and <link rel=\"alternate\" type=\"text/markdown\"> read as before.",
-        "Delete src/pages/llms.txt.ts and build: no page links /llms.txt, and the directive names only the page's Markdown (or is absent when the Markdown route is gone too)."
+        "Delete src/pages/llms.txt.ts and build: no page links /llms.txt, and the directive names only the page's Markdown (or is absent when the Markdown route is gone too).",
+        "Delete src/pages/[...section]/llms.txt.ts instead and build: a mounted collection's pages link /llms.txt, not /<collection>/llms.txt."
+      ]
+    },
+    {
+      "id": "api-code-sample-before-paint",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "choice-before-paint",
+      "summary": "Optionally take the registry api-code-rail update, so a reader's saved or linked code sample shows from the first paint instead of replacing the first sample after the page loads.",
+      "affected": "Sites with the api-code-rail registry component. Without the update, a reader who picked another language sees the rail resize just after the page loads.",
+      "instructions": [
+        "No action is needed: the current rail keeps working as before.",
+        "api-code-rail is a registry component, which nimbus-docs diff doesn't cover. If it is unmodified, update it with nimbus-docs add api-code-rail --overwrite.",
+        "If it is customized, merge by hand. In ApiCodeRail.astro, add data-nb-choice=\"nb-api-code-rail__lang\" and data-nb-choice-param=\"lang\" to the element with data-nb-lang-picker; replace data-nb-lang-select on the <select> with data-nb-choice-select autocomplete=\"off\"; on each panel replace data-nb-lang-panel data-nb-lang-value={id} data-nb-sample-lang={sample.lang} with data-nb-choice-panel={id} data-nb-choice-kind={sample.lang}; and when the rail has samples, render <script is:inline aria-hidden=\"true\" set:html={choiceStateScript} /> right after </aside>, importing choiceStateScript from @cloudflare/nimbus-docs/runtime. In code-rail.css, select [data-nb-choice-panel][hidden]. In code-rail.client.ts, read those attributes, take the storage key and param from the rail's data-nb-choice and data-nb-choice-param, and remove the restore that ran when the rail mounted.",
+        "Whichever way you update, rename the old attributes in your own CSS, scripts and tests too, including dataset reads such as dataset.nbSampleLang: data-nb-lang-panel and data-nb-lang-value become data-nb-choice-panel (its value is the old data-nb-lang-value), data-nb-sample-lang becomes data-nb-choice-kind, and data-nb-lang-select becomes data-nb-choice-select."
+      ],
+      "verify": [
+        "With a language other than the first chosen on one operation, another operation's rail shows that language as the page appears, with no resize.",
+        "A link with ?lang=<sample id or language> opens that sample, and choosing a sample still updates ?lang= and is remembered.",
+        "After taking the update, a search of the whole site, including scripts and tests outside src, for data-nb-lang-panel, data-nb-lang-value, data-nb-sample-lang and data-nb-lang-select, and for nbLangPanel, nbLangValue, nbSampleLang and nbLangSelect, finds nothing."
+      ]
+    },
+    {
+      "id": "api-page-layout",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-page-layout",
+      "summary": "Optionally take the new API page layout: on narrow screens the request sample comes right after the header, before the fields; on wide screens the text sits in a 40rem column beside the sample, which starts at the top; and the endpoint box shows the path, which opens the full URL in a popover.",
+      "affected": "Sites with the api-layout registry component.",
+      "instructions": [
+        "No action is needed: API pages keep their current layout until you take it.",
+        "ApiLayout, ApiBody and ApiEndpointCard are part of the api-layout registry component, which nimbus-docs diff doesn't cover. If they are unmodified, update them with nimbus-docs add api-layout --overwrite.",
+        "If they are customized, merge by hand: ApiBody renders a <slot name=\"sample\" /> after its page header and moves the description out of the header, after the page actions; ApiLayout passes its code rail into that slot (marked data-pagefind-ignore) and, from 90rem, lays the body out as a subgrid of its two-column grid with the rail in the second column, starting at row 1; ApiEndpointCard shows only the path, as a button that opens the full URL in a popover (with its script, which places the popover), and names the URL in the copy button's label."
+      ],
+      "verify": [
+        "On a phone, an operation page reads title, endpoint box, page actions, description, then the request sample and the fields.",
+        "On a screen at least 1440px wide, the request sample starts level with the breadcrumbs and stays pinned while the page scrolls.",
+        "Clicking, tapping or pressing Enter on the endpoint path shows the full URL, and Escape closes it."
       ]
     }
   ]

@@ -88,6 +88,11 @@ jobs:
       - if: matrix.shard == 'other'
         run: pnpm -r --filter '!@cloudflare/nimbus-docs' test
 
+      # The sample wire tests run each generated sample with its real client;
+      # with CI set, a missing client fails them instead of skipping.
+      - if: matrix.shard != 'other'
+        run: python3 -c 'import requests' 2>/dev/null || python3 -m pip install --user --break-system-packages requests==2.32.3
+
       # The packed-migration test installs a published release from npm and
       # packs this one. A packed tarball can only regress at a release, so it
       # runs on main and the release PR, not on every feature PR.

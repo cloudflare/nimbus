@@ -87,7 +87,7 @@
   background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23a1a1aa'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='m6%209%206%206%206-6'/%3E%3C/svg%3E");
 }
 /* A hidden sample panel drops out entirely — no stray copy button, no gap. */
-[data-nb-api-coderail] [data-nb-lang-panel][hidden] {
+[data-nb-api-coderail] [data-nb-choice-panel][hidden] {
   display: none;
 }
 

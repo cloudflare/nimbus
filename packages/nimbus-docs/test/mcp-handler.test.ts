@@ -541,3 +541,17 @@ test("a client asking for 2025-03-26, the revision that requires batches, is off
   const kept = await readRpcResponse(await handler.fetch(rpcRequest(URL_, "initialize", INITIALIZE_PARAMS)));
   assert.equal((kept.result as { protocolVersion: string }).protocolVersion, INITIALIZE_PARAMS.protocolVersion);
 });
+
+test("get_page cuts between code points, and an offset past the end reads nothing", async () => {
+  const long = "😀".repeat(MCP_PAGE_CONTENT_LIMIT + 5);
+  const handler = handlerFor(INDEX, "/", { "/guide/index.md": long });
+  const first = await call(handler, "get_page", { url: "/guide/" });
+  assert.equal([...(first.value.content as string)].length, MCP_PAGE_CONTENT_LIMIT);
+  assert.doesNotMatch(first.value.content as string, /[\uD800-\uDBFF]$/u);
+  const rest = await call(handler, "get_page", { url: "/guide/", offset: first.value.nextOffset });
+  assert.equal(rest.value.content, "😀".repeat(5));
+  const beyond = await call(handler, "get_page", { url: "/guide/", offset: MCP_PAGE_CONTENT_LIMIT * 2 });
+  assert.equal(beyond.isError, false);
+  assert.equal(beyond.value.content, "");
+  assert.equal("truncated" in beyond.value, false);
+});

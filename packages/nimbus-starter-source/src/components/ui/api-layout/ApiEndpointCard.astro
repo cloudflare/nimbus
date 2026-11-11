@@ -4,8 +4,8 @@
  *
  * The recessed header (left) holds the method: a decorative `ApiMethodChip`
  * glyph and the verb in its palette colour. The raised content (right) holds
- * the full request URL (server muted, then path) and a copy button split off
- * by a divider. Glyph and verb read the shared `--nb-m-*` palette
+ * the operation's path (the server base is left out: it is the same on every
+ * page) and a copy button, split off by a divider, that copies the full URL. Glyph and verb read the shared `--nb-m-*` palette
  * (`globals.css`), so the card and the sidebar never disagree on a method.
  */
 import { LayerCard, LayerCardHeader, LayerCardContent } from "@/components/ui/layer-card";
@@ -17,7 +17,7 @@ import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 interface Props {
   method: string;
   path: string;
-  /** Effective server base URL; when absent, the card shows the path alone. */
+  /** Effective server base URL: copied and shown on hover with the path, never displayed. */
   server?: string;
   isWebhook?: boolean;
   class?: string;
@@ -31,11 +31,16 @@ const serverQuery = at < 0 ? "" : server!.slice(at);
 const base = at < 0 ? (server ?? "") : server!.slice(0, at).replace(/\/+$/, "");
 const url = `${base}${path}${serverQuery}`;
 const copyLabel = server ? "Copy request URL" : "Copy path";
+// One popover per card, named from the request line so every render is identical.
+let hash = 0;
+for (const ch of `${method} ${url}`) hash = (Math.imul(hash, 31) + ch.codePointAt(0)!) | 0;
+const popoverId = `nb-url-${(hash >>> 0).toString(36)}`;
 const variant = methodVariant(method);
 ---
 
 {/* The method and URL read as one line of code, left to right in every language. */}
-<LayerCard orientation="horizontal" dir="ltr" class={className}>
+<div class={className}>
+<LayerCard orientation="horizontal" dir="ltr">
   <LayerCardHeader class="py-2 ps-2 pe-3">
     <ApiMethodChip method={method} display="glyph" size="md" decorative />
     <span class="font-mono text-[0.8125rem] font-medium" style={`color:var(--nb-m-${variant})`}>
@@ -44,20 +49,26 @@ const variant = methodVariant(method);
   </LayerCardHeader>
   <LayerCardContent class="flex-row items-stretch gap-0 p-0">
     <div class="min-w-0 grow self-center px-3">
-      {/* The server base is cut first: the path, which differs between pages,
-          is cut only when it alone is wider than the box. The title carries the
-          full URL. */}
-      <code class="flex min-w-0 whitespace-nowrap font-mono text-[0.8125rem] text-foreground" title={url}>
-        {server && <span class="min-w-0 truncate text-muted-foreground">{base}</span>}
-        <span class="max-w-full shrink-0 truncate">{path}{serverQuery && <span class="text-muted-foreground">{serverQuery}</span>}</span>
-      </code>
+      {/* The path only. Clicking, tapping or pressing Enter on it opens the
+          full URL in a popover (Escape or a click elsewhere closes it); a mouse
+          also gets it on hover. Search indexes the full URL once, from the popover. */}
+      <button
+        type="button"
+        popovertarget={popoverId}
+        title={url}
+        data-nb-url-path
+        data-pagefind-ignore
+        class="flex min-w-0 max-w-full cursor-pointer whitespace-nowrap rounded-sm border-0 bg-transparent p-0 font-mono text-[0.8125rem] text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span class="truncate">{path}</span>
+      </button>
     </div>
     {isWebhook && <Badge text="Webhook" variant="outline" class="me-3 self-center" />}
     <button
       type="button"
       data-nb-copy-url
       data-url={url}
-      aria-label={copyLabel}
+      aria-label={`${copyLabel}, ${url}`}
       title={copyLabel}
       class="group relative isolate flex shrink-0 cursor-pointer items-center justify-center overflow-hidden border-0 border-s border-border bg-inherit px-3 text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
     >
@@ -72,10 +83,51 @@ const variant = methodVariant(method);
     </button>
   </LayerCardContent>
 </LayerCard>
+<div
+  id={popoverId}
+  popover
+  dir="ltr"
+  data-nb-url-popover
+  class="m-0 w-max max-w-[min(40rem,calc(100vw-1rem))] break-all rounded-md border border-border bg-card px-2 py-1 font-mono text-xs text-foreground shadow-sm"
+>
+  {url}
+</div>
+</div>
 
 <script>
   // Copy the request URL. mount() re-binds per navigation.
   import { mount } from "@cloudflare/nimbus-docs/client";
+
+  // The full-URL popover opens under the path, kept inside the viewport.
+  mount("[data-nb-url-path]", (path) => {
+    const id = path.getAttribute("popovertarget");
+    const popover = id ? document.getElementById(id) : null;
+    // Without the Popover API the URL shows inline under the card; nothing to place.
+    if (!popover || !("showPopover" in HTMLElement.prototype)) return () => {};
+    const controller = new AbortController();
+    const place = () => {
+      if (!popover.matches(":popover-open")) return;
+      const anchor = path.getBoundingClientRect();
+      // Never taller than the viewport; a longer URL scrolls inside.
+      popover.style.maxHeight = `${innerHeight - 16}px`;
+      popover.style.overflowY = "auto";
+      const { offsetWidth: width, offsetHeight: height } = popover;
+      const left = Math.min(Math.max(8, anchor.left), Math.max(8, innerWidth - width - 8));
+      // Below the path when it fits, else above it; always inside the viewport.
+      const below = anchor.bottom + 6;
+      const above = anchor.top - 6 - height;
+      const wanted = below + height <= innerHeight - 8 ? below : above >= 8 ? above : below;
+      const top = Math.max(8, Math.min(wanted, innerHeight - 8 - height));
+      popover.style.position = "fixed";
+      popover.style.inset = "auto";
+      popover.style.left = `${left}px`;
+      popover.style.top = `${top}px`;
+    };
+    popover.addEventListener("toggle", place, { signal: controller.signal });
+    addEventListener("scroll", place, { passive: true, signal: controller.signal });
+    addEventListener("resize", place, { signal: controller.signal });
+    return () => controller.abort();
+  });
 
   mount("[data-nb-copy-url]", (btn) => {
     if (!(btn instanceof HTMLButtonElement)) return () => {};
