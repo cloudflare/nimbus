@@ -137,6 +137,23 @@ const syntaxProblem = (source: string): string | null => {
 const text = (value: unknown): string =>
   value === undefined || value === null ? "" : typeof value === "string" ? value : JSON.stringify(value);
 
+// iOS zooms the page in when a field under 16px takes focus. While the panel is open
+// its viewport takes maximum-scale=1, which iOS honours for that zoom but not for
+// pinch zoom, so readers can still zoom; everywhere else the page is left alone.
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+let viewportWas: string | null = null;
+function holdFocusZoom(hold: boolean): void {
+  const meta = IOS ? document.querySelector<HTMLMetaElement>('meta[name="viewport"]') : null;
+  if (!meta) return;
+  if (hold && viewportWas === null) {
+    viewportWas = meta.content;
+    if (!/maximum-scale/.test(viewportWas)) meta.content = `${viewportWas}, maximum-scale=1`;
+  } else if (!hold && viewportWas !== null) {
+    meta.content = viewportWas;
+    viewportWas = null;
+  }
+}
+
 function store(kind: "tab" | "device"): Storage | null {
   try {
     return kind === "device" ? localStorage : sessionStorage;
@@ -1985,6 +2002,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
   // Closing stops waiting: a late answer never lands in a closed dialog.
   const onClose = () => {
     unlockScroll();
+    holdFocusZoom(false);
     if (controller) stop();
     button.focus({ preventScroll: true });
   };
@@ -2019,6 +2037,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       if (from.width) dialog.style.setProperty("--nb-tid-from", `${from.left + from.width / 2}px ${from.top + from.height / 2}px`);
       dialog.showModal();
       lockScroll();
+      holdFocusZoom(true);
       const firstEmpty = [...form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input:not([type=checkbox]):not([type=radio]):not([type=file]), textarea")].find(
         (i) => !i.disabled && i.value === "" && i.offsetParent !== null,
       );
