@@ -247,7 +247,7 @@ test("an api collection without the OpenAPI parser is a fixable error naming the
     assert.equal(finding.fixable, true);
     assert.equal(finding.fix?.kind, "install-dep");
     assert.match(finding.message, /`pnpm add [^`]*@scalar\/openapi-parser`/);
-    assert.match(finding.message, /openapi-sampler @readme\/httpsnippet/);
+    assert.match(finding.message, /`pnpm add [^`]*openapi-sampler`/);
     fakePackage(path.join(dir, "node_modules/@scalar/openapi-parser"), "@scalar/openapi-parser");
     assert.equal(await parserFinding(dir), undefined);
   } finally {

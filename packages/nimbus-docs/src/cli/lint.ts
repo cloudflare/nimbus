@@ -170,7 +170,7 @@ export async function lintCommand(flags: LintCliFlags): Promise<void> {
   opts.collectionOf = scope.collectionOf;
   opts.displayPath = scope.displayPath;
   opts.readOnlySource = scope.readOnlySource;
-  opts.sourceFolder = scope.sourceFolder;
+  opts.sourceCollection = scope.sourceCollection;
 
   let diagnostics: Diagnostic[];
   let interrupted = false;

@@ -270,6 +270,7 @@ test("the .md route renders the bytes the build-rendered site baked, with the do
     const expected = (await bakedBody(baked, url)).replaceAll("https://baked.test/", "https://rendered.test/");
     assert.equal(body, expected, `${url} equals the baked serialization`);
     assert.match(response.headers.get("ETag") ?? "", /^"sha256:[0-9a-f]{64}"$/);
+    assert.equal(response.headers.get("ETag"), `"sha256:${await sha256(body)}"`, `${url} tag is its bytes`);
   }
   // Links the emitter wrote root-relative are absolute against the site.
   const list = await (await rendered.app.render(new Request("https://rendered.test/pets/listPets/index.md"))).text();

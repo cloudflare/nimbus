@@ -5,6 +5,8 @@
  * optional fix, so it can't lie about its own identity.
  */
 
+import type { SourceCollection } from "../_internal/source-links.js";
+
 import type { AuthoringRuleCode, DiagnosticFix } from "./diagnostic.js";
 import type { ParsedFile } from "./parse.js";
 
@@ -39,8 +41,8 @@ export interface RuleContext {
   site?: string;
   /** The deployment base in the renderer's form (`"/docs"`, `""` at the root). */
   base?: string;
-  /** The folder the file's content-source collection reads; unset for any other file. */
-  sourceFolder?: string;
+  /** The folder and pattern of the file's content-source collection; unset for any other file. */
+  sourceCollection?: SourceCollection;
   /** Another rule's resolved options for this file, so related rules agree. */
   optionsOf?(code: AuthoringRuleCode): Record<string, unknown>;
   report(report: RuleReport): void;

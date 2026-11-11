@@ -9,6 +9,7 @@
 
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmTable } from "micromark-extension-gfm-table";
+import { gfmAutolinkLiteral } from "micromark-extension-gfm-autolink-literal";
 import { absolutizeMarkdownLinks, type MdastNode } from "../markdown-links.js";
 import { absoluteSiteUrl, withBase } from "../url.js";
 import type { ApiPageProps } from "./api-view-types.js";
@@ -57,12 +58,15 @@ function oneLine(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-// GFM tables, as the authored pages' parser reads them: a `|` splits a cell
-// before a code span can span it, so links sit where a GFM reader sees them.
-// Only the table tokenizer ships: the links inside cells come out with their
-// positions whether or not the tree has table nodes, and the mdast table
-// extension would bring the whole Markdown serializer with it.
-const parse = (source: string) => fromMarkdown(source, { extensions: [gfmTable()] }) as unknown as MdastNode;
+// GFM tables and bare `www.` and `http` URLs, as the authored pages' parser
+// reads them: a `|` splits a cell before a code span can span it, and a bare
+// URL is a link, not text a `[` after it could start a link in, so links sit
+// where a GFM reader sees them. Only the tokenizers ship: the links come out
+// with their positions whether or not the tree has table or autolink nodes,
+// and the mdast extensions would bring the whole Markdown serializer with them.
+export const parseApiMarkdown = (source: string): MdastNode =>
+  fromMarkdown(source, { extensions: [gfmTable(), gfmAutolinkLiteral()] }) as unknown as MdastNode;
+const parse = parseApiMarkdown;
 
 /** The "Documentation Index" note every page Markdown opens with, when a route serves `/llms.txt`. */
 export function llmsIndexNoteLines(site: ApiMarkdownSite): string[] {

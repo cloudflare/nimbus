@@ -16,6 +16,7 @@ import {
   preparedMarkdownRootKey,
 } from "../src/_internal/prepared-markdown-registry.ts";
 import {
+  AGENT_ENDPOINT_ASSET_GENERATION,
   bakeAgentEndpointAssets,
   configureAgentEndpointAssetRoot,
   ensureAgentEndpointAssets,
@@ -32,7 +33,7 @@ import {
 import { pageUrls } from "../src/_internal/page-urls.ts";
 
 const roots: string[] = [];
-const capability = { generation: 1, base: "/docs" };
+const capability = { generation: AGENT_ENDPOINT_ASSET_GENERATION, base: "/docs" };
 
 afterEach(async () => {
   clearPreparedMarkdownRegistry();
@@ -68,6 +69,9 @@ function commit(root: string, entries: Array<{ id: string; body: string; title: 
   );
 }
 
+const REGEX_SYNTAX = new Set("^$\\.*+?()[]{}|/");
+const literal = (value: string) => [...value].map((char) => (REGEX_SYNTAX.has(char) ? `\\${char}` : char)).join("");
+
 /** Route records as `recordMarkdownRoutes` produces them, from patterns. */
 function route(pattern: string, shared?: "markdown" | "source" | "llms") {
   const source = pattern
@@ -78,7 +82,7 @@ function route(pattern: string, shared?: "markdown" | "source" | "llms") {
         ? "(?:(.*?)/)?"
         : segment.startsWith("[")
           ? "([^/]+)/"
-          : `${segment.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}/`,
+          : `${literal(segment)}/`,
     )
     .join("")
     .replace(/\/$/u, "");
@@ -369,4 +373,36 @@ test("deleting only the site index route keeps the section indexes and drops the
   assert.deepEqual(indexes, ["guide"]);
   const payload = await readMarkdownEndpointPayload(projectRoot, { collection: "docs", id: "guide/one", surface: "markdown" });
   assert.doesNotMatch(payload.body, /Documentation Index/);
+});
+
+test("the runtime falls back to every URL only when Node itself refuses the virtual module", async () => {
+  const { unresolvableVirtualModule } = await import("../src/_internal/agent-surfaces-runtime.ts");
+  const refused = Object.assign(new Error("Only URLs with a scheme in: file, data, and node are supported by the default ESM loader. Received protocol 'virtual:'"), {
+    code: "ERR_UNSUPPORTED_ESM_URL_SCHEME",
+  });
+  assert.equal(unresolvableVirtualModule(refused), true);
+  assert.equal(unresolvableVirtualModule(Object.assign(new Error("Failed to load resolved virtual module"), { code: "ERR_LOAD_URL" })), false);
+  assert.equal(unresolvableVirtualModule(Object.assign(new Error("Cannot find module 'left-pad'"), { code: "ERR_MODULE_NOT_FOUND" })), false);
+  assert.equal(unresolvableVirtualModule(new TypeError("routes is not iterable")), false);
+});
+
+test("a baked asset's hash is the hash of its bytes, for the ETag; its digest stays the record's fingerprint", async () => {
+  const { createHash } = await import("node:crypto");
+  const projectRoot = await root();
+  commit(projectRoot, [{ id: "guide", body: "Guide body", title: "Guide" }]);
+  configureAgentEndpointAssetRoot(projectRoot, "build", () =>
+    bakeAgentEndpointAssets({
+      root: projectRoot,
+      base: "/docs",
+      site: "https://example.test",
+      title: "Test",
+      surfaces: surfaces(STARTER),
+    }),
+  );
+  const manifest = await ensureAgentEndpointAssets(projectRoot);
+  for (const asset of [...manifest.markdownAssets, ...manifest.llmsAssets]) {
+    const bytes = await readFile(path.join(projectRoot, ".astro", "nimbus", "agent-endpoint-assets", asset.path));
+    assert.equal(asset.hash, createHash("sha256").update(bytes).digest("hex"), asset.path);
+    assert.notEqual(`sha256:${asset.hash}`, asset.digest, `${asset.path} fingerprint is not the bytes`);
+  }
 });
