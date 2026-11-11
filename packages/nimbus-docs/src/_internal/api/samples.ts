@@ -438,7 +438,28 @@ function sampleBase(server: string | undefined): Segment[] {
     return [placeholder("base-url"), ...variables(`${url.startsWith("/") || url === "" ? "" : "/"}${url}`)];
   }
   // A placeholder where a URL can't hold one, such as the port, leaves no
-  // valid URL; the whole base is then the reader's to fill in.
+  // valid URL; the whole base is then the reader's to fill in. So does one in
+  // the scheme (a token scheme reads with different host and path rules), and
+  // one inside a host label with non-ASCII characters, whose ASCII form can
+  // only be computed once the reader fills it in.
+  // The host as WHATWG bounds it (a backslash ends it too), percent-decoded,
+  // its labels split on every dot IDNA treats as one.
+  const scheme = url.slice(0, url.indexOf("://"));
+  const authority = url.slice(scheme.length + 3).split(/[/\\?#]/, 1)[0]!;
+  const host = authority.slice(authority.lastIndexOf("@") + 1);
+  const dots = /[.\u3002\uff0e\uff61]/;
+  // A placeholder is a `{name}` as written; non-ASCII may also be percent-encoded.
+  const mixedLabel = host.split(dots).some((label) => {
+    if (!/\{[^{}]+\}/.test(label)) return false;
+    let text = label;
+    try {
+      text = decodeURIComponent(label);
+    } catch {
+      // Not valid percent-encoding: check it as written.
+    }
+    return /[^\x00-\x7f]/.test(text);
+  });
+  if (scheme.includes("{") || mixedLabel) return [placeholder("base-url")];
   return URL.canParse(probe(url)) ? variables(url) : [placeholder("base-url")];
 }
 

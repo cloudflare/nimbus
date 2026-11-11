@@ -4,26 +4,34 @@ interface Props {
    *  `null` when the page has no per-page Markdown (a non-default
    *  query-mode API version) — the directive then points at the index only. */
   markdownUrl?: string | null;
-  /** Absolute or site-relative URL for the top-level llms.txt index. */
-  llmsUrl: string;
+  /** Absolute or site-relative URL for the top-level llms.txt index, or
+   *  `null` when no route of the site serves one. */
+  llmsUrl?: string | null;
 }
 
 const { markdownUrl, llmsUrl } = Astro.props;
 ---
 
 {/* Read by screen readers and agents; out of the Tab order, so keyboard users
-    don't land on links they can't see. */}
-<aside class="sr-only" aria-label="For AI agents" data-ai-agent-directive>
-  {markdownUrl ? (
-    <Fragment>
-      This page is available in Markdown format. Markdown is recommended for AI
-      consumption. See <a tabindex="-1" href={markdownUrl}>{markdownUrl}</a> for this page, or
-      <a tabindex="-1" href={llmsUrl}>{llmsUrl}</a> for the full documentation index.
-    </Fragment>
-  ) : (
-    <Fragment>
-      See <a tabindex="-1" href={llmsUrl}>{llmsUrl}</a> for the full documentation index.
-      Markdown is recommended for AI consumption.
-    </Fragment>
-  )}
-</aside>
+    don't land on links they can't see. Nothing to point at, nothing said. */}
+{(markdownUrl || llmsUrl) && (
+  <aside class="sr-only" aria-label="For AI agents" data-ai-agent-directive>
+    {markdownUrl && llmsUrl ? (
+      <Fragment>
+        This page is available in Markdown format. Markdown is recommended for AI
+        consumption. See <a tabindex="-1" href={markdownUrl}>{markdownUrl}</a> for this page, or
+        <a tabindex="-1" href={llmsUrl}>{llmsUrl}</a> for the full documentation index.
+      </Fragment>
+    ) : markdownUrl ? (
+      <Fragment>
+        This page is available in Markdown format. Markdown is recommended for AI
+        consumption. See <a tabindex="-1" href={markdownUrl}>{markdownUrl}</a> for this page.
+      </Fragment>
+    ) : (
+      <Fragment>
+        See <a tabindex="-1" href={llmsUrl}>{llmsUrl}</a> for the full documentation index.
+        Markdown is recommended for AI consumption.
+      </Fragment>
+    )}
+  </aside>
+)}

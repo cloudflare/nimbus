@@ -23,6 +23,8 @@ export function resolveApiAssetLinks(
   value: unknown,
   target: ResolvedApiVersion,
   index: Pick<ParsedPageAssetIndex, "byId">,
+  /** Whether a route of the site serves a page's `.md` URL. Every URL by default. */
+  publishesMarkdown: (href: string) => boolean = () => true,
 ): unknown {
   if (typeof value === "string") {
     if (!value.startsWith("nimbus-ref:")) return value;
@@ -35,21 +37,20 @@ export function resolveApiAssetLinks(
     return pageUrl(target, row.slug) + ref.fragment;
   }
   if (Array.isArray(value))
-    return value.map((item) => resolveApiAssetLinks(item, target, index));
+    return value.map((item) => resolveApiAssetLinks(item, target, index, publishesMarkdown));
   if (!value || typeof value !== "object") return value;
   const out = Object.fromEntries(
     Object.entries(value).map(([key, item]) => [
       key,
-      resolveApiAssetLinks(item, target, index),
+      resolveApiAssetLinks(item, target, index, publishesMarkdown),
     ]),
   );
   if (out.apiSchemaVersion === 1 && typeof out.coordinate === "string") {
     const row = index.byId.get(out.coordinate);
     if (!row) throw new Error("Prepared page is absent from its index.");
-    if (target.isDefault) {
-      const base = target.mountPath;
-      out.markdownHref = `${base}${row.slug ? `/${row.slug}` : ""}/index.md`;
-    } else delete out.markdownHref;
+    const href = `${target.mountPath}${row.slug ? `/${row.slug}` : ""}/index.md`;
+    if (target.isDefault && publishesMarkdown(href)) out.markdownHref = href;
+    else delete out.markdownHref;
   }
   return out;
 }

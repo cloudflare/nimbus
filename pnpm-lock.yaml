@@ -365,6 +365,12 @@ importers:
       mdast-util-to-markdown:
         specifier: ^2.2.1
         version: 2.2.1
+      micromark-extension-gfm-autolink-literal:
+        specifier: ^2.1.0
+        version: 2.1.0
+      micromark-extension-gfm-table:
+        specifier: ^2.1.2
+        version: 2.1.2
       mri:
         specifier: ^1.2.0
         version: 1.2.0

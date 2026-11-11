@@ -49,6 +49,14 @@ export const prerender = true;
 export const { GET, getStaticPaths } = markdownRoute();
 `,
     );
+    // The Source line names the .mdx version only where a route serves it.
+    await write(
+      "src/pages/[...slug]/index.mdx.ts",
+      `import { markdownSourceRoute } from ${module("agent-endpoints.ts")};
+export const prerender = true;
+export const { GET, getStaticPaths } = markdownSourceRoute();
+`,
+    );
     await build({
       root: pathToFileURL(root + path.sep),
       configFile: false,

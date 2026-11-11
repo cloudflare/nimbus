@@ -133,10 +133,23 @@ if (versionStatus?.isHidden || homePart) {
   <div data-api-layout class={cn(
     "flex min-w-0 flex-1 flex-col md:col-start-2 md:row-start-1",
     !hasRail && tocHeadings.length > 0 && "xl:flex-row",
-    hasRail && "min-[90rem]:grid min-[90rem]:grid-cols-[minmax(0,1fr)_29rem] 2xl:grid-cols-[minmax(0,1fr)_var(--nb-code-rail-width)]",
+    hasRail && "min-[90rem]:grid min-[90rem]:justify-center min-[90rem]:[--nb-content-max:40rem] min-[90rem]:grid-cols-[minmax(0,var(--nb-content-max))_29rem] 2xl:grid-cols-[minmax(0,var(--nb-content-max))_var(--nb-code-rail-width)]",
   )}>
-    <main id="main-content" tabindex="-1" class="min-w-0 flex-1" {...pagefindAttrs}>
-      <div class="mx-auto max-w-(--nb-content-max) px-4 md:px-8 2xl:px-16 pt-8 pb-12">
+    {/* With a rail, the request sample is rendered right after the page header
+        (ApiBody's `sample` slot): on one column it reads title → endpoint →
+        actions → description → sample → fields. From 90rem the body and its
+        padding box become a subgrid of this grid (a 40rem text column and the
+        rail, centred): the header and body stack in the text column and the
+        same sample element sits beside them from the top, sticky. */}
+    <main id="main-content" tabindex="-1" class={cn("min-w-0 flex-1", hasRail && "min-[90rem]:col-span-2 min-[90rem]:grid min-[90rem]:grid-cols-subgrid")} {...pagefindAttrs}>
+      <div class={cn(
+        "mx-auto max-w-(--nb-content-max) px-4 md:px-8 2xl:px-16 pt-8 pb-12",
+        hasRail && [
+          "min-[90rem]:col-span-2 min-[90rem]:grid min-[90rem]:grid-cols-subgrid min-[90rem]:content-start min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:px-0 2xl:px-0 min-[90rem]:pb-0",
+          // Everything but the rail and previous/next stacks in the text column.
+          "min-[90rem]:[&>:not([data-api-place])]:col-start-1 min-[90rem]:[&>:not([data-api-place])]:px-8",
+        ],
+      )}>
         {pagefindDeprecated && <span hidden data-pagefind-filter="status:deprecated"></span>}
         {versionStatus?.isDeprecated && (
           <div data-pagefind-ignore>
@@ -147,42 +160,40 @@ if (versionStatus?.isHidden || homePart) {
             />
           </div>
         )}
-        <ApiBody page={page} home={home} />
+        <ApiBody page={page} home={home}>
+          {hasRail && (
+            <div slot="sample" data-api-place="rail" data-pagefind-ignore class="mt-8 min-[90rem]:col-start-2 min-[90rem]:row-span-12 min-[90rem]:row-start-1 min-[90rem]:-mt-8 min-[90rem]:self-start min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:h-[calc(100vh-3.5rem)] min-[90rem]:w-[29rem] min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1 2xl:w-(--nb-code-rail-width)">
+              <ApiCodeRail
+                responses={page.responses}
+                samples={page.samples}
+                title={page.title}
+                method={page.method}
+                coordinate={page.coordinate}
+              />
+            </div>
+          )}
+        </ApiBody>
         {nav.prevNext && !hasRail && <Pagination prevNext={nav.prevNext} data-pagefind-ignore />}
+        {/* With a rail, previous/next comes after the body. From 90rem it takes
+            the grid's last row (13, after the rail's rows 1 to 12; a rail
+            taller than the remaining page can still reach over it while pinned,
+            as before) from the body text's left edge (the body's padding
+            plus its centring inset in the first column) to the rail card's right
+            edge. */}
+        {hasRail && (
+          <div data-api-place="pager" class="min-[90rem]:col-span-2 min-[90rem]:col-start-1 min-[90rem]:row-start-13 min-[90rem]:self-end min-[90rem]:pb-12 min-[90rem]:pe-6 min-[90rem]:ps-[calc(max(0px,(100%-29rem-var(--nb-content-max))/2)+2rem)] 2xl:ps-[calc(max(0px,(100%-var(--nb-code-rail-width)-var(--nb-content-max))/2)+2rem)]">
+            {nav.prevNext && <Pagination prevNext={nav.prevNext} data-pagefind-ignore />}
+          </div>
+        )}
       </div>
     </main>
 
-    {/* Below 90rem the rail reflows inline beneath the body (samples are unique
-        content, so unlike the TOC they stay in the no-JS HTML for crawlability);
-        at 90rem+ it becomes the sticky right column. The left padding keeps overflow-y-auto
-        from clipping the LayerCard's outset ring at the scroll edge. */}
     {!hasRail && tocHeadings.length > 0 && (
       <aside aria-label="On this page" data-nb-toc-scroll-host class="hidden xl:block w-(--nb-toc-width) shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
         <div class="pt-8 pb-8 ps-8 pe-6"><TOC headings={tocHeadings} /></div>
       </aside>
     )}
 
-    {hasRail && (
-      <div class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 md:px-8 min-[90rem]:col-start-2 min-[90rem]:row-span-2 min-[90rem]:row-start-1 min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:h-[calc(100vh-3.5rem)] min-[90rem]:w-[29rem] min-[90rem]:shrink-0 min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1 2xl:w-(--nb-code-rail-width)">
-        <ApiCodeRail
-          responses={page.responses}
-          samples={page.samples}
-          title={page.title}
-          method={page.method}
-          coordinate={page.coordinate}
-        />
-      </div>
-    )}
-
-    {/* With a rail, previous/next sits after it, so on narrow screens the
-        samples come before it. From 90rem it spans the body and the rail on its
-        own row: from the body text's left edge (the body's padding plus its
-        centring inset in the first column) to the rail card's right edge. */}
-    {hasRail && nav.prevNext && (
-      <div class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 -mt-12 md:px-8 2xl:px-16 min-[90rem]:col-span-2 min-[90rem]:col-start-1 min-[90rem]:row-start-3 min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:pe-6 min-[90rem]:ps-[calc(max(0px,(100%-29rem-var(--nb-content-max))/2)+2rem)] 2xl:pe-6 2xl:ps-[calc(max(0px,(100%-var(--nb-code-rail-width)-var(--nb-content-max))/2)+4rem)]">
-        <Pagination prevNext={nav.prevNext} data-pagefind-ignore />
-      </div>
-    )}
   </div>
   {/* The rail keeps its open groups and scroll across pages: the inline script
       below restores them before paint, and `initNavSidebar` records them. It is

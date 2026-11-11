@@ -34,6 +34,7 @@ test("only universally skippable entries are optional", () => {
       .map((entry) => entry.id)
       .sort(),
     [
+      "agent-directive-optional-index",
       "agent-discovery-content-signals",
       "agent-discovery-opt-out",
       "agent-files-follow-rendering",
@@ -43,6 +44,7 @@ test("only universally skippable entries are optional", () => {
       "api-code-sample-ids",
       "api-collections-from-config",
       "api-home",
+      "api-page-layout",
       "api-page-polish",
       "api-parameter-examples-and-home-toc",
       "api-query-version-mode",

@@ -5,12 +5,23 @@ import type {
   MarkdownEndpointAsset,
 } from "./_internal/agent-endpoint-assets.js";
 import { loadAgentEndpointManifest } from "./_internal/agent-endpoint-manifest.js";
+import { notModified } from "./_internal/conditional-request.js";
 import { readStagedAsset } from "./_internal/staged-asset-reader.js";
 import {
   findOwnMarkdownRoute,
   higherMarkdownRouteOwner,
   routeParams,
 } from "./_internal/markdown-routes.js";
+import type { RenderedMarkdownPage } from "./_internal/api/markdown-record.js";
+
+// The renderers load on demand: a route that serves baked files never pays
+// for the API emitter, the parser or the document builders.
+const renderedMarkdownPath = (page: RenderedMarkdownPage) => {
+  const route = page.url.split("?")[0]!.replace(/\/+$/u, "");
+  return route === "" ? "/index.md" : `${route}/index.md`;
+};
+const renderMarkdownPayload = async (page: RenderedMarkdownPage, request?: Request) =>
+  (await import("./_internal/api/markdown-record.js")).renderMarkdownPayload(page, request);
 export type MarkdownEndpointSurface = "markdown" | "source";
 
 export interface MarkdownEndpointReference {
@@ -41,6 +52,10 @@ let markdownByIdentity:
   | undefined;
 let markdownByRoute: Map<string, MarkdownEndpointAsset> | undefined;
 let markdownByUrl: Map<string, MarkdownEndpointAsset> | undefined;
+// API pages whose Markdown renders on request, by identity, route and URL.
+let renderedByIdentity: Map<string, RenderedMarkdownPage> | undefined;
+let renderedByRoute: Map<string, RenderedMarkdownPage> | undefined;
+let renderedByUrl: Map<string, RenderedMarkdownPage> | undefined;
 let llmsByIdentity: Map<string, LlmsEndpointAsset> | undefined;
 
 interface AgentEndpointContext {
@@ -80,9 +95,6 @@ async function selectedApiOutputIsDefault(
   const url = new URL(request.url);
   if (!url.search) return true;
   const params = url.searchParams;
-  const { hasApiPageAssets } =
-    await import("./_internal/api/page-assets-runtime.js");
-  if (!(await hasApiPageAssets(collection))) return true;
   const { loadNimbusConfig } = await import("./_internal/runtime-config.js");
   const { apiQueryRouting, selectApiVersion } =
     await import("./_internal/api/resolve-versions.js");
@@ -104,13 +116,30 @@ async function sectionApiCollection(section: string): Promise<string | undefined
 }
 
 async function markdownIndexes(request?: Request) {
-  const { markdownAssets } = await loadAgentEndpointManifest(request);
+  const { markdownAssets, rendered = [] } = await loadAgentEndpointManifest(request);
+  if (!renderedByIdentity || !renderedByRoute || !renderedByUrl) {
+    renderedByIdentity = new Map();
+    renderedByRoute = new Map();
+    renderedByUrl = new Map();
+    for (const page of rendered) {
+      const reference = { collection: page.collection, id: page.id, surface: "markdown" as const };
+      renderedByIdentity.set(markdownIdentity(reference), page);
+      if (!page.published || page.historical) continue;
+      renderedByUrl.set(renderedMarkdownPath(page), page);
+      renderedByRoute.set(
+        markdownRouteIdentity({ collection: page.collection, surface: "markdown", slug: entryRouteKey(page.id) }),
+        page,
+      );
+    }
+  }
   if (!markdownByIdentity || !markdownByRoute || !markdownByUrl) {
     markdownByIdentity = new Map();
     markdownByRoute = new Map();
     markdownByUrl = new Map();
     for (const asset of markdownAssets) {
       markdownByIdentity.set(markdownIdentity(asset), asset);
+      // A body kept only for the MCP server has no URL to serve.
+      if (asset.published === false) continue;
       markdownByUrl.set(asset.url, asset);
       markdownByRoute.set(
         markdownRouteIdentity({
@@ -122,7 +151,15 @@ async function markdownIndexes(request?: Request) {
       );
     }
   }
-  return { markdownAssets, markdownByIdentity, markdownByRoute, markdownByUrl };
+  return {
+    markdownAssets,
+    markdownByIdentity,
+    markdownByRoute,
+    markdownByUrl,
+    renderedByIdentity,
+    renderedByRoute,
+    renderedByUrl,
+  };
 }
 
 async function llmsIndex(request?: Request) {
@@ -152,12 +189,13 @@ export async function getMarkdownStaticPaths(options: {
     cacheKey: string;
   }>
 > {
-  const { markdownAssets } = await markdownIndexes();
-  return markdownAssets
+  const { markdownAssets, renderedByIdentity } = await markdownIndexes();
+  const paths = markdownAssets
     .filter(
       (asset) =>
         asset.collection === options.collection &&
-        asset.surface === options.surface,
+        asset.surface === options.surface &&
+        asset.published !== false,
     )
     .map((asset) => ({
       params: { slug: entryRouteKey(asset.id) || undefined },
@@ -170,7 +208,22 @@ export async function getMarkdownStaticPaths(options: {
       },
       cacheKey: asset.digest,
     }));
+  // A request-rendered API page has no asset; a prerendered route of the
+  // site's own renders it at build.
+  if (options.surface === "markdown") {
+    for (const page of renderedByIdentity.values()) {
+      if (page.collection !== options.collection || !page.published) continue;
+      paths.push({
+        params: { slug: entryRouteKey(page.id) || undefined },
+        props: { reference: { collection: page.collection, id: page.id, surface: "markdown" } },
+        cacheKey: renderedCacheKey(page),
+      });
+    }
+  }
+  return paths;
 }
+
+const renderedCacheKey = (page: RenderedMarkdownPage) => `rendered\0${page.collection}\0${page.id}`;
 
 export async function getMarkdownPayload(options: {
   collection: string;
@@ -190,8 +243,14 @@ export async function getMarkdownPayload(options: {
   const asset = options.reference
     ? indexes.markdownByIdentity.get(markdownIdentity(options.reference))
     : indexes.markdownByRoute.get(markdownRouteIdentity(options));
-  if (!asset) return null;
-  return markdownPayload(asset, options.context ?? {});
+  if (asset) return markdownPayload(asset, options.context ?? {});
+  if (options.surface !== "markdown") return null;
+  // A request-rendered API page: made now, through the bake's serialization.
+  const rendered = options.reference
+    ? indexes.renderedByIdentity.get(markdownIdentity(options.reference))
+    : indexes.renderedByRoute.get(markdownRouteIdentity(options));
+  if (!rendered || (!rendered.published && !options.reference)) return null;
+  return renderMarkdownPayload(rendered, options.context?.request);
 }
 
 async function markdownPayload(
@@ -203,7 +262,7 @@ async function markdownPayload(
     collection: asset.collection,
     id: asset.id,
     surface: asset.surface,
-    digest: asset.digest,
+    digest: `sha256:${asset.hash}`,
     mediaType: asset.mediaType,
     body,
     content: body.slice(asset.contentStart, asset.contentEnd),
@@ -222,18 +281,26 @@ export interface MarkdownRoute {
 
 /**
  * The response every route factory returns: the payload, a plain 404 when
- * there is none, and on request a detail-free 500 when loading fails. A
- * prerendered route rethrows so the build fails instead.
+ * there is none, `304` on request when the client already holds these
+ * bytes, and on request a detail-free 500 when loading fails. A prerendered
+ * route rethrows so the build fails instead.
  */
 async function endpointResponse(
   context: APIContext,
-  load: () => Promise<{ body: string; mediaType: string } | null>,
+  load: () => Promise<{ body: string; mediaType: string; digest?: string } | null>,
 ): Promise<Response> {
   try {
     const payload = await load();
     if (!payload) return new Response("Not found", { status: 404 });
+    // The document's own fingerprint, so a cache or client revalidates by
+    // bytes, baked or rendered.
+    const etag = payload.digest ? `"${payload.digest}"` : undefined;
+    if (etag && !context.isPrerendered) {
+      const unchanged = notModified(context.request, etag);
+      if (unchanged) return unchanged;
+    }
     return new Response(payload.body, {
-      headers: { "Content-Type": payload.mediaType },
+      headers: { "Content-Type": payload.mediaType, ...(etag ? { ETag: etag } : {}) },
     });
   } catch (error) {
     if (context.isPrerendered) throw error;
@@ -259,13 +326,13 @@ function requestAssetUrl(url: URL, base: string): string | undefined {
 function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
   return {
     async getStaticPaths({ routePattern }) {
-      const [{ markdownAssets }, { routes }] = await Promise.all([
+      const [{ markdownAssets, renderedByUrl }, { routes }] = await Promise.all([
         markdownIndexes(),
         import("virtual:nimbus/markdown-routes"),
       ]);
       const index = findOwnMarkdownRoute(routes, routePattern, surface);
       const own = routes[index]!;
-      return markdownAssets.flatMap((asset) => {
+      const paths = markdownAssets.flatMap((asset) => {
         if (asset.surface !== surface) return [];
         const params = routeParams(own, asset.url);
         if (!params || higherMarkdownRouteOwner(routes, index, asset.url)) {
@@ -278,10 +345,25 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
         };
         return [{ params, props: { reference }, cacheKey: asset.digest }];
       });
+      // Request-rendered API pages this route owns while it is prerendered
+      // (a mixed site, or a route of the site's own): rendered at build.
+      if (surface === "markdown") {
+        for (const [url, page] of renderedByUrl) {
+          const params = routeParams(own, url);
+          if (!params || higherMarkdownRouteOwner(routes, index, url)) continue;
+          paths.push({
+            params,
+            props: { reference: { collection: page.collection, id: page.id, surface: "markdown" } },
+            cacheKey: renderedCacheKey(page),
+          });
+        }
+      }
+      return paths;
     },
     GET: (context) =>
       endpointResponse(context, async () => {
         const indexes = await markdownIndexes(context.request);
+        const { base: manifestBase } = await loadAgentEndpointManifest(context.request);
         const reference = (
           context.props as { reference?: MarkdownEndpointReference }
         ).reference;
@@ -289,9 +371,21 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
         if (reference) {
           asset = indexes.markdownByIdentity.get(markdownIdentity(reference));
         } else {
-          const { base } = await loadAgentEndpointManifest(context.request);
-          const url = requestAssetUrl(context.url, base);
+          const url = requestAssetUrl(context.url, manifestBase);
           asset = url ? indexes.markdownByUrl.get(url) : undefined;
+        }
+        if (!asset && surface === "markdown") {
+          // A request-rendered API page: made now, through the bake's serialization.
+          const rendered = reference
+            ? indexes.renderedByIdentity.get(markdownIdentity(reference))
+            : (() => {
+                const url = requestAssetUrl(context.url, manifestBase);
+                return url ? indexes.renderedByUrl.get(url) : undefined;
+              })();
+          if (rendered) {
+            if (!(await selectedApiOutputIsDefault(rendered.collection, context.request))) return null;
+            return renderMarkdownPayload(rendered, context.request);
+          }
         }
         if (!asset && surface === "markdown" && !reference) {
           // Homepage Markdown without a root content entry, on a
@@ -308,6 +402,7 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface): MarkdownRoute {
               return {
                 body: fallback.body,
                 mediaType: "text/markdown; charset=utf-8",
+                digest: fallback.digest,
               };
             }
           }
@@ -356,16 +451,36 @@ export async function getLlmsPayload(
   reference: LlmsEndpointReference,
   context: AgentEndpointContext = {},
 ): Promise<LlmsEndpointPayload | null> {
-  if (reference.scope === "section" && context.request && new URL(context.request.url).search) {
+  // An index is the default version's; another version's query selects
+  // nothing. A full-document part reads the version its query or path
+  // selects itself.
+  if (
+    reference.scope === "section" &&
+    reference.surface === "index" &&
+    context.request &&
+    new URL(context.request.url).search
+  ) {
     const api = await sectionApiCollection(reference.section);
     if (api && !(await selectedApiOutputIsDefault(api, context.request))) return null;
   }
   const { llmsByIdentity } = await llmsIndex(context.request);
   const asset = llmsByIdentity.get(llmsIdentity(reference));
-  if (!asset) return null;
+  if (!asset) {
+    // A document whose route renders on request: made now from the page list.
+    const manifest = await loadAgentEndpointManifest(context.request);
+    const { renderLlmsDocument, rendersOnRequest } = await import("./_internal/llms-on-request.js");
+    if (!rendersOnRequest(manifest, reference)) return null;
+    const rendered = await renderLlmsDocument(manifest, reference, context.request);
+    return rendered ? { ...reference, ...rendered } : null;
+  }
+  // A baked full document is the default version's too.
+  if (reference.scope === "section" && reference.surface === "full" && context.request && new URL(context.request.url).search) {
+    const api = await sectionApiCollection(reference.section);
+    if (api && !(await selectedApiOutputIsDefault(api, context.request))) return null;
+  }
   return {
     ...reference,
-    digest: asset.digest,
+    digest: `sha256:${asset.hash}`,
     mediaType: asset.mediaType,
     body: await readAssetBody(asset.path, context),
   };

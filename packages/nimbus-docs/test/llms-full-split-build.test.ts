@@ -121,7 +121,16 @@ test("on request, every split file is served and no staged copy is over the limi
     const response = await app.render(new Request(`https://example.test/docs/${url}`));
     return response.status === 200 ? response.text() : null;
   });
-  assert.equal(files.size, 6);
+  // On request the document is an index of parts made when asked, one per
+  // section with pages; a part over the limit links its sub-sections' parts.
+  // Every page is reached from the index, and nothing is baked for it.
+  assert.ok(files.size >= 4, [...files.keys()].join(", "));
+  assert.match(files.get("llms-full.txt")!, /served by section/);
+  const everything = [...files.values()].join("\n");
+  for (const title of ["# Concept one", "# Math", "# Setting", "# First"]) assert.match(everything, new RegExp(`^${title}$`, "m"));
+  // No Markdown route here: the index links the page itself.
+  assert.match(files.get("llms-full.txt")!, /\[Home\]\(https:\/\/example\.test\/docs\/\)/);
+  assert.deepEqual(filesUnder(path.join(site.root, "dist/_nimbus/agent-endpoint-assets/assets")).filter((file) => file.endsWith(".txt")), []);
   for (const file of filesUnder(path.join(site.root, "dist/_nimbus/agent-endpoint-assets/assets"))) {
     assert.ok(statSync(file).size <= LIMIT, `${file} is ${statSync(file).size} bytes`);
   }
