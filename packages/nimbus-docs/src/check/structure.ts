@@ -13,7 +13,7 @@
  */
 
 import path from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import { cloudflareTrailingSlashWarning } from "../_internal/cloudflare-trailing-slash.js";
 import { serverAdapterFeature, serverAdapterMessage, type ServerFeature } from "../_internal/server-adapter.js";
@@ -27,6 +27,7 @@ import {
 import { readPageCollectionsFile } from "../_internal/page-collections.js";
 import { planRouteFiles, projectRouteFiles } from "../_internal/route-files.js";
 import { describeAgentSurfaces, isSectionLlmsPattern } from "../_internal/agent-surfaces.js";
+import { describeUnreadAgentRoute, unreadAgentRoutes } from "../_internal/markdown-routes-plugin.js";
 import { walkFilesSync } from "../_internal/fs-walk.js";
 import { DEFAULT_RENDERING_NOTE } from "../_internal/route-modes.js";
 import { invocation } from "../cli/pm.js";
@@ -588,7 +589,7 @@ function checkAgentSurfaces(
   // `_`-prefixed and dot-prefixed folders and names (`.well-known` apart).
   // Each file as the route pattern Astro gives it: the path without its
   // extension, an `index` file standing for its folder.
-  const routes = [...walkFilesSync(pagesDir, { onReadError: "lenient", extensions: [".ts", ".js"] })]
+  const scanned = [...walkFilesSync(pagesDir, { onReadError: "lenient", extensions: [".ts", ".js"] })]
     .map((file) => file.rel.split(path.sep).join("/"))
     .filter(
       (route) =>
@@ -596,14 +597,55 @@ function checkAgentSurfaces(
     )
     .map((route) => {
       const stem = route.replace(/\.[jt]s$/u, "");
-      return { file: `src/pages/${route}`, pattern: `/${stem === "index" ? "" : stem.replace(/\/index$/u, "")}` };
-    })
-    // As the build records them: a static file name last (`[name].md` is no
-    // Markdown route), with the section index's dynamic form the exception.
-    .filter((route) => {
-      const last = route.pattern.split("/").at(-1)!;
-      return !last.includes("[") || last === "[llms].txt";
+      return { file: `src/pages/${route}`, real: path.join(pagesDir, route), pattern: `/${stem === "index" ? "" : stem.replace(/\/index$/u, "")}` };
     });
+  // As the build records them: a static file name last (`[name].md` is no
+  // Markdown route), with the section index's dynamic form the exception.
+  const recorded = (pattern: string) => {
+    const last = pattern.split("/").at(-1)!;
+    return (!last.includes("[") && /\.mdx?$|^llms(?:-full)?\.txt$/u.test(last)) || last === "[llms].txt";
+  };
+  const routes = scanned.filter((route) => {
+    const last = route.pattern.split("/").at(-1)!;
+    return !last.includes("[") || last === "[llms].txt";
+  });
+  // A file the build won't record that calls a factory anyway publishes
+  // nothing; the build warns too, and names any recorded route it may shadow.
+  const unread = unreadAgentRoutes(
+    scanned
+      .filter((route) => !recorded(route.pattern))
+      .map((route) => ({
+        type: "endpoint" as const,
+        entrypoint: route.real,
+        pattern: route.pattern,
+        patternRegex: /^$/u,
+        params: [],
+        isPrerendered: true,
+        segments: route.pattern
+          .split("/")
+          .filter(Boolean)
+          .map((segment) => [{ content: segment, dynamic: segment.includes("["), spread: segment.includes("[...") }]),
+      })),
+    (file) => {
+      try {
+        return readFileSync(file, "utf8");
+      } catch {
+        return undefined;
+      }
+    },
+  );
+  for (const route of unread) {
+    const label = path.relative(cwd, route.entrypoint).split(path.sep).join("/");
+    const suggested = path.isAbsolute(route.suggested) ? path.relative(cwd, route.suggested).split(path.sep).join("/") : route.suggested;
+    findings.push({
+      scope: "structure",
+      code: "nimbus/agent-route-shape",
+      severity: "warn",
+      file: label,
+      message: describeUnreadAgentRoute({ ...route, entrypoint: label, suggested }, { shadowing: false }),
+      fixable: false,
+    });
+  }
   const serving = (test: (pattern: string) => boolean) => routes.filter((route) => test(route.pattern)).map((route) => route.file);
   const files = {
     pageMarkdown: serving((pattern) => pattern.endsWith(".md")),
