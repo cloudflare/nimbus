@@ -4,7 +4,7 @@
 // Wrangler config that a build wrote.
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { parse } from "yaml";
 
@@ -50,21 +50,30 @@ test("credentialed jobs build, pack and verify nothing", () => {
 });
 
 test("a credentialed Wrangler run reads only a checked-in config", () => {
+  const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   for (const [name, job] of jobs.filter(credentialed)) {
     const steps = runs(job);
-    steps.forEach(({ run }, index) => {
+    steps.forEach(({ step, run }, index) => {
       if (!/\bwrangler (?:deploy|preview)\b/.test(run)) return;
-      const config = /--config (\S+)/.exec(run)?.[1];
-      if (!config) return;
-      // The config must be a checked-in file copied there by this job, after
-      // any Wrangler redirect the build may have left is removed.
-      const before = steps.slice(0, index + 1).map((s) => s.run).join("\n");
-      assert.match(before, new RegExp(`\\bcp (?!dist/)\\S+ ${config.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`), `${name} copies its config`);
-      assert.match(before, /rm -rf \.wrangler/, `${name} removes a build's Wrangler redirect`);
-      // The download sits beside the config: anything in it that isn't a
-      // module would configure the deploy (a tsconfig.json, an .env).
-      assert.match(before, /find dist\/server [^\n]*-delete/, `${name} prunes the server output`);
-      assert.match(run, /--tsconfig "\$PWD\/tsconfig\.json"/, `${name} names its tsconfig`);
+      for (const [, config] of run.matchAll(/--config (\S+)/g)) {
+        assert.match(run, new RegExp(`--config ${escape(config)} --tsconfig "\\$PWD/tsconfig\\.json"`), `${name} names its tsconfig`);
+        // A config outside the build's output is the release commit's own
+        // file, checked in beside the code it deploys.
+        if (!/(^|\/)dist\//.test(config)) {
+          const dir = step["working-directory"] ?? ".";
+          assert.ok(existsSync(new URL(`../${dir}/${config}`, import.meta.url)), `${name}: ${config} is checked in`);
+          continue;
+        }
+        // A config in the build's output must be a checked-in file copied
+        // there by this job, after any Wrangler redirect the build may have
+        // left is removed.
+        const before = steps.slice(0, index + 1).map((s) => s.run).join("\n");
+        assert.match(before, new RegExp(`\\bcp (?!dist/)\\S+ ${escape(config)}`), `${name} copies its config`);
+        assert.match(before, /rm -rf \.wrangler/, `${name} removes a build's Wrangler redirect`);
+        // The download sits beside the config: anything in it that isn't a
+        // module would configure the deploy (a tsconfig.json, an .env).
+        assert.match(before, /find dist\/server [^\n]*-delete/, `${name} prunes the server output`);
+      }
     });
     for (const step of job.steps.filter((s) => String(s.uses).startsWith("actions/download-artifact@"))) {
       assert.doesNotMatch(String(step.with?.path), /\.wrangler/, `${name} downloads a Wrangler redirect`);

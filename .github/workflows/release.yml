@@ -466,6 +466,16 @@ jobs:
               exit 1
             fi
           done
+          # The sandbox API that Try it sends to, first, so a new demo never
+          # points at an older one. A release from before it existed has none.
+          if [ -f fixture-api/wrangler.jsonc ]; then
+            pnpm exec wrangler deploy --config fixture-api/wrangler.jsonc --tsconfig "$PWD/tsconfig.json"
+            sandbox=https://api.demo.nimbus-docs.com
+            probe() { curl --fail --show-error --silent --retry 5 --retry-delay 3 -o /dev/null "$@"; }
+            probe "$sandbox/v1/locations/search?q=Oslo&key=wx_test_release"
+            probe -H "Authorization: Bearer wx_test_release" "$sandbox/v2/locations/search?q=Oslo"
+            probe -H "Authorization: Bearer wx_test_release" "$sandbox/v3-preview/locations/search?q=Oslo"
+          fi
           pnpm exec wrangler deploy --config dist/server/wrangler.json --tsconfig "$PWD/tsconfig.json"
           curl --fail --show-error --silent --retry 5 --retry-delay 3 -o /dev/null https://demo.nimbus-docs.com/
         env:

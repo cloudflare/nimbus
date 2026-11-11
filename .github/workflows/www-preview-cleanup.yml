@@ -1,8 +1,10 @@
-name: www Preview cleanup
+name: Preview cleanup
 
-# Workers Builds creates one Preview per pushed branch and links it in its PR
-# comment; the Fork preview workflow creates one per fork PR, named
-# `fork-<PR#>`. Delete that Preview when the PR closes. Never checks out PR code.
+# Workers Builds creates one Preview per pushed branch for each connected
+# Worker (www's `nimbus-docs` and the weather demo's `nimbus-demo-weather`) and
+# links it in a PR comment; the Fork preview workflow creates one www Preview
+# per fork PR, named `fork-<PR#>`. Delete them when the PR closes. Never checks
+# out PR code.
 on:
   pull_request_target:
     branches: [main]
@@ -24,33 +26,40 @@ jobs:
     permissions:
       pull-requests: read
     steps:
-      - name: Delete the branch Preview
+      - name: Delete the branch Previews
         run: |
           state=$(gh api "repos/$REPO/pulls/$PR" --jq '.state')
           if [ "$state" != 'closed' ]; then exit 0; fi
+          delete() {
+            status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' -X DELETE \
+              --max-time 30 --retry 3 --retry-all-errors \
+              --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/workers/$1/previews/$2")
+            case "$status" in
+              2??) echo "Deleted $1 Preview $2." ;;
+              404) echo "$1 Preview $2 already absent." ;;
+              *) echo "::error::Could not delete $1 Preview $2 (HTTP $status)."; return 1 ;;
+            esac
+          }
           if [ "$FORK" = true ]; then
-            name="fork-$PR"
-          else
-            open=$(gh api -X GET "repos/$REPO/pulls" -f state=open -f head="$OWNER:$BRANCH" --jq 'length')
-            if [ "$open" != '0' ]; then exit 0; fi
-            bodies=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
-              --jq '.[] | select(.user.login == "cloudflare-workers-and-pages[bot]") | .body')
-            name=$(printf '%s\n' "$bodies" |
-              grep -oE '/services/view/nimbus-docs/production/previews/[A-Za-z0-9._-]+' | tail -1 | sed 's|.*/previews/||') || true
-            if [ -z "$name" ]; then
-              echo "No Workers Builds Preview was reported on this PR."
-              exit 0
-            fi
+            delete nimbus-docs "fork-$PR"
+            exit
           fi
-          status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' -X DELETE \
-            --max-time 30 --retry 3 --retry-all-errors \
-            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/workers/nimbus-docs/previews/$name")
-          case "$status" in
-            2??) echo "Deleted Preview $name." ;;
-            404) echo "Preview $name already absent." ;;
-            *) echo "::error::Could not delete Preview $name (HTTP $status)."; exit 1 ;;
-          esac
+          open=$(gh api -X GET "repos/$REPO/pulls" -f state=open -f head="$OWNER:$BRANCH" --jq 'length')
+          if [ "$open" != '0' ]; then exit 0; fi
+          bodies=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+            --jq '.[] | select(.user.login == "cloudflare-workers-and-pages[bot]") | .body')
+          failed=0
+          for worker in nimbus-docs nimbus-demo-weather; do
+            name=$(printf '%s\n' "$bodies" |
+              grep -oE "/services/view/$worker/production/previews/[A-Za-z0-9._-]+" | tail -1 | sed 's|.*/previews/||') || true
+            if [ -z "$name" ]; then
+              echo "No $worker Preview was reported on this PR."
+              continue
+            fi
+            delete "$worker" "$name" || failed=1
+          done
+          exit "$failed"
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}

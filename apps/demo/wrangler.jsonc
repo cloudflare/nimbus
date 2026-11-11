@@ -3,8 +3,9 @@
   "name": "nimbus-demo-weather",
   "compatibility_date": "2026-10-09",
   "compatibility_flags": ["nodejs_compat", "enable_request_signal"],
-  // The site's own subdomain. `site` in astro.config.ts matches it.
-  "routes": [{ "pattern": "demo.nimbus-docs.com", "custom_domain": true }],
+  // The site's own subdomain, which also serves Previews at
+  // <name>.demo.nimbus-docs.com. `site` in astro.config.ts matches it.
+  "routes": [{ "pattern": "demo.nimbus-docs.com", "custom_domain": true, "previews_enabled": true }],
   "previews": {},
   "preview_urls": false,
 }

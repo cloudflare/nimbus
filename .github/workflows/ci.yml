@@ -175,6 +175,23 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # The specs and the sandbox API's answers are generated; a hand edit the
+      # generator would undo, or a spec change without new answers, fails here.
+      - name: Generated specs and sandbox answers are current
+        run: |
+          pnpm --filter @nimbus/demo-weather generate-spec
+          pnpm --filter @nimbus/demo-weather fixture-api:routes
+          stale=$(git status --porcelain -- apps/demo/src/api apps/demo/fixture-api/src)
+          if [ -n "$stale" ]; then
+            printf '%s\n' "$stale"
+            echo "::error::Run pnpm --filter @nimbus/demo-weather generate-spec and fixture-api:routes, then commit the result."
+            exit 1
+          fi
+
+      # The release deploys the sandbox API from this config; it must bundle.
+      - run: pnpm exec wrangler deploy --dry-run --config fixture-api/wrangler.jsonc --outdir "$RUNNER_TEMP/fixture-api"
+        working-directory: apps/demo
+
       - run: pnpm --filter "@nimbus/demo-weather^..." build
 
       - run: pnpm --filter @nimbus/demo-weather check
