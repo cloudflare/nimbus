@@ -30,7 +30,8 @@ async function pageEntry(context: APIContext) {
 async function routeEntry(context: APIContext) {
   const prefix = options.base.replace(/\/+$/, "");
   const pathname = context.url.pathname;
-  if (prefix && !pathname.startsWith(`${prefix}/`)) return undefined;
+  // Under a base, the slashless root (`/docs`, the homepage with `trailingSlash: "never"`) is the site's too.
+  if (prefix && pathname !== prefix && !pathname.startsWith(`${prefix}/`)) return undefined;
   const route = toRouteKey(pathname.slice(prefix.length) || "/");
   // Separate destructured imports keep the Worker tree-shakable; a
   // `Promise.all` of whole modules pulls in the Markdown renderer.
