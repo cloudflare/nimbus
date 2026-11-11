@@ -1587,19 +1587,23 @@
   .nb-tid-cardhead .nb-tid-seg button {
     min-height: 2.5rem;
   }
-  /* With the switch, the tools take a row of their own, right-aligned: the head is
-     one height in both views and the switch stays put. A media type picker gives way. */
-  .nb-tid-cardhead:has(.nb-tid-seg:not([hidden])) {
-    flex-wrap: wrap;
-    row-gap: 0.375rem;
+  /* One row: the title and the switch keep their size; the media type (its badge or
+     its picker) gives way, truncated. The switch is last, so it stays put. */
+  .nb-tid-cardhead .nb-tid-cardtitle,
+  .nb-tid-cardtools > :not(.nb-tid-example) {
+    flex: none;
   }
-  .nb-tid-cardhead:has(.nb-tid-seg:not([hidden])) .nb-tid-cardtools {
-    flex: 1 0 100%;
-    justify-content: flex-end;
+  .nb-tid-cardtools {
+    flex: 0 1 auto;
+    min-width: auto; /* never below its contents: the badge gives way first */
+  }
+  .nb-tid-cardtools:has(.nb-tid-example) {
+    min-width: 0; /* a picker gives way instead: it shrinks, the rest keep their size */
   }
   .nb-tid-cardtools .nb-tid-example {
     flex: 0 1 auto;
-    min-width: 0;
+    min-width: 3rem;
+    text-overflow: ellipsis;
   }
   .nb-tid-lang {
     min-height: 2.75rem;
