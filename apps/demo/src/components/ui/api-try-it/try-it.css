@@ -628,6 +628,10 @@
   align-items: center;
   gap: 0.25rem;
 }
+/* An item's ✕ lines up with its property's ✕ above. */
+.nb-tid-item > .nb-tid-iconbtn {
+  margin-right: -0.25rem;
+}
 
 /* Parameters: a group per location, its optional ones a chip away. */
 .nb-tid-section + .nb-tid-section {
