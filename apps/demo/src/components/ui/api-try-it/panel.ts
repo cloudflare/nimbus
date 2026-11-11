@@ -12,6 +12,8 @@
 import {
   checkParam,
   isTextMedia,
+  jsonEntries,
+  jsonObject,
   loadRequestPlan,
   lockScroll,
   maskText,
@@ -28,6 +30,7 @@ import {
   type DeliveryMode,
   type FormValues,
   type HttpRequest,
+  type JsonEntry,
   type PlanAuth,
   type PlanBodyField,
   type PlanSchema,
@@ -64,6 +67,8 @@ const LOCATIONS: [PlanParam["in"], string][] = [
   ["cookie", "Cookies"],
 ];
 const LANG_KEY = "nb-tryit-lang";
+// How the reader last chose to edit a JSON body: as JSON, or as fields.
+const BODY_VIEW_KEY = "nb-tryit-body-view";
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 const SAMPLE_LANG: Record<Lang, HighlightLang> = { curl: "bash", typescript: "typescript", python: "python" };
 const REASONS: Record<number, string> = {
@@ -1116,6 +1121,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     bodySlot.replaceChildren();
     bodyError.textContent = "";
     if (!media) return;
+    if (asFields(media)) return bodySlot.append(jsonFieldsBody(media));
     if (media.kind === "json" || media.kind === "text") return bodySlot.append(editor(media));
     if (media.kind === "bytes") return bodySlot.append(fileBody(media));
     bodySlot.append(formBody(media));
@@ -1160,6 +1166,127 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
     paintUnder();
     controls.set("body", area);
     return el("div", { class: "nb-tid-editorbox" }, el("div", { class: "nb-tid-editorwrap" }, under, area));
+  };
+  // ---- A JSON object body as fields --------------------------------------------------
+  // The JSON text stays the one draft: each field edits its own entry, written back
+  // at once, and an entry no field touched keeps its text, numbers included.
+  let editAs: "json" | "fields" = store("tab")?.getItem(BODY_VIEW_KEY) === "fields" ? "fields" : "json";
+  const draftText = (media: PlanMedia) => text(bodyDrafts.get(media.mediaType));
+  const entriesOf = (media: PlanMedia): JsonEntry[] | null => (draftText(media).trim() === "" ? [] : jsonEntries(draftText(media)));
+  const asFields = (media: PlanMedia) => editAs === "fields" && media.kind === "json" && Boolean(media.fields) && entriesOf(media) !== null;
+  const NUMBER = /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/;
+  type FieldControl = "text" | "number" | "choice" | "json";
+  // The control a value calls for: its schema's, unless the value typed is of another kind.
+  const controlFor = (schema: PlanSchema, raw: string | undefined): FieldControl => {
+    const value = raw === undefined ? undefined : (() => {
+      try {
+        return JSON.parse(raw) as unknown;
+      } catch {
+        return Symbol();
+      }
+    })();
+    const fits = (ok: (v: unknown) => boolean) => value === undefined || ok(value) || (value === null && schema.nullable === true);
+    if (schema.enum && fits((v) => schema.enum!.some((o) => JSON.stringify(o) === JSON.stringify(v)))) return "choice";
+    if (schema.type === "boolean" && fits((v) => typeof v === "boolean")) return "choice";
+    if (schema.type === "string" && fits((v) => typeof v === "string")) return "text";
+    if ((schema.type === "integer" || schema.type === "number") && (raw === undefined || NUMBER.test(raw))) return "number";
+    if (!schema.type && raw !== undefined) {
+      if (typeof value === "string") return "text";
+      if (NUMBER.test(raw)) return "number";
+    }
+    return "json";
+  };
+  const jsonFieldsBody = (media: PlanMedia): HTMLElement => {
+    const entries = entriesOf(media) ?? [];
+    const declared = media.fields ?? [];
+    const order = new Map(declared.map((f, i) => [f.name, i]));
+    // The spec's properties, then any the body sends that it doesn't declare.
+    const shown: PlanBodyField[] = [
+      ...declared,
+      ...entries.filter((e) => !order.has(e.key)).map((e): PlanBodyField => ({ name: e.key, required: false, schema: {} })),
+    ];
+    const write = () => {
+      bodyDrafts.set(media.mediaType, jsonObject(entries));
+      render();
+    };
+    // A value given; undefined: the property isn't sent. A new one goes where the spec lists it.
+    const put = (name: string, raw: string | undefined) => {
+      const at = entries.findIndex((e) => e.key === name);
+      if (raw === undefined) {
+        if (at >= 0) entries.splice(at, 1);
+      } else if (at >= 0) entries[at]!.raw = raw;
+      else {
+        const rank = order.get(name) ?? Infinity;
+        const before = entries.findIndex((e) => (order.get(e.key) ?? Infinity) > rank);
+        entries.splice(before < 0 ? entries.length : before, 0, { key: name, raw });
+      }
+      write();
+    };
+    const rows = el("div", { class: "nb-tid-rows" });
+    let first: HTMLElement | null = null;
+    for (const field of shown) {
+      const id = fresh(`json-${field.name}`);
+      const raw = entries.find((e) => e.key === field.name)?.raw;
+      const s = field.schema;
+      const kind = controlFor(s, raw);
+      const typeText = s.type === "array" ? `${s.items?.type ?? "any"}[]` : (s.type ?? "any");
+      const label = el(
+        "label",
+        { class: "nb-tid-name", for: id },
+        el("span", { class: "nb-tid-nametext" }, field.name, field.required ? el("span", { class: "nb-tid-reqmark", "aria-label": "required" }, "*") : null),
+        el("span", { class: "nb-tid-type" }, typeText),
+      );
+      const error = el("p", { class: "nb-tid-fielderr", role: "status", id: `${id}-err` });
+      const flag = (problem: string | null) => {
+        error.textContent = problem ?? "";
+        if (problem) control.setAttribute("aria-invalid", "true");
+        else control.removeAttribute("aria-invalid");
+      };
+      let control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+      if (kind === "choice") {
+        const options = s.type === "boolean" ? [true, false] : [...(s.enum ?? [])];
+        if (s.nullable && !options.includes(null)) options.push(null);
+        const select = el("select", { id, class: "nb-tid-input nb-tid-select" }, ...options.map((o) => el("option", { value: JSON.stringify(o) }, text(o) || (o === null ? "null" : '""'))));
+        // Not sent: a choice of its own, or for a required property the prompt to make one.
+        select.prepend(el("option", { value: "" }, field.required ? "Choose a value" : "Not sent"));
+        select.value = raw === undefined ? "" : (options.map((o) => JSON.stringify(o)).find((o) => o === JSON.stringify(JSON.parse(raw))) ?? "");
+        select.addEventListener("change", () => put(field.name, select.value === "" ? undefined : select.value));
+        control = select;
+      } else if (kind === "json") {
+        const area = el("textarea", { id, class: "nb-tid-input nb-tid-jsonfield", rows: "3", ...TEXT, ...NO_PM });
+        area.value = raw ?? "";
+        const check = () => flag(area.value.trim() === "" ? null : jsonProblem(area.value));
+        area.addEventListener("input", () => {
+          check();
+          put(field.name, area.value.trim() === "" ? undefined : area.value);
+        });
+        control = area;
+        check();
+      } else {
+        const input = el("input", { id, class: "nb-tid-input", type: "text", inputmode: kind === "number" ? (s.type === "integer" ? "numeric" : "decimal") : undefined, ...TEXT, ...NO_PM });
+        input.value = raw === undefined ? "" : kind === "text" ? (JSON.parse(raw) as string) : raw;
+        const check = () => {
+          const v = input.value.trim();
+          if (kind !== "number" || v === "") return flag(null);
+          if (!NUMBER.test(v)) return flag(s.type === "integer" ? "Enter a whole number." : "Enter a number.");
+          if (s.type === "integer" && !Number.isInteger(Number(v))) return flag("Enter a whole number.");
+          flag(jsonProblem(v));
+        };
+        input.addEventListener("input", () => {
+          check();
+          // Empty: not sent, as a form's empty field isn't; a required string is sent empty.
+          if (input.value === "" && !(kind === "text" && field.required)) put(field.name, undefined);
+          else put(field.name, kind === "text" ? JSON.stringify(input.value) : input.value.trim());
+        });
+        control = input;
+        check();
+      }
+      control.setAttribute("aria-describedby", error.id);
+      first ??= control;
+      rows.append(el("div", { class: "nb-tid-row" }, label, control, field.description ? el("p", { class: "nb-tid-desc" }, field.description) : null, error));
+    }
+    if (first) controls.set("body", first);
+    return rows;
   };
   const fileBody = (media: PlanMedia): HTMLElement => {
     const id = uid("bodyfile");
@@ -1256,6 +1383,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
         bodyMedia = pick.value;
         typeBadge.textContent = bodyMedia;
         drawBody();
+        syncTools();
         render();
       });
       tools.push(pick);
@@ -1269,6 +1397,7 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
         extraFields.delete(media.mediaType); // the new example's undeclared fields, with their own types
         bodyDrafts.set(media.mediaType, media.kind === "json" ? JSON.stringify(chosen.value, null, 2) : media.kind === "text" ? text(chosen.value) : formSeed(media, chosen.value));
         drawBody();
+        syncTools();
         render();
       });
       tools.push(pick);
@@ -1284,7 +1413,36 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
       });
       tools.push(node);
     }
+    const viewSwitch = el(
+      "div",
+      { class: "nb-tid-seg", role: "group", "aria-label": "Edit the body as" },
+      el("button", { type: "button", "data-view": "json" }, "JSON"),
+      el("button", { type: "button", "data-view": "fields" }, "Fields"),
+    );
     const format = el("button", { type: "button", class: "nb-tid-btn nb-tid-format" }, "Format");
+    // The switch shows where the media type has fields; Format, where the JSON shows.
+    const syncTools = () => {
+      const media = plan.body!.media.find((m) => m.mediaType === bodyMedia);
+      const fields = asFields(media!);
+      viewSwitch.hidden = !(media?.kind === "json" && media.fields);
+      viewSwitch.querySelectorAll<HTMLButtonElement>("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === (fields ? "fields" : "json"))));
+      format.hidden = media?.kind !== "json" || fields;
+    };
+    viewSwitch.addEventListener("click", (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-view]");
+      const media = plan.body!.media.find((m) => m.mediaType === bodyMedia);
+      if (!b || !media) return;
+      const next = b.dataset.view as "json" | "fields";
+      // Fields need the body to be one object: until it is, the JSON stays, saying why.
+      if (next === "fields" && entriesOf(media) === null) {
+        bodyError.textContent = "Fields need the body to be one JSON object. Fix the JSON, then switch.";
+        return;
+      }
+      editAs = next;
+      store("tab")?.setItem(BODY_VIEW_KEY, next);
+      drawBody();
+      syncTools();
+    });
     format.addEventListener("click", () => {
       const area = bodySlot.querySelector<HTMLTextAreaElement>(".nb-tid-editor");
       if (!area) return;
@@ -1297,8 +1455,10 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
         area.focus();
       }
     });
+    if (plan.body.media.some((m) => m.kind === "json" && m.fields)) tools.push(viewSwitch);
     if (plan.body.media.some((m) => m.kind === "json")) tools.push(format);
     drawBody();
+    syncTools();
     return card("Body", [bodySlot, bodyError], { badge: typeBadge, tools, grow: bodyOn });
   };
 

@@ -9,6 +9,8 @@ export { renderSample, maskText } from "../_internal/try-it/render.js";
 export { sendRequest, isTextMedia, sameOrigin } from "../_internal/try-it/send.js";
 export { validateValues, checkParam } from "../_internal/try-it/validate.js";
 export { paramKey } from "../_internal/try-it/plan.js";
+export { jsonEntries, jsonObject } from "../_internal/try-it/json-entries.js";
+export type { JsonEntry } from "../_internal/try-it/json-entries.js";
 export type {
   Credential,
   DeliveryMode,

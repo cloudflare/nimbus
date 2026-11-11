@@ -241,6 +241,10 @@ function planBody(input: RequestPlanInput): PlanBody | undefined {
     const kind = bodyKind(mediaType);
     const out: PlanMedia = { mediaType, kind };
     if (kind === "form" || kind === "multipart") out.fields = bodyFields(m.schema, m.encoding);
+    else if (kind === "json") {
+      const fields = objectFields(m.schema);
+      if (fields.length) out.fields = fields;
+    }
     // A part header the spec requires has no field to fill in: refused, never sent without it.
     if (kind === "multipart") {
       for (const [field, enc] of Object.entries(m.encoding ?? {})) {
@@ -295,6 +299,27 @@ function bodyFields(schema: OpenApiSchema | undefined, encoding: Record<string, 
         if (typeof enc.allowReserved === "boolean") e.allowReserved = enc.allowReserved;
         field.encoding = e;
       }
+      return field;
+    });
+}
+
+// A JSON body's properties, for a form over it: only when the schema is one
+// object, all of whose parts are objects too. A choice of shapes has no one form.
+function objectFields(schema: OpenApiSchema | undefined): PlanBodyField[] {
+  const plain = (s: OpenApiSchema | undefined, seen = new Set<OpenApiSchema>()): boolean => {
+    if (!s || typeof s !== "object" || seen.has(s)) return true;
+    seen.add(s);
+    if (s.oneOf || s.anyOf) return false;
+    const types = Array.isArray(s.type) ? s.type : s.type ? [s.type] : [];
+    if (types.some((t) => t !== "object" && t !== "null")) return false;
+    return (s.allOf ?? []).every((member) => plain(member, seen));
+  };
+  if (!plain(schema)) return [];
+  return properties(schema)
+    .filter(([, s]) => s?.readOnly !== true)
+    .map(([name, s, required]) => {
+      const field: PlanBodyField = { name, required, schema: planSchema(s) };
+      if (typeof s?.description === "string") field.description = s.description;
       return field;
     });
 }
