@@ -543,6 +543,12 @@ test("agentFactoryCall names the factory called, through every import form, with
   assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nexport const GET = () => new Response("Example: markdownRoute()");`), undefined);
   assert.equal(agentFactoryCall(`import { llmsRoute } ${ENDPOINTS}\nexport const GET = () => new Response(\`see \${"llmsRoute()"} here\`);`), undefined);
   assert.equal(agentFactoryCall(`import { llmsRoute } ${ENDPOINTS}\nconst note = 'llmsRoute()';\nexport const { GET } = llmsRoute();`), "llmsRoute");
+  // Regex literals and quotes inside template expressions neither hide a call nor make one.
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nconst quote = /"/;\nexport const { GET } = markdownRoute();`), "markdownRoute");
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nconst example = /markdownRoute()/;\nexport const GET = () => new Response("x");`), undefined);
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nconst text = \`\${"{"}\`;\nexport const { GET } = markdownRoute();`), "markdownRoute");
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nconst half = 4 / 2 / 1;\nexport const { GET } = markdownRoute();`), "markdownRoute");
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\n/* markdownRoute() */ // markdownRoute()\nexport const GET = () => new Response("x");`), undefined);
   assert.equal(sharedMarkdownRouteSurface(`import { llmsFullRoute } ${ENDPOINTS}\nllmsFullRoute();`), "llms");
 });
 
@@ -560,6 +566,10 @@ test("patternsMayOverlap walks segments: static mismatch is disjoint, a spread a
   assert.equal(patternsMayOverlap("/[...file].txt", "/[...section]/llms.txt"), true);
   assert.equal(patternsMayOverlap("/a", "/a/[...rest]"), true);
   assert.equal(patternsMayOverlap("/a/[...rest]/index.md", "/a"), false);
+  // Text before a spread constrains the first segment of its span, not the file name.
+  assert.equal(patternsMayOverlap("/raw-[...slug].md", "/[...slug]/index.md"), true);
+  assert.equal(patternsMayOverlap("/raw-[...slug].json", "/[...slug]/index.md"), false);
+  assert.equal(patternsMayOverlap("/[name].md", "/[...slug]/index.md"), true);
 });
 
 test("unreadAgentRoutes names a factory call from a shape Nimbus doesn't record, and the recorded route it may shadow", () => {

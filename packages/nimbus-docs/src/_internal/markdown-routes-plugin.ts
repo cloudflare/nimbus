@@ -60,35 +60,107 @@ function markdownFileSegment(route: ResolvedRouteInput): string | undefined {
 }
 
 /**
- * Replaces the contents of string and template literals with spaces, keeping
- * the quotes and the import specifiers (`from "…"`, `import("…")`), so a
- * factory named in response text is not read as a call.
+ * Replaces the contents of string, template and regex literals with spaces,
+ * keeping the quotes and the import specifiers (`from "…"`, `import("…")`),
+ * so a factory named in response text is not read as a call. A `/` starts a
+ * regex where no expression can end: after an operator, a bracket, a comma,
+ * a keyword, or at the start.
  */
 export function blankLiterals(code: string): string {
   let out = "";
   let index = 0;
+  const blank = (text: string) => text.replace(/[^\n]/gu, " ");
+  // The last non-space character written, to tell `/` as division from a regex.
+  const expressionEnds = () => {
+    const trimmed = out.trimEnd();
+    if (trimmed === "") return false;
+    const last = trimmed.at(-1)!;
+    if (/[)\]}\w$"'`]/u.test(last)) {
+      const word = /[A-Za-z_$][\w$]*$/u.exec(trimmed)?.[0];
+      return !(word && /^(?:return|typeof|instanceof|in|of|new|delete|void|throw|case|do|else|yield|await)$/u.test(word));
+    }
+    return false;
+  };
+  const scanString = (quote: string, from: number): number => {
+    let end = from + 1;
+    while (end < code.length && code[end] !== quote) {
+      if (code[end] === "\\") end += 1;
+      else if (code[end] === "\n" && quote !== "`") break;
+      end += 1;
+    }
+    return end;
+  };
   while (index < code.length) {
     const char = code[index]!;
-    if (char === '"' || char === "'" || char === "`") {
-      const before = code.slice(0, index);
-      const keep = /(?:\bfrom|\bimport\s*\()\s*$/u.test(before);
-      let end = index + 1;
-      while (end < code.length && code[end] !== char) {
-        if (code[end] === "\\") end += 1;
-        else if (char === "`" && code[end] === "$" && code[end + 1] === "{") {
+    const next = code[index + 1];
+    if (char === "/" && next === "/") {
+      const end = code.indexOf("\n", index);
+      const stop = end < 0 ? code.length : end;
+      out += blank(code.slice(index, stop));
+      index = stop;
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      const end = code.indexOf("*/", index + 2);
+      const stop = end < 0 ? code.length : end + 2;
+      out += blank(code.slice(index, stop));
+      index = stop;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      const keep = /(?:\bfrom|\bimport\s*\()\s*$/u.test(out);
+      const end = scanString(char, index);
+      const literal = code.slice(index, end + 1);
+      out += keep ? literal : `${char}${blank(literal.slice(1, -1))}${char}`;
+      index = end + 1;
+      continue;
+    }
+    if (char === "`") {
+      // A template: its text blanked, each `${…}` expression scanned as code.
+      out += "`";
+      index += 1;
+      while (index < code.length && code[index] !== "`") {
+        if (code[index] === "\\") {
+          out += "  ";
+          index += 2;
+        } else if (code[index] === "$" && code[index + 1] === "{") {
           let depth = 1;
-          end += 2;
+          let end = index + 2;
+          let inner = "";
           while (end < code.length && depth > 0) {
-            if (code[end] === "{") depth += 1;
-            else if (code[end] === "}") depth -= 1;
+            const c = code[end]!;
+            if (c === "{") depth += 1;
+            else if (c === "}") depth -= 1;
+            if (c === '"' || c === "'" || c === "`") {
+              const stop = c === "`" ? templateEnd(code, end) : scanString(c, end);
+              inner += code.slice(end, stop + 1);
+              end = stop + 1;
+              continue;
+            }
+            if (depth > 0) inner += c;
             end += 1;
           }
-          continue;
+          out += `\${${blankLiterals(inner)}}`;
+          index = end;
+        } else {
+          out += code[index] === "\n" ? "\n" : " ";
+          index += 1;
         }
+      }
+      out += "`";
+      index += 1;
+      continue;
+    }
+    if (char === "/" && !expressionEnds()) {
+      let end = index + 1;
+      let inClass = false;
+      while (end < code.length && code[end] !== "\n" && (inClass || code[end] !== "/")) {
+        if (code[end] === "\\") end += 1;
+        else if (code[end] === "[") inClass = true;
+        else if (code[end] === "]") inClass = false;
         end += 1;
       }
-      const literal = code.slice(index, end + 1);
-      out += keep ? literal : `${char}${literal.slice(1, -1).replace(/[^\n]/gu, " ")}${char}`;
+      out += `/${blank(code.slice(index + 1, end))}/`;
       index = end + 1;
       continue;
     }
@@ -96,6 +168,27 @@ export function blankLiterals(code: string): string {
     index += 1;
   }
   return out;
+}
+
+/** The index of the backtick that closes the template starting at `from`. */
+function templateEnd(code: string, from: number): number {
+  let index = from + 1;
+  while (index < code.length && code[index] !== "`") {
+    if (code[index] === "\\") index += 1;
+    else if (code[index] === "$" && code[index + 1] === "{") {
+      let depth = 1;
+      index += 2;
+      while (index < code.length && depth > 0) {
+        if (code[index] === "`") index = templateEnd(code, index);
+        else if (code[index] === "{") depth += 1;
+        else if (code[index] === "}") depth -= 1;
+        index += 1;
+      }
+      continue;
+    }
+    index += 1;
+  }
+  return index;
 }
 
 function escapeRegExp(value: string): string {
@@ -111,11 +204,7 @@ export type AgentRouteFactory = keyof typeof FACTORIES;
  * not detected; `findOwnMarkdownRoute` still resolves it by pattern.
  */
 export function agentFactoryCall(source: string): AgentRouteFactory | undefined {
-  const code = blankLiterals(
-    source
-      .replace(/\/\*[\s\S]*?\*\//gu, "")
-      .replace(/(^|[^:/\\])\/\/.*$/gmu, "$1"),
-  );
+  const code = blankLiterals(source);
   const callees = new Map<string, AgentRouteFactory>();
   for (const [, specifiers] of code.matchAll(NAMED_IMPORT)) {
     for (const specifier of specifiers!.split(",")) {
@@ -202,7 +291,11 @@ export function patternsMayOverlap(a: string, b: string): boolean {
   }
 }
 
-/** Whether two single segments can match one path segment: static text must agree where both have it. */
+/**
+ * Whether two last segments can name one file. A spread spans `/`, so the
+ * text before it constrains the first segment of its span, not the file
+ * name: only the text after the last spread is held against the other side.
+ */
 function segmentsMayMatch(a: string, b: string): boolean {
   if (!a.includes("[")) return b.includes("[") ? segmentRegex(b).test(a) : a === b;
   if (!b.includes("[")) return segmentRegex(a).test(b);
@@ -210,11 +303,13 @@ function segmentsMayMatch(a: string, b: string): boolean {
 }
 
 function segmentRegex(segment: string): RegExp {
-  const source = segment
+  const spread = segment.lastIndexOf("[...");
+  const tail = spread < 0 ? segment : segment.slice(segment.indexOf("]", spread) + 1);
+  const source = tail
     .split(/(\[[^\]]+\])/u)
-    .map((part) => (part.startsWith("[") ? (part.startsWith("[...") ? ".*" : "[^/]+") : escapeRegExp(part)))
+    .map((part) => (part.startsWith("[") ? "[^/]+" : escapeRegExp(part)))
     .join("");
-  return new RegExp(`^${source}$`, "u");
+  return new RegExp(`${spread < 0 ? "^" : ""}${source}$`, "u");
 }
 
 /**

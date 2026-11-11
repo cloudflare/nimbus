@@ -131,7 +131,7 @@ export const { GET } = llmsRoute({
 });
 ```
 
-`body` can be async, and reads the request from its second argument, so a section the spec doesn't hold can be listed from your own data. On a split site, `llmsFullRoute()`'s `body` sees the index of parts; the parts themselves are Nimbus's own routes and are not changed.
+`body` can be async, and reads the request from its second argument, so a section the spec doesn't hold can be listed from your own data. On a split site, `llmsFullRoute()`'s `body` sees the index of parts; the parts themselves are Nimbus's own routes and are not changed. A homepage without a content entry serves `/index.md` as the `llms.txt` index, with that route's `body`: the baked file where the host keeps one, the route itself where it renders on request.
 
 For section indexes, `llmsSectionRoute({ body })` keeps its `getStaticPaths`, which lists every section. To build a body from scratch, call `getLlmsPayload()` with a `reference` such as `{ scope: "section", surface: "index", section: "writing" }` (or `"reference/functions"` for a nested section); it returns `null` for an unknown index.
 

@@ -299,12 +299,14 @@ export interface MarkdownRoute {
  */
 async function endpointResponse(
   context: APIContext,
-  load: () => Promise<{ body: string; mediaType: string; digest?: string; standIn?: true } | null>,
+  load: () => Promise<{ body: string; mediaType: string; digest?: string; standIn?: true } | Response | null>,
   options?: AgentRouteOptions,
 ): Promise<Response> {
   try {
     const payload = await load();
     if (!payload) return new Response("Not found", { status: 404 });
+    // Another route's document, answered as that route emitted it.
+    if (payload instanceof Response) return payload;
     // The document's own fingerprint, so a cache or client revalidates by
     // bytes, baked or rendered. A site's `body` changes the bytes, so the tag
     // is taken over what it returns; a stand-in for another route's document
@@ -414,6 +416,11 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface, options?: AgentRo
           // serves the site llms index itself.
           const { base } = await loadAgentEndpointManifest(context.request);
           if (requestAssetUrl(context.url, base) === "/index.md") {
+            // The index as its route emitted it, where the host keeps the
+            // baked file (a site's `body` on that route included); the
+            // index's own payload otherwise.
+            const emitted = await emittedLlmsIndex(context, base);
+            if (emitted) return emitted;
             const fallback = await getLlmsPayload(
               { scope: "site", surface: "index" },
               { request: context.request },
@@ -436,6 +443,24 @@ function createMarkdownRoute(surface: MarkdownEndpointSurface, options?: AgentRo
         return markdownPayload(asset, { request: context.request });
       }, options),
   };
+}
+
+/** The baked `/llms.txt` from the host's assets, as Markdown, or `null` where there is none. */
+async function emittedLlmsIndex(context: APIContext, base: string): Promise<Response | null> {
+  try {
+    const { fetchAgentEndpointAsset } = await import("virtual:nimbus/agent-endpoint-asset-loader");
+    const prefix = base.replace(/\/+$/u, "");
+    const asset = await fetchAgentEndpointAsset(`${prefix}/llms.txt`, context.request);
+    if (!asset) return null;
+    if (asset.status === 304) return asset;
+    if (asset.status !== 200) return null;
+    const headers = new Headers(asset.headers);
+    headers.set("Content-Type", "text/markdown; charset=utf-8");
+    for (const name of ["Content-Length", "Content-Encoding"]) headers.delete(name);
+    return new Response(context.request.method === "HEAD" ? null : asset.body, { status: 200, headers });
+  } catch {
+    return null;
+  }
 }
 
 /**
