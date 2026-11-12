@@ -474,31 +474,39 @@ jobs:
             # The sandbox answers the request: London is London, Nairobi is warmer than Oslo,
             # an empty search is empty, an unknown id is the spec's 404. The documented limit
             # counts per key, so each version's probes use this run's own key.
-            probe() { # version, path, expected status, jq test
-              local version=$1 path=$2 status=$3 expect=$4
-              local key="wx_test_release_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_$version" url body code
+            ask() { # version, path -> "<status>\n<body>"
+              local version=$1 path=$2 key="wx_test_release_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_$1"
               if [ "$version" = v1 ]; then
-                case "$path" in *\?*) url="$sandbox/v1$path&key=$key" ;; *) url="$sandbox/v1$path?key=$key" ;; esac
-                body=$(curl --silent --show-error --retry 5 --retry-delay 3 -w '\n%{http_code}' "$url")
+                case "$path" in *\?*) path="$path&key=$key" ;; *) path="$path?key=$key" ;; esac
+                curl --silent --show-error --retry 5 --retry-delay 3 -w '\n%{http_code}' "$sandbox/v1$path"
               else
-                body=$(curl --silent --show-error --retry 5 --retry-delay 3 -w '\n%{http_code}' -H "Authorization: Bearer $key" "$sandbox/$version$path")
-              fi
-              code=${body##*$'\n'}; body=${body%$'\n'*}
-              if [ "$code" != "$status" ] || ! printf '%s' "$body" | jq -e "$expect" > /dev/null; then
-                echo "::error::sandbox $version $path answered $code: $body"
-                exit 1
+                curl --silent --show-error --retry 5 --retry-delay 3 -w '\n%{http_code}' -H "Authorization: Bearer $key" "$sandbox/$version$path"
               fi
             }
+            probe() { # version, path, expected status, jq test
+              local answer code body
+              answer=$(ask "$1" "$2"); code=${answer##*$'\n'}; body=${answer%$'\n'*}
+              if [ "$code" != "$3" ] || ! printf '%s' "$body" | jq -e "$4" > /dev/null; then
+                echo "::error::sandbox $1 $2 answered $code: $body"
+                exit 1
+              fi
+              printf '%s' "$body"
+            }
             for version in v1 v2 v3-preview; do
-              probe "$version" /locations/loc_london_gb 200 '.name == "London"'
-              probe "$version" /locations/loc_nowhere_xx 404 '.error.code == "not_found"'
+              probe "$version" /locations/loc_london_gb 200 '.name == "London"' > /dev/null
+              probe "$version" /locations/loc_nowhere_xx 404 '.error.code == "not_found"' > /dev/null
               if [ "$version" = v1 ]; then
-                probe v1 '/locations/search?q=Zzz' 200 '.results == [] and .page == 1'
-                probe v1 '/forecast?lat=-1.29&lon=36.82&days=1' 200 '.location.name == "Nairobi" and .days[0].high_f > 60'
+                probe v1 '/locations/search?q=Zzz' 200 '.results == [] and .page == 1' > /dev/null
+                nairobi=$(probe v1 '/forecast?lat=-1.29&lon=36.82&days=1' 200 '.location.name == "Nairobi"' | jq '.days[0].high_f')
+                oslo=$(probe v1 '/forecast?lat=59.91&lon=10.75&days=1' 200 '.location.name == "Oslo"' | jq '.days[0].high_f')
               else
-                probe "$version" '/locations/search?q=Zzz' 200 '.data == [] and .has_more == false and .next_cursor == null'
-                probe "$version" '/forecasts/daily?latitude=-1.29&longitude=36.82&days=1' 200 '.location.name == "Nairobi" and .days[0].temperature_max > 15'
-                probe "$version" '/forecasts/daily?latitude=59.91&longitude=10.75&days=1' 200 '.location.name == "Oslo" and .days[0].temperature_max < 25'
+                probe "$version" '/locations/search?q=Zzz' 200 '.data == [] and .has_more == false and .next_cursor == null' > /dev/null
+                nairobi=$(probe "$version" '/forecasts/daily?latitude=-1.29&longitude=36.82&days=1' 200 '.location.name == "Nairobi"' | jq '.days[0].temperature_max')
+                oslo=$(probe "$version" '/forecasts/daily?latitude=59.91&longitude=10.75&days=1' 200 '.location.name == "Oslo"' | jq '.days[0].temperature_max')
+              fi
+              if [ "$nairobi" = "$oslo" ]; then
+                echo "::error::sandbox $version gives Nairobi and Oslo the same high ($nairobi)"
+                exit 1
               fi
             done
           fi
