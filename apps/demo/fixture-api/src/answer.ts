@@ -609,7 +609,7 @@ const HANDLERS: Record<string, Handler> = {
       const wet = hour.precipitation > 0 && roll(city.id, at.toISOString(), "minute") < 0.7;
       return {
         time: iso(at),
-        intensity: wet ? round(Math.max(0.1, hour.precipitation * (0.6 + roll(city.id, at.toISOString(), "i")))) : 0,
+        intensity: wet ? length(round(Math.max(0.1, hour.precipitation * (0.6 + roll(city.id, at.toISOString(), "i")))), ctx.units) : 0,
         probability: Math.max(0, Math.min(100, Math.round(hour.probability + (wet ? 15 : -15)))),
       };
     });

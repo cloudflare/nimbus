@@ -147,10 +147,13 @@ export default {
     if (missing.length) return problem(request, errors, 400, "invalid_request", `Missing required query parameter: ${missing.join(", ")}.`, {}, missing[0]);
     const query = validateQuery(route.query, url.searchParams);
     if (!query.ok) return problem(request, errors, 400, "invalid_request", query.message, {}, query.param);
-    // Read the body once; writes store nothing. A body that isn't JSON is a 400 for operations that declare one.
+    // Read the body once; writes store nothing. A JSON body is parsed for the
+    // overlay; one sent as JSON that doesn't parse is a 400. Other media
+    // (an upload) is drained and the operation answers its example.
     const raw = await request.text().catch(() => "");
     let body: unknown;
-    if (route.bodyFields && raw.trim() !== "") {
+    const mediaType = (request.headers.get("content-type") ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
+    if (route.bodyFields && raw.trim() !== "" && (mediaType === "" || /json/.test(mediaType))) {
       try {
         body = JSON.parse(raw);
       } catch {

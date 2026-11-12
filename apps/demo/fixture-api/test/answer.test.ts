@@ -300,6 +300,15 @@ test("minutely steps are five minutes apart, non-negative, with a summary that m
     if (run === wet) assert.equal(summary.endsWith(`for the next ${run * 5} minutes.`), true, summary);
     else assert.equal(summary.endsWith("on and off for the next two hours."), true, summary);
   }
+  // Intensity follows the units: a wet step in inches is the metric rate over 25.4.
+  const wetCity = world.cities.find((city) => (body("v2", "getMinutelyPrecipitation", { query: at(city) }).minutes as Json[]).some((m) => (m.intensity as number) > 0));
+  assert.ok(wetCity, "some city is wet today");
+  const metricSteps = body("v2", "getMinutelyPrecipitation", { query: at(wetCity) }).minutes as Json[];
+  const imperialSteps = body("v2", "getMinutelyPrecipitation", { query: { ...at(wetCity), units: "imperial" } }).minutes as Json[];
+  const siSteps = body("v3-preview", "getMinutelyPrecipitation", { query: { ...at(wetCity), units: "si" } }).minutes as Json[];
+  const i = metricSteps.findIndex((m) => (m.intensity as number) > 0);
+  assert.ok(Math.abs((imperialSteps[i]?.intensity as number) - (metricSteps[i]?.intensity as number) / 25.4) < 0.02);
+  assert.ok(Math.abs((siSteps[i]?.intensity as number) - (metricSteps[i]?.intensity as number) / 1000) < 0.001);
   // Across the world, every summary shape occurs and each states what its series shows.
   for (const city of world.cities.slice(0, 80)) {
     const m = body("v2", "getMinutelyPrecipitation", { query: at(city) });

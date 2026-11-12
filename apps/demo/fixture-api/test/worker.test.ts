@@ -78,6 +78,16 @@ test("end to end: a write echoes and answers 201, an empty search is empty, HEAD
   assert.equal(redirect.status, 303);
 });
 
+test("end to end: an upload to an operation outside the families answers its example, and a non-JSON body to a write is a 400", async () => {
+  const form = new FormData();
+  form.set("file", new Blob(["observed_at,temperature\n2026-01-14T07:55:00Z,-2.6"], { type: "text/csv" }), "readings.csv");
+  const upload = await worker.fetch(new Request(`${origin}/v2/stations/stn_01492/readings`, { method: "POST", body: form, headers: { authorization: "Bearer wx_test_x" } }), env);
+  assert.equal(upload.status, 202);
+  const text = await call("/v2/stations", { method: "POST", body: "name=Roof", headers: { "content-type": "text/plain" } });
+  assert.equal(text.status, 400);
+  assert.equal((text.body?.error as Json).param, "body");
+});
+
 test("end to end: a non-JSON example is served as is", async () => {
   const metar = await worker.fetch(new Request(`${origin}/v2/observations/metar/ENGM`, { headers: { authorization: "Bearer wx_test_x" } }), env);
   assert.equal(metar.status, 200);
