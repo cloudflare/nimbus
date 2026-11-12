@@ -1,5 +1,89 @@
 # @cloudflare/create-nimbus-docs
 
+## 0.9.0
+
+### Minor Changes
+
+- [#310](https://github.com/cloudflare/nimbus/pull/310) [`d993e42`](https://github.com/cloudflare/nimbus/commit/d993e4288f26b3267447b822fb2304e92edf1962) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Update Astro, Markdown, API parsing, image processing, and starter dependencies. Support Satori 0.63 alongside 0.26, while retaining the declaration bundler that preserves API extension types.
+
+  Node.js 22.23.4 or newer is now required by Nimbus and newly generated sites. Upgrade Node locally and in CI and hosting build environments before updating Nimbus. Sites using Astro below 7.2.10 must also update Astro; new starters use Astro 7.4.2.
+
+  Keep deployment-root sitemap URLs aligned with Astro's canonical URL for static and request-rendered pages, including sites hosted under a base path.
+
+### Patch Changes
+
+- [#374](https://github.com/cloudflare/nimbus/pull/374) [`da9e84a`](https://github.com/cloudflare/nimbus/commit/da9e84a79ad5aab971cfec29bd90b8191e059819) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - The starter's agent directive and base layout cope with a site that serves no `llms.txt`: the directive names only the page's Markdown, or renders nothing.
+
+- [#342](https://github.com/cloudflare/nimbus/pull/342) [`eb60d78`](https://github.com/cloudflare/nimbus/commit/eb60d786ba8057a6123d6c53f4c4b145150a060f) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - An API page's Authorization section shows each scheme's header example and scopes again, and names HTTP Bearer and Basic schemes (`Authorization: Bearer <token>`); its Markdown names the scheme too.
+  - `ApiAuthView` has an optional `httpScheme`, the HTTP scheme lowercased (`bearer`, `basic`).
+
+- [#341](https://github.com/cloudflare/nimbus/pull/341) [`7f146e0`](https://github.com/cloudflare/nimbus/commit/7f146e08af38b207700e275a10ebc4a6b462b2f1) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - API pages and their Markdown show fields declared beside a union, such as a DNS record's `id`, `created_on` and `meta` beside its record types: the fields first, then the options that add to them.
+  - Object and array-of-object parameters list their fields, as body fields do.
+  - A request or response body that isn't an object shows its type, and its badge names its media type instead of "JSON".
+
+- [#331](https://github.com/cloudflare/nimbus/pull/331) [`c3d3cc6`](https://github.com/cloudflare/nimbus/commit/c3d3cc6e10fbfdb26204dadb4691a46157fb2b55) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - API parameter rows show their example.
+  - On a split API home, a table of contents link to a later part works without script and loads in place with it.
+
+- [#368](https://github.com/cloudflare/nimbus/pull/368) [`00e64f3`](https://github.com/cloudflare/nimbus/commit/00e64f3a0daef64a2dc0c85e5e82ddd3b44b222e) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - An API response example is one Tab stop, not two.
+  - Long field names and inline code in field descriptions wrap on narrow screens, so API pages no longer scroll sideways on a phone.
+
+- [#347](https://github.com/cloudflare/nimbus/pull/347) [`a2a14f3`](https://github.com/cloudflare/nimbus/commit/a2a14f32103234278e7ede4e3164710053bb54bd) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `getApiNav(Astro, { collection, href })` from `@cloudflare/nimbus-docs/runtime` returns the API sidebar opened at one API page, from any route, so a site's own pages can show the same sidebar as its API pages.
+  - `ApiSidebarPanel` in `api-sidebar` is that sidebar as one component: the filter, the tree, groups that load when opened, and open groups and scroll kept across pages. `ApiLayout` renders it, and a page of your own renders it with `getApiNav`.
+  - With `sidebar: "on-demand"`, the API sidebar can live outside `ApiLayout` without failing the components check.
+  - A page of your own can use `DocsLayout` with just a `title`: `sidebar`, `headings`, `breadcrumbs` and `prevNext` are optional.
+
+- [#369](https://github.com/cloudflare/nimbus/pull/369) [`645df3c`](https://github.com/cloudflare/nimbus/commit/645df3c8d734e5c87c81c8e36295a784ec5290a8) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - On narrow screens an API operation's request sample comes right after its header, before the fields, so it's on the first screen for most pages.
+  - On wide screens the page text sits in a 40rem column beside the request sample, which starts at the top and stays pinned.
+  - The description follows the page actions, and the endpoint box shows the operation's path, which opens the full URL in a popover; copy still copies the full URL.
+
+- [#345](https://github.com/cloudflare/nimbus/pull/345) [`dea1e3d`](https://github.com/cloudflare/nimbus/commit/dea1e3dcb2a0d8448bf3cfd39b266523d1e34bf2) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - On wide screens an API page's code rail fits the viewport: its header stays put and a long sample scrolls both ways with both scrollbars in view. Code you can scroll gets a focus ring.
+  - The endpoint box cuts the server address before the path, so the path stays visible.
+  - Spec descriptions get spaced headings and inline-code chips.
+  - On wide screens the previous/next bar spans the body and the code rail.
+  - A field with more than six allowed values lists every one on an "Allowed values" line, instead of behind a hover tooltip.
+  - Request body and Returns have anchors (`#request-body`, `#responses`), and every API section heading gets a "#" link. `headingAnchors()` also links headings inside any `data-nb-heading-anchors` container.
+  - CodeGroup's copy button comes before its code in Tab order.
+  - Every keyboard shortcut lives in `src/lib/shortcuts.ts`: change a key or set it to `false` to remove it. `[` and `]` go to the previous and next page from anywhere on the page, and readers can turn single-key shortcuts off from the search dialog. `onShortcut`, `syncShortcutHints`, the key labels and the reader's switch are in `@cloudflare/nimbus-docs/client`.
+  - A `Switch` component (`nimbus-docs add switch`): an on/off control. The shortcuts switch in the search dialog uses it.
+
+- [#362](https://github.com/cloudflare/nimbus/pull/362) [`1fb505f`](https://github.com/cloudflare/nimbus/commit/1fb505fc2b0870d5a55526bd476dcea61cadd53a) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - API pages show "Copy MCP URL" in their page actions when the site serves an MCP server, as docs pages do.
+
+- [#378](https://github.com/cloudflare/nimbus/pull/378) [`5bc942d`](https://github.com/cloudflare/nimbus/commit/5bc942d9ebf35d179f261f6ca659813e032dd92d) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Add Try it to API pages: with `tryIt` on an API and the `api-try-it` component, readers send requests from the code rail, straight from the browser or through the site's proxy, and see the response.
+  - `ApiLayout` and `ApiCodeRail` take the panel through a `try-it` slot.
+  - A JSON body can be edited as JSON or as fields; switching keeps every change.
+
+- [#356](https://github.com/cloudflare/nimbus/pull/356) [`0a83b03`](https://github.com/cloudflare/nimbus/commit/0a83b0361052bbf9df0ba7f11a67a54fb9486c6d) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `astro check` runs again on new sites installed with pnpm, instead of saying `@astrojs/check` isn't installed.
+
+- [#376](https://github.com/cloudflare/nimbus/pull/376) [`28a3df0`](https://github.com/cloudflare/nimbus/commit/28a3df0b44e2f2a2b446c954d8b0f7ea4a31443f) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - The API code rail shows the reader's saved or linked code sample from the first paint, so it no longer resizes just after the page loads.
+  - `choiceStateScript` in `@cloudflare/nimbus-docs/runtime` shows a remembered choice among server-rendered panels before the page paints. Mark the group with `data-nb-choice` (its storage key) and optionally `data-nb-choice-param`, its panels with `data-nb-choice-panel` and optionally `data-nb-choice-kind`, and its `<select>` with `data-nb-choice-select`, then render the script right after the group.
+  - If you take the `api-code-rail` update, rename its old attributes in your own CSS, scripts and tests too.
+
+- [#327](https://github.com/cloudflare/nimbus/pull/327) [`03c1609`](https://github.com/cloudflare/nimbus/commit/03c1609ca32cf6e08dea4f781626e8c0935162ed) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - New sites' `DocsLayout` and `ApiLayout` put the page's content before the sidebar in the HTML, so agents and text readers reach it first; pages look the same. The page actions row is a `<nav aria-label="Page actions">`, and the API union explorer's "View X schema →" link, which repeats the branch name's link, is marked `data-markdown-ignore`. `nimbus-docs migrate` lists them for existing sites as optional.
+
+- [#367](https://github.com/cloudflare/nimbus/pull/367) [`4c18262`](https://github.com/cloudflare/nimbus/commit/4c18262b1c8c08ca8d97f7b646f8c1c85c09a2a3) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Generated cURL, TypeScript and Python samples no longer need `@readme/httpsnippet`; only `openapi-sampler` is needed for generated samples, and you can uninstall `@readme/httpsnippet`.
+  - A TypeScript sample's options object wraps when its line would pass 80 characters, as the other samples already do.
+
+- [#343](https://github.com/cloudflare/nimbus/pull/343) [`372b6a1`](https://github.com/cloudflare/nimbus/commit/372b6a1c49523279716244f3495924ca472889d9) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - A page can set its language and share-image alt text: `NimbusHead`, `BaseLayout` and `DocsLayout` take `locale` and `socialImageAlt`. The page's `<html lang>`, `og:locale` and JSON-LD `inLanguage` follow it, and a right-to-left language sets `dir="rtl"`, as a right-to-left `config.locale` now does on every page.
+  - `og:locale` is written in Open Graph's form (`en_US`) instead of as a BCP 47 tag (`en-US`), and left out when the tag has no two-letter region.
+  - `getPageLanguage()` in `@cloudflare/nimbus-docs/runtime` gives a page's `{ lang, dir }`.
+  - `HastPluginDefinition` and `HastVisitorContext` are exported from `@cloudflare/nimbus-docs/markdown`, for typing your own plugins.
+
+- [#344](https://github.com/cloudflare/nimbus/pull/344) [`5229f0e`](https://github.com/cloudflare/nimbus/commit/5229f0e6ceb9d85a3f60236d62d89186283429b1) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Search: each sub-result is its own option the arrow keys reach, result links leave the Tab order, Home and End move the caret unless a result is active, and a reader on a deprecated version's page searches that version.
+  - The search dialog stays open when a text selection is dragged onto its backdrop.
+  - The table of contents leaves out headings without an anchor and marks the last real heading active at the bottom of the page.
+  - The sidebar filter shows the groups around a matching nested group.
+  - The theme toggle shows the right icon from first paint, and a dismissed banner no longer flashes before it disappears.
+  - The destructive button's text is readable in dark mode.
+  - Steps counts from a Markdown list's own start (`3.`).
+  - A failed copy after a successful one shows the copy icon again.
+  - Image zoom fills an aspect-ratio frame with a `<picture>`.
+  - The hidden note for AI agents is no longer two invisible Tab stops.
+
+- [#396](https://github.com/cloudflare/nimbus/pull/396) [`41680b1`](https://github.com/cloudflare/nimbus/commit/41680b15a5e318df7c30f774734b02e83be6e989) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Try it's authorization failure note no longer loses the top edge of its outline.
+
+- [#396](https://github.com/cloudflare/nimbus/pull/396) [`c3d1f0a`](https://github.com/cloudflare/nimbus/commit/c3d1f0aafba0d42f4c2726695e9caa50244bb886) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `tryIt.testKey` is a public test key that Try it's API key and bearer token fields start with, so a reader can send a request without entering anything.
+  - Try it's proxy refuses a request that sets `X-Real-IP`, `True-Client-IP`, `Forwarded`, `X-Forwarded-*` or `CF-Connecting-IP`, so a caller can't pose as another address to the API.
+
 ## 0.8.3
 
 ### Patch Changes
