@@ -20,7 +20,22 @@ npx @cloudflare/nimbus-docs add try-it
 
 It installs the `api-try-it` component, adds it to each API route, sets `tryIt` on the APIs you choose, and asks one question per API: does it answer browser (CORS) requests from your docs?
 
-By hand, set `tryIt` on the `api` entry:
+By hand, add the component yourself:
+
+```sh
+npx @cloudflare/nimbus-docs add api-try-it
+```
+
+A site created before 0.20.0 also needs the layout's `try-it` slot. If you haven't edited `ApiLayout.astro` and `ApiCodeRail.astro`, replace them:
+
+```sh
+npx @cloudflare/nimbus-docs add api-layout --overwrite
+npx @cloudflare/nimbus-docs add api-code-rail --overwrite
+```
+
+If you have, the recipe lists the edit to make.
+
+Then set `tryIt` on the `api` entry:
 
 ```ts title="astro.config.ts"
 api: [
@@ -32,13 +47,13 @@ api: [
 ],
 ```
 
-Then render the panel inside `ApiLayout` in the API route:
+And render the panel inside `ApiLayout` in the API route, keeping the props the route already passes:
 
 ```astro title="src/pages/api/[...slug].astro"
 ---
 import { ApiTryIt } from "@/components/ui/api-try-it";
 ---
-<ApiLayout {...props}>
+<ApiLayout page={page} nav={nav} collection={collection} version={version} coordinate={coordinate} home={home}>
   {page.kind === "operation" && <ApiTryIt slot="try-it" page={page} />}
 </ApiLayout>
 ```
