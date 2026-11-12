@@ -8,7 +8,7 @@ sidebar:
 
 Try it puts a button in each operation's code rail, between the request sample and the response example. It opens a panel with the request as the sample sends it. The reader adds their key, sends, and sees the status, timing, headers and body.
 
-API pages carry the button and the panel's stylesheet, about 6 KB compressed. The panel's script and the operation's request plan load on the first click.
+Every page of an API route that renders `ApiTryIt` links the panel's stylesheet, about 6 KB compressed; operations with `tryIt` on also carry the button. The panel's script and the operation's request plan load on the first click.
 
 ## Turn it on
 
@@ -33,7 +33,7 @@ npx @cloudflare/nimbus-docs add api-layout --overwrite
 npx @cloudflare/nimbus-docs add api-code-rail --overwrite
 ```
 
-If you have, the recipe lists the edit to make.
+If you have, `npx @cloudflare/nimbus-docs add try-it --print` lists the edit to make.
 
 Then set `tryIt` on the `api` entry:
 

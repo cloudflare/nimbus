@@ -64,10 +64,10 @@ If there are no `api` entries, stop: install the reference first with
      > any path on an allowed origin, within Nimbus's fixed checks. Allowed
      > origins come from the resolved spec servers and `extraOrigins`,
      > including every hostname a wildcard matches. Relative servers, including
-     > the default `/`, can resolve to your docs origin. Nimbus leaves local
-     > and private addresses out of the allowed origins unless you list them in
-     > `extraOrigins`, where localhost means the machine the proxy runs on, not
-     > the reader's. It reads addresses as written and looks up no DNS: a
+     > the default `/`, are your docs origin; the browser sends those itself,
+     > never through the proxy. Nimbus leaves local and private addresses out
+     > of the allowed origins unless you list them in `extraOrigins`, where
+     > localhost means the machine the proxy runs on, not the reader's. It reads addresses as written and looks up no DNS: a
      > public hostname that resolves to an internal address is still reached
      > from the proxy's own network, subject to your platform's network
      > restrictions. Enable it only for destinations and DNS you trust;

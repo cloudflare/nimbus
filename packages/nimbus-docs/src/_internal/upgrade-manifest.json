@@ -1377,7 +1377,7 @@
       "instructions": [
         "Run nimbus-docs check and read nimbus/agent-route-shape. For each file named, move the factory call to the file it suggests (for example [...slug]/index.md.ts for markdownRoute(), under the same folder prefix the old file had), then delete the old file, or keep it for redirects only and pass the recorded route's URLs (/<page>/index.md) on to the new route: Astro may still send them to the old file first. A file check does not name is a recorded shape and stays where it is.",
         "Replace a wrapper that changes a document's body with the factory's body option: markdownRoute({ body: (text, context) => ... }) and the same on the other four factories. The ETag and 304 are then over the text you return. A wrapper that only adds headers can stay.",
-        "markdownUrl on an indexed entry and on a page is now string | undefined: a page has no Markdown URL when no route publishes its Markdown. Where your own code reads it, skip the entry or fall back to its page URL when it is undefined, or replace a hand-written Markdown or llms.txt route with its factory (see page-urls-and-llms-routes).",
+        "markdownUrl on an indexed entry and on a page is now string | undefined: a page has no Markdown URL when no route publishes its Markdown. Where your own code reads it, skip the entry or fall back to its page URL when it is undefined, or replace a hand-written Markdown or llms.txt route with its factory (see shared-markdown-routes and page-urls-and-llms-routes).",
         "Build and read the Agent surfaces line: Page Markdown should say served for N of N pages with the starter route, or the part a scoped route covers."
       ],
       "verify": [
