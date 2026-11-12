@@ -128,13 +128,14 @@ edit above as a manual step in your report.
 ### c. Each API route
 
 In each route file from discovery, import the component and render it inside
-`ApiLayout`:
+`ApiLayout`, leaving the props the route already passes as they are. In a
+route from the starter:
 
 ```astro
 ---
 import { ApiTryIt } from "@/components/ui/api-try-it";
 ---
-<ApiLayout {...props}>
+<ApiLayout page={page} nav={nav} collection={collection} version={version} coordinate={coordinate} home={home}>
   {page.kind === "operation" && <ApiTryIt slot="try-it" page={page} />}
 </ApiLayout>
 ```
