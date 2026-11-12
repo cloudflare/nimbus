@@ -1,6 +1,6 @@
 # @cloudflare/nimbus-docs
 
-The Astro integration and CLI for [Nimbus](https://nimbus-docs.com), an authoring tool for docs.
+The Astro integration and CLI for [Nimbus](https://nimbus-docs.com). Nimbus is a documentation framework for Astro: docs for humans and agents, in your repo.
 
 Create a site with the scaffolder, which installs and configures this package:
 

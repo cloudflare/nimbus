@@ -12,6 +12,7 @@ import {
   stripBase,
 } from "@cloudflare/nimbus-docs/runtime";
 import { components } from "../components";
+import { breadcrumbListJsonLd } from "../lib/breadcrumb-json-ld";
 
 const page = await getDocsPage(Astro);
 if (page instanceof Response) return page;
@@ -52,7 +53,7 @@ const socialImage = entry.data.socialImage ?? ogImageUrl;
   prevNext={prevNext}
   mode={entry.data.mode}
   banner={entry.data.banner}
-  head={entry.data.head}
+  head={[...entry.data.head, ...breadcrumbListJsonLd(breadcrumbs, Astro.site, import.meta.env.BASE_URL, currentSlug)]}
   searchable={entry.data.searchable}
   noindex={entry.data.noindex}
   markdownUrl={markdownUrl}

@@ -1,8 +1,18 @@
-# Pages that moved. Astro serves apps/www/redirects.json with and without a
-# trailing slash; these add the Markdown versions, one hop each, and the moves
-# that predate that map.
+# Pages that moved, and URLs people and assistants guess. Astro serves
+# apps/www/redirects.json with and without a trailing slash; these add the
+# Markdown versions, one hop each, and the moves that predate that map.
 /get-started/index.md /quickstart/index.md 301
 /get-started/index.mdx /quickstart/index.mdx 301
+/upgrading/index.md /publish/upgrading/index.md 301
+/upgrading/index.mdx /publish/upgrading/index.mdx 301
+/upgrade/index.md /publish/upgrading/index.md 301
+/upgrade/index.mdx /publish/upgrading/index.mdx 301
+/getting-started/index.md /quickstart/index.md 301
+/getting-started/index.mdx /quickstart/index.mdx 301
+/docs/index.md /quickstart/index.md 301
+/docs/index.mdx /quickstart/index.mdx 301
+/docs/getting-started/index.md /quickstart/index.md 301
+/docs/getting-started/index.mdx /quickstart/index.mdx 301
 /installation/index.md /quickstart/index.md 301
 /installation/index.mdx /quickstart/index.mdx 301
 /philosophy/index.md /why-nimbus/index.md 301
@@ -17,6 +27,8 @@
 /writing/frontmatter/index.mdx /reference/frontmatter/index.mdx 301
 /configuration/index.md /reference/configuration/index.md 301
 /configuration/index.mdx /reference/configuration/index.mdx 301
+/reference/config/index.md /reference/configuration/index.md 301
+/reference/config/index.mdx /reference/configuration/index.mdx 301
 /writing/api-reference/index.md /api-reference/openapi/setup/index.md 301
 /writing/api-reference/index.mdx /api-reference/openapi/setup/index.mdx 301
 /writing/recipes/index.md /style-guide/index.md 301
@@ -41,11 +53,11 @@
 /writing/recipes/changelog/index.mdx /style-guide/changelog/index.mdx 301
 /writing/recipes/llms.txt /style-guide/llms.txt 301
 
-/ai/agent-surfaces /ai/docs-for-agents 301
-/ai/agent-surfaces/ /ai/docs-for-agents 301
+/ai/agent-surfaces /ai/docs-for-agents/ 301
+/ai/agent-surfaces/ /ai/docs-for-agents/ 301
 /ai/agent-surfaces/index.md /ai/docs-for-agents/index.md 301
 /ai/agent-surfaces/index.mdx /ai/docs-for-agents/index.mdx 301
-/styling/banners /reference/frontmatter#banner 301
-/styling/banners/ /reference/frontmatter#banner 301
+/styling/banners /reference/frontmatter/#banner 301
+/styling/banners/ /reference/frontmatter/#banner 301
 /styling/banners/index.md /reference/frontmatter/index.md 301
 /styling/banners/index.mdx /reference/frontmatter/index.mdx 301
