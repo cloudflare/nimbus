@@ -96,7 +96,7 @@ export const { GET, getStaticPaths } = markdownRoute({
 });
 ```
 
-The route file's last segment must be a static file name, as here. A file such as `src/pages/blog/[...slug].md.ts` is not a Markdown route to Nimbus: nothing is published for it, and the build and `nimbus-docs check` say so.
+The route file's last segment must be a static file name, as here. A file such as `src/pages/blog/[...slug].md.ts` is not a Markdown route to Nimbus: nothing is published for it, and the build and `nimbus-docs check` say so. A prerendered one stops the build.
 
 Or write the route with the public helpers. This route builds a `changelog` collection's frontmatter itself. To add fields from a page's frontmatter, [`markdownFields`](/ai/publish-markdown#add-your-own-frontmatter) needs no route; write one for anything it can't produce:
 
