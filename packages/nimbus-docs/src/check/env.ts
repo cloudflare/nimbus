@@ -14,8 +14,9 @@ import path from "node:path";
 
 import { satisfies } from "semver";
 
-import { ADAPTER_IDS, ADAPTER_RECIPES } from "../_internal/adapters.js";
+import { ADAPTER_IDS, ADAPTER_RECIPES, supportedRangeOf } from "../_internal/adapters.js";
 import { readBuildEnv } from "../_internal/dotenv.js";
+import { readInstalledVersion } from "../_internal/installed-version.js";
 import { deriveFootprint, type FeatureRecipe } from "../_internal/footprint.js";
 import { NODE_VERSION_RANGE, supportsNodeVersion } from "../_internal/node-version.js";
 import type { ConfigParseResult } from "../_internal/parse-nimbus-config.js";
@@ -313,10 +314,11 @@ function checkWrangler(cwd: string, findings: CheckFinding[]): void {
 function checkAdapterVersions(cwd: string, findings: CheckFinding[]): void {
   const declared = readDependencyNames(cwd);
   for (const id of ADAPTER_IDS) {
-    const { pkg, installSpec } = ADAPTER_RECIPES[id];
+    const recipe = ADAPTER_RECIPES[id];
+    const { pkg, installSpec } = recipe;
     if (!declared.has(pkg)) continue;
     const installed = readInstalledVersion(cwd, pkg);
-    const range = installSpec.slice(pkg.length + 1);
+    const range = supportedRangeOf(recipe, installSpec);
     if (!installed || satisfies(installed, range)) continue;
     const { bin, args } = addCommand(detectPackageManager(cwd), [installSpec]);
     // On Cloudflare 14.2.x only a cold `astro dev` is affected (see
@@ -334,22 +336,5 @@ function checkAdapterVersions(cwd: string, findings: CheckFinding[]): void {
         `Install a supported version: \`${[bin, ...args].map(quoteForDisplay).join(" ")}\`.`,
       fixable: false,
     });
-  }
-}
-
-// Nearest install wins, as in Node resolution: a monorepo may hoist the
-// adapter to the workspace root.
-function readInstalledVersion(cwd: string, pkg: string): string | null {
-  for (let dir = cwd; ; dir = path.dirname(dir)) {
-    const manifest = path.join(dir, "node_modules", pkg, "package.json");
-    if (fs.existsSync(manifest)) {
-      try {
-        const { version } = JSON.parse(fs.readFileSync(manifest, "utf8")) as { version?: unknown };
-        return typeof version === "string" ? version : null;
-      } catch {
-        return null;
-      }
-    }
-    if (path.dirname(dir) === dir) return null;
   }
 }
