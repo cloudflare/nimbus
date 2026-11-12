@@ -23,13 +23,21 @@ export type Scalar = string | number | boolean;
 export type Validation<T> = { ok: true; values: T } | { ok: false; param: string; message: string };
 
 const DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
-const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+const DATE_TIME = /^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+
+/** A real calendar date: `Date` would roll 2026-02-30 into March. */
+function isCalendarDate(value: string): boolean {
+  if (!DATE.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
 
 function checkFormat(field: Field, value: string): string | null {
   if (field.format === "date") {
-    if (!DATE.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) return `${field.name} must be a date, YYYY-MM-DD.`;
+    if (!isCalendarDate(value)) return `${field.name} must be a date, YYYY-MM-DD.`;
   } else if (field.format === "date-time") {
-    if (!DATE_TIME.test(value) || Number.isNaN(Date.parse(value))) return `${field.name} must be an RFC 3339 date-time.`;
+    const match = DATE_TIME.exec(value);
+    if (!match || !isCalendarDate(match[1] as string) || Number.isNaN(Date.parse(value))) return `${field.name} must be an RFC 3339 date-time with seconds.`;
   }
   return null;
 }

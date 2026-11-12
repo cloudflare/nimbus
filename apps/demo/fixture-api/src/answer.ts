@@ -172,17 +172,23 @@ function locationValues(city: City, v1: boolean): Json {
   };
 }
 
+/** A station sits a short way from its city's centre. */
+export function stationPoint(city: City): { latitude: number; longitude: number } {
+  return { latitude: round(city.latitude + 0.02, 4), longitude: round(city.longitude - 0.03, 4) };
+}
+
 function stationValues(city: City, v1: boolean): Json {
   const s = city.station;
+  const { latitude, longitude } = stationPoint(city);
   return {
     id: v1 ? s.wmoId : s.id,
     wmo_id: s.wmoId,
     icao: s.icao,
     name: s.name,
-    lat: round(city.latitude + 0.02, 4),
-    lon: round(city.longitude - 0.03, 4),
+    lat: latitude,
+    lon: longitude,
     elevation_ft: Math.round(city.elevation * 3.281),
-    coordinates: { latitude: round(city.latitude + 0.02, 4), longitude: round(city.longitude - 0.03, 4), elevation: city.elevation },
+    coordinates: { latitude, longitude, elevation: city.elevation },
     country: city.country,
   };
 }
@@ -503,6 +509,25 @@ function newId(prefix: string, body: unknown): string {
   return `${prefix}_${hash32(JSON.stringify(body)).toString(36).slice(0, 6)}`;
 }
 
+function parseUrl(value: string): URL | null {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+}
+
+/** `https://host[:port]`, nothing after the host. */
+function isOrigin(value: string): boolean {
+  const url = parseUrl(value);
+  return url !== null && (url.protocol === "https:" || url.protocol === "http:") && url.origin === value && url.hostname.includes(".");
+}
+
+function isHttpsUrl(value: string): boolean {
+  const url = parseUrl(value);
+  return url !== null && url.protocol === "https:" && url.hostname.includes(".");
+}
+
 function inRange(latitude: unknown, longitude: unknown): boolean {
   return typeof latitude === "number" && typeof longitude === "number" && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
 }
@@ -556,7 +581,10 @@ const HANDLERS: Record<string, Handler> = {
     const radius = typeof ctx.query.radius === "number" ? ctx.query.radius : 25;
     const template = listTemplate(ctx);
     const near = world.cities
-      .map((candidate) => ({ candidate, km: candidate.id === city.id ? round(1 + roll(city.id, "own-station") * 7) : round(distanceKm(city.latitude, city.longitude, candidate.latitude, candidate.longitude)) }))
+      .map((candidate) => {
+        const station = stationPoint(candidate);
+        return { candidate, km: round(distanceKm(city.latitude, city.longitude, station.latitude, station.longitude)) };
+      })
       .filter(({ km }) => km <= radius)
       .sort((a, b) => a.km - b.km);
     const items = near.map(({ candidate, km }) => fill(withPlace(template, candidate, false), { distance_km: km }));
@@ -586,8 +614,13 @@ const HANDLERS: Record<string, Handler> = {
       };
     });
     const firstWet = minutes.findIndex((m) => (m.intensity as number) > 0);
-    const label = hourWeather(city, ctx.now).condition.text.toLowerCase();
-    const summary = firstWet === -1 ? "No precipitation for the next two hours." : firstWet === 0 ? `${capitalize(label)} for the next ${minutes.filter((m) => (m.intensity as number) > 0).length * 5} minutes.` : `${capitalize(label)} starting in ${firstWet * 5} minutes.`;
+    let summary = "No precipitation for the next two hours.";
+    if (firstWet !== -1) {
+      // The hour the first wet step falls in has precipitation, so its condition names the kind.
+      const kind = hourWeather(city, new Date(ctx.now.getTime() + firstWet * 5 * 60_000)).condition.text;
+      const wetSteps = minutes.filter((m) => (m.intensity as number) > 0).length;
+      summary = firstWet === 0 ? `${kind} for the next ${wetSteps * 5} minutes.` : `${kind} starting in ${firstWet * 5} minutes.`;
+    }
     return fill(example, { minutes, summary });
   },
   batchForecasts(ctx) {
@@ -602,6 +635,7 @@ const HANDLERS: Record<string, Handler> = {
     const results = points.map((raw, index) => {
       const p = raw as Json;
       if (!inRange(p.latitude, p.longitude)) return fail(400, "invalid_request", `points[${index}] needs latitude in -90..90 and longitude in -180..180.`, "points");
+      if (p.ref !== undefined && typeof p.ref !== "string") return fail(400, "invalid_request", `points[${index}].ref must be a string.`, "points");
       const city = world.nearest(p.latitude as number, p.longitude as number);
       const inner: Ctx = { ...ctx, units, query: { latitude: p.latitude as number, longitude: p.longitude as number }, example: single ? JSON.parse(single.body ?? "{}") : {} };
       const forecast = kind === "daily" ? forecastEnvelope(inner, city, "days", dailySeries(inner, city, ctx.now, 7)) : forecastEnvelope(inner, city, "hours", hourlySeries(inner, city, ctx.now, 48));
@@ -703,7 +737,7 @@ const HANDLERS: Record<string, Handler> = {
     const allowed = ["weather:read", "stations:write", "alerts:manage", "exports:create"];
     if (scopes && scopes.some((scope) => !allowed.includes(scope))) return fail(400, "invalid_request", `scopes must contain only ${allowed.join(", ")}.`, "scopes");
     const origins = values.allowed_origins as string[] | undefined;
-    if (origins && origins.some((origin) => !/^https?:\/\/[^/\s]+$/.test(origin))) return fail(400, "invalid_request", "allowed_origins must contain origins, such as https://example.com.", "allowed_origins");
+    if (origins && !origins.every(isOrigin)) return fail(400, "invalid_request", "allowed_origins must contain origins, such as https://example.com.", "allowed_origins");
     const secret = `wx_test_${hash32(JSON.stringify(values)).toString(36)}${hash32(id).toString(36)}`.slice(0, 32);
     const key = fill((example.key as Json | undefined) ?? example, {
       id,
@@ -730,7 +764,7 @@ const HANDLERS: Record<string, Handler> = {
     const values = parsedBody(ctx);
     if (isError(values)) return values;
     const url = String(values.url);
-    if (!/^https:\/\/[^/\s]+/.test(url)) return fail(400, "invalid_request", "url must be an https:// URL.", "url");
+    if (!isHttpsUrl(url)) return fail(400, "invalid_request", "url must be an https:// URL.", "url");
     const events = values.events as string[];
     if (!Array.isArray(events) || events.length === 0) return fail(400, "invalid_request", "events must have at least one event.", "events");
     return fill(ctx.example as Json, {
@@ -773,10 +807,6 @@ function nearestObservation(ctx: Ctx): unknown {
 function latestObservation(ctx: Ctx): unknown {
   const city = stationOwner(ctx);
   return isError(city) ? city : observation(ctx, ctx.example as Json, city, ctx.now);
-}
-
-function capitalize(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /** Another operation's route in the same version, for composing bodies (batch). */

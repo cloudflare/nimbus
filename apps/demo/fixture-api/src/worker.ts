@@ -166,9 +166,15 @@ export default {
       return new Response(null, { status: route.status, headers: { ...headers, Location: `${url.origin}${base}${rest}.csv` } });
     }
     if (route.status === 204 || route.body === undefined) return new Response(null, { status: route.status, headers });
+    let params: Record<string, string>;
+    try {
+      params = Object.fromEntries(Object.entries(route.re.exec(rest)?.groups ?? {}).map(([name, value]) => [name, decodeURIComponent(value ?? "")]));
+    } catch {
+      return problem(request, errors, 400, "invalid_request", "The path contains a malformed percent-encoding.", {}, "path");
+    }
     const ask: Ask = {
       version: base.slice(1) as Version,
-      params: Object.fromEntries(Object.entries(route.re.exec(rest)?.groups ?? {}).map(([name, value]) => [name, decodeURIComponent(value ?? "")])),
+      params,
       query: query.values,
       body,
       now: new Date(),

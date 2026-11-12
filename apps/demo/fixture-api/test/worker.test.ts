@@ -54,6 +54,9 @@ test("end to end: the spec's envelopes for a missing key, an unknown id, a bad q
   assert.equal(notJson.status, 400);
   assert.equal((notJson.body?.error as Json).param, "body");
 
+  const malformed = await call("/v2/locations/loc_london_gb%ZZ");
+  assert.equal(malformed.status, 400);
+
   const badField = await call("/v2/stations", { method: "POST", body: JSON.stringify({ name: "Roof", latitude: "x", longitude: 0 }), headers: { "content-type": "application/json" } });
   assert.equal(badField.status, 400);
   assert.equal((badField.body?.error as Json).param, "latitude");

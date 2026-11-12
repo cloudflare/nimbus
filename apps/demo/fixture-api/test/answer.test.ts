@@ -91,10 +91,15 @@ function subject(version: Version, r: Route): Ask {
 /** Keys the overlay may legitimately change: batch composes `forecast`, a pending member has no `joined_at`, a batch point without `ref` has none. */
 const KEY_EXCEPTIONS = new Set(["results[].forecast", "joined_at", "results[].ref"]);
 
+/** Every key path in a body; array elements must all have the same keys as each other. */
 function keyPaths(node: unknown, prefix = ""): Set<string> {
   const out = new Set<string>();
   if (Array.isArray(node)) {
-    if (node.length) for (const p of keyPaths(node[0], `${prefix}[]`)) out.add(p);
+    const elements = node.map((element) => keyPaths(element, `${prefix}[]`));
+    for (const [index, paths] of elements.entries()) {
+      if (index > 0) assert.deepEqual(paths, elements[0], `${prefix}[${index}] has different keys from ${prefix}[0]`);
+      for (const p of paths) out.add(p);
+    }
     return out;
   }
   if (typeof node !== "object" || node === null) return out;
@@ -121,8 +126,14 @@ for (const version of VERSIONS) {
       const problem = validateResponse(version, r, parsed);
       assert.equal(problem, null, `${version} ${r.operationId}: ${problem}`);
       const example = JSON.parse(r.body) as unknown;
-      // A list the overlay rebuilt can be empty; then its element keys can't be compared.
-      if (!emptyArrays(parsed)) assert.deepEqual(keyPaths(parsed), keyPaths(example), `${version} ${r.operationId}: keys differ`);
+      // A list the overlay rebuilt can be empty; then only its element keys are left out of the comparison.
+      const exampleKeys = keyPaths(example);
+      const parsedKeys = keyPaths(parsed);
+      for (const p of parsedKeys) assert.ok(exampleKeys.has(p), `${version} ${r.operationId}: unexpected key ${p}`);
+      for (const p of exampleKeys) {
+        if (emptyArrays(parsed) && p.includes("[]")) continue;
+        assert.ok(parsedKeys.has(p), `${version} ${r.operationId}: missing key ${p}`);
+      }
     }
   });
 }
@@ -177,8 +188,12 @@ test("reverse geocoding and nearby stations work from a point and a radius", () 
   assert.ok(items.length >= 2, "London has neighbours within 100 km");
   assert.equal((items[0]?.station as Json).name, london.station.name);
   assert.ok(items.every((item, i) => i === 0 || (item.distance_km as number) >= (items[i - 1]?.distance_km as number)), "nearest first");
-  const tight = body("v2", "listNearbyStations", { params: { location_id: london.id }, query: { radius: 10 } });
+  const tight = body("v2", "listNearbyStations", { params: { location_id: london.id }, query: { radius: 4 } });
   assert.equal((tight.data as Json[]).length, 1);
+  const own = (tight.data as Json[])[0] as Json;
+  const coords = (own.station as Json).coordinates as Json;
+  const expected = Math.round(6371 * Math.acos(Math.sin((51.5074 * Math.PI) / 180) * Math.sin(((coords.latitude as number) * Math.PI) / 180) + Math.cos((51.5074 * Math.PI) / 180) * Math.cos(((coords.latitude as number) * Math.PI) / 180) * Math.cos(((coords.longitude as number) + 0.1278) * Math.PI / 180)) * 10) / 10;
+  assert.ok(Math.abs((own.distance_km as number) - expected) < 0.2, `distance ${own.distance_km} should be ${expected}`);
 });
 
 // ---------------------------------------------------------------------------
@@ -263,9 +278,11 @@ test("minutely steps are five minutes apart, non-negative, with a summary that m
     assert.ok((m.intensity as number) >= 0);
     assert.ok(Number.isInteger(m.probability) && (m.probability as number) >= 0 && (m.probability as number) <= 100);
   }
-  const wet = minutes.some((m) => (m.intensity as number) > 0);
-  if (wet) assert.doesNotMatch(minutely.summary as string, /^No precipitation/);
-  else assert.match(minutely.summary as string, /^No precipitation/);
+  const firstWet = minutes.findIndex((m) => (m.intensity as number) > 0);
+  const summary = minutely.summary as string;
+  if (firstWet === -1) assert.match(summary, /^No precipitation/);
+  else if (firstWet === 0) assert.match(summary, /^(Light |Heavy |Dense |Freezing )?(rain|snow|drizzle|showers|thunderstorm)[\w ]* for the next \d+ minutes\.$/i);
+  else assert.equal(summary.endsWith(`starting in ${firstWet * 5} minutes.`), true, summary);
 });
 
 test("observations: the nearest station reports now, a station lists a window newest first, bad bounds are a 400", () => {
@@ -291,6 +308,10 @@ test("history is anchored to the requested dates, with the sandbox's limits and 
   assert.equal(hours.length, 24);
   assert.equal(hours[0]?.time, "2026-01-01T00:00:00Z");
   assert.equal(failure("v2", "getDailyHistory", { query: { ...at(london), start_date: "2026-02-01", end_date: "2026-01-01" } }).param, "end_date");
+  const key = body("v2", "createApiKey", { body: { name: "Dated", expires_at: "2026-12-31T23:59:59Z" } });
+  assert.equal((key.key as Json).expires_at, "2026-12-31T23:59:59Z");
+  assert.equal(failure("v2", "createApiKey", { body: { name: "Dated", expires_at: "2026-02-30T00:00:00Z" } }).param, "expires_at");
+  assert.equal(failure("v2", "createApiKey", { body: { name: "Dated", expires_at: "2026-12-31T23:59Z" } }).param, "expires_at");
   assert.equal(failure("v2", "getDailyHistory", { query: { ...at(london), start_date: "2020-01-01", end_date: "2026-01-01" } }).status, 400);
   assert.equal(failure("v2", "getHourlyHistory", { query: { ...at(london), start_date: "2026-01-01", end_date: "2026-03-01" } }).status, 400);
   const v1 = body("v1", "getHistory", { query: { ...at(london, true), from: "2026-01-01", to: "2026-01-02" } }).days as Json[];
@@ -398,6 +419,9 @@ test("keys, members and subscriptions echo through their mappings and reject bad
   assert.deepEqual(sub.events, ["alert.issued"]);
   assert.equal(sub.active, true);
   assert.equal(failure("v2", "createSubscription", { body: { url: "http://example.com/hooks", events: ["alert.issued"] } }).param, "url");
+  assert.equal(failure("v2", "createSubscription", { body: { url: "https://???", events: ["alert.issued"] } }).param, "url");
+  assert.equal(failure("v2", "createApiKey", { body: { name: "Web", allowed_origins: ["https://example.com/path"] } }).param, "allowed_origins");
+  assert.equal(failure("v2", "createApiKey", { body: { name: "Web", allowed_origins: ["https://???"] } }).param, "allowed_origins");
   assert.equal(failure("v2", "createSubscription", { body: { url: "https://example.com/hooks", events: [] } }).param, "events");
   assert.equal(failure("v2", "createSubscription", { body: { url: "https://example.com/hooks", events: ["alert.exploded"] } }).param, "events");
   assert.equal(failure("v2", "createSubscription", { body: { url: "https://example.com/hooks" } }).param, "events");
@@ -414,6 +438,10 @@ test("batch forecasts compose one forecast per point, echo refs only when sent, 
   assert.equal(((results[0]?.forecast as Json).days as Json[]).length, 7);
   const hourly = body("v2", "batchForecasts", { body: { points: [{ latitude: 1, longitude: 1 }], kind: "hourly" } });
   assert.equal((((hourly.results as Json[])[0] as Json).forecast as Json).hours !== undefined, true);
+  // Each composed forecast is a single-point response and validates as one.
+  assert.equal(validateResponse("v2", route("v2", "getDailyForecast"), results[0]?.forecast), null);
+  assert.equal(validateResponse("v2", route("v2", "getHourlyForecast"), ((hourly.results as Json[])[0] as Json).forecast), null);
+  assert.equal(failure("v2", "batchForecasts", { body: { points: [{ latitude: 1, longitude: 1, ref: 123 }], kind: "daily" } }).param, "points");
   assert.equal(failure("v2", "batchForecasts", { body: { points: [{ latitude: 999, longitude: 0 }], kind: "daily" } }).param, "points");
   assert.equal(failure("v2", "batchForecasts", { body: { points: [], kind: "daily" } }).param, "points");
   assert.equal(failure("v2", "batchForecasts", { body: { points: [{ latitude: 1, longitude: 1 }], kind: "weekly" } }).param, "kind");

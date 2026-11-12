@@ -88,6 +88,16 @@ export function hash32(input: string): number {
   return h >>> 0;
 }
 
+/** One zone per city, numbered within its country in file order; the example city keeps the specs' `zone_no_03`. */
+const zoneCounters = new Map<string, number>();
+function zoneIdFor(id: string, country: string): string {
+  if (id === EXAMPLE_CITY_ID) return "zone_no_03";
+  let n = (zoneCounters.get(country) ?? 0) + 1;
+  if (country === "NO" && n === 3) n = 4;
+  zoneCounters.set(country, n);
+  return `zone_${country.toLowerCase()}_${String(n).padStart(2, "0")}`;
+}
+
 function toCity(row: Row): City {
   const [id, name, region, country, timezone, latitude, longitude, elevation, population, climate, dT, district, icao] = row;
   const profile = PROFILES[climate];
@@ -99,7 +109,7 @@ function toCity(row: Row): City {
   // The example city keeps the specs' station and zone ids, so an unresolved
   // request still returns the documented body.
   const wmoId = id === EXAMPLE_CITY_ID ? "01492" : String(hash32(slug) % 90000 + 10000);
-  const zoneId = id === EXAMPLE_CITY_ID ? "zone_no_03" : `zone_${country.toLowerCase()}_${String(hash32(`zone:${slug}`) % 90 + 10)}`;
+  const zoneId = zoneIdFor(id, country);
   return {
     id,
     name,

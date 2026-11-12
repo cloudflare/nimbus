@@ -9,6 +9,9 @@ test("the world has hundreds of cities with unique ids in the spec's pattern", (
   for (const city of world.cities) assert.match(city.id, /^loc_[a-z]+_[a-z]{2}$/, city.id);
   const stations = new Set(world.cities.map((city) => city.station.id));
   assert.equal(stations.size, world.cities.length, "station ids are unique");
+  const zones = new Set(world.cities.map((city) => city.zone.id));
+  assert.equal(zones.size, world.cities.length, "zone ids are unique");
+  for (const city of world.cities) assert.equal(world.zoneOwner(city.zone.id)?.id, city.id, `${city.zone.id} resolves to its city`);
 });
 
 test("every city has coordinates in range, a time zone Intl accepts, and a population", () => {
