@@ -77,7 +77,7 @@ test("no warning when the pre-installed version is in range", async () => {
   }
 });
 
-for (const declared of ["~14.4.2", "14.3 - 14.4"]) test(`a site already on 14.4 (${declared}) keeps it, with no warning`, async () => {
+for (const declared of ["~14.4.2", "14.3 - 14.4", "^14.4.2"]) test(`a site already on 14.4 (${declared}) keeps it, with no warning`, async () => {
   const cwd = fixture("14.4.7", declared);
   try {
     const outcome = await installAdapter("cloudflare", { cwd, installDeps: noopInstaller });
@@ -90,6 +90,47 @@ for (const declared of ["~14.4.2", "14.3 - 14.4"]) test(`a site already on 14.4 
     );
   } finally {
     rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test("a declared range wider than the supported one is refused unless a supported version is installed", async () => {
+  for (const [installed, declared] of [[null, "^14.4.2"], ["14.5.1", "^14.4.2"], ["14.5", "^14.4.2"], ["14.1.7", "~14.1.0"]] as const) {
+    const cwd = fixture(installed, declared);
+    try {
+      const outcome = await installAdapter("cloudflare", { cwd, installDeps: noopInstaller });
+      assert.equal(outcome.status, "error", `${installed} ${declared}: ${JSON.stringify(outcome)}`);
+      if (outcome.status !== "error") continue;
+      assert.ok(
+        outcome.message.startsWith(
+          `Found @astrojs/cloudflare@${declared}, but Nimbus supports >=14.3.0 <14.5.0. ` +
+            "Install `@astrojs/cloudflare@~14.3.0` or another supported version",
+        ),
+        outcome.message,
+      );
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  }
+});
+
+test("a caret range is accepted when the workspace root holds a supported adapter", async () => {
+  const root = mkdtempSync(join(tmpdir(), "nb-adpt-hoist-"));
+  try {
+    const pkgDir = join(root, "node_modules", "@astrojs", "cloudflare");
+    mkdirSync(pkgDir, { recursive: true });
+    writeFileSync(join(pkgDir, "package.json"), JSON.stringify({ name: "@astrojs/cloudflare", version: "14.4.7" }));
+    const cwd = join(root, "docs");
+    mkdirSync(cwd);
+    writeFileSync(join(cwd, "astro.config.ts"), STARTER);
+    writeFileSync(
+      join(cwd, "package.json"),
+      JSON.stringify({ name: "docs", dependencies: { astro: "^7", "@astrojs/cloudflare": "^14.4.2" } }),
+    );
+    installWrangler(cwd);
+    const outcome = await installAdapter("cloudflare", { cwd, installDeps: noopInstaller });
+    assert.equal(outcome.status, "applied", JSON.stringify(outcome));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
