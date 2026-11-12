@@ -498,6 +498,10 @@ const positive = (path: string) =>
 const tryItShape = {
   servers: z.enum(["spec", "editable"], { error: '"api[].tryIt.servers" must be "spec" or "editable"' }).optional(),
   credentials: z.enum(["omit", "include"], { error: '"api[].tryIt.credentials" must be "omit" or "include"' }).optional(),
+  testKey: z
+    .string({ error: '"api[].tryIt.testKey" must be a string' })
+    .regex(/^[\x21-\x7e]+$/, { error: '"api[].tryIt.testKey" must be printable ASCII with no spaces' })
+    .optional(),
   limits: z
     .object({
       timeout: positive("api[].tryIt.limits.timeout"),

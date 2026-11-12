@@ -44,6 +44,8 @@ const SECURITY_HEADERS: Record<string, string> = {
 /** Headers a request may carry once. */
 const SINGLETONS = new Set(["authorization", "content-type", "cookie", "origin", "referer", "user-agent", "content-encoding"]);
 const TOKEN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+/** Common headers that tell the API who is calling: a caller could dodge its per-address limits with them. */
+const CALLER_ADDRESS = /^(x-real-ip|true-client-ip|forwarded|x-forwarded-.+|cf-connecting-ip.*)$/;
 
 function refusal(status: number, failure: ProxyFailure, reason: string, retryAfterSeconds?: number): Response {
   const headers = new Headers({ ...SECURITY_HEADERS, "Content-Type": "application/json", [H_FAILURE]: failure });
@@ -184,6 +186,7 @@ export function checkTarget(meta: ProxyRequestMeta, policy: ProxyPolicy): string
     const lower = name.toLowerCase();
     if (!TOKEN.test(name)) return `${name} isn't a header name.`;
     if (isTransportHeader(lower)) return `The ${name} header can't be sent.`;
+    if (CALLER_ADDRESS.test(lower)) return `The ${name} header can't be sent through this site: it would name the caller.`;
     if (/[\r\n\0]/.test(value)) return `The ${name} header can't hold a line break or NUL.`;
     if (SINGLETONS.has(lower) && seen.has(lower)) return `The ${name} header appears twice.`;
     seen.add(lower);

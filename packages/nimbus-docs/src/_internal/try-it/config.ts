@@ -11,6 +11,7 @@ export interface TryItLimits {
 export interface ResolvedTryIt {
   servers: "spec" | "editable";
   credentials: "omit" | "include";
+  testKey?: string;
   limits: TryItLimits;
   /** As configured: `false` turns the proxy off; otherwise it runs where on-request routes do. */
   proxy: false | { explicit: boolean; extraOrigins: string[] };
@@ -25,6 +26,7 @@ export function resolveTryIt(value: boolean | ApiTryIt | undefined): ResolvedTry
   return {
     servers: config.servers ?? "spec",
     credentials: config.credentials ?? "omit",
+    ...(config.testKey ? { testKey: config.testKey } : {}),
     limits: {
       timeoutMs: (config.limits?.timeout ?? DEFAULT_LIMITS.timeoutMs / 1000) * 1000,
       responseBytes: config.limits?.responseBytes ?? DEFAULT_LIMITS.responseBytes,

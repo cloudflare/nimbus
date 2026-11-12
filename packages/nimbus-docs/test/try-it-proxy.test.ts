@@ -89,6 +89,11 @@ describe("admission: refused with no upstream request", () => {
     ["CONNECT", () => tryRequest({ method: "CONNECT" })],
     ["a transport header", () => tryRequest({ headers: [["Transfer-Encoding", "chunked"]] })],
     ["a proxy- header", () => tryRequest({ headers: [["Proxy-Authorization", "x"]] })],
+    ["X-Real-IP", () => tryRequest({ headers: [["X-Real-IP", "203.0.113.7"]] })],
+    ["X-Forwarded-For", () => tryRequest({ headers: [["x-forwarded-for", "203.0.113.7"]] })],
+    ["CF-Connecting-IP", () => tryRequest({ headers: [["CF-Connecting-IP", "203.0.113.7"]] })],
+    ["True-Client-IP", () => tryRequest({ headers: [["True-Client-IP", "203.0.113.7"]] })],
+    ["Forwarded", () => tryRequest({ headers: [["Forwarded", "for=203.0.113.7"]] })],
     ["a duplicate singleton", () => tryRequest({ headers: [["Authorization", "a"], ["authorization", "b"]] })],
     ["CR LF in a value", () => tryRequest({ headers: [["X-A", "a\r\nb: c"]] })],
     ["NUL in a value", () => tryRequest({ headers: [["X-A", "a\0b"]] })],
@@ -112,6 +117,13 @@ describe("admission: refused with no upstream request", () => {
     const response = await handleTryIt(tryRequest({ method: "POST" }, { body }), table(), { fetch });
     assert.equal((await failure(response)).failure, "refused");
     assert.equal(sent.length, 0);
+  });
+
+  test("a cf- header that isn't the caller's address is sent", async () => {
+    const { sent, fetch } = upstream();
+    const response = await handleTryIt(tryRequest({ headers: [["CF-Access-Client-Id", "id"]] }), table(), { fetch });
+    assert.equal(response.status, 200);
+    assert.equal(sent[0]!.headers["cf-access-client-id"], "id");
   });
 
   test("exactly uploadBytes is sent", async () => {

@@ -82,6 +82,7 @@ Its fixed checks:
 | Same origin | An `Origin` or `Sec-Fetch-Site` from another site is refused. Non-browser callers can still reach it. |
 | Allowed origins | The target's scheme, host and port must match a spec server or an `extraOrigins` entry. Local and private addresses match only through `extraOrigins`. |
 | No ambient headers | The docs request's cookies, `Authorization`, `cf-*` and `x-forwarded-*` headers are never forwarded. Only the request's own headers go. |
+| No caller headers | A request that sets `X-Real-IP`, `True-Client-IP`, `Forwarded`, `X-Forwarded-*` or `CF-Connecting-IP` is refused, so nobody can pose as another address to the API. An operation that documents such a header can still be sent directly. |
 | No connection headers | `Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Upgrade`, `TE`, `Expect` and `Proxy-*` are refused. |
 | Redirects | Never followed. The panel shows `Location` instead. |
 | Inert answers | The response comes back as a download-only byte stream, with `set-cookie` removed. The panel shows it as text. |
@@ -103,7 +104,7 @@ On Cloudflare, Stop and closing the panel cancel the API request only when Worke
 
 Before anything is entered, the panel says where the key goes: through your site to the API, or from the browser to the API.
 
-- Keys stay in memory, per API and per server. Changing server empties the key field.
+- Keys stay in memory, per API and per server. Changing server empties the key field, or returns it to your `testKey`.
 - "Remember in this tab" keeps them in `sessionStorage`, only once the reader ticks it. Clear removes them.
 - Keys never appear in your docs' URLs or the console. Live code samples and copied code show placeholders instead.
 - An API key sent in the query string travels in the API's URL. The panel says so.
@@ -117,6 +118,7 @@ Before anything is entered, the panel says where the key goes: through your site
 | --- | --- | --- |
 | `servers` | `"spec"`: the spec's servers. | `"editable"`: the reader can enter another origin. Direct sends to any origin; the proxy only to an allowed one. The spec server's path always stays. |
 | `credentials` | `"omit"`: direct requests carry no browser cookies. | `"include"`: for an API on the docs' own site that uses a session cookie. Direct becomes the default delivery mode. The proxy never carries browser cookies. |
+| `testKey` | None: the reader enters a key before sending. | A public test key that the API key and bearer token fields start with, so the first Send works. It is published with each operation's request plan, so never use a secret. It fills the field for every server the spec lists. Clear empties the field. |
 | `limits.timeout` | 30 seconds for the whole exchange. | Up to your platform's limits. |
 | `limits.responseBytes` | 2,000,000. Longer bodies are cut and marked. | Up to your platform's limits. |
 | `limits.uploadBytes` | 4,000,000. Bigger bodies are refused before sending. | Up to your platform's limits. |

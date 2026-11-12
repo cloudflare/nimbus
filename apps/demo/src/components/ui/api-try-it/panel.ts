@@ -531,6 +531,11 @@ export async function createPanel(button: HTMLButtonElement): Promise<{ open(): 
         // Unreadable: ignore it.
       }
     }
+    const { testKey } = plan.send;
+    if (!testKey) return;
+    for (const s of schemes()) {
+      if ((s.type === "apiKey" || s.type === "bearer") && !credentials.has(credKey(s.scheme))) credentials.set(credKey(s.scheme), testKey);
+    }
   };
   const writeRemembered = () => {
     if (!rememberStore) return;
