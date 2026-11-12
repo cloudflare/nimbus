@@ -13,14 +13,14 @@ export default defineConfig({
 });
 `;
 
-function fixture(installedCloudflareVersion: string | null): string {
+function fixture(installedCloudflareVersion: string | null, declared = "~14.3.0"): string {
   const cwd = mkdtempSync(join(tmpdir(), "nb-adpt-ver-"));
   writeFileSync(join(cwd, "astro.config.ts"), STARTER);
   writeFileSync(
     join(cwd, "package.json"),
     JSON.stringify({
       name: "docs",
-      dependencies: { astro: "^7", "@astrojs/cloudflare": "~14.3.0" },
+      dependencies: { astro: "^7", "@astrojs/cloudflare": declared },
     }),
   );
   if (installedCloudflareVersion) {
@@ -66,6 +66,22 @@ test("no warning when the pre-installed version is in range", async () => {
   try {
     const outcome = await installAdapter("cloudflare", { cwd, installDeps: noopInstaller });
     assert.equal(outcome.status, "applied");
+    if (outcome.status !== "applied") return;
+    assert.equal(
+      outcome.warnings.some((w) => w.includes("@astrojs/cloudflare")),
+      false,
+      `expected no version warning; got: ${JSON.stringify(outcome.warnings)}`,
+    );
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+for (const declared of ["~14.4.2", "14.3 - 14.4"]) test(`a site already on 14.4 (${declared}) keeps it, with no warning`, async () => {
+  const cwd = fixture("14.4.7", declared);
+  try {
+    const outcome = await installAdapter("cloudflare", { cwd, installDeps: noopInstaller });
+    assert.equal(outcome.status, "applied", JSON.stringify(outcome));
     if (outcome.status !== "applied") return;
     assert.equal(
       outcome.warnings.some((w) => w.includes("@astrojs/cloudflare")),

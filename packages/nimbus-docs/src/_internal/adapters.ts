@@ -37,6 +37,11 @@ export interface AdapterRecipe {
   id: AdapterId;
   pkg: string;
   installSpec: string;
+  /**
+   * Versions of `pkg` Nimbus works with when a site already has one, if wider
+   * than `installSpec`'s range. `installSpec` is what `add` installs.
+   */
+  supportedRange?: string;
   extraDeps: string[];
   importName: string;
   importStatement: string;
@@ -105,6 +110,10 @@ export const ADAPTER_RECIPES: Record<AdapterId, AdapterRecipe> = {
     // re-optimizes mid-startup and crashes the workerd runner. A tilde, not
     // `>=14.3.0 <14.4.0`: pnpm saves that range as `^14.3.x`, which lets 14.4 in.
     installSpec: "@astrojs/cloudflare@~14.3.0",
+    // 14.4 works too, but needs Astro 7.4, above Nimbus's Astro floor, so `add`
+    // installs 14.3 and leaves a site's 14.4 in place. One range, not
+    // `~14.3.0 || ~14.4.0`: a declared `14.3 - 14.4` is a subset only of this.
+    supportedRange: ">=14.3.0 <14.5.0",
     extraDeps: [],
     importName: "cloudflare",
     importStatement: 'import cloudflare from "@astrojs/cloudflare";',
@@ -1263,4 +1272,13 @@ function insertImport(source: string, importStatement: string): string {
   }
   const lastEnd = ranges[ranges.length - 1]![1];
   return source.slice(0, lastEnd) + importStatement + eol + source.slice(lastEnd);
+}
+
+/** The versions of `spec`'s package a site may have: the recipe's `supportedRange` for the adapter itself. */
+export function supportedRangeOf(recipe: AdapterRecipe, spec: string): string {
+  if (spec.startsWith(`${recipe.pkg}@`)) {
+    return recipe.supportedRange ?? spec.slice(recipe.pkg.length + 1).trim();
+  }
+  const at = spec.indexOf("@", 1);
+  return at === -1 ? "" : spec.slice(at + 1).trim();
 }

@@ -14,7 +14,7 @@ import path from "node:path";
 
 import { satisfies } from "semver";
 
-import { ADAPTER_IDS, ADAPTER_RECIPES } from "../_internal/adapters.js";
+import { ADAPTER_IDS, ADAPTER_RECIPES, supportedRangeOf } from "../_internal/adapters.js";
 import { readBuildEnv } from "../_internal/dotenv.js";
 import { deriveFootprint, type FeatureRecipe } from "../_internal/footprint.js";
 import { NODE_VERSION_RANGE, supportsNodeVersion } from "../_internal/node-version.js";
@@ -313,10 +313,11 @@ function checkWrangler(cwd: string, findings: CheckFinding[]): void {
 function checkAdapterVersions(cwd: string, findings: CheckFinding[]): void {
   const declared = readDependencyNames(cwd);
   for (const id of ADAPTER_IDS) {
-    const { pkg, installSpec } = ADAPTER_RECIPES[id];
+    const recipe = ADAPTER_RECIPES[id];
+    const { pkg, installSpec } = recipe;
     if (!declared.has(pkg)) continue;
     const installed = readInstalledVersion(cwd, pkg);
-    const range = installSpec.slice(pkg.length + 1);
+    const range = supportedRangeOf(recipe, installSpec);
     if (!installed || satisfies(installed, range)) continue;
     const { bin, args } = addCommand(detectPackageManager(cwd), [installSpec]);
     // On Cloudflare 14.2.x only a cold `astro dev` is affected (see

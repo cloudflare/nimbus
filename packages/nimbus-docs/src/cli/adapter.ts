@@ -29,6 +29,7 @@ import {
   type AdapterRecipe,
   type RequestRenderingEdit,
   type WranglerInputs,
+  supportedRangeOf,
   workersCompatibilityDate,
 } from "../_internal/adapters.js";
 import { isRangeSubset, satisfies } from "../_internal/semver-lite.js";
@@ -746,7 +747,7 @@ async function installMissingDeps(
   const dependencyGroups = [dependencies, devDependencies];
   for (const wantedSpec of wanted) {
     const name = depName(wantedSpec);
-    const expectedRange = wantedSpec.slice(name.length + 1).trim();
+    const expectedRange = supportedRangeOf(recipe, wantedSpec);
     for (const declared of dependencyGroups) {
       if (!Object.prototype.hasOwnProperty.call(declared, name)) continue;
       const declaredRange = declared[name];
@@ -857,7 +858,7 @@ function detectIncompatibleAdapterVersions(recipe: AdapterRecipe, cwd: string): 
   const warnings: string[] = [];
   for (const spec of [recipe.installSpec, ...recipe.extraDeps]) {
     const name = depName(spec);
-    const range = spec.slice(name.length + 1).trim();
+    const range = supportedRangeOf(recipe, spec);
     if (!range) continue;
     const installed = readInstalledVersion(cwd, name);
     if (installed && !satisfies(installed, range)) {

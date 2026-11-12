@@ -163,7 +163,7 @@ test("an installed adapter outside the supported range warns with the install co
   const finding = await adapterFinding(adapterProject(true, "14.1.2"));
   assert.equal(finding?.severity, "warn");
   assert.equal(finding?.fixable, false);
-  assert.match(finding?.message ?? "", /@astrojs\/cloudflare@14\.1\.2 is installed, but Nimbus supports ~14\.3\.0/);
+  assert.match(finding?.message ?? "", /@astrojs\/cloudflare@14\.1\.2 is installed, but Nimbus supports >=14\.3\.0 <14\.5\.0/);
   assert.match(finding?.message ?? "", /`npm install @astrojs\/cloudflare@~14\.3\.0`/);
   // pnpm saves a tilde as a tilde; it rewrote the old `>=14.3.0 <14.4.0` spec to `^14.3.x`.
   const pnpm = await adapterFinding(adapterProject(true, "14.1.2", "pnpm-lock.yaml"));
@@ -175,6 +175,10 @@ test("an installed adapter outside the supported range warns with the install co
   assert.match(near?.message ?? "", /a cold `astro dev` can fail to start\. Builds aren't affected\./);
 
   assert.equal(await adapterFinding(adapterProject(true, "14.3.2")), undefined);
+  // 14.4 needs Astro 7.4, so it's accepted but not what `add` installs.
+  assert.equal(await adapterFinding(adapterProject(true, "14.4.7")), undefined);
+  const next = await adapterFinding(adapterProject(true, "14.5.0"));
+  assert.match(next?.message ?? "", /14\.5\.0 is installed, but Nimbus supports >=14\.3\.0 <14\.5\.0/);
   assert.equal(await adapterFinding(adapterProject(true, null)), undefined);
   assert.equal(await adapterFinding(adapterProject(false, "14.1.2")), undefined);
 });
