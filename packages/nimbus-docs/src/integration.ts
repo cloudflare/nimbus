@@ -2661,7 +2661,7 @@ export function nimbus(
             const source = fs.existsSync(layout) ? fs.readFileSync(layout, "utf8") : undefined;
             if (source !== undefined && !source.includes('"try-it"')) {
               params.logger.warn(
-                `tryIt is on, but ${path.relative(projectRoot, layout)} has no try-it slot, so the Try it button can't show. See the api-try-it upgrade entry (\`${invocation("migrate", projectRoot)}\`).`,
+                `tryIt is on, but ${path.relative(projectRoot, layout)} has no try-it slot, so the Try it button can't show. See the layout step in \`${invocation("add try-it --print", projectRoot)}\`.`,
               );
             }
           }

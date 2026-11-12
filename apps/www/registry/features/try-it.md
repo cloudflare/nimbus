@@ -64,13 +64,14 @@ If there are no `api` entries, stop: install the reference first with
      > any path on an allowed origin, within Nimbus's fixed checks. Allowed
      > origins come from the resolved spec servers and `extraOrigins`,
      > including every hostname a wildcard matches. Relative servers, including
-     > the default `/`, can resolve to your docs origin. Nimbus performs no
-     > private-address or DNS checks, at build time or at runtime: an allowed
-     > localhost or internal server, or a hostname that resolves to an internal
-     > address, may be reached from the proxy's own network (localhost means
-     > the machine the proxy runs on, not the reader's), subject to your
-     > platform's network restrictions. Enable it only for destinations and DNS
-     > you trust; otherwise set `proxy: false`.
+     > the default `/`, are your docs origin; the browser sends those itself,
+     > never through the proxy. Nimbus leaves local and private addresses out
+     > of the allowed origins unless you list them in `extraOrigins`, where
+     > localhost means the machine the proxy runs on, not the reader's. It reads addresses as written and looks up no DNS: a
+     > public hostname that resolves to an internal address is still reached
+     > from the proxy's own network, subject to your platform's network
+     > restrictions. Enable it only for destinations and DNS you trust;
+     > otherwise set `proxy: false`.
 
    On a static site (no adapter) skip the question: Try it is direct only.
 
@@ -127,13 +128,14 @@ edit above as a manual step in your report.
 ### c. Each API route
 
 In each route file from discovery, import the component and render it inside
-`ApiLayout`:
+`ApiLayout`, leaving the props the route already passes as they are. In a
+route from the starter:
 
 ```astro
 ---
 import { ApiTryIt } from "@/components/ui/api-try-it";
 ---
-<ApiLayout {...props}>
+<ApiLayout page={page} nav={nav} collection={collection} version={version} coordinate={coordinate} home={home}>
   {page.kind === "operation" && <ApiTryIt slot="try-it" page={page} />}
 </ApiLayout>
 ```
