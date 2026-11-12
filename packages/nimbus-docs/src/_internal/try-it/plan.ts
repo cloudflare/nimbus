@@ -162,6 +162,8 @@ export interface PlanSend {
   credentials: "omit" | "include";
   /** Whether the reader may enter another origin. */
   servers: "spec" | "editable";
+  /** A public key the API key and bearer token fields start with. */
+  testKey?: string;
 }
 
 /** How a request travels: straight from the browser, or through the docs site's proxy. */
@@ -177,6 +179,7 @@ export interface TryItSource {
   credentials: "omit" | "include";
   /** `"editable"`: the reader may enter another origin. */
   servers: "spec" | "editable";
+  testKey?: string;
   limits: { timeoutMs: number; responseBytes: number; uploadBytes: number };
 }
 

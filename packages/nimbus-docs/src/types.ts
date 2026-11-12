@@ -524,6 +524,12 @@ export interface ApiTryIt {
    * The proxy never carries browser cookies.
    */
   credentials?: "omit" | "include";
+  /**
+   * A public test key the API key and bearer token fields start with, so a
+   * reader can send at once. It is published with each operation's request
+   * plan: never a secret.
+   */
+  testKey?: string;
   /** Bounds on both delivery modes. Host limits still apply on top. */
   limits?: {
     /** Seconds for the whole exchange, body included. Default 30. */

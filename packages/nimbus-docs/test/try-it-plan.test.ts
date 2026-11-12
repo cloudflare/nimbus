@@ -120,6 +120,11 @@ describe("which operations get a plan", () => {
 });
 
 describe("what a plan keeps", () => {
+  test("testKey: carried on the plan only when set", async () => {
+    assert.equal((await plans({ ...on, testKey: "test_123" })).byId.get("getItem")!.send.testKey, "test_123");
+    assert.equal("testKey" in (await plans(on)).byId.get("getItem")!.send, false);
+  });
+
   test("servers: operation, then path item, then document", async () => {
     const { byId } = await plans(on);
     assert.equal(byId.get("putItem")!.servers[0]!.url, "https://op.api.test");

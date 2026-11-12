@@ -889,6 +889,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
                         proxy: target.tryIt.proxy !== false && proxyRuns,
                         credentials: target.tryIt.credentials,
                         servers: target.tryIt.servers,
+                        ...(target.tryIt.testKey ? { testKey: target.tryIt.testKey } : {}),
                         limits: target.tryIt.limits,
                       },
                     }
