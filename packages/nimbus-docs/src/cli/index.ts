@@ -588,8 +588,8 @@ async function addCommand(
     lines.push(`↻ Replaced ${plural(report.replaced.length, "file")}${note}:`, ...report.replaced.map((file) => `    ${file}`));
   }
   lines.push(...keptLines(report, slug, starter));
-  // `--overwrite` didn't finish: tell a script, without stopping the other slugs.
-  if (report.keptUnasked.length > 0) process.exitCode = 1;
+  // Report partial installs to scripts without losing the written files' record.
+  if (report.keptUnasked.length > 0 || report.npmDepsFailed.length > 0) process.exitCode = 1;
   const keptPlain = report.kept.filter(
     (file) => ![...report.keptUnasked, ...report.keptDeclined].some((k) => k.files.includes(file)),
   );

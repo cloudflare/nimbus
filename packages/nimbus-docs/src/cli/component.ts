@@ -76,6 +76,7 @@ export interface InstallReport {
   replacedEditedUnplaced: string[];
   replacedUncompared: number;
   npmDepsInstalled: string[];
+  npmDepsFailed: string[];
 }
 
 export interface KeptComponent {
@@ -182,6 +183,7 @@ export async function installComponents(
     replacedEditedUnplaced: [],
     replacedUncompared: 0,
     npmDepsInstalled: [],
+    npmDepsFailed: [],
   };
 
   // ---- 1. Write files — atomic per registry item -------------------------
@@ -346,6 +348,7 @@ export async function installComponents(
         report.npmDepsInstalled.push(...deps);
       } catch {
         spinner.error("Dependency install failed.");
+        report.npmDepsFailed.push(...deps);
         p.log.warn(`Could not install ${deps.join(", ")}. Run \`${bin} ${args.join(" ")}\` manually.`);
       }
     }

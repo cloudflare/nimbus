@@ -2,8 +2,9 @@
 // has; failed installs and resolves end as errors, not as finished steps.
 
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -60,6 +61,60 @@ test("without a terminal, a failure prints an error line, not a finished step", 
   // clack marks a step and an error with different symbols.
   assert.notEqual(done.trimStart()[0], failed.trimStart()[0]);
   assert.equal(typeof progress(true).error, "function");
+});
+
+test("add exits with an error when a component dependency cannot be installed", async () => {
+  const dir = site({ name: "docs", dependencies: {} });
+  fs.writeFileSync(path.join(dir, "package-lock.json"), "{}\n");
+  fs.writeFileSync(path.join(dir, "nimbus.json"), JSON.stringify({ components: [] }));
+  const bin = path.join(dir, "fake-bin");
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, "npm"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+
+  const component = {
+    name: "cn",
+    type: "registry:lib",
+    title: "cn",
+    description: "Test component",
+    dependencies: ["clsx"],
+    registryDependencies: [],
+    files: [{ path: "lib/cn.ts", content: "export const cn = () => true;\n" }],
+  };
+  const server = http.createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify(component));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+
+  try {
+    const port = (server.address() as { port: number }).port;
+    const cli = fileURLToPath(new URL("../src/cli/index.ts", import.meta.url));
+    const result = await new Promise<{ code: number | null; output: string }>((resolve, reject) => {
+      const child = spawn(process.execPath, ["--import", import.meta.resolve("tsx"), cli, "add", "cn", "--yes"], {
+        cwd: dir,
+        env: {
+          ...process.env,
+          NIMBUS_REGISTRY_URL: `http://127.0.0.1:${port}`,
+          NO_COLOR: "1",
+          PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+        },
+      });
+      let output = "";
+      child.stdout.on("data", (chunk) => (output += chunk));
+      child.stderr.on("data", (chunk) => (output += chunk));
+      child.on("error", reject);
+      child.on("close", (code) => resolve({ code, output }));
+    });
+
+    assert.equal(result.code, 1, result.output);
+    assert.match(result.output, /Could not install clsx/);
+    assert.equal(fs.readFileSync(path.join(dir, "src/lib/cn.ts"), "utf8"), component.files[0]!.content);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, "nimbus.json"), "utf8")).components.map((item: { slug: string }) => item.slug), ["cn"]);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8")).dependencies, {});
+  } finally {
+    server.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("check --fix --yes after a failed install: an error line, and --json stays one document", () => {
