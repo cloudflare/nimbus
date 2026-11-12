@@ -1,5 +1,145 @@
 # @cloudflare/nimbus-docs
 
+## 0.20.0
+
+### Minor Changes
+
+- [#364](https://github.com/cloudflare/nimbus/pull/364) [`98bb186`](https://github.com/cloudflare/nimbus/commit/98bb186b1c9b8eba181698e7bc543d629f7a81da) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `nimbus-docs add <url>` hands the Markdown recipe at an https URL to your coding agent, the same way `add <feature>` does, with a note saying where it came from.
+
+- [#389](https://github.com/cloudflare/nimbus/pull/389) [`a6bede5`](https://github.com/cloudflare/nimbus/commit/a6bede5607493c04c02c1abfb89aa0c763edca4b) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - The five agent route factories take `{ body }`, a function from the text Nimbus would send to the text to send; the `ETag` and `304` are over what it returns. Use it instead of wrapping `GET` to change a document's body, which kept Nimbus's tag over its own bytes.
+  - The build and `nimbus-docs check` warn when a route file calls an agent factory from a shape Nimbus doesn't record, such as `src/pages/[...slug].md.ts`, naming the file to move the call to and the recorded route it may answer ahead of. A prerendered `markdownRoute()` or `markdownSourceRoute()` file at such a shape then fails the build. `migrate` carries an entry.
+  - The build's agent surfaces line counts the pages the Markdown routes cover: `Page Markdown: served for 12 of 340 pages`.
+
+- [#374](https://github.com/cloudflare/nimbus/pull/374) [`da9e84a`](https://github.com/cloudflare/nimbus/commit/da9e84a79ad5aab971cfec29bd90b8191e059819) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Agent surfaces follow the site's route files: delete `src/pages/[...slug]/index.md.ts` and no page Markdown is built, linked, advertised or negotiated; the same goes for the `.mdx` source, `llms.txt`, the section indexes and `llms-full.txt`, each by its own route. A Markdown route that covers part of the site publishes Markdown for that part only.
+  - `IndexedEntry.markdownUrl` and the page helpers' `markdownUrl` are `undefined` when no route serves them. New `getPublishedLlmsUrl()` returns the `llms.txt` a route serves for a collection, or `null`; `getCollectionLlmsUrl()` is unchanged.
+  - The MCP server reads every page whether or not its Markdown is published; `list_pages` and `get_page` return `markdownUrl` only when it is, and `get_page` takes an `offset` to read on from a cut.
+  - The build log and `nimbus-docs check` (`nimbus/agent-surfaces`) say which surfaces the routes serve, naming the route files. `astro dev` restarts when one of those files is added or removed.
+
+- [#342](https://github.com/cloudflare/nimbus/pull/342) [`eb60d78`](https://github.com/cloudflare/nimbus/commit/eb60d786ba8057a6123d6c53f4c4b145150a060f) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - An API page's Authorization section shows each scheme's header example and scopes again, and names HTTP Bearer and Basic schemes (`Authorization: Bearer <token>`); its Markdown names the scheme too.
+  - `ApiAuthView` has an optional `httpScheme`, the HTTP scheme lowercased (`bearer`, `basic`).
+
+- [#341](https://github.com/cloudflare/nimbus/pull/341) [`7f146e0`](https://github.com/cloudflare/nimbus/commit/7f146e08af38b207700e275a10ebc4a6b462b2f1) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - API pages and their Markdown show fields declared beside a union, such as a DNS record's `id`, `created_on` and `meta` beside its record types: the fields first, then the options that add to them.
+  - Object and array-of-object parameters list their fields, as body fields do.
+  - A request or response body that isn't an object shows its type, and its badge names its media type instead of "JSON".
+
+- [#375](https://github.com/cloudflare/nimbus/pull/375) [`41a92a6`](https://github.com/cloudflare/nimbus/commit/41a92a69231dd525d5274aff23977fde3a78e69f) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Request-rendered API collections no longer bake their pages' Markdown. The `.md` route, `Accept: text/markdown` and MCP `get_page` render it on request from the page record the server already holds, through the serialization the build uses, so the bytes equal the file a build-rendered site writes. Docs pages, static sites and `"build"` collections are unchanged.
+  - A page's Markdown response carries an `ETag` of its bytes, and a request that prefers Markdown is answered without rendering the page's HTML.
+  - On a site whose `llms.txt`, section `llms.txt` and `llms-full.txt` routes render on request, those documents are no longer baked either: the server makes the indexes from the build's page list when asked, and `llms-full.txt` becomes an index of per-section parts, each assembled on its first request and kept for the build's life; a section over the 25 MiB part limit answers with an index of its sub-sections, sized from the build's records (exact for built bodies, an estimate for pages made on request) without rendering a page, and a part that proves bigger while assembling still stops at the limit. Build-rendered routes keep writing the same files.
+  - A versioned API gets one `llms-full` part per version on such a site: `/<api>/llms-full.txt` for the default and, for each other version, the same URL with the version in the query (`?version=v1`, or the family's own parameter) or, for path-versioned families, in the path right after the API's mount (`/api/v1/tags/llms-full.txt`). Query-versioned pages beyond the default are in no index and at no `.md` URL, as before.
+
+- [#347](https://github.com/cloudflare/nimbus/pull/347) [`a2a14f3`](https://github.com/cloudflare/nimbus/commit/a2a14f32103234278e7ede4e3164710053bb54bd) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `getApiNav(Astro, { collection, href })` from `@cloudflare/nimbus-docs/runtime` returns the API sidebar opened at one API page, from any route, so a site's own pages can show the same sidebar as its API pages.
+  - `ApiSidebarPanel` in `api-sidebar` is that sidebar as one component: the filter, the tree, groups that load when opened, and open groups and scroll kept across pages. `ApiLayout` renders it, and a page of your own renders it with `getApiNav`.
+  - With `sidebar: "on-demand"`, the API sidebar can live outside `ApiLayout` without failing the components check.
+  - A page of your own can use `DocsLayout` with just a `title`: `sidebar`, `headings`, `breadcrumbs` and `prevNext` are optional.
+
+- [#369](https://github.com/cloudflare/nimbus/pull/369) [`645df3c`](https://github.com/cloudflare/nimbus/commit/645df3c8d734e5c87c81c8e36295a784ec5290a8) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - On narrow screens an API operation's request sample comes right after its header, before the fields, so it's on the first screen for most pages.
+  - On wide screens the page text sits in a 40rem column beside the request sample, which starts at the top and stays pinned.
+  - The description follows the page actions, and the endpoint box shows the operation's path, which opens the full URL in a popover; copy still copies the full URL.
+
+- [#345](https://github.com/cloudflare/nimbus/pull/345) [`dea1e3d`](https://github.com/cloudflare/nimbus/commit/dea1e3dcb2a0d8448bf3cfd39b266523d1e34bf2) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - On wide screens an API page's code rail fits the viewport: its header stays put and a long sample scrolls both ways with both scrollbars in view. Code you can scroll gets a focus ring.
+  - The endpoint box cuts the server address before the path, so the path stays visible.
+  - Spec descriptions get spaced headings and inline-code chips.
+  - On wide screens the previous/next bar spans the body and the code rail.
+  - A field with more than six allowed values lists every one on an "Allowed values" line, instead of behind a hover tooltip.
+  - Request body and Returns have anchors (`#request-body`, `#responses`), and every API section heading gets a "#" link. `headingAnchors()` also links headings inside any `data-nb-heading-anchors` container.
+  - CodeGroup's copy button comes before its code in Tab order.
+  - Every keyboard shortcut lives in `src/lib/shortcuts.ts`: change a key or set it to `false` to remove it. `[` and `]` go to the previous and next page from anywhere on the page, and readers can turn single-key shortcuts off from the search dialog. `onShortcut`, `syncShortcutHints`, the key labels and the reader's switch are in `@cloudflare/nimbus-docs/client`.
+  - A `Switch` component (`nimbus-docs add switch`): an on/off control. The shortcuts switch in the search dialog uses it.
+
+- [#331](https://github.com/cloudflare/nimbus/pull/331) [`c3d3cc6`](https://github.com/cloudflare/nimbus/commit/c3d3cc6e10fbfdb26204dadb4691a46157fb2b55) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - A parameter's own `example`, or the first of its `examples` with an inline value, now reaches its API page and Markdown, ahead of its schema's.
+  - On a split API home, `ApiHome.anchorParts` says which part holds each heading, and `TOCItem` takes an optional `href`.
+  - `homePartTarget()` in `@cloudflare/nimbus-docs/client` tells which heading a click on the home is going to.
+
+- [#378](https://github.com/cloudflare/nimbus/pull/378) [`5bc942d`](https://github.com/cloudflare/nimbus/commit/5bc942d9ebf35d179f261f6ca659813e032dd92d) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Add Try it to API pages: with `tryIt` on an API and the `api-try-it` component, readers send requests from the code rail, straight from the browser or through the site's proxy, and see the response.
+  - `ApiLayout` and `ApiCodeRail` take the panel through a `try-it` slot.
+  - A JSON body can be edited as JSON or as fields; switching keeps every change.
+
+- [#376](https://github.com/cloudflare/nimbus/pull/376) [`28a3df0`](https://github.com/cloudflare/nimbus/commit/28a3df0b44e2f2a2b446c954d8b0f7ea4a31443f) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - The API code rail shows the reader's saved or linked code sample from the first paint, so it no longer resizes just after the page loads.
+  - `choiceStateScript` in `@cloudflare/nimbus-docs/runtime` shows a remembered choice among server-rendered panels before the page paints. Mark the group with `data-nb-choice` (its storage key) and optionally `data-nb-choice-param`, its panels with `data-nb-choice-panel` and optionally `data-nb-choice-kind`, and its `<select>` with `data-nb-choice-select`, then render the script right after the group.
+  - If you take the `api-code-rail` update, rename its old attributes in your own CSS, scripts and tests too.
+
+- [#327](https://github.com/cloudflare/nimbus/pull/327) [`03c1609`](https://github.com/cloudflare/nimbus/commit/03c1609ca32cf6e08dea4f781626e8c0935162ed) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - New sites' `DocsLayout` and `ApiLayout` put the page's content before the sidebar in the HTML, so agents and text readers reach it first; pages look the same. The page actions row is a `<nav aria-label="Page actions">`, and the API union explorer's "View X schema →" link, which repeats the branch name's link, is marked `data-markdown-ignore`. `nimbus-docs migrate` lists them for existing sites as optional.
+
+- [#310](https://github.com/cloudflare/nimbus/pull/310) [`d993e42`](https://github.com/cloudflare/nimbus/commit/d993e4288f26b3267447b822fb2304e92edf1962) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Update Astro, Markdown, API parsing, image processing, and starter dependencies. Support Satori 0.63 alongside 0.26, while retaining the declaration bundler that preserves API extension types.
+
+  Node.js 22.23.4 or newer is now required by Nimbus and newly generated sites. Upgrade Node locally and in CI and hosting build environments before updating Nimbus. Sites using Astro below 7.2.10 must also update Astro; new starters use Astro 7.4.2.
+
+  Keep deployment-root sitemap URLs aligned with Astro's canonical URL for static and request-rendered pages, including sites hosted under a base path.
+
+- [#343](https://github.com/cloudflare/nimbus/pull/343) [`372b6a1`](https://github.com/cloudflare/nimbus/commit/372b6a1c49523279716244f3495924ca472889d9) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - A page can set its language and share-image alt text: `NimbusHead`, `BaseLayout` and `DocsLayout` take `locale` and `socialImageAlt`. The page's `<html lang>`, `og:locale` and JSON-LD `inLanguage` follow it, and a right-to-left language sets `dir="rtl"`, as a right-to-left `config.locale` now does on every page.
+  - `og:locale` is written in Open Graph's form (`en_US`) instead of as a BCP 47 tag (`en-US`), and left out when the tag has no two-letter region.
+  - `getPageLanguage()` in `@cloudflare/nimbus-docs/runtime` gives a page's `{ lang, dir }`.
+  - `HastPluginDefinition` and `HastVisitorContext` are exported from `@cloudflare/nimbus-docs/markdown`, for typing your own plugins.
+
+- [#344](https://github.com/cloudflare/nimbus/pull/344) [`5229f0e`](https://github.com/cloudflare/nimbus/commit/5229f0e6ceb9d85a3f60236d62d89186283429b1) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Search: each sub-result is its own option the arrow keys reach, result links leave the Tab order, Home and End move the caret unless a result is active, and a reader on a deprecated version's page searches that version.
+  - The search dialog stays open when a text selection is dragged onto its backdrop.
+  - The table of contents leaves out headings without an anchor and marks the last real heading active at the bottom of the page.
+  - The sidebar filter shows the groups around a matching nested group.
+  - The theme toggle shows the right icon from first paint, and a dismissed banner no longer flashes before it disappears.
+  - The destructive button's text is readable in dark mode.
+  - Steps counts from a Markdown list's own start (`3.`).
+  - A failed copy after a successful one shows the copy icon again.
+  - Image zoom fills an aspect-ratio frame with a `<picture>`.
+  - The hidden note for AI agents is no longer two invisible Tab stops.
+
+- [#396](https://github.com/cloudflare/nimbus/pull/396) [`c3d1f0a`](https://github.com/cloudflare/nimbus/commit/c3d1f0aafba0d42f4c2726695e9caa50244bb886) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `tryIt.testKey` is a public test key that Try it's API key and bearer token fields start with, so a reader can send a request without entering anything.
+  - Try it's proxy refuses a request that sets `X-Real-IP`, `True-Client-IP`, `Forwarded`, `X-Forwarded-*` or `CF-Connecting-IP`, so a caller can't pose as another address to the API.
+
+### Patch Changes
+
+- [#385](https://github.com/cloudflare/nimbus/pull/385) [`e9ad838`](https://github.com/cloudflare/nimbus/commit/e9ad838ff2d8e45f658745fcd4b44cf620ccf62e) Thanks [@sansynx](https://github.com/sansynx)! - `add` exits with an error when a component's npm dependencies fail to install, so scripts can detect a partial install.
+
+- [#351](https://github.com/cloudflare/nimbus/pull/351) [`769f831`](https://github.com/cloudflare/nimbus/commit/769f831e05ae9a968f7da61a6501d7a0d15c9f2c) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `add` skips a dependency the site already has at the registry's version, and installs a pinned one with its exact version.
+  - A failed install or resolve ends with the error mark in a terminal, and prints as an error without one.
+
+- [#327](https://github.com/cloudflare/nimbus/pull/327) [`03c1609`](https://github.com/cloudflare/nimbus/commit/03c1609ca32cf6e08dea4f781626e8c0935162ed) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - An API page's Markdown carries what the page shows: the fields of named and discriminator-mapped union branches, each operation's method and path on tag pages, the full request URL on operation pages, and, on the API home, every endpoint and webhook under its section. An API with more than 150 endpoints lists each section with its endpoint count instead, so its home stays readable in one go. It words them as the page does: "One of the following:", `array of X`, and `maximum: 500 · minimum: 1 · default: 50`. Nested types such as `array<array<number>>` no longer lose their brackets.
+
+  With `schemaPages: true`, a field that chooses between named schemas, such as a DNS record that is an A, MX or CNAME record, still previews them, and a named schema anywhere else in a field, such as an id-or-object field, links to its schema page instead of repeating it. Large APIs with schema pages build several times faster and smaller. Without schema pages, previews are as they were: they're the only place those fields appear.
+
+- [#368](https://github.com/cloudflare/nimbus/pull/368) [`00e64f3`](https://github.com/cloudflare/nimbus/commit/00e64f3a0daef64a2dc0c85e5e82ddd3b44b222e) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - An API response example is one Tab stop, not two.
+  - Long field names and inline code in field descriptions wrap on narrow screens, so API pages no longer scroll sideways on a phone.
+
+- [#398](https://github.com/cloudflare/nimbus/pull/398) [`2467a04`](https://github.com/cloudflare/nimbus/commit/2467a043bdc092ae66a7e8056acc483465acb390) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `nimbus-docs check` and `add adapter-cloudflare` accept `@astrojs/cloudflare` 14.4 instead of asking for 14.3.
+
+- [#346](https://github.com/cloudflare/nimbus/pull/346) [`bdd81f7`](https://github.com/cloudflare/nimbus/commit/bdd81f700367bfa360e8ce559494f919f8069287) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - In `astro dev`, new pages, and collections added to `content.config.ts`, reach pages, Markdown, the sidebar and `llms.txt` without a restart.
+  - A site whose `content.config.ts` declares no `docs` collection builds with the starter's docs route, which serves no pages.
+
+- [#386](https://github.com/cloudflare/nimbus/pull/386) [`e564b45`](https://github.com/cloudflare/nimbus/commit/e564b45e8cb949dca4c81933a341685535185a70) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `astro dev` no longer recompiles the whole content store as a module after each save, which took seconds on sites with a lot of text.
+
+- [#383](https://github.com/cloudflare/nimbus/pull/383) [`673d85d`](https://github.com/cloudflare/nimbus/commit/673d85d857adf404dfb846dd619c75adfea7c477) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Saving a page in `astro dev` no longer reloads every module of the site or renders every page's Markdown again, so large sites answer the next request much sooner.
+
+- [#386](https://github.com/cloudflare/nimbus/pull/386) [`bb935be`](https://github.com/cloudflare/nimbus/commit/bb935bee84b54ee78e614198e8c8aa624d615823) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `astro dev` no longer slows down on large sites when many files change at once: a file event that changes no page copies nothing. Part of [#379](https://github.com/cloudflare/nimbus/issues/379).
+  - A dev server stopped while writing its Markdown files restarts cleanly, instead of answering every request with an asset collision error.
+  - `astro sync` no longer renders every page to collect headings it doesn't use, so it finishes sooner on large sites.
+
+- [#352](https://github.com/cloudflare/nimbus/pull/352) [`596a315`](https://github.com/cloudflare/nimbus/commit/596a3157e169bbd5ac02f85d0baff5901a73278d) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `lint` and `check` skip re-reading the Astro config when it hasn't changed since the last build: about 300 ms faster per `lint` run.
+
+- [#353](https://github.com/cloudflare/nimbus/pull/353) [`1115c05`](https://github.com/cloudflare/nimbus/commit/1115c05d228acd08dcfaadd417137d312690ad92) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - With nested `llms.txt` sections, an API operation is listed in its resource's or tag's index, as in the sidebar, instead of in a section named after its URL folder (such as `methods`).
+
+- [#355](https://github.com/cloudflare/nimbus/pull/355) [`0d7f997`](https://github.com/cloudflare/nimbus/commit/0d7f997ec775d5c00685c032b6aad53e17309c95) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `llms.txt`, the section indexes and `llms-full.txt` list pages and sections in the sidebar's order (`sidebar.order`, then label) instead of by URL. Pages the sidebar hides follow, by URL.
+
+- [#380](https://github.com/cloudflare/nimbus/pull/380) [`7ace7e0`](https://github.com/cloudflare/nimbus/commit/7ace7e0ad456b6e8387d271513aa1524d8786f6c) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - A Markdown, `llms.txt` or `llms-full.txt` request that carries `If-None-Match` with the document's current `ETag` is answered `304 Not Modified`, on request-rendered routes and, on Cloudflare, for the baked files too. A mount's own `llms.txt` now carries an `ETag` like the others.
+
+- [#354](https://github.com/cloudflare/nimbus/pull/354) [`5028b19`](https://github.com/cloudflare/nimbus/commit/5028b19fd9765a29e231571d7c6c60aead317a75) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - The Markdown style lint rules run about 9× faster, and the package no longer bundles remark-lint.
+
+- [#349](https://github.com/cloudflare/nimbus/pull/349) [`d056733`](https://github.com/cloudflare/nimbus/commit/d056733e6410ab95f09e6acab3779b444e3dfa59) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `outdated` no longer asks to record a review that matches the installed prerelease.
+  - With a preview package on a site scaffolded from a release, `outdated` says the starter comparison is with the latest released tag, so the preview's starter changes don't show yet.
+
+- [#367](https://github.com/cloudflare/nimbus/pull/367) [`4c18262`](https://github.com/cloudflare/nimbus/commit/4c18262b1c8c08ca8d97f7b646f8c1c85c09a2a3) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Generated cURL, TypeScript and Python samples no longer need `@readme/httpsnippet`; only `openapi-sampler` is needed for generated samples, and you can uninstall `@readme/httpsnippet`.
+  - A TypeScript sample's options object wraps when its line would pass 80 characters, as the other samples already do.
+
+- [#381](https://github.com/cloudflare/nimbus/pull/381) [`8706622`](https://github.com/cloudflare/nimbus/commit/8706622267e010c26bd1cbde7434657ec69cbb00) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Generated sample URLs are written as browsers send them: a default port such as `:443` is dropped, IP shorthand is expanded, a server URL's own query is kept as written, and query parameters keep the spec's order.
+  - A TypeScript sample's options object wraps when its whole line passes 80 characters.
+  - A sample with both a `Cookie` header and a cookie API key sends both cookies in one header, in every language.
+
+- [#364](https://github.com/cloudflare/nimbus/pull/364) [`d7609ca`](https://github.com/cloudflare/nimbus/commit/d7609ca0792f17ca4a7b9411426a9d0e4960917a) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - A sidebar link to a page with `sidebar.hidden` no longer warns that it matches no entry.
+
+- [#365](https://github.com/cloudflare/nimbus/pull/365) [`c4c8fdf`](https://github.com/cloudflare/nimbus/commit/c4c8fdfc73c9d98a3263b4dab483983e003ca780) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - A relative link from a source collection's page to a Markdown file its `pattern` excludes stays as written, with a warning, instead of becoming a URL with no page.
+
+- [#366](https://github.com/cloudflare/nimbus/pull/366) [`f7a6af2`](https://github.com/cloudflare/nimbus/commit/f7a6af2a21f9e814fe98d88ec08e8c32a94009c5) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Upgrading Nimbus reuses the Vite your Astro already has instead of installing a second copy, which broke type checks of `astro.config.mjs`.
+  - `migrate --yes` records the reviewed version without reformatting the rest of `nimbus.json`.
+  - With `sidebar: "on-demand"`, the build accepts an `ApiLayout` that renders the sidebar through a component of your own; it still stops the starter's pre-on-demand layout, whose groups wouldn't open.
+
 ## 0.19.4
 
 ### Patch Changes
