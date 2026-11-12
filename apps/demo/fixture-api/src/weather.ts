@@ -240,13 +240,15 @@ export function localClock(city: City, instant: Date): string {
 // Units
 // ---------------------------------------------------------------------------
 
+// Metric is °C, m/s, mm, cm, km, hPa; imperial is °F, mph, in, in, mi and, as
+// the specs say, still hPa; si is K, m/s, m, m, m, Pa.
 export const temperature = (celsius: number, units: Units): number =>
   units === "imperial" ? round(celsius * 1.8 + 32) : units === "si" ? round(celsius + 273.15) : celsius;
 export const speed = (ms: number, units: Units): number => (units === "imperial" ? round(ms * 2.23694) : ms);
-export const length = (mm: number, units: Units): number => (units === "imperial" ? round(mm / 25.4, 2) : mm);
-export const depth = (cm: number, units: Units): number => (units === "imperial" ? round(cm / 2.54) : cm);
-export const distance = (km: number, units: Units): number => (units === "imperial" ? round(km * 0.621371) : km);
-export const pressureIn = (hpa: number, units: Units): number => (units === "imperial" ? round(hpa * 0.02953, 2) : hpa);
+export const length = (mm: number, units: Units): number => (units === "imperial" ? round(mm / 25.4, 2) : units === "si" ? round(mm / 1000, 4) : mm);
+export const depth = (cm: number, units: Units): number => (units === "imperial" ? round(cm / 2.54) : units === "si" ? round(cm / 100, 3) : cm);
+export const distance = (km: number, units: Units): number => (units === "imperial" ? round(km * 0.621371) : units === "si" ? Math.round(km * 1000) : km);
+export const pressureIn = (hpa: number, units: Units): number => (units === "si" ? Math.round(hpa * 100) : hpa);
 
 /** Ordered percentiles around a value, for v3-preview's spreads. */
 export function spread(value: number, key: string, units: Units): { p10: number; p50: number; p90: number } {

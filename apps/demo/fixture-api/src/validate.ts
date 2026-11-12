@@ -23,7 +23,7 @@ export type Scalar = string | number | boolean;
 export type Validation<T> = { ok: true; values: T } | { ok: false; param: string; message: string };
 
 const DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
-const DATE_TIME = /^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+const DATE_TIME = /^(\d{4}-\d{2}-\d{2})T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?(Z|[+-]([01]\d|2[0-3]):[0-5]\d)$/;
 
 /** A real calendar date: `Date` would roll 2026-02-30 into March. */
 function isCalendarDate(value: string): boolean {

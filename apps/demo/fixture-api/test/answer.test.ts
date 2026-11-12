@@ -231,9 +231,20 @@ test("daily values are bounded and coherent in every unit system", () => {
   }
   const metric = body("v2", "getDailyForecast", { query: { ...at(london), days: 1 } }).days as Json[];
   const imperial = body("v2", "getDailyForecast", { query: { ...at(london), days: 1, units: "imperial" } }).days as Json[];
+  const si = body("v2", "getDailyForecast", { query: { ...at(london), days: 1, units: "si" } }).days as Json[];
   const c = (metric[0] as Json).temperature_max as number;
-  const f = (imperial[0] as Json).temperature_max as number;
-  assert.ok(Math.abs(f - (c * 1.8 + 32)) < 0.2, `${c} °C should be ${f} °F`);
+  assert.ok(Math.abs(((imperial[0] as Json).temperature_max as number) - (c * 1.8 + 32)) < 0.2, "°F");
+  assert.ok(Math.abs(((si[0] as Json).temperature_max as number) - (c + 273.15)) < 0.2, "K");
+  assert.ok(Math.abs(((imperial[0] as Json).precipitation_sum as number) - ((metric[0] as Json).precipitation_sum as number) / 25.4) < 0.02, "inches");
+  assert.ok(Math.abs(((si[0] as Json).precipitation_sum as number) - ((metric[0] as Json).precipitation_sum as number) / 1000) < 0.001, "metres");
+  assert.ok(Math.abs(((imperial[0] as Json).wind_max as number) - ((metric[0] as Json).wind_max as number) * 2.23694) < 0.2, "mph");
+  const obsMetric = body("v2", "getNearestObservation", { query: at(london) }).conditions as Json;
+  const obsImperial = body("v2", "getNearestObservation", { query: { ...at(london), units: "imperial" } }).conditions as Json;
+  const obsSi = body("v2", "getNearestObservation", { query: { ...at(london), units: "si" } }).conditions as Json;
+  assert.equal(obsImperial.pressure, obsMetric.pressure, "the specs keep hPa in imperial");
+  assert.equal(obsSi.pressure, Math.round((obsMetric.pressure as number) * 100), "Pa");
+  assert.equal(obsSi.visibility, Math.round((obsMetric.visibility as number) * 1000), "metres");
+  assert.ok(Math.abs((obsImperial.visibility as number) - (obsMetric.visibility as number) * 0.621371) < 0.2, "miles");
 });
 
 test("v1 is imperial with text conditions, a derived icon, compass wind, and local sunrise", () => {
@@ -281,8 +292,29 @@ test("minutely steps are five minutes apart, non-negative, with a summary that m
   const firstWet = minutes.findIndex((m) => (m.intensity as number) > 0);
   const summary = minutely.summary as string;
   if (firstWet === -1) assert.match(summary, /^No precipitation/);
-  else if (firstWet === 0) assert.match(summary, /^(Light |Heavy |Dense |Freezing )?(rain|snow|drizzle|showers|thunderstorm)[\w ]* for the next \d+ minutes\.$/i);
-  else assert.equal(summary.endsWith(`starting in ${firstWet * 5} minutes.`), true, summary);
+  else if (firstWet > 0) assert.equal(summary.endsWith(`starting in ${firstWet * 5} minutes.`), true, summary);
+  else {
+    let run = 0;
+    while (run < minutes.length && (minutes[run]?.intensity as number) > 0) run++;
+    const wet = minutes.filter((m) => (m.intensity as number) > 0).length;
+    if (run === wet) assert.equal(summary.endsWith(`for the next ${run * 5} minutes.`), true, summary);
+    else assert.equal(summary.endsWith("on and off for the next two hours."), true, summary);
+  }
+  // Across the world, every summary shape occurs and each states what its series shows.
+  for (const city of world.cities.slice(0, 80)) {
+    const m = body("v2", "getMinutelyPrecipitation", { query: at(city) });
+    const steps = m.minutes as Json[];
+    const first = steps.findIndex((s) => (s.intensity as number) > 0);
+    const text = m.summary as string;
+    if (first === -1) assert.match(text, /^No precipitation/, city.id);
+    else if (first > 0) assert.ok(text.endsWith(`starting in ${first * 5} minutes.`), `${city.id}: ${text}`);
+    else {
+      let r = 0;
+      while (r < steps.length && (steps[r]?.intensity as number) > 0) r++;
+      const w = steps.filter((s) => (s.intensity as number) > 0).length;
+      assert.ok(text.endsWith(r === w ? `for the next ${r * 5} minutes.` : "on and off for the next two hours."), `${city.id}: ${text}`);
+    }
+  }
 });
 
 test("observations: the nearest station reports now, a station lists a window newest first, bad bounds are a 400", () => {
@@ -312,6 +344,8 @@ test("history is anchored to the requested dates, with the sandbox's limits and 
   assert.equal((key.key as Json).expires_at, "2026-12-31T23:59:59Z");
   assert.equal(failure("v2", "createApiKey", { body: { name: "Dated", expires_at: "2026-02-30T00:00:00Z" } }).param, "expires_at");
   assert.equal(failure("v2", "createApiKey", { body: { name: "Dated", expires_at: "2026-12-31T23:59Z" } }).param, "expires_at");
+  assert.equal(failure("v2", "createApiKey", { body: { name: "Dated", expires_at: "2026-12-31T24:00:00Z" } }).param, "expires_at");
+  assert.equal(failure("v2", "createApiKey", { body: { name: "Dated", expires_at: "2026-12-31T23:60:00Z" } }).param, "expires_at");
   assert.equal(failure("v2", "getDailyHistory", { query: { ...at(london), start_date: "2020-01-01", end_date: "2026-01-01" } }).status, 400);
   assert.equal(failure("v2", "getHourlyHistory", { query: { ...at(london), start_date: "2026-01-01", end_date: "2026-03-01" } }).status, 400);
   const v1 = body("v1", "getHistory", { query: { ...at(london, true), from: "2026-01-01", to: "2026-01-02" } }).days as Json[];

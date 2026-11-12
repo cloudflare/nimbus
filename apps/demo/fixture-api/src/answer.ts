@@ -619,7 +619,9 @@ const HANDLERS: Record<string, Handler> = {
       // The hour the first wet step falls in has precipitation, so its condition names the kind.
       const kind = hourWeather(city, new Date(ctx.now.getTime() + firstWet * 5 * 60_000)).condition.text;
       const wetSteps = minutes.filter((m) => (m.intensity as number) > 0).length;
-      summary = firstWet === 0 ? `${kind} for the next ${wetSteps * 5} minutes.` : `${kind} starting in ${firstWet * 5} minutes.`;
+      let run = 0;
+      while (run < minutes.length && (minutes[run]?.intensity as number) > 0) run++;
+      summary = firstWet > 0 ? `${kind} starting in ${firstWet * 5} minutes.` : run === wetSteps ? `${kind} for the next ${run * 5} minutes.` : `${kind} on and off for the next two hours.`;
     }
     return fill(example, { minutes, summary });
   },
