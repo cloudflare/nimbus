@@ -13,6 +13,7 @@
     "build:workers": "DEMO_NOINDEX=1 pnpm --filter \"@nimbus/demo-weather...\" build && printf '\\n/*\\n  X-Robots-Tag: noindex\\n' >> dist/client/_headers",
     "generate-spec": "tsx spec/generate.ts",
     "fixture-api:routes": "node fixture-api/build-routes.mjs",
+    "fixture-api:test": "node --import tsx --test \"fixture-api/test/**/*.test.ts\"",
     "fixture-api:dev": "wrangler dev --config fixture-api/wrangler.jsonc --port 8787",
     "fixture-api:deploy": "wrangler deploy --config fixture-api/wrangler.jsonc",
     "screenshots": "node scripts/screenshots.mjs"
@@ -41,6 +42,8 @@
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "ajv": "8.17.1",
+    "ajv-formats": "3.0.1",
     "pagefind": "^1.5.2",
     "playwright": "1.64.1",
     "tailwindcss": "^4.3.3",

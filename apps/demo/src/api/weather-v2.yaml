@@ -10,7 +10,7 @@ info:
   termsOfService: https://weather.example/terms
 servers:
   - url: https://api.demo.nimbus-docs.com/v2
-    description: "Sandbox: any key, fixed data"
+    description: "Sandbox: any key, hundreds of cities, synthetic weather"
   - url: https://api.weather.example/v2
 security:
   - bearer: []
