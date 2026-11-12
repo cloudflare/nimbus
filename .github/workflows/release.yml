@@ -471,12 +471,36 @@ jobs:
           if [ -f fixture-api/wrangler.jsonc ]; then
             pnpm exec wrangler deploy --config fixture-api/wrangler.jsonc --tsconfig "$PWD/tsconfig.json"
             sandbox=https://api.demo.nimbus-docs.com
-            # The documented limit counts per key, so this run's own key can't be used up by anyone else.
-            key="wx_test_release_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
-            probe() { curl --fail --show-error --silent --retry 5 --retry-delay 3 -o /dev/null "$@"; }
-            probe "$sandbox/v1/locations/search?q=Oslo&key=$key"
-            probe -H "Authorization: Bearer $key" "$sandbox/v2/locations/search?q=Oslo"
-            probe -H "Authorization: Bearer $key" "$sandbox/v3-preview/locations/search?q=Oslo"
+            # The sandbox answers the request: London is London, Nairobi is warmer than Oslo,
+            # an empty search is empty, an unknown id is the spec's 404. The documented limit
+            # counts per key, so each version's probes use this run's own key.
+            probe() { # version, path, expected status, jq test
+              local version=$1 path=$2 status=$3 expect=$4
+              local key="wx_test_release_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_$version" url body code
+              if [ "$version" = v1 ]; then
+                case "$path" in *\?*) url="$sandbox/v1$path&key=$key" ;; *) url="$sandbox/v1$path?key=$key" ;; esac
+                body=$(curl --silent --show-error --retry 5 --retry-delay 3 -w '\n%{http_code}' "$url")
+              else
+                body=$(curl --silent --show-error --retry 5 --retry-delay 3 -w '\n%{http_code}' -H "Authorization: Bearer $key" "$sandbox/$version$path")
+              fi
+              code=${body##*$'\n'}; body=${body%$'\n'*}
+              if [ "$code" != "$status" ] || ! printf '%s' "$body" | jq -e "$expect" > /dev/null; then
+                echo "::error::sandbox $version $path answered $code: $body"
+                exit 1
+              fi
+            }
+            for version in v1 v2 v3-preview; do
+              probe "$version" /locations/loc_london_gb 200 '.name == "London"'
+              probe "$version" /locations/loc_nowhere_xx 404 '.error.code == "not_found"'
+              if [ "$version" = v1 ]; then
+                probe v1 '/locations/search?q=Zzz' 200 '.results == [] and .page == 1'
+                probe v1 '/forecast?lat=-1.29&lon=36.82&days=1' 200 '.location.name == "Nairobi" and .days[0].high_f > 60'
+              else
+                probe "$version" '/locations/search?q=Zzz' 200 '.data == [] and .has_more == false and .next_cursor == null'
+                probe "$version" '/forecasts/daily?latitude=-1.29&longitude=36.82&days=1' 200 '.location.name == "Nairobi" and .days[0].temperature_max > 15'
+                probe "$version" '/forecasts/daily?latitude=59.91&longitude=10.75&days=1' 200 '.location.name == "Oslo" and .days[0].temperature_max < 25'
+              fi
+            done
           fi
           pnpm exec wrangler deploy --config dist/server/wrangler.json --tsconfig "$PWD/tsconfig.json"
           curl --fail --show-error --silent --retry 5 --retry-delay 3 -o /dev/null https://demo.nimbus-docs.com/

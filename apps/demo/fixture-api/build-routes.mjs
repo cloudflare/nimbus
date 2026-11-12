@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Precompute the fixture API's answers from each of the demo's specs: every
-// operation's documented success response, how it takes a key, and the spec's
-// error envelope. The Worker (src/worker.ts) only matches and replays. Run
-// after a spec changes: `pnpm fixture-api:routes`.
+// operation's documented success response, how it takes a key, the query and
+// body fields it declares (type, format, enum, range), and the spec's error
+// envelope. The Worker (src/worker.ts) matches, validates, and overlays the
+// request onto the example (src/answer.ts). Run after a spec changes:
+// `pnpm fixture-api:routes`.
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
@@ -44,6 +46,36 @@ const keyOf = (security) => {
   return { in: "header", name: "Authorization", bearer: true };
 };
 
+// A declared field, as the Worker validates it: type, format, enum, range,
+// and for arrays what the items are.
+const fieldOf = (name, schema, required) => {
+  const s = resolve(schema) ?? {};
+  const type = Array.isArray(s.type) ? s.type.find((t) => t !== "null") : s.type;
+  const items = s.items ? resolve(s.items) : undefined;
+  return {
+    name,
+    ...(type ? { type } : {}),
+    ...(s.format ? { format: s.format } : {}),
+    ...(s.enum ? { enum: s.enum } : {}),
+    ...(s.minimum !== undefined ? { minimum: s.minimum } : {}),
+    ...(s.maximum !== undefined ? { maximum: s.maximum } : {}),
+    ...(s.minItems !== undefined ? { minItems: s.minItems } : {}),
+    ...(s.maxItems !== undefined ? { maxItems: s.maxItems } : {}),
+    ...(items ? { items: { ...(items.type ? { type: Array.isArray(items.type) ? items.type[0] : items.type } : {}), ...(items.enum ? { enum: items.enum } : {}) } } : {}),
+    required: Boolean(required),
+  };
+};
+
+// The top-level fields of a JSON request body, when the operation has one.
+const bodyFieldsOf = (op) => {
+  const content = resolve(op.requestBody)?.content ?? {};
+  const media = Object.entries(content).find(([t]) => /json/.test(t))?.[1];
+  const schema = media ? resolve(media.schema) : undefined;
+  if (!schema?.properties) return undefined;
+  const required = new Set(schema.required ?? []);
+  return Object.entries(schema.properties).map(([name, property]) => fieldOf(name, property, required.has(name)));
+};
+
 const routesOf = () => {
   const routes = [];
   for (const [path, item] of Object.entries(spec.paths ?? {})) {
@@ -55,13 +87,19 @@ const routesOf = () => {
       const [status, response] =
         Object.entries(op.responses ?? {}).find(([s]) => /^2/.test(s)) ??
         Object.entries(op.responses ?? {}).find(([s]) => /^3/.test(s)) ?? ["200", {}];
+      const query = params.filter((p) => p?.in === "query").map((p) => fieldOf(p.name, p.schema, p.required));
+      const bodyFields = bodyFieldsOf(op);
       routes.push({
+        operationId: op.operationId,
         method: method.toUpperCase(),
         path,
-        pattern: `^${path.replace(/[.*+?^$()|[\]\\]/g, "\\$&").replace(/\\?\{[^}]+\\?\}/g, "[^/]+")}$`,
+        // Named groups, so the Worker reads path parameters by name.
+        pattern: `^${path.replace(/[.*+?^$()|[\]\\]/g, "\\$&").replace(/\\?\{([^}]+)\\?\}/g, (_, name) => `(?<${name}>[^/]+)`)}$`,
         templated: path.includes("{"),
         key: keyOf(security),
-        requiredQuery: params.filter((p) => p?.in === "query" && p.required).map((p) => p.name),
+        requiredQuery: query.filter((p) => p.required).map((p) => p.name),
+        query,
+        ...(bodyFields ? { bodyFields } : {}),
         status: Number(status),
         ...answer(response),
       });

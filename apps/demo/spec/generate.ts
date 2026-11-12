@@ -97,11 +97,11 @@ function build(v: Version): Record<string, unknown> {
       contact: { name: "Weather API support", email: "support@weather.example" },
       termsOfService: "https://weather.example/terms",
     },
-    // The demo's fixture API (fixture-api/) first: it answers every version with
-    // its documented responses, so Try it and the code samples start on a host
-    // that answers.
+    // The demo's fixture API (fixture-api/) first: it answers every version
+    // from the request, over a world of cities with synthetic weather, so Try
+    // it and the code samples start on a host that answers.
     servers: [
-      { url: `https://api.demo.nimbus-docs.com/${slug}`, description: "Sandbox: any key, fixed data" },
+      { url: `https://api.demo.nimbus-docs.com/${slug}`, description: "Sandbox: any key, hundreds of cities, synthetic weather" },
       { url: `https://api.weather.example/${slug}` },
     ],
     security: [v === 1 ? { apiKey: [] } : { bearer: [] }],
