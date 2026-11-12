@@ -6,17 +6,21 @@
  * - Auth: any non-empty key, sent the way that version's spec says: `?key=`
  *   for v1, a bearer token for v2 and v3-preview. No key gets the spec's 401
  *   envelope.
- * - Rate limit: 10 requests a minute per key (per IP without one), a
- *   demonstration of the documented limit rather than abuse protection, with
- *   `RateLimit-Policy: 10;w=60` on every answer and `429` with
- *   `Retry-After: 60` past it. Needs the RATE_LIMITER binding; without it
- *   (local `wrangler dev`) nothing is limited.
+ * - Rate limits: 60 requests a minute per address, before anything else, and
+ *   10 a minute per key from one address, the limit the docs state (Try it
+ *   starts everyone on the same key). `RateLimit-Policy: 10;w=60` is on every
+ *   answer, and `429` with `Retry-After: 60` past either limit.
  * - CORS for the demo site and its previews, so direct sending works too.
  */
 import data from "./routes.json";
 
+interface RateLimit {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+}
+
 interface Env {
-  RATE_LIMITER?: { limit(options: { key: string }): Promise<{ success: boolean }> };
+  ADDRESS_LIMITER?: RateLimit;
+  KEY_LIMITER?: RateLimit;
 }
 
 interface Key {
@@ -73,6 +77,17 @@ function keyFrom(request: Request, url: URL, key: Key): string | undefined {
   return key.bearer ? /^Bearer (\S+)$/i.exec(value)?.[1] : value || undefined;
 }
 
+/** One bucket per IPv4 address or IPv6 /64, which a single caller can rotate within. */
+function caller(address: string | null): string {
+  if (!address) return "unknown";
+  if (!address.includes(":") || address.includes(".")) return address;
+  const [head = "", tail] = address.split("::");
+  const lead = head ? head.split(":") : [];
+  const rest = tail ? tail.split(":") : [];
+  const zeros = tail === undefined ? [] : Array<string>(8 - lead.length - rest.length).fill("0");
+  return [...lead, ...zeros, ...rest].slice(0, 4).join(":");
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -89,6 +104,11 @@ export default {
             }
           : {},
       });
+    }
+    const limited = (errors: Errors, message: string) => problem(request, errors, 429, "rate_limited", message, { "Retry-After": "60" });
+    const address = caller(request.headers.get("cf-connecting-ip"));
+    if (env.ADDRESS_LIMITER && !(await env.ADDRESS_LIMITER.limit({ key: address })).success) {
+      return limited(versions[0]?.errors ?? {}, "Too many requests from this address. Wait and try again.");
     }
     const version = versions.find((candidate) => url.pathname.startsWith(`${candidate.base}/`));
     if (!version) return problem(request, versions[0]?.errors ?? {}, 404, "not_found", `This sandbox serves ${NAMES}.`);
@@ -107,9 +127,8 @@ export default {
       const how = route.key.in === "query" ? `\`?${route.key.name}=<key>\`` : route.key.bearer ? "`Authorization: Bearer <key>`" : `\`${route.key.name}: <key>\``;
       if (!key) return problem(request, errors, 401, "missing_key", `Send ${how}. Any key works in this sandbox.`);
     }
-    if (env.RATE_LIMITER) {
-      const { success } = await env.RATE_LIMITER.limit({ key: key ?? request.headers.get("cf-connecting-ip") ?? "anonymous" });
-      if (!success) return problem(request, errors, 429, "rate_limited", "Over 10 requests a minute. Wait and try again.", { "Retry-After": "60" });
+    if (env.KEY_LIMITER && key && !(await env.KEY_LIMITER.limit({ key: `${address}|${key}` })).success) {
+      return limited(errors, "Over 10 requests a minute. Wait and try again.");
     }
     const missing = route.requiredQuery.filter((name) => !url.searchParams.has(name));
     if (missing.length) return problem(request, errors, 400, "invalid_request", `Missing required query parameter: ${missing.join(", ")}.`);
