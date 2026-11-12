@@ -7,14 +7,16 @@
   },
   "type": "module",
   "preferUnplugged": true,
-  "description": "Scaffold a new Nimbus docs site. Used via `npx @cloudflare/create-nimbus-docs@latest`.",
+  "description": "Creates a Nimbus docs site. Nimbus is a documentation framework for Astro: docs for humans and agents, in your repo.",
   "keywords": [
     "astro",
     "documentation",
     "docs",
     "scaffold",
     "create",
-    "nimbus"
+    "nimbus",
+    "docs-framework",
+    "ai-agents"
   ],
   "homepage": "https://nimbus-docs.com",
   "repository": {

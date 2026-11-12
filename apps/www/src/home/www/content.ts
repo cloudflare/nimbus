@@ -7,6 +7,8 @@ export const workflows = [
 ];
 
 export const faq: [string, string][] = [
+  ["What is Nimbus?", "Nimbus is a documentation framework for Astro: docs for humans and agents, in your repo. One command scaffolds a complete site you own, and every page ships as HTML for people and Markdown for agents, with an llms.txt index, an OpenAPI reference and an MCP server built in."],
+  ["Who makes Nimbus?", "Cloudflare. Nimbus is open source under the MIT licence, and its source is on GitHub."],
   ["Does it work with the Markdown I already have?", "Yes. Drop your pages in. Each page needs a title. The checks tell you what else is missing."],
   ["Do I need an agent to use it?", "No. Every feature works by hand. Agents are first-class authors, not required ones."],
   ["Which agents can author with it?", "Any that can read a file. Recipes are plain Markdown, checks are JSON, and the site index is a text file at a fixed address."],
@@ -14,6 +16,9 @@ export const faq: [string, string][] = [
   ["Is it free?", "MIT licensed, no hosted tier required. The registry is free too."],
 ];
 
+/** The homepage's `<title>`, also the title of its Markdown version. */
+export const title = "Nimbus · A documentation framework for Astro";
+
 /** The homepage's description, in its head and its Markdown version. */
 export const description =
-  "The authoring tool for docs. Write with your team and your agents, held to your standard, on a site you can customise completely.";
+  "Nimbus is a documentation framework for Astro: docs for humans and agents, in your repo. Write with your team and your agents, held to your standard, on a site you can customise completely.";

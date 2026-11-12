@@ -6,7 +6,7 @@
 import type { APIRoute } from "astro";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
 import { cmd, hero, sections } from "@/home/variants/copy";
-import { description, faq, workflows } from "@/home/www/content";
+import { description, faq, title, workflows } from "@/home/www/content";
 
 export const prerender = true;
 
@@ -14,7 +14,7 @@ export const GET: APIRoute = ({ site }) => {
   const url = (path: string) => new URL(withBase(path, import.meta.env.BASE_URL), site).href;
   const body = [
     "---",
-    `title: ${JSON.stringify(`${hero.line1}: ${hero.line2.toLowerCase()}`)}`,
+    `title: ${JSON.stringify(title)}`,
     `description: ${JSON.stringify(description)}`,
     "---",
     "",
@@ -24,7 +24,7 @@ export const GET: APIRoute = ({ site }) => {
     "",
     `# ${hero.line1}`,
     "",
-    `${hero.line2}. Write with your team. And your agents. Every page up to your standard.`,
+    description,
     "",
     "```sh",
     cmd,
@@ -39,7 +39,7 @@ export const GET: APIRoute = ({ site }) => {
     ...workflows.flatMap((w) => [`### ${w.label}: ${w.title}`, "", ...w.items.map((item) => `- ${item}`), ""]),
     "### Every author follows the same rules.",
     "",
-    `\`nimbus-docs lint\` holds an agent's draft to your writing rules, and \`--fix\` makes the fixes. See [Linting](${url("/writing/linting")}).`,
+    `\`nimbus-docs lint\` holds an agent's draft to your writing rules, and \`--fix\` makes the fixes. See [Linting](${url("/writing/linting/")}).`,
     "",
     "## Make it look like your product.",
     "",
@@ -64,7 +64,7 @@ export const GET: APIRoute = ({ site }) => {
     "npx @cloudflare/nimbus-docs add changelog --print",
     "```",
     "",
-    `Browse them at [Components](${url("/components")}).`,
+    `Browse them at [Components](${url("/components/")}).`,
     "",
     "## Questions",
     "",
@@ -79,11 +79,17 @@ export const GET: APIRoute = ({ site }) => {
     "",
     "## Links",
     "",
-    `- [Get started](${url("/quickstart")})`,
-    `- [Components](${url("/components")})`,
-    `- [CLI](${url("/cli")})`,
-    `- [Philosophy](${url("/why-nimbus")})`,
-    `- [Docs for agents](${url("/ai/docs-for-agents")})`,
+    `- [Get started](${url("/quickstart/")})`,
+    `- [API reference from OpenAPI](${url("/api-reference/")})`,
+    `- [Versioned documentation](${url("/navigation/versioning/")})`,
+    `- [Deploy to Cloudflare](${url("/deploy/cloudflare/")})`,
+    `- [Upgrade a Nimbus site](${url("/publish/upgrading/")})`,
+    `- [CLI](${url("/cli/")})`,
+    `- [Philosophy](${url("/why-nimbus/")})`,
+    `- [Documentation for AI agents](${url("/ai/")})`,
+    `- [Documentation linting](${url("/writing/linting/")})`,
+    `- [Components](${url("/components/")})`,
+    `- [Registry](${url("/registry/")})`,
     `- [llms.txt](${url("/llms.txt")})`,
     "- [GitHub](https://github.com/cloudflare/nimbus)",
     "- [npm](https://www.npmjs.com/package/@cloudflare/nimbus-docs)",

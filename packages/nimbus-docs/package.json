@@ -6,13 +6,18 @@
 		"access": "public"
 	},
 	"type": "module",
-	"description": "Docs, for humans and agents",
+	"description": "Nimbus is a documentation framework for Astro: docs for humans and agents, in your repo.",
 	"keywords": [
 		"astro",
 		"documentation",
 		"docs",
 		"mdx",
-		"static-site"
+		"static-site",
+		"docs-framework",
+		"openapi",
+		"api-reference",
+		"llms-txt",
+		"ai-agents"
 	],
 	"homepage": "https://nimbus-docs.com",
 	"repository": {

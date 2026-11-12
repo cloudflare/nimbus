@@ -10,7 +10,7 @@ import redirects from "./redirects.json" with { type: "json" };
 const nimbusConfig = defineNimbusConfig({
   site: "https://nimbus-docs.com",
   title: "Nimbus",
-  description: "Docs for the agentic web.",
+  description: "Nimbus is a documentation framework for Astro: docs for humans and agents, in your repo.",
   locale: "en",
   github: "https://github.com/cloudflare/nimbus",
   socialImageAlt: "Nimbus documentation preview",
