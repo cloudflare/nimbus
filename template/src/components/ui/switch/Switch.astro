@@ -1,0 +1,79 @@
+---
+/**
+ * Switch — an on/off control. A `role="switch"` button whose `aria-checked`
+ * holds the state: a click flips it and fires a bubbling `change` event, and a
+ * script that owns the state can set `aria-checked` itself. Slotted content is
+ * the label, after the track and inside the same button, so clicking the label
+ * flips the switch too.
+ */
+import { cn } from "@/lib/cn";
+import { variants } from "@/lib/variants";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"button"> {
+  /** Whether the switch starts on. */
+  checked?: boolean;
+  size?: "sm" | "base" | "lg";
+}
+
+const { checked = false, size, class: className, ...attrs } = Astro.props;
+
+// A squircle where the browser draws one, a rounded rectangle elsewhere.
+const shape = "rounded-[5px] supports-[corner-shape:squircle]:rounded-[10px] [corner-shape:squircle]";
+
+const track = variants({
+  base: cn(
+    "relative inline-flex shrink-0 ring transition-colors duration-150 ease-out motion-reduce:transition-none",
+    "bg-neutral-200 ring-neutral-300 dark:bg-neutral-700 dark:ring-neutral-600",
+    "group-aria-checked:bg-blue-500 group-aria-checked:ring-blue-600 dark:group-aria-checked:bg-blue-600 dark:group-aria-checked:ring-blue-500",
+    shape,
+  ),
+  variants: {
+    size: {
+      sm: "h-4 w-8",
+      base: "h-4.5 w-9",
+      lg: "h-5 w-10",
+    },
+  },
+  defaults: { size: "base" },
+});
+
+const thumb = variants({
+  base: cn(
+    "absolute inset-y-0 start-0 bg-white dark:bg-[oklch(24%_0_0)] dark:group-aria-checked:bg-blue-300",
+    "shadow-[0_0_1px_0.5px_oklch(0%_0_0/0.12),0_1px_2px_oklch(0%_0_0/0.08)] dark:shadow-[0_0_1px_0.5px_oklch(100%_0_0/0.1),0_1px_2px_oklch(0%_0_0/0.3)]",
+    "transition-[inset-inline-start] duration-150 ease-out motion-reduce:transition-none",
+    shape,
+  ),
+  variants: {
+    size: {
+      sm: "w-4 group-aria-checked:start-4",
+      base: "w-4.5 group-aria-checked:start-4.5",
+      lg: "w-5 group-aria-checked:start-5",
+    },
+  },
+  defaults: { size: "base" },
+});
+---
+
+<button
+  type="button"
+  role="switch"
+  aria-checked={checked}
+  data-slot="switch"
+  data-nb-switch
+  class={cn(
+    "group inline-flex cursor-pointer items-center gap-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(57.72%_0.2324_260)] disabled:cursor-not-allowed disabled:opacity-50",
+    className,
+  )}
+  {...attrs}
+>
+  <span class={track({ size })} aria-hidden="true">
+    <span class={thumb({ size })}></span>
+  </span>
+  <slot />
+</button>
+
+<script>
+  import "./switch.client";
+</script>

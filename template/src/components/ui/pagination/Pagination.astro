@@ -23,7 +23,10 @@ interface Props extends HTMLAttributes<"nav"> {
   prevLabel?: string;
   /** Caption above the next page's title. */
   nextLabel?: string;
-  /** `[` and `]` move between pages while focus is in the bar. */
+  /** The previous/next keys (`[` and `]` by default, from `src/lib/shortcuts.ts`).
+   *  A bar built from `prevNext` answers them anywhere on the page while the
+   *  reader has single-key shortcuts on; a composed bar, while focus is in it.
+   *  `false` turns a bar's keys off. */
   keys?: boolean;
 }
 
@@ -46,6 +49,7 @@ const next = composed ? undefined : prevNext?.next;
       data-nb-pagination
       data-slot="pagination-bar"
       data-keys={keys ? undefined : "false"}
+      data-nb-page-nav={!composed && keys ? "" : undefined}
       class="nb-pagination-bar group/pager relative flex min-h-14 items-stretch rounded-full border border-border bg-card p-1 shadow-sm"
     >
       <span

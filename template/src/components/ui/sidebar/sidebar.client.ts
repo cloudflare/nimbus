@@ -6,7 +6,8 @@
  * attribute, so a link row is any `li > a` and a group any `details`.
  */
 
-import { mount } from "@cloudflare/nimbus-docs/client";
+import { mount, onShortcut, syncShortcutHints } from "@cloudflare/nimbus-docs/client";
+import { shortcuts } from "@/lib/shortcuts";
 
 const STORAGE_KEY = "sidebar-state";
 
@@ -48,6 +49,8 @@ function initFilter(root: HTMLElement): (() => void) | null {
   const inputElement =
     input ?? root.parentElement?.querySelector<HTMLInputElement>("[data-nb-sidebar-filter-input]") ?? null;
   if (!inputElement) return null;
+  // Its key's hint and `aria-keyshortcuts` follow the platform and the reader.
+  syncShortcutHints(inputElement.parentElement ?? inputElement);
 
   function handleInput() {
     const query = inputElement!.value.trim().toLowerCase();
@@ -111,6 +114,8 @@ function applyFilter(root: HTMLElement, query: string): void {
     if (!text.includes(query)) return;
     group.removeAttribute("data-nb-sidebar-hidden");
     openGroup(group);
+    // A matching group inside one that doesn't match shows its parents too.
+    revealAncestors(group, root);
     group.querySelectorAll<HTMLElement>("li > a, details")
       .forEach((child) => child.removeAttribute("data-nb-sidebar-hidden"));
   });
@@ -228,24 +233,14 @@ function initPersistence(root: HTMLElement): (() => void) | null {
 }
 
 // ---------------------------------------------------------------------------
-// Global `/` shortcut — bound once at module load
+// The filter's shortcut (`/` by default, from src/lib/shortcuts.ts) — bound once
 // ---------------------------------------------------------------------------
 
 (function bindFilterShortcut() {
   if (document.documentElement.hasAttribute("data-nb-sidebar-shortcut-bound")) return;
   document.documentElement.setAttribute("data-nb-sidebar-shortcut-bound", "");
 
-  document.addEventListener("keydown", (e) => {
-    if (e.key !== "/") return;
-    const active = document.activeElement as HTMLElement | null;
-    if (
-      active &&
-      (active.tagName === "INPUT" ||
-        active.tagName === "TEXTAREA" ||
-        active.isContentEditable)
-    ) {
-      return;
-    }
+  onShortcut(shortcuts.filterSidebar, (e) => {
     // One tree per page now: the filter input travels with it between the
     // rail and the drawer, so take the first visible input.
     const input = Array.from(

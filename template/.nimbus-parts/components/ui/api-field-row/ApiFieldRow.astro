@@ -1,6 +1,6 @@
 ---
 import ApiUnionExplorer from "./ApiUnionExplorer.astro";
-import { typeTokens, constraintPairs, isExpandable, countLabel, unionTitle } from "./type-display";
+import { typeTokens, constraintPairs, isExpandable, contentsLabel, unionTitle, allowedValues } from "./type-display";
 import type { ApiFieldView } from "@cloudflare/nimbus-docs/api";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
 import "./field-list.css";
@@ -8,22 +8,27 @@ import "./field-list.css";
 interface Props {
   field: ApiFieldView;
   depth?: number;
+  /** Show the field's example: set on parameter rows. */
+  showExample?: boolean;
 }
 
-const { field, depth = 0 } = Astro.props;
+const { field, depth = 0, showExample = false } = Astro.props;
 
 const AUTO_OPEN_DEPTH = 1;
 const expandable = isExpandable(field);
 const startOpen = AUTO_OPEN_DEPTH >= depth;
 const toks = typeTokens(field);
 const constraints = constraintPairs(field.constraints);
+const allowed = allowedValues(field.enum);
 const omitted = field.childCount - field.children.length;
 const detail = (v: unknown): string => JSON.stringify(v);
-// Constraints and default share one line, in that order. Field examples are not
-// shown: the code rail's request and response examples already carry them.
+// Constraints, default and example share one line, in that order. Body field
+// examples aren't shown: the code rail's request and response examples carry
+// them. Parameter rows show theirs, since samples leave optional ones out.
 const meta = [
   ...constraints,
   ...(field.default !== undefined ? [{ name: "default", value: detail(field.default) }] : []),
+  ...(showExample && field.example !== undefined ? [{ name: "example", value: detail(field.example) }] : []),
 ];
 
 const linkSvg = `<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
@@ -70,7 +75,7 @@ const linkSvg = `<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a
             {field.required && <div class="fl-required">required</div>}
             {expandable && (
               <button type="button" class="fl-count" data-fl-toggle data-pagefind-ignore aria-expanded={startOpen ? "true" : "false"}>
-                <span class="fl-count-brace" aria-hidden="true">{"{"}</span><span class="fl-count-text">{field.union ? countLabel(field.union.variants.length, "variant") : countLabel(field.childCount, "property")}</span><span class="fl-count-brace" aria-hidden="true">{"}"}</span>
+                <span class="fl-count-brace" aria-hidden="true">{"{"}</span><span class="fl-count-text">{contentsLabel(field.childCount, field.union)}</span><span class="fl-count-brace" aria-hidden="true">{"}"}</span>
               </button>
             )}
           </div>
@@ -79,6 +84,10 @@ const linkSvg = `<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a
 
       {field.descriptionHtml && (
         <div class="fl-desc" set:html={field.descriptionHtml} />
+      )}
+
+      {allowed && (
+        <div class="fl-constraints">Allowed values: <span class="fl-constraint-value">{allowed}</span></div>
       )}
 
       {meta.length > 0 && (
@@ -93,9 +102,8 @@ const linkSvg = `<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a
         <details class="fl-expandable" open={startOpen}>
           {/* Toggled by the { n properties } button on the signature line. */}
           <summary class="fl-expand-trigger"></summary>
-          {field.union ? (
-            <ApiUnionExplorer union={field.union} depth={depth} nested />
-          ) : (
+          {/* Fields beside a union come first; the options add to them. */}
+          {(field.children.length > 0 || field.truncated) && (
             <ul class="fl-list fl-children">
               {field.children.map((child) => (
                 <Astro.self field={child} depth={depth + 1} />
@@ -104,6 +112,9 @@ const linkSvg = `<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a
                 <li class="fl-truncated">… {omitted} more field(s) omitted</li>
               )}
             </ul>
+          )}
+          {field.union && (
+            <ApiUnionExplorer union={field.union} depth={depth} nested afterFields={field.children.length > 0} />
           )}
           <span class="fl-fold-close" aria-hidden="true" data-pagefind-ignore>{"}"}</span>
         </details>

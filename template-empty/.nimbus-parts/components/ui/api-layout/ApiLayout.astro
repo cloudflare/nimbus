@@ -7,16 +7,14 @@
  * tokens (`--nb-sidebar-width`, `--nb-content-max`, `--nb-code-rail-width`).
  */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
-import { ApiSidebar } from "@/components/ui/api-sidebar";
-import ApiMethodChip from "@/components/ui/api-sidebar/ApiMethodChip.astro";
-import { SidebarFilter, SidebarLink } from "@/components/ui/sidebar";
+import { ApiSidebarPanel } from "@/components/ui/api-sidebar";
 import { ApiCodeRail } from "@/components/ui/api-code-rail";
 import { Banner } from "@/components/ui/banner";
 import { Pagination } from "@/components/ui/pagination";
 import ApiBody from "./ApiBody.astro";
 import { TOC } from "@/components/ui/toc";
 import { cn } from "@/lib/cn";
-import { getApiVersionHead, getVersionStatus, navBuildId, navStateScript, withBase } from "@cloudflare/nimbus-docs/runtime";
+import { getApiVersionHead, getVersionStatus, withBase } from "@cloudflare/nimbus-docs/runtime";
 import type { ApiNav, ApiPageProps } from "@cloudflare/nimbus-docs/api";
 import type { TOCItem } from "@cloudflare/nimbus-docs/types";
 import type { ApiHome } from "@cloudflare/nimbus-docs/runtime";
@@ -36,9 +34,6 @@ interface Props {
 
 const { page, nav, collection, version, coordinate, home } = Astro.props;
 const homePart = home && home.part.number > 1;
-// Sidebar state is shared per API version, across both sidebar copies. The
-// base keeps two sites on one origin apart.
-const navKey = `${import.meta.env.BASE_URL}|${nav.collection}${version ? `@${version}` : ""}`;
 
 const versionStatus =
   collection && version
@@ -51,12 +46,18 @@ const currentSiblingUrl =
     : null;
 const currentSiblingHref = withBase(currentSiblingUrl ?? "/", import.meta.env.BASE_URL);
 
-// The rail column is reserved ONLY when it has content — a request sample or a
-// response example (mirrors ApiCodeRail's own gate). A bodyless GET with no
+// The rail column is reserved ONLY when it has content — a request sample, a
+// response example or Try it (mirrors ApiCodeRail's own gate). A bodyless GET with no
 // samples otherwise pins an empty sticky column at the page's right edge.
-// "On this page" for the API home: its tag groups and their sections. A link
-// to a part that hasn't loaded yet loads the list up to it.
-const tocHeadings: TOCItem[] =
+// "On this page" for the API home: its tag groups and their sections. A
+// heading in a later part links to that part's page, so the link works without
+// script; with script, the home loads the list up to it in place.
+const partHref = (slug: string): string | undefined => {
+  const number = home?.anchorParts[slug];
+  const part = number && number > 1 ? home!.parts[number - 1] : undefined;
+  return part ? `${withBase(part.href, import.meta.env.BASE_URL)}#${slug}` : undefined;
+};
+const homeHeadings: TOCItem[] =
   page.kind === "api" && !homePart
     ? [
         ...page.index.groups.flatMap((group) => [
@@ -67,10 +68,19 @@ const tocHeadings: TOCItem[] =
         ...(page.index.webhooks.length > 0 ? [{ depth: 2, text: "Webhooks", slug: "webhooks" }] : []),
       ]
     : [];
+// A heading no part renders (an empty tag group) would be a dead link.
+const tocHeadings: TOCItem[] = homeHeadings
+  .filter((h) => !home || Object.hasOwn(home.anchorParts, h.slug))
+  .map((h) => {
+    const href = partHref(h.slug);
+    return href ? { ...h, href } : h;
+  });
 
+// Try it, when the route passes the panel in and the page's API has it on.
+const hasTryIt = page.kind === "operation" && page.tryIt !== undefined && Astro.slots.has("try-it");
 const hasRail =
   page.kind === "operation" &&
-  (page.samples.length > 0 || page.responses.some((r) => r.example !== undefined));
+  (page.samples.length > 0 || page.responses.some((r) => r.example !== undefined) || hasTryIt);
 
 const pagefindAttrs: Record<string, string> = {};
 const pagefindDeprecated = !versionStatus?.isHidden && Boolean(versionStatus?.isDeprecated);
@@ -114,60 +124,34 @@ if (versionStatus?.isHidden || homePart) {
   </div>
 </dialog>
 
-<div class="flex w-full">
-  {/* The rail keeps its open groups and scroll across pages: the inline script
-      below restores them before paint, and `initNavSidebar` records them. It is
-      excluded from the page transition so it never fades or replays. */}
-  <aside
-    aria-label="Sidebar"
-    transition:name="nb-api-sidebar"
-    transition:animate="none"
-    class="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 flex-col border-e border-border bg-background md:flex lg:w-(--nb-sidebar-width)"
-  >
-    <div
-      data-nb-api-tree
-      data-nb-nav-state={navKey}
-      data-nb-nav-build={navBuildId}
-      data-nb-nav-scroller="nav"
-      class="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-    >
-      {/* A full tree filters in place, as the docs sidebar does. An on-demand
-          tree holds only part of the API, so its filter searches the
-          version's page list instead (`api-nav-filter.client`). */}
-      <div class="px-4 pb-12 pt-5" data-nb-sidebar={nav.listHref ? undefined : ""}>
-        <SidebarFilter data-nb-nav-list={nav.listHref && withBase(nav.listHref, import.meta.env.BASE_URL)} />
-        {nav.listHref && (
-          <>
-            <p data-nb-nav-status role="status" class="px-3 pb-2 text-xs text-muted-foreground empty:p-0"></p>
-            <ul data-nb-nav-results hidden class="flex list-none flex-col gap-0.5 p-0"></ul>
-            <template data-nb-nav-result>
-              <li>
-                <SidebarLink label="" href="/">
-                  <ApiMethodChip slot="leading" method="GET" display="label" />
-                </SidebarLink>
-              </li>
-            </template>
-          </>
-        )}
-        <ApiSidebar items={nav.items} />
-      </div>
-    </div>
-    <div class="pointer-events-none sticky bottom-0 h-8 bg-gradient-to-t from-background to-transparent"></div>
-  </aside>
-  {/* Inline and unbundled (`aria-hidden` keeps Astro from hoisting it) so it
-      runs before the page paints and before the disclosures mount. */}
-  <script is:inline aria-hidden="true" set:html={navStateScript} />
-
+{/* The page's content comes first in source order, so agents and text
+    readers reach it before the navigation. From md up a grid places the rail
+    in the first column: its tracks are set before either child arrives, so a
+    streamed body never reflows sideways when the rail is parsed. */}
+<div class="w-full md:grid md:grid-cols-[15rem_minmax(0,1fr)] lg:grid-cols-[var(--nb-sidebar-width)_minmax(0,1fr)]">
   {/* Reserve both desktop tracks before the streamed body/rail HTML arrives.
       Flex only reserves the rail's width once its later sibling is parsed,
       making long API bodies reflow sideways during navigation. */}
   <div data-api-layout class={cn(
-    "flex min-w-0 flex-1 flex-col",
+    "flex min-w-0 flex-1 flex-col md:col-start-2 md:row-start-1",
     !hasRail && tocHeadings.length > 0 && "xl:flex-row",
-    hasRail && "min-[90rem]:grid min-[90rem]:grid-cols-[minmax(0,1fr)_29rem] 2xl:grid-cols-[minmax(0,1fr)_var(--nb-code-rail-width)]",
+    hasRail && "min-[90rem]:grid min-[90rem]:justify-center min-[90rem]:[--nb-content-max:40rem] min-[90rem]:grid-cols-[minmax(0,var(--nb-content-max))_29rem] 2xl:grid-cols-[minmax(0,var(--nb-content-max))_var(--nb-code-rail-width)]",
   )}>
-    <main id="main-content" tabindex="-1" class="min-w-0 flex-1" {...pagefindAttrs}>
-      <div class="mx-auto max-w-(--nb-content-max) px-4 md:px-8 2xl:px-16 pt-8 pb-12">
+    {/* With a rail, the request sample is rendered right after the page header
+        (ApiBody's `sample` slot): on one column it reads title → endpoint →
+        actions → description → sample → fields. From 90rem the body and its
+        padding box become a subgrid of this grid (a 40rem text column and the
+        rail, centred): the header and body stack in the text column and the
+        same sample element sits beside them from the top, sticky. */}
+    <main id="main-content" tabindex="-1" class={cn("min-w-0 flex-1", hasRail && "min-[90rem]:col-span-2 min-[90rem]:grid min-[90rem]:grid-cols-subgrid")} {...pagefindAttrs}>
+      <div class={cn(
+        "mx-auto max-w-(--nb-content-max) px-4 md:px-8 2xl:px-16 pt-8 pb-12",
+        hasRail && [
+          "min-[90rem]:col-span-2 min-[90rem]:grid min-[90rem]:grid-cols-subgrid min-[90rem]:content-start min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:px-0 2xl:px-0 min-[90rem]:pb-0",
+          // Everything but the rail and previous/next stacks in the text column.
+          "min-[90rem]:[&>:not([data-api-place])]:col-start-1 min-[90rem]:[&>:not([data-api-place])]:px-8",
+        ],
+      )}>
         {pagefindDeprecated && <span hidden data-pagefind-filter="status:deprecated"></span>}
         {versionStatus?.isDeprecated && (
           <div data-pagefind-ignore>
@@ -178,50 +162,59 @@ if (versionStatus?.isHidden || homePart) {
             />
           </div>
         )}
-        <ApiBody page={page} home={home} />
+        <ApiBody page={page} home={home}>
+          {hasRail && (
+            <div slot="sample" data-api-place="rail" data-pagefind-ignore class="mt-8 min-[90rem]:col-start-2 min-[90rem]:row-span-12 min-[90rem]:row-start-1 min-[90rem]:-mt-8 min-[90rem]:self-start min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:h-[calc(100vh-3.5rem)] min-[90rem]:w-[29rem] min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1 2xl:w-(--nb-code-rail-width)">
+              <ApiCodeRail
+                responses={page.responses}
+                samples={page.samples}
+                title={page.title}
+                method={page.method}
+                coordinate={page.coordinate}
+              >
+                {hasTryIt && <slot name="try-it" slot="try-it" />}
+              </ApiCodeRail>
+            </div>
+          )}
+        </ApiBody>
         {nav.prevNext && !hasRail && <Pagination prevNext={nav.prevNext} data-pagefind-ignore />}
+        {/* With a rail, previous/next comes after the body. From 90rem it takes
+            the grid's last row (13, after the rail's rows 1 to 12; a rail
+            taller than the remaining page can still reach over it while pinned,
+            as before) from the body text's left edge (the body's padding
+            plus its centring inset in the first column) to the rail card's right
+            edge. */}
+        {hasRail && (
+          <div data-api-place="pager" class="min-[90rem]:col-span-2 min-[90rem]:col-start-1 min-[90rem]:row-start-13 min-[90rem]:self-end min-[90rem]:pb-12 min-[90rem]:pe-6 min-[90rem]:ps-[calc(max(0px,(100%-29rem-var(--nb-content-max))/2)+2rem)] 2xl:ps-[calc(max(0px,(100%-var(--nb-code-rail-width)-var(--nb-content-max))/2)+2rem)]">
+            {nav.prevNext && <Pagination prevNext={nav.prevNext} data-pagefind-ignore />}
+          </div>
+        )}
       </div>
     </main>
 
-    {/* Below 90rem the rail reflows inline beneath the body (samples are unique
-        content, so unlike the TOC they stay in the no-JS HTML for crawlability);
-        at 90rem+ it becomes the sticky right column. The left padding keeps overflow-y-auto
-        from clipping the LayerCard's outset ring at the scroll edge. */}
     {!hasRail && tocHeadings.length > 0 && (
       <aside aria-label="On this page" data-nb-toc-scroll-host class="hidden xl:block w-(--nb-toc-width) shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
         <div class="pt-8 pb-8 ps-8 pe-6"><TOC headings={tocHeadings} /></div>
       </aside>
     )}
 
-    {hasRail && (
-      <div class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 md:px-8 min-[90rem]:col-start-2 min-[90rem]:row-span-2 min-[90rem]:row-start-1 min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:h-[calc(100vh-3.5rem)] min-[90rem]:w-[29rem] min-[90rem]:shrink-0 min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1 2xl:w-(--nb-code-rail-width)">
-        <ApiCodeRail
-          responses={page.responses}
-          samples={page.samples}
-          title={page.title}
-          method={page.method}
-          coordinate={page.coordinate}
-        />
-      </div>
-    )}
-
-    {/* With a rail, previous/next sits after it, so on narrow screens the
-        samples come before it; from 90rem it returns under the body. */}
-    {hasRail && nav.prevNext && (
-      <div class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 -mt-12 md:px-8 2xl:px-16 min-[90rem]:col-start-1 min-[90rem]:row-start-2">
-        <Pagination prevNext={nav.prevNext} data-pagefind-ignore />
-      </div>
-    )}
   </div>
+  {/* The rail keeps its open groups and scroll across pages: the inline script
+      below restores them before paint, and `initNavSidebar` records them. It is
+      excluded from the page transition so it never fades or replays. */}
+  <aside
+    aria-label="Sidebar"
+    transition:name="nb-api-sidebar"
+    transition:animate="none"
+    class="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 flex-col border-e border-border bg-background md:col-start-1 md:row-start-1 md:flex lg:w-(--nb-sidebar-width)"
+  >
+    <ApiSidebarPanel nav={nav} version={version} />
+  </aside>
 </div>
 
 
 <script>
-  import { mount, lockScroll, unlockScroll, generateId, initNavSidebar } from "@cloudflare/nimbus-docs/client";
-  import "@/components/ui/sidebar/sidebar.client";
-  import "@/components/ui/api-sidebar/api-nav-filter.client";
-
-  mount("[data-nb-nav-state]", initNavSidebar);
+  import { mount, lockScroll, unlockScroll, generateId } from "@cloudflare/nimbus-docs/client";
 
   const CLOSE_DURATION_MS = 250;
   const DESKTOP_QUERY = "(min-width: 48rem)";
