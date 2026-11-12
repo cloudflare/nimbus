@@ -19,7 +19,7 @@
   "dependencies": {
     "@astrojs/cloudflare": "~14.4.2",
     "@astrojs/markdown-satteri": "^0.4.5",
-    "@astrojs/react": "^6.0.6",
+    "@astrojs/react": "^7.1.5",
     "@astrojs/rss": "^4.0.19",
     "@cloudflare/nimbus-docs": "workspace:*",
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
