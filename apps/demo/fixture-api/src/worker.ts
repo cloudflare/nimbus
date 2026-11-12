@@ -3,9 +3,9 @@
  * Sample Co weather API (/v1, /v2, /v3-preview), answering each operation with
  * its documented response, so Try it can be used for real. Writes store nothing.
  *
- * - Auth: any `wx_test_` key (the demo's test keys), sent the way that
- *   version's spec says: `?key=` for v1, a bearer token for v2 and v3-preview.
- *   Anything else gets the spec's 401 envelope.
+ * - Auth: any non-empty key, sent the way that version's spec says: `?key=`
+ *   for v1, a bearer token for v2 and v3-preview. No key gets the spec's 401
+ *   envelope.
  * - Rate limit: 10 requests a minute per key (per IP without one), a
  *   demonstration of the documented limit rather than abuse protection, with
  *   `RateLimit-Policy: 10;w=60` on every answer and `429` with
@@ -105,8 +105,7 @@ export default {
     const key = route.key ? keyFrom(request, url, route.key) : undefined;
     if (route.key) {
       const how = route.key.in === "query" ? `\`?${route.key.name}=<key>\`` : route.key.bearer ? "`Authorization: Bearer <key>`" : `\`${route.key.name}: <key>\``;
-      if (!key) return problem(request, errors, 401, "missing_key", `Send ${how} with a test key (wx_test_…).`);
-      if (!key.startsWith("wx_test_")) return problem(request, errors, 401, "invalid_key", "This sandbox takes test keys only (wx_test_…).");
+      if (!key) return problem(request, errors, 401, "missing_key", `Send ${how}. Any key works in this sandbox.`);
     }
     if (env.RATE_LIMITER) {
       const { success } = await env.RATE_LIMITER.limit({ key: key ?? request.headers.get("cf-connecting-ip") ?? "anonymous" });

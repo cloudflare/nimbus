@@ -1359,7 +1359,7 @@
   border-radius: 8px;
   padding: 0.5rem 0.5rem 0.5rem 0.75rem;
   background: color-mix(in oklab, var(--color-danger) 8%, var(--nb-card));
-  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-danger) 22%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-danger) 22%, transparent);
 }
 .nb-tid-authnote .nb-tid-notice {
   font-size: 0.8125rem;

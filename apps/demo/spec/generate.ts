@@ -101,7 +101,7 @@ function build(v: Version): Record<string, unknown> {
     // its documented responses, so Try it and the code samples start on a host
     // that answers.
     servers: [
-      { url: `https://api.demo.nimbus-docs.com/${slug}`, description: "Sandbox: test keys, fixed data" },
+      { url: `https://api.demo.nimbus-docs.com/${slug}`, description: "Sandbox: any key, fixed data" },
       { url: `https://api.weather.example/${slug}` },
     ],
     security: [v === 1 ? { apiKey: [] } : { bearer: [] }],
