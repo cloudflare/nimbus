@@ -32,7 +32,7 @@
     "node": "^22.23.4 || ^24.15.0 || >=26.0.0"
   },
   "devDependencies": {
-    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/changelog-github": "^1.0.1",
     "@changesets/cli": "^2.31.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "1.65.0",

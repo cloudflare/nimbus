@@ -73,17 +73,14 @@ export default defineConfig({
     plugins: [tailwindcss()],
     // Dedupe React across the module graph. In dev, Vite serves modules
     // individually and a separate React instance can sneak in via
-    // pre-bundled deps (framer-motion, @astrojs/react renderer, our card
+    // pre-bundled deps (the @astrojs/react renderer, our card
     // components) — surfaces as "Invalid hook call" in the SSR log. Forcing
     // single resolution fixes it.
     resolve: {
       dedupe: ["react", "react-dom"],
     },
     optimizeDeps: {
-      include: ["react", "react-dom", "react-dom/client", "framer-motion"],
-    },
-    ssr: {
-      noExternal: ["framer-motion"],
+      include: ["react", "react-dom", "react-dom/client"],
     },
   },
 });
