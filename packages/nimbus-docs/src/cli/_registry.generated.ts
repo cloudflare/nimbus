@@ -368,12 +368,6 @@ export const BUNDLED_INDEX: BundledIndex = {
       "title": "Recipe: Tutorial",
       "description": "Scaffold a lesson — numbered parts that build one real project, teacher-owned, every stage producing a visible result."
     },
-    "import-site": {
-      "name": "import-site",
-      "type": "registry:feature",
-      "title": "Move an existing docs site to Nimbus",
-      "description": "Brings the pages, frontmatter, sidebar order, components and redirects of an existing docs site into a freshly scaffolded Nimbus site, and reports everything it could not map. Run it inside the new Nimbus site."
-    },
     "lint-prose-textlint": {
       "name": "lint-prose-textlint",
       "type": "registry:feature",
@@ -385,6 +379,12 @@ export const BUNDLED_INDEX: BundledIndex = {
       "type": "registry:feature",
       "title": "Mermaid diagrams",
       "description": "Add lazy-loaded, theme-aware Mermaid.js diagram rendering with a skeleton loading state, safe color fallbacks, and a full-screen expand dialog."
+    },
+    "migrate": {
+      "name": "migrate",
+      "type": "registry:feature",
+      "title": "Migrate a docs site to Nimbus",
+      "description": "Moves an existing docs site into a freshly scaffolded Nimbus site: pages, frontmatter, navigation, components, reusable snippets, an OpenAPI reference and redirects, with every URL kept and a report of everything it could not carry over. Run it inside the new Nimbus site."
     },
     "new-collection": {
       "name": "new-collection",

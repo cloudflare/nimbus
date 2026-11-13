@@ -1,0 +1,92 @@
+---
+title: Migrate to Nimbus
+description: Move an existing docs site to Nimbus with every URL kept: pages, frontmatter, navigation, components, reusable snippets, an OpenAPI reference and redirects, with a coding agent or by hand.
+audience: human
+sidebar:
+  order: 0.25
+  label: Migrate to Nimbus
+---
+
+If you already have a docs site, most of it moves as it is: Markdown is Markdown, and the rest is a mapping. Every page keeps its URL. A coding agent can do the whole migration with one recipe; by hand it is seven steps.
+
+## What moves
+
+| From the old site | In Nimbus |
+|---|---|
+| Pages, as Markdown or MDX | `src/content/docs/`, at the paths that keep their URLs |
+| A navigation file, or a sidebar list in the old config | `sidebar.items` in `astro.config.ts`, same groups and order ([Sidebar](/navigation/sidebar)) |
+| Navigation from folders, with an order in frontmatter | Folders and `sidebar.order`, as before |
+| Navigation labels, hidden pages, badges | `sidebar.label`, `sidebar.hidden`, `sidebar.badge` ([Frontmatter](/reference/frontmatter)) |
+| Callouts, tabs, steps, cards, accordions, code groups, framed images, file trees | The starter's `Aside`, `Tabs`, `Steps` and `Card`, plus registry components ([Registry](/registry)) |
+| Reusable snippets | Partials, included with `<Render>` ([Reusable snippets](/writing/reusable-snippets)) |
+| API pages generated from an OpenAPI file | The [API reference](/api-reference), from the same file |
+| Old URLs that changed | `redirects` in `astro.config.ts` ([Redirects](/navigation/redirects)) |
+| Images and files | `public/`, same paths |
+| Custom CSS and theme colors | Not translated. The theme is yours to edit in `src/styles/globals.css` ([Theme and tokens](/styling/theme-and-tokens)) |
+
+Pages in other languages stay out for now; the agent's report lists them.
+
+## What Nimbus does differently
+
+- **Components are yours.** The scaffolder copies them into your repo; there is no theme to configure or fork ([Ownership](/styling/how-customization-works)).
+- **Every page has a Markdown twin and a line in `llms.txt`.** Agents read your site without a plugin ([Markdown and llms.txt](/ai/publish-markdown)).
+- **Search is built in.** There is no search provider or key to carry over ([Search](/navigation/search)).
+- **Frontmatter is validated.** An unknown key fails the build instead of being ignored, so the migration surfaces every field it dropped.
+
+## With a coding agent
+
+Scaffold a Nimbus site beside the old one, then hand your agent the recipe. It reads the old site as data, writes only into the new one, and ends with a report of everything it could not carry over.
+
+<PackageManagers type="create" pkg="@cloudflare/nimbus-docs@latest" args="my-docs --yes --content empty" />
+
+```sh
+cd my-docs
+```
+
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="exec" args="add migrate" />
+
+`add` prints the recipe for the agent it detects, or pipe it yourself with `--print`. The recipe is also at [registry/features/migrate.md](https://nimbus-docs.com/registry/features/migrate.md), for an agent that can read a URL.
+
+The recipe never runs the old site's scripts and copies no secrets. It carries only same-origin redirects, safe URLs and known asset types, and lists raw HTML, embeds and code instead of copying them.
+
+## By hand
+
+<Steps>
+  <Step title="Scaffold a site">
+    <PackageManagers type="create" pkg="@cloudflare/nimbus-docs@latest" args="my-docs --yes --content empty" />
+
+    ```sh
+    cd my-docs
+    ```
+  </Step>
+  <Step title="Copy the pages">
+    Copy your Markdown and MDX files into `src/content/docs/` at the paths that give them their old URLs: `guides/install.mdx` serves `/guides/install/`.
+  </Step>
+  <Step title="Rewrite frontmatter">
+    Every page needs a `title`. Map navigation fields to `sidebar.order`, `sidebar.label` and `sidebar.hidden`, drafts to `draft: true`, and remove keys Nimbus doesn't know ([Frontmatter](/reference/frontmatter)). The build tells you which.
+  </Step>
+  <Step title="Rebuild the navigation">
+    If your old site listed its navigation in a file, write the same groups as `sidebar.items`, pages by slug ([Arrange the sidebar by hand](/navigation/sidebar#arrange-the-sidebar-by-hand)). If it followed your folders, there is nothing to do.
+  </Step>
+  <Step title="Map components and snippets">
+    Callouts become `:::tip` directives or `<Aside>`; tabs, steps and cards become `<Tabs>`, `<Steps>` and `<Card>` ([Markdown and MDX](/writing/markdown-and-mdx)). Install anything else you use from the registry with `nimbus-docs add`. Move snippets to `src/content/partials/` and include them with `<Render>`.
+  </Step>
+  <Step title="Carry the API reference and redirects">
+    Point the [API reference](/api-reference) at your OpenAPI file. Add every old path that changed to `redirects` in `astro.config.ts` ([Redirects](/navigation/redirects)).
+  </Step>
+  <Step title="Check, build, check again">
+    <PackageManagers pkg="@cloudflare/nimbus-docs" type="exec" args="check" />
+
+    <PackageManagers pkg="build" type="run" />
+
+    <PackageManagers pkg="@cloudflare/nimbus-docs" type="exec" args="check" />
+
+    The first `check` reports frontmatter and content errors; the second, with the build's route list on disk, reports broken internal links.
+  </Step>
+</Steps>
+
+## Next steps
+
+- [Project structure](/project-structure): what the scaffolder wrote and what each file does.
+- [Branding](/styling/branding): logo, colours and fonts.
+- [Deployment](/deploy): put the site online.
