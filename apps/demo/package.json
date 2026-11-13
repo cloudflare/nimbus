@@ -38,6 +38,7 @@
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
+    "@emnapi/runtime": "1.11.3",
     "@astrojs/check": "^0.9.12",
     "@tailwindcss/vite": "^4.3.5",
     "@types/react": "^19.3.0",
