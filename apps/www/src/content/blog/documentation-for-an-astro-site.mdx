@@ -1,0 +1,37 @@
+---
+title: "A documentation framework for an Astro site: search, versions and an OpenAPI reference"
+description: Add a documentation framework to an Astro site with search, versioned docs and an OpenAPI reference, as a site of its own or under a path.
+date: 2026-11-13
+---
+
+Nimbus is a documentation framework built on Astro, so an Astro team keeps its tools: components, content collections and the same build. It ships search, versioned docs and an OpenAPI reference, and runs either as a docs site of its own or under a path of your existing domain.
+
+## Two ways to add it
+
+**A docs site of its own**, such as `docs.example.com`. Scaffold a Nimbus site in its own folder or repository. It's an Astro project, so your team already knows how it builds and deploys.
+
+**Under a path of your site**, such as `example.com/docs/`. Set Astro's `base` to `/docs`, and every page, Markdown version and `llms.txt` moves under it ([Serve under a path](/deploy/base-path)).
+
+Pick the first when the docs have their own release rhythm, the second when they should share your domain.
+
+## Search
+
+Search is on by default. After every build, Nimbus indexes the pages into a static index served beside them, so it works on any host with no backend ([Search](/navigation/search)).
+
+## Versions
+
+Each docs version is its own content collection under its own path: the current docs stay at `/`, and an older version lives at `/v1/`. The `new-version` recipe copies the content, registers the collection and adds a version picker ([Versioned documentation](/navigation/versioning)).
+
+## An OpenAPI reference
+
+Point Nimbus at an OpenAPI 3.x document and it builds one page per operation, tag and webhook, with code samples and an optional Try it panel ([API reference from OpenAPI](/api-reference)).
+
+## It stays yours
+
+The layouts and components are copied into your repo, so you style them like the rest of your Astro code. The framework stays a dependency, and `nimbus-docs migrate` tells you what each upgrade needs ([Upgrade a Nimbus site](/publish/upgrading)).
+
+## Try it
+
+Scaffold a site, then open it with `npm run dev`:
+
+<PackageManagers type="create" pkg="@cloudflare/nimbus-docs@latest" args="my-docs" />

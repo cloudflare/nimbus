@@ -23,6 +23,18 @@ export const collections = {
     }),
   ),
   partials: defineCollection(partialsCollection()),
+  // /blog/: dated posts, pages like the docs, so each has its Markdown, an
+  // llms.txt line and search. `date` and `author` reach the Markdown too.
+  blog: defineCollection(
+    docsCollection({
+      base: "blog",
+      schemaFields: {
+        date: z.coerce.date().optional(),
+        author: z.string().default("The Nimbus team"),
+      },
+      markdownFields: ["date", "author"],
+    }),
+  ),
   // The tagline is each component's description, so its Markdown, llms.txt
   // and MCP carry it as docs pages carry theirs.
   components: defineCollection({

@@ -1,0 +1,59 @@
+---
+title: How to choose an open source documentation site generator in 2026
+description: Six questions to ask before you choose an open source documentation site generator in 2026, from who owns the files to what agents can read.
+date: 2026-11-13
+---
+
+Choose the generator whose answers to six questions fit your project: who owns the files, what it publishes for agents, how an API spec becomes pages, how versions and upgrades work, what search costs to run, and where it deploys. Score any tool against the list below; Nimbus is the worked example.
+
+## 1. Who owns the files?
+
+Some tools keep layouts and components inside a theme you configure. Others put them in your repository, where you edit them like any other code.
+
+Owning the files makes customizing simple and upgrades a question you answer yourself. Ask what an upgrade touches, and whether you can see it in a diff.
+
+**Nimbus:** the scaffolder copies the layouts, components and styles into your repo. The framework stays a dependency underneath, so an upgrade changes the dependency and leaves your files alone ([Ownership](/styling/how-customization-works)).
+
+## 2. What does it publish for agents?
+
+Coding agents now read docs as often as people do. They work best with plain Markdown, an index to start from, and a way to fetch one page at a time.
+
+Ask whether every page has a Markdown version, whether there's an `llms.txt` index, and whether agents can connect over MCP.
+
+**Nimbus:** every page has a Markdown version at `<page>/index.md`, the site has an `llms.txt` index and per-section indexes, and `agents: { mcp: true }` serves an MCP server at `/mcp` ([Documentation for AI agents](/ai)).
+
+## 3. How does an API spec become pages?
+
+If you publish an API, the reference shouldn't be a separate site with a separate look.
+
+Ask whether the tool reads your OpenAPI document directly, gives each operation its own page, and generates code samples and a way to send a request.
+
+**Nimbus:** it turns an OpenAPI 3.x document into one page per operation, tag and webhook, with samples in cURL, TypeScript and Python and an optional Try it panel ([API reference from OpenAPI](/api-reference)).
+
+## 4. How do versions and upgrades work?
+
+Versions matter once your product has a second major release. Upgrades matter from week one.
+
+Ask how an old version stays readable, and how the tool tells you what a new release needs from you.
+
+**Nimbus:** each docs version is its own collection under its own path, with a version picker ([Versioned documentation](/navigation/versioning)). `nimbus-docs migrate` lists the steps a version jump needs, and records what you reviewed ([Upgrade a Nimbus site](/publish/upgrading)).
+
+## 5. What does search cost to run?
+
+Search either needs a service or ships as files. A service can do more; files cost nothing to host and work offline.
+
+**Nimbus:** search is on by default and builds a static index after every build, so it works on any host with no backend ([Search](/navigation/search)).
+
+## 6. Where can it deploy?
+
+Ask whether you're tied to one host, and whether the site can live under a path on an existing domain.
+
+**Nimbus:** Cloudflare is the default the scaffolder sets up. Netlify, Vercel, Node and any static host work too, and a site can be served under a path such as `example.com/docs/` ([Deployment](/deploy)).
+
+## Try it
+
+Scaffold a site, then open it with `npm run dev`:
+
+<PackageManagers type="create" pkg="@cloudflare/nimbus-docs@latest" args="my-docs" />
+
+Already have docs somewhere else? [Move an existing docs site to Nimbus](/import-site).
