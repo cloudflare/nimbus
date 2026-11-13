@@ -368,6 +368,12 @@ export const BUNDLED_INDEX: BundledIndex = {
       "title": "Recipe: Tutorial",
       "description": "Scaffold a lesson — numbered parts that build one real project, teacher-owned, every stage producing a visible result."
     },
+    "import-site": {
+      "name": "import-site",
+      "type": "registry:feature",
+      "title": "Move an existing docs site to Nimbus",
+      "description": "Brings the pages, frontmatter, sidebar order, components and redirects of an existing docs site into a freshly scaffolded Nimbus site, and reports everything it could not map. Run it inside the new Nimbus site."
+    },
     "lint-prose-textlint": {
       "name": "lint-prose-textlint",
       "type": "registry:feature",

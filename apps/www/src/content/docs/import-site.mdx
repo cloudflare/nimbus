@@ -1,0 +1,83 @@
+---
+title: Move an existing docs site to Nimbus
+description: Bring the pages, frontmatter, sidebar order, components and redirects of an existing docs site into a Nimbus site, with a coding agent or by hand.
+audience: human
+sidebar:
+  order: 0.25
+  label: Move your docs here
+---
+
+If you already have a docs site, most of it moves as it is: Markdown is Markdown, and the rest is a mapping. A coding agent can do the whole move with one recipe; by hand it is six steps.
+
+## What moves
+
+| From the old site | In Nimbus |
+|---|---|
+| Pages, as Markdown or MDX | `src/content/docs/`, same folders. Folders are the sidebar, so the structure carries over |
+| A navigation position, label or hidden flag in frontmatter | `sidebar.order`, `sidebar.label`, `sidebar.hidden` ([Frontmatter](/reference/frontmatter)) |
+| Callouts, tabs, steps, cards, titled code blocks | The starter's `Aside`, `Tabs`, `Steps`, `Card` and fenced code meta; file trees and code groups install from the [registry](/registry) |
+| Old URLs | `redirects` in `astro.config.ts` ([Redirects](/navigation/redirects)) |
+| Images and files under `public/` | `public/`, same paths |
+| Custom CSS | Not translated. The theme is yours to edit in `src/styles/globals.css` ([Theme and tokens](/styling/theme-and-tokens)) |
+
+## What Nimbus does differently
+
+- **Folders are the sidebar.** There is no navigation file to maintain; each folder's `index.mdx` names its group and `sidebar.order` sorts pages ([Sidebar](/navigation/sidebar)).
+- **Every page has a Markdown twin and a line in `llms.txt`.** Agents read your site without any plugin ([Markdown and llms.txt](/ai/publish-markdown)).
+- **Components are yours.** The scaffolder copies them into your repo; there is no theme to configure or fork ([Ownership](/styling/how-customization-works)).
+- **Frontmatter is validated.** An unknown key fails the build instead of being ignored, so the move surfaces every field it dropped.
+
+## With a coding agent
+
+Scaffold a Nimbus site beside the old one, then hand your agent the recipe. It reads the old site, writes only into the new one, and ends with a report of everything it could not map.
+
+<PackageManagers type="create" pkg="@cloudflare/nimbus-docs@latest" args="my-docs --yes --content empty" />
+
+```sh
+cd my-docs
+```
+
+<PackageManagers pkg="@cloudflare/nimbus-docs" type="exec" args="add import-site" />
+
+`add` prints the recipe for the agent it detects, or pipe it yourself with `--print`. The recipe is also at [registry/features/import-site.md](https://nimbus-docs.com/registry/features/import-site.md), for an agent that can read a URL.
+
+The recipe treats the old site as data: it never runs its scripts, copies no secrets, carries only same-origin redirects and safe URLs, copies only known asset types, and lists raw HTML, embeds and code instead of copying them.
+
+## By hand
+
+<Steps>
+  <Step title="Scaffold a site">
+    <PackageManagers type="create" pkg="@cloudflare/nimbus-docs@latest" args="my-docs --yes --content empty" />
+
+    ```sh
+    cd my-docs
+    ```
+  </Step>
+  <Step title="Copy the pages">
+    Copy your Markdown and MDX files into `src/content/docs/`, keeping their folders. Give each folder an `index.mdx` with a `title` if it doesn't have one.
+  </Step>
+  <Step title="Rewrite frontmatter">
+    Every page needs a `title`. Map navigation fields to `sidebar.order` and `sidebar.label`, drafts to `draft: true`, and remove keys Nimbus doesn't know ([Frontmatter](/reference/frontmatter)). The build tells you which.
+  </Step>
+  <Step title="Map components">
+    Callouts become `:::tip` directives or `<Aside>`; tabs, steps and cards become `<Tabs>`, `<Steps>` and `<Card>` ([Markdown and MDX](/writing/markdown-and-mdx)). Install anything else you use from the registry with `nimbus-docs add`.
+  </Step>
+  <Step title="Carry the redirects">
+    Add old paths that changed to `redirects` in `astro.config.ts` ([Redirects](/navigation/redirects)).
+  </Step>
+  <Step title="Check, build, check again">
+    <PackageManagers pkg="@cloudflare/nimbus-docs" type="exec" args="check" />
+
+    <PackageManagers pkg="build" type="run" />
+
+    <PackageManagers pkg="@cloudflare/nimbus-docs" type="exec" args="check" />
+
+    The first `check` reports frontmatter and content errors; the second, with the build's route list on disk, reports broken internal links.
+  </Step>
+</Steps>
+
+## Next steps
+
+- [Project structure](/project-structure): what the scaffolder wrote and what each file does.
+- [Branding](/styling/branding): logo, colours and fonts.
+- [Deployment](/deploy): put the site online.
