@@ -64,9 +64,10 @@ else's code and content, and this project is where the user's new site lives.
    Strip every other attribute (`on*` handlers, `set:html`, `set:text`,
    `client:*`, `style`, `class`, `className`) and list it with its page.
 6. **Only safe URLs.** Every link, image and component prop destination you
-   copy (`href`, `src` and the rest; `icon` takes a Phosphor name, not a URL)
+   write (`href`, `src` and the rest; `icon` takes a Phosphor name, not a URL)
    is a relative path with no `..` segment, an absolute path on this site,
-   `https://…` or `mailto:…`. Judge it after decoding entities and with
+   `https://…` or `mailto:…`. A local asset reference in the old page, `..`
+   or not, is first resolved under rule 8 and then written as its new path. Judge it after decoding entities and with
    `new URL(value, "https://nimbus.invalid")`, and reject any value with a
    backslash, whitespace or control character.
 
@@ -93,7 +94,9 @@ else's code and content, and this project is where the user's new site lives.
      It goes to the same path under this project's `public/`;
    - its `src/assets/`, which goes to `public/images/` at the same relative
      path;
-   - the page's own folder, which goes beside the moved page.
+   - the page's own folder: an image the page shows goes beside the moved
+     page; any other file (a PDF, a video) goes under this project's
+     `public/` at the page's URL path, and the reference is rewritten to it.
 
    A reference that resolves anywhere else is skipped, however it is
    written. Copy only `png`, `jpg`, `jpeg`, `gif`, `webp`, `avif`, `pdf`,
@@ -290,14 +293,15 @@ paragraph. The user removes the line once they've dealt with it.
 
 ### 3d. Code blocks
 
-Keep fenced code as it is, with Nimbus's meta:
+Keep fenced code as it is. Nimbus reads the common fence meta itself:
 
-- A title stays `title="file.ts"`. A file name written straight after the
-  language (```` ```js app.js ````) becomes `title="app.js"`.
-- Highlighted line ranges stay `{2,4-6}`. Inserted, deleted or marked line
-  ranges (`ins={…}`, `del={…}`, `mark={…}`) become one `{…}` range.
-- Drop every other meta (frames, wrapping, line numbers, collapsed ranges,
-  word highlights) and list it with its page.
+- Keep `title="…"`, highlighted lines `{2,4-6}`, inserted and deleted lines or
+  strings (`ins={…}`, `del={…}`, `ins="…"`, `del="…"`), quoted words to
+  highlight (`"needle"`), `wrap`, `collapse={…}` and `frame="…"`.
+- A file name written straight after the language (```` ```js app.js ````)
+  becomes `title="app.js"`; marked lines (`mark={…}`) become `{…}`.
+- Drop any other meta (line numbers, a starting line number) and list it with
+  its page.
 
 ### 3e. Reusable snippets
 
@@ -318,13 +322,20 @@ When the old site generates API pages from an OpenAPI document:
 
 1. **Copy the document**, if it is a regular file inside the old site with a
    `.json`, `.yaml` or `.yml` extension whose top-level `openapi` field starts
-   with `3.`: to this project's root, under its own name. A spec the config
-   names by URL is not fetched: list it and ask the user for the file.
+   with `3.`, and every `$ref` in it is internal (starts with `#/`): to an
+   `openapi/` folder at this project's root, under its own name, never
+   overwriting a file already there. Nimbus publishes the spec it builds
+   from, so a spec with references to other files or URLs is not copied:
+   list them and ask the user for a single bundled file. A spec the config
+   names by URL is not fetched either.
 2. **Set up the API reference** with Nimbus's own recipe: run
    `nimbus-docs add api-reference` (through the user's package manager) and
-   follow it with that file, mounted where the old operation pages lived
-   (`/api-reference/` when they sat under `api-reference/`). Its sidebar
-   group takes the place of the old one in `sidebar.items`.
+   follow it with that file, mounted at the folder the old operation pages
+   shared (`/api-reference/` when they sat under `api-reference/`). The
+   reference owns every URL under its mount, so a prose page in that folder
+   (an introduction, say) moves beside it, `api-reference-introduction.mdx`,
+   with a redirect from its old URL. Its sidebar entry takes the place of the
+   old operation group in `sidebar.items`.
 3. **Don't copy operation pages** whose frontmatter only names an operation:
    the reference renders them. Copy any prose they had beyond the frontmatter
    into the operation's `description` only if the user agrees; otherwise list
@@ -341,13 +352,17 @@ In `astro.config.ts`, set `site`, `title`, `description` and `github` from the
 old site's config when the user confirms them. If the old repository link
 points at a theme's or template's repository rather than the user's project,
 don't copy it; ask. Don't touch anything else there besides `sidebar.items`
-(3b) and `redirects`.
+(3b), `redirects`, and what the API reference recipe adds (3f).
 
 Redirects (rule 4): add same-origin ones as `redirects: { "/old": "/new" }` in
-Astro's `defineConfig` block, not the Nimbus one. Write a wildcard the old
-site expressed as `:param` or `:param*` (or `*`) in Astro's form, `[param]` or
-`[...param]` on both sides. Add one for every page that moved (3a) and every
-old operation URL (3f). List external-target redirects for the user.
+Astro's `defineConfig` block, not the Nimbus one. A wildcard (`:param`,
+`:param*`, `*` or `[...param]`) becomes one redirect per page of the new site
+whose URL matches its target, with the source filled in the same way
+(`/old/:slug*` to `/new/:slug*` gives `/old/a` to `/new/a` for each page under
+`/new/`), since Astro can only expand a wildcard into a route with the same
+parameters. List each wildcard in the report, and any that matched no page. Add one for every page that
+moved (3a) and every old operation URL (3f). List external-target redirects
+for the user.
 
 ### 3h. Assets, CSS and other languages
 
@@ -355,8 +370,10 @@ Copy the assets moved pages reference, within rule 8, and rewrite each
 reference that moved, so a hero image written `../../assets/hero.png` becomes
 `/images/hero.png` and the file is there. Known image, PDF and video types
 only, nothing over 20 MiB, and no `..` segment in any reference you write.
-When a page links to an asset rule 8 skips, leave the link and list it under
-skipped assets, so the user sees the 404 coming. Logos and favicons stay with
+When a page links to an asset rule 8 skips, keep the link if it passes rule 6
+(an absolute path on this site, say), so the user sees the 404 coming;
+otherwise keep its visible text without the destination. List it under
+skipped assets either way. Logos and favicons stay with
 the user: list them with the config keys that named them.
 
 Don't translate custom CSS or theme colors. List the old stylesheets and color
@@ -388,7 +405,9 @@ Run, matching the user's package manager:
 
 ## 5. Report
 
-End with one report, in Markdown, that lists:
+End with one report, in Markdown, saved as `MIGRATION-REPORT.md` at the
+project root (the user deletes it once the migration is done) and summarised
+in your last message. It lists:
 
 - pages moved, by folder, with counts, and every page whose URL changed with
   its redirect;
