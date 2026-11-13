@@ -14,7 +14,7 @@ export async function GET() {
     title: `${config.title} blog`,
     description: "Posts on writing and publishing documentation for people and coding agents.",
     site: url("/blog/"),
-    xmlns: { atom: "http://www.w3.org/2005/Atom" },
+    xmlns: { atom: "http://www.w3.org/2005/Atom", dc: "http://purl.org/dc/elements/1.1/" },
     customData:
       `<language>${config.locale ?? "en"}</language>` +
       `<atom:link href="${url("/blog/rss.xml")}" rel="self" type="application/rss+xml"/>`,
@@ -23,6 +23,12 @@ export async function GET() {
       description: post.data.description,
       link: url(`/blog/${post.id}/`),
       pubDate: post.data.date,
+      // RSS's own <author> takes an email address; Dublin Core takes a name.
+      customData: `<dc:creator>${escapeXml(post.data.author)}</dc:creator>`,
     })),
   });
+}
+
+function escapeXml(text: string): string {
+  return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }

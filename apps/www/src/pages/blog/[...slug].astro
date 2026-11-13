@@ -8,7 +8,7 @@ import { getCollection, type CollectionEntry } from "astro:content";
 import DocsLayout from "@/layouts/DocsLayout.astro";
 import { components } from "../../components";
 import { breadcrumbListJsonLd } from "@/lib/breadcrumb-json-ld";
-import { blogPostingJsonLd, postDate } from "@/lib/blog";
+import { authorMeta, authorProfiles, blogPostingJsonLd, postDate } from "@/lib/blog";
 import { getCollectionPage, getSidebar, getTOC, withBase } from "@cloudflare/nimbus-docs/runtime";
 
 const page = await getCollectionPage(Astro, "blog");
@@ -43,7 +43,9 @@ const head = [
   ...entry.data.head,
   ...breadcrumbListJsonLd(breadcrumbs, Astro.site, import.meta.env.BASE_URL, path),
   ...(isIndex ? [] : blogPostingJsonLd(entry, Astro.site, import.meta.env.BASE_URL, socialImage)),
+  ...(isIndex ? [] : authorMeta(entry.data.author)),
 ];
+const author = authorProfiles(entry.data.author);
 const toc = isIndex ? false : getTOC(headings, entry.data.tableOfContents === false ? undefined : entry.data.tableOfContents);
 const href = (to: string) => withBase(to, import.meta.env.BASE_URL);
 ---
@@ -67,6 +69,12 @@ const href = (to: string) => withBase(to, import.meta.env.BASE_URL);
   {!isIndex && entry.data.date && (
     <p class="text-sm text-muted-foreground">
       <time datetime={entry.data.date.toISOString().slice(0, 10)}>{postDate(entry.data.date)}</time> · {entry.data.author}
+      {author && (
+        <>
+          {" · "}<a href={author.x} rel="author" class="underline underline-offset-2 hover:text-foreground">{author.handle}</a>
+          {" · "}<a href={author.linkedin} rel="author" class="underline underline-offset-2 hover:text-foreground">LinkedIn</a>
+        </>
+      )}
     </p>
   )}
   <Content components={components} />

@@ -30,7 +30,7 @@ export const collections = {
       base: "blog",
       schemaFields: {
         date: z.coerce.date().optional(),
-        author: z.string().default("The Nimbus team"),
+        author: z.string().default("Mohamed Hassan"),
       },
       markdownFields: ["date", "author"],
     }),
