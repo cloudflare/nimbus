@@ -9,6 +9,7 @@ import {
   publishedByThisRun,
   publishInOrder,
   publishTarball,
+  RegistryVisibilityTimeout,
   waitForPublished,
 } from "./release.mjs";
 
@@ -117,6 +118,49 @@ test("publishTarball distinguishes a reconciled failure from a successful publis
     },
   });
   assert.equal(successful, true);
+});
+
+test("publishTarball continues when npm accepted the publish but the registry is slow to show it", async () => {
+  const slow = async () => {
+    throw new RegistryVisibilityTimeout("pkg@1.2.3 did not become visible on npm within 900000ms (last state: absent)");
+  };
+  const logs = [];
+  const original = console.log;
+  console.log = (line) => logs.push(line);
+  try {
+    const published = await publishTarball("/pkg", { name: "pkg", version: "1.2.3" }, "/pkg.tgz", {
+      spawn: () => ({ status: 0 }),
+      expectedIntegrity: "sha512-expected",
+      wait: slow,
+    });
+    assert.equal(published, true);
+  } finally {
+    console.log = original;
+  }
+  assert.ok(logs.some((line) => /WARN — pkg@1\.2\.3 did not become visible/.test(line)), logs.join("\n"));
+});
+
+test("publishTarball still fails when the registry is slow after a failed publish, or shows other bytes", async () => {
+  await assert.rejects(
+    publishTarball("/pkg", { name: "pkg", version: "1.2.3" }, "/pkg.tgz", {
+      spawn: () => ({ status: 1 }),
+      expectedIntegrity: "sha512-expected",
+      wait: async () => {
+        throw new RegistryVisibilityTimeout("pkg@1.2.3 did not become visible");
+      },
+    }),
+    /did not become visible/,
+  );
+  await assert.rejects(
+    publishTarball("/pkg", { name: "pkg", version: "1.2.3" }, "/pkg.tgz", {
+      spawn: () => ({ status: 0 }),
+      expectedIntegrity: "sha512-expected",
+      wait: async () => {
+        throw new Error("pkg@1.2.3 is on npm with integrity sha512-other, expected sha512-expected");
+      },
+    }),
+    /is on npm with integrity sha512-other/,
+  );
 });
 
 test("Nimbus visibility is required before CLI publication", async () => {
