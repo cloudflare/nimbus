@@ -181,25 +181,28 @@ test("packs select own record keys and oversized assets do not enter cache", asy
   assert.equal(limited.stats.entries, 0);
 });
 
-test("pending read admission is bounded while duplicate requests still coalesce", async () => {
-  let release!: (value: string) => void;
+// Lets a waiting request wake, look again and start its own read.
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+test("a request for a file being read waits and reads nothing; waiters past the bound are refused", async () => {
+  const releases: Array<(value: string) => void> = [];
   const reader = createPageAssetReader({
+    maxConcurrentReads: 1,
     maxPendingReads: 1,
-    readAsset: () =>
-      new Promise((resolve) => {
-        release = resolve;
-      }),
+    readAsset: () => new Promise((resolve) => releases.push(resolve)),
   });
   const first = reader.readIndex("index-aa.json");
   const duplicate = reader.readIndex("index-aa.json");
+  await settle();
+  assert.deepEqual([reader.stats.active, reader.stats.queued], [1, 1]);
   await assert.rejects(reader.readIndex("index-bb.json"), /reader is busy/);
-  await Promise.resolve();
-  release(JSON.stringify(fixture()));
+  releases.shift()!(JSON.stringify(fixture()));
   assert.equal(await first, await duplicate);
-  assert.equal(reader.stats.pending, 0);
+  assert.equal(releases.length, 0, "the duplicate read nothing");
+  assert.deepEqual([reader.stats.active, reader.stats.queued], [0, 0]);
 });
 
-test("read queue bounds transient loads and clear prevents pending results repopulating the cache", async () => {
+test("reads past the limit wait their turn, and clear keeps a read in progress out of the cache", async () => {
   const releases: Array<(value: string) => void> = [];
   const reader = createPageAssetReader({
     maxConcurrentReads: 1,
@@ -207,19 +210,61 @@ test("read queue bounds transient loads and clear prevents pending results repop
   });
   const first = reader.readIndex("index-aa.json");
   const second = reader.readIndex("index-bb.json");
-  await Promise.resolve();
-  assert.equal(reader.stats.active, 1);
-  assert.equal(reader.stats.queued, 1);
+  await settle();
+  assert.deepEqual([reader.stats.active, reader.stats.queued], [1, 1]);
   assert.equal(releases.length, 1);
   reader.clear();
   releases.shift()!(JSON.stringify(fixture()));
   await first;
-  await Promise.resolve();
-  assert.equal(releases.length, 1);
+  await settle();
+  assert.equal(releases.length, 1, "the waiting read started once the first finished");
   releases.shift()!(JSON.stringify(fixture()));
   await second;
-  assert.equal(reader.stats.entries, 0);
+  assert.equal(reader.stats.entries, 1, "only the read started after clear is cached");
   assert.equal(reader.stats.active, 0);
+});
+
+test("requests waiting for a file the cache can't hold share one read of it", async () => {
+  let reads = 0;
+  let finish!: () => void;
+  const body = JSON.stringify(fixture());
+  const reader = createPageAssetReader({
+    cacheBudgetBytes: 0,
+    readAsset: () => {
+      reads++;
+      return new Promise((resolve) => (finish = () => resolve(body)));
+    },
+  });
+  const all = Promise.all(Array.from({ length: 8 }, () => reader.readIndex("index-aa.json")));
+  await settle();
+  finish();
+  const indexes = await all;
+  assert.equal(reads, 1);
+  assert.equal(new Set(indexes).size, 1);
+  assert.equal(reader.stats.entries, 0);
+});
+
+test("a read that outlives its lease leaves the cache to the read that replaced it", async (t) => {
+  let now = 0;
+  t.mock.method(Date, "now", () => now);
+  const finishes: Array<() => void> = [];
+  const body = JSON.stringify(fixture());
+  const reader = createPageAssetReader({
+    maxConcurrentReads: 1,
+    readAsset: () => new Promise((resolve) => finishes.push(() => resolve(body))),
+  });
+  const late = reader.readIndex("index-aa.json");
+  now = 60_000;
+  const replacement = reader.readIndex("index-aa.json");
+  await settle();
+  assert.equal(finishes.length, 2);
+  finishes[1]!();
+  await replacement;
+  const bytes = reader.stats.pools.index.bytes;
+  finishes[0]!();
+  await late;
+  assert.equal(reader.stats.pools.index.bytes, bytes);
+  assert.equal(reader.stats.entries, 1);
 });
 
 test("asset byte limit counts multibyte and astral Unicode without allocating an encoding buffer", async () => {
