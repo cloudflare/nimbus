@@ -31,7 +31,8 @@ export const getStaticPaths: GetStaticPaths = async () => {
   });
   // Blog posts share the docs' card, under "Blog", at the URL their pages name.
   const posts = (await getCollection("blog", (e) => !e.data.draft)).map((entry) => ({
-    params: { slug: `blog/${entry.id}.png` },
+    // The blog's own page is /blog, so its card is /og/blog.png.
+    params: { slug: entry.id === "index" ? "blog.png" : `blog/${entry.id}.png` },
     props: { section: "Blog", title: entry.data.title } satisfies OgProps,
   }));
   return [...docs, ...posts];

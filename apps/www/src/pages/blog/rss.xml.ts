@@ -23,7 +23,6 @@ export async function GET() {
       description: post.data.description,
       link: url(`/blog/${post.id}/`),
       pubDate: post.data.date,
-      author: post.data.author,
     })),
   });
 }
