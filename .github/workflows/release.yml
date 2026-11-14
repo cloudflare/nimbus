@@ -66,7 +66,8 @@ jobs:
     needs: verify-release
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Each package waits up to 15 minutes for npm to show it (release.mjs).
+    timeout-minutes: 45
     environment: release
     outputs:
       published: ${{ steps.publish.outputs.published }}
@@ -279,7 +280,7 @@ jobs:
     needs: build-www
     if: ${{ !cancelled() && needs.build-www.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     environment: cloudflare
     permissions:
       contents: read
@@ -307,13 +308,24 @@ jobs:
         working-directory: apps/www
         run: |
           set -o pipefail
+          # npm can take minutes to show a release it accepted, so an older
+          # `latest` is waited for; a newer one is never replaced.
           for pkg in nimbus-docs create-nimbus-docs; do
             expected=$(jq -r .version "../../packages/$pkg/package.json")
-            latest=$(npm view "@cloudflare/$pkg" dist-tags.latest --json | jq -er '.')
-            if [ "$expected" != "$latest" ]; then
-              echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is $latest. Refusing to replace the newer site."
-              exit 1
-            fi
+            for attempt in $(seq 1 30); do
+              # A failed lookup is npm not there yet, not a reason to stop.
+              latest=$(npm view "@cloudflare/$pkg" dist-tags.latest --json | jq -er '.') || latest=""
+              [ "$expected" = "$latest" ] && break
+              if [ "$(printf '%s\n%s\n' "$expected" "$latest" | sort -V | tail -n 1)" = "$latest" ]; then
+                echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is $latest. Refusing to replace the newer site."
+                exit 1
+              fi
+              if [ "$attempt" = 30 ]; then
+                echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is still ${latest:-unavailable} after 15 minutes."
+                exit 1
+              fi
+              sleep 30
+            done
           done
           if [ -d dist/server ]; then
             # The checked-in config sits where the build's would, so `main` and
@@ -404,7 +416,7 @@ jobs:
     needs: [build-www, build-demo-weather]
     if: ${{ !cancelled() && needs.build-demo-weather.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     environment: cloudflare
     permissions:
       contents: read
@@ -457,14 +469,24 @@ jobs:
         working-directory: apps/demo
         run: |
           set -o pipefail
-          # A rerun of an older release must not replace a newer demo.
+          # A rerun of an older release must not replace a newer demo; an
+          # older `latest` is npm still catching up, and is waited for.
           for pkg in nimbus-docs create-nimbus-docs; do
             expected=$(jq -r .version "../../packages/$pkg/package.json")
-            latest=$(npm view "@cloudflare/$pkg" dist-tags.latest --json | jq -er '.')
-            if [ "$expected" != "$latest" ]; then
-              echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is $latest. Refusing to replace the newer demo."
-              exit 1
-            fi
+            for attempt in $(seq 1 30); do
+              # A failed lookup is npm not there yet, not a reason to stop.
+              latest=$(npm view "@cloudflare/$pkg" dist-tags.latest --json | jq -er '.') || latest=""
+              [ "$expected" = "$latest" ] && break
+              if [ "$(printf '%s\n%s\n' "$expected" "$latest" | sort -V | tail -n 1)" = "$latest" ]; then
+                echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is $latest. Refusing to replace the newer demo."
+                exit 1
+              fi
+              if [ "$attempt" = 30 ]; then
+                echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is still ${latest:-unavailable} after 15 minutes."
+                exit 1
+              fi
+              sleep 30
+            done
           done
           # The sandbox API that Try it sends to, first, so a new demo never
           # points at an older one. A release from before it existed has none.
