@@ -380,6 +380,12 @@ export const BUNDLED_INDEX: BundledIndex = {
       "title": "Mermaid diagrams",
       "description": "Add lazy-loaded, theme-aware Mermaid.js diagram rendering with a skeleton loading state, safe color fallbacks, and a full-screen expand dialog."
     },
+    "migrate": {
+      "name": "migrate",
+      "type": "registry:feature",
+      "title": "Migrate a docs site to Nimbus",
+      "description": "Moves an existing docs site into a freshly scaffolded Nimbus site: pages, frontmatter, navigation, components, reusable snippets, an OpenAPI reference and redirects, with every URL kept and a report of everything it could not carry over. Run it inside the new Nimbus site."
+    },
     "new-collection": {
       "name": "new-collection",
       "type": "registry:feature",
