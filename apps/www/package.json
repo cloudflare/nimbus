@@ -28,7 +28,7 @@
     "@iconify-json/ph": "^1.2.2",
     "@modelcontextprotocol/server": "^2.3.0",
     "@resvg/resvg-js": "^2.6.2",
-    "astro": "7.4.2",
+    "astro": "7.4.7",
     "clsx": "^2.1.1",
     "framer-motion": "^13.5.1",
     "hast-util-from-html": "^2.0.3",
