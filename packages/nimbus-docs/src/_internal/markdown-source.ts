@@ -1,4 +1,4 @@
-import { markdownToMdast, mdxToMdast } from "satteri";
+import { markdownToMdast, mdxToMdast, type MdastNode } from "satteri";
 
 import { sourceFeatures } from "./markdown-features.js";
 
@@ -6,7 +6,7 @@ import { sourceFeatures } from "./markdown-features.js";
 export function parseMarkdownSource(
   source: string,
   format: "markdown" | "mdx" = "mdx",
-): ReturnType<typeof mdxToMdast> {
+): Extract<MdastNode, { type: "root" }> {
   const features = sourceFeatures();
   return format === "markdown"
     ? markdownToMdast(source, { features })

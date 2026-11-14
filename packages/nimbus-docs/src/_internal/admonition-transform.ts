@@ -35,7 +35,7 @@ export function parseAdmonitions(
   let originals = new Map<string, MdastNode>();
   const key = (node: MdastNode) =>
     `${node.position?.start.offset}:${node.position?.end.offset}`;
-  function nativeParse(): ReturnType<typeof mdxToMdast> {
+  function nativeParse(): Extract<MdastNode, { type: "root" }> {
     const ordinary = parse(source, false);
     protectedRanges = [];
     originals = new Map();
@@ -154,7 +154,7 @@ export function parseAdmonitions(
           );
       return value;
     }
-    return restore(result) as ReturnType<typeof mdxToMdast>;
+    return restore(result) as Extract<MdastNode, { type: "root" }>;
   }
   // The installed native directive parser drops CR-only bodies. Keep these
   // files literal until upstream supports standalone CR consistently.
