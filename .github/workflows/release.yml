@@ -313,14 +313,15 @@ jobs:
           for pkg in nimbus-docs create-nimbus-docs; do
             expected=$(jq -r .version "../../packages/$pkg/package.json")
             for attempt in $(seq 1 30); do
-              latest=$(npm view "@cloudflare/$pkg" dist-tags.latest --json | jq -er '.')
+              # A failed lookup is npm not there yet, not a reason to stop.
+              latest=$(npm view "@cloudflare/$pkg" dist-tags.latest --json | jq -er '.') || latest=""
               [ "$expected" = "$latest" ] && break
               if [ "$(printf '%s\n%s\n' "$expected" "$latest" | sort -V | tail -n 1)" = "$latest" ]; then
                 echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is $latest. Refusing to replace the newer site."
                 exit 1
               fi
               if [ "$attempt" = 30 ]; then
-                echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is still $latest after 15 minutes."
+                echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is still ${latest:-unavailable} after 15 minutes."
                 exit 1
               fi
               sleep 30
@@ -473,14 +474,15 @@ jobs:
           for pkg in nimbus-docs create-nimbus-docs; do
             expected=$(jq -r .version "../../packages/$pkg/package.json")
             for attempt in $(seq 1 30); do
-              latest=$(npm view "@cloudflare/$pkg" dist-tags.latest --json | jq -er '.')
+              # A failed lookup is npm not there yet, not a reason to stop.
+              latest=$(npm view "@cloudflare/$pkg" dist-tags.latest --json | jq -er '.') || latest=""
               [ "$expected" = "$latest" ] && break
               if [ "$(printf '%s\n%s\n' "$expected" "$latest" | sort -V | tail -n 1)" = "$latest" ]; then
                 echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is $latest. Refusing to replace the newer demo."
                 exit 1
               fi
               if [ "$attempt" = 30 ]; then
-                echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is still $latest after 15 minutes."
+                echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is still ${latest:-unavailable} after 15 minutes."
                 exit 1
               fi
               sleep 30
