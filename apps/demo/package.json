@@ -29,7 +29,7 @@
     "@modelcontextprotocol/server": "^2.3.0",
     "@resvg/resvg-js": "^2.6.2",
     "@scalar/openapi-parser": "0.29.16",
-    "astro": "7.4.2",
+    "astro": "7.4.7",
     "clsx": "^2.1.1",
     "openapi-sampler": "1.7.9",
     "react": "^19.3.1",
