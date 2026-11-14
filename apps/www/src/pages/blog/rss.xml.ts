@@ -1,18 +1,17 @@
-// The blog's feed, newest first; a post without a date is left out.
+// The blog's feed, newest first.
 import rss from "@astrojs/rss";
-import { getCollection } from "astro:content";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
 import { config } from "virtual:nimbus/config";
+import { BLOG, getPosts, postHref } from "@/lib/blog";
 
 export const prerender = true;
 
 export async function GET() {
   const url = (path: string) => new URL(withBase(path, import.meta.env.BASE_URL), config.site).href;
-  const posts = (await getCollection("blog", (e) => e.id !== "index" && !e.data.draft && e.data.date))
-    .sort((a, b) => b.data.date!.getTime() - a.data.date!.getTime());
+  const posts = await getPosts();
   return rss({
     title: `${config.title} blog`,
-    description: "Posts on writing and publishing documentation for people and coding agents.",
+    description: BLOG.description,
     site: url("/blog/"),
     xmlns: { atom: "http://www.w3.org/2005/Atom", dc: "http://purl.org/dc/elements/1.1/" },
     customData:
@@ -21,7 +20,7 @@ export async function GET() {
     items: posts.map((post) => ({
       title: post.data.title,
       description: post.data.description,
-      link: url(`/blog/${post.id}/`),
+      link: url(postHref(post)),
       pubDate: post.data.date,
       // RSS's own <author> takes an email address; Dublin Core takes a name.
       customData: `<dc:creator>${escapeXml(post.data.author)}</dc:creator>`,

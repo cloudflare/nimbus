@@ -16,7 +16,7 @@ const nimbusConfig = defineNimbusConfig({
   socialImageAlt: "Nimbus documentation preview",
   // Pages render on request so each answers `Accept: text/markdown` at its
   // own URL; the MCP server needs the Worker anyway.
-  rendering: { collections: { docs: "request", components: "request", blog: "request" } },
+  rendering: { collections: { docs: "request", components: "request" } },
   agents: { mcp: true },
   editPattern: "https://github.com/cloudflare/nimbus/edit/main/apps/www/{path}",
   // The sidebar follows the content tree: each top-level folder's index.mdx
@@ -40,7 +40,6 @@ const nimbusConfig = defineNimbusConfig({
       // The glossary is an appendix, after the component catalog.
       { label: "Glossary", link: "/glossary" },
       { label: "Changelog", link: "/changelog/" },
-      { label: "Blog", icon: "ph:article", autogenerate: { collection: "blog" } },
     ],
   },
 });

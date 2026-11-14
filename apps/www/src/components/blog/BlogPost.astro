@@ -1,0 +1,281 @@
+---
+/**
+ * A post's page body: the title block, the post in a reading
+ * column, then the author and more posts. The post itself is the slot, so
+ * the page renders it with the site's MDX components.
+ */
+import "@fontsource-variable/bricolage-grotesque/opsz.css";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
+import PostGrid from "./PostGrid.astro";
+import { authorProfiles, initials, postDate, readingMinutes, type Post } from "@/lib/blog";
+
+interface Props {
+  post: Post;
+  more: Post[];
+}
+
+const { post, more } = Astro.props;
+const author = authorProfiles(post.data.author);
+const href = (path: string) => withBase(path, import.meta.env.BASE_URL);
+---
+
+<article class="nb-post">
+  <header class="nb-post-hero">
+    {/* Top left, on the header's own gutter rather than the centred column. */}
+    <div class="nb-post-backbar">
+      <a href={href("/blog/")} class="nb-post-back not-prose">
+        <Icon name="ph:arrow-left" class="size-4" />
+        Blog
+      </a>
+    </div>
+    <div class="nb-post-column">
+      <h1 class="nb-post-title">{post.data.title}</h1>
+      <p class="nb-post-dek">{post.data.description}</p>
+      {/* One quiet line under the title: who, when, how long. The author's
+          links are in the "Written by" block at the end of the post. */}
+      <p class="nb-post-byline nb-post-credit">
+        <span class="nb-post-avatar" aria-hidden="true">{initials(post.data.author)}</span>
+        <span class="nb-post-author">{post.data.author}</span>
+        <span class="nb-post-when">
+          <span aria-hidden="true">·</span>
+          <time datetime={post.data.date.toISOString().slice(0, 10)}>{postDate(post.data.date)}</time>
+          <span aria-hidden="true">·</span>
+          <span>{readingMinutes(post)} min read</span>
+        </span>
+      </p>
+    </div>
+  </header>
+
+  <div class="nb-post-column">
+    <div class="docs-content nb-post-body" data-pagefind-body>
+      <slot />
+    </div>
+
+    <footer class="nb-post-end not-prose">
+      <div class="nb-post-byline">
+        <span class="nb-post-avatar" aria-hidden="true">{initials(post.data.author)}</span>
+        <span class="flex flex-col">
+          <span class="text-[13px] leading-5 text-muted-foreground">Written by</span>
+          <span class="nb-post-author">{post.data.author}</span>
+        </span>
+        {author && (
+          <span class="nb-post-profiles ms-auto">
+            <a href={author.x} rel="author">{author.handle}</a>
+            <span aria-hidden="true">·</span>
+            <a href={author.linkedin} rel="author">LinkedIn</a>
+          </span>
+        )}
+      </div>
+    </footer>
+  </div>
+
+  {more.length > 0 && (
+    <div class="nb-post-more not-prose">
+      <PostGrid id="nb-post-more" title="More posts" posts={more} cover={false} all />
+    </div>
+  )}
+</article>
+
+<style is:global>
+  .nb-post {
+    --nb-post-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  }
+  .nb-post-column {
+    width: 100%;
+    max-width: 44rem;
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+  }
+  .nb-post-hero {
+    padding: 1.5rem 0 2.5rem;
+    background:
+      radial-gradient(ellipse at 50% 30%, transparent 0, var(--nb-background) 70%),
+      radial-gradient(color-mix(in oklch, var(--nb-foreground) 12%, transparent) 1px, transparent 1px) 0 0 / 16px 16px,
+      var(--nb-background);
+  }
+  /* Room around the title block: 48px above the title and 40px below the
+     credit on a phone, 80px and 64px from md up. */
+  @media (min-width: 768px) {
+    .nb-post-hero {
+      padding-bottom: 4rem;
+    }
+    .nb-post-hero .nb-post-title {
+      margin-top: 5rem;
+    }
+    .nb-post-hero .nb-post-dek {
+      font-size: 1.125rem;
+      line-height: 1.75rem;
+    }
+  }
+  /* The header's own container, so the link sits under the logo. */
+  .nb-post-backbar {
+    max-width: 1440px;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+  @media (min-width: 1024px) {
+    .nb-post-backbar {
+      padding-inline: 1.5rem;
+    }
+  }
+  .nb-post-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--nb-muted-foreground);
+    text-decoration: none;
+  }
+  .nb-post-back:hover {
+    color: var(--nb-foreground);
+  }
+  .nb-post-title {
+    margin-top: 3rem;
+    font-family: var(--nb-post-display);
+    font-size: clamp(2.25rem, 1.6rem + 2.6vw, 3.25rem);
+    line-height: 1.06;
+    font-weight: 400;
+    letter-spacing: -0.03em;
+    color: var(--nb-foreground);
+    text-align: center;
+    text-wrap: balance;
+  }
+  /* The title is centred on the column and runs past it equally on both
+     sides, as far as the page allows (up to 5.5rem a side), so a long one
+     sets in two lines instead of three. */
+  @media (min-width: 48rem) {
+    .nb-post-title {
+      margin-inline: calc(-1 * min(5.5rem, (100vw - 44rem) / 2));
+    }
+  }
+  .nb-post-dek {
+    max-width: 41rem;
+    margin-top: 1.25rem;
+    font-size: 1rem;
+    line-height: 1.625rem;
+    color: color-mix(in oklch, var(--nb-foreground) 70%, transparent);
+    text-align: center;
+    text-wrap: balance;
+  }
+  .nb-post-byline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 2rem;
+    font-size: 0.9375rem;
+    line-height: 1.5rem;
+  }
+  /* The title block is one centred stack: back link, title, description,
+     credit. The credit is a single line of text weight, so nothing in it
+     outweighs the rest; on a phone the date drops to its own line. */
+  .nb-post-hero .nb-post-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .nb-post-credit {
+    justify-content: center;
+    gap: 0.25rem 0.625rem;
+    margin-top: 1.75rem;
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+  }
+  .nb-post-credit .nb-post-avatar {
+    width: 1.5rem;
+    height: 1.5rem;
+    font-size: 0.625rem;
+  }
+  .nb-post-when {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    color: var(--nb-muted-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 26rem) {
+    .nb-post-when {
+      flex-basis: 100%;
+      justify-content: center;
+    }
+    .nb-post-when > span:first-child {
+      display: none;
+    }
+  }
+  .nb-post-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 9999px;
+    background: var(--nb-foreground);
+    color: var(--nb-background);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .nb-post-author {
+    font-weight: 500;
+    color: var(--nb-foreground);
+  }
+  .nb-post-profiles {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--nb-muted-foreground);
+  }
+  .nb-post-profiles a {
+    color: var(--nb-muted-foreground);
+    text-decoration: underline;
+    text-decoration-color: var(--nb-border);
+    text-underline-offset: 4px;
+  }
+  .nb-post-profiles a:hover {
+    color: var(--nb-foreground);
+    text-decoration-color: currentColor;
+  }
+
+  /* The reading column: the docs' prose, set a touch larger, headings in the
+     display face. */
+  .nb-post-body {
+    margin-top: 2.5rem;
+    font-size: 1.0625rem;
+    line-height: 1.875rem;
+  }
+  .nb-post-body :where(h2, h3) {
+    font-family: var(--nb-post-display);
+    font-weight: 400;
+    letter-spacing: -0.015em;
+  }
+  .nb-post-body :where(h2) {
+    margin-top: 3rem;
+    font-size: 1.75rem;
+    line-height: 2.25rem;
+  }
+  .nb-post-body :where(h3) {
+    margin-top: 2rem;
+    font-size: 1.3125rem;
+    line-height: 1.75rem;
+  }
+
+  .nb-post-end {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--nb-border);
+  }
+  .nb-post-end .nb-post-byline {
+    margin-top: 0;
+  }
+
+  /* Six rems below the author: far enough to read as the page's next
+     section, without a band or a second rule. */
+  .nb-post-more {
+    width: 100%;
+    max-width: 72rem;
+    margin: 6rem auto 0;
+    padding: 0 1.5rem 6rem;
+  }
+</style>

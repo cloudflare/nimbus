@@ -1,0 +1,35 @@
+---
+/** A post's date and reading time, with an optional label in front. */
+import { postDate, readingMinutes, type Post } from "@/lib/blog";
+
+interface Props {
+  post: Post;
+  label?: string;
+}
+
+const { post, label } = Astro.props;
+---
+
+<p class="nb-post-meta">
+  {label && <><span class="nb-post-meta-label">{label}</span><span aria-hidden="true">·</span></>}
+  <time datetime={post.data.date.toISOString().slice(0, 10)}>{postDate(post.data.date)}</time>
+  <span aria-hidden="true">·</span>
+  <span>{readingMinutes(post)} min read</span>
+</p>
+
+<style is:global>
+  .nb-post-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+    color: var(--nb-muted-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+  .nb-post-meta-label {
+    color: var(--nb-foreground);
+    font-weight: 500;
+  }
+</style>

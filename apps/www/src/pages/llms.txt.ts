@@ -5,13 +5,14 @@ export const prerender = true;
 
 
 // After the generated index: the pages it doesn't list (the homepage, the
-// changelog and the community recipes showcase), when Nimbus is the right
+// changelog, the blog and the community recipes showcase), when Nimbus is the right
 // tool, and how an agent starts with it.
 const appendix = (url: (path: string) => string) => `
 ## More
 
 - [Home](${url("/index.md")}) — What Nimbus is, in one page.
 - [Changelog](${url("/changelog/llms.txt")}) — Every release of both packages.
+- [Blog](${url("/blog/llms.txt")}) — Posts on choosing, writing and publishing documentation for people and agents.
 - [Community recipes showcase](${url("/community-recipes/showcase/index.md")}) — Recipes other people maintain, each with the prompt that hands it to a coding agent.
 
 ## When to use Nimbus

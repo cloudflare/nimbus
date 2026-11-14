@@ -1,4 +1,5 @@
 import { defineCollection } from "astro:content";
+import { glob } from "astro/loaders";
 import { z } from "astro/zod";
 import { pathToFileURL } from "node:url";
 import { componentsCollection, docsCollection, partialsCollection } from "@cloudflare/nimbus-docs/content";
@@ -23,18 +24,19 @@ export const collections = {
     }),
   ),
   partials: defineCollection(partialsCollection()),
-  // /blog/: dated posts, pages like the docs, so each has its Markdown, an
-  // llms.txt line and search. `date` and `author` reach the Markdown too.
-  blog: defineCollection(
-    docsCollection({
-      base: "blog",
-      schemaFields: {
-        date: z.coerce.date().optional(),
-        author: z.string().default("Mohamed Hassan"),
-      },
-      markdownFields: ["date", "author"],
+  // /blog/: dated posts. Not a docs collection: the blog is its own pages,
+  // outside the docs sidebar, with a Markdown version and an llms.txt of its own.
+  blog: defineCollection({
+    loader: glob({ base: "./src/content/blog", pattern: "*.{md,mdx}" }),
+    schema: z.object({
+      title: z.string(),
+      description: z.string(),
+      date: z.coerce.date(),
+      author: z.string().default("Mohamed Hassan"),
+      lastUpdated: z.coerce.date().optional(),
+      draft: z.boolean().default(false),
     }),
-  ),
+  }),
   // The tagline is each component's description, so its Markdown, llms.txt
   // and MCP carry it as docs pages carry theirs.
   components: defineCollection({

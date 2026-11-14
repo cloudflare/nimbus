@@ -1,10 +1,10 @@
 ---
 title: How to choose an open source documentation site generator in 2026
-description: Six questions to ask before you choose an open source documentation site generator in 2026, from who owns the files to what agents can read.
+description: Five questions to ask before you choose an open source documentation site generator in 2026, from who owns the files to what agents can read.
 date: 2026-11-13
 ---
 
-Choose the generator whose answers to six questions fit your project: who owns the files, what it publishes for agents, how an API spec becomes pages, how versions and upgrades work, what search costs to run, and where it deploys. Score any tool against the list below; Nimbus is the worked example.
+Choose the generator whose answers to five questions fit your project: who owns the files, what it publishes for agents, how an API spec becomes pages, how versions and upgrades work, and where it deploys. Score any tool against the list below; Nimbus is the worked example.
 
 ## 1. Who owns the files?
 
@@ -24,7 +24,7 @@ Ask whether every page has a Markdown version, whether there's an `llms.txt` ind
 
 ## 3. How does an API spec become pages?
 
-If you publish an API, the reference shouldn't be a separate site with a separate look.
+If you publish an API, the reference can be a separate site, but it should look like your brand.
 
 Ask whether the tool reads your OpenAPI document directly, gives each operation its own page, and generates code samples and a way to send a request.
 
@@ -38,13 +38,7 @@ Ask how an old version stays readable, and how the tool tells you what a new rel
 
 **Nimbus:** each docs version is its own collection under its own path, with a version picker ([Versioned documentation](/navigation/versioning)). `nimbus-docs migrate` lists the steps a version jump needs, and records what you reviewed ([Upgrade a Nimbus site](/publish/upgrading)).
 
-## 5. What does search cost to run?
-
-Search either needs a service or ships as files. A service can do more; files cost nothing to host and work offline.
-
-**Nimbus:** search is on by default and builds a static index after every build, so it works on any host with no backend ([Search](/navigation/search)).
-
-## 6. Where can it deploy?
+## 5. Where can it deploy?
 
 Ask whether you're tied to one host, and whether the site can live under a path on an existing domain.
 

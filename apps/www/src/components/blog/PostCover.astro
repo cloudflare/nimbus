@@ -1,0 +1,45 @@
+---
+/**
+ * A post's cover: one of the homepage's chrome stills. The still follows the
+ * post's id, so covers never shift as posts are added.
+ */
+interface Props {
+  id: string;
+  /** "feature" for the large cover, "card" for a grid thumbnail. */
+  size?: "feature" | "card";
+  class?: string;
+}
+
+const { id, size = "card", class: cls } = Astro.props;
+const still = ([...id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 4) + 1;
+---
+
+<div class:list={["nb-cover", `nb-cover-${size}`, `nb-cover-still-${still}`, cls]} aria-hidden="true"></div>
+
+<style is:global>
+  :root {
+    --nb-cover-1: url(/www/chrome/chrome-1-light.jpg);
+    --nb-cover-2: url(/www/chrome/chrome-2-light.jpg);
+    --nb-cover-3: url(/www/chrome/chrome-3-light.jpg);
+    --nb-cover-4: url(/www/chrome/chrome-4-light.jpg);
+  }
+  :root[data-mode="dark"] {
+    --nb-cover-1: url(/www/chrome/chrome-1-dark.jpg);
+    --nb-cover-2: url(/www/chrome/chrome-2-dark.jpg);
+    --nb-cover-3: url(/www/chrome/chrome-3-dark.jpg);
+    --nb-cover-4: url(/www/chrome/chrome-4-dark.jpg);
+  }
+  .nb-cover {
+    aspect-ratio: 16 / 10;
+    border: 1px solid var(--nb-border);
+    border-radius: 1rem;
+    background-color: var(--nb-muted);
+    background-image: var(--nb-cover-img);
+    background-size: cover;
+    background-position: center;
+  }
+  .nb-cover-still-1 { --nb-cover-img: var(--nb-cover-1); }
+  .nb-cover-still-2 { --nb-cover-img: var(--nb-cover-2); background-position: 70% 30%; }
+  .nb-cover-still-3 { --nb-cover-img: var(--nb-cover-3); background-position: 30% 40%; }
+  .nb-cover-still-4 { --nb-cover-img: var(--nb-cover-4); }
+</style>
