@@ -90,6 +90,7 @@ export const GET: APIRoute = ({ site }) => {
     `- [Documentation linting](${url("/writing/linting/")})`,
     `- [Components](${url("/components/")})`,
     `- [Registry](${url("/registry/")})`,
+    `- [Blog](${url("/blog/")})`,
     `- [llms.txt](${url("/llms.txt")})`,
     "- [GitHub](https://github.com/cloudflare/nimbus)",
     "- [npm](https://www.npmjs.com/package/@cloudflare/nimbus-docs)",

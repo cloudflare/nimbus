@@ -19,7 +19,7 @@ export const getStaticPaths: GetStaticPaths = async () => {
     const sidebar = entry.data.sidebar;
     groups.set(entry.id, (sidebar ? sidebar.group?.label : undefined) ?? entry.data.title);
   }
-  return entries.map((entry) => {
+  const docs = entries.map((entry) => {
     const top = entry.id.split("/")[0]!;
     return {
       params: { slug: `${entry.id}.png` },
@@ -29,6 +29,15 @@ export const getStaticPaths: GetStaticPaths = async () => {
       } satisfies OgProps,
     };
   });
+  // Blog posts share the docs' card, under "Blog", at the URLs their pages name.
+  const posts = [
+    { params: { slug: "blog.png" }, props: { section: "Nimbus", title: "Blog" } satisfies OgProps },
+    ...(await getCollection("blog", (e) => !e.data.draft)).map((entry) => ({
+      params: { slug: `blog/${entry.id}.png` },
+      props: { section: "Blog", title: entry.data.title } satisfies OgProps,
+    })),
+  ];
+  return [...docs, ...posts];
 };
 
 export const GET: APIRoute = async ({ props }) => {
