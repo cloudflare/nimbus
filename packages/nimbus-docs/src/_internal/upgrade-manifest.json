@@ -22,6 +22,7 @@
       "api-version-id-format",
       "api-version-picker",
       "api-version-url",
+      "search-unindexed-version",
       "version-switcher-keeps-query"
     ]
   },
@@ -1402,6 +1403,22 @@
       "verify": [
         "An operation page shows a Try it button between the request sample and the response example.",
         "Clicking it opens the panel with the sample's values filled in, and Send shows the API's response."
+      ]
+    },
+    {
+      "id": "search-unindexed-version",
+      "introducedIn": "0.21.0",
+      "mode": "optional",
+      "changeset": "search-unindexed-version",
+      "summary": "Optionally fix search on a deprecated version's pages that the build doesn't index: an API that puts its version in the query indexes only its default version, so searching from an older version's page found nothing.",
+      "affected": "Sites with an API that keeps its version in the query and has a deprecated version, using src/components/ui/search/providers/pagefind.ts.",
+      "instructions": [
+        "No action is needed if no API puts its version in the query: search works as before.",
+        "If src/components/ui/search/providers/pagefind.ts is unmodified, run nimbus-docs diff src/components/ui/search/providers/pagefind.ts --apply.",
+        "If you've edited it, read the versions the index holds once after init, with Object.keys((await pagefind.filters()).version ?? {}), and filter a search to the page's version only when that list has it."
+      ],
+      "verify": [
+        "Open a deprecated version's API page whose version is in the query (?version=v1), search for a word on the current pages, and confirm results appear."
       ]
     }
   ]
