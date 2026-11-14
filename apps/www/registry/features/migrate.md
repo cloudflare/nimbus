@@ -191,7 +191,15 @@ component or a callout directive becomes `.mdx` (its URL doesn't change): plain
 
 The old site's home page replaces the scaffolded `src/content/docs/index.mdx`;
 keep it in the default mode, with any hero content composed in the body, so
-it still leads the sidebar. Then rewrite frontmatter to Nimbus's fields:
+it still leads the sidebar.
+
+The old site's not-found page doesn't move: the scaffold's
+`src/pages/404.astro` already answers every missing URL. Don't add it under
+`src/content/docs/` or redirect `/404`; a redirect replaces the built
+`404.html`, so every missing URL would redirect to a page that answers 200.
+If its wording says more than "not found", list it in the report.
+
+Then rewrite frontmatter to Nimbus's fields:
 
 | Old meaning | Nimbus field |
 |---|---|
@@ -362,7 +370,9 @@ whose URL matches its target, with the source filled in the same way
 `/new/`), since Astro can only expand a wildcard into a route with the same
 parameters. List each wildcard in the report, and any that matched no page. Add one for every page that
 moved (3a) and every old operation URL (3f). List external-target redirects
-for the user.
+for the user. A catch-all that answers missing pages with the 404 page
+(`/* /404 404`) is the host's missing-page behavior, not a redirect: list it,
+don't add it.
 
 ### 3h. Assets, CSS and other languages
 
