@@ -31,8 +31,13 @@ const { collection, showSidebar = true, sections: sectionsProp } = Astro.props;
 
 // Normalize trailing slash so isActive matches sidebar hrefs.
 const currentSlug = stripBase(Astro.url.pathname, import.meta.env.BASE_URL).replace(/\/$/, "") || "/";
-const sections =
+const sidebarSections =
   sectionsProp ?? (await getSidebarSections(currentSlug, { collection }));
+// www's blog is its own pages, outside the docs sidebar, so its tab joins the sidebar's here.
+const sections: SidebarSection[] = [
+  ...sidebarSections,
+  { label: "Blog", href: "/blog/", isActive: currentSlug === "/blog" || currentSlug.startsWith("/blog/") },
+];
 const showSections = sections.length >= 2;
 const homeHref = withBase("/", import.meta.env.BASE_URL);
 const resolveSectionHref = (href: string): string =>

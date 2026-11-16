@@ -13,22 +13,14 @@ import Hero from "./Hero.astro";
 import Section from "../variants/Section.astro";
 import BentoAlive from "../variants/BentoAlive.astro";
 import { Icon } from "@/home/icon";
-import Logo from "./Logo.astro";
+import SiteHeader from "./SiteHeader.astro";
 import SiteFooter from "./SiteFooter.astro";
-import { LinkButton } from "./ui/link-button";
 import { Accordion, AccordionTrigger, AccordionContent, AccordionGroup } from "./ui/accordion";
-import { ThemeToggle } from "./ui/theme-toggle";
-import { SearchTrigger, SearchDialog } from "@/components/ui/search";
+import { SearchDialog } from "@/components/ui/search";
 import { sections as s } from "../variants/copy";
 import { faq, workflows } from "./content";
 
 const installCmd = "npx @cloudflare/create-nimbus-docs@latest";
-const sectionsNav = [
-  { label: "Docs", href: "/quickstart" },
-  { label: "Components", href: "/components" },
-  { label: "Registry", href: "/registry" },
-  { label: "Philosophy", href: "/why-nimbus" },
-];
 const big = "text-[22px] leading-7 text-foreground md:text-[26px] md:leading-8";
 ---
   <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-primary-foreground">Skip to content</a>
@@ -52,31 +44,7 @@ const big = "text-[22px] leading-7 text-foreground md:text-[26px] md:leading-8";
     })();
   </script>
 
-  <!-- Header: mirrors the Nimbus docs header (logo, divider, section pills · search, GitHub, theme). -->
-  <header class="sticky top-0 z-30 border-b border-transparent bg-background/80 backdrop-blur-lg transition-colors duration-200 data-[scrolled]:border-border" data-site-header>
-    <div class="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-4 lg:px-6">
-      <div class="flex items-center">
-        <a href="/" class="flex items-center" aria-label="Nimbus home">
-          <Logo class="h-6 w-auto text-foreground" />
-        </a>
-        <nav aria-label="Sections" class="ml-10 hidden items-center gap-6 md:flex">
-          {sectionsNav.map((n) => (<a href={n.href} class="text-base leading-6 font-[450] tracking-[0.015em] text-muted-foreground transition-colors hover:text-foreground">{n.label}</a>))}
-        </nav>
-      </div>
-      <div class="flex items-center gap-2">
-        <SearchTrigger />
-        <LinkButton href="https://github.com/cloudflare/nimbus" variant="ghost" size="sm" shape="square" target="_blank" rel="noopener" aria-label="GitHub" class="text-muted-foreground hover:text-foreground"><Icon name="ph:github-logo" class="size-4" /></LinkButton>
-        <ThemeToggle />
-        <LinkButton href="#start" variant="primary" class="ml-2 hidden sm:inline-flex">Get started</LinkButton>
-        <details class="group relative md:hidden" data-menu>
-          <summary aria-label="Open navigation" class="flex size-8 cursor-pointer list-none items-center justify-center rounded-md hover:bg-accent [&::-webkit-details-marker]:hidden"><Icon name="ph:list" class="size-5 text-muted-foreground group-open:hidden" /><Icon name="ph:x" class="hidden size-5 text-muted-foreground group-open:block" /></summary>
-          <nav aria-label="Mobile" class="absolute top-11 right-0 w-56 rounded-xl border border-border bg-card p-2 text-sm shadow-(--www-shadow-float)">
-            {sectionsNav.map((n) => (<a href={n.href} class="block rounded-md px-3 py-2 hover:bg-accent">{n.label}</a>))}
-          </nav>
-        </details>
-      </div>
-    </div>
-  </header>
+  <SiteHeader />
 
   <SearchDialog />
 
@@ -148,15 +116,5 @@ const big = "text-[22px] leading-7 text-foreground md:text-[26px] md:leading-8";
 
 <script>
   import { codeCopy } from "@cloudflare/nimbus-docs/client";
-  // The header's rule appears only once the page has scrolled under it.
-  const siteHeader = document.querySelector<HTMLElement>("[data-site-header]");
-  if (siteHeader) { const mark = () => siteHeader.toggleAttribute("data-scrolled", scrollY > 4); mark(); addEventListener("scroll", mark, { passive: true }); }
   codeCopy();
-
-  // Close the phone menu on Escape or a tap outside it.
-  const menu = document.querySelector<HTMLDetailsElement>("[data-menu]");
-  if (menu) {
-    addEventListener("keydown", (e) => { if (e.key === "Escape") menu.open = false; });
-    document.addEventListener("click", (e) => { if (menu.open && !menu.contains(e.target as Node)) menu.open = false; });
-  }
 </script>
