@@ -35,7 +35,11 @@ const href = (path: string) => withBase(path, import.meta.env.BASE_URL);
       {/* One quiet line under the title: who, when, how long. The author's
           links are in the "Written by" block at the end of the post. */}
       <p class="nb-post-byline nb-post-credit">
-        <span class="nb-post-avatar" aria-hidden="true">{initials(post.data.author)}</span>
+        {author ? (
+          <img class="nb-post-avatar" src={href(author.photo)} alt="" width="72" height="72" decoding="async" />
+        ) : (
+          <span class="nb-post-avatar" aria-hidden="true">{initials(post.data.author)}</span>
+        )}
         <span class="nb-post-author">{post.data.author}</span>
         <span class="nb-post-when">
           <span aria-hidden="true">·</span>
@@ -54,7 +58,11 @@ const href = (path: string) => withBase(path, import.meta.env.BASE_URL);
 
     <footer class="nb-post-end not-prose">
       <div class="nb-post-byline">
-        <span class="nb-post-avatar" aria-hidden="true">{initials(post.data.author)}</span>
+        {author ? (
+          <img class="nb-post-avatar" src={href(author.photo)} alt="" width="72" height="72" decoding="async" />
+        ) : (
+          <span class="nb-post-avatar" aria-hidden="true">{initials(post.data.author)}</span>
+        )}
         <span class="flex flex-col">
           <span class="text-[13px] leading-5 text-muted-foreground">Written by</span>
           <span class="nb-post-author">{post.data.author}</span>
@@ -216,6 +224,7 @@ const href = (path: string) => withBase(path, import.meta.env.BASE_URL);
     font-size: 0.8125rem;
     font-weight: 500;
     letter-spacing: 0.02em;
+    object-fit: cover;
   }
   .nb-post-author {
     font-weight: 500;

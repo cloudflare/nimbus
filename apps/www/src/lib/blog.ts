@@ -13,21 +13,30 @@ export const BLOG = {
 
 const ORGANIZATION = "https://www.cloudflare.com/#organization";
 
-/** Who writes the posts, and the profiles their byline and structured data link to. */
-const AUTHORS: Record<string, { x: string; linkedin: string }> = {
-  "Mohamed Hassan": { x: "momito", linkedin: "https://www.linkedin.com/in/mohamedahassan1998/" },
+/** Who writes the posts: the profiles their byline and structured data link
+ *  to, and their photo under `public/`, for the byline and the share image. */
+const AUTHORS: Record<string, { x: string; linkedin: string; photo: string }> = {
+  "Mohamed Hassan": {
+    x: "momito",
+    linkedin: "https://www.linkedin.com/in/mohamedahassan1998/",
+    photo: "/authors/mohamed-hassan.jpg",
+  },
 };
 
 export interface AuthorProfiles {
   handle: string;
   x: string;
   linkedin: string;
+  /** Under `public/`, e.g. `/authors/mohamed-hassan.jpg`. */
+  photo: string;
 }
 
 /** A known author's profiles; a name without an entry renders as plain text. */
 export function authorProfiles(name: string): AuthorProfiles | undefined {
   const author = AUTHORS[name];
-  return author && { handle: `@${author.x}`, x: `https://x.com/${author.x}`, linkedin: author.linkedin };
+  return (
+    author && { handle: `@${author.x}`, x: `https://x.com/${author.x}`, linkedin: author.linkedin, photo: author.photo }
+  );
 }
 
 /** "MH" for "Mohamed Hassan", for the byline's mark. */

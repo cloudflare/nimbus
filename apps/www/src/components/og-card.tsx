@@ -196,11 +196,12 @@ const Frame = ({ panelSrc, children }: { panelSrc: string; children: ReactNode }
   </div>
 );
 
-/** A docs page's card: the mark, the page's section, its title. */
-export const DocsOgCard = ({ section, title, panelSrc }: { section: string; title: string; panelSrc: string }) => {
+/** The mark, then a section label over a title: the docs card's copy, and
+ *  the blog card's above its author. */
+const Copy = ({ section, title }: { section: string; title: string }) => {
   const t = titleSize(dropEmoji(title));
   return (
-    <Frame panelSrc={panelSrc}>
+    <>
       <div style={{ position: "absolute", left: LEFT, top: 80, display: "flex" }}>
         <Mark height={32} />
       </div>
@@ -237,9 +238,49 @@ export const DocsOgCard = ({ section, title, panelSrc }: { section: string; titl
           {t.text}
         </div>
       </div>
-    </Frame>
+    </>
   );
 };
+
+/** A docs page's card: the mark, the page's section, its title. */
+export const DocsOgCard = ({ section, title, panelSrc }: { section: string; title: string; panelSrc: string }) => (
+  <Frame panelSrc={panelSrc}>
+    <Copy section={section} title={title} />
+  </Frame>
+);
+
+/** A blog post's card: the docs card's mark, "Blog" and title, with the
+ *  author along the bottom: their photo, name and the post's date. */
+export const BlogOgCard = ({
+  title,
+  author,
+  date,
+  photoSrc,
+  panelSrc,
+}: {
+  title: string;
+  author: string;
+  date: string;
+  photoSrc?: string;
+  panelSrc: string;
+}) => (
+  <Frame panelSrc={panelSrc}>
+    <Copy section="Blog" title={title} />
+    <div style={{ position: "absolute", left: LEFT, bottom: 72, display: "flex", alignItems: "center" }}>
+      {photoSrc ? (
+        <img src={photoSrc} width={64} height={64} style={{ borderRadius: 32, objectFit: "cover" }} />
+      ) : null}
+      <div style={{ display: "flex", flexDirection: "column", marginLeft: photoSrc ? 20 : 0 }}>
+        <div style={{ display: "flex", fontFamily: "Inter", fontWeight: 500, fontSize: 26, lineHeight: 1.2, color: INK }}>
+          {truncate(author, 32)}
+        </div>
+        <div style={{ display: "flex", marginTop: 4, fontFamily: "Inter", fontSize: 22, lineHeight: 1.2, color: LABEL }}>
+          {date}
+        </div>
+      </div>
+    </div>
+  </Frame>
+);
 
 /** The site's card: the lockup, the tagline as the headline, the address. */
 export const HomeOgCard = ({
