@@ -65,9 +65,8 @@ export interface LintOptions {
    */
   signal?: AbortSignal;
   /**
-   * The collection a file belongs to, for files outside `src/content` (a
-   * page collection whose glob reads another folder). Falls back to the
-   * `src/content/<name>/` path.
+   * The configured collection a file belongs to. Falls back to the
+   * `src/content/<name>/` path when the collection cannot be placed.
    */
   collectionOf?: (absPath: string) => string | null;
   /** How a file is named in findings, when not by its project-relative path. */
