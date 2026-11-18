@@ -542,7 +542,7 @@ if (LANE === "static") {
       ),
     );
   const generated = readGenerated();
-  assert.deepEqual([...composed.querySelectorAll("aside[role=note]")].map(node => node.getAttribute("aria-label")), ["Wrapper"]);
+  assert.deepEqual([...composed.querySelectorAll("aside[role=note]")].map(node => node.getAttribute("aria-label")), ["Note: Wrapper"]);
   assert.equal([...plain.querySelectorAll("a")].find(node => node.textContent === "HTML link")?.getAttribute("href"), "/integrity/composed/");
   assert.equal([...plain.querySelectorAll("a")].find(node => node.textContent === "MDX guide")?.getAttribute("href"), "/integrity/composed/");
   assert.ok(composed.querySelector('a[href="/integrity/plain/"]'));

@@ -149,12 +149,16 @@ describe("titleFigure() export", () => {
 });
 
 describe("tableScroll() export", () => {
-  test("wraps a table in a scroll box that is a Tab stop, with no role or label", async () => {
-    const html = await renderWith("| a | b |\n| - | - |\n| 1 | 2 |", {
+  test("wraps a table in a scroll box that is a Tab stop, a region named by its headings", async () => {
+    const html = await renderWith("| Name | Type |\n| - | - |\n| id | string |", {
       hastPlugins: [tableScroll()],
     });
-    assert.match(html, /<div class="nb-table-scroll" tabindex="0"><table>/);
-    assert.ok(!/role=|aria-label=/.test(html));
+    assert.match(html, /<div class="nb-table-scroll" tabindex="0" role="region" aria-label="Table: Name, Type"><table>/);
+  });
+
+  test("a table without heading text is just a table", async () => {
+    const html = await renderWith("|  |  |\n| - | - |\n| 1 | 2 |", { hastPlugins: [tableScroll()] });
+    assert.match(html, /role="region" aria-label="Table"/);
   });
 });
 
