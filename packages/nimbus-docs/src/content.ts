@@ -171,7 +171,7 @@ const DEFAULT_PATTERN = "**/*.{md,mdx}";
 const BUNDLE_HINT_BYTES = 16 * 1024 * 1024;
 // Bump with AGENT_ENDPOINT_ASSET_GENERATION when prepared bodies change, so
 // cached entries are prepared again; the bake refuses a mismatch.
-const NIMBUS_MARKDOWN_GENERATION = 2;
+const NIMBUS_MARKDOWN_GENERATION = 3;
 // One cache across roles: wrapping an already-wrapped loader must return it
 // unchanged (whatever role it was wrapped with), or the nested wrappers would
 // queue the same collection transaction inside itself and deadlock the load.
