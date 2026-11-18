@@ -627,5 +627,10 @@ describe("component links never nest", () => {
       { componentMap: { Badge: () => "[Inner](/inner/)" } },
     );
     assert.equal(out, "Go [Inner](/inner/) now.");
+    const reference = renderEntryAsMarkdown(
+      { body: 'Go <LinkButton href="/outer/"><Badge>Inner</Badge></LinkButton> now.\n\n[Inner]: /inner/\n', filePath: "page.mdx" },
+      { componentMap: { Badge: () => "[Inner]" } },
+    );
+    assert.equal(reference, "Go [Inner] now.\n\n[Inner]: /inner/");
   });
 });

@@ -207,7 +207,7 @@ function linkTarget(node: JsxElement): string | undefined {
 const LINKS = new Set(["link", "linkReference"]);
 // Markdown kept as written (a custom renderer's output, raw HTML) counts when
 // it looks like it holds a link: adding none is the safe side.
-const LINK_IN_SOURCE = /\]\(|\]\[|<a[\s>]/i;
+const LINK_IN_SOURCE = /\[[^\]]*\]|<a[\s>]/i;
 const hasLink = (nodes: MdNode[]): boolean =>
   nodes.some(
     (node) =>
