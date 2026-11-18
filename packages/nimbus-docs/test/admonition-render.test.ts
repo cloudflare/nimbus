@@ -172,9 +172,11 @@ for (const processor of ["satteri", "nimbus"] as const) {
         "Danger",
         "When `name` and `class_name` differ",
       ];
+      // A custom title is announced with the aside's type.
+      const types = ["Note", "Note", "Tip", "Caution", "Note", "Danger", "Note"];
       assert.deepEqual(
         asides.map((aside) => aside.getAttribute("aria-label")),
-        labels,
+        labels.map((label, i) => (label === types[i] ? label : `${types[i]}: ${label}`)),
       );
       assert.deepEqual(
         asides.map((aside) => aside.querySelector("p")!.textContent),
