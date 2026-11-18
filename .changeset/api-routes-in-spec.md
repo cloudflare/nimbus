@@ -1,6 +1,5 @@
 ---
-"@cloudflare/nimbus-docs": minor
-"@cloudflare/create-nimbus-docs": patch
+"@cloudflare/nimbus-docs": patch
 ---
 
 - Operations can set their URL, and tags their section segment, with `x-nimbus-route` in the spec.
