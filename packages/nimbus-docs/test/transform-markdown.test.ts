@@ -620,4 +620,12 @@ describe("component links never nest", () => {
     assert.equal(mdx('[<Card title="Q" href="/q/">body</Card>](/outer/)\n'), "[**Q** — body](/outer/)");
     assert.equal(mdx('[Go <LinkButton href="/b/">now</LinkButton>](/outer/)\n'), "[Go now](/outer/)");
   });
+
+  test("a link inside a custom renderer's output counts too", () => {
+    const out = renderEntryAsMarkdown(
+      { body: 'Go <LinkButton href="/outer/"><Badge>Inner</Badge></LinkButton> now.\n', filePath: "page.mdx" },
+      { componentMap: { Badge: () => "[Inner](/inner/)" } },
+    );
+    assert.equal(out, "Go [Inner](/inner/) now.");
+  });
 });
