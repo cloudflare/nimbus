@@ -262,6 +262,33 @@ test("breaking declarations require a new entry linked to a Nimbus changeset", (
   );
 });
 
+test("an optional entry ships in any Nimbus release; one that asks sites to act needs a breaking bump", () => {
+  const declare = (mode, bump, { breaking = false, introducedIn = "0.13.2" } = {}) =>
+    validateBreakingDeclaration({
+      breaking,
+      previousEntries: [entry("existing")],
+      currentEntries: [entry("existing"), entry("fix", { mode, introducedIn, changeset: "fix" })],
+      changesets: new Map([["fix", `---\n"@cloudflare/nimbus-docs": ${bump}\n---\n`]]),
+      currentVersion: "0.13.1",
+    });
+  assert.doesNotThrow(() => declare("optional", "patch"));
+  assert.doesNotThrow(() => declare("optional", "minor", { introducedIn: "0.14.0" }));
+  assert.throws(() => declare("optional", "patch", { introducedIn: "0.14.0" }), /introducedIn 0.13.2/);
+  assert.throws(() => declare("review-required", "patch"), /breaking-compatible bump \(minor\)/);
+  assert.throws(() => declare("optional", "patch", { breaking: true }), /breaking-compatible bump/);
+  assert.throws(
+    () =>
+      validateBreakingDeclaration({
+        breaking: false,
+        previousEntries: [],
+        currentEntries: [entry("fix", { mode: "optional", changeset: "fix" })],
+        changesets: new Map([["fix", '---\n"another-package": patch\n---\n']]),
+        currentVersion: "0.13.1",
+      }),
+    /must release @cloudflare\/nimbus-docs/,
+  );
+});
+
 test("base manifest loading fails closed for an unresolved ref", () => {
   assert.throws(
     () => loadPreviousManifest("definitely-not-a-real-base-ref"),

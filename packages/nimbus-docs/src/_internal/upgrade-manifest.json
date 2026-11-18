@@ -1406,7 +1406,7 @@
     },
     {
       "id": "starter-a11y-layout",
-      "introducedIn": "0.21.0",
+      "introducedIn": "0.20.1",
       "mode": "optional",
       "changeset": "starter-a11y-layout",
       "summary": "Optionally take accessibility and layout fixes: the sidebar and table-of-contents rails follow --nb-header-height, the sidebar's bottom fade shows, the header's section tabs don't scroll vertically, the sidebar nav is named, an Aside with its own title keeps its type for screen readers, the mobile page menu's focus ring shows in forced colours, prose spacing applies inside tabs, and utilities apply to images inside Frame.",
