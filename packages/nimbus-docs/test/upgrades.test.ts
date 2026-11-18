@@ -408,6 +408,28 @@ test("API-only reviews skip sites without an API collection", () => {
   assert.deepEqual(docsOnly, all.filter((id) => !UPGRADE_MANIFEST.appliesTo?.api?.includes(id)));
 });
 
+test("an api key in the Astro config keeps API reviews without an API collection", () => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-scope-")));
+  try {
+    fs.mkdirSync(path.join(root, "src"));
+    fs.writeFileSync(path.join(root, "src", "content.config.ts"), "export const collections = { docs: docsCollection() };\n");
+    fs.writeFileSync(path.join(root, "astro.config.mjs"), 'import { defineConfig } from "astro/config";\nexport default defineConfig({ integrations: [nimbus({ title: "T" })] });\n');
+    assert.deepEqual(siteScope(root), { api: false });
+    fs.writeFileSync(
+      path.join(root, "astro.config.mjs"),
+      'import { defineConfig } from "astro/config";\nexport default defineConfig({ integrations: [nimbus({ title: "T", api: [{ collection: "api", spec: "./openapi.json", bundle: false }] })] });\n',
+    );
+    assert.deepEqual(siteScope(root), { api: true });
+    // Shorthand, and a config that comes from a package, keep API reviews too.
+    fs.writeFileSync(path.join(root, "astro.config.mjs"), 'import { defineConfig } from "astro/config";\nconst api = [];\nexport default defineConfig({ integrations: [nimbus({ title: "T", api })] });\n');
+    assert.deepEqual(siteScope(root), { api: true });
+    fs.writeFileSync(path.join(root, "astro.config.mjs"), 'import { defineConfig } from "astro/config";\nimport docs from "@acme/docs";\nexport default defineConfig({ integrations: [docs()] });\n');
+    assert.deepEqual(siteScope(root), { api: true });
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("API scope reads the content config in Astro's srcDir", () => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-scope-")));
   try {

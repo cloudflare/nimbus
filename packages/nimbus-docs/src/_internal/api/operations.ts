@@ -91,6 +91,7 @@ export function parseOperations(ctx: ParseContext): void {
 }
 
 const ORDER = "x-nimbus-order";
+export const ROUTE_EXTENSION = "x-nimbus-route";
 
 /** An ignored value as a warning shows it; never serializes an object, which
  *  a `$ref` can make circular. */
@@ -183,7 +184,7 @@ function addOperation(
   const parentSection = tag ? sectionCoordinate(tag) : apiCoordinate(ctx.collection);
   ctx.node(opCoord, "operation", parentSection, facts, sourceBase);
 
-  resolveSlug(ctx, { method, path, operationId, opCoord, sourceBase, tag });
+  resolveSlug(ctx, { method, path, operationId, opCoord, sourceBase, tag, op });
   ctx.attachToNav(tag, opCoord, asString(op.summary) ?? opCoord);
 }
 
@@ -203,11 +204,15 @@ function resolveSlug(
     opCoord: Coordinate;
     sourceBase: string;
     tag: string | undefined;
+    op: OpenApiOperation;
   },
 ): void {
-  const { method, path, operationId, opCoord, sourceBase, tag } = input;
+  const { method, path, operationId, opCoord, sourceBase, tag, op } = input;
+  const raw = (op as Record<string, unknown>)[ROUTE_EXTENSION];
+  const extensionSource = `${sourceBase}/${ROUTE_EXTENSION}`;
 
   if (!ctx.routePolicy) {
+    if (raw !== undefined) ctx.warnIgnoredRouteExtension(extensionSource);
     const slug = tag ? `${tagRouteSegment(tag)}/${opCoord}` : opCoord;
     ctx.page(opCoord, slug);
     return;
@@ -215,11 +220,21 @@ function resolveSlug(
 
   const label = `${method.toUpperCase()} ${path}`;
   const convention = ctx.routePolicy.convention;
+  if (raw !== undefined && typeof raw !== "string") {
+    ctx.registry.addError(
+      `${ROUTE_EXTENSION} on ${label} must be a string slug, such as "pets/list"; got ${shownValue(raw)}.`,
+      opCoord,
+      extensionSource,
+      "route-slug-invalid",
+    );
+    return;
+  }
   const outcome = resolveOperationRoute(ctx.routePolicy, {
     method,
     path,
     operationId,
     coordinate: opCoord,
+    ...(typeof raw === "string" ? { extension: raw } : {}),
   });
 
   if (outcome.kind === "fallback-empty") {
@@ -255,12 +270,13 @@ function resolveSlug(
   // Derived/fallback slugs are kebab-safe by construction; an override was
   // validated at config time — this is the single enforcement point and a net.
   const fault = routeSlugFault(slug);
+  const fromExtension = outcome.kind === "extension";
   if (fault) {
     ctx.registry.addError(
       `Operation ${label} resolves to route slug "${slug}", which ${fault}. ` +
-        `Fix the \`routes.operations\` override.`,
+        (fromExtension ? `Fix its \`${ROUTE_EXTENSION}\`.` : `Fix the \`routes.operations\` override.`),
       opCoord,
-      sourceBase,
+      fromExtension ? extensionSource : sourceBase,
       "route-slug-invalid",
     );
   } else if (RESERVED_ROUTE_SEGMENTS.has(slug.split("/")[0]!)) {
@@ -268,9 +284,11 @@ function resolveSlug(
     ctx.registry.addError(
       `Operation ${label} resolves to route slug "${slug}", whose top-level segment "${seg}" is a ` +
         `reserved route ([${[...RESERVED_ROUTE_SEGMENTS].join(", ")}] and the API root). ` +
-        `Add a \`routes.operations\` override so it stays distinct.`,
+        (fromExtension
+          ? `Change its \`${ROUTE_EXTENSION}\` so it stays distinct.`
+          : `Add a \`routes.operations\` override so it stays distinct.`),
       opCoord,
-      sourceBase,
+      fromExtension ? extensionSource : sourceBase,
       "route-reserved-collision",
     );
   }

@@ -39,7 +39,7 @@ import type {
   Node,
   RouteProvenance,
 } from "./model.js";
-import type { RoutePolicy } from "./route-policy.js";
+import { routeSlugFault, type RoutePolicy } from "./route-policy.js";
 import type { ApiSamples } from "../../types.js";
 import { collectSecuritySchemes } from "./facts.js";
 import { GENERATED_SAMPLE_LANGS, loadSampleTools } from "./samples.js";
@@ -48,7 +48,7 @@ import { explainReferenceErrors } from "./publish-spec.js";
 import { refProbe, refProbeIntact } from "./ref-probe.js";
 import { SchemaResolver, docNeedsRawDoc } from "./schema-resolver.js";
 import { asString, isPlainObject } from "./schema-algebra.js";
-import { parseOperations, warnOrderPlace } from "./operations.js";
+import { parseOperations, ROUTE_EXTENSION, warnOrderPlace } from "./operations.js";
 import { parseSchemas } from "./schemas.js";
 import { parseWebhooks } from "./webhooks.js";
 import type { ParseContext } from "./parse-context.js";
@@ -466,6 +466,8 @@ class Walker implements ParseContext {
   private readonly pagelessCategories = new Set<string>();
   private readonly sectionRoutes = new Map<string, string>();
   private readonly consumedTagSegments = new Set<string>();
+  /** Each declared tag's own `x-nimbus-route` segment, read before any section route. */
+  private readonly tagRouteExtensions = new Map<string, string>();
   readonly resolver: SchemaResolver;
 
   /** Optional sample generators; null when the peer deps are not installed. */
@@ -598,6 +600,20 @@ class Walker implements ParseContext {
     this.consumedOverrides.add(operationId);
   }
 
+  private warnedIgnoredRouteExtension = false;
+
+  warnIgnoredRouteExtension(source: string): void {
+    if (this.warnedIgnoredRouteExtension) return;
+    this.warnedIgnoredRouteExtension = true;
+    this.registry.addWarning(
+      `${ROUTE_EXTENSION} is read only when the API sets \`routes\`; this spec's ${ROUTE_EXTENSION} values are ignored ` +
+        `and its pages keep their legacy URLs.`,
+      undefined,
+      source,
+      "nimbus-extension",
+    );
+  }
+
   private addApiRoot(): void {
     const coord = apiCoordinate(this.collection);
     this.registry.register(coord, "api");
@@ -619,6 +635,7 @@ class Walker implements ParseContext {
     // operation) — is born with the right model parent, keeping the nav tree
     // and the coordinate ancestry (breadcrumbs, auto-expand) in lockstep.
     this.collectHierarchy();
+    this.collectTagRouteExtensions();
     asArray(this.doc.tags).forEach((tag, i) => {
       if (!isPlainObject(tag) || typeof tag.name !== "string") return;
       if ("x-nimbus-order" in tag) warnOrderPlace(this, pointer("tags", i, "x-nimbus-order"));
@@ -799,6 +816,46 @@ class Walker implements ParseContext {
    * a page, then the tag's own segment; a page-less `x-tagGroups` category is
    * transparent. Memoized: an ancestor's route is reused by every descendant.
    */
+  /** Read each declared tag's `x-nimbus-route`: one path segment, checked like a
+   *  `routes.tagSegments` value. Only `resource-action-v2` has tag segments. */
+  private collectTagRouteExtensions(): void {
+    asArray(this.doc.tags).forEach((tag, i) => {
+      if (!isPlainObject(tag) || typeof tag.name !== "string" || !(ROUTE_EXTENSION in tag)) return;
+      const source = pointer("tags", i, ROUTE_EXTENSION);
+      const policy = this.routePolicy;
+      if (!policy) {
+        this.warnIgnoredRouteExtension(source);
+        return;
+      }
+      if (policy.convention === "resource-action-v1") {
+        this.registry.addWarning(
+          `${ROUTE_EXTENSION} on tag "${tag.name}" needs "resource-action-v2"; "resource-action-v1" keeps its tags/ URLs. Ignored.`,
+          sectionCoordinate(tag.name),
+          source,
+          "nimbus-extension",
+        );
+        return;
+      }
+      const value = tag[ROUTE_EXTENSION];
+      const fault =
+        typeof value !== "string"
+          ? `must be a string segment, such as "pets"`
+          : value.includes("/")
+            ? "has a '/', but a tag segment is one path segment"
+            : routeSlugFault(value);
+      if (fault || typeof value !== "string") {
+        this.registry.addError(
+          `${ROUTE_EXTENSION} on tag "${tag.name}" ${fault}.`,
+          sectionCoordinate(tag.name),
+          source,
+          "route-slug-invalid",
+        );
+        return;
+      }
+      this.tagRouteExtensions.set(tag.name, value);
+    });
+  }
+
   private sectionRoute(tag: string): string {
     const memo = this.sectionRoutes.get(tag);
     if (memo !== undefined) return memo;
@@ -807,8 +864,9 @@ class Walker implements ParseContext {
     if (!policy || policy.convention === "resource-action-v1") {
       route = `tags/${tagRouteSegment(tag)}`;
     } else {
-      const override = policy.tagSegments?.[tag];
-      if (override !== undefined) this.consumedTagSegments.add(tag);
+      const configured = policy.tagSegments?.[tag];
+      if (configured !== undefined) this.consumedTagSegments.add(tag);
+      const override = configured ?? this.tagRouteExtensions.get(tag);
       if (policy.sections !== "hierarchical") {
         route = `tags/${override ?? policyTagRouteSegment(tag)}`;
       } else {

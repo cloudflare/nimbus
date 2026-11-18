@@ -64,6 +64,9 @@ const NON_API_IMPORT = /^(?:astro(?::|\/|$)|@astrojs\/|zod$|@cloudflare\/nimbus-
  * Anything unreadable or unclear shows every review.
  */
 export function siteScope(projectRoot: string, srcDirOverride?: string): SiteScope {
+  // An API can be configured without any content collection (`bundle: false`),
+  // so an `api` key in the Astro config also keeps API reviews.
+  if (configDeclaresApi(projectRoot)) return { api: true };
   const { srcDir } = resolveMigrationSrcDir(projectRoot, srcDirOverride);
   if (!srcDir) return { api: true };
   for (const name of ["content.config.ts", "content.config.mts", "content.config.js", "content.config.mjs"]) {
@@ -81,6 +84,24 @@ export function siteScope(projectRoot: string, srcDirOverride?: string): SiteSco
     }
   }
   return { api: true };
+}
+
+/** Conservative: any `api` word (a key, a shorthand, a quoted key), or an
+ *  import from anywhere but Astro, Zod or Nimbus (a local module or a package
+ *  that could carry the Nimbus config), counts as an API. */
+function configDeclaresApi(projectRoot: string): boolean {
+  for (const name of ["astro.config.ts", "astro.config.mts", "astro.config.mjs", "astro.config.js", "astro.config.cjs"]) {
+    const file = path.join(projectRoot, name);
+    if (!fs.existsSync(file)) continue;
+    try {
+      const source = stripComments(fs.readFileSync(file, "utf8"));
+      const specifiers = [...source.matchAll(/\b(?:from|import)\s*\(?\s*["']([^"']+)["']/g)].map((m) => m[1]!);
+      return /\bapi\b/.test(source) || specifiers.some((specifier) => !NON_API_IMPORT.test(specifier) && !specifier.startsWith("node:"));
+    } catch {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function selectUpgradeEntries(fromVersion: string, targetVersion: string, scope?: SiteScope): UpgradeEntry[] {

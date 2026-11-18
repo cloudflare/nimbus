@@ -1006,6 +1006,8 @@ export function apiCollection(options?: ApiCollectionOptions): {
             // neither an override slug (pinned) nor a derived one (method+path).
             const fix = kinds.has("override")
               ? `Rename the version, or adjust the \`routes.operations\` override target for the colliding page, `
+              : kinds.has("extension")
+                ? `Rename the version, or change the colliding page's \`x-nimbus-route\`, `
               : kinds.has("derived")
                 ? `Rename the version, or pin a \`routes.operations\` override for the colliding operation ` +
                   `(a derived slug comes from method and path, so renaming the operationId will not change it), `

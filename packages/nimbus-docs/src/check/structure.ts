@@ -179,6 +179,11 @@ async function checkApiCollections(
   }
 
   const configured = (config.api ?? []).map((entry) => entry.collection);
+  // A `bundle: false` API is prepared without a content collection, so it may
+  // have none; one declared under the wrong loader is still an error.
+  const unbundled = new Set(
+    (config.api ?? []).filter((entry) => entry.bundle === false).map((entry) => entry.collection),
+  );
   const kinds = new Map(
     api.registrations.map((registration) => [registration.key, registration.kind]),
   );
@@ -203,7 +208,8 @@ async function checkApiCollections(
     } else if (
       kind === undefined &&
       collections.complete &&
-      !collections.names.includes(collection)
+      !collections.names.includes(collection) &&
+      !unbundled.has(collection)
     ) {
       findings.push(configFinding(missingApiCollectionMessage(collection)));
     }

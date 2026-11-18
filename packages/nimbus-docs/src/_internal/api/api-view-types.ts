@@ -14,11 +14,11 @@ export type JsonValue = ApiJsonValue;
 
 export type ApiNodeKind = "api" | "section" | "operation" | "schema";
 
-/** How an operation page's `resource-action-v1` slug was resolved: a config `override`, a
- *  method+path `derived` slug, or a `fallback` to the operation coordinate. This
+/** How an operation page's `resource-action-v1` slug was resolved: a config `override`, the
+ *  operation's own `x-nimbus-route` (`extension`), a method+path `derived` slug, or a `fallback` to the operation coordinate. This
  *  is the view-surface home of the union; the spine's `RouteProvenance` aliases
  *  it so the type never originates in the IR when it crosses the `./api` seam. */
-export type ApiRouteProvenance = "override" | "derived" | "fallback";
+export type ApiRouteProvenance = "override" | "extension" | "derived" | "fallback";
 
 export interface SpecSource {
   collection: string;

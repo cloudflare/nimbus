@@ -36,6 +36,8 @@ export interface ParseContext extends FieldSink {
   recordRouteProvenance(coord: Coordinate, provenance: RouteProvenance): void;
   /** Mark an `operations` override key as consumed, so an unused key is caught. */
   noteOverrideConsumed(operationId: string): void;
+  /** Warn, once per spec, that an `x-nimbus-route` is ignored without a route policy. */
+  warnIgnoredRouteExtension(source: string): void;
   /** Record a webhook operation's `operationId` alongside its map key, so an
    *  override keyed by it is named as a non-overridable webhook, not a typo. */
   noteWebhookOperationId(operationId: string, webhookKey: string): void;
