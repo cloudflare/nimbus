@@ -87,6 +87,8 @@ interface Context {
   source: string;
   /** Inside `<Tabs>`: each `<TabsTrigger value>`'s label, for its `<TabsContent>`. */
   tabLabels?: Map<string, string>;
+  /** Inside a link, where a component's own link would nest. */
+  inLink?: boolean;
 }
 
 interface Parsers {
@@ -192,6 +194,32 @@ function textAttribute(node: JsxElement, name: string): string | undefined {
   }
   return undefined;
 }
+
+/**
+ * Where a linked component (`Card`, `LinkButton`) points: its `href` as text,
+ * unless a spread (`{...props}`) could set another one.
+ */
+function linkTarget(node: JsxElement): string | undefined {
+  if (node.attributes.some((a) => a.type === "mdxJsxExpressionAttribute")) return undefined;
+  return textAttribute(node, "href");
+}
+
+const LINKS = new Set(["link", "linkReference"]);
+// Markdown kept as written (a custom renderer's output, raw HTML) counts when
+// it looks like it holds a link: adding none is the safe side.
+const LINK_IN_SOURCE = /\[[^\]]*\]|<a[\s>]/i;
+const hasLink = (nodes: MdNode[]): boolean =>
+  nodes.some(
+    (node) =>
+      LINKS.has(node.type) ||
+      (node.type === "html" && LINK_IN_SOURCE.test(String(node.value))) ||
+      hasLink(node.children ?? []),
+  );
+
+/** `children` as a link to `url`, unless a link would nest: Markdown has no
+ * link inside a link, so the outer one would be lost. */
+const linkTo = (url: string | undefined, children: MdNode[], ctx: Context): MdNode[] =>
+  url && children.length > 0 && !ctx.inLink && !hasLink(children) ? [{ type: "link", url, title: null, children }] : children;
 
 // ── node builders ──────────────────────────────────────────────────────────
 
@@ -325,7 +353,8 @@ function transformNode(node: MdNode, ctx: Context): MdNode[] {
   // on one line) is those components.
   const components = node.type === "paragraph" ? onlyBlockComponents(node.children) : undefined;
   if (components) return renderAsBlocks(components, ctx);
-  const children = hoistEdgeSpaces(transformChildren(node.children, ctx));
+  const inner = LINKS.has(node.type) ? { ...ctx, inLink: true } : ctx;
+  const children = hoistEdgeSpaces(transformChildren(node.children, inner));
   return [{ ...node, children: TEXT_BLOCKS.has(node.type) ? trimEdges(children) : children }];
 }
 
@@ -416,7 +445,7 @@ function renderElement(node: JsxElement, ctx: Context): MdNode[] {
   if (!isComponent(node, ctx)) return htmlElement(node, children(), ctx);
   // Mid-sentence (in a table cell, a heading, a sentence), a component keeps
   // what it says, in inline form.
-  if (inline) return inlineForm(node, children());
+  if (inline) return inlineForm(node, children(), ctx);
 
   switch (node.name) {
     case "PackageManagers":
@@ -424,7 +453,15 @@ function renderElement(node: JsxElement, ctx: Context): MdNode[] {
     case "Aside":
       return [{ type: "blockquote", children: [paragraph([strong(asideTitle(node))]), ...children()] }];
     case "Card":
-      return [cardList(cardContent(strong(textAttribute(node, "title") ?? "Card"), children()))];
+      return [cardList(cardContent(cardTitle(node, ctx), children()))];
+    case "LinkButton": {
+      // One line of text becomes a link; anything richer keeps its content.
+      const content = children();
+      const [only] = content;
+      return content.length === 1 && only!.type === "paragraph"
+        ? [paragraph(linkTo(linkTarget(node), only!.children ?? [], ctx))]
+        : content;
+    }
     case "CardGrid":
       return children();
     case "LinkCard":
@@ -526,6 +563,12 @@ function steps(node: JsxElement, ctx: Context): MdNode[] {
   return asBlocks(out);
 }
 
+/** A card's bold title, linked when the card has an `href`. */
+function cardTitle(node: JsxElement, ctx: Context): MdNode {
+  const title = strong(textAttribute(node, "title") ?? "Card");
+  return linkTo(linkTarget(node), [title], ctx)[0]!;
+}
+
 function asideTitle(node: JsxElement): string {
   const type = (textAttribute(node, "type") ?? "note").toLowerCase();
   return textAttribute(node, "title") ?? type.charAt(0).toUpperCase() + type.slice(1);
@@ -540,13 +583,15 @@ function linkCardText(node: JsxElement): MdNode[] {
 }
 
 /** A component's inline form, for a table cell, a heading, or a sentence. */
-function inlineForm(node: JsxElement, content: MdNode[]): MdNode[] {
+function inlineForm(node: JsxElement, content: MdNode[], ctx: Context): MdNode[] {
   const then = (separator: string) => (content.length > 0 ? [text(separator), ...content] : []);
   switch (node.name) {
     case "Aside":
       return [strong(asideTitle(node)), ...then(" ")];
     case "Card":
-      return [strong(textAttribute(node, "title") ?? "Card"), ...then(" — ")];
+      return [cardTitle(node, ctx), ...then(" — ")];
+    case "LinkButton":
+      return linkTo(linkTarget(node), content, ctx);
     case "LinkCard":
       return linkCardText(node);
     case "PackageManagers": {

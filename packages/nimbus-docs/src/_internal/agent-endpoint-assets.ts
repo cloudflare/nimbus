@@ -97,7 +97,7 @@ import type {
 } from "../agent-endpoints.js";
 
 export const AGENT_ENDPOINT_ASSET_MANIFEST_VERSION = 7;
-export const AGENT_ENDPOINT_ASSET_GENERATION = 2;
+export const AGENT_ENDPOINT_ASSET_GENERATION = 3;
 
 export interface MarkdownEndpointAsset extends MarkdownEndpointReference {
   url: string;
