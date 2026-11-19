@@ -428,6 +428,8 @@ test("an api key in the Astro config keeps API reviews without an API collection
     fs.mkdirSync(path.join(root, "node_modules", "@acme", "docs"), { recursive: true });
     fs.writeFileSync(path.join(root, "node_modules", "@acme", "docs", "package.json"), JSON.stringify({ peerDependencies: { "@cloudflare/nimbus-docs": "*" } }));
     assert.deepEqual(siteScope(root), { api: true }, "a preset that depends on Nimbus may carry the API");
+    fs.writeFileSync(path.join(root, "node_modules", "@acme", "docs", "package.json"), JSON.stringify({ devDependencies: { "@cloudflare/nimbus-docs": "workspace:*" } }));
+    assert.deepEqual(siteScope(root), { api: true }, "so may a workspace preset that lists it only for development");
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

@@ -251,7 +251,8 @@ function assignsApi(target: ts.Expression): boolean {
   return false;
 }
 
-/** A package can carry a Nimbus API config only if it depends on Nimbus (or is Nimbus, under another name). */
+/** A package can carry a Nimbus API config only if it names Nimbus in its manifest (a workspace preset may list it
+ *  only under devDependencies), or is Nimbus under another name. */
 function packageMayCarryApi(specifier: string, projectRoot: string): boolean {
   const match = /^(@[^/]+\/[^/]+|[^/]+)/.exec(specifier);
   if (!match) return true;
@@ -261,7 +262,7 @@ function packageMayCarryApi(specifier: string, projectRoot: string): boolean {
       try {
         const json = JSON.parse(fs.readFileSync(manifest, "utf8")) as { name?: string } & Record<string, unknown>;
         if (json.name === "@cloudflare/nimbus-docs") return false;
-        return ["dependencies", "peerDependencies", "optionalDependencies"].some(
+        return ["dependencies", "peerDependencies", "optionalDependencies", "devDependencies"].some(
           (field) => (json[field] as Record<string, string> | undefined)?.["@cloudflare/nimbus-docs"] !== undefined,
         );
       } catch {
