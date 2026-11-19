@@ -124,8 +124,15 @@ export function validateBreakingDeclaration({
         );
       continue;
     }
+    // An optional entry changes nothing until a site takes it, so any release
+    // can carry it. Entries that ask sites to act need a breaking bump.
     const requiredBump = currentVersion && major(currentVersion) > 0 ? "major" : "minor";
-    if (bump !== requiredBump) {
+    if (entry.mode === "optional" && !breaking) {
+      if (!bump)
+        throw new Error(
+          `${entry.id}'s changeset must release @cloudflare/nimbus-docs.`,
+        );
+    } else if (bump !== requiredBump) {
       throw new Error(
         `${entry.id}'s changeset must give @cloudflare/nimbus-docs a breaking-compatible bump (${requiredBump}).`,
       );

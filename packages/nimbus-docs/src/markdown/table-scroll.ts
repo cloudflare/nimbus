@@ -9,7 +9,8 @@
  * Only class-less tables are wrapped, matching the prose stylesheet's
  * `table:not([class])`; the wrapper is a `<div>` so that selector still hits.
  * The wrapper is a Tab stop so keyboard users can scroll it; Safari doesn't
- * make scrolling boxes focusable on its own.
+ * make scrolling boxes focusable on its own. Being focusable, it is a named
+ * region: named by the table's caption, else its column headings.
  */
 import type { HastElement, HastPluginDefinition } from "./types";
 import { classNames } from "./types";
@@ -30,11 +31,12 @@ export function tableScroll(
       filter: ["table"],
       visit(node: HastElement) {
         if (classNames(node).length > 0) return;
+        const label = tableLabel(node);
 
         return {
           type: "element",
           tagName: "div",
-          properties: { className: [wrapperClass], tabIndex: 0 },
+          properties: { className: [wrapperClass], tabIndex: 0, role: "region", ariaLabel: label },
           children: [
             {
               type: "element",
@@ -49,4 +51,25 @@ export function tableScroll(
   };
 
   return plugin as unknown as HastPluginDefinition;
+}
+
+/** The table's caption, else "Table: " and its first row's headings. */
+function tableLabel(table: HastElement): string {
+  const elements = (node: HastElement, tag: string): HastElement[] =>
+    (node.children ?? []).flatMap((child) => {
+      if (child.type !== "element") return [];
+      const element = child as HastElement;
+      return element.tagName === tag ? [element] : elements(element, tag);
+    });
+  const clean = (value: string) => value.trim().replace(/\s+/g, " ");
+  const caption = elements(table, "caption")[0];
+  if (caption && clean(textOf(caption))) return clean(textOf(caption));
+  const [row] = elements(table, "tr");
+  const headings = row ? elements(row, "th").map((th) => clean(textOf(th))).filter(Boolean) : [];
+  return headings.length > 0 ? `Table: ${headings.join(", ")}` : "Table";
+}
+
+function textOf(node: { type: string; value?: unknown; children?: unknown[] }): string {
+  if (node.type === "text") return String(node.value ?? "");
+  return (node.children ?? []).map((child) => textOf(child as typeof node)).join("");
 }

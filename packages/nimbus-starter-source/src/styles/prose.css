@@ -18,7 +18,8 @@
 /* Vertical rhythm — every direct child gets spacing by default.
    Components can override with their own margin utilities (my-4, mt-6, etc.)
    because :where() keeps specificity at (0,1,0) and utilities come later. */
-.docs-content > :where(:not(:first-child)) {
+.docs-content > :where(:not(:first-child)),
+.docs-content :where([data-nb-tabs-content]) > :where(:not(:first-child)) {
   margin-top: 1.25rem;
 }
 
@@ -104,7 +105,8 @@
   margin-top: 1.75rem;
 }
 
-.docs-content > :where(h2:not([class]), h3:not([class]), h4:not([class])) + * {
+.docs-content > :where(h2:not([class]), h3:not([class]), h4:not([class])) + *,
+.docs-content :where([data-nb-tabs-content]) > :where(h2:not([class]), h3:not([class]), h4:not([class])) + * {
   margin-top: 0.5rem;
 }
 

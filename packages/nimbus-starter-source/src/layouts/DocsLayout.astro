@@ -183,7 +183,7 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
           </main>
 
           {showSidebar && (
-            <aside id="desktop-sidebar" aria-label="Sidebar" data-nb-desktop-sidebar class="order-first hidden md:flex w-60 lg:w-(--nb-sidebar-width) shrink-0 border-e border-border bg-background sticky top-14 h-[calc(100vh-3.5rem)] flex-col relative">
+            <aside id="desktop-sidebar" aria-label="Sidebar" data-nb-desktop-sidebar class="order-first hidden md:flex w-60 lg:w-(--nb-sidebar-width) shrink-0 border-e border-border bg-background sticky top-(--nb-header-height) h-[calc(100vh-var(--nb-header-height))] flex-col relative">
               {/* One tree per page: this node moves into the mobile drawer
                   while it is open and comes back on close. It owns the
                   scroll, so open-group and scroll state follow it. */}
@@ -191,13 +191,13 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
                 {hasSidebar ? (
                   <slot name="sidebar" />
                 ) : (
-                  <nav class="px-4 pb-12 pt-5">
+                  <nav aria-label="Documentation" class="px-4 pb-12 pt-5">
                     {showFilter && <SidebarFilter />}
                     <Sidebar items={sidebar ?? []} persist />
                   </nav>
                 )}
               </div>
-              <div class="pointer-events-none sticky bottom-0 h-8 bg-gradient-to-t from-base to-transparent" />
+              <div class="pointer-events-none sticky bottom-0 h-8 bg-gradient-to-t from-background to-transparent" />
             </aside>
           )}
 
@@ -279,7 +279,7 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
 
 
           {showToc && (
-            <aside aria-label="On this page" data-nb-toc-scroll-host class="hidden xl:block w-(--nb-toc-width) shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
+            <aside aria-label="On this page" data-nb-toc-scroll-host class="hidden xl:block w-(--nb-toc-width) shrink-0 sticky top-(--nb-header-height) h-[calc(100vh-var(--nb-header-height))] overflow-y-auto">
               <div class="pt-6 pb-8 ps-8 pe-6">
                 {hasToc ? <slot name="toc" /> : <TOC headings={headings} />}
               </div>
