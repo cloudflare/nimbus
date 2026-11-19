@@ -20,7 +20,7 @@ import { parseContentSourcePath, SOURCES_DIR } from "../_internal/source-paths.j
 export interface PageCollectionLintScope {
   /** Absolute `.mdx` paths outside `src/content`. */
   files: string[];
-  /** The collection of a file outside `src/content`, or null. */
+  /** The configured collection of a file, or null when it cannot be placed. */
   collectionOf: (absPath: string) => string | null;
   /**
    * How a snapshot file is named in findings: `<source>: <repository path>`,
@@ -66,8 +66,8 @@ export function pageCollectionLintScope(
         if (matches(rel)) markdown.add(abs);
       }
     }
-    if (inside(contentDir, place.dir)) continue;
     owners.push({ folder: place.dir, matches, collection });
+    if (inside(contentDir, place.dir)) continue;
     for (const { abs, rel } of walkFilesSync(place.dir, { extensions: [".mdx"] })) {
       if (matches(rel)) files.add(abs);
     }
