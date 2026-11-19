@@ -149,6 +149,9 @@ how the navigation, components and API pages move:
 - **An API reference generated from OpenAPI:** a spec named in the config
   (a path or a URL), and pages whose frontmatter names one operation of it
   (`GET /pets/{id}`, sometimes with the spec's file name before the method).
+- **Where it's served:** at the root of its domain, or under a path beside
+  another site (`example.com/docs/`). Note that path; it becomes Astro's
+  `base` (3g), and page URLs are recorded without it.
 - **The rest:** the site URL, title, description and repository URL in its
   config; frontmatter keys with counts; custom CSS files; assets pages
   reference; redirects in the config, a `_redirects` file or deployment
@@ -170,6 +173,7 @@ Print the plan before writing anything:
   registry, and which you can't map.
 - Snippets to partials (3e), and the API reference (3f).
 - The redirects you will carry and the ones you will only list.
+- The base path, if the old site was served under one (3g).
 - Locales left out (3h), and what you will do with custom CSS.
 
 Wait for the user to confirm.
@@ -181,7 +185,10 @@ Wait for the user to confirm.
 **URLs stay the same.** Place each page so its new URL is its old one:
 `src/content/docs/<old URL path>.mdx`, or `<old URL path>/index.mdx` for a
 page that had children. A page whose frontmatter set a `slug` goes to the
-path of that slug. Only when two pages would land on the same path, or a path
+path of that slug. A key written twice in one page's frontmatter (two `slug:`
+lines, often left by an earlier migration) fails Nimbus's build: keep the one
+whose value matches the URL the old site served, drop the other, and list the
+page. Only when two pages would land on the same path, or a path
 holds a character Nimbus rejects, does a page move: give it the closest free
 path and add a redirect from the old URL (3g).
 
@@ -222,6 +229,13 @@ Then rewrite frontmatter to Nimbus's fields:
 | one OpenAPI operation (`METHOD /path`) | not a page: see 3f |
 | a page that is only an external link | not a page: a `{ label, link }` item in `sidebar.items` |
 
+When several pages share a generic title ("Overview", "Introduction",
+"Getting started"), usually section index pages, the sidebar tells them apart
+but search results and `llms.txt` don't. Propose a title that names the
+section ("Webhooks overview") and keep the old one as `sidebar.label`, so the
+sidebar reads as before; include them in the plan, and change them only when
+the user agrees.
+
 Drop every other key and list them in the report with their counts. Nimbus
 validates frontmatter at build time, so an unknown key fails the build rather
 than being ignored silently.
@@ -229,6 +243,12 @@ than being ignored silently.
 Internal links: rewrite only links to pages that moved, and absolute links to
 the old site's own origin, as site-relative paths; otherwise leave them,
 trailing slashes included (Nimbus serves both forms).
+
+Links with a fragment (`/guides/setup#install`) must land on a heading that
+exists on the target page. Check each against the target's headings: when
+the old site split a page, the heading often lives on one of the new pages,
+so point the link there; when it exists nowhere, drop the fragment and list
+the link.
 
 `nimbus-docs check` reports broken links in `.mdx` pages in step 4. It doesn't
 lint `.md` pages, so for those grep for `](/` yourself and confirm each target
@@ -362,6 +382,18 @@ points at a theme's or template's repository rather than the user's project,
 don't copy it; ask. Don't touch anything else there besides `sidebar.items`
 (3b), `redirects`, and what the API reference recipe adds (3f).
 
+**Under a path.** If the old site was served under a path (1), set Astro's
+`base` to it (`base: "/docs"`) and `site` to the domain. Write links without
+the base, since Nimbus adds it (`[Guide](/guide)` goes to `/docs/guide`), but
+write inline images with it (`/docs/images/hero.png`); `nimbus-docs check`
+reports either one written the other way. With a base, Astro's `redirects`
+can't redirect pages, so write the redirects below as host rules in
+`public/_redirects` instead (Cloudflare or Netlify), with the base in both
+paths; on another host, list them for the user. If another site owns
+the domain, set `agents: { discovery: false }` in the Nimbus config, and tell
+the user the docs sitemap and `llms.txt` sit under the base, where the
+domain's own `robots.txt` should point to them.
+
 Redirects (rule 4): add same-origin ones as `redirects: { "/old": "/new" }` in
 Astro's `defineConfig` block, not the Nimbus one. A wildcard (`:param`,
 `:param*`, `*` or `[...param]`) becomes one redirect per page of the new site
@@ -423,7 +455,8 @@ in your last message. It lists:
   its redirect;
 - the navigation: how many groups and items `sidebar.items` holds, or that it
   stays folder-based;
-- frontmatter keys dropped, with counts, and pages whose `title` you invented;
+- frontmatter keys dropped, with counts, duplicate keys removed, pages whose
+  `title` you invented, and generic titles changed or left;
 - components mapped, icon names substituted, components installed from the
   registry, and every unmapped component, import, expression or raw HTML block
   with its page path;
@@ -433,6 +466,7 @@ in your last message. It lists:
 - secrets seen (names and files only), symlinks skipped, stylesheets not
   translated, logos and favicons to set up, locales left out, and assets
   skipped;
+- links whose fragment you repointed or dropped, and the base path, if any;
 - anything `nimbus-docs check` still reports.
 
 The user reads this report to finish the move. Don't leave anything out of it
