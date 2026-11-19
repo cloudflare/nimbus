@@ -165,3 +165,23 @@ describe("x-nimbus-route on tags", () => {
     assert.equal(warned.length, 1);
   });
 });
+
+describe("x-nimbus-route on webhooks", () => {
+  test("is ignored with a warning, on the path item and on an operation", async () => {
+    const webhooks = {
+      newPet: {
+        "x-nimbus-route": "pets/created",
+        post: { operationId: "petCreated", "x-nimbus-route": "pets/created", ...OK },
+      },
+    };
+    const extra = { openapi: "3.1.0", webhooks };
+    const { slugs } = await routed({}, V2, extra);
+    assert.ok([...slugs.values()].includes("webhooks/newPet"));
+    const warnings = (await diagnostics({}, V2, extra)).filter((d) => d.code === "nimbus-extension");
+    assert.deepEqual(
+      warnings.map((d) => d.source),
+      ["#/webhooks/newPet/x-nimbus-route", "#/webhooks/newPet/post/x-nimbus-route"],
+    );
+    assert.match(warnings[0]!.message, /webhook pages route at "webhooks\/newPet"/);
+  });
+});

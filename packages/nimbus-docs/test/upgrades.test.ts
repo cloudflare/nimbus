@@ -424,7 +424,118 @@ test("an api key in the Astro config keeps API reviews without an API collection
     fs.writeFileSync(path.join(root, "astro.config.mjs"), 'import { defineConfig } from "astro/config";\nconst api = [];\nexport default defineConfig({ integrations: [nimbus({ title: "T", api })] });\n');
     assert.deepEqual(siteScope(root), { api: true });
     fs.writeFileSync(path.join(root, "astro.config.mjs"), 'import { defineConfig } from "astro/config";\nimport docs from "@acme/docs";\nexport default defineConfig({ integrations: [docs()] });\n');
+    assert.deepEqual(siteScope(root), { api: true }, "an uninstalled package is unknown");
+    fs.mkdirSync(path.join(root, "node_modules", "@acme", "docs"), { recursive: true });
+    fs.writeFileSync(path.join(root, "node_modules", "@acme", "docs", "package.json"), JSON.stringify({ peerDependencies: { "@cloudflare/nimbus-docs": "*" } }));
+    assert.deepEqual(siteScope(root), { api: true }, "a preset that depends on Nimbus may carry the API");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Astro config imports that can't carry an API don't show API reviews", () => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-scope-")));
+  try {
+    fs.mkdirSync(path.join(root, "src"));
+    fs.writeFileSync(path.join(root, "src", "content.config.ts"), "export const collections = { docs: docsCollection() };\n");
+    fs.mkdirSync(path.join(root, "node_modules", "@tailwindcss", "vite"), { recursive: true });
+    fs.writeFileSync(path.join(root, "node_modules", "@tailwindcss", "vite", "package.json"), JSON.stringify({ dependencies: { tailwindcss: "4" } }));
+    fs.writeFileSync(path.join(root, "sidebar.mjs"), 'export const sidebar = [{ label: "API", link: "https://api.example.com/" }];\n');
+    const config = (extra: string) =>
+      'import { defineConfig } from "astro/config";\nimport tailwindcss from "@tailwindcss/vite";\nimport { sidebar } from "./sidebar.mjs";\n' +
+      extra +
+      'export default defineConfig({ site: "https://api.example.com", vite: { plugins: [tailwindcss()] }, integrations: [nimbus({ title: "T", sidebar })] });\n';
+    fs.writeFileSync(path.join(root, "astro.config.mjs"), config(""));
+    assert.deepEqual(siteScope(root), { api: false });
+    // A local module that sets `api` keeps API reviews.
+    fs.writeFileSync(path.join(root, "nimbus.config.ts"), 'export const shared = { api: [{ collection: "api", spec: "./openapi.json" }] };\n');
+    fs.writeFileSync(path.join(root, "astro.config.mjs"), config('import { shared } from "./nimbus.config.js";\n'));
     assert.deepEqual(siteScope(root), { api: true });
+    // The file as named wins over its TypeScript twin, as in Vite.
+    fs.writeFileSync(path.join(root, "nimbus.config.js"), 'export const shared = { api: [] };\n');
+    fs.writeFileSync(path.join(root, "nimbus.config.ts"), "export const shared = {};\n");
+    assert.deepEqual(siteScope(root), { api: true });
+    // Without an extension, Vite tries .mjs, .js, .mts, then .ts.
+    fs.writeFileSync(path.join(root, "astro.config.mjs"), config('import { shared } from "./nimbus.config";\n'));
+    assert.deepEqual(siteScope(root), { api: true });
+    // Builtins and expressions that only use an `api` variable don't count.
+    for (const extra of [
+      'import { fileURLToPath } from "url";\nimport fs from "fs";\n',
+      "const endpoint = process.env.api, timeout = 5000;\n",
+      "const api = process.env.API;\nawait fetch(api, { method: \"HEAD\" });\n",
+      "const { api } = process.env;\nconst { api: endpoint } = process.env;\n",
+    ]) {
+      fs.writeFileSync(path.join(root, "astro.config.mjs"), config(extra));
+      assert.deepEqual(siteScope(root), { api: false }, extra);
+    }
+    // A directory with its own package.json can resolve anywhere.
+    fs.mkdirSync(path.join(root, "preset"));
+    fs.writeFileSync(path.join(root, "preset", "package.json"), JSON.stringify({ main: "nimbus.js" }));
+    fs.writeFileSync(path.join(root, "preset", "index.js"), "export const shared = {};\n");
+    fs.writeFileSync(path.join(root, "astro.config.mjs"), config('import { shared } from "./preset";\n'));
+    assert.deepEqual(siteScope(root), { api: true });
+    // A computed key, and an assignment.
+    for (const extra of ['const options = { ["api"]: [] };\n', "const options = {};\noptions.api = [];\n"]) {
+      fs.writeFileSync(path.join(root, "astro.config.mjs"), config(extra));
+      assert.deepEqual(siteScope(root), { api: true }, extra);
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a literal Nimbus config decides by its own keys", () => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-scope-")));
+  try {
+    fs.mkdirSync(path.join(root, "src"));
+    fs.writeFileSync(path.join(root, "src", "content.config.ts"), "export const collections = { docs: docsCollection() };\n");
+    // A local module with an `api` key elsewhere can't set Nimbus's.
+    fs.writeFileSync(path.join(root, "links.mjs"), 'export const links = { api: "https://api.example.com" };\n');
+    const write = (options: string) =>
+      fs.writeFileSync(
+        path.join(root, "astro.config.mjs"),
+        'import { defineConfig } from "astro/config";\nimport nimbus from "@cloudflare/nimbus-docs";\nimport { links } from "./links.mjs";\n' +
+          `export default defineConfig({ integrations: [nimbus(${options})] });\n`,
+      );
+    write('{ title: "T", sidebar: [links] }');
+    assert.deepEqual(siteScope(root), { api: false });
+    write('{ title: "T", api: [] }');
+    assert.deepEqual(siteScope(root), { api: true });
+    // A literal that gains an `api` later.
+    for (const later of ["const holder = { config };\nholder.config.api = [];\n", "Object.assign(config, { api: [] });\n", "config.api ??= [];\n"]) {
+      fs.writeFileSync(
+        path.join(root, "astro.config.mjs"),
+        'import { defineConfig } from "astro/config";\nimport nimbus from "@cloudflare/nimbus-docs";\nconst config = { title: "T" };\n' +
+          later +
+          "export default defineConfig({ integrations: [nimbus(config)] });\n",
+      );
+      assert.deepEqual(siteScope(root), { api: true }, later);
+    }
+    write('{ title: "T", ...links }');
+    assert.deepEqual(siteScope(root), { api: true }, "a spread is read through the fallback");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the content config's API collection is found through aliases and local modules", () => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-scope-")));
+  try {
+    fs.mkdirSync(path.join(root, "src", "lib"), { recursive: true });
+    fs.writeFileSync(path.join(root, "astro.config.mjs"), 'import { defineConfig } from "astro/config";\nexport default defineConfig({});\n');
+    fs.writeFileSync(path.join(root, "tsconfig.json"), JSON.stringify({ compilerOptions: { baseUrl: ".", paths: { "~/*": ["src/*"] } } }));
+    fs.writeFileSync(path.join(root, "src", "content.config.ts"), 'import { collections as shared } from "~/lib/collections.js";\nexport const collections = { ...shared };\n');
+    // Vite loads the .js file; its TypeScript twin has no API.
+    fs.writeFileSync(path.join(root, "src", "lib", "collections.ts"), "export const collections = {};\n");
+    fs.writeFileSync(
+      path.join(root, "src", "lib", "collections.js"),
+      'import * as n from "@cloudflare/nimbus-docs/content";\nexport const collections = { api: n["apiCollection"]({ collection: "api" }) };\n',
+    );
+    assert.deepEqual(siteScope(root), { api: true });
+    fs.writeFileSync(path.join(root, "src", "content.config.ts"), 'import { collections as shared } from "~/lib/collections";\nexport const collections = { ...shared };\n');
+    assert.deepEqual(siteScope(root), { api: true }, "without an extension, too");
+    fs.writeFileSync(path.join(root, "src", "lib", "collections.js"), "export const collections = { docs: {} };\n");
+    assert.deepEqual(siteScope(root), { api: false });
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

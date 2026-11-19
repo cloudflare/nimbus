@@ -809,13 +809,6 @@ class Walker implements ParseContext {
     this.navByTag.set(tag, { coordinate: coord, label: label ?? tag, kind: "section", children: [] });
   }
 
-  /**
-   * A tag page's route. `resource-action-v2` projects the tag to lowercase
-   * kebab; v1 and legacy keep the case-preserving segment, byte for byte. Under
-   * `sections: "hierarchical"` the route is the path of every ancestor that has
-   * a page, then the tag's own segment; a page-less `x-tagGroups` category is
-   * transparent. Memoized: an ancestor's route is reused by every descendant.
-   */
   /** Read each declared tag's `x-nimbus-route`: one path segment, checked like a
    *  `routes.tagSegments` value. Only `resource-action-v2` has tag segments. */
   private collectTagRouteExtensions(): void {
@@ -856,6 +849,13 @@ class Walker implements ParseContext {
     });
   }
 
+  /**
+   * A tag page's route. `resource-action-v2` projects the tag to lowercase
+   * kebab; v1 and legacy keep the case-preserving segment, byte for byte. Under
+   * `sections: "hierarchical"` the route is the path of every ancestor that has
+   * a page, then the tag's own segment; a page-less `x-tagGroups` category is
+   * transparent. Memoized: an ancestor's route is reused by every descendant.
+   */
   private sectionRoute(tag: string): string {
     const memo = this.sectionRoutes.get(tag);
     if (memo !== undefined) return memo;

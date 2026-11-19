@@ -2160,11 +2160,6 @@ async function withNavList(nav: ApiNav, collection: string, version: string | nu
   return listHref ? { ...nav, listHref } : nav;
 }
 
-// Whether Astro registered the site's `apiPages` live collection, learned from
-// the first `bundle: false` page this server renders. A live config edit
-// restarts the server, so it can't change within one process.
-let apiPagesRegistered: boolean | undefined;
-
 /** A `bundle: false` page read from its prepared file, tagged for Astro's route cache. */
 async function readApiPageFile(
   collection: string,
@@ -2204,35 +2199,30 @@ async function renderApiEntry(
         cache?: { enabled?: boolean; set(entry: unknown): void };
       }
     ).cache;
-    const { API_PAGES_COLLECTION, apiPageCacheTags } = await import("./live.js");
-    if (apiPagesRegistered !== false) {
-      const { getLiveEntry } = await import("astro:content");
-      const result = await getLiveEntry(API_PAGES_COLLECTION, {
-        collection,
-        version,
-        id: coordinate,
-        request: astro.request,
-      });
-      // Astro's own answer when `apiPages` itself isn't registered. Any other
-      // error comes from a registered loader (even one that names another
-      // collection), so it surfaces.
-      const unregistered =
-        result.error?.message ===
-        `Collection "${API_PAGES_COLLECTION}" is not a live collection. Use getCollection() instead of getLiveEntry() to load regular content collections.`;
-      apiPagesRegistered = !unregistered;
-      if (unregistered) return readApiPageFile(collection, version, coordinate, astro.request, cache, apiPageCacheTags);
-      if (result.error) throw result.error;
-      if (!result.entry)
-        throw new Error(`Missing API page ${coordinate} in ${collection}.`);
-      // Astro's route cache applies the entry's tags when it's enabled.
-      if (cache?.enabled) cache.set(result.entry);
-      return result.entry.data as unknown as Awaited<
-        ReturnType<
-          typeof import("./_internal/api/page-assets-runtime.js").getApiAssetPage
-        >
-      >;
-    }
-    return readApiPageFile(collection, version, coordinate, astro.request, cache, apiPageCacheTags);
+    const [{ API_PAGES_COLLECTION, apiPageCacheTags }, { collections }] = await Promise.all([
+      import("./live.js"),
+      import("virtual:nimbus/live-collections"),
+    ]);
+    // The same test Astro's getLiveEntry makes before it calls a loader.
+    if (!(API_PAGES_COLLECTION in collections))
+      return readApiPageFile(collection, version, coordinate, astro.request, cache, apiPageCacheTags);
+    const { getLiveEntry } = await import("astro:content");
+    const result = await getLiveEntry(API_PAGES_COLLECTION, {
+      collection,
+      version,
+      id: coordinate,
+      request: astro.request,
+    });
+    if (result.error) throw result.error;
+    if (!result.entry)
+      throw new Error(`Missing API page ${coordinate} in ${collection}.`);
+    // Astro's route cache applies the entry's tags when it's enabled.
+    if (cache?.enabled) cache.set(result.entry);
+    return result.entry.data as unknown as Awaited<
+      ReturnType<
+        typeof import("./_internal/api/page-assets-runtime.js").getApiAssetPage
+      >
+    >;
   }
   const projection = astro ? pageResolutionContext(astro).projection : undefined;
   const entry =

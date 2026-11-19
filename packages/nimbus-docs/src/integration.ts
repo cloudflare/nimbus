@@ -3188,6 +3188,22 @@ export function nimbus(
                 },
               },
               {
+                // The site's live collections, so the runtime can test for
+                // `apiPages` the way Astro's getLiveEntry does. It imports the
+                // module Astro imports, so the loaders aren't instantiated twice.
+                name: "nimbus-docs:live-collections",
+                resolveId(id: string) {
+                  return id === LIVE_COLLECTIONS_ID ? `\0${LIVE_COLLECTIONS_ID}` : undefined;
+                },
+                load(id: string) {
+                  if (id !== `\0${LIVE_COLLECTIONS_ID}`) return undefined;
+                  const file = liveConfigFile(srcDirForBuild);
+                  return file
+                    ? `export { collections } from ${JSON.stringify(file.replaceAll("\\", "/"))};`
+                    : "export const collections = {};";
+                },
+              },
+              {
                 name: "nimbus-docs:agent-endpoint-assets",
                 enforce: "pre",
                 applyToEnvironment: (environment) =>
@@ -4886,12 +4902,17 @@ async function refreshApiCollections(
   );
 }
 
-/**
- * A comparable form of a watched path. The Vite watcher reports real paths,
- * while the project root may sit behind a symlink (macOS `/var` → `/private/var`,
- * `/tmp` → `/private/tmp`), so compare real paths. A deleted file keeps its
- * real parent directory.
- */
+const LIVE_COLLECTIONS_ID = "virtual:nimbus/live-collections";
+
+/** The site's live config, as Astro finds it, or `undefined` when it has none. */
+function liveConfigFile(srcDir: string): string | undefined {
+  for (const name of ["live.config.mjs", "live.config.js", "live.config.mts", "live.config.ts"]) {
+    const file = path.join(srcDir, name);
+    if (fs.existsSync(file)) return file;
+  }
+  return undefined;
+}
+
 /** The site's content config, as Astro finds it, or `undefined` when it has none. */
 function contentConfigFile(srcDir: string): string | undefined {
   for (const name of ["content.config.mjs", "content.config.js", "content.config.mts", "content.config.ts"]) {
@@ -4921,6 +4942,12 @@ async function contentConfigOmits(srcDir: string, collection: string): Promise<b
   return !(await contentConfigMayDeclare(srcDir, [collection]));
 }
 
+/**
+ * A comparable form of a watched path. The Vite watcher reports real paths,
+ * while the project root may sit behind a symlink (macOS `/var` → `/private/var`,
+ * `/tmp` → `/private/tmp`), so compare real paths. A deleted file keeps its
+ * real parent directory.
+ */
 function canonicalWatchPath(file: string): string {
   const absolute = path.resolve(file);
   try {

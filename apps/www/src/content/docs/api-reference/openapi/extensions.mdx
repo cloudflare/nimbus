@@ -66,7 +66,7 @@ declare module "@cloudflare/nimbus-docs/types" {
 
 ## Operation and section URLs
 
-`x-nimbus-route` on an operation sets its page's URL, relative to the collection; on a tag, it sets that section's own segment. It needs a `routes` policy on the `api` entry, and a tag segment needs `resource-action-v2`. Without `routes`, Nimbus ignores it with one build warning and keeps the legacy URLs.
+`x-nimbus-route` on an operation sets its page's URL, relative to the collection; on a tag, it sets that section's own segment. It needs a `routes` policy on the `api` entry, and a tag segment needs `resource-action-v2`. Without `routes`, Nimbus ignores it with one build warning and keeps the legacy URLs. Webhook pages always route at `webhooks/<key>`, so on a webhook it's ignored with a warning.
 
 ```yaml title="openapi.yaml"
 tags:

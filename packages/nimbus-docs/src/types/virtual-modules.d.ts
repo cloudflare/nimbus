@@ -84,6 +84,11 @@ declare module "virtual:nimbus/agent-endpoint-assets" {
     | null;
 }
 
+declare module "virtual:nimbus/live-collections" {
+  /** The site's `src/live.config.*` collections, or none. */
+  export const collections: Record<string, unknown>;
+}
+
 declare module "virtual:nimbus/markdown-routes" {
   export const routes: import("../_internal/markdown-routes.js").MarkdownRouteRecord[];
 }

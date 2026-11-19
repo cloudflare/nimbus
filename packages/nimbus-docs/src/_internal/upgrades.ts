@@ -1,5 +1,8 @@
 import fs from "node:fs";
+import { isBuiltin } from "node:module";
 import path from "node:path";
+
+import ts from "typescript";
 
 import { compare, eq, gt, lt, lte, major, minor, patch, prerelease, valid } from "semver";
 
@@ -7,7 +10,7 @@ import { CLI_PACKAGE, declaresCli, detectPackageManager, installCommand, invocat
 import { getCommand } from "../lib/pkgm.js";
 import pkg from "../../package.json" with { type: "json" };
 import { resolveMigrationSrcDir } from "./migrations.js";
-import { stripComments, stripStrings } from "./parse-object-literal.js";
+import { parseNimbusConfig } from "./parse-nimbus-config.js";
 import rawManifest from "./upgrade-manifest.json";
 
 export type UpgradeMode = "automatic" | "detectable-manual" | "review-required" | "optional";
@@ -53,15 +56,13 @@ export interface SiteScope {
   api: boolean;
 }
 
-// Packages a content config imports that can't define an API collection
-// unless it calls `apiCollection` itself.
+// Imports that can't carry a site's API: Astro, Zod and Nimbus itself.
 const NON_API_IMPORT = /^(?:astro(?::|\/|$)|@astrojs\/|zod$|@cloudflare\/nimbus-docs(?:\/|$))/;
 
 /**
- * A site skips API-only reviews only when its content config provably has no
- * API collection: it never calls or imports `apiCollection`, and every import
- * comes from Astro, Zod or Nimbus, so no other file could define one.
- * Anything unreadable or unclear shows every review.
+ * A site skips API-only reviews only when it provably has no API: neither its
+ * Astro config nor its content config can set one. Anything unreadable or
+ * unclear shows every review.
  */
 export function siteScope(projectRoot: string, srcDirOverride?: string): SiteScope {
   // An API can be configured without any content collection (`bundle: false`),
@@ -72,36 +73,203 @@ export function siteScope(projectRoot: string, srcDirOverride?: string): SiteSco
   for (const name of ["content.config.ts", "content.config.mts", "content.config.js", "content.config.mjs"]) {
     const file = path.join(srcDir, name);
     if (!fs.existsSync(file)) continue;
-    try {
-      const source = stripComments(fs.readFileSync(file, "utf8"));
-      const specifiers = [...source.matchAll(/\b(?:from|import)\s*\(?\s*["']([^"']+)["']/g)].map((m) => m[1]!);
-      const usesApi = /\bapiCollection\b/.test(stripStrings(source));
-      // A dynamic import whose specifier isn't a plain string can load anything.
-      const opaqueImport = /\bimport\s*\(\s*(?!["'][^"'`]+["']\s*\))/.test(source);
-      return { api: usesApi || opaqueImport || specifiers.some((specifier) => !NON_API_IMPORT.test(specifier)) };
-    } catch {
-      return { api: true };
-    }
+    // `apiCollection` named in the content config or a local module it imports.
+    const usesApiCollection = (node: ts.Node) =>
+      (ts.isIdentifier(node) && node.text === "apiCollection") ||
+      (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression) && node.argumentExpression.text === "apiCollection");
+    return { api: moduleMayDeclareApi(file, new ModuleScan(projectRoot, usesApiCollection)) };
   }
   return { api: true };
 }
 
-/** Conservative: any `api` word (a key, a shorthand, a quoted key), or an
- *  import from anywhere but Astro, Zod or Nimbus (a local module or a package
- *  that could carry the Nimbus config), counts as an API. */
+/**
+ * Whether the Astro config may set an `api` entry. When `nimbus({...})` takes
+ * an object literal, its keys decide. Otherwise (a variable, a helper, a
+ * spread) the config counts as an API if it, or a local module it imports,
+ * builds an object with an `api` key or assigns one.
+ */
 function configDeclaresApi(projectRoot: string): boolean {
-  for (const name of ["astro.config.ts", "astro.config.mts", "astro.config.mjs", "astro.config.js", "astro.config.cjs"]) {
-    const file = path.join(projectRoot, name);
-    if (!fs.existsSync(file)) continue;
-    try {
-      const source = stripComments(fs.readFileSync(file, "utf8"));
-      const specifiers = [...source.matchAll(/\b(?:from|import)\s*\(?\s*["']([^"']+)["']/g)].map((m) => m[1]!);
-      return /\bapi\b/.test(source) || specifiers.some((specifier) => !NON_API_IMPORT.test(specifier) && !specifier.startsWith("node:"));
-    } catch {
-      return true;
+  let parsed: ReturnType<typeof parseNimbusConfig>;
+  try {
+    parsed = parseNimbusConfig(projectRoot);
+  } catch {
+    return true;
+  }
+  if (!parsed.ok && parsed.reason === "no-config-file") return false;
+  const file = parsed.ok ? parsed.location.file : parsed.file;
+  if (!file) return true;
+  if (parsed.ok && !parsed.unresolved.includes("...spread")) {
+    if (parsed.location.fields.has("api") || parsed.unresolved.includes("api")) return true;
+    // The literal can still gain an `api` later, through any reference to it.
+    return moduleMayDeclareApi(file, new ModuleScan(projectRoot, addsApi), { followImports: false });
+  }
+  // An object literal's own key (a destructuring pattern is a different node).
+  const setsApi = (node: ts.Node) =>
+    (ts.isObjectLiteralExpression(node) && node.properties.some((property) => namesApi(property.name))) || addsApi(node);
+  return moduleMayDeclareApi(file, new ModuleScan(projectRoot, setsApi));
+}
+
+const ASSIGNMENTS = new Set([
+  ts.SyntaxKind.EqualsToken,
+  ts.SyntaxKind.QuestionQuestionEqualsToken,
+  ts.SyntaxKind.BarBarEqualsToken,
+  ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+]);
+
+/** `x.api = …` (or `??=`, `||=`, `&&=`), `x["api"] = …`, or `Object.assign(x, { api })`. */
+function addsApi(node: ts.Node): boolean {
+  if (ts.isBinaryExpression(node)) return ASSIGNMENTS.has(node.operatorToken.kind) && assignsApi(node.left);
+  return (
+    ts.isCallExpression(node) &&
+    ts.isPropertyAccessExpression(node.expression) &&
+    node.expression.getText() === "Object.assign" &&
+    node.arguments.slice(1).some(
+      (argument) => !ts.isObjectLiteralExpression(argument) || argument.properties.some((property) => namesApi(property.name) || ts.isSpreadAssignment(property)),
+    )
+  );
+}
+
+/** One scan over a module and the local modules it imports. */
+class ModuleScan {
+  readonly seen = new Set<string>();
+  private compilerOptions: ts.CompilerOptions | undefined;
+  constructor(
+    readonly projectRoot: string,
+    readonly matches: (node: ts.Node) => boolean,
+  ) {}
+
+  /** The site's tsconfig options, for path aliases such as `~/lib`. */
+  options(): ts.CompilerOptions {
+    if (this.compilerOptions) return this.compilerOptions;
+    const file = ts.findConfigFile(this.projectRoot, ts.sys.fileExists, "tsconfig.json");
+    const read = file ? ts.readConfigFile(file, ts.sys.readFile) : undefined;
+    const parsed = read?.config ? ts.parseJsonConfigFileContent(read.config, ts.sys, path.dirname(file!)) : undefined;
+    this.compilerOptions = {
+      ...parsed?.options,
+      allowJs: true,
+      moduleResolution: ts.ModuleResolutionKind.Bundler,
+      module: ts.ModuleKind.ESNext,
+    };
+    return this.compilerOptions;
+  }
+}
+
+/**
+ * Whether a module, or a local module it imports, matches the scan; or it
+ * imports a package that depends on Nimbus (a shared docs preset could carry
+ * the API). Other packages (adapters, Vite plugins, loaders) don't count, so a
+ * data-only preset that never names Nimbus is missed. Anything unreadable or
+ * unresolved counts as an API.
+ */
+function moduleMayDeclareApi(file: string, scan: ModuleScan, { followImports = true } = {}): boolean {
+  if (scan.seen.has(file)) return false;
+  scan.seen.add(file);
+  let tree: ts.SourceFile;
+  try {
+    tree = ts.createSourceFile(file, fs.readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, scriptKind(file));
+  } catch {
+    return true;
+  }
+  const specifiers: string[] = [];
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (found) return;
+    if (scan.matches(node)) found = true;
+    else if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier) {
+      if (ts.isStringLiteral(node.moduleSpecifier)) specifiers.push(node.moduleSpecifier.text);
+    } else if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === "require"))) {
+      const [argument] = node.arguments;
+      // A specifier that isn't a plain string can load anything.
+      if (argument && ts.isStringLiteralLike(argument)) specifiers.push(argument.text);
+      else found = true;
     }
+    if (!found) ts.forEachChild(node, visit);
+  };
+  visit(tree);
+  if (found) return true;
+  if (!followImports) return false;
+  for (const specifier of specifiers) {
+    if (NON_API_IMPORT.test(specifier) || isBuiltin(specifier)) continue;
+    const target = resolveLocalModule(specifier, file, scan);
+    if (target === undefined) return true;
+    if (target === "package" ? packageMayCarryApi(specifier, scan.projectRoot) : moduleMayDeclareApi(target, scan)) return true;
   }
   return false;
+}
+
+// Vite's default `resolve.extensions`, as files and as directory indexes.
+const VITE_EXTENSIONS = [".mjs", ".js", ".mts", ".ts", ".jsx", ".tsx", ".json"];
+const LOCAL_MODULE_EXTENSIONS = [...VITE_EXTENSIONS, ...VITE_EXTENSIONS.map((ext) => `/index${ext}`)];
+
+/** The file a local import loads, `"package"` for a package, or `undefined` when unclear. */
+function resolveLocalModule(specifier: string, from: string, scan: ModuleScan): string | "package" | undefined {
+  if (specifier.startsWith(".") || path.isAbsolute(specifier)) {
+    const base = path.resolve(path.dirname(from), specifier);
+    // A directory's package.json can point Vite anywhere.
+    if (fs.existsSync(path.join(base, "package.json"))) return undefined;
+    // Vite takes the file as named, then a TypeScript module imported as
+    // `./x.js` (at `./x.ts`), then the extensions it tries.
+    const candidates = [base, base.replace(/\.(m|c)?js$/, ".$1ts"), ...LOCAL_MODULE_EXTENSIONS.map((ext) => base + ext)];
+    return candidates.find((candidate) => fs.existsSync(candidate) && fs.statSync(candidate).isFile());
+  }
+  if (specifier.startsWith("#")) return undefined;
+  // A tsconfig path alias (`~/schemas/x`) resolves to a site file.
+  const resolved = ts.resolveModuleName(specifier, from, scan.options(), ts.sys).resolvedModule;
+  if (resolved && !resolved.isExternalLibraryImport && !resolved.resolvedFileName.endsWith(".d.ts")) {
+    // TypeScript prefers `.ts` files; resolve the expanded path as Vite would.
+    const file = resolved.resolvedFileName;
+    const tail = path.basename(specifier);
+    const base = /^index\.[^.]+$/.test(path.basename(file)) && !tail.startsWith("index")
+      ? path.dirname(file)
+      : path.join(path.dirname(file), path.extname(tail) ? tail : path.basename(file, path.extname(file)));
+    return resolveLocalModule(base, from, scan);
+  }
+  return "package";
+}
+
+function scriptKind(file: string): ts.ScriptKind {
+  if (file.endsWith(".json")) return ts.ScriptKind.JSON;
+  if (/\.[mc]?ts$/.test(file)) return ts.ScriptKind.TS;
+  if (file.endsWith(".tsx")) return ts.ScriptKind.TSX;
+  return file.endsWith(".jsx") ? ts.ScriptKind.JSX : ts.ScriptKind.JS;
+}
+
+/** A property name that is, or may be, `api`. A computed key that isn't a string may be. */
+function namesApi(name: ts.PropertyName | undefined): boolean {
+  if (!name) return false;
+  if (ts.isComputedPropertyName(name)) {
+    return ts.isStringLiteralLike(name.expression) ? name.expression.text === "api" : true;
+  }
+  return (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) && name.text === "api";
+}
+
+function assignsApi(target: ts.Expression): boolean {
+  if (ts.isPropertyAccessExpression(target)) return target.name.text === "api";
+  if (ts.isElementAccessExpression(target)) {
+    return ts.isStringLiteralLike(target.argumentExpression) ? target.argumentExpression.text === "api" : true;
+  }
+  return false;
+}
+
+/** A package can carry a Nimbus API config only if it depends on Nimbus (or is Nimbus, under another name). */
+function packageMayCarryApi(specifier: string, projectRoot: string): boolean {
+  const match = /^(@[^/]+\/[^/]+|[^/]+)/.exec(specifier);
+  if (!match) return true;
+  for (let dir = projectRoot; ; dir = path.dirname(dir)) {
+    const manifest = path.join(dir, "node_modules", match[1]!, "package.json");
+    if (fs.existsSync(manifest)) {
+      try {
+        const json = JSON.parse(fs.readFileSync(manifest, "utf8")) as { name?: string } & Record<string, unknown>;
+        if (json.name === "@cloudflare/nimbus-docs") return false;
+        return ["dependencies", "peerDependencies", "optionalDependencies"].some(
+          (field) => (json[field] as Record<string, string> | undefined)?.["@cloudflare/nimbus-docs"] !== undefined,
+        );
+      } catch {
+        return true;
+      }
+    }
+    if (path.dirname(dir) === dir) return true;
+  }
 }
 
 export function selectUpgradeEntries(fromVersion: string, targetVersion: string, scope?: SiteScope): UpgradeEntry[] {
