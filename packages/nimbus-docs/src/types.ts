@@ -435,6 +435,13 @@ export interface ApiSpec {
    */
   publishSpec?: boolean;
   /**
+   * List this API in the published coordinate manifest
+   * (`/nimbus-api/coordinates.json`), which other sites read to cite it through
+   * `apiReferences`. Default `true`. Applies to every version. This site's own
+   * `api.ref:` citations work either way.
+   */
+  publishCoordinates?: boolean;
+  /**
    * Bundle this API's page data into the server. Default `true`.
    *
    * Set `false` for a large API or one that keeps many versions: its pages

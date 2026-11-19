@@ -27,7 +27,6 @@
  */
 
 import fs from "node:fs";
-import { assertApiPagesLiveCollection } from "./_internal/page-assets-config.js";
 import { astroConfigHash } from "./_internal/astro-config-file.js";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -112,6 +111,7 @@ import { routeKey } from "./_internal/route-key.js";
 import { rewriteSourceLinks } from "./_internal/source-links.js";
 import {
   declaresNoCollection,
+  parseContentCollections,
   parsePageCollectionSources,
   placeStaticCollections,
 } from "./_internal/parse-content-collections.js";
@@ -3188,6 +3188,22 @@ export function nimbus(
                 },
               },
               {
+                // The site's live collections, so the runtime can test for
+                // `apiPages` the way Astro's getLiveEntry does. It imports the
+                // module Astro imports, so the loaders aren't instantiated twice.
+                name: "nimbus-docs:live-collections",
+                resolveId(id: string) {
+                  return id === LIVE_COLLECTIONS_ID ? `\0${LIVE_COLLECTIONS_ID}` : undefined;
+                },
+                load(id: string) {
+                  if (id !== `\0${LIVE_COLLECTIONS_ID}`) return undefined;
+                  const file = liveConfigFile(srcDirForBuild);
+                  return file
+                    ? `export { collections } from ${JSON.stringify(file.replaceAll("\\", "/"))};`
+                    : "export const collections = {};";
+                },
+              },
+              {
                 name: "nimbus-docs:agent-endpoint-assets",
                 enforce: "pre",
                 applyToEnvironment: (environment) =>
@@ -3457,22 +3473,9 @@ export function nimbus(
               `Remove bundle: false from ${pageAssetCollections.map((collection) => `"${collection}"`).join(", ")}, or switch adapter.`,
           );
         }
-        if (pageAssetCollections.length) {
-          const srcDir = fileURLToPath(astroConfig.srcDir);
-          assertApiPagesLiveCollection(
-            srcDir,
-            pageAssetCollections,
-            (file) => {
-              try {
-                return fs.readFileSync(file, "utf8");
-              } catch {
-                return undefined;
-              }
-            },
-            (file) => fs.realpathSync(file),
-            path.relative(fileURLToPath(astroConfig.root), srcDir) || ".",
-          );
-        }
+        // `bundle: false` pages read through the site's `apiPages` live
+        // collection when it registers one, and read their files directly
+        // otherwise, so `src/live.config.ts` is optional.
         if (
           building &&
           apiCollectionsForBuild.some(
@@ -3641,7 +3644,15 @@ export function nimbus(
             // One refresh at a time; edits made during a refresh queue exactly
             // one more, so none is lost or satisfied by an earlier run.
             const scheduleApiRefresh = coalesce(
-              () => refreshApiCollections(refreshContent, projectRootForBuild),
+              // When content.config.ts (read now, so a restart that removed
+              // the last `apiCollection()` counts) declares none of the APIs,
+              // the spec watcher above re-prepares the pages; there is no
+              // loader to wait for.
+              async () => {
+                const declared = (config.api ?? []).map((entry) => entry.collection);
+                if (!(await contentConfigMayDeclare(srcDirForBuild, declared))) return;
+                await refreshApiCollections(refreshContent, projectRootForBuild);
+              },
               (error) => {
                 server.config.logger.error(
                   `nimbus-docs: failed to refresh API collections after a spec change: ${error instanceof Error ? error.message : String(error)}`,
@@ -3816,6 +3827,17 @@ export function nimbus(
               collection,
               snapshot?.collections.has(collection) ?? false,
             );
+            // `bundle: false` pages are prepared at config setup and read as
+            // files, so leaving out `apiCollection()` is fine: only when
+            // content.config.ts provably declares no collection under the key.
+            // A wrong loader there, or the entry indexed under another key,
+            // still fails.
+            if (
+              indexError === missingApiCollectionMessage(collection) &&
+              pageAssetCollections.includes(collection) &&
+              (await contentConfigOmits(srcDirForBuild, collection))
+            )
+              continue;
             if (indexError) throw new Error(indexError);
           }
         }
@@ -4263,6 +4285,10 @@ export function nimbus(
           projectRootForBuild,
           coordinatesManifest,
           logger,
+          // Every API opted out: remove an earlier build's file rather than
+          // leave a stale manifest behind.
+          Boolean(config.api?.length) &&
+            config.api!.every((entry) => entry.publishCoordinates === false),
         );
 
         // Emit platform redirects only with no adapter; an adapter emits its
@@ -4876,6 +4902,46 @@ async function refreshApiCollections(
   );
 }
 
+const LIVE_COLLECTIONS_ID = "virtual:nimbus/live-collections";
+
+/** The site's live config, as Astro finds it, or `undefined` when it has none. */
+function liveConfigFile(srcDir: string): string | undefined {
+  for (const name of ["live.config.mjs", "live.config.js", "live.config.mts", "live.config.ts"]) {
+    const file = path.join(srcDir, name);
+    if (fs.existsSync(file)) return file;
+  }
+  return undefined;
+}
+
+/** The site's content config, as Astro finds it, or `undefined` when it has none. */
+function contentConfigFile(srcDir: string): string | undefined {
+  for (const name of ["content.config.mjs", "content.config.js", "content.config.mts", "content.config.ts"]) {
+    const file = path.join(srcDir, name);
+    if (fs.existsSync(file)) return file;
+  }
+  return undefined;
+}
+
+/** Whether the content config may declare any of these collections: no config
+ *  means none; one that can't be read in full may. */
+async function contentConfigMayDeclare(srcDir: string, collections: readonly string[]): Promise<boolean> {
+  const file = contentConfigFile(srcDir);
+  if (!file) return false;
+  try {
+    const parsed = await parseContentCollections(file);
+    if (!parsed) return false;
+    if (!parsed.complete) return true;
+    return collections.some((collection) => parsed.names.includes(collection));
+  } catch {
+    return true;
+  }
+}
+
+/** True only when the content config provably has no collection `collection`. */
+async function contentConfigOmits(srcDir: string, collection: string): Promise<boolean> {
+  return !(await contentConfigMayDeclare(srcDir, [collection]));
+}
+
 /**
  * A comparable form of a watched path. The Vite watcher reports real paths,
  * while the project root may sit behind a symlink (macOS `/var` → `/private/var`,
@@ -4938,9 +5004,14 @@ function materializeCoordinatesManifest(
   projectRoot: string,
   manifest: CoordinatesManifest,
   logger: { debug?: (msg: string) => void },
+  nothingPublishes = false,
 ): void {
   try {
     const dir = path.join(projectRoot, ".nimbus");
+    if (nothingPublishes) {
+      fs.rmSync(path.join(dir, "coordinates.json"), { force: true });
+      return;
+    }
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(
       path.join(dir, "coordinates.json"),

@@ -648,6 +648,9 @@ const apiSpecShape = {
   publishSpec: z
     .boolean({ error: '"api[].publishSpec" must be a boolean' })
     .optional(),
+  publishCoordinates: z
+    .boolean({ error: '"api[].publishCoordinates" must be a boolean' })
+    .optional(),
   bundle: z.boolean({ error: '"api[].bundle" must be a boolean' }).optional(),
   samples: samplesSchema.optional(),
   tryIt: tryItSchema.optional(),

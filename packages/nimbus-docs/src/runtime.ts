@@ -2160,6 +2160,21 @@ async function withNavList(nav: ApiNav, collection: string, version: string | nu
   return listHref ? { ...nav, listHref } : nav;
 }
 
+/** A `bundle: false` page read from its prepared file, tagged for Astro's route cache. */
+async function readApiPageFile(
+  collection: string,
+  version: string | null,
+  coordinate: string,
+  request: Request,
+  cache: { enabled?: boolean; set(entry: unknown): void } | undefined,
+  tags: (collection: string, version: string | null) => string[],
+) {
+  const { getApiAssetPage } = await import("./_internal/api/page-assets-runtime.js");
+  const data = await getApiAssetPage(collection, version, coordinate, request);
+  if (cache?.enabled) cache.set({ tags: tags(collection, version) });
+  return data;
+}
+
 // Read one prepared API page and its navigation, from whichever store the
 // collection uses: the live collection (`bundle: false`), the prepared content
 // entry, or a projection of the configured model (thin entries). Without
@@ -2175,34 +2190,33 @@ async function renderApiEntry(
     await import("./_internal/api/page-assets-runtime.js");
   if (await hasApiPageAssets(collection)) {
     if (!astro) throw new Error(`nimbus-docs: api "${collection}" sets bundle: false, so its pages are only readable while rendering a request.`);
-    // bundle: false reads each page through the site's Astro live
-    // collection (src/live.config.ts). The request keeps the
-    // same-origin fallback for client files served elsewhere.
-    const [
-      { getLiveEntry },
-      { API_PAGES_COLLECTION, liveConfigSnippet },
-    ] = await Promise.all([import("astro:content"), import("./live.js")]);
+    // bundle: false reads each page through the site's `apiPages` live
+    // collection when src/live.config.ts registers one (a site may wrap the
+    // loader), and reads the page file directly otherwise. The request keeps
+    // the same-origin fallback for client files served elsewhere.
+    const cache = (
+      astro as {
+        cache?: { enabled?: boolean; set(entry: unknown): void };
+      }
+    ).cache;
+    const [{ API_PAGES_COLLECTION, apiPageCacheTags }, { collections }] = await Promise.all([
+      import("./live.js"),
+      import("virtual:nimbus/live-collections"),
+    ]);
+    // The same test Astro's getLiveEntry makes before it calls a loader.
+    if (!(API_PAGES_COLLECTION in collections))
+      return readApiPageFile(collection, version, coordinate, astro.request, cache, apiPageCacheTags);
+    const { getLiveEntry } = await import("astro:content");
     const result = await getLiveEntry(API_PAGES_COLLECTION, {
       collection,
       version,
       id: coordinate,
       request: astro.request,
     });
-    if (result.error) {
-      if (/is not a live collection/.test(result.error.message))
-        throw new Error(
-          `nimbus-docs: api "${collection}" sets bundle: false, but src/live.config.ts doesn't register the apiPages live collection:\n\n${liveConfigSnippet}`,
-        );
-      throw result.error;
-    }
+    if (result.error) throw result.error;
     if (!result.entry)
       throw new Error(`Missing API page ${coordinate} in ${collection}.`);
     // Astro's route cache applies the entry's tags when it's enabled.
-    const cache = (
-      astro as {
-        cache?: { enabled?: boolean; set(entry: unknown): void };
-      }
-    ).cache;
     if (cache?.enabled) cache.set(result.entry);
     return result.entry.data as unknown as Awaited<
       ReturnType<

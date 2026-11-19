@@ -1,7 +1,7 @@
 import { apiCoordinate, webhookCoordinate } from "./coordinates.js";
 import { pointer } from "./pointer.js";
 import { HTTP_METHODS } from "./openapi-types.js";
-import { assembleOperation, warnOrderPlace } from "./operations.js";
+import { assembleOperation, ROUTE_EXTENSION, warnOrderPlace } from "./operations.js";
 import type { ParseContext } from "./parse-context.js";
 
 export function parseWebhooks(ctx: ParseContext): void {
@@ -18,10 +18,14 @@ export function parseWebhooks(ctx: ParseContext): void {
     // non-overridable webhook rather than reported as a typo. Runs across all
     // methods, independent of the single-page `break` below.
     if ("x-nimbus-order" in item) warnOrderPlace(ctx, pointer("webhooks", key, "x-nimbus-order"));
+    if (ROUTE_EXTENSION in item) warnWebhookRoute(ctx, key, pointer("webhooks", key, ROUTE_EXTENSION));
     for (const method of HTTP_METHODS) {
       const op = item[method];
       if (op && typeof op === "object" && "x-nimbus-order" in op) {
         warnOrderPlace(ctx, pointer("webhooks", key, method, "x-nimbus-order"));
+      }
+      if (op && typeof op === "object" && ROUTE_EXTENSION in op) {
+        warnWebhookRoute(ctx, key, pointer("webhooks", key, method, ROUTE_EXTENSION));
       }
       if (op && typeof op.operationId === "string" && op.operationId) {
         ctx.noteWebhookOperationId(op.operationId, key);
@@ -47,4 +51,13 @@ export function parseWebhooks(ctx: ParseContext): void {
       break;
     }
   }
+}
+
+function warnWebhookRoute(ctx: ParseContext, key: string, source: string): void {
+  ctx.registry.addWarning(
+    `${ROUTE_EXTENSION} is read on path operations and tags only; webhook pages route at "webhooks/${key}". Ignored here.`,
+    webhookCoordinate(key),
+    source,
+    "nimbus-extension",
+  );
 }

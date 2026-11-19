@@ -401,7 +401,7 @@ export interface CodeSample {
  * The IR root stays a pure leaf (no imports), so the seam projects through the
  * view type rather than re-exporting this one — keep the two literals in sync.
  */
-export type RouteProvenance = "override" | "derived" | "fallback";
+export type RouteProvenance = "override" | "extension" | "derived" | "fallback";
 
 /** Which nodes are pages, and their slugs. */
 export interface PageGraph {

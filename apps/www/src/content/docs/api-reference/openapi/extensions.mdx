@@ -64,6 +64,23 @@ declare module "@cloudflare/nimbus-docs/types" {
 
 `page.extensions?.["x-acme-plans"]` is then `string[] | undefined`; names you don't declare stay JSON values.
 
+## Operation and section URLs
+
+`x-nimbus-route` on an operation sets its page's URL, relative to the collection; on a tag, it sets that section's own segment. It needs a `routes` policy on the `api` entry, and a tag segment needs `resource-action-v2`. Without `routes`, Nimbus ignores it with one build warning and keeps the legacy URLs. Webhook pages always route at `webhooks/<key>`, so on a webhook it's ignored with a warning.
+
+```yaml title="openapi.yaml"
+tags:
+  - name: users
+    x-nimbus-route: people
+paths:
+  /zones/{zone_id}/dns_records:
+    get:
+      operationId: listDnsRecords
+      x-nimbus-route: dns/records/list   # → /api/dns/records/list/
+```
+
+A `routes.operations` or `routes.tagSegments` entry in the config wins over the extension, and the extension wins over the convention's own URL. Its value is checked like an override: lowercase kebab-case segments, no reserved first segment, one segment for a tag, and no two pages on one URL. Write it in the spec, or in a step that prepares the spec, when your URLs come from data the route conventions don't read, such as SDK method names. See [routes](/api-reference/openapi/routes).
+
 ## Operation order
 
 Section pages, the sidebar, the [API home's index](/api-reference/large-apis#the-api-home) and the Markdown versions list a section's operations in the spec's path order. `x-nimbus-order` on an operation moves it ahead: lower numbers come first, and operations without it follow in path order; equal values keep path order too. Sections keep their order, and webhooks keep the spec's.

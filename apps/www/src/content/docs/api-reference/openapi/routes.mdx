@@ -66,6 +66,8 @@ routes: {
 },
 ```
 
+An operation can also carry its URL in the spec as [`x-nimbus-route`](/api-reference/openapi/extensions#operation-and-section-urls), and a tag its segment. The order is: `routes.operations` (or `routes.tagSegments`), then `x-nimbus-route`, then the convention.
+
 Without a usable `operationId`, Nimbus derives a fallback coordinate from the method and path. `requireOperationId: true` rejects that fallback, but changing an existing operation ID still changes the coordinate. Webhooks always use their map keys as coordinates and publish below `webhooks/<key>`; configuring an operation override for a webhook fails the build.
 
 Renaming a coordinate requires updating citations and affects cross-version matching. Changing only a route leaves coordinate-based citations intact, but breaks direct links to the previous URL. Nimbus does not create that redirect automatically; add it in Astro or on the deployment platform.

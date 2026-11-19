@@ -43,6 +43,11 @@ export const liveConfigSnippet =
   "  apiPages: defineLiveCollection({ loader: apiPagesLoader() }),\n" +
   "};\n";
 
+/** The route-cache tags of one API page: its API, and its API version. */
+export function apiPageCacheTags(collection: string, version: string | null): string[] {
+  return [`nimbus-api:${collection}`, `nimbus-api:${collection}@${version ?? ""}`];
+}
+
 export function apiPagesLoader(): LiveLoader<ApiPageEntry, ApiPageFilter> {
   return {
     name: "@cloudflare/nimbus-docs/api-pages",
@@ -60,12 +65,7 @@ export function apiPagesLoader(): LiveLoader<ApiPageEntry, ApiPageFilter> {
         return {
           id: `${filter.collection}@${filter.version ?? ""}:${filter.id}`,
           data,
-          cacheHint: {
-            tags: [
-              `nimbus-api:${filter.collection}`,
-              `nimbus-api:${filter.collection}@${filter.version ?? ""}`,
-            ],
-          },
+          cacheHint: { tags: apiPageCacheTags(filter.collection, filter.version) },
         };
       } catch (error) {
         return {

@@ -64,6 +64,8 @@ export interface ResolvedApiVersion {
   schemaPages: boolean;
   /** Publish the self-contained spec file. Version override, else family, else true. */
   publishSpec: boolean;
+  /** List the family in the published coordinate manifest. Family-wide; default true. */
+  publishCoordinates: boolean;
   /** Code sample policy. Family-wide. */
   samples?: ApiSamples;
   /** Try it, with its defaults applied; absent when off. Family-wide. */
@@ -142,6 +144,7 @@ export function resolveApiFamily(entry: ApiSpec, familyPath: string): ResolvedAp
         requireOperationId: entry.requireOperationId ?? false,
         schemaPages: entry.schemaPages ?? false,
         publishSpec: entry.publishSpec ?? true,
+        publishCoordinates: entry.publishCoordinates ?? true,
         samples: entry.samples,
         ...tryItOf(entry),
         ...(entry.extensions ? { extensions: entry.extensions } : {}),
@@ -171,6 +174,7 @@ export function resolveApiFamily(entry: ApiSpec, familyPath: string): ResolvedAp
       requireOperationId: entry.requireOperationId ?? false,
       schemaPages: entry.schemaPages ?? false,
       publishSpec: v.publishSpec ?? entry.publishSpec ?? true,
+      publishCoordinates: entry.publishCoordinates ?? true,
       samples: entry.samples,
       ...tryItOf(entry),
       ...((v.extensions ?? entry.extensions) ? { extensions: v.extensions ?? entry.extensions } : {}),

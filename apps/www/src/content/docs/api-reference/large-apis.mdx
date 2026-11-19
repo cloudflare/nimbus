@@ -123,7 +123,9 @@ Nimbus then writes each page's data as static assets beside the site, and shares
 
 Each build also ships the previous build's page files, so a server still on the old release during a rollout keeps working. On Cloudflare, each Worker version already keeps its own files.
 
-Pages are read through an Astro live collection, which Astro only accepts from your own `src/live.config.ts`. Add it once; the build shows this snippet if it's missing:
+Nimbus prepares these pages itself, so the API needs no `apiCollection()` in `src/content.config.ts` and no `src/live.config.ts`; a site that already has them keeps working.
+
+To wrap how pages are read, register the `apiPages` live collection in `src/live.config.ts`, and Nimbus reads pages through it:
 
 ```ts title="src/live.config.ts"
 import { defineLiveCollection } from "astro:content";
@@ -134,7 +136,7 @@ export const collections = {
 };
 ```
 
-When Astro's route cache is enabled, each page is cached with the tags `nimbus-api:<collection>` and `nimbus-api:<collection>@<version>`.
+When Astro's route cache is enabled, each page is cached with the tags `nimbus-api:<collection>` and `nimbus-api:<collection>@<version>`, with or without the live collection.
 
 `bundle: false` needs the collection rendered on request, with the Cloudflare or Node adapter; otherwise the build says what to change.
 
