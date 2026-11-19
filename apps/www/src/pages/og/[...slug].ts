@@ -1,8 +1,11 @@
 import type { APIRoute, GetStaticPaths } from "astro";
 import { getCollection } from "astro:content";
-import { renderDocsOgCard } from "./_renderer";
+import { authorProfiles, postDate } from "@/lib/blog";
+import { renderBlogOgCard, renderDocsOgCard } from "./_renderer";
 
-type OgProps = { section: string; title: string };
+type DocsProps = { section: string; title: string };
+type PostProps = { title: string; author: string; date: string; photo?: string };
+type OgProps = DocsProps | PostProps;
 
 // Prerender every card as a static asset: image generation needs Node.
 export const prerender = true;
@@ -19,20 +22,36 @@ export const getStaticPaths: GetStaticPaths = async () => {
     const sidebar = entry.data.sidebar;
     groups.set(entry.id, (sidebar ? sidebar.group?.label : undefined) ?? entry.data.title);
   }
-  return entries.map((entry) => {
+  const docs = entries.map((entry) => {
     const top = entry.id.split("/")[0]!;
     return {
       params: { slug: `${entry.id}.png` },
       props: {
         section: groups.get(top) ?? (entry.id.includes("/") ? top : "Docs"),
         title: entry.data.title,
-      } satisfies OgProps,
+      } satisfies DocsProps,
     };
   });
+  // The blog's index shares the docs' card; each post's card adds its
+  // author and date. Both at the URLs their pages name.
+  const posts = [
+    { params: { slug: "blog.png" }, props: { section: "Nimbus", title: "Blog" } satisfies DocsProps },
+    ...(await getCollection("blog", (e) => !e.data.draft)).map((entry) => ({
+      params: { slug: `blog/${entry.id}.png` },
+      props: {
+        title: entry.data.title,
+        author: entry.data.author,
+        date: postDate(entry.data.date),
+        photo: authorProfiles(entry.data.author)?.photo,
+      } satisfies PostProps,
+    })),
+  ];
+  return [...docs, ...posts];
 };
 
 export const GET: APIRoute = async ({ props }) => {
-  const png = await renderDocsOgCard(props as OgProps);
+  const og = props as OgProps;
+  const png = "author" in og ? await renderBlogOgCard(og) : await renderDocsOgCard(og);
   return new Response(png, {
     headers: { "Content-Type": "image/png" },
   });

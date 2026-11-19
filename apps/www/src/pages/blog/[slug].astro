@@ -1,0 +1,57 @@
+---
+/**
+ * A post at /blog/<id>/, built at build time from the `blog` collection:
+ * the docs layout in custom mode with the homepage's header, then the post, the
+ * homepage's get-started section and footer. Its Markdown version is
+ * ./[slug]/index.md.ts.
+ */
+import type { GetStaticPaths } from "astro";
+import { render } from "astro:content";
+import DocsLayout from "@/layouts/DocsLayout.astro";
+import BlogPost from "@/components/blog/BlogPost.astro";
+import ExpStart from "@/home/www/story/exp/ExpStart.astro";
+import SiteFooter from "@/home/www/SiteFooter.astro";
+import SiteHeader from "@/home/www/SiteHeader.astro";
+import { components } from "../../components";
+import { feedLink, getPosts, postHead, postImage, postMarkdownHref, type Post } from "@/lib/blog";
+
+export const prerender = true;
+
+export const getStaticPaths = (async () => {
+  const posts = await getPosts();
+  return posts.map((post) => ({
+    params: { slug: post.id },
+    // The next three newest posts other than this one.
+    props: { post, more: posts.filter((other) => other.id !== post.id).slice(0, 3) },
+  }));
+}) satisfies GetStaticPaths;
+
+interface Props {
+  post: Post;
+  more: Post[];
+}
+
+const { post, more } = Astro.props;
+const { Content } = await render(post);
+---
+
+<DocsLayout
+  title={post.data.title}
+  description={post.data.description}
+  markdownUrl={postMarkdownHref(post)}
+  socialImage={postImage(post)}
+  lastUpdated={post.data.lastUpdated}
+  mode="custom"
+  sidebar={false}
+  headings={false}
+  breadcrumbs={[]}
+  prevNext={{}}
+  head={[feedLink(), ...postHead(post, Astro.site)]}
+>
+  <SiteHeader slot="header" current="Blog" />
+  <BlogPost post={post} more={more}>
+    <Content components={components} />
+  </BlogPost>
+  <section id="start" class="border-t border-border px-6 py-10"><ExpStart /></section>
+  <SiteFooter />
+</DocsLayout>

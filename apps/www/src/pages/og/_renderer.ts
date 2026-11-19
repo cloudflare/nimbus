@@ -1,6 +1,6 @@
 /**
  * Satori → PNG renderer for nimbus-docs.com's share images: `og.png.ts`
- * (the home card) and `og/[...slug].ts` (one card per docs page).
+ * (the home card) and `og/[...slug].ts` (one card per docs page and blog post).
  *
  * Fonts and the chrome still load once at module init. The picture on the
  * right never changes between cards, so each kind of panel is drawn once,
@@ -11,6 +11,7 @@ import { readFile } from "node:fs/promises";
 import satori from "satori";
 import { Resvg } from "@resvg/resvg-js";
 import {
+  BlogOgCard,
   DocsOgCard,
   HomeOgCard,
   OG_HEIGHT,
@@ -67,4 +68,26 @@ export async function renderDocsOgCard(input: { section: string; title: string }
 export async function renderHomeOgCard(input: { name: string; tagline: string; address: string }): Promise<Uint8Array<ArrayBuffer>> {
   const panelSrc = await panel("home");
   return Uint8Array.from(await toPng(HomeOgCard({ ...input, panelSrc }), OG_WIDTH, OG_HEIGHT));
+}
+
+const photos = new Map<string, Promise<string>>();
+/** An author's photo under `public/`, as a data URL, read once per photo. */
+function photo(path: string): Promise<string> {
+  let p = photos.get(path);
+  if (!p) {
+    p = readFile(`./public${path}`).then((jpg) => `data:image/jpeg;base64,${jpg.toString("base64")}`);
+    photos.set(path, p);
+  }
+  return p;
+}
+
+/** A blog post's card; `photo` is the author's photo under `public/`, if they have one. */
+export async function renderBlogOgCard(input: {
+  title: string;
+  author: string;
+  date: string;
+  photo?: string;
+}): Promise<Uint8Array<ArrayBuffer>> {
+  const [panelSrc, photoSrc] = await Promise.all([panel("docs"), input.photo ? photo(input.photo) : undefined]);
+  return Uint8Array.from(await toPng(BlogOgCard({ ...input, photoSrc, panelSrc }), OG_WIDTH, OG_HEIGHT));
 }
