@@ -19,7 +19,7 @@
     "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "~14.4.6",
+    "@astrojs/cloudflare": "~14.4.8",
     "@astrojs/react": "^6.0.6",
     "@astrojs/rss": "^4.0.19",
     "@cloudflare/nimbus-docs": "workspace:*",
@@ -28,8 +28,8 @@
     "@iconify-json/ph": "^1.2.2",
     "@modelcontextprotocol/server": "^2.4.0",
     "@resvg/resvg-js": "^2.6.2",
-    "@scalar/openapi-parser": "0.29.20",
-    "astro": "7.4.8",
+    "@scalar/openapi-parser": "0.29.23",
+    "astro": "7.4.12",
     "clsx": "^2.1.1",
     "openapi-sampler": "1.7.10",
     "react": "^19.3.1",
@@ -43,14 +43,14 @@
     "@tailwindcss/vite": "^4.3.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "ajv": "8.18.0",
+    "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "pagefind": "^1.6.0",
-    "playwright": "1.65.0",
+    "playwright": "1.65.1",
     "tailwindcss": "^4.3.5",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "wrangler": "^4.159.0",
+    "wrangler": "^4.163.0",
     "yaml": "2.9.1"
   }
 }
