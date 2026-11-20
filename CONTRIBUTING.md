@@ -93,6 +93,8 @@ Merging the "chore: bump package versions" PR publishes to npm, then automatical
 
 If npm publishes but the www deploy fails, run the Release workflow manually from `main` (**Actions → Release → Run workflow**) while no other Release run is in progress; a manual run can cancel a queued one, so rerun any it cancels. It skips publishing, builds the newer of the two packages' npm `latest` release tags, and deploys only if both package versions at that commit match npm `latest`. Rerunning a whole push-triggered Release run does not redeploy if nothing new was published.
 
+npm can take minutes to show a version it has accepted. The release script waits up to 15 minutes per package, then logs a warning and carries on, since the publish itself succeeded; the verify workflow retries its scaffold against npm on its own.
+
 If publishing failed partway, recover any missing git tags as the release script instructs. If a package still needs publishing, rerun the push-triggered run; it deploys once publishing completes. If both packages are already on npm, use the manual run.
 
 There is no rollback to an older release: the deploy refuses a release older than npm `latest`, so fix forward with a new release. In an emergency, Cloudflare's Worker deployment rollback is the only sanctioned production change outside the Release workflow.
