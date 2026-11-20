@@ -85,6 +85,7 @@ test("only universally skippable entries are optional", () => {
       "redesigned-starter",
       "route-files-follow-rendering",
       "search-provider-slices",
+      "search-unindexed-version",
       "shared-markdown-routes",
       "starter-a11y-layout",
       "starter-component-fixes",

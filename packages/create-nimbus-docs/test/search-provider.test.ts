@@ -64,6 +64,7 @@ async function pagefindUrlFor(
       loaded = href;
       return {
         init: async () => {},
+        filters: async () => ({}),
         options: async (options: { baseUrl?: string }) => {
           if (options.baseUrl) baseUrls.push(options.baseUrl);
         },
@@ -173,8 +174,8 @@ test("result URLs come back as Pagefind gives them: its baseUrl adds the base, t
 });
 
 // The filters a search sends from a page with `html` in it, on a site whose
-// config is `config`.
-async function filtersFrom(config: unknown, html: string): Promise<unknown> {
+// config is `config` and whose index holds pages for `indexed` versions.
+async function filtersFrom(config: unknown, html: string, indexed: string[] = ["v1", "v2"]): Promise<unknown> {
   const { JSDOM } = await import("jsdom");
   const source = fs
     .readFileSync(PROVIDER, "utf8")
@@ -196,6 +197,7 @@ async function filtersFrom(config: unknown, html: string): Promise<unknown> {
     __searchIndex: WHOLE_SITE,
     __import: async () => ({
       init: async () => {},
+      filters: async () => ({ version: Object.fromEntries(indexed.map((version) => [version, 1])) }),
       options: async () => {},
       mergeIndex: async () => {},
       search: async (_q: string, options?: { filters?: unknown }) => {
@@ -224,6 +226,11 @@ test("a deprecated version's page searches that version; anywhere else leaves de
   const site = { versions: { deprecated: ["v1"] } };
   const deprecatedPage = '<div data-pagefind-filter="version:v1"><span hidden data-pagefind-filter="status:deprecated"></span></div>';
   assert.deepEqual(await filtersFrom(site, deprecatedPage), { version: "v1" });
+  assert.deepEqual(
+    await filtersFrom(site, deprecatedPage, ["v2"]),
+    { status: { none: "deprecated" } },
+    "a version the index doesn't hold (an API whose version is in the query) searches the current versions",
+  );
   assert.deepEqual(await filtersFrom(site, '<div data-pagefind-filter="version:v2"></div>'), { status: { none: "deprecated" } });
   assert.deepEqual(
     await filtersFrom(site, '<span hidden data-pagefind-filter="status:deprecated"></span>'),
