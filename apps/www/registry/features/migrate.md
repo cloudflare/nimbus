@@ -412,9 +412,10 @@ don't add it.
 
 Copy the assets moved pages reference, within rule 8, and rewrite each
 reference that moved, so a hero image written `../../assets/hero.png` becomes
-`/images/hero.png` and the file is there. Under a base (3g), the reference
-you write carries the base (`/docs/images/hero.png`); the file's path under
-`public/` doesn't. Known image, PDF and video types
+`/images/hero.png` and the file is there. Under a base (3g), an inline image
+(`![…](…)` or an `src`) carries the base (`/docs/images/hero.png`), while a
+link to a file and a reference definition don't, since Nimbus adds it
+(`[Manual](/manual.pdf)`); the file's path under `public/` never does. Known image, PDF and video types
 only, nothing over 20 MiB, and no `..` segment in any reference you write.
 When a page links to an asset rule 8 skips, keep the link if it passes rule 6
 (an absolute path on this site, say), so the user sees the 404 coming;
