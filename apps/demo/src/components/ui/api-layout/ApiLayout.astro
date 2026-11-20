@@ -164,7 +164,7 @@ if (versionStatus?.isHidden || homePart) {
         )}
         <ApiBody page={page} home={home}>
           {hasRail && (
-            <div slot="sample" data-api-place="rail" data-pagefind-ignore class="mt-8 min-[90rem]:col-start-2 min-[90rem]:row-span-12 min-[90rem]:row-start-1 min-[90rem]:-mt-8 min-[90rem]:self-start min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:h-[calc(100vh-3.5rem)] min-[90rem]:w-[29rem] min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1 2xl:w-(--nb-code-rail-width)">
+            <div slot="sample" data-api-place="rail" data-pagefind-ignore class="mt-8 min-[90rem]:col-start-2 min-[90rem]:row-span-12 min-[90rem]:row-start-1 min-[90rem]:-mt-8 min-[90rem]:self-start min-[90rem]:sticky min-[90rem]:top-(--nb-header-height) min-[90rem]:h-[calc(100vh-var(--nb-header-height))] min-[90rem]:w-[29rem] min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1 2xl:w-(--nb-code-rail-width)">
               <ApiCodeRail
                 responses={page.responses}
                 samples={page.samples}
@@ -193,7 +193,7 @@ if (versionStatus?.isHidden || homePart) {
     </main>
 
     {!hasRail && tocHeadings.length > 0 && (
-      <aside aria-label="On this page" data-nb-toc-scroll-host class="hidden xl:block w-(--nb-toc-width) shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
+      <aside aria-label="On this page" data-nb-toc-scroll-host class="hidden xl:block w-(--nb-toc-width) shrink-0 sticky top-(--nb-header-height) h-[calc(100vh-var(--nb-header-height))] overflow-y-auto">
         <div class="pt-8 pb-8 ps-8 pe-6"><TOC headings={tocHeadings} /></div>
       </aside>
     )}
@@ -206,7 +206,7 @@ if (versionStatus?.isHidden || homePart) {
     aria-label="Sidebar"
     transition:name="nb-api-sidebar"
     transition:animate="none"
-    class="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 flex-col border-e border-border bg-background md:col-start-1 md:row-start-1 md:flex lg:w-(--nb-sidebar-width)"
+    class="sticky top-(--nb-header-height) hidden h-[calc(100vh-var(--nb-header-height))] w-60 shrink-0 flex-col border-e border-border bg-background md:col-start-1 md:row-start-1 md:flex lg:w-(--nb-sidebar-width)"
   >
     <ApiSidebarPanel nav={nav} version={version} />
   </aside>

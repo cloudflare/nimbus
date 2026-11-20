@@ -57,6 +57,10 @@ interface SiteOptions {
   bundle?: false;
   /** The API served at the site root, with no docs collection. */
   atRoot?: boolean;
+  /** With `bundle: false`: neither `apiCollection()` nor `src/live.config.ts`. */
+  noCollections?: boolean;
+  /** Registers the API's key with a loader other than `apiCollection()`. */
+  wrongLoader?: boolean;
 }
 
 interface Site {
@@ -77,7 +81,7 @@ async function buildSite(options: SiteOptions): Promise<Site> {
   await write("nimbus.json", `${JSON.stringify({ lastReviewedNimbusVersion: runningNimbusVersion() })}\n`);
   await write("specs/pets.json", SPEC);
   await write("package.json", '{"type":"module"}\n');
-  if (options.bundle === false) {
+  if (options.bundle === false && !options.noCollections) {
     await write(
       "src/live.config.ts",
       `import { defineLiveCollection } from "astro:content";
@@ -91,8 +95,7 @@ export const collections = { apiPages: defineLiveCollection({ loader: apiPagesLo
     `import { defineCollection } from "astro:content";
 import { apiCollection, docsCollection } from ${JSON.stringify(pathToFileURL(path.join(SRC_DIR, "content.ts")).href)};
 export const collections = {
-${options.atRoot ? "" : "  docs: defineCollection(docsCollection()),\n"}  pets: defineCollection(apiCollection()),
-};
+${options.atRoot ? "" : "  docs: defineCollection(docsCollection()),\n"}${options.wrongLoader ? "  pets: defineCollection({ loader: async () => [] }),\n" : options.noCollections ? "" : "  pets: defineCollection(apiCollection()),\n"}};
 `,
   );
   if (!options.atRoot) {
@@ -218,6 +221,7 @@ let noIndex: Site;
 let imaged: Site;
 let packed: Site;
 let atRoot: Site;
+let bare: Site;
 
 before(async () => {
   // One build at a time: Astro builds in one process share module state.
@@ -227,11 +231,12 @@ before(async () => {
   imaged = await buildSite({ host: "imaged.test", rendering: "request", socialImage: "/social.png" });
   packed = await buildSite({ host: "packed.test", rendering: "request", bundle: false });
   atRoot = await buildSite({ host: "atroot.test", rendering: "request", atRoot: true, mcp: true });
+  bare = await buildSite({ host: "bare.test", rendering: "request", bundle: false, noCollections: true });
 });
 
 after(async () => {
   await Promise.all(
-    [baked, rendered, noIndex, imaged, packed, atRoot]
+    [baked, rendered, noIndex, imaged, packed, atRoot, bare]
       .filter(Boolean)
       .map((site) => rm(site.root, { recursive: true, force: true, maxRetries: 5 })),
   );
@@ -370,6 +375,28 @@ test("a bundle: false collection renders the same document from its page pack", 
     const expected = rehost(await (await rendered.app.render(new Request(`https://rendered.test${url}`))).text(), "rendered.test", "packed.test");
     assert.equal(await response.text(), expected, `${url} from the page pack equals the prepared entry's`);
   }
+});
+
+test("a bundle: false API needs neither apiCollection() nor a live collection", async () => {
+  for (const url of ["/pets/", "/pets/listPets/", "/pets/createPet/"]) {
+    const html = await bare.app.render(new Request(`https://bare.test${url}`));
+    assert.equal(html.status, 200, url);
+    const expected = await (await packed.app.render(new Request(`https://packed.test${url}`))).text();
+    assert.equal(rehost(await html.text(), "packed.test", "bare.test"), rehost(expected, "packed.test", "bare.test"), `${url} matches the site with both collections`);
+  }
+  for (const url of ["/pets/index.md", "/pets/listPets/index.md"]) {
+    const response = await bare.app.render(new Request(`https://bare.test${url}`));
+    assert.equal(response.status, 200, url);
+    const expected = rehost(await (await packed.app.render(new Request(`https://packed.test${url}`))).text(), "packed.test", "bare.test");
+    assert.equal(await response.text(), expected, url);
+  }
+});
+
+test("a bundle: false API with another loader under its key still fails the build", async () => {
+  await assert.rejects(
+    () => buildSite({ host: "wrong.test", rendering: "request", bundle: false, noCollections: true, wrongLoader: true }),
+    /apiCollection/,
+  );
 });
 
 test("an API served at the site root renders its overview at /index.md, not the llms index", async () => {

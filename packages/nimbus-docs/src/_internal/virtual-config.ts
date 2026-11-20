@@ -129,18 +129,22 @@ export function virtualConfigPlugin(
     // The page bundle gets only what `getEditUrl` reads of a source: its
     // configured `ref` and `editPattern`, never `repo` or `path`.
     sources: runtimeSources(config.sources),
+    // The page bundle never parses a spec or resolves a route: it reads the
+    // prepared pages. So it gets neither the spec nor the build-only route
+    // settings (an `operations` map can be thousands of entries per version).
+    // Model building at runtime reads the full build config instead.
     ...(config.api
       ? {
           api: config.api.map((entry) =>
             entry.versions
               ? {
-                  ...entry,
+                  ...withRuntimeRoutes(entry),
                   versions: entry.versions.map((version) => ({
-                    ...version,
+                    ...withRuntimeRoutes(version),
                     spec: {},
                   })),
                 }
-              : { ...entry, spec: {} },
+              : { ...withRuntimeRoutes(entry), spec: {} },
           ),
         }
       : {}),
@@ -190,4 +194,12 @@ export function virtualConfigPlugin(
       refreshDevRunners(server);
     },
   };
+}
+
+/** A route policy keeps only what pages read (`convention`, `sections`). */
+function withRuntimeRoutes<T extends { routes?: unknown }>(item: T): T {
+  if (!item.routes || typeof item.routes !== "object") return item;
+  const { operations: _o, tagSegments: _t, stripPathPrefixes: _s, ...runtime } =
+    item.routes as Record<string, unknown>;
+  return { ...item, routes: runtime };
 }

@@ -83,14 +83,18 @@ const sizes = "(min-width: 768px) 768px, 100vw";
     border-radius: 0.5rem;
   }
 
-  .frame-media :global(img),
-  .frame-media :global(video),
-  .frame-media :global(svg) {
-    display: block;
-    max-width: 100%;
-    height: auto;
-    margin: 0;
-    border-radius: 0.5rem;
+  /* In the components layer, so utilities on the media win: a
+     `dark:hidden` / `hidden dark:block` pair shows one image per theme. */
+  @layer components {
+    .frame-media :global(img),
+    .frame-media :global(video),
+    .frame-media :global(svg) {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin: 0;
+      border-radius: 0.5rem;
+    }
   }
 
   /* Aspect-locked variant — locks the media box to the given ratio. `aspect`

@@ -11,6 +11,7 @@
 import type { LlmsEndpointReference } from "../agent-endpoints.js";
 import type { StagedAgentEndpointManifest } from "./agent-endpoint-assets.js";
 import { readStagedAsset } from "./staged-asset-reader.js";
+import { createRequestClaims } from "./request-claims.js";
 import {
   assembleLlmsFullPart,
   flattenLlmsGroups,
@@ -125,13 +126,16 @@ async function pageMarkdown(manifest: StagedAgentEndpointManifest, page: LlmsPag
   throw new Error(`nimbus-docs: no Markdown for "${page.collection}:${page.id}" to assemble llms-full.txt from.`);
 }
 
-// Assembled parts, per isolate: in-flight renders, shared by concurrent
-// requests for one part, and completed bodies within a byte budget. A failed
-// render is forgotten.
+// Assembled parts, per isolate: completed bodies within a byte budget, and
+// the parts being rendered, so concurrent requests for one part render it once.
+// A failed render is forgotten.
 const PART_MEMO_BUDGET_BYTES = 64 * 1024 * 1024;
-const inFlight = new Map<string, Promise<string>>();
+// Far longer than any assembly; past it, a render's request is taken to have died.
+const PART_LEASE_MS = 120_000;
+const rendering = createRequestClaims(PART_LEASE_MS);
 const completed = new Map<string, { body: string; bytes: number }>();
 let completedBytes = 0;
+let generation = 0;
 const utf8 = new TextEncoder();
 
 function remember(key: string, body: string): void {
@@ -152,42 +156,38 @@ function remember(key: string, body: string): void {
   }
 }
 
-function memoized(key: string, render: () => Promise<string>): Promise<string> {
+async function memoized(key: string, render: () => Promise<string>): Promise<string> {
   // Dev re-renders every time: content and routes change under it.
   if (import.meta.env?.DEV) return render();
-  const done = completed.get(key);
-  if (done) return Promise.resolve(done.body);
-  const existing = inFlight.get(key);
-  if (existing) return existing;
-  const promise = render().then(
-    (body) => {
-      if (inFlight.get(key) === promise) {
-        inFlight.delete(key);
-        remember(key, body);
-      }
-      return body;
-    },
-    (error: unknown) => {
-      if (inFlight.get(key) === promise) inFlight.delete(key);
-      throw error;
-    },
-  );
-  inFlight.set(key, promise);
-  return promise;
+  for (;;) {
+    const done = completed.get(key);
+    if (done) return done.body;
+    if (!rendering.has(key)) break;
+    await rendering.released();
+  }
+  const claim = rendering.claim(key);
+  const startedGeneration = generation;
+  try {
+    const body = await render();
+    if (generation === startedGeneration) remember(key, body);
+    return body;
+  } finally {
+    claim.release();
+  }
 }
 // One part at a time per isolate: a part is the costly assembly, and two in
 // flight would hold two parts' bodies at once.
-let assembling: Promise<unknown> = Promise.resolve();
+const assembling = createRequestClaims(PART_LEASE_MS);
 
-/** Runs `work` after every assembly already queued in this isolate. */
-function queued<T>(work: () => Promise<T>): Promise<T> {
-  const run = assembling.then(work, work);
-  // The tail holds no body: it only orders the next assembly.
-  assembling = run.then(
-    () => undefined,
-    () => undefined,
-  );
-  return run;
+/** Runs `work` once no other assembly runs in this isolate. */
+async function queued<T>(work: () => Promise<T>): Promise<T> {
+  while (assembling.size) await assembling.released();
+  const claim = assembling.claim("part");
+  try {
+    return await work();
+  } finally {
+    claim.release();
+  }
 }
 
 /** The Cache API where the runtime has one (Workers on a custom domain); never required. */
@@ -283,7 +283,7 @@ export async function renderLlmsDocument(
 
 /** Dev only: forget assembled parts after the content or routes change. */
 export function resetLlmsOnRequest(): void {
-  inFlight.clear();
+  generation++;
   completed.clear();
   completedBytes = 0;
 }

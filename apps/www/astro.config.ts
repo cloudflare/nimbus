@@ -7,8 +7,16 @@ import { tableScroll } from "@cloudflare/nimbus-docs/markdown";
 import { showcaseMarkdown } from "./src/lib/showcase-markdown";
 import redirects from "./redirects.json" with { type: "json" };
 
+// A preview build (`build:workers`) is served at its branch's alias, such as
+// docs-blog.nimbus-docs.com for docs/blog, so the URLs pages print for
+// themselves, their share images first, point at the preview rather than at
+// pages production doesn't have yet.
+const previewBranch = process.env.WWW_NOINDEX === "1" ? process.env.WORKERS_CI_BRANCH : undefined;
+const alias = previewBranch?.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+const site = alias && alias !== "main" ? `https://${alias}.nimbus-docs.com` : "https://nimbus-docs.com";
+
 const nimbusConfig = defineNimbusConfig({
-  site: "https://nimbus-docs.com",
+  site,
   title: "Nimbus",
   description: "Nimbus is a documentation framework for Astro: docs for humans and agents, in your repo.",
   locale: "en",
@@ -73,17 +81,14 @@ export default defineConfig({
     plugins: [tailwindcss()],
     // Dedupe React across the module graph. In dev, Vite serves modules
     // individually and a separate React instance can sneak in via
-    // pre-bundled deps (framer-motion, @astrojs/react renderer, our card
+    // pre-bundled deps (the @astrojs/react renderer, our card
     // components) — surfaces as "Invalid hook call" in the SSR log. Forcing
     // single resolution fixes it.
     resolve: {
       dedupe: ["react", "react-dom"],
     },
     optimizeDeps: {
-      include: ["react", "react-dom", "react-dom/client", "framer-motion"],
-    },
-    ssr: {
-      noExternal: ["framer-motion"],
+      include: ["react", "react-dom", "react-dom/client"],
     },
   },
 });

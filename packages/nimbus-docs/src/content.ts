@@ -171,7 +171,7 @@ const DEFAULT_PATTERN = "**/*.{md,mdx}";
 const BUNDLE_HINT_BYTES = 16 * 1024 * 1024;
 // Bump with AGENT_ENDPOINT_ASSET_GENERATION when prepared bodies change, so
 // cached entries are prepared again; the bake refuses a mismatch.
-const NIMBUS_MARKDOWN_GENERATION = 2;
+const NIMBUS_MARKDOWN_GENERATION = 3;
 // One cache across roles: wrapping an already-wrapped loader must return it
 // unchanged (whatever role it was wrapped with), or the nested wrappers would
 // queue the same collection transaction inside itself and deadlock the load.
@@ -1006,6 +1006,8 @@ export function apiCollection(options?: ApiCollectionOptions): {
             // neither an override slug (pinned) nor a derived one (method+path).
             const fix = kinds.has("override")
               ? `Rename the version, or adjust the \`routes.operations\` override target for the colliding page, `
+              : kinds.has("extension")
+                ? `Rename the version, or change the colliding page's \`x-nimbus-route\`, `
               : kinds.has("derived")
                 ? `Rename the version, or pin a \`routes.operations\` override for the colliding operation ` +
                   `(a derived slug comes from method and path, so renaming the operationId will not change it), `

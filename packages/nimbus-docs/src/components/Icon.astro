@@ -16,7 +16,8 @@
  *   - `size`: shorthand for `width` + `height`
  *   - `width`, `height`: override dimensions
  *   - `is:inline`: accepted for compatibility; SVGs are always inlined
- *   - `title`, `desc`: accessibility attributes
+ *   - `title`, `desc`: accessibility attributes. Without `title`, `aria-label`
+ *     or `aria-labelledby` the icon is decorative and gets `aria-hidden="true"`
  *   - All other props forwarded to `<svg>`
  *
  * SVG bodies are passed through `replaceIDs` so that internal IDs
@@ -82,8 +83,12 @@ if (props.size) {
 }
 
 const renderData = iconToSVG(iconData);
+// An icon without a name is decoration: hidden from screen readers unless
+// the caller says otherwise.
+const named = Boolean(title || props["aria-label"] || props["aria-labelledby"]);
 const normalizedProps = {
   ...renderData.attributes as Partial<IconifyIconBuildResult["attributes"]>,
+  ...(named ? {} : { "aria-hidden": "true" as const }),
   ...props,
 };
 // Replace internal SVG IDs (clipPath, mask, gradient defs) with unique

@@ -49,6 +49,27 @@ describe("buildCitationIndex: unversioned collection", () => {
   });
 });
 
+describe("buildCitationIndex: publishCoordinates: false", () => {
+  test("leaves the API out of the manifest and keeps its local citations", async () => {
+    const published: ApiSpec[] = [{ collection: "smallco", spec: fixturePath("smallco.yaml"), schemaPages: true }];
+    const unpublished: ApiSpec[] = [{ ...published[0]!, publishCoordinates: false }];
+    const on = await buildCitationIndex(published, root);
+    const off = await buildCitationIndex(unpublished, root);
+    assert.deepEqual(Object.keys(off.manifest.collections), []);
+    assert.deepEqual([...off.index], [...on.index]);
+  });
+
+  test("lists only the APIs that publish", async () => {
+    const api: ApiSpec[] = [
+      { collection: "smallco", spec: fixturePath("smallco.yaml") },
+      { collection: "hidden", spec: fixturePath("smallco.yaml"), publishCoordinates: false },
+    ];
+    const { manifest, index } = await buildCitationIndex(api, root);
+    assert.deepEqual(Object.keys(manifest.collections), ["smallco"]);
+    assert.equal(index.get("hidden:hidden"), "/hidden");
+  });
+});
+
 describe("buildCitationIndex: versioned family (v2 default + v1)", () => {
   const spec = fixturePath("smallco.yaml");
   const api: ApiSpec[] = [

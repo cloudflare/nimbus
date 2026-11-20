@@ -147,6 +147,8 @@ export function deriveResourceActionV1(
 /** The resolution outcome for one operation under a `resource-action-v1` policy. */
 export type RouteOutcome =
   | { kind: "override"; slug: string }
+  /** The operation's own `x-nimbus-route`, read after config overrides. */
+  | { kind: "extension"; slug: string }
   | { kind: "derived"; slug: string }
   /** Non-empty coordinate leaf; the caller warns and recommends an override. */
   | { kind: "fallback"; slug: string }
@@ -154,8 +156,8 @@ export type RouteOutcome =
   | { kind: "fallback-empty" };
 
 /**
- * Resolve one operation's slug: `override → derivation → normalized coordinate
- * fallback`. `coordinate` is the operation's coordinate (its `operationId`, or
+ * Resolve one operation's slug: `override → x-nimbus-route → derivation →
+ * normalized coordinate fallback`. `coordinate` is the operation's coordinate (its `operationId`, or
  * the path-derived fallback coordinate for an ID-less operation); its
  * normalization is the last-resort fallback leaf.
  */
@@ -166,9 +168,11 @@ export function resolveOperationRoute(
     path: string;
     operationId: string | undefined;
     coordinate: string;
+    /** The operation's `x-nimbus-route`, when it is a string. */
+    extension?: string;
   },
 ): RouteOutcome {
-  const { method, path, operationId, coordinate } = input;
+  const { method, path, operationId, coordinate, extension } = input;
   if (
     operationId !== undefined &&
     policy.operations &&
@@ -176,6 +180,7 @@ export function resolveOperationRoute(
   ) {
     return { kind: "override", slug: policy.operations[operationId]! };
   }
+  if (extension !== undefined) return { kind: "extension", slug: extension };
   const derived = deriveResourceActionV1(method, path, policy.stripPathPrefixes);
   if (derived !== null) return { kind: "derived", slug: derived };
   const leaf = normalizeResourceActionSegment(coordinate);

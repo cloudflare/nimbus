@@ -41,6 +41,7 @@ import {
   getApiRouteProvenance,
 } from "../../api/index.js";
 import { resolveSpecSource } from "./resolve-spec.js";
+import type { SpecSource } from "./view-model.js";
 // Static: a dynamic import would wrap protocol's namespace with the Node runtime
 // helper, and protocol is in the browser bundle too.
 import { apiKey } from "../try-it/protocol.js";
@@ -105,10 +106,18 @@ const BUILD_PREPARATIONS = Symbol.for(
 const REBUILD_REASONS = Symbol.for(
   "@cloudflare/nimbus-docs/api-rebuild-reasons/v1",
 );
+// A spec file's content digest, keyed by its path and remembered with the stat
+// it was read at (`ctime` moves on any write, even one that restores `mtime`),
+// so a repeated preparation this process (config setup, then
+// the content loader, then a dev config restart) skips reading it again.
+const SPEC_DIGESTS = Symbol.for("@cloudflare/nimbus-docs/api-spec-digests/v1");
+type SpecDigest = { mtimeMs: number; ctimeMs: number; size: number; ino: number; digest: string };
 const preparationGlobals = globalThis as typeof globalThis & {
   [BUILD_PREPARATIONS]?: Map<string, PreparedApiAssetVersion>;
   [REBUILD_REASONS]?: Map<string, { inputHash: string; rebuilt: RebuildReason }>;
+  [SPEC_DIGESTS]?: Map<string, SpecDigest>;
 };
+const specDigests = (preparationGlobals[SPEC_DIGESTS] ??= new Map<string, SpecDigest>());
 // Once per API per process: the cause is the same for every version.
 const externalReferenceWarnings = new Set<string>();
 const buildPreparations: Map<string, PreparedApiAssetVersion> =
@@ -123,6 +132,8 @@ const PREPARED_RECORD_MEMO_BYTES = 8 * 1024 * 1024;
 // and a few token-class names.
 const PREPARED_RECORD_MEMO_ENTRY_BYTES = 64 * 4 + 96 + 256;
 const preparationMetrics = {
+  /** Times a spec was read from its source (file or inline object). */
+  specReads: 0,
   modelPreparations: 0,
   pageProjections: 0,
   pagePreparations: 0,
@@ -139,6 +150,7 @@ export function resetApiAssetPreparationMetrics(): void {
     preparationMetrics.pagePreparations =
       0;
   preparationMetrics.preparedRecordCacheHits = 0;
+  preparationMetrics.specReads = 0;
   preparationMetrics.versionCacheHits =
     preparationMetrics.versionCacheMisses = 0;
 }
@@ -588,30 +600,63 @@ export async function prepareApiAssetVersion(
         limits: target.tryIt.limits,
       }
     : undefined;
-  const source = await resolveSpecSource(
-    {
-      collection: target.namespace,
-      spec: target.spec,
-      // Labels and deployment URLs are context, never part of a shared page.
-      requireOperationId: target.requireOperationId,
-      schemaPages: target.schemaPages,
-      routes: target.routes,
-      samples: target.samples,
-      extensions: target.extensions,
-      ...(tryIt ? { tryIt } : {}),
-    },
-    root,
-  );
-  const raw =
-    typeof source.spec === "string" ? source.spec : JSON.stringify(source.spec);
-  if (raw.includes("nimbus-ref:"))
-    throw new Error(
-      `API ${target.family}: authored input contains reserved nimbus-ref: prefix.`,
+  // Read the spec only when its digest isn't already known for this exact
+  // file, or when the version has to be prepared.
+  let loaded: { source: SpecSource; raw: string } | undefined;
+  const load = async () => {
+    if (loaded) return loaded;
+    preparationMetrics.specReads++;
+    const source = await resolveSpecSource(
+      {
+        collection: target.namespace,
+        spec: target.spec,
+        // Labels and deployment URLs are context, never part of a shared page.
+        requireOperationId: target.requireOperationId,
+        schemaPages: target.schemaPages,
+        routes: target.routes,
+        samples: target.samples,
+        extensions: target.extensions,
+        ...(tryIt ? { tryIt } : {}),
+      },
+      root,
     );
+    const raw =
+      typeof source.spec === "string" ? source.spec : JSON.stringify(source.spec);
+    if (raw.includes("nimbus-ref:"))
+      throw new Error(
+        `API ${target.family}: authored input contains reserved nimbus-ref: prefix.`,
+      );
+    loaded = { source, raw };
+    return loaded;
+  };
+  let specDigest: string | undefined;
+  const specFile = typeof target.spec === "string" ? path.resolve(root, target.spec) : undefined;
+  const fileStat = specFile ? await stat(specFile, { bigint: false }).catch(() => undefined) : undefined;
+  const known = specFile ? specDigests.get(specFile) : undefined;
+  if (
+    fileStat &&
+    known &&
+    known.mtimeMs === fileStat.mtimeMs &&
+    known.ctimeMs === fileStat.ctimeMs &&
+    known.size === fileStat.size &&
+    known.ino === fileStat.ino
+  ) {
+    specDigest = known.digest;
+  } else {
+    specDigest = pageAssetDigest((await load()).raw);
+    if (specFile && fileStat)
+      specDigests.set(specFile, {
+        mtimeMs: fileStat.mtimeMs,
+        ctimeMs: fileStat.ctimeMs,
+        size: fileStat.size,
+        ino: fileStat.ino,
+        digest: specDigest,
+      });
+  }
   const inputs = {
     environment,
     collection: target.namespace,
-    spec: pageAssetDigest(raw),
+    spec: specDigest,
     requireOperationId: target.requireOperationId,
     schemaPages: target.schemaPages,
     routes: target.routes,
@@ -698,6 +743,7 @@ export async function prepareApiAssetVersion(
     }
   }
   await loadSavedHighlights(writer.cacheDirectory, environment);
+  const { source, raw } = await load();
   const bypass = externalReferenceReason(raw);
   const warnKey = `${preparedMarkdownRootKey(root)}\0${target.family}`;
   if (bypass && !externalReferenceWarnings.has(warnKey)) {

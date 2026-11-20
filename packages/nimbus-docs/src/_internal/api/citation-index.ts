@@ -257,22 +257,23 @@ export async function buildCitationIndex(
         );
     }
 
-    const collection =
-      manifest.collections[target.namespace] ??
-      (manifest.collections[target.namespace] = { defaultVersion: null, pages: [] });
-    if (target.isDefault) collection.defaultVersion = target.version;
-
     const targets = summary.targets.map(({ coordinate, slug, anchor }) => ({
       coordinate,
       url: `${pageUrl(target, slug)}${anchor === undefined ? "" : `#${anchor}`}`,
     }));
 
     const validTargets = targets.filter(({ url }) => isSafeCitationPath(url));
-    const pages = createPageGroups(validTargets);
-    if (target.version) {
-      (collection.versions ??= Object.create(null))[target.version] = pages;
+    if (target.publishCoordinates) {
+      const collection =
+        manifest.collections[target.namespace] ??
+        (manifest.collections[target.namespace] = { defaultVersion: null, pages: [] });
+      if (target.isDefault) collection.defaultVersion = target.version;
+      const pages = createPageGroups(validTargets);
+      if (target.version) {
+        (collection.versions ??= Object.create(null))[target.version] = pages;
+      }
+      if (target.isDefault) collection.pages = pages;
     }
-    if (target.isDefault) collection.pages = pages;
 
     for (const { coordinate, url } of validTargets) {
       if (target.version) {

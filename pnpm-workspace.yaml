@@ -13,6 +13,8 @@ packages:
 # nanoid@3.3.18 patches GHSA-2v37-7h3g-55p8; postcss ^3.3.17 won't resolve to it
 overrides:
   nanoid: 3.3.18
+  # satori's font parser pins ^0.7.3; 0.7.5 fixes an infinite loop on malformed ZIP64 input.
+  'fflate@<0.7.5': ^0.7.5
 ignoredBuiltDependencies:
   - esbuild
   - workerd

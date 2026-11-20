@@ -4,7 +4,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { renderEntryAsMarkdown } from "../src/_internal/transform.js";
+import { absoluteMarkdownLinks, renderEntryAsMarkdown } from "../src/_internal/transform.js";
 import { getTabs, type CommandType } from "../src/lib/pkgm.js";
 
 const mdx = (body: string) =>
@@ -570,5 +570,67 @@ describe("renderEntryAsMarkdown: relative images", () => {
 
   test("plain Markdown pages are rewritten too", () => {
     assert.match(render("![x](./pipeline.png)", "src/content/docs/guides/deploy.md"), published);
+  });
+});
+
+describe("linked components keep their links", () => {
+  test("a Card with href links its title, in a list, a sentence and a table cell", () => {
+    assert.equal(mdx('<Card title="Quickstart" href="/start/">Your first request.</Card>\n'), "- [**Quickstart**](/start/) — Your first request.");
+    assert.equal(
+      mdx('<CardGrid>\n  <Card title="A" href="/a/">one</Card>\n  <Card title="B">two</Card>\n</CardGrid>\n'),
+      "- [**A**](/a/) — one\n- **B** — two",
+    );
+    assert.equal(mdx('See <Card title="Quickstart" href="/start/">x</Card> here.\n'), "See [**Quickstart**](/start/) — x here.");
+    assert.equal(mdx('| A |\n| --- |\n| <Card title="Q" href="/q/" /> |\n'), "| A |\n| - |\n| [**Q**](/q/) |");
+  });
+
+  test("a LinkButton is a link, on its own line or in a sentence", () => {
+    assert.equal(mdx('<LinkButton href="/start/">Get started</LinkButton>\n'), "[Get started](/start/)");
+    assert.equal(mdx('Try <LinkButton href="/start/">Get started</LinkButton> now.\n'), "Try [Get started](/start/) now.");
+    assert.equal(mdx('<LinkButton href={"/x/"}>Lit</LinkButton>\n'), "[Lit](/x/)");
+  });
+
+  test("no link without a href Nimbus can read, or around more than one line", () => {
+    assert.equal(mdx("<LinkButton {...props}>Spread</LinkButton>\n"), "Spread");
+    assert.equal(mdx('<LinkButton href="">Empty</LinkButton>\n'), "Empty");
+    assert.equal(mdx("<LinkButton href={url}>Expr</LinkButton>\n"), "Expr");
+    assert.equal(mdx('<Card title="Q" href="/q/" {...rest}>x</Card>\n'), "- **Q** — x");
+    assert.equal(mdx('<LinkButton href="/m/">\n\nPara one.\n\nPara two.\n\n</LinkButton>\n'), "Para one.\n\nPara two.");
+  });
+
+  test("a site's own renderer still wins", () => {
+    const render = (body: string, name: string) =>
+      renderEntryAsMarkdown({ body, filePath: "page.mdx" }, { componentMap: { [name]: () => "custom" } });
+    assert.equal(render('<Card title="Q" href="/q/">x</Card>\n', "Card"), "custom");
+    assert.equal(render('<LinkButton href="/q/">x</LinkButton>\n', "LinkButton"), "custom");
+  });
+
+  test("their root-relative links become full URLs in the published Markdown", () => {
+    const body = '<Card title="Q" href="/q/">x</Card>\n\n<LinkButton href="/start/">Go</LinkButton>\n';
+    assert.equal(
+      absoluteMarkdownLinks(mdx(body), "https://docs.example.com"),
+      "- [**Q**](https://docs.example.com/q/) — x\n\n[Go](https://docs.example.com/start/)",
+    );
+  });
+});
+
+describe("component links never nest", () => {
+  test("inside a link, or around content that has one, the component adds no link", () => {
+    assert.equal(mdx('<LinkButton href="/outer/">[Inner](/inner/)</LinkButton>\n'), "[Inner](/inner/)");
+    assert.equal(mdx('[<Card title="Q" href="/q/">body</Card>](/outer/)\n'), "[**Q** — body](/outer/)");
+    assert.equal(mdx('[Go <LinkButton href="/b/">now</LinkButton>](/outer/)\n'), "[Go now](/outer/)");
+  });
+
+  test("a link inside a custom renderer's output counts too", () => {
+    const out = renderEntryAsMarkdown(
+      { body: 'Go <LinkButton href="/outer/"><Badge>Inner</Badge></LinkButton> now.\n', filePath: "page.mdx" },
+      { componentMap: { Badge: () => "[Inner](/inner/)" } },
+    );
+    assert.equal(out, "Go [Inner](/inner/) now.");
+    const reference = renderEntryAsMarkdown(
+      { body: 'Go <LinkButton href="/outer/"><Badge>Inner</Badge></LinkButton> now.\n\n[Inner]: /inner/\n', filePath: "page.mdx" },
+      { componentMap: { Badge: () => "[Inner]" } },
+    );
+    assert.equal(reference, "Go [Inner] now.\n\n[Inner]: /inner/");
   });
 });

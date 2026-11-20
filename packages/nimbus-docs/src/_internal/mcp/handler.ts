@@ -10,6 +10,7 @@ import {
 import { CfWorkerJsonSchemaValidator } from "@modelcontextprotocol/server/validators/cf-worker";
 import type { McpServerIdentity } from "./identity.js";
 import type { McpPageIndex, McpPageRecord } from "./page-index.js";
+import { createRequestClaims } from "../request-claims.js";
 import { stripBase, toRouteKey, withoutHtmlExtension } from "../url.js";
 
 /** Bodies over this are answered `413` before anything is parsed. */
@@ -114,19 +115,27 @@ interface ListPagesInput {
 /**
  * Caches the read for the most recent origin only. Where the asset reader
  * falls back to fetching the site's own URL, a request's Host must not
- * decide what requests from another origin read.
+ * decide what requests from another origin read. Concurrent first requests
+ * read once and share the finished value; see createRequestClaims.
  */
 export function cachedPerOrigin<T>(read: (request: Request) => Promise<T>): (request: Request) => Promise<T> {
-  let cached: { origin: string; value: Promise<T> } | undefined;
-  return (request) => {
+  let cached: { origin: string; value: T } | undefined;
+  const reading = createRequestClaims(30_000);
+  return async (request) => {
     const origin = new URL(request.url).origin;
-    if (cached?.origin === origin) return cached.value;
-    const value = read(request).catch((error: unknown) => {
-      if (cached?.value === value) cached = undefined;
-      throw error;
-    });
-    cached = { origin, value };
-    return value;
+    for (;;) {
+      if (cached?.origin === origin) return cached.value;
+      if (!reading.has(origin)) break;
+      await reading.released();
+    }
+    const claim = reading.claim(origin);
+    try {
+      const value = await read(request);
+      cached = { origin, value };
+      return value;
+    } finally {
+      claim.release();
+    }
   };
 }
 

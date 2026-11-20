@@ -58,7 +58,7 @@ const NIMBUS_DIR = resolve(ROOT, "packages", "nimbus-docs");
 const NIMBUS_PKG = resolve(NIMBUS_DIR, "package.json");
 const NIMBUS_NAME = JSON.parse(readFileSync(NIMBUS_PKG, "utf8")).name;
 const REGISTRY = "https://registry.npmjs.org";
-const REGISTRY_VISIBILITY_TIMEOUT_MS = 300_000;
+const REGISTRY_VISIBILITY_TIMEOUT_MS = 900_000;
 const REGISTRY_VISIBILITY_INTERVAL_MS = 2_000;
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -129,6 +129,9 @@ async function registryLatest(name, signal = AbortSignal.timeout(REQUEST_TIMEOUT
   }
 }
 
+/** The registry hasn't shown a version yet; distinct from it showing different bytes. */
+export class RegistryVisibilityTimeout extends Error {}
+
 export async function waitForPublished(
   name,
   version,
@@ -159,7 +162,7 @@ export async function waitForPublished(
     }
   } while (Date.now() < deadline);
 
-  throw new Error(
+  throw new RegistryVisibilityTimeout(
     `${name}@${version} did not become visible on npm within ${timeoutMs}ms (last state: ${result?.state ?? "unknown"})`,
   );
 }
@@ -172,7 +175,9 @@ function tarballIntegrity(tarball) {
 /**
  * Publish one tarball, then wait for the registry to hold exactly it. After a
  * failed `npm publish` the version may still have landed (a timeout, a retry);
- * it only counts if its integrity is the candidate's.
+ * it only counts if its integrity is the candidate's. After a successful
+ * publish, a registry that is slow to show the version is a warning: npm has
+ * the bytes, and failing here would leave the rest of the release undone.
  */
 export async function publishTarball(
   packageDir,
@@ -185,7 +190,12 @@ export async function publishTarball(
   if (res.status !== 0) {
     log(`publish: npm exited ${res.status ?? res.signal}; reconciling registry state…`);
   }
-  await wait(pkg.name, pkg.version, { expectedIntegrity });
+  try {
+    await wait(pkg.name, pkg.version, { expectedIntegrity });
+  } catch (error) {
+    if (res.status !== 0 || !(error instanceof RegistryVisibilityTimeout)) throw error;
+    log(`WARN — ${error.message}; npm accepted the publish, continuing.`);
+  }
   return res.status === 0;
 }
 

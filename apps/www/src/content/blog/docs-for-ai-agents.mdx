@@ -1,0 +1,49 @@
+---
+title: "Docs for AI agents: llms.txt, Markdown pages and an MCP server"
+description: What docs for AI agents need, llms.txt, Markdown pages and an MCP server, how to check a site for each, and how Nimbus publishes them.
+date: 2026-11-13
+---
+
+An agent reads your docs well when every page has a plain Markdown version, the site has an `llms.txt` index to start from, and, ideally, an MCP server it can connect to. Every Nimbus site publishes the first two with no setup, and the MCP server is one setting away, all from the same pages people read.
+
+## What each piece is
+
+**Markdown versions.** HTML pages carry navigation, scripts and styling an agent has to strip away. A Markdown version of each page gives it the content and nothing else.
+
+**`llms.txt`.** A short index at the site's root that names the pages and sections, with links to their Markdown. An agent reads it first and fetches only what it needs.
+
+**An MCP server.** The Model Context Protocol lets an agent connect to your docs as a tool and list or read pages directly, instead of crawling.
+
+## How to check a site
+
+Three requests tell you what a site publishes for agents:
+
+```sh
+curl -s https://example.com/llms.txt | head
+curl -s https://example.com/some-page/index.md | head
+curl -s -H 'Accept: text/markdown' https://example.com/some-page/ | head
+```
+
+The first shows whether there's an index. The second shows whether pages have Markdown versions. The third shows whether a page answers an agent that asks for Markdown at its own URL.
+
+## What Nimbus publishes
+
+- **A Markdown version of every page** at `<page>/index.md`, with components converted to text, and the MDX source at `<page>/index.mdx`.
+- **`llms.txt` at the root** and one per section, each listing pages in the sidebar's reading order, plus `llms-full.txt` with every page in one document.
+- **Markdown at the page's own URL** for requests that send `Accept: text/markdown`, when the docs render on request on a server adapter and `site` is set ([Serve Markdown at page URLs](/ai/markdown-negotiation)).
+- **A remote MCP server** at `/mcp`, serving `list_pages` and `get_page` over the same pages. Turn it on with `agents: { mcp: true }`, the MCP server SDK and a server adapter ([Remote MCP server](/ai/remote-mcp)).
+- **Structured data and a sitemap**, so search engines and answer engines know what each page is.
+
+API reference pages get the same treatment: every operation has a Markdown version and an index entry.
+
+## Keep one source
+
+The pieces stay correct because they come from the same content as the HTML. When you edit a page, its Markdown, its index line and what the MCP server returns change with it.
+
+[Docs for agents](/ai/docs-for-agents) lists everything a Nimbus site serves, and how an agent finds each piece.
+
+## Try it
+
+Scaffold a site, then fetch its `llms.txt` from the dev server:
+
+<PackageManagers type="create" pkg="@cloudflare/nimbus-docs@latest" args="my-docs" />

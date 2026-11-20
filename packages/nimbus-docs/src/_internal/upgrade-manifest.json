@@ -1385,9 +1385,9 @@
         "nimbus-docs check prints no nimbus/agent-route-shape finding and no ts/ finding on markdownUrl.",
         "A page's /<page>/index.md answers 200 with Content-Type: text/markdown and an ETag; the same request with that tag in If-None-Match answers 304.",
         "After changing what body appends, a request with the previous tag answers 200 with the new text."
-        ]
-      },
-      {
+      ]
+    },
+    {
       "id": "api-try-it",
       "introducedIn": "0.20.0",
       "mode": "optional",
@@ -1406,8 +1406,26 @@
       ]
     },
     {
+      "id": "starter-a11y-layout",
+      "introducedIn": "0.20.1",
+      "mode": "optional",
+      "changeset": "starter-a11y-layout",
+      "summary": "Optionally take accessibility and layout fixes: the sidebar and table-of-contents rails follow --nb-header-height, the sidebar's bottom fade shows, the header's section tabs don't scroll vertically, the sidebar nav is named, an Aside with its own title keeps its type for screen readers, the mobile page menu's focus ring shows in forced colours, prose spacing applies inside tabs, and utilities apply to images inside Frame.",
+      "affected": "Sites with the starter's layout, header, Aside, mobile page menu or prose styles, and sites with the frame or api-layout registry components; each file is fixed on its own.",
+      "instructions": [
+        "No action is needed: each file works as before until you take it.",
+        "Starter files: list them with nimbus-docs outdated and take each with nimbus-docs diff <file> --apply. They are: src/layouts/DocsLayout.astro, src/components/Header.astro, src/components/ui/aside/Aside.astro, src/components/ui/toc/MobileTOC.astro, src/styles/prose.css.",
+        "Registry components, which nimbus-docs diff doesn't cover: if unmodified, update them with nimbus-docs add frame --overwrite and nimbus-docs add api-layout --overwrite.",
+        "If you edited a file, merge by hand: the rails use top-(--nb-header-height) and h-[calc(100vh-var(--nb-header-height))] instead of top-14 and h-[calc(100vh-3.5rem)] (DocsLayout and ApiLayout); the sidebar fade uses from-background; the sidebar <nav> has aria-label=\"Documentation\"; the header's section navs add overflow-y-hidden and their links leading-4; Aside prefixes its type to a custom title (\"Caution: Heads up\"); MobileTOC's select uses focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring; prose.css applies its direct-child spacing inside [data-nb-tabs-content]; Frame's media rules sit in @layer components."
+      ],
+      "verify": [
+        "The sidebar's bottom fade shows on a long sidebar.",
+        "A dark:hidden / hidden dark:block image pair in a Frame shows one image per theme."
+      ]
+    },
+    {
       "id": "search-unindexed-version",
-      "introducedIn": "0.21.0",
+      "introducedIn": "0.20.1",
       "mode": "optional",
       "changeset": "search-unindexed-version",
       "summary": "Optionally fix search on a deprecated version's pages that the build doesn't index: an API that puts its version in the query indexes only its default version, so searching from an older version's page found nothing.",
