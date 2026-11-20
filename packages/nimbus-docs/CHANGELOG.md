@@ -1,5 +1,33 @@
 # @cloudflare/nimbus-docs
 
+## 0.20.1
+
+### Patch Changes
+
+- [#416](https://github.com/cloudflare/nimbus/pull/416) [`1fb1281`](https://github.com/cloudflare/nimbus/commit/1fb1281f685c3c7d74ab4afff88533b87850bfef) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Operations can set their URL, and tags their section segment, with `x-nimbus-route` in the spec.
+  - `publishCoordinates: false` leaves an API out of `/nimbus-api/coordinates.json`.
+  - Pages no longer bundle `routes.operations`, `routes.tagSegments` or `stripPathPrefixes`.
+  - APIs with `bundle: false` no longer need `apiCollection()` or `src/live.config.ts`.
+  - `nimbus-docs migrate` shows API upgrade reviews only to sites that have an API.
+
+- [#403](https://github.com/cloudflare/nimbus/pull/403) [`5437838`](https://github.com/cloudflare/nimbus/commit/543783860e00b6520acb1d75571ff9ee058ce102) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Request-rendered API pages, their Markdown and `llms-full.txt` parts no longer fail now and then on Workers when requests arrive at the same time.
+
+- [#406](https://github.com/cloudflare/nimbus/pull/406) [`3c26de5`](https://github.com/cloudflare/nimbus/commit/3c26de5c6011946ffd1dd6fe52dbbc92eb0d3d22) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Markdown renders through Sätteri 0.11; pages are unchanged.
+  - New sites start on Astro 7.4.8 and Pagefind 1.6.
+
+- [#413](https://github.com/cloudflare/nimbus/pull/413) [`09d6616`](https://github.com/cloudflare/nimbus/commit/09d6616f549ab48f5fcec9beaa991b747b1d4297) Thanks [@MokiMeow](https://github.com/MokiMeow)! - Apply collection-specific lint rules to pages under `src/content` when the collection name differs from its folder name.
+
+- [#414](https://github.com/cloudflare/nimbus/pull/414) [`5523acf`](https://github.com/cloudflare/nimbus/commit/5523acfb0ef198cb42511a87e882452fa8c19a8d) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - A page's Markdown links a `Card`'s title to its `href`, and turns a `LinkButton` into a link.
+
+- [#407](https://github.com/cloudflare/nimbus/pull/407) [`9484867`](https://github.com/cloudflare/nimbus/commit/94848678153669d728ae0c8f7220e3c0632c2ee5) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `nimbus-docs add migrate` hands your coding agent a recipe that moves an existing docs site to a fresh Nimbus site with every URL kept, its navigation, components, snippets and OpenAPI reference included, and reports what it could not carry over.
+
+- [#415](https://github.com/cloudflare/nimbus/pull/415) [`60ed8fa`](https://github.com/cloudflare/nimbus/commit/60ed8fa658fd2fff5091c5ff14fad96768790de9) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - An `Icon` without a `title`, `aria-label` or `aria-labelledby` is hidden from screen readers.
+  - A Markdown table's scroll box is a region named by its caption or its column headings.
+  - The sidebar and table-of-contents rails follow `--nb-header-height`, and the sidebar's bottom fade shows.
+  - The header's section tabs no longer scroll vertically.
+  - Utilities on images inside `Frame` apply, so a `dark:hidden` / `hidden dark:block` pair shows one image per theme.
+  - The sidebar nav is named, an `Aside` with its own title is announced with its type, the mobile page menu's focus ring shows in forced colours, and prose spacing applies inside tabs.
+
 ## 0.20.0
 
 ### Minor Changes

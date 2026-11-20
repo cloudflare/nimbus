@@ -1,5 +1,21 @@
 # @cloudflare/create-nimbus-docs
 
+## 0.9.1
+
+### Patch Changes
+
+- [#406](https://github.com/cloudflare/nimbus/pull/406) [`3c26de5`](https://github.com/cloudflare/nimbus/commit/3c26de5c6011946ffd1dd6fe52dbbc92eb0d3d22) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Markdown renders through Sätteri 0.11; pages are unchanged.
+  - New sites start on Astro 7.4.8 and Pagefind 1.6.
+
+- [#415](https://github.com/cloudflare/nimbus/pull/415) [`60ed8fa`](https://github.com/cloudflare/nimbus/commit/60ed8fa658fd2fff5091c5ff14fad96768790de9) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - An `Icon` without a `title`, `aria-label` or `aria-labelledby` is hidden from screen readers.
+  - A Markdown table's scroll box is a region named by its caption or its column headings.
+  - The sidebar and table-of-contents rails follow `--nb-header-height`, and the sidebar's bottom fade shows.
+  - The header's section tabs no longer scroll vertically.
+  - Utilities on images inside `Frame` apply, so a `dark:hidden` / `hidden dark:block` pair shows one image per theme.
+  - The sidebar nav is named, an `Aside` with its own title is announced with its type, the mobile page menu's focus ring shows in forced colours, and prose spacing applies inside tabs.
+
+- [#417](https://github.com/cloudflare/nimbus/pull/417) [`df4709e`](https://github.com/cloudflare/nimbus/commit/df4709ea8e9f4901936c39f8d246126dc54237bd) Thanks [@Jungzl](https://github.com/Jungzl)! - Align sticky docs chrome with the header's full height, including its bottom border, so the TOC and sidebars no longer shift by a pixel when scrolling back to the top.
+
 ## 0.9.0
 
 ### Minor Changes
