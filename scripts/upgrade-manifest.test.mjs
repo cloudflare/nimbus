@@ -8,6 +8,7 @@ import { test } from "node:test";
 import {
   loadPreviousManifest,
   resolveUpgradeBaseRef,
+  settleUnreleasedEntries,
   validateBreakingDeclaration,
   validateManifestContinuity,
   validateUpgradeManifest,
@@ -286,6 +287,40 @@ test("an optional entry ships in any Nimbus release; one that asks sites to act 
         currentVersion: "0.13.1",
       }),
     /must release @cloudflare\/nimbus-docs/,
+  );
+});
+
+test("a release moves unreleased entries to the version it makes", () => {
+  const text = JSON.stringify({
+    entries: [
+      { id: "shipped", introducedIn: "0.20.0" },
+      { id: "patch-entry", introducedIn: "0.20.1" },
+      { id: "minor-entry", introducedIn: "0.21.0" },
+    ],
+  }, null, 2);
+  const settled = JSON.parse(settleUnreleasedEntries(text, "0.20.0", "0.21.0"));
+  assert.deepEqual(settled.entries.map((entry) => entry.introducedIn), ["0.20.0", "0.21.0", "0.21.0"]);
+  assert.equal(settleUnreleasedEntries(text, "0.20.0", "0.20.1"), text);
+});
+
+test("only the version-bump PR may move an unreleased entry, and only to its release", () => {
+  const manifest = (introducedIn) => ({
+    schemaVersion: 1,
+    oldestSupportedVersion: "0.11.0",
+    entries: [entry("pending", { introducedIn, changeset: "pending" })],
+  });
+  assert.doesNotThrow(() => validateManifestContinuity(manifest("0.20.1"), manifest("0.21.0"), "0.21.0", "0.20.0"));
+  assert.throws(
+    () => validateManifestContinuity(manifest("0.20.1"), manifest("0.22.0"), "0.21.0", "0.20.0"),
+    /cannot be changed/,
+  );
+  assert.throws(
+    () => validateManifestContinuity(manifest("0.20.1"), manifest("0.20.0"), "0.20.0", "0.20.0"),
+    /cannot be changed/,
+  );
+  assert.throws(
+    () => validateManifestContinuity(manifest("0.20.0"), manifest("0.21.0"), "0.21.0", "0.20.0"),
+    /cannot be changed/,
   );
 });
 

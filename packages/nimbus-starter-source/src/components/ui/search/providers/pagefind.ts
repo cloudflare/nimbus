@@ -27,9 +27,13 @@ interface PagefindApi {
   options(options: { baseUrl?: string }): Promise<void>;
   mergeIndex(indexPath: string, options?: { baseUrl?: string }): Promise<void>;
   search(query: string, options?: { filters?: PagefindFilters }): Promise<PagefindSearchResponse>;
+  /** Every filter in the loaded indexes, with a page count per value. */
+  filters(): Promise<Record<string, Record<string, number>>>;
 }
 
 let pagefind: PagefindApi | undefined;
+/** The versions the loaded indexes hold pages for. */
+let indexedVersions = new Set<string>();
 
 /**
  * Search leaves out deprecated versions when the site has any: the layouts
@@ -46,7 +50,8 @@ const excludeDeprecated: PagefindFilters | undefined =
  * version's page searches that version: the layouts mark its version with
  * `data-pagefind-filter="version:<v>"`. Anywhere else, deprecated versions are
  * left out. A page marked deprecated without a version (a later part of an API
- * home) falls back to that too.
+ * home) falls back to that too, as does a version the build didn't index (an
+ * API that puts its version in the query indexes only its default version).
  */
 function filtersForPage(): PagefindFilters | undefined {
   const deprecated = document.querySelector('[data-pagefind-filter="status:deprecated"]');
@@ -54,7 +59,7 @@ function filtersForPage(): PagefindFilters | undefined {
     .querySelector('[data-pagefind-filter^="version:"]')
     ?.getAttribute("data-pagefind-filter")
     ?.slice("version:".length);
-  if (deprecated && version) return { version };
+  if (deprecated && version && indexedVersions.has(version)) return { version };
   return excludeDeprecated;
 }
 
@@ -76,6 +81,7 @@ export const provider: SearchProvider = {
     // A slice that holds several collections writes one bundle; the other
     // collections' URLs answer 404 and are skipped.
     await mergeSearchIndexes(loaded, searchIndex.merge, { baseUrl });
+    indexedVersions = new Set(Object.keys((await loaded.filters().catch(() => undefined))?.version ?? {}));
     pagefind = loaded;
   },
 
