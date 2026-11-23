@@ -32,7 +32,7 @@ defineConfig({
   site: "https://example.com",
   title: "Acme",
   // @ts-expect-error a typo of tableOfContents
-  features: { tableOfContent: false },
+  features: { sidebar: true, tableOfContent: false },
 });
 // @ts-expect-error not a Nimbus key
 defineConfig({ site: "https://example.com", title: "Acme", sidebarr: {} });
