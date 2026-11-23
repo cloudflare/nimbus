@@ -141,6 +141,16 @@ declare const enabled: boolean;
   schema.extend({});
   void input;
 }
+{
+  // Empty fields get the object schema, at runtime and in the type.
+  const schema = partialsCollection({ schemaFields: {} }).schema;
+  // @ts-expect-error not the default schema
+  schema.removeDefault();
+  const either = partialsCollection({ schemaFields: enabled ? { a: z.string() } : { b: z.number() } }).schema.parse({});
+  // @ts-expect-error a is only there sometimes
+  const a: string = either.a;
+  void a;
+}
 `;
 
 test("schema helpers type entry.data the way they validate it", async () => {
