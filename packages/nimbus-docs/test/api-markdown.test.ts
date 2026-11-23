@@ -5,6 +5,7 @@
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { fromMarkdown } from "mdast-util-from-markdown";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -157,6 +158,28 @@ describe("api markdown emitter", () => {
     assert.match(md, /- `amount` \(`create\.amount`; /);
     const amount = props.body.find((f) => f.name === "amount");
     assert.equal(amount!.coordinate, "create.amount");
+  });
+
+  test("code reads back as written: blank lines in samples, spaces around inline code", () => {
+    // Read the Markdown back and collect its code, block and inline.
+    const codeIn = (md: string) => {
+      const found: string[] = [];
+      const walk = (node: { type: string; value?: string; children?: unknown[] }) => {
+        if ((node.type === "code" || node.type === "inlineCode") && node.value !== undefined) found.push(node.value);
+        for (const child of node.children ?? []) walk(child as typeof node);
+      };
+      walk(fromMarkdown(md));
+      return found;
+    };
+    const source = 'def a():\n    pass\n\n\ndef b():\n    text = """x\n\n\n\ny"""';
+    const md = renderApiPageMarkdown(operation({ samples: [{ id: "python", lang: "python", label: "Python", source }] }));
+    assert.ok(codeIn(md).includes(source), "the sample keeps every blank line");
+    assert.doesNotMatch(md.replace(source, ""), /\n{3,}/, "blocks are still one blank line apart");
+
+    for (const pattern of [" ^x$ ", "^x$ ", " ", "` x `"]) {
+      const page = schema([field({ name: "a", constraints: { pattern } })]);
+      assert.ok(codeIn(renderApiPageMarkdown(page)).includes(pattern), JSON.stringify(pattern));
+    }
   });
 
   test("scalar/enum schema page renders Type + constraints + enum, never 'no fields'", () => {
