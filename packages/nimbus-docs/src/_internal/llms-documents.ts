@@ -341,7 +341,7 @@ export function siteIndexDocument(
     ),
   );
   return [
-    `# ${ctx.title}`,
+    `# ${oneLine(ctx.title)}`,
     "",
     blockquote(ctx.description ?? "Documentation index for AI agents."),
     "",
@@ -428,14 +428,14 @@ export function sectionIndexDocument(
         ]
       : [];
   const description = groupIndex(group.slug, group.members)?.description;
-  return [`# ${group.label}`, "", ...(description ? [blockquote(description), ""] : []), ...pages, ...sections].join("\n");
+  return [`# ${oneLine(group.label)}`, "", ...(description ? [blockquote(description), ""] : []), ...pages, ...sections].join("\n");
 }
 
 /** A `> ` summary, one marker per line. */
 export function blockquote(text: string): string {
   return text
     .trim()
-    .split(/\r?\n/u)
+    .split(/\r\n|\r|\n/u)
     .map((line) => (line.trim() ? `> ${line.trim()}` : ">"))
     .join("\n");
 }
@@ -517,7 +517,7 @@ export interface LlmsFullIndexInput {
 export function llmsFullIndexDocument(input: LlmsFullIndexInput): string {
   const pageLine = (page: LlmsPage) => `- [${linkLabel(page.title)}](${llmsFullUrl(input.header, page.markdownUrl ?? page.url)})`;
   return [
-    `# ${input.title}`,
+    `# ${oneLine(input.title)}`,
     "",
     `> ${input.note}`,
     "",

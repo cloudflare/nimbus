@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fromMarkdown } from "mdast-util-from-markdown";
-import { groupLlmsPages, siteIndexDocument, type LlmsDocumentContext, type LlmsPage } from "../src/_internal/llms-documents.ts";
+import { groupLlmsPages, sectionIndexDocument, siteIndexDocument, type LlmsDocumentContext, type LlmsGroup, type LlmsPage } from "../src/_internal/llms-documents.ts";
 import { linkLabel } from "../src/_internal/markdown-text.ts";
 
 const ctx: LlmsDocumentContext = {
@@ -48,6 +48,30 @@ test("each page is one link labelled with its title", () => {
   assert.deepEqual(headings, ["Example", "Pages"], "a description's line break starts no heading");
 });
 
-test("a label without brackets or backslashes is unchanged", () => {
-  for (const text of ["Plain title", "__init__", "`check`", "Array<T>"]) assert.equal(linkLabel(text), text);
+test("text that would open a span or a tag across the link keeps the link", () => {
+  // Each title is paired with a description that could close what it opens.
+  const cases: Array<[string, string]> = [
+    ["a`", "b`"],
+    ['<span data-x="', '">'],
+    ["<https://other.example>", "x"],
+    ["`a]b` and [c]", "d"],
+  ];
+  const pages: LlmsPage[] = cases.map(([title, description], i) => ({ collection: "docs", id: `p${i}`, title, description, url: `/p${i}/` }));
+  const { leaves, groups } = groupLlmsPages(pages, ctx);
+  const links = linksIn(fromMarkdown(siteIndexDocument(leaves, groups, ctx, false)) as MdNode);
+  assert.deepEqual(links.map((link) => link.url), cases.map((_, i) => `https://example.com/p${i}/`));
+});
+
+test("line breaks, carriage returns included, start no heading in a section index", () => {
+  const page: LlmsPage = { collection: "docs", id: "guide/a", title: "A", description: "first\r# not a heading", url: "/guide/a/" };
+  const group: LlmsGroup = { slug: "guide", label: "Guide\n# not a heading", kind: "primary", members: [page], children: [] };
+  const tree = fromMarkdown(sectionIndexDocument(group, ctx)) as MdNode;
+  const headings = (tree.children ?? []).filter((node) => node.type === "heading").map(textOf);
+  assert.deepEqual(headings, ["Guide # not a heading", "Pages"]);
+  const site = fromMarkdown(siteIndexDocument([page], [], { ...ctx, description: "one\r# not a heading" }, false)) as MdNode;
+  assert.deepEqual((site.children ?? []).filter((node) => node.type === "heading").map(textOf), ["Example", "Pages"]);
+});
+
+test("a label without brackets, backslashes or open spans and tags is unchanged", () => {
+  for (const text of ["Plain title", "__init__", "`check`", "a < b", "`a]b`"]) assert.equal(linkLabel(text), text);
 });
