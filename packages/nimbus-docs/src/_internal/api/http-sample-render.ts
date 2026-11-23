@@ -261,6 +261,8 @@ export function renderCurl(request: SampleRequest): string | undefined {
 function curlBody(body: SampleBody): string[] | undefined {
   switch (body.kind) {
     case "multipart":
+      // cURL's form syntax ends a part's name at the first `=`.
+      if (body.parts.some((part) => part.name.includes("="))) return undefined;
       return body.parts.map(curlPart);
     case "form":
       return body.fields.map(({ name, value }) => `--data-urlencode ${shellQuote(`${encodeURIComponent(name)}=${value}`)}`);

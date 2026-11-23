@@ -335,7 +335,11 @@ function sampleRequest(input: OperationSampleInput, mediaType: string, values: P
     if (p.in !== "path") continue;
     const value = values.get(p);
     // Replace every occurrence — a path may repeat a template (`/{id}/x/{id}`).
-    const fill: Segment = value === undefined ? placeholder(p.name) : text(encodeURIComponent(value));
+    // `.` and `..` are path segments a URL resolves away (encoded too), so the
+    // sample would request another endpoint: they get a placeholder, as Try
+    // it refuses them.
+    const fill: Segment =
+      value === undefined || value === "." || value === ".." ? placeholder(p.name) : text(encodeURIComponent(value));
     path = path.flatMap((segment) => {
       if (!("text" in segment)) return [segment];
       const pieces = segment.text.split(`{${p.name}}`);

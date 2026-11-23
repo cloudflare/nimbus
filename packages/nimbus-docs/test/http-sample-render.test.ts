@@ -113,6 +113,10 @@ describe("HTTP sample renderers, without an API front-end", () => {
 
     const multipart = post({ kind: "multipart", parts: [{ name: "file", kind: "file", file: "<file>" }, { name: "note", kind: "text", value: "hi" }] });
     assert.match(renderCurl(multipart)!, /--form 'file=@<file>;type=application\/octet-stream' \\\n {2}--form-string 'note=hi'$/);
+    // cURL ends a part's name at the first `=`, so such a name has no cURL sample.
+    const equalsName = post({ kind: "multipart", parts: [{ name: "filter=value", kind: "text", value: "abc" }] });
+    assert.equal(renderCurl(equalsName), undefined);
+    assert.ok(renderFetch(equalsName));
     assert.match(renderFetch(multipart)!, /^import \{ readFile \} from 'node:fs\/promises';/);
     assert.match(renderPython(multipart)!, /files = \[\n {4}\("file", \("<file>", open\("<file>", "rb"\), "application\/octet-stream"\)\)\n\]\npayload = \{ "note": "hi" \}/);
   });

@@ -165,6 +165,30 @@ describe("derived example + code samples", () => {
     assert.match(md, /### Python \(requests\)[\s\S]*### Python \(httpx\)[\s\S]*### Go/);
   });
 
+  test("a path value a URL would resolve away gets a placeholder, so no sample requests another endpoint", async () => {
+    const tools = await loadSampleTools();
+    assert.ok(tools);
+    for (const example of [".", ".."]) {
+      const out = buildOperationSamples(tools, {
+        method: "get",
+        path: "/objects/{key}/meta",
+        server: "https://example.test/v1",
+        params: [{ name: "key", in: "path", required: true, schema: { type: "string" }, example }],
+        auth: [],
+      });
+      assert.ok(out.length > 0);
+      for (const sample of out) assert.match(sample.source, /\/v1\/objects\/(?:<key>|\{key\})\/meta/, `${sample.lang}: ${sample.source}`);
+    }
+    const plain = buildOperationSamples(tools, {
+      method: "get",
+      path: "/objects/{key}/meta",
+      server: "https://example.test/v1",
+      params: [{ name: "key", in: "path", required: true, schema: { type: "string" }, example: "a..b" }],
+      auth: [],
+    });
+    for (const sample of plain) assert.match(sample.source, /\/v1\/objects\/a\.\.b\/meta/);
+  });
+
   test("ids reserve every authored language before adding suffixes", async () => {
     const tools = await loadSampleTools();
     assert.ok(tools);
