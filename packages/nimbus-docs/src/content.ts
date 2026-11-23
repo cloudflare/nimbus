@@ -95,7 +95,7 @@ export type {
 } from "./schemas.js";
 
 export interface DocsCollectionOptions<
-  TFields extends Record<string, z.ZodTypeAny> = Record<string, never>,
+  TFields extends Record<string, z.ZodTypeAny> = Record<never, never>,
 > {
   /**
    * Directory under `src/content/` to load docs from. Default: `"docs"`.
@@ -144,7 +144,7 @@ export interface DocsCollectionOptions<
 }
 
 export interface PartialsCollectionOptions<
-  TFields extends Record<string, z.ZodTypeAny> = Record<string, never>,
+  TFields extends Record<string, z.ZodTypeAny> = Record<never, never>,
 > {
   /**
    * Directory under `src/content/` to load partials from.
@@ -344,7 +344,7 @@ function wrapNimbusMarkdown<T extends Loader>(
  * docs collection. Pass to `defineCollection()`.
  */
 export function docsCollection<
-  TFields extends Record<string, z.ZodTypeAny> = Record<string, never>,
+  TFields extends Record<string, z.ZodTypeAny> = Record<never, never>,
 >(options: DocsCollectionOptions<TFields> = {}) {
   const base = `./src/content/${options.base ?? "docs"}`;
   const pattern = options.pattern ?? DEFAULT_PATTERN;
@@ -525,14 +525,22 @@ function sourceGlob(source: string, rawBase: string | undefined, pattern: string
  * `schemaFields` extends the default partials schema with extra
  * frontmatter — same shape as `docsCollection({ schemaFields })`.
  */
-export function partialsCollection<
-  TFields extends Record<string, z.ZodTypeAny> = Record<string, never>,
->(options: PartialsCollectionOptions<TFields> = {}) {
+export function partialsCollection<TFields extends Record<string, z.ZodTypeAny>>(
+  options: PartialsCollectionOptions<TFields> & { schemaFields: TFields },
+): { loader: Loader; schema: ReturnType<typeof definePartialsSchema<TFields>> };
+export function partialsCollection(
+  options?: PartialsCollectionOptions & { schemaFields?: undefined },
+): { loader: Loader; schema: typeof partialsSchema };
+export function partialsCollection<TFields extends Record<string, z.ZodTypeAny> = Record<never, never>>(
+  options?: PartialsCollectionOptions<TFields>,
+): { loader: Loader; schema: ReturnType<typeof definePartialsSchema<TFields>> | typeof partialsSchema };
+export function partialsCollection(options: PartialsCollectionOptions<Record<string, z.ZodTypeAny>> = {}) {
   const base = `./src/content/${options.base ?? "partials"}`;
   const pattern = options.pattern ?? DEFAULT_PATTERN;
   // Avoid re-deriving the schema when no fields were declared — keeps the
   // default behaviour (`partialsSchema` with its `.default({})`) exact for
-  // existing users who don't opt in.
+  // existing users who don't opt in. The overloads type each case, so
+  // declared fields stay typed (a union with the default would hide them).
   const schema = options.schemaFields
     ? definePartialsSchema({ fields: options.schemaFields })
     : partialsSchema;
