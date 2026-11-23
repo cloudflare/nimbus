@@ -99,10 +99,7 @@ const resolvedMarkdownUrl =
         const applyTheme = () => {
           const root = document.documentElement;
           const mode = resolveMode();
-          // Switching themes changes every colour at once: transitions would fade
-          // some controls (the search bar, filters) behind the page, so they're
-          // off while it's applied, until a timer turns them back on. The first
-          // paint has nothing to fade.
+          // Transitions are off while the theme changes, so controls switch with the page.
           const switching = root.style.colorScheme !== "" && root.style.colorScheme !== mode;
           const still = switching ? document.createElement("style") : null;
           if (still) {
@@ -116,11 +113,8 @@ const resolvedMarkdownUrl =
             b.setAttribute("data-nb-state", mode);
             b.setAttribute("aria-pressed", String(mode === "dark"));
           });
-          if (still) {
-            // Styles are computed without transitions before the rule goes.
-            getComputedStyle(root).colorScheme;
-            setTimeout(() => still.remove(), 1);
-          }
+          // Two frames: the next one is drawn with transitions off.
+          if (still) requestAnimationFrame(() => requestAnimationFrame(() => still.remove()));
         };
 
         applyTheme();

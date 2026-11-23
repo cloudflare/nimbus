@@ -1448,7 +1448,7 @@
       "affected": "Sites using the starter's src/layouts/BaseLayout.astro theme script.",
       "instructions": [
         "If src/layouts/BaseLayout.astro is unmodified, run nimbus-docs diff src/layouts/BaseLayout.astro --apply.",
-        "If you've edited it, in applyTheme: when the mode changes (root.style.colorScheme is set and differs from the new mode), append a <style> with *,*::before,*::after{transition:none!important} before applying the theme, then read getComputedStyle(root).colorScheme (reading a property makes the browser compute styles without transitions) and remove the style with setTimeout(() => style.remove(), 1)."
+        "If you've edited it, in applyTheme: when the mode changes (root.style.colorScheme is set and differs from the new mode), append a <style> with *,*::before,*::after{transition:none!important} before applying the theme, then remove the style two frames later: requestAnimationFrame(() => requestAnimationFrame(() => style.remove())), so the next frame is drawn with transitions off."
       ],
       "verify": [
         "Switch the theme on a page with the search bar and a sidebar filter: both change colour with the page, and hovering the search bar still fades its border."
