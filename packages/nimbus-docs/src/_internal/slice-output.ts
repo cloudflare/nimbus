@@ -60,11 +60,16 @@ export function removeRootArtifacts(distDir: string): string[] {
 
 const SITEMAP_FILE = /^sitemap-(?:index|\d+)\.xml$/u;
 
+/** Text in an XML element. */
+function xmlText(text: string): string {
+  return text.replace(/[&<>]/g, (c) => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;"));
+}
+
 /** A sitemap index whose file entries point under the prefix. */
 export function sitemapIndexUnderPrefix(xml: string, prefix: string): string {
   return xml.replace(
     /<loc>([^<]*?)\/(sitemap-\d+\.xml)<\/loc>/gu,
-    (_match, origin: string, file: string) => `<loc>${origin}${prefix}/${file}</loc>`,
+    (_match, origin: string, file: string) => `<loc>${origin}${xmlText(prefix)}/${file}</loc>`,
   );
 }
 

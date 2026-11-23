@@ -128,6 +128,15 @@ export function expandDynamicRedirects(
   return out;
 }
 
+/** A path or URL as one field of a `_redirects` line: whitespace and control
+ * characters percent-encoded, as a request carries them, so a space can't
+ * split the field and a line break can't start another rule. */
+function redirectPath(url: string): string {
+  return url.replace(/[\s\u0000-\u001f\u007f]/gu, (c) =>
+    [...new TextEncoder().encode(c)].map((byte) => `%${byte.toString(16).toUpperCase().padStart(2, "0")}`).join(""),
+  );
+}
+
 // Existing content is kept verbatim and existing sources win, so re-running over
 // a user's `public/_redirects` (or our own prior output) is idempotent.
 export function formatRedirectsFile(
@@ -150,8 +159,8 @@ export function formatRedirectsFile(
   }
 
   const appended = redirects
-    .filter((r) => !existingSources.has(r.from))
-    .map((r) => `${r.from} ${r.to} ${r.status}`);
+    .filter((r) => !existingSources.has(redirectPath(r.from)))
+    .map((r) => `${redirectPath(r.from)} ${redirectPath(r.to)} ${r.status}`);
 
   const lines = [...existingLines, ...appended];
   return lines.length > 0 ? `${lines.join("\n")}\n` : "";

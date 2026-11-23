@@ -137,3 +137,16 @@ test("formatRedirectsFile: re-running over its own output is idempotent", () => 
 test("formatRedirectsFile: empty input with no existing yields empty string", () => {
   assert.equal(formatRedirectsFile(null, []), "");
 });
+
+test("formatRedirectsFile: a path with whitespace or a line break stays one field of one rule", () => {
+  const { redirects } = normalizeRedirects({ "/old page": "/getting started", "/a\nb": "/c\td" }, "/");
+  const file = formatRedirectsFile(null, redirects);
+  const rules = file.trim().split("\n").map((line) => line.split(/\s+/));
+  assert.deepEqual(rules, [
+    ["/old%20page", "/getting%20started", "301"],
+    ["/a%0Ab", "/c%09d", "301"],
+  ]);
+  // A rule the file already has, written encoded, still wins.
+  assert.equal(formatRedirectsFile("/old%20page /kept 302\n", redirects).split("\n")[0], "/old%20page /kept 302");
+  assert.equal(formatRedirectsFile("/old%20page /kept 302\n", redirects).match(/old%20page/g)?.length, 1);
+});
