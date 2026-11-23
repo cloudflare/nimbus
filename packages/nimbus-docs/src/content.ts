@@ -531,6 +531,9 @@ export function partialsCollection<TFields extends Record<string, z.ZodTypeAny>>
 export function partialsCollection(
   options?: PartialsCollectionOptions & { schemaFields?: undefined },
 ): { loader: Loader; schema: typeof partialsSchema };
+export function partialsCollection<TFields extends Record<string, z.ZodTypeAny> = Record<never, never>>(
+  options?: PartialsCollectionOptions<TFields>,
+): { loader: Loader; schema: ReturnType<typeof definePartialsSchema<TFields>> | typeof partialsSchema };
 export function partialsCollection(options: PartialsCollectionOptions<Record<string, z.ZodTypeAny>> = {}) {
   const base = `./src/content/${options.base ?? "partials"}`;
   const pattern = options.pattern ?? DEFAULT_PATTERN;

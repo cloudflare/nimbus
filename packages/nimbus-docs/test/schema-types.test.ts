@@ -22,7 +22,7 @@ const check = `
 import { z } from "astro/zod";
 import type { SchemaContext } from "astro:content";
 import { defineDocSchema, definePartialsSchema, defineSchema, docsSchema } from ${source("schemas.ts")};
-import { docsCollection, partialsCollection } from ${source("content.ts")};
+import { docsCollection, partialsCollection, type PartialsCollectionOptions } from ${source("content.ts")};
 
 declare const ctx: SchemaContext;
 
@@ -150,6 +150,18 @@ declare const enabled: boolean;
   // @ts-expect-error a is only there sometimes
   const a: string = either.a;
   void a;
+}
+{
+  // Options in a variable, with \`schemaFields\` optional, still type-check.
+  const plain: PartialsCollectionOptions = { base: "fragments" };
+  partialsCollection(plain).schema.parse({});
+  const withFields: PartialsCollectionOptions<{ author: z.ZodString }> = { schemaFields: { author: z.string() } };
+  const data = partialsCollection(withFields).schema.parse({});
+  // @ts-expect-error author is missing when schemaFields is left out
+  const author: string = data.author;
+  void author;
+  const either = enabled ? withFields : plain;
+  partialsCollection(either);
 }
 `;
 
