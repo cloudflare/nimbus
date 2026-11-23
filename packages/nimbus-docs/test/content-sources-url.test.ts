@@ -5,7 +5,7 @@
 
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingHttpHeaders } from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
@@ -322,6 +322,28 @@ test("validators go only to the URL that sent them, so a redirect that moves get
       await new Promise<void>((resolve) => server.close(() => resolve()));
       rmSync(root, { recursive: true, force: true });
     }
+  }
+});
+
+test("a record without the URL its validators came from is fetched plainly once, then revalidated", async () => {
+  const root = mkdtempSync(path.join(TEST_TMP, "nimbus-url-source-legacy-"));
+  const server = await fileServer();
+  const sources = { spec: { url: server.url() } };
+  try {
+    const one = (await resolveContentSources(sources, { projectRoot: root, log: () => {} })).snapshots.get("spec")!;
+    // As a record written before `resource` was kept.
+    const record = path.join(path.dirname(one.dir), "selected.json");
+    const { resource: _resource, ...legacy } = JSON.parse(readFileSync(record, "utf8")) as Record<string, unknown>;
+    writeFileSync(record, JSON.stringify(legacy));
+    for (const conditional of [false, true]) {
+      releaseContentSourceLeases(root);
+      server.state.requests.length = 0;
+      await resolveContentSources(sources, { projectRoot: root, log: () => {} });
+      assert.equal(server.state.requests[0]!["if-none-match"] !== undefined, conditional);
+    }
+  } finally {
+    await server.close();
+    rmSync(root, { recursive: true, force: true });
   }
 });
 

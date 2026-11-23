@@ -874,7 +874,9 @@ async function fetchUrl(
   if (validators?.etag) conditionalHeaders["if-none-match"] = validators.etag;
   else if (validators?.lastModified) conditionalHeaders["if-modified-since"] = validators.lastModified;
   const resourceOf = (href: string) => createHash("sha256").update(href).digest("hex");
-  const resource = validators?.resource ?? resourceOf(d.repo);
+  // A record without one (written before it was kept) gets a plain request,
+  // which records it.
+  const resource = validators?.resource;
   let conditional = false;
   const timeout = timeoutMs(FETCH_TIMEOUT_ENV, DEFAULT_FETCH_TIMEOUT);
   const signal = AbortSignal.timeout(timeout);
@@ -884,7 +886,7 @@ async function fetchUrl(
   let response: Response;
   for (let hops = 0; ; hops++) {
     try {
-      conditional = resourceOf(url) === resource && Object.keys(conditionalHeaders).length > 0;
+      conditional = resource !== undefined && resourceOf(url) === resource && Object.keys(conditionalHeaders).length > 0;
       response = await fetch(url, { headers: conditional ? conditionalHeaders : {}, redirect: "manual", signal });
     } catch (error) {
       throw new Error(
