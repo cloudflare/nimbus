@@ -95,7 +95,7 @@ export type {
 } from "./schemas.js";
 
 export interface DocsCollectionOptions<
-  TFields extends Record<string, z.ZodTypeAny> = Record<string, never>,
+  TFields extends Record<string, z.ZodTypeAny> = Record<never, never>,
 > {
   /**
    * Directory under `src/content/` to load docs from. Default: `"docs"`.
@@ -144,7 +144,7 @@ export interface DocsCollectionOptions<
 }
 
 export interface PartialsCollectionOptions<
-  TFields extends Record<string, z.ZodTypeAny> = Record<string, never>,
+  TFields extends Record<string, z.ZodTypeAny> = Record<never, never>,
 > {
   /**
    * Directory under `src/content/` to load partials from.
@@ -344,7 +344,7 @@ function wrapNimbusMarkdown<T extends Loader>(
  * docs collection. Pass to `defineCollection()`.
  */
 export function docsCollection<
-  TFields extends Record<string, z.ZodTypeAny> = Record<string, never>,
+  TFields extends Record<string, z.ZodTypeAny> = Record<never, never>,
 >(options: DocsCollectionOptions<TFields> = {}) {
   const base = `./src/content/${options.base ?? "docs"}`;
   const pattern = options.pattern ?? DEFAULT_PATTERN;
@@ -526,16 +526,18 @@ function sourceGlob(source: string, rawBase: string | undefined, pattern: string
  * frontmatter — same shape as `docsCollection({ schemaFields })`.
  */
 export function partialsCollection<
-  TFields extends Record<string, z.ZodTypeAny> = Record<string, never>,
+  TFields extends Record<string, z.ZodTypeAny> = Record<never, never>,
 >(options: PartialsCollectionOptions<TFields> = {}) {
   const base = `./src/content/${options.base ?? "partials"}`;
   const pattern = options.pattern ?? DEFAULT_PATTERN;
   // Avoid re-deriving the schema when no fields were declared — keeps the
   // default behaviour (`partialsSchema` with its `.default({})`) exact for
   // existing users who don't opt in.
-  const schema = options.schemaFields
-    ? definePartialsSchema({ fields: options.schemaFields })
-    : partialsSchema;
+  // One type for both, so declared fields stay typed (a union would hide
+  // them); the default's `.default({})` changes only the input type.
+  const schema = (
+    options.schemaFields ? definePartialsSchema({ fields: options.schemaFields }) : partialsSchema
+  ) as ReturnType<typeof definePartialsSchema<TFields>>;
 
   return {
     loader: wrapNimbusMarkdown(nimbusGlob(base, pattern), "partials"),

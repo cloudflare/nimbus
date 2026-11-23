@@ -16,8 +16,11 @@ import { z } from "astro/zod";
 import { withStrictKeys } from "./_internal/strict-keys.js";
 import { isAbsoluteUrl } from "./_internal/url.js";
 
+// `TFields` defaults to `Record<never, never>`: no keys, so extending with it
+// keeps every field typed. `Record<string, never>` has a key for every string,
+// and extending with it retypes each built-in field `never`.
 export interface DocSchemaConfig<
-  TFields extends Record<string, z.ZodTypeAny> = Record<string, never>,
+  TFields extends Record<string, z.ZodTypeAny> = Record<never, never>,
 > {
   /**
    * Additional frontmatter fields merged into the default schema.
@@ -322,7 +325,7 @@ function baseDocSchema() {
  * the richer `defineSchema(ctx => ...)` factory instead.
  */
 export function defineDocSchema<
-  TFields extends Record<string, z.ZodTypeAny> = Record<string, never>,
+  TFields extends Record<string, z.ZodTypeAny> = Record<never, never>,
 >(config: DocSchemaConfig<TFields> = {}) {
   const base = baseDocSchema();
   // Always extend (with `{}` when no fields) so the result type is
@@ -383,35 +386,38 @@ export interface DefineSchemaOptions {
  *     }),
  *   };
  */
-export function defineSchema(
-  factory: (ctx: import("astro:content").SchemaContext) => DefineSchemaOptions,
+export function defineSchema<TOptions extends DefineSchemaOptions>(
+  factory: (ctx: import("astro:content").SchemaContext) => TOptions,
 ) {
+  // The `narrow` and `extend` the factory returns, or none when it leaves
+  // them out.
+  type Narrow = "narrow" extends keyof TOptions ? NonNullable<TOptions["narrow"]> : Record<never, never>;
+  type Extend = "extend" extends keyof TOptions ? TOptions["extend"] : undefined;
   return (ctx: import("astro:content").SchemaContext) => {
     const { extend, narrow } = factory(ctx);
-    let schema = baseDocSchema() as z.ZodObject<any>;
-
-    // narrowing first (overrides framework fields)
-    if (narrow) {
-      schema = schema.extend(narrow);
+    // Narrow first (overrides framework fields). Always extend, with `{}`
+    // when there's nothing to narrow, so the field types survive (see
+    // `defineDocSchema`).
+    const narrowed = baseDocSchema().extend((narrow ?? {}) as Narrow);
+    const mergeWith = (fields: Extend extends z.ZodObject ? Extend : z.ZodObject<Record<never, never>>) => narrowed.merge(fields);
+    // `entry.data`'s type: the merged object, or the intersection when
+    // `extend` isn't an object.
+    type Result = Extend extends z.ZodObject | undefined
+      ? ReturnType<typeof mergeWith>
+      : z.ZodIntersection<typeof narrowed, NonNullable<Extend>>;
+    if (extend && !(extend instanceof z.ZodObject)) {
+      // Intersection path: `.and()` returns ZodIntersection, on which we
+      // can't run `withFrontmatterKeyCheck` (it operates on ZodObject's
+      // `.shape`). Users on this path lose the removed-key migration
+      // diagnostic; they own that trade-off by reaching for the non-object
+      // extend.
+      return narrowed.and(extend) as unknown as Result;
     }
-
-    // additive extension (new user fields). Prefer .merge for ZodObject
-    // (preserves object-ness for downstream .extend); fall back to .and
-    // for any other Zod type (intersection, union, etc.).
-    if (extend) {
-      if (extend instanceof z.ZodObject) {
-        schema = schema.merge(extend);
-      } else {
-        // Intersection path — `.and()` returns ZodIntersection, on which
-        // we can't run `withFrontmatterKeyCheck` (it operates on ZodObject's
-        // `.shape`). Users on this path lose the removed-key migration
-        // diagnostic; they own that trade-off by reaching for the
-        // non-object extend.
-        return schema.and(extend);
-      }
-    }
-
-    return withFrontmatterKeyCheck(schema);
+    // Additive extension (new user fields). `.merge` keeps an object
+    // `extend`'s own settings, as before. The cast is `defineDocSchema`'s:
+    // it keeps the field types through `.d.ts` emission.
+    const merged = mergeWith((extend ?? z.object({})) as Parameters<typeof mergeWith>[0]);
+    return withFrontmatterKeyCheck(merged as unknown as z.ZodObject) as unknown as Result;
   };
 }
 
@@ -443,7 +449,7 @@ export const partialsSchema = partialsObjectSchema.default({});
  *   }));
  */
 export function definePartialsSchema<
-  TFields extends Record<string, z.ZodTypeAny> = Record<string, never>,
+  TFields extends Record<string, z.ZodTypeAny> = Record<never, never>,
 >(config: { fields?: TFields } = {}) {
   // Same generic preservation trick as `defineDocSchema` — always extend
   // (even with `{}`) so the result type stays `ZodObject<base & TFields>`
