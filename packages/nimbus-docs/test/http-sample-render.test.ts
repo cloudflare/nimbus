@@ -290,6 +290,16 @@ describe("the options object wraps by its whole line", () => {
     assert.match(renderFetch(post({ kind: "json", mediaType: "application/json", value: long }))!, /^const options = \{\n {2}method: 'POST',\n {2}body: JSON\.stringify\(\{\n/m);
     assert.match(renderFetch(post({ kind: "text", mediaType: "text/plain", text: "line one\nline two" }))!, /body: 'line one\\nline two'/);
   });
+
+  test("header names and values are the same strings once the sample runs", () => {
+    const values = ['{"path": "/caf\\u00e9.txt"}', '{"title": "say \\"hi\\""}', "C:\\Users\\docs\\", "a\\'b", "it's", "line one\nline two\r"];
+    for (const value of values) {
+      const source = renderFetch(post(undefined, [{ name: `X-Arg ${value}`, value: [text(value)] }]))!;
+      const options = /^const options = (.*?);$/ms.exec(source)![1]!;
+      const headers = (new Function(`return ${options};`)() as { headers: Record<string, string> }).headers;
+      assert.deepEqual(Object.entries(headers), [[`X-Arg ${value}`, value]]);
+    }
+  });
 });
 
 describe("Python headers", () => {
