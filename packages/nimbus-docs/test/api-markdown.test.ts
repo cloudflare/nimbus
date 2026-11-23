@@ -176,7 +176,12 @@ describe("api markdown emitter", () => {
     assert.ok(codeIn(md).includes(source), "the sample keeps every blank line");
     assert.doesNotMatch(md.replace(source, ""), /\n{3,}/, "blocks are still one blank line apart");
 
-    for (const pattern of [" ^x$ ", "^x$ ", " ", "` x `"]) {
+    // Text that looks like an internal marker is ordinary text.
+    const label = "Before \u0000999\u0000 and \u00000\u0000 After";
+    const labelled = renderApiPageMarkdown(operation({ samples: [{ id: "python", lang: "python", label, source: "x" }] }));
+    assert.ok(labelled.includes(label), "a label is written as it is");
+
+    for (const pattern of [" ^x$ ", "^x$ ", " ", "` x `", " \u2028\u2028 "]) {
       const page = schema([field({ name: "a", constraints: { pattern } })]);
       assert.ok(codeIn(renderApiPageMarkdown(page)).includes(pattern), JSON.stringify(pattern));
     }

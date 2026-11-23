@@ -38,7 +38,8 @@ function inlineCode(value: string): string {
   const fence = "`".repeat(longest + 1);
   // CommonMark strips one space from each end of a span that starts and ends
   // with one (and isn't all spaces), so such a value gets another on each side.
-  const pad = flat.startsWith("`") || flat.endsWith("`") || (/^ .*[^ ].* $/.test(flat)) ? " " : "";
+  const spaced = flat.startsWith(" ") && flat.endsWith(" ") && /[^ ]/.test(flat);
+  const pad = flat.startsWith("`") || flat.endsWith("`") || spaced ? " " : "";
   return `${fence}${pad}${flat}${pad}${fence}`;
 }
 
@@ -65,16 +66,20 @@ function fenced(lang: string, body: string, out: string[]): void {
 const codeBodies = new WeakMap<string[], Set<number>>();
 
 /** The lines as one document, with runs of blank lines between blocks
- * collapsed to one; code bodies keep every blank line. */
+ * collapsed to one; code bodies are written as they are. */
 function documentText(out: string[]): string {
   const bodies = codeBodies.get(out);
-  const marker = (i: number) => `\u0000${i}\u0000`;
-  const text = out
-    .map((line, i) => (bodies?.has(i) ? marker(i) : line))
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trimEnd();
-  return `${bodies ? text.replace(/\u0000(\d+)\u0000/g, (_, i: string) => out[Number(i)]!) : text}\n`;
+  const pieces: string[] = [];
+  let run: string[] = [];
+  const flush = () => pieces.push(run.join("\n").replace(/\n{3,}/g, "\n\n"));
+  out.forEach((line, i) => {
+    if (!bodies?.has(i)) return void run.push(line);
+    flush();
+    pieces.push(line);
+    run = [];
+  });
+  flush();
+  return `${pieces.join("\n").trimEnd()}\n`;
 }
 
 /** Collapse to one line — for prose spliced mid-line, where a newline would
