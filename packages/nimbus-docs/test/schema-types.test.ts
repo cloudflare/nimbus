@@ -101,6 +101,46 @@ for (const schema of [docsSchema, defineDocSchema(), docsCollection().schema, do
   // @ts-expect-error no such field
   data.c;
 }
+
+// A factory that returns \`narrow\` or \`extend\` only sometimes: every case is typed.
+declare const enabled: boolean;
+{
+  const data = defineSchema(() => ({ narrow: enabled ? { mode: z.literal("doc") } : undefined }))(ctx).parse({});
+  // @ts-expect-error mode may be "custom" when narrow is left out
+  const mode: "doc" = data.mode;
+  const either: "doc" | "custom" = data.mode;
+  void [mode, either];
+}
+{
+  const data = defineSchema(() => ({ extend: enabled ? z.object({ title: z.number() }) : undefined }))(ctx).parse({});
+  // @ts-expect-error title is a number when extend is there
+  const title: string = data.title;
+  const either: string | number = data.title;
+  void [title, either];
+}
+{
+  const data = defineSchema(() => ({
+    extend: enabled ? z.object({ author: z.string() }).transform(({ author }) => ({ copy: author })) : undefined,
+  }))(ctx).parse({});
+  // @ts-expect-error copy is missing when extend is left out
+  data.copy;
+  const title: string = data.title;
+  void title;
+}
+{
+  const data = defineSchema(() => (enabled ? { extend: z.object({ author: z.string() }) } : {}))(ctx).parse({});
+  // @ts-expect-error author is missing when extend is left out
+  data.author;
+}
+
+// Partials without fields still accept no frontmatter, and keep \`.default\`'s type.
+{
+  const schema = partialsCollection().schema;
+  const input: z.input<typeof schema> = undefined;
+  // @ts-expect-error the default schema isn't an object schema
+  schema.extend({});
+  void input;
+}
 `;
 
 test("schema helpers type entry.data the way they validate it", async () => {

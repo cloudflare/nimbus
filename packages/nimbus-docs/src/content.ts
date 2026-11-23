@@ -532,12 +532,11 @@ export function partialsCollection<
   const pattern = options.pattern ?? DEFAULT_PATTERN;
   // Avoid re-deriving the schema when no fields were declared — keeps the
   // default behaviour (`partialsSchema` with its `.default({})`) exact for
-  // existing users who don't opt in.
-  // One type for both, so declared fields stay typed (a union would hide
-  // them); the default's `.default({})` changes only the input type.
+  // existing users who don't opt in. Typed as whichever schema it is, so
+  // declared fields stay typed (a union with the default would hide them).
   const schema = (
     options.schemaFields ? definePartialsSchema({ fields: options.schemaFields }) : partialsSchema
-  ) as ReturnType<typeof definePartialsSchema<TFields>>;
+  ) as [keyof TFields] extends [never] ? typeof partialsSchema : ReturnType<typeof definePartialsSchema<TFields>>;
 
   return {
     loader: wrapNimbusMarkdown(nimbusGlob(base, pattern), "partials"),

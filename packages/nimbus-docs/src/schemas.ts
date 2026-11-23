@@ -386,38 +386,48 @@ export interface DefineSchemaOptions {
  *     }),
  *   };
  */
+// The types `defineSchema` returns. Each distributes over a union, so a
+// factory that returns `narrow` or `extend` only sometimes gets every case:
+// no `narrow` keeps the framework fields; an object `extend` merges; any
+// other Zod type intersects; no `extend` adds nothing.
+const narrowBase = <N extends Record<string, z.ZodTypeAny>>(narrow: N) => baseDocSchema().extend(narrow);
+type Narrowed<N> = N extends Record<string, z.ZodTypeAny>
+  ? ReturnType<typeof narrowBase<N>>
+  : ReturnType<typeof baseDocSchema>;
+type Extended<B, E> = B extends z.ZodObject
+  ? E extends z.ZodObject
+    ? z.ZodObject<z.core.util.Extend<B["shape"], E["shape"]>, E["_zod"]["config"]>
+    : E extends z.ZodTypeAny
+      ? z.ZodIntersection<B, E>
+      : B
+  : never;
+type DefinedSchema<T> = T extends unknown
+  ? Extended<
+      Narrowed<"narrow" extends keyof T ? T["narrow"] : undefined>,
+      "extend" extends keyof T ? T["extend"] : undefined
+    >
+  : never;
+
 export function defineSchema<TOptions extends DefineSchemaOptions>(
   factory: (ctx: import("astro:content").SchemaContext) => TOptions,
 ) {
-  // The `narrow` and `extend` the factory returns, or none when it leaves
-  // them out.
-  type Narrow = "narrow" extends keyof TOptions ? NonNullable<TOptions["narrow"]> : Record<never, never>;
-  type Extend = "extend" extends keyof TOptions ? TOptions["extend"] : undefined;
-  return (ctx: import("astro:content").SchemaContext) => {
+  return (ctx: import("astro:content").SchemaContext): DefinedSchema<TOptions> => {
     const { extend, narrow } = factory(ctx);
-    // Narrow first (overrides framework fields). Always extend, with `{}`
-    // when there's nothing to narrow, so the field types survive (see
-    // `defineDocSchema`).
-    const narrowed = baseDocSchema().extend((narrow ?? {}) as Narrow);
-    const mergeWith = (fields: Extend extends z.ZodObject ? Extend : z.ZodObject<Record<never, never>>) => narrowed.merge(fields);
-    // `entry.data`'s type: the merged object, or the intersection when
-    // `extend` isn't an object.
-    type Result = Extend extends z.ZodObject | undefined
-      ? ReturnType<typeof mergeWith>
-      : z.ZodIntersection<typeof narrowed, NonNullable<Extend>>;
+    // Narrow first (overrides framework fields).
+    const narrowed = baseDocSchema().extend(narrow ?? {});
     if (extend && !(extend instanceof z.ZodObject)) {
       // Intersection path: `.and()` returns ZodIntersection, on which we
       // can't run `withFrontmatterKeyCheck` (it operates on ZodObject's
       // `.shape`). Users on this path lose the removed-key migration
       // diagnostic; they own that trade-off by reaching for the non-object
       // extend.
-      return narrowed.and(extend) as unknown as Result;
+      return narrowed.and(extend) as unknown as DefinedSchema<TOptions>;
     }
     // Additive extension (new user fields). `.merge` keeps an object
     // `extend`'s own settings, as before. The cast is `defineDocSchema`'s:
     // it keeps the field types through `.d.ts` emission.
-    const merged = mergeWith((extend ?? z.object({})) as Parameters<typeof mergeWith>[0]);
-    return withFrontmatterKeyCheck(merged as unknown as z.ZodObject) as unknown as Result;
+    const merged = extend ? narrowed.merge(extend) : narrowed;
+    return withFrontmatterKeyCheck(merged) as unknown as DefinedSchema<TOptions>;
   };
 }
 
