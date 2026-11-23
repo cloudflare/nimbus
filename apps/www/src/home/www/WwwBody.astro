@@ -34,8 +34,11 @@ const big = "text-[22px] leading-7 text-foreground md:text-[26px] md:leading-8";
       const apply = () => {
         const mode = read() ?? (media.matches ? "dark" : "light");
         const root = document.documentElement;
+        const still = root.style.colorScheme && root.style.colorScheme !== mode ? document.createElement("style") : null;
+        if (still) { still.textContent = "*,*::before,*::after{transition:none!important}"; document.head.appendChild(still); }
         if (mode === "dark") root.setAttribute("data-mode", "dark"); else root.removeAttribute("data-mode");
         root.style.colorScheme = mode;
+        if (still) requestAnimationFrame(() => requestAnimationFrame(() => still.remove()));
       };
       apply();
       media.addEventListener("change", () => { if (!read()) apply(); });

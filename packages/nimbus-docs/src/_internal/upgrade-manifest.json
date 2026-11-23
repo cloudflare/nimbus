@@ -1438,6 +1438,21 @@
       "verify": [
         "Open a deprecated version's API page whose version is in the query (?version=v1), search for a word on the current pages, and confirm results appear."
       ]
+    },
+    {
+      "id": "theme-switch-no-fade",
+      "introducedIn": "0.20.1",
+      "mode": "optional",
+      "changeset": "theme-switch-no-fade",
+      "summary": "Optionally stop the search bar, the sidebar filter and other controls with colour transitions from fading behind the page when a reader switches between light and dark.",
+      "affected": "Sites using the starter's src/layouts/BaseLayout.astro theme script.",
+      "instructions": [
+        "If src/layouts/BaseLayout.astro is unmodified, run nimbus-docs diff src/layouts/BaseLayout.astro --apply.",
+        "If you've edited it, in applyTheme: when the mode changes (root.style.colorScheme is set and differs from the new mode), append a <style> with *,*::before,*::after{transition:none!important} before applying the theme, then remove the style two frames later: requestAnimationFrame(() => requestAnimationFrame(() => style.remove())), so the next frame is drawn with transitions off."
+      ],
+      "verify": [
+        "Switch the theme on a page with the search bar and a sidebar filter: both change colour with the page, and hovering the search bar still fades its border."
+      ]
     }
   ]
 }

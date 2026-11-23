@@ -90,6 +90,7 @@ test("only universally skippable entries are optional", () => {
       "starter-a11y-layout",
       "starter-component-fixes",
       "starter-defects",
+      "theme-switch-no-fade",
       "version-switcher-collections",
     ],
   );
