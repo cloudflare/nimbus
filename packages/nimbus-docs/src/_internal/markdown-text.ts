@@ -14,13 +14,15 @@ export function oneLine(text: string): string {
 /**
  * Text as a link's label, on one line, that can't end early, nest a link,
  * or run past the label. A code span whose backticks close within the label
- * is literal in CommonMark and stays as written; elsewhere `\`, `[` and `]`
- * are escaped, as are backticks no run closes (they'd open a span that
- * swallows `](url)`) and a `<` that could open HTML or an autolink.
+ * is literal in CommonMark and stays as written; elsewhere `\`, `[`, `]`
+ * and `<` are escaped (a link can't end early, nest, or have HTML or an
+ * autolink run past it), as are backticks no run closes and backticks after
+ * a backslash, which the author's text has as plain characters.
  */
 export function linkLabel(text: string): string {
   const flat = oneLine(text);
-  const runs = [...flat.matchAll(/`+/g)];
+  // A run after a backslash is plain text: its backticks are escaped below.
+  const runs = [...flat.matchAll(/`+/g)].filter((run) => !/(?:^|[^\\])(?:\\\\)*\\$/.test(flat.slice(0, run.index)));
   const spans: Array<[number, number]> = [];
   for (let i = 0; i < runs.length; i++) {
     const open = runs[i]!;
@@ -29,7 +31,7 @@ export function linkLabel(text: string): string {
     spans.push([open.index, runs[close]!.index + runs[close]![0].length]);
     i = close;
   }
-  const escape = (part: string) => part.replace(/[\\[\]`]|<(?=[A-Za-z/!?])/g, "\\$&");
+  const escape = (part: string) => part.replace(/[\\[\]`<]/g, "\\$&");
   let out = "";
   let at = 0;
   for (const [start, end] of spans) {

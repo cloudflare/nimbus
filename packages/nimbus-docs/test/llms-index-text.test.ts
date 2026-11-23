@@ -22,7 +22,7 @@ type MdNode = { type: string; url?: string; value?: string; children?: MdNode[] 
 const textOf = (node: MdNode): string => node.value ?? (node.children ?? []).map(textOf).join("");
 const linksIn = (node: MdNode, found: MdNode[] = []): MdNode[] => {
   if (node.type === "link") found.push(node);
-  else for (const child of node.children ?? []) linksIn(child, found);
+  for (const child of node.children ?? []) linksIn(child, found);
   return found;
 };
 
@@ -55,11 +55,15 @@ test("text that would open a span or a tag across the link keeps the link", () =
     ['<span data-x="', '">'],
     ["<https://other.example>", "x"],
     ["`a]b` and [c]", "d"],
+    ["<1@example.com>", "x"],
+    ["\\`a`", "b"],
   ];
   const pages: LlmsPage[] = cases.map(([title, description], i) => ({ collection: "docs", id: `p${i}`, title, description, url: `/p${i}/` }));
   const { leaves, groups } = groupLlmsPages(pages, ctx);
   const links = linksIn(fromMarkdown(siteIndexDocument(leaves, groups, ctx, false)) as MdNode);
   assert.deepEqual(links.map((link) => link.url), cases.map((_, i) => `https://example.com/p${i}/`));
+  // A backslash before a backtick is plain text, so the label reads as the title.
+  assert.equal(textOf(links.at(-1)!), "\\`a`");
 });
 
 test("line breaks, carriage returns included, start no heading in a section index", () => {
@@ -72,6 +76,6 @@ test("line breaks, carriage returns included, start no heading in a section inde
   assert.deepEqual((site.children ?? []).filter((node) => node.type === "heading").map(textOf), ["Example", "Pages"]);
 });
 
-test("a label without brackets, backslashes or open spans and tags is unchanged", () => {
-  for (const text of ["Plain title", "__init__", "`check`", "a < b", "`a]b`"]) assert.equal(linkLabel(text), text);
+test("a label without brackets, backslashes, < or open spans is unchanged", () => {
+  for (const text of ["Plain title", "__init__", "`check`", "`a]b`", "`<T>`"]) assert.equal(linkLabel(text), text);
 });
