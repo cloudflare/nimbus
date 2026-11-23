@@ -185,6 +185,9 @@ interface SelectedRecord {
   /** A URL source's validators, sent back to ask whether the file changed. */
   etag?: string;
   lastModified?: string;
+  /** The SHA-256 of the URL that answered with them, after redirects (its
+   * query string can hold a token, so the URL isn't kept). Only it is asked. */
+  resource?: string;
 }
 
 function readSelected(identityDir: string): SelectedRecord | undefined {
@@ -853,18 +856,28 @@ const MAX_REDIRECTS = 10;
 /** What a URL request found: the selected snapshot's file unchanged, or a file. */
 type UrlFetch =
   | { changed: false }
-  | { changed: true; bytes: Buffer; etag?: string; lastModified?: string };
+  | { changed: true; bytes: Buffer; etag?: string; lastModified?: string; resource: string };
 
 /**
  * GET a URL source's file. With validators, the request is conditional and a
  * 304 means the selected snapshot is current. A 4xx other than 408 and 429 is
  * the author's to fix and never falls back; anything else is transport.
  */
-async function fetchUrl(d: Declaration, validators?: { etag?: string; lastModified?: string }): Promise<UrlFetch> {
-  const headers: Record<string, string> = {};
-  if (validators?.etag) headers["if-none-match"] = validators.etag;
-  else if (validators?.lastModified) headers["if-modified-since"] = validators.lastModified;
-  const conditional = Object.keys(headers).length > 0;
+async function fetchUrl(
+  d: Declaration,
+  validators?: { etag?: string; lastModified?: string; resource?: string },
+): Promise<UrlFetch> {
+  // Validators belong to the URL that sent them, after redirects. A redirect
+  // that now leads elsewhere gets a plain request: another file can share an
+  // ETag or answer an older date with 304.
+  const conditionalHeaders: Record<string, string> = {};
+  if (validators?.etag) conditionalHeaders["if-none-match"] = validators.etag;
+  else if (validators?.lastModified) conditionalHeaders["if-modified-since"] = validators.lastModified;
+  const resourceOf = (href: string) => createHash("sha256").update(href).digest("hex");
+  // A record without one (written before it was kept) gets a plain request,
+  // which records it.
+  const resource = validators?.resource;
+  let conditional = false;
   const timeout = timeoutMs(FETCH_TIMEOUT_ENV, DEFAULT_FETCH_TIMEOUT);
   const signal = AbortSignal.timeout(timeout);
   // Redirects are followed here, so each one is held to the same rule as
@@ -873,13 +886,13 @@ async function fetchUrl(d: Declaration, validators?: { etag?: string; lastModifi
   let response: Response;
   for (let hops = 0; ; hops++) {
     try {
-      response = await fetch(url, { headers, redirect: "manual", signal });
+      conditional = resource !== undefined && resourceOf(url) === resource && Object.keys(conditionalHeaders).length > 0;
+      response = await fetch(url, { headers: conditional ? conditionalHeaders : {}, redirect: "manual", signal });
     } catch (error) {
-      const failure = error as Error & { cause?: { message?: string } };
       throw new Error(
-        failure.name === "TimeoutError"
+        (error as Error).name === "TimeoutError"
           ? `the request timed out after ${timeout / 1000}s`
-          : `the request failed (${failure.cause?.message ?? failure.message})`,
+          : `the request failed (${failureReason(error)})`,
       );
     }
     const location = response.status >= 300 && response.status < 400 && response.status !== 304
@@ -914,7 +927,23 @@ async function fetchUrl(d: Declaration, validators?: { etag?: string; lastModifi
   const bytes = Buffer.from(await response.arrayBuffer());
   const etag = response.headers.get("etag");
   const lastModified = response.headers.get("last-modified");
-  return { changed: true, bytes, ...(etag ? { etag } : {}), ...(lastModified ? { lastModified } : {}) };
+  return { changed: true, bytes, resource: resourceOf(url), ...(etag ? { etag } : {}), ...(lastModified ? { lastModified } : {}) };
+}
+
+/** Why a request failed, for the message: the cause's text, else its code (a
+ * refused connection has `ECONNREFUSED` and no text), else the error's. */
+function failureReason(error: unknown): string {
+  type Failure = { message?: string; code?: string; cause?: Failure; errors?: Failure[] };
+  const failure = error as Failure;
+  const cause = failure.cause;
+  return (
+    cause?.message ||
+    cause?.code ||
+    cause?.errors?.find((e) => e.code || e.message)?.code ||
+    cause?.errors?.find((e) => e.message)?.message ||
+    failure.message ||
+    "no reason given"
+  );
 }
 
 /** Write a URL source's file into `<identityDir>/<sha256>/`: into a temporary folder, renamed into place. */
@@ -974,7 +1003,7 @@ async function resolveUrl(d: Declaration, projectRoot: string, log: Log): Promis
             log,
           );
     let revision = d.pinnedRevision;
-    let validators: { etag?: string; lastModified?: string } = {};
+    let validators: { etag?: string; lastModified?: string; resource?: string } = {};
     let fetched = false;
     if (!revision || !readMarker(path.join(d.identityDir, revision))) {
       let result: UrlFetch;
@@ -992,6 +1021,7 @@ async function resolveUrl(d: Declaration, projectRoot: string, log: Log): Promis
         validators = {
           ...(selected!.etag ? { etag: selected!.etag } : {}),
           ...(selected!.lastModified ? { lastModified: selected!.lastModified } : {}),
+          ...(selected!.resource ? { resource: selected!.resource } : {}),
         };
       } else {
         const sha256 = createHash("sha256").update(result.bytes).digest("hex");
@@ -1006,6 +1036,7 @@ async function resolveUrl(d: Declaration, projectRoot: string, log: Log): Promis
         validators = {
           ...(result.etag ? { etag: result.etag } : {}),
           ...(result.lastModified ? { lastModified: result.lastModified } : {}),
+          resource: result.resource,
         };
         fetched = true;
       }

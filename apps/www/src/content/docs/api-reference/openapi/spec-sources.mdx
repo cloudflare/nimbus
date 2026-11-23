@@ -50,7 +50,7 @@ A transform gets the parsed spec and returns the one Nimbus renders. Set it per 
 nimbus(config, {
   api: {
     api: {
-      transform: (document) => ({ ...document, info: { ...document.info, title: "Acme API" } }),
+      transform: (document) => ({ ...document, servers: [{ url: "https://api.acme.com" }] }),
     },
   },
 }),

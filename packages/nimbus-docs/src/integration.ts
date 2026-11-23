@@ -585,7 +585,7 @@ export interface NimbusIntegrationOptions {
    *
    * @example
    * api: {
-   *   api: { transform: (document) => ({ ...document, info: { ...document.info, title: "Acme" } }) },
+   *   api: { transform: (document) => ({ ...document, servers: [{ url: "https://api.acme.com" }] }) },
    * }
    */
   api?: Record<string, { transform: ApiSpecTransform }>;
