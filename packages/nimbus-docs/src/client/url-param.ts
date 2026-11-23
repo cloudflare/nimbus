@@ -10,8 +10,8 @@
  * the current `history.state`, and strips a stranded copy from the fragment so
  * the two never disagree. It no-ops when the URL would not change.
  *
- * `readUrlParam` is serialized into `choiceStateScript`, so it may reference
- * only browser globals and its argument.
+ * Both are serialized into `choiceStateScript`, so they may reference only
+ * browser globals and their arguments.
  */
 
 export function readUrlParam(name: string): string | null {

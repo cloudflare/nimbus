@@ -101,7 +101,7 @@ import {
 } from "./_internal/page-resolution.js";
 import { NAV_STATE_KEYS, restoreNavState } from "./client/nav-sidebar.js";
 import { restoreChoice } from "./client/choice.js";
-import { readUrlParam } from "./client/url-param.js";
+import { readUrlParam, writeUrlParam } from "./client/url-param.js";
 import {
   projectConfiguredApiNav,
   projectConfiguredApiPage,
@@ -2373,14 +2373,15 @@ export const navStateScript = `(function(){var __name=function(f){return f};(${r
 
 /**
  * An inline script that shows each choice group's remembered panel (a URL
- * param, else the reader's saved kind) before the page paints. Render it right
- * after the group, unbundled so it runs during parsing:
+ * param, else the reader's saved kind) before the page paints, and keeps the
+ * param in the address from page to page. Render it right after the group,
+ * unbundled so it runs during parsing:
  *
  *   <script is:inline aria-hidden="true" set:html={choiceStateScript} />
  *
  * See `client/choice.ts` for the markup contract.
  */
-export const choiceStateScript = `(function(){var __name=function(f){return f};(${restoreChoice.toString()})(${readUrlParam.toString()});})();`;
+export const choiceStateScript = `(function(){var __name=function(f){return f};(${restoreChoice.toString()})(${readUrlParam.toString()},${writeUrlParam.toString()});})();`;
 
 // JSON embedded in an inline <script>: escape what could close the element or
 // break the script (`<`, `>`, `/`, and the U+2028/U+2029 line separators).
