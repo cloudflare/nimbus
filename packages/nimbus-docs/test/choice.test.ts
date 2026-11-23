@@ -22,11 +22,18 @@ function group(panels: Array<[value: string, kind?: string]>, attrs = `data-nb-c
   return `<div data-nb-choice="${KEY}" ${attrs}><select data-nb-choice-select>${options}</select>${rows}</div>`;
 }
 
-function page(body: string, { url = "https://x.dev/a", saved }: { url?: string; saved?: string } = {}) {
-  const dom = new JSDOM(`<!DOCTYPE html><body>${body}</body>`, { url, runScripts: "outside-only" });
-  if (saved) dom.window.localStorage.setItem(KEY, saved);
-  dom.window.eval(choiceStateScript);
-  return dom;
+// The script runs inline while the page is parsing, as a site renders it.
+function page(
+  body: string,
+  { url = "https://x.dev/a", saved, script = true }: { url?: string; saved?: string; script?: boolean } = {},
+) {
+  return new JSDOM(`<!DOCTYPE html><body>${body}${script ? `<script>${choiceStateScript}</script>` : ""}</body>`, {
+    url,
+    runScripts: "dangerously",
+    beforeParse(window) {
+      if (saved) window.localStorage.setItem(KEY, saved);
+    },
+  });
 }
 
 function shown(dom: JSDOM, g: Element = dom.window.document.querySelector("[data-nb-choice]")!): string {
@@ -125,9 +132,13 @@ test("a nested group is left to its own key", () => {
 });
 
 test("storage that throws leaves the server's choice", () => {
-  const dom = new JSDOM(`<!DOCTYPE html><body>${group(SAMPLES)}</body>`, { url: "https://x.dev/a", runScripts: "outside-only" });
-  Object.defineProperty(dom.window, "localStorage", { get: () => { throw new Error("blocked"); } });
-  dom.window.eval(choiceStateScript);
+  const dom = new JSDOM(`<!DOCTYPE html><body>${group(SAMPLES)}<script>${choiceStateScript}</script></body>`, {
+    url: "https://x.dev/a",
+    runScripts: "dangerously",
+    beforeParse(window) {
+      Object.defineProperty(window, "localStorage", { get: () => { throw new Error("blocked"); } });
+    },
+  });
   assert.equal(shown(dom), "curl");
 });
 
@@ -176,6 +187,8 @@ test("a client-side navigation carries the saved choice in its own address", () 
   assert.equal(shown(dom), "python");
   assert.equal(navigate(dom, "https://x.dev/c?lang=curl", group(SAMPLES)).href, "https://x.dev/c?lang=curl", "a link's own param stands");
   assert.equal(shown(dom), "curl");
+  assert.equal(navigate(dom, "https://x.dev/c#op?lang=curl", group(SAMPLES)).href, "https://x.dev/c#op?lang=curl", "stranded in the fragment too");
+  assert.equal(shown(dom), "curl");
   assert.equal(navigate(dom, "https://x.dev/d", "<p>no group</p>").href, "https://x.dev/d");
   assert.equal(navigate(dom, "https://x.dev/e", group([["go"], ["ruby"]])).href, "https://x.dev/e", "no panel of the saved kind");
 });
@@ -188,9 +201,16 @@ test("after a client-side navigation the address is never rewritten in place", (
   assert.equal(navigate(dom, "https://x.dev/old", group(SAMPLES), "traverse").href, "https://x.dev/old");
   assert.equal(shown(dom), "python");
   assert.equal(dom.window.location.href, "https://x.dev/old");
-  // A swapped-in page's own inline script runs again, and doesn't write either.
+});
+
+test("a first choice page reached by client-side navigation shows the choice and leaves the address", () => {
+  // No script on the first page, so nothing hears this navigation. The router
+  // runs the new page's script after it has recorded the address.
+  const dom = page("<p>home</p>", { saved: "python", script: false });
+  dom.window.history.pushState(null, "", "/b");
   dom.window.document.body.innerHTML = group(SAMPLES);
   dom.window.eval(choiceStateScript);
   assert.equal(shown(dom), "python");
-  assert.equal(dom.window.location.href, "https://x.dev/old");
+  assert.equal(dom.window.location.href, "https://x.dev/b");
+  assert.equal(navigate(dom, "https://x.dev/c", group(SAMPLES)).href, "https://x.dev/c?lang=python", "the next one carries it");
 });

@@ -72,22 +72,24 @@ export function restoreChoice(
       restoreGroup(group, write);
     });
   // Astro's client router compares each link with the address it navigated
-  // to, so once it has navigated the address isn't rewritten under it: the
-  // param goes into the navigation's own address before the swap.
-  const routed = "__nbChoiceRouted";
-  restore(!w[routed]);
+  // to, so the address is rewritten in place only while the first page is
+  // parsing, before the router reads it. After that, the param goes into
+  // each navigation's own address before the swap.
+  restore(document.readyState === "loading");
   const flag = "__nbChoiceBound";
   if (!w[flag]) {
     w[flag] = true;
     document.addEventListener("astro:after-swap", () => restore(false));
     document.addEventListener("astro:before-swap", (event) => {
-      w[routed] = true;
       const swap = event as Event & { to?: URL; newDocument?: Document; navigationType?: string };
       if (!swap.to || !swap.newDocument || swap.navigationType === "traverse") return;
       const to = new URL(swap.to.href);
       swap.newDocument.querySelectorAll("[data-nb-choice][data-nb-choice-param]").forEach((group) => {
         const name = group.getAttribute("data-nb-choice-param");
+        // A link's own param stands, in the query or stranded in the fragment.
+        const stranded = to.hash.indexOf("?");
         if (!name || to.searchParams.get(name)) return;
+        if (stranded !== -1 && new URLSearchParams(to.hash.slice(stranded + 1)).get(name)) return;
         const { panel } = pick(group, null);
         if (panel) to.searchParams.set(name, valueOf(panel));
       });
