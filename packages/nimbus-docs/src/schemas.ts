@@ -390,10 +390,10 @@ export interface DefineSchemaOptions {
 // factory that returns `narrow` or `extend` only sometimes gets every case:
 // no `narrow` keeps the framework fields; an object `extend` merges; any
 // other Zod type intersects; no `extend` adds nothing.
-const narrowBase = <N extends Record<string, z.ZodTypeAny>>(narrow: N) => baseDocSchema().extend(narrow);
+type BaseDocSchema = ReturnType<typeof baseDocSchema>;
 type Narrowed<N> = N extends Record<string, z.ZodTypeAny>
-  ? ReturnType<typeof narrowBase<N>>
-  : ReturnType<typeof baseDocSchema>;
+  ? z.ZodObject<z.core.util.Extend<BaseDocSchema["shape"], z.core.util.Writeable<N>>, BaseDocSchema["_zod"]["config"]>
+  : BaseDocSchema;
 type Extended<B, E> = B extends z.ZodObject
   ? E extends z.ZodObject
     ? z.ZodObject<z.core.util.Extend<B["shape"], E["shape"]>, E["_zod"]["config"]>
