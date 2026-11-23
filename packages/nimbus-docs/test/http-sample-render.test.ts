@@ -307,6 +307,8 @@ describe("the options object wraps by its whole line", () => {
     assert.equal(cookie.cookie, "a=\\1; sid=<sid>");
     // `__proto__` is a header like any other.
     assert.deepEqual(Object.entries(headersOf(post(undefined, [{ name: "__proto__", value: [text("v")] }]))), [["__proto__", "v"]]);
+    const long = "v".repeat(90);
+    assert.deepEqual(Object.entries(headersOf(post(undefined, [{ name: "__proto__", value: [text(long)] }]))), [["__proto__", long]]);
   });
 });
 
