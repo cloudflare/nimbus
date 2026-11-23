@@ -361,7 +361,9 @@ function renderJsNode(node: JsNode, pad: string, before: number, after: number):
     .join(",\n")}\n${pad}}`;
 }
 
+// `__proto__` is computed, so it stays an ordinary key.
 function optionKey(key: string): string {
+  if (key === "__proto__") return `['__proto__']`;
   return /^[a-z$_][a-z$_0-9]*$/i.test(key) ? key : jsOptionKey(key);
 }
 

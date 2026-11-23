@@ -292,13 +292,21 @@ describe("the options object wraps by its whole line", () => {
   });
 
   test("header names and values are the same strings once the sample runs", () => {
-    const values = ['{"path": "/caf\\u00e9.txt"}', '{"title": "say \\"hi\\""}', "C:\\Users\\docs\\", "a\\'b", "it's", "line one\nline two\r"];
+    const headersOf = (request: SampleRequest) => {
+      const options = /^const options = (.*?);$/ms.exec(renderFetch(request)!)![1]!;
+      return (new Function(`return ${options};`)() as { headers: Record<string, string> }).headers;
+    };
+    const values = ['{"path": "/caf\\u00e9.txt"}', '{"title": "say \\"hi\\""}', "C:\\Users\\docs\\", "a\\'b", "it's", "line one\nline two\r", "${x}", "a\u2028b\u2029c\u0007"];
     for (const value of values) {
-      const source = renderFetch(post(undefined, [{ name: `X-Arg ${value}`, value: [text(value)] }]))!;
-      const options = /^const options = (.*?);$/ms.exec(source)![1]!;
-      const headers = (new Function(`return ${options};`)() as { headers: Record<string, string> }).headers;
-      assert.deepEqual(Object.entries(headers), [[`X-Arg ${value}`, value]]);
+      assert.deepEqual(Object.entries(headersOf(post(undefined, [{ name: `X-Arg ${value}`, value: [text(value)] }]))), [[`X-Arg ${value}`, value]]);
     }
+    // Split around a placeholder, and in the cookie the sample merges.
+    const split = headersOf(post(undefined, [{ name: "X-Arg", value: [text("C:\\"), placeholder("dir"), text("\\x")] }]));
+    assert.equal(split["X-Arg"], "C:\\<dir>\\x");
+    const cookie = headersOf({ ...post(undefined, [{ name: "Cookie", value: [text("a=\\1")] }]), cookies: [{ name: "sid", value: [placeholder("sid", true)] }] });
+    assert.equal(cookie.cookie, "a=\\1; sid=<sid>");
+    // `__proto__` is a header like any other.
+    assert.deepEqual(Object.entries(headersOf(post(undefined, [{ name: "__proto__", value: [text("v")] }]))), [["__proto__", "v"]]);
   });
 });
 
