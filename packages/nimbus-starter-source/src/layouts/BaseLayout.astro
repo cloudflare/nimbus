@@ -101,7 +101,8 @@ const resolvedMarkdownUrl =
           const mode = resolveMode();
           // Switching themes changes every colour at once: transitions would fade
           // some controls (the search bar, filters) behind the page, so they're
-          // off for the frame that applies it. The first paint has nothing to fade.
+          // off while it's applied, until a timer turns them back on. The first
+          // paint has nothing to fade.
           const switching = root.style.colorScheme !== "" && root.style.colorScheme !== mode;
           const still = switching ? document.createElement("style") : null;
           if (still) {
