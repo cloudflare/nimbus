@@ -1,5 +1,54 @@
 # @cloudflare/nimbus-docs
 
+## 0.20.1
+
+### Patch Changes
+
+- [#427](https://github.com/cloudflare/nimbus/pull/427) [`5061818`](https://github.com/cloudflare/nimbus/commit/5061818d29e2b01bd4030581eb46e1a67a248526) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - An API page's Markdown version keeps every blank line in its code samples, and the spaces around inline code such as a `pattern`.
+
+- [#416](https://github.com/cloudflare/nimbus/pull/416) [`1fb1281`](https://github.com/cloudflare/nimbus/commit/1fb1281f685c3c7d74ab4afff88533b87850bfef) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Operations can set their URL, and tags their section segment, with `x-nimbus-route` in the spec.
+  - `publishCoordinates: false` leaves an API out of `/nimbus-api/coordinates.json`.
+  - Pages no longer bundle `routes.operations`, `routes.tagSegments` or `stripPathPrefixes`.
+  - APIs with `bundle: false` no longer need `apiCollection()` or `src/live.config.ts`.
+  - `nimbus-docs migrate` shows API upgrade reviews only to sites that have an API.
+
+- [#424](https://github.com/cloudflare/nimbus/pull/424) [`f7649b8`](https://github.com/cloudflare/nimbus/commit/f7649b86427a1ec4d4cea367f3e4a5b2225bfcef) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - A source can be one file at a URL: `sources: { name: { url, integrity } }`, read with `api[].spec: { source }`.
+  - `nimbus(config, { api: { <collection>: { transform } } })` prepares a spec in Node before Nimbus reads it.
+
+- [#431](https://github.com/cloudflare/nimbus/pull/431) [`18bc6a1`](https://github.com/cloudflare/nimbus/commit/18bc6a1b126e01484104887ac034f264fa6c5cc6) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - A reader's saved code sample language is written to the address as `?lang=` on each API page, so it stays there from page to page.
+
+- [#403](https://github.com/cloudflare/nimbus/pull/403) [`5437838`](https://github.com/cloudflare/nimbus/commit/543783860e00b6520acb1d75571ff9ee058ce102) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - Request-rendered API pages, their Markdown and `llms-full.txt` parts no longer fail now and then on Workers when requests arrive at the same time.
+
+- [#429](https://github.com/cloudflare/nimbus/pull/429) [`2180bd3`](https://github.com/cloudflare/nimbus/commit/2180bd3c60ba474f755e02c055b1fcbfc08f9a8a) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `defineConfig()` reports a key Nimbus doesn't know, such as a typo in `features`, as a type error instead of failing the build.
+  - `nimbus(config, { markdown: { processor } })` types `processor` as an Astro Markdown processor.
+
+- [#406](https://github.com/cloudflare/nimbus/pull/406) [`3c26de5`](https://github.com/cloudflare/nimbus/commit/3c26de5c6011946ffd1dd6fe52dbbc92eb0d3d22) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Markdown renders through Sätteri 0.11; pages are unchanged.
+  - New sites start on Astro 7.4.8 and Pagefind 1.6.
+
+- [#413](https://github.com/cloudflare/nimbus/pull/413) [`09d6616`](https://github.com/cloudflare/nimbus/commit/09d6616f549ab48f5fcec9beaa991b747b1d4297) Thanks [@MokiMeow](https://github.com/MokiMeow)! - Apply collection-specific lint rules to pages under `src/content` when the collection name differs from its folder name.
+
+- [#414](https://github.com/cloudflare/nimbus/pull/414) [`5523acf`](https://github.com/cloudflare/nimbus/commit/5523acfb0ef198cb42511a87e882452fa8c19a8d) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - A page's Markdown links a `Card`'s title to its `href`, and turns a `LinkButton` into a link.
+
+- [#428](https://github.com/cloudflare/nimbus/pull/428) [`af6069f`](https://github.com/cloudflare/nimbus/commit/af6069fbf525a02e8a5ebe86c314b17e520fb3d6) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `llms.txt` and `llms-full.txt` keep one link per page when a title holds brackets or a backslash, and a title or description with line breaks stays on its line.
+
+- [#407](https://github.com/cloudflare/nimbus/pull/407) [`9484867`](https://github.com/cloudflare/nimbus/commit/94848678153669d728ae0c8f7220e3c0632c2ee5) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `nimbus-docs add migrate` hands your coding agent a recipe that moves an existing docs site to a fresh Nimbus site with every URL kept, its navigation, components, snippets and OpenAPI reference included, and reports what it could not carry over.
+
+- [#426](https://github.com/cloudflare/nimbus/pull/426) [`420dbc7`](https://github.com/cloudflare/nimbus/commit/420dbc7d8145936590044b32a2f94eaa77f9952a) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - `entry.data` keeps its field types with `docsCollection()` and `partialsCollection()` without `schemaFields`, `docsSchema`, `defineDocSchema()` and `definePartialsSchema()` without `fields`, and `defineSchema()`. `astro check` may now report mistakes these were hiding.
+  - `partialsCollection({ schemaFields })` types the declared fields.
+
+- [#405](https://github.com/cloudflare/nimbus/pull/405) [`285b678`](https://github.com/cloudflare/nimbus/commit/285b678ba0afa736503c9f9daa3876ea189fce0f) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Search from a deprecated version's page that the build didn't index, such as an older version of an API that puts its version in the query, finds the current pages instead of nothing.
+
+- [#415](https://github.com/cloudflare/nimbus/pull/415) [`60ed8fa`](https://github.com/cloudflare/nimbus/commit/60ed8fa658fd2fff5091c5ff14fad96768790de9) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - An `Icon` without a `title`, `aria-label` or `aria-labelledby` is hidden from screen readers.
+  - A Markdown table's scroll box is a region named by its caption or its column headings.
+  - The sidebar and table-of-contents rails follow `--nb-header-height`, and the sidebar's bottom fade shows.
+  - The header's section tabs no longer scroll vertically.
+  - Utilities on images inside `Frame` apply, so a `dark:hidden` / `hidden dark:block` pair shows one image per theme.
+  - The sidebar nav is named, an `Aside` with its own title is announced with its type, the mobile page menu's focus ring shows in forced colours, and prose spacing applies inside tabs.
+
+- [#433](https://github.com/cloudflare/nimbus/pull/433) [`7662895`](https://github.com/cloudflare/nimbus/commit/766289522e02c9a1bb32e79e6336f9b12ee747fb) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - Switching between light and dark no longer fades the search bar, the sidebar filter and the active header tab behind the page: transitions are off for the frame that applies the theme.
+
+- [#425](https://github.com/cloudflare/nimbus/pull/425) [`9f0735b`](https://github.com/cloudflare/nimbus/commit/9f0735bbe71b484ce4fdfb219b1409ab82e4da26) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - TypeScript samples and Try it's TypeScript snippet send header values and names with backslashes as written, and keep a `__proto__` header.
+
 ## 0.20.0
 
 ### Minor Changes
