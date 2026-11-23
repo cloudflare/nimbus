@@ -139,14 +139,22 @@ test("formatRedirectsFile: empty input with no existing yields empty string", ()
 });
 
 test("formatRedirectsFile: a path with whitespace or a line break stays one field of one rule", () => {
-  const { redirects } = normalizeRedirects({ "/old page": "/getting started", "/a\nb": "/c\td" }, "/");
+  const { redirects } = normalizeRedirects({ "/old page": "/getting started", "/a\nb": "/c\td", "/café": "/déjà%20vu" }, "/");
   const file = formatRedirectsFile(null, redirects);
   const rules = file.trim().split("\n").map((line) => line.split(/\s+/));
   assert.deepEqual(rules, [
     ["/old%20page", "/getting%20started", "301"],
     ["/a%0Ab", "/c%09d", "301"],
+    ["/caf%C3%A9", "/d%C3%A9j%C3%A0%20vu", "301"],
   ]);
   // A rule the file already has, written encoded, still wins.
   assert.equal(formatRedirectsFile("/old%20page /kept 302\n", redirects).split("\n")[0], "/old%20page /kept 302");
   assert.equal(formatRedirectsFile("/old%20page /kept 302\n", redirects).match(/old%20page/g)?.length, 1);
+});
+
+test("formatRedirectsFile: a line that is no rule reserves no source", () => {
+  // An older file's unencoded space split the rule; `/old` itself was never redirected.
+  const { redirects } = normalizeRedirects({ "/old": "/new" }, "/");
+  const file = formatRedirectsFile("/old page /getting started 301\n", redirects);
+  assert.deepEqual(file.trim().split("\n"), ["/old page /getting started 301", "/old /new 301"]);
 });

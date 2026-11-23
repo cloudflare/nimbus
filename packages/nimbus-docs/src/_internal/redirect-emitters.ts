@@ -128,14 +128,19 @@ export function expandDynamicRedirects(
   return out;
 }
 
-/** A path or URL as one field of a `_redirects` line: whitespace and control
- * characters percent-encoded, as a request carries them, so a space can't
- * split the field and a line break can't start another rule. */
+/** A path or URL as one field of a `_redirects` line: whitespace, control
+ * and non-ASCII characters percent-encoded (UTF-8), as a request carries
+ * them and as Netlify requires, so a space can't split the field and a line
+ * break can't start another rule. Existing `%XX` escapes are kept. */
 function redirectPath(url: string): string {
-  return url.replace(/[\s\u0000-\u001f\u007f]/gu, (c) =>
+  return url.replace(/[\s\u0000-\u001f\u007f]|[^\u0000-\u007f]/gu, (c) =>
     [...new TextEncoder().encode(c)].map((byte) => `%${byte.toString(16).toUpperCase().padStart(2, "0")}`).join(""),
   );
 }
+
+// A rule's second field: a path or an absolute URL. A line without one (an
+// older file's unencoded space) is no rule, so it reserves no source.
+const DESTINATION = /^(?:\/|[a-z][a-z0-9+.-]*:\/\/)/iu;
 
 // Existing content is kept verbatim and existing sources win, so re-running over
 // a user's `public/_redirects` (or our own prior output) is idempotent.
@@ -150,8 +155,8 @@ export function formatRedirectsFile(
       existingLines.push(line);
       const trimmed = line.trim();
       if (trimmed === "" || trimmed.startsWith("#")) continue;
-      const source = trimmed.split(/\s+/)[0];
-      if (source) existingSources.add(source);
+      const [source, destination] = trimmed.split(/\s+/);
+      if (source && destination && DESTINATION.test(destination)) existingSources.add(source);
     }
     while (existingLines.length > 0 && existingLines.at(-1)!.trim() === "") {
       existingLines.pop();
