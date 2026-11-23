@@ -279,3 +279,64 @@ test("each redirect is held to the URL rule, and an error never repeats the serv
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("validators go only to the URL that sent them, so a redirect that moves gets the new file", async () => {
+  for (const validator of ["etag", "last-modified"] as const) {
+    const root = mkdtempSync(path.join(TEST_TMP, "nimbus-url-source-moved-"));
+    // `/latest` redirects to a versioned file. Both files answer 304 to any
+    // conditional request, as a server may when they share an ETag, or when
+    // the newer target has an older date.
+    const files: Record<string, string> = { "/v1.json": '{"openapi":"3.1.0"}', "/v2.json": '{"openapi":"3.1.1"}' };
+    let target = "/v1.json";
+    const requests: Array<{ url: string; conditional: boolean }> = [];
+    const server = createServer((req, res) => {
+      const conditional = Boolean(req.headers["if-none-match"] || req.headers["if-modified-since"]);
+      requests.push({ url: req.url!, conditional });
+      if (req.url === "/latest") return void res.writeHead(302, { location: target }).end();
+      if (conditional) return void res.writeHead(304).end();
+      const headers = validator === "etag" ? { etag: '"1"' } : { "last-modified": "Mon, 23 Nov 2026 00:00:00 GMT" };
+      res.writeHead(200, { "content-type": "application/json", ...headers }).end(files[req.url!]);
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const url = `http://localhost:${(server.address() as AddressInfo).port}/latest`;
+    try {
+      const sources = { spec: { url } };
+      const one = (await resolveContentSources(sources, { projectRoot: root, log: () => {} })).snapshots.get("spec")!;
+      assert.equal(readFileSync(one.file!, "utf8"), files["/v1.json"]);
+
+      // Same target: the file itself is asked conditionally and answers 304.
+      requests.length = 0;
+      releaseContentSourceLeases(root);
+      const same = (await resolveContentSources(sources, { projectRoot: root, log: () => {} })).snapshots.get("spec")!;
+      assert.equal(same.revision, one.revision);
+      assert.deepEqual(requests, [{ url: "/latest", conditional: false }, { url: "/v1.json", conditional: true }]);
+
+      // The redirect moves: the new target gets a plain request, and its file is selected.
+      target = "/v2.json";
+      requests.length = 0;
+      releaseContentSourceLeases(root);
+      const moved = (await resolveContentSources(sources, { projectRoot: root, log: () => {} })).snapshots.get("spec")!;
+      assert.equal(readFileSync(moved.file!, "utf8"), files["/v2.json"], validator);
+      assert.deepEqual(requests, [{ url: "/latest", conditional: false }, { url: "/v2.json", conditional: false }]);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("a refused connection names its reason when the build falls back to the saved file", async () => {
+  const root = mkdtempSync(path.join(TEST_TMP, "nimbus-url-source-refused-"));
+  const server = await fileServer();
+  const sources = { spec: { url: server.url() } };
+  try {
+    await resolveContentSources(sources, { projectRoot: root, log: () => {} });
+    await server.close();
+    releaseContentSourceLeases(root);
+    const offline = logs();
+    await resolveContentSources(sources, { projectRoot: root, log: offline.log });
+    assert.match(offline.lines.join("\n"), /the request failed \(ECONNREFUSED\)/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
