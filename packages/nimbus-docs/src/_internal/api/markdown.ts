@@ -36,7 +36,10 @@ function inlineCode(value: string): string {
   const flat = value.replace(/[\r\n]+/g, " ");
   const longest = (flat.match(/`+/g) ?? []).reduce((m, r) => Math.max(m, r.length), 0);
   const fence = "`".repeat(longest + 1);
-  const pad = flat.startsWith("`") || flat.endsWith("`") ? " " : "";
+  // CommonMark strips one space from each end of a span that starts and ends
+  // with one (and isn't all spaces), so such a value gets another on each side.
+  const spaced = flat.startsWith(" ") && flat.endsWith(" ") && /[^ ]/.test(flat);
+  const pad = flat.startsWith("`") || flat.endsWith("`") || spaced ? " " : "";
   return `${fence}${pad}${flat}${pad}${fence}`;
 }
 
@@ -53,7 +56,30 @@ function fenced(lang: string, body: string, out: string[]): void {
   const info = lang.replace(/[\s`]+/g, "");
   const longest = (body.match(/`+/g) ?? []).reduce((m, r) => Math.max(m, r.length), 0);
   const fence = "`".repeat(Math.max(3, longest + 1));
-  out.push(`${fence}${info}`, body, fence, "");
+  out.push(`${fence}${info}`);
+  const bodies = codeBodies.get(out) ?? new Set<number>();
+  codeBodies.set(out, bodies.add(out.length));
+  out.push(body, fence, "");
+}
+
+/** The entries of a document's lines that are code bodies, kept as written. */
+const codeBodies = new WeakMap<string[], Set<number>>();
+
+/** The lines as one document, with runs of blank lines between blocks
+ * collapsed to one; code bodies are written as they are. */
+function documentText(out: string[]): string {
+  const bodies = codeBodies.get(out);
+  const pieces: string[] = [];
+  let run: string[] = [];
+  const flush = () => pieces.push(run.join("\n").replace(/\n{3,}/g, "\n\n"));
+  out.forEach((line, i) => {
+    if (!bodies?.has(i)) return void run.push(line);
+    flush();
+    pieces.push(line);
+    run = [];
+  });
+  flush();
+  return `${pieces.join("\n").trimEnd()}\n`;
 }
 
 /** Collapse to one line — for prose spliced mid-line, where a newline would
@@ -888,5 +914,5 @@ export function renderApiPageMarkdown(props: ApiPageProps, options?: { base?: st
     }
   }
 
-  return out.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
+  return documentText(out);
 }
