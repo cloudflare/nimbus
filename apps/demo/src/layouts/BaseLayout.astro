@@ -97,7 +97,6 @@ const resolvedMarkdownUrl =
         const applyTheme = () => {
           const root = document.documentElement;
           const mode = resolveMode();
-          // Transitions are off while the theme changes, so controls switch with the page.
           const switching = root.style.colorScheme !== "" && root.style.colorScheme !== mode;
           const still = switching ? document.createElement("style") : null;
           if (still) {
