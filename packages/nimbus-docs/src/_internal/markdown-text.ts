@@ -21,11 +21,14 @@ export function oneLine(text: string): string {
  */
 export function linkLabel(text: string): string {
   const flat = oneLine(text);
-  // A run after a backslash is plain text: its backticks are escaped below.
-  const runs = [...flat.matchAll(/`+/g)].filter((run) => !/(?:^|[^\\])(?:\\\\)*\\$/.test(flat.slice(0, run.index)));
+  const runs = [...flat.matchAll(/`+/g)];
+  // An opening run after a backslash is plain text (escaped below); inside a
+  // span, backslashes are literal, so any run of the same length closes it.
+  const escapedOpen = (run: RegExpExecArray) => /(?:^|[^\\])(?:\\\\)*\\$/.test(flat.slice(0, run.index));
   const spans: Array<[number, number]> = [];
   for (let i = 0; i < runs.length; i++) {
     const open = runs[i]!;
+    if (escapedOpen(open)) continue;
     const close = runs.findIndex((run, j) => j > i && run[0].length === open[0].length);
     if (close === -1) continue;
     spans.push([open.index, runs[close]!.index + runs[close]![0].length]);

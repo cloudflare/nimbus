@@ -56,6 +56,8 @@ test("text that would open a span or a tag across the link keeps the link", () =
     ["<https://other.example>", "x"],
     ["`a]b` and [c]", "d"],
     ["<1@example.com>", "x"],
+    ["`a\\` [x](y) `", "c"],
+    ["`a\\` <1@example.com> `", "c"],
     ["\\`a`", "b"],
   ];
   const pages: LlmsPage[] = cases.map(([title, description], i) => ({ collection: "docs", id: `p${i}`, title, description, url: `/p${i}/` }));
