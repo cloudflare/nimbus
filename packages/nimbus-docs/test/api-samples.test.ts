@@ -180,7 +180,7 @@ describe("derived example + code samples", () => {
       for (const sample of out) assert.match(sample.source, /\/v1\/objects\/(?:<key>|\{key\})\/meta/, `${sample.lang}: ${sample.source}`);
     }
     // A segment that only becomes a dot segment once filled in, as Try it checks.
-    for (const [path, example] of [["/objects/.{key}./meta", ""], ["/objects/%2e{key}/meta", "."], ["/objects/{key}{key}/meta", "."]] as const) {
+    for (const [path, example] of [["/objects/.{key}./meta", ""], ["/objects/%2e{key}/meta", "."], ["/objects/{key}{key}/meta", "."], ["/objects/x/{key}?q=1#meta", ".."]] as const) {
       const out = buildOperationSamples(tools, {
         method: "get",
         path,
@@ -188,7 +188,7 @@ describe("derived example + code samples", () => {
         params: [{ name: "key", in: "path", required: true, schema: { type: "string" }, example }],
         auth: [],
       });
-      for (const sample of out) assert.match(sample.source, /\/v1\/objects\/[^/\s'"]*(?:<key>|\{key\})[^/\s'"]*\/meta/, `${path} ${sample.lang}: ${sample.source}`);
+      for (const sample of out) assert.match(sample.source, /\/v1\/objects\/(?:x\/)?[^/\s'"]*(?:<key>|\{key\})[^/\s'"]*(?:\/meta|\?q=1)/, `${path} ${sample.lang}: ${sample.source}`);
     }
     const plain = buildOperationSamples(tools, {
       method: "get",

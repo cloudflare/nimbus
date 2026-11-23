@@ -332,7 +332,8 @@ function sampleForRole(tools: SampleTools, schema: OpenApiSchema, role: ExampleR
 // They get placeholders, as Try it refuses them.
 function dotSegmentParams(input: OperationSampleInput, values: ParamValues): Set<string> {
   const names = new Set<string>();
-  for (const segment of input.path.split("/")) {
+  // The path ends where a query or fragment would begin.
+  for (const segment of input.path.split(/[?#]/u)[0]!.split("/")) {
     let filled = segment;
     const inSegment: string[] = [];
     for (const p of input.params) {
