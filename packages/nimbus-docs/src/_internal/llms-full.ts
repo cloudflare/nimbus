@@ -7,6 +7,7 @@
  * version/hidden filtering; this module only formats.
  */
 
+import { oneLine } from "./markdown-text.js";
 import { compareByPosition } from "./llms-order.js";
 import { isAbsoluteUrl } from "./url.js";
 
@@ -105,15 +106,15 @@ export function llmsFullUrl(header: LlmsFullHeader, p: string): string {
 }
 
 function llmsFullHeaderText(header: LlmsFullHeader): string {
-  const lines: string[] = [`# ${header.title}`, ""];
-  if (header.description) lines.push(`> ${header.description}`, "");
+  const lines: string[] = [`# ${oneLine(header.title)}`, ""];
+  if (header.description) lines.push(`> ${oneLine(header.description)}`, "");
   if (header.index !== null) lines.push(`Index: ${llmsFullUrl(header, header.index ?? "/llms.txt")}`, "");
   return `${lines.join("\n")}\n`;
 }
 
 function llmsFullBlockText(block: LlmsFullBlock, header: LlmsFullHeader): string {
-  const lines: string[] = [`# ${block.title}`, ""];
-  if (block.description) lines.push(`> ${block.description}`, "");
+  const lines: string[] = [`# ${oneLine(block.title)}`, ""];
+  if (block.description) lines.push(`> ${oneLine(block.description)}`, "");
   lines.push(
     block.markdownUrl
       ? `Source: ${llmsFullUrl(header, block.url)} · Markdown: ${llmsFullUrl(header, block.markdownUrl)}`
