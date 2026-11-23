@@ -435,9 +435,7 @@ export interface NimbusIntegrationOptions {
    */
   markdown?: {
     /** Custom Astro `markdown.processor`. Imported from `@astrojs/markdown-remark` (unified), `@astrojs/markdown-satteri` (default), or any compatible processor. */
-    // Typed loosely (`unknown`) to avoid pulling the Astro internal helper
-    // types into the public surface. Astro validates the shape at use time.
-    processor?: unknown;
+    processor?: import("astro/markdown").MarkdownProcessor;
     /**
      * Sätteri hast plugins appended to the default processor's user hast
      * stage, in array order (after Shiki, before the built-in image-marker
