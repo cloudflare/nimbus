@@ -327,19 +327,37 @@ function sampleForRole(tools: SampleTools, schema: OpenApiSchema, role: ExampleR
   }
 }
 
+// Path parameters whose values would make a segment `.` or `..`, which a URL
+// resolves away (encoded too), so the sample would request another endpoint.
+// They get placeholders, as Try it refuses them.
+function dotSegmentParams(input: OperationSampleInput, values: ParamValues): Set<string> {
+  const names = new Set<string>();
+  for (const segment of input.path.split("/")) {
+    let filled = segment;
+    const inSegment: string[] = [];
+    for (const p of input.params) {
+      if (p.in !== "path" || !segment.includes(`{${p.name}}`)) continue;
+      inSegment.push(p.name);
+      filled = filled.split(`{${p.name}}`).join(encodeURIComponent(values.get(p) ?? "x"));
+    }
+    // URL parsing reads `%2e` as a dot too.
+    const dots = filled.replace(/%2e/gi, ".");
+    if (inSegment.length > 0 && (dots === "." || dots === "..")) for (const name of inSegment) names.add(name);
+  }
+  return names;
+}
+
 // The OpenAPI operation as the HTTP request its sample sends.
 function sampleRequest(input: OperationSampleInput, mediaType: string, values: ParamValues): SampleRequest {
   const bodyExample = input.body?.value;
   let path: Segment[] = [text(input.path)];
+  const unsafe = dotSegmentParams(input, values);
   for (const p of input.params) {
     if (p.in !== "path") continue;
     const value = values.get(p);
     // Replace every occurrence — a path may repeat a template (`/{id}/x/{id}`).
-    // `.` and `..` are path segments a URL resolves away (encoded too), so the
-    // sample would request another endpoint: they get a placeholder, as Try
-    // it refuses them.
     const fill: Segment =
-      value === undefined || value === "." || value === ".." ? placeholder(p.name) : text(encodeURIComponent(value));
+      value === undefined || unsafe.has(p.name) ? placeholder(p.name) : text(encodeURIComponent(value));
     path = path.flatMap((segment) => {
       if (!("text" in segment)) return [segment];
       const pieces = segment.text.split(`{${p.name}}`);
