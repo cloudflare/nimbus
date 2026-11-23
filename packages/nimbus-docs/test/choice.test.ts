@@ -61,13 +61,7 @@ test("an unknown param falls back to the saved kind, then the server's choice", 
   assert.equal(shown(page(group(SAMPLES), { url: "https://x.dev/a?lang=nope" })), "curl");
 });
 
-test("a linked choice becomes the reader's own", () => {
-  const dom = page(group(SAMPLES), { url: "https://x.dev/a?lang=python-2", saved: "curl" });
-  assert.equal(dom.window.localStorage.getItem(KEY), "python");
-  assert.equal(dom.window.location.search, "?lang=python-2", "the link is left as given");
-});
-
-test("a saved choice is written back to an address without the param", () => {
+test("a saved choice is written to an address without the param", () => {
   const dom = page(group(SAMPLES), { url: "https://x.dev/a?version=2#op", saved: "python" });
   assert.equal(shown(dom), "python");
   assert.equal(dom.window.location.href, "https://x.dev/a?version=2&lang=python#op");
@@ -76,9 +70,14 @@ test("a saved choice is written back to an address without the param", () => {
 test("the address is left alone without a saved choice, a param name, or a panel for the param", () => {
   assert.equal(page(group(SAMPLES)).window.location.href, "https://x.dev/a");
   assert.equal(page(group(SAMPLES, ""), { saved: "python" }).window.location.href, "https://x.dev/a");
-  const unknown = page(group(SAMPLES), { url: "https://x.dev/a?lang=go", saved: "python" });
-  assert.equal(unknown.window.location.search, "?lang=go");
-  assert.equal(unknown.window.localStorage.getItem(KEY), "python");
+  assert.equal(page(group(SAMPLES), { url: "https://x.dev/a?lang=go", saved: "python" }).window.location.search, "?lang=go");
+});
+
+test("a linked choice is shown and not saved: storage is the component's", () => {
+  const dom = page(group(SAMPLES), { url: "https://x.dev/a?lang=python-2", saved: "curl" });
+  assert.equal(shown(dom), "python-2");
+  assert.equal(dom.window.localStorage.getItem(KEY), "curl");
+  assert.equal(page(group(SAMPLES), { url: "https://x.dev/a?lang=python" }).window.localStorage.getItem(KEY), null);
 });
 
 test("the param is ignored unless the group names one", () => {
@@ -152,8 +151,46 @@ test("restores each group once, and a swapped-in group before paint", () => {
   document.dispatchEvent(new dom.window.Event("astro:after-swap"));
   assert.equal(shown(dom), "python");
 
-  dom.window.history.replaceState(null, "", "/b");
-  document.body.innerHTML = group(SAMPLES);
+});
+
+// Astro's client router: `astro:before-swap` carries the destination (`to`,
+// writable) and the fetched document; the router then pushes `to` and fires
+// `astro:after-swap`.
+function navigate(dom: JSDOM, to: string, body: string, navigationType = "push"): URL {
+  const { document, history } = dom.window;
+  const event = Object.assign(new dom.window.Event("astro:before-swap"), {
+    to: new URL(to),
+    newDocument: new JSDOM(`<!DOCTYPE html><body>${body}</body>`).window.document,
+    navigationType,
+  });
+  document.dispatchEvent(event);
+  if (navigationType !== "traverse") history.pushState(null, "", event.to.href);
+  document.body.innerHTML = body;
   document.dispatchEvent(new dom.window.Event("astro:after-swap"));
-  assert.equal(dom.window.location.search, "?lang=python", "the param follows a client-side navigation");
+  return event.to;
+}
+
+test("a client-side navigation carries the saved choice in its own address", () => {
+  const dom = page(group(SAMPLES), { saved: "python" });
+  assert.equal(navigate(dom, "https://x.dev/b?version=2#op", group(SAMPLES)).href, "https://x.dev/b?version=2&lang=python#op");
+  assert.equal(shown(dom), "python");
+  assert.equal(navigate(dom, "https://x.dev/c?lang=curl", group(SAMPLES)).href, "https://x.dev/c?lang=curl", "a link's own param stands");
+  assert.equal(shown(dom), "curl");
+  assert.equal(navigate(dom, "https://x.dev/d", "<p>no group</p>").href, "https://x.dev/d");
+  assert.equal(navigate(dom, "https://x.dev/e", group([["go"], ["ruby"]])).href, "https://x.dev/e", "no panel of the saved kind");
+});
+
+test("after a client-side navigation the address is never rewritten in place", () => {
+  const dom = page(group(SAMPLES), { saved: "python" });
+  // Back to an entry made before the choice was saved: the router is comparing
+  // links against this address, so it stays as it is.
+  dom.window.history.replaceState(null, "", "/old");
+  assert.equal(navigate(dom, "https://x.dev/old", group(SAMPLES), "traverse").href, "https://x.dev/old");
+  assert.equal(shown(dom), "python");
+  assert.equal(dom.window.location.href, "https://x.dev/old");
+  // A swapped-in page's own inline script runs again, and doesn't write either.
+  dom.window.document.body.innerHTML = group(SAMPLES);
+  dom.window.eval(choiceStateScript);
+  assert.equal(shown(dom), "python");
+  assert.equal(dom.window.location.href, "https://x.dev/old");
 });
