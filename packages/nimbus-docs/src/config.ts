@@ -1,7 +1,8 @@
 import type { NimbusConfig } from "./types.js";
 
 /**
- * Define a typed Nimbus config. Returns the config unchanged but inferred.
+ * Define a typed Nimbus config. Returns the config unchanged; a key Nimbus
+ * doesn't know (a typo such as `tableOfContent`) is a type error here.
  *
  * Lives in its own side-effect-free entry (`@cloudflare/nimbus-docs/config`) so
  * a separate `nimbus.config.ts` imported by BOTH `astro.config.ts` and the early
@@ -12,6 +13,6 @@ import type { NimbusConfig } from "./types.js";
  * `astro.config.ts` with `defineConfig` from `@cloudflare/nimbus-docs`, and
  * register API collections with a zero-argument `apiCollection()`.
  */
-export function defineConfig<T extends NimbusConfig>(config: T): T {
+export function defineConfig(config: NimbusConfig): NimbusConfig {
   return config;
 }
