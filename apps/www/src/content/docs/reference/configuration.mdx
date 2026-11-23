@@ -63,7 +63,14 @@ export default defineConfig({
 | `path` | string | Folder to check out, relative to the repository root. Default `""`, the whole repository. |
 | `editPattern` | string | Edit links for the source's pages: `{path}` is repository-relative, `{ref}` the configured ref. |
 
-`nimbus-docs check` reports `nimbus/source-floating-ref` for a branch or tag `ref` and `nimbus/source-unreferenced` for a source nothing reads, both as warnings. `NIMBUS_SOURCES_RESOLVE_TIMEOUT` and `NIMBUS_SOURCES_FETCH_TIMEOUT` set the resolve and fetch timeouts in seconds (defaults 30 and 600).
+A source with `url` instead is one file, which `api[].spec: { source }` reads ([Specs from a URL, and transforms](/api-reference/openapi/spec-sources)):
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `url` | string | **Required.** An `https` URL, or `http` for `localhost`. A URL with a user or password is refused. |
+| `integrity` | string | The file's `sha256-<base64>` digest. With it, the file is fetched once and checked; without it, each build revalidates it. |
+
+`nimbus-docs check` reports `nimbus/source-floating-ref` for a branch or tag `ref` or a `url` without `integrity`, and `nimbus/source-unreferenced` for a source nothing reads, both as warnings. `NIMBUS_SOURCES_RESOLVE_TIMEOUT` and `NIMBUS_SOURCES_FETCH_TIMEOUT` set the resolve and fetch timeouts in seconds (defaults 30 and 600).
 
 ### Rendering policy
 

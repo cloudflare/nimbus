@@ -12,11 +12,15 @@ import { prefixEntryFault, routeSlugFault } from "./api/route-policy.js";
 import { GENERATED_SAMPLE_LANGS } from "./api/samples.js";
 import { originPatternProblem } from "./try-it/config.js";
 import {
+  displayUrl,
+  integrityHex,
   isCommitRef,
   isSpecFromSource,
+  isUrlSource,
   normalizeSourcePath,
   redactRepo,
   repoCredentialFault,
+  urlSourceFault,
 } from "./source-repo.js";
 
 // `new URL("https:example.com")` does NOT throw (protocol `https:`, host
@@ -205,7 +209,7 @@ const specSourceSchema = z.union(
   [z.string().min(1), z.record(z.string(), z.unknown())],
   {
     error:
-      '"api[].spec" must be a local file path (string), { source, path } naming a content source, or an inline OpenAPI object — remote URLs are not supported in v1',
+      '"api[].spec" must be a local file path (string), { source, path } naming a content source ({ source } for a URL source), or an inline OpenAPI object. To read a spec from a URL, declare it in "sources" as { url }',
   },
 );
 
@@ -284,9 +288,44 @@ const contentSourceSchema = z
       unknownHint: () => 'Valid keys are "repo", "ref", "path", and "editPattern".',
     });
   });
+// A URL source: `{ url, integrity }`, one file an api spec reads.
+const urlSourceShape = {
+  url: z
+    .string({ error: '"sources.<name>.url" must be a string: the https URL of the file' })
+    .superRefine((url, ctx) => {
+      const fault = urlSourceFault(url);
+      if (fault) ctx.addIssue({ code: "custom", message: `"sources.<name>.url" ${fault} (${displayUrl(url)})` });
+    }),
+  integrity: z
+    .string({ error: '"sources.<name>.integrity" must be a string: "sha256-<base64>"' })
+    .optional()
+    .refine((value) => value === undefined || integrityHex(value) !== undefined, {
+      message: '"sources.<name>.integrity" must be "sha256-<base64>", the file\'s SHA-256 in the Subresource Integrity format',
+    }),
+};
+const urlSourceKeys = new Set(Object.keys(urlSourceShape));
+const urlSourceSchema = z
+  .object(urlSourceShape)
+  .passthrough()
+  .superRefine((source, ctx) => {
+    reportUnknownKeys(source, ctx, urlSourceKeys, {
+      removedKeys: {},
+      contextLabel: "sources field",
+      unknownHint: () => 'A URL source takes "url" and "integrity"; a git source takes "repo", "ref", "path", and "editPattern".',
+    });
+  });
+// An entry with `url` is a URL source; any other is a git source.
+const sourceEntrySchema = z.unknown().transform((value, ctx) => {
+  const result = (isUrlSource(value) ? urlSourceSchema : contentSourceSchema).safeParse(value);
+  if (result.success) return result.data;
+  for (const issue of result.error.issues) {
+    ctx.addIssue({ code: "custom", message: issue.message, path: issue.path.filter((p) => typeof p !== "symbol") });
+  }
+  return z.NEVER;
+});
 const sourcesSchema = z
-  .record(z.string(), contentSourceSchema, {
-    error: '"sources" must be an object of { repo, ref, path } entries keyed by source name',
+  .record(z.string(), sourceEntrySchema, {
+    error: '"sources" must be an object of { repo, ref, path } or { url, integrity } entries keyed by source name',
   })
   .optional()
   .superRefine((sources, ctx) => {
@@ -315,7 +354,7 @@ function sourceSpecIssues(data: unknown): ConfigIssue[] {
   const issues: ConfigIssue[] = [];
   const shaped = data as {
     api?: { collection?: string; spec?: unknown; versions?: { spec?: unknown }[] }[];
-    sources?: Record<string, { path?: string }>;
+    sources?: Record<string, { path?: string; url?: unknown }>;
   };
   if (!Array.isArray(shaped?.api)) return issues;
   shaped.api.forEach((entry, i) => {
@@ -337,6 +376,16 @@ function sourceSpecIssues(data: unknown): ConfigIssue[] {
               ? `. Declared: ${names.map((name) => `"${name}"`).join(", ")}`
               : `. Add sources: { "${source}": { repo, ref, path } } to the config`),
         });
+        continue;
+      }
+      if (isUrlSource(declared)) {
+        // A URL source is the file itself.
+        if (specPath !== undefined) {
+          issues.push({
+            path: [...holder.path, "path"],
+            message: `api collection "${entry.collection}" reads source "${source}", a URL source, which is one file. Remove path`,
+          });
+        }
         continue;
       }
       if (typeof specPath !== "string" || !normalizeSourcePath(specPath)) {
@@ -1013,7 +1062,8 @@ function formatReceived(input: unknown, path: ReadonlyArray<string | number>): s
   if (cursor === undefined) return null;
   // A source's `repo` could carry a credential: never echo it, nor the
   // objects around it (the message shows it redacted).
-  if (path[0] === "sources" && (path.length < 3 || path[2] === "repo")) return null;
+  // A URL's query string could too.
+  if (path[0] === "sources" && (path.length < 3 || path[2] === "repo" || path[2] === "url")) return null;
   try {
     const json = JSON.stringify(cursor);
     if (json === undefined) return String(cursor);

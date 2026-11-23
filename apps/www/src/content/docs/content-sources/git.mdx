@@ -127,6 +127,8 @@ An `api` entry can read its spec from a source. `path` is the file's path inside
 api: [{ collection: "api", spec: { source: "sdk", path: "docs/openapi.json" } }],
 ```
 
+A spec published as a file, such as a release asset, can be read from its URL instead. See [Specs from a URL, and transforms](/api-reference/openapi/spec-sources).
+
 ## Edit links
 
 The site's `editPattern` points at the docs repository, so a source gets its own. `{path}` is the file's path in the source repository, and `{ref}` is the configured `ref`. Without one, the source's pages have no edit link.

@@ -463,6 +463,13 @@ function sourceGlob(source: string, rawBase: string | undefined, pattern: string
             : `Add sources: { ${JSON.stringify(source)}: { repo, ref, path } } to the Nimbus config.`,
         );
       }
+      if (snapshot.kind === "url") {
+        throw authorError(
+          `nimbus-docs: collection "${context.collection}" in src/content.config.ts sets source: ${JSON.stringify(source)}, ` +
+            "which is a URL source: one file, which only an api entry's spec can read.",
+          `Give the collection a git source, or read the file with api[].spec: { source: ${JSON.stringify(source)} }.`,
+        );
+      }
       const folder = path.join(snapshot.contentDir, sourceBase);
       let empty: boolean;
       try {
@@ -473,7 +480,7 @@ function sourceGlob(source: string, rawBase: string | undefined, pattern: string
       if (empty) {
         const where = [snapshot.path, sourceBase].filter(Boolean).join("/");
         throw authorError(
-          `nimbus-docs: collection "${context.collection}" reads source "${source}" at commit ${snapshot.commit.slice(0, 12)}, ` +
+          `nimbus-docs: collection "${context.collection}" reads source "${source}" at commit ${snapshot.revision.slice(0, 12)}, ` +
             `but ${where ? `the folder "${where}"` : "the repository"} is missing or empty there.`,
           `Check sources.${source}.path, the collection's base, and the ref.`,
         );
@@ -482,7 +489,7 @@ function sourceGlob(source: string, rawBase: string | undefined, pattern: string
       // file's digest is unchanged, so a new snapshot folder would leave
       // unchanged pages pointing at the previous one. Start from an empty
       // store whenever the snapshot or folder changes.
-      const stamp = `${snapshot.identity}:${snapshot.commit}:${sourceBase}`;
+      const stamp = `${snapshot.identity}:${snapshot.revision}:${sourceBase}`;
       if (context.meta.get(META_KEY) !== stamp) {
         context.store.clear();
         context.meta.set(META_KEY, stamp);

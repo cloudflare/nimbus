@@ -115,7 +115,8 @@ export interface VirtualConfigExtras {
 function runtimeSources(sources: NimbusConfig["sources"]): RuntimeNimbusConfig["sources"] {
   const out: Record<string, RuntimeContentSource> = {};
   for (const [name, source] of Object.entries(sources ?? {})) {
-    if (source.editPattern) out[name] = { ref: source.ref, editPattern: source.editPattern };
+    // A URL source has no edit links.
+    if ("editPattern" in source && source.editPattern) out[name] = { ref: source.ref, editPattern: source.editPattern };
   }
   return Object.keys(out).length > 0 ? out : undefined;
 }

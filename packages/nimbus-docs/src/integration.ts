@@ -294,11 +294,25 @@ import {
 import { currentPageLoadScope } from "./_internal/page-load-scope.js";
 import { invalidateDevModules, invalidatePreparedModules, isDevContentFile } from "./_internal/dev-invalidation.js";
 import type {
+  ApiSpecTransform,
   GeneratedMarkdownComponentTransform,
   GeneratedMarkdownPartialResolver,
   NimbusConfig,
   RenderingMode,
 } from "./types.js";
+import {
+  applySpecTransforms,
+  authoredFile,
+  collectSpecTransforms,
+  invalidateBuiltSpecTransforms,
+  readsSource,
+  recordBuiltSpecTransforms,
+  holdBuildSpecLeases,
+  releaseDevSpecLeases,
+  serveDevSpecLeases,
+  stageDevSpecLeases,
+  restoreBuiltSpecTransforms,
+} from "./_internal/api/spec-transform.js";
 
 const crossSpawn = createRequire(import.meta.url)(
   "cross-spawn",
@@ -561,6 +575,20 @@ export interface NimbusIntegrationOptions {
    * }
    */
   collections?: CollectionsConfig;
+  /**
+   * Per-API options, keyed by the `api` entry's collection. `transform`
+   * prepares the spec before Nimbus reads it: it gets the parsed document
+   * and returns the one Nimbus renders. It runs in Node once per spec (each
+   * version of a family) at every build, dev start and `astro sync`, never
+   * at request time, so what it imports stays out of the server bundle.
+   * `astro preview` reuses the last build's result.
+   *
+   * @example
+   * api: {
+   *   api: { transform: (document) => ({ ...document, servers: [{ url: "https://api.acme.com" }] }) },
+   * }
+   */
+  api?: Record<string, { transform: ApiSpecTransform }>;
 }
 
 export function resolveMdxOptions(
@@ -618,6 +646,13 @@ export function nimbus(
   // The `api[].spec: { source, path }` entries, found once: each setup run
   // points them at the snapshot of that run.
   const sourceSpecs = collectSourceSpecs(config.api);
+  // The specs the `api` option transforms, with their inputs as authored,
+  // found before any run points `spec` at a transform's output.
+  const specTransforms = collectSpecTransforms(config.api, options.api);
+  // Preview reads the last build's output for these, not their source.
+  const transformedHolders = new Set(specTransforms.map((target) => target.holder));
+  // A build's leases on the transformed specs it read.
+  let specLeases = new Set<string>();
 
   // Threaded from `astro:config:setup` to `astro:build:done` so the post-
   // build materialization knows where to write `.nimbus/routes.json` and
@@ -1281,7 +1316,10 @@ export function nimbus(
         // A build that fails must not leave the previous build's route truth
         // for `nimbus-docs lint` to check against, so invalidate it before
         // any setup work that can throw (and long before content sync).
-        if (building) invalidateRouteTruth(projectRoot);
+        if (building) {
+          invalidateRouteTruth(projectRoot);
+          invalidateBuiltSpecTransforms(projectRoot);
+        }
         if (options.redirectsFile !== undefined) {
           redirectsFileForBuild = path.resolve(projectRoot, options.redirectsFile);
           if (!fs.existsSync(redirectsFileForBuild)) {
@@ -1306,12 +1344,26 @@ export function nimbus(
           path.join(srcDir, "content.config.ts"),
         );
         const sourceReadsHidden = collectionSources.hidden.length > 0;
+        // Preview doesn't transform: it reads the outputs the last build
+        // recorded, so a transformed spec needs no snapshot of its source.
+        const runSourceSpecs = command === "preview"
+          ? sourceSpecs.filter((spec) => !transformedHolders.has(spec.holder))
+          : sourceSpecs;
         const apiSourceReaders = new Map<string, string[]>();
-        for (const spec of sourceSpecs) {
+        for (const spec of runSourceSpecs) {
           apiSourceReaders.set(spec.source, [...(apiSourceReaders.get(spec.source) ?? []), spec.collection]);
         }
         const skippedSources: string[] = [];
         const sourceNames = Object.keys(config.sources ?? {});
+        // Preview reads a transformed spec's last output, so a source only
+        // transformed specs read isn't needed.
+        if (command === "preview" && !sourceReadsHidden) {
+          for (const spec of sourceSpecs) {
+            const name = spec.source;
+            if (apiSourceReaders.has(name) || (collectionSources.readers.get(name) ?? []).length > 0) continue;
+            if (!skippedSources.includes(name)) skippedSources.push(name);
+          }
+        }
         if (buildSliceForBuild && sourceNames.length > 0) {
           if (sourceReadsHidden) {
             logger.warn(
@@ -1359,7 +1411,22 @@ export function nimbus(
           skipped: skippedSources,
           unavailable: unavailable.keys(),
         });
-        applySourceSpecs(sourceSpecs, sourceSnapshots, projectRoot);
+        applySourceSpecs(runSourceSpecs, sourceSnapshots, projectRoot);
+        if (command === "preview") {
+          await restoreBuiltSpecTransforms(specTransforms, projectRoot);
+        } else {
+          specLeases = await applySpecTransforms(specTransforms, projectRoot);
+          if (command === "dev") {
+            stageDevSpecLeases(projectRoot, specLeases);
+            for (const target of specTransforms) {
+              const file = !readsSource(target) && authoredFile(target, projectRoot);
+              if (file) addWatchFile(file);
+            }
+          } else {
+            // A build, or `astro sync` (and `astro check` through it).
+            holdBuildSpecLeases(projectRoot, specLeases);
+          }
+        }
         beginPreparedMarkdownSession(astroConfig.root, {
           lazyHeadings: !building,
         });
@@ -3546,6 +3613,10 @@ export function nimbus(
         });
       },
       "astro:server:setup": async ({ server, refreshContent, logger }) => {
+        // A server is being made from the setup that just ran (a restart runs
+        // this hook only once its setup succeeded): the old server's
+        // transformed specs can go.
+        serveDevSpecLeases(projectRootForBuild);
         reloadDevModules = () => {
           // workerd executes in a separate Vite module runner. Invalidating
           // only Node's compatibility graph leaves its virtual modules and
@@ -3776,6 +3847,7 @@ export function nimbus(
       "astro:server:done": async () => {
         clearTimeout(collectionRoutesTimer);
         releaseContentSourceLeases(projectRootForBuild);
+        releaseDevSpecLeases(projectRootForBuild);
         // The restart refresh re-runs loaders against the first server's
         // watcher (see `initialDevWatchers`); close it again so a stopped dev
         // server lets the process exit. Idempotent when nothing reopened it.
@@ -4460,6 +4532,9 @@ export function nimbus(
             await import("./_internal/api/page-assets-build.js");
           await pruneApiPageAssetCache(projectRootForBuild);
         }
+        // Last, once nothing above can fail the build: the transformed specs
+        // it used, for `astro preview`.
+        await recordBuiltSpecTransforms(specTransforms, projectRootForBuild, specLeases);
       },
     },
   };

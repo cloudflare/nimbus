@@ -14,7 +14,7 @@ Each `api` entry in the Nimbus config declares one API reference. To set one up,
 | Key | Type | Default | What it does |
 | --- | --- | --- | --- |
 | `collection` | `string` | — | **Required.** The content collection key, matched by `apiCollection()` in `src/content.config.ts`. |
-| `spec` | `string` \| `{ source, path }` \| object | — | The OpenAPI 3.x document: a project-relative path, a file in a [content source](/content-sources/git#api-specs-from-a-source), or an inline object. Omit when `versions` is set. |
+| `spec` | `string` \| `{ source, path? }` \| object | — | The OpenAPI 3.x document: a project-relative path, a file in a [content source](/content-sources/git#api-specs-from-a-source), a [URL source](/api-reference/openapi/spec-sources), or an inline object. Omit when `versions` is set. |
 | `versions` | `ApiVersion[]` | — | A version family instead of one `spec`. See [API versions](/api-reference/versions). |
 | `versionUrl` | `{ in: "path" }` \| `{ in: "query", param? }` | `{ in: "path" }` | Where the version sits in URLs. Query mode needs request rendering. |
 | `label` | `string` | `collection` | The API's name in build messages. |
@@ -36,7 +36,7 @@ Each item in `versions`:
 | Key | Type | Default | What it does |
 | --- | --- | --- | --- |
 | `version` | `string` | — | **Required.** The version id: lowercase letters, digits, dots and dashes, starting and ending with a letter or digit. Part of every non-default URL. |
-| `spec` | `string` \| `{ source, path }` \| object | — | **Required.** This version's document. |
+| `spec` | `string` \| `{ source, path? }` \| object | — | **Required.** This version's document. |
 | `default` | `boolean` | first version | Serves this version at the family's own path. The default can't be `hidden`. |
 | `status` | `"ga"` \| `"beta"` \| `"deprecated"` | — | `deprecated` shows a banner on every page of the version. |
 | `hidden` | `boolean` | `false` | Leaves the version out of the picker, search and sitemap. Its pages still load. |
