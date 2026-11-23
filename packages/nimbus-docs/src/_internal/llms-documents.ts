@@ -7,6 +7,7 @@
  * imports; page bodies come in through an accessor.
  */
 
+import { linkLabel, oneLine } from "./markdown-text.js";
 import { collectionLabel, collectionMountPrefix, PRIMARY_COLLECTION, type MountContext } from "./collection-mount.js";
 import type { CollectionRoutes } from "./collection-routes.js";
 import { compareByPosition } from "./llms-order.js";
@@ -313,14 +314,14 @@ export function siteIndexDocument(
     ...[...leaves, ...listed.filter((group) => !served(group)).flatMap((group) => group.members)].map((page) => ({
       key: page.url,
       position: page.position,
-      line: `- [${page.title}](${absoluteUrl(ctx, page.markdownUrl ?? page.url)})${page.description ? ` — ${page.description}` : ""}`,
+      line: `- [${linkLabel(page.title)}](${absoluteUrl(ctx, page.markdownUrl ?? page.url)})${page.description ? ` — ${oneLine(page.description)}` : ""}`,
     })),
     ...listed
       .filter(served)
       .map((group) => ({
         key: `/${group.slug}`,
         position: group.position,
-        line: `- [${group.label}](${absoluteUrl(ctx, `/${group.slug}/llms.txt`)})`,
+        line: `- [${linkLabel(group.label)}](${absoluteUrl(ctx, `/${group.slug}/llms.txt`)})`,
       })),
     ...(ctx.absentSections ?? []).map((section) => {
       // The slice holding a nested section serves its llms-full.txt, not an
@@ -330,7 +331,7 @@ export function siteIndexDocument(
       return {
         key: `/${section.slug}`,
         position: section.position,
-        line: `- [${section.label}](${absoluteUrl(ctx, ctx.publishes(document) ? document : `/${section.slug}/`)})`,
+        line: `- [${linkLabel(section.label)}](${absoluteUrl(ctx, ctx.publishes(document) ? document : `/${section.slug}/`)})`,
       };
     }),
   ].sort((a, b) =>
@@ -340,7 +341,7 @@ export function siteIndexDocument(
     ),
   );
   return [
-    `# ${ctx.title}`,
+    `# ${oneLine(ctx.title)}`,
     "",
     blockquote(ctx.description ?? "Documentation index for AI agents."),
     "",
@@ -409,7 +410,7 @@ export function sectionIndexDocument(
           "",
           ...group.members.map(
             (page) =>
-              `- [${page.title}](${absoluteUrl(ctx, page.markdownUrl ?? page.url)})${page.description ? ` — ${page.description}` : ""}`,
+              `- [${linkLabel(page.title)}](${absoluteUrl(ctx, page.markdownUrl ?? page.url)})${page.description ? ` — ${oneLine(page.description)}` : ""}`,
           ),
           "",
         ]
@@ -421,20 +422,20 @@ export function sectionIndexDocument(
           "",
           ...subsections.map(
             (child) =>
-              `- [${child.label}](${absoluteUrl(ctx, `/${child.slug}/llms.txt`)})`,
+              `- [${linkLabel(child.label)}](${absoluteUrl(ctx, `/${child.slug}/llms.txt`)})`,
           ),
           "",
         ]
       : [];
   const description = groupIndex(group.slug, group.members)?.description;
-  return [`# ${group.label}`, "", ...(description ? [blockquote(description), ""] : []), ...pages, ...sections].join("\n");
+  return [`# ${oneLine(group.label)}`, "", ...(description ? [blockquote(description), ""] : []), ...pages, ...sections].join("\n");
 }
 
 /** A `> ` summary, one marker per line. */
 export function blockquote(text: string): string {
   return text
     .trim()
-    .split(/\r?\n/u)
+    .split(/\r\n|\r|\n/u)
     .map((line) => (line.trim() ? `> ${line.trim()}` : ">"))
     .join("\n");
 }
@@ -514,9 +515,9 @@ export interface LlmsFullIndexInput {
 
 /** An `llms-full` index: links to sections' files and to pages' Markdown. */
 export function llmsFullIndexDocument(input: LlmsFullIndexInput): string {
-  const pageLine = (page: LlmsPage) => `- [${page.title}](${llmsFullUrl(input.header, page.markdownUrl ?? page.url)})`;
+  const pageLine = (page: LlmsPage) => `- [${linkLabel(page.title)}](${llmsFullUrl(input.header, page.markdownUrl ?? page.url)})`;
   return [
-    `# ${input.title}`,
+    `# ${oneLine(input.title)}`,
     "",
     `> ${input.note}`,
     "",
@@ -578,7 +579,7 @@ export function llmsFullBodies<P extends LlmsPage>(
   const sectionLine = (group: LlmsGroup) => {
     const bytes = sizeOf(group as LlmsGroup<P>);
     const kind = bytes <= limit ? mebibytes(bytes) : group.children.length > 0 ? "split further" : "links to its pages";
-    return `- [${group.label}](${llmsFullUrl(header, `/${group.slug}/llms-full.txt`)}) (${kind})`;
+    return `- [${linkLabel(group.label)}](${llmsFullUrl(header, `/${group.slug}/llms-full.txt`)}) (${kind})`;
   };
 
   const report: string[] = [];
@@ -762,9 +763,9 @@ export function llmsFullPartsIndex(pages: readonly LlmsPage[], ctx: LlmsDocument
     // A section holding only a non-default version's pages has no default part.
     sectionLine: (group) =>
       [
-        ...(partPages(group, undefined).length > 0 ? [`- [${group.label}](${llmsFullUrl(header, partUrl(group, undefined, ctx))})`] : []),
+        ...(partPages(group, undefined).length > 0 ? [`- [${linkLabel(group.label)}](${llmsFullUrl(header, partUrl(group, undefined, ctx))})`] : []),
         ...sectionVersions(group, ctx).map(
-          (version) => `- [${group.label} (${version})](${llmsFullUrl(header, partUrl(group, version, ctx))})`,
+          (version) => `- [${linkLabel(`${group.label} (${version})`)}](${llmsFullUrl(header, partUrl(group, version, ctx))})`,
         ),
       ].join("\n"),
   });
@@ -794,7 +795,7 @@ export function llmsFullPartIndex(
     children,
     members: group.members.filter((page) => (version === undefined ? page.apiVersion === undefined : page.apiVersion === version)),
     header: siteHeader,
-    sectionLine: (child) => `- [${child.label}](${llmsFullUrl(siteHeader, partUrl(child, version, ctx))})`,
+    sectionLine: (child) => `- [${linkLabel(child.label)}](${llmsFullUrl(siteHeader, partUrl(child, version, ctx))})`,
   });
 }
 

@@ -7,6 +7,7 @@
  * parser is `mdast-util-from-markdown`, which the emitter already uses.
  */
 
+import { oneLine } from "../markdown-text.js";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmTable } from "micromark-extension-gfm-table";
 import { gfmAutolinkLiteral } from "micromark-extension-gfm-autolink-literal";
@@ -54,10 +55,6 @@ export function markdownUrlOf(pageUrl: string): string {
 
 // API titles come from spec summaries, which can span lines; a line break in a
 // `# title` would start a new heading.
-function oneLine(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
-}
-
 // GFM tables and bare `www.` and `http` URLs, as the authored pages' parser
 // reads them: a `|` splits a cell before a code span can span it, and a bare
 // URL is a link, not text a `[` after it could start a link in, so links sit
