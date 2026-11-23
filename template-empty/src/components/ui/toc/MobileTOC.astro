@@ -37,7 +37,7 @@ const hasHeadings = headings.length > 0;
       <select
         data-nb-mobile-toc-select
         aria-label="Jump to section"
-        class="w-full appearance-none rounded-md border border-border bg-background py-2.5 ps-3 pe-9 text-sm font-medium text-foreground transition-colors hover:border-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        class="w-full appearance-none rounded-md border border-border bg-background py-2.5 ps-3 pe-9 text-sm font-medium text-foreground transition-colors hover:border-foreground/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <option value="_top">Overview</option>
         {headings.filter((heading) => heading.slug).map((heading) => (

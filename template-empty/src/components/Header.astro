@@ -73,13 +73,13 @@ const resolveSectionHref = (href: string): string =>
       </slot>
 
       {showSections && (
-        <nav aria-label="Sections" class="hidden md:flex items-center gap-1 ms-4 ps-4 border-s border-border h-6 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <nav aria-label="Sections" class="hidden md:flex items-center gap-1 ms-4 ps-4 border-s border-border h-6 min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {sections.map((section) => (
             <a
               href={resolveSectionHref(section.href)}
               aria-current={section.isActive ? "page" : undefined}
               class:list={[
-                "px-2 py-1 rounded-md text-[0.8125rem] font-medium no-underline transition-colors shrink-0 whitespace-nowrap",
+                "px-2 py-1 rounded-md text-[0.8125rem] leading-4 font-medium no-underline transition-colors shrink-0 whitespace-nowrap",
                 section.isActive
                   ? "text-foreground bg-accent"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent/60",
@@ -127,13 +127,13 @@ const resolveSectionHref = (href: string): string =>
   </div>
   {/* Phones: the tabs on a row of their own under the bar. */}
   {showSections && (
-    <nav aria-label="Sections" data-nb-header-tabs class="md:hidden flex items-center gap-1 h-10 px-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <nav aria-label="Sections" data-nb-header-tabs class="md:hidden flex items-center gap-1 h-10 px-4 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {sections.map((section) => (
         <a
           href={resolveSectionHref(section.href)}
           aria-current={section.isActive ? "page" : undefined}
           class:list={[
-            "px-2 py-1 rounded-md text-[0.8125rem] font-medium no-underline transition-colors shrink-0 whitespace-nowrap",
+            "px-2 py-1 rounded-md text-[0.8125rem] leading-4 font-medium no-underline transition-colors shrink-0 whitespace-nowrap",
             section.isActive
               ? "text-foreground bg-accent"
               : "text-muted-foreground hover:text-foreground hover:bg-accent/60",

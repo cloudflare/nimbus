@@ -32,11 +32,16 @@ const defaults: Record<string, { label: string; icon: string }> = {
 const d = defaults[type] ?? defaults.note;
 const hasTitleSlot = Astro.slots.has("title");
 const displayTitle = title ?? d.label;
+// A custom title still says what kind of aside it is: "Caution: Heads up".
+const typed = (name: string) => (name === d.label ? name : `${d.label}: ${name}`);
+// A slotted title gets the type as hidden text, unless it already says it.
+const slotTitle = hasTitleSlot ? (await Astro.slots.render("title")).replace(/<[^>]*>/g, "").trim() : "";
+const prefixSlot = hasTitleSlot && slotTitle !== d.label;
 ---
 
 <aside
   role="note"
-  aria-label={hasTitleSlot ? undefined : displayTitle}
+  aria-label={hasTitleSlot ? undefined : typed(displayTitle)}
   data-slot="aside"
   data-type={type}
   class={cn("aside-card flex items-start gap-3 rounded-lg px-4 py-3 my-6", className)}
@@ -47,7 +52,7 @@ const displayTitle = title ?? d.label;
   </span>
   <div class="flex min-w-0 flex-1 flex-col text-sm leading-6">
     <p data-slot="aside-title" class="aside-card-title m-0 font-semibold">
-      <slot name="title">{displayTitle}</slot>
+      {prefixSlot && <span class="sr-only">{d.label}: </span>}<slot name="title">{displayTitle}</slot>
     </p>
     <div data-slot="aside-content" class="aside-card-body">
       <slot />
