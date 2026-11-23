@@ -61,6 +61,26 @@ test("an unknown param falls back to the saved kind, then the server's choice", 
   assert.equal(shown(page(group(SAMPLES), { url: "https://x.dev/a?lang=nope" })), "curl");
 });
 
+test("a linked choice becomes the reader's own", () => {
+  const dom = page(group(SAMPLES), { url: "https://x.dev/a?lang=python-2", saved: "curl" });
+  assert.equal(dom.window.localStorage.getItem(KEY), "python");
+  assert.equal(dom.window.location.search, "?lang=python-2", "the link is left as given");
+});
+
+test("a saved choice is written back to an address without the param", () => {
+  const dom = page(group(SAMPLES), { url: "https://x.dev/a?version=2#op", saved: "python" });
+  assert.equal(shown(dom), "python");
+  assert.equal(dom.window.location.href, "https://x.dev/a?version=2&lang=python#op");
+});
+
+test("the address is left alone without a saved choice, a param name, or a panel for the param", () => {
+  assert.equal(page(group(SAMPLES)).window.location.href, "https://x.dev/a");
+  assert.equal(page(group(SAMPLES, ""), { saved: "python" }).window.location.href, "https://x.dev/a");
+  const unknown = page(group(SAMPLES), { url: "https://x.dev/a?lang=go", saved: "python" });
+  assert.equal(unknown.window.location.search, "?lang=go");
+  assert.equal(unknown.window.localStorage.getItem(KEY), "python");
+});
+
 test("the param is ignored unless the group names one", () => {
   assert.equal(shown(page(group(SAMPLES, ""), { url: "https://x.dev/a?lang=python" })), "curl");
 });
@@ -131,4 +151,9 @@ test("restores each group once, and a swapped-in group before paint", () => {
   document.body.innerHTML = group(SAMPLES);
   document.dispatchEvent(new dom.window.Event("astro:after-swap"));
   assert.equal(shown(dom), "python");
+
+  dom.window.history.replaceState(null, "", "/b");
+  document.body.innerHTML = group(SAMPLES);
+  document.dispatchEvent(new dom.window.Event("astro:after-swap"));
+  assert.equal(dom.window.location.search, "?lang=python", "the param follows a client-side navigation");
 });

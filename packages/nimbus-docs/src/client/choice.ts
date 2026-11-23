@@ -17,10 +17,18 @@
  * needs `autocomplete="off"`, so the browser's form restore can't contradict
  * the panels.
  *
+ * The choice follows the reader: a panel opened by the param is saved as
+ * theirs, and on a page reached without the param, a saved choice is written
+ * back to the address. So the address always names the panel shown, and links
+ * between pages need not carry the param.
+ *
  * `restoreChoice` is serialized, so it may reference only browser globals and
- * its argument.
+ * its arguments.
  */
-export function restoreChoice(readParam: (name: string) => string | null): void {
+export function restoreChoice(
+  readParam: (name: string) => string | null,
+  writeParam?: (name: string, value: string) => void,
+): void {
   const restoredAttr = "data-nb-choice-restored";
   const script = document.currentScript;
   const restoreGroup = (group: Element) => {
@@ -36,10 +44,17 @@ export function restoreChoice(readParam: (name: string) => string | null): void 
     try {
       if (key) saved = localStorage.getItem(key);
     } catch {}
-    const panel =
-      (param ? (panels.find((p) => valueOf(p) === param) ?? ofKind(param)) : undefined) ??
-      (saved ? ofKind(saved) : undefined);
+    const linked = param ? (panels.find((p) => valueOf(p) === param) ?? ofKind(param)) : undefined;
+    const panel = linked ?? (saved ? ofKind(saved) : undefined);
     if (!panel) return;
+    if (linked) {
+      try {
+        if (key && kindOf(panel) !== saved?.toLowerCase()) localStorage.setItem(key, kindOf(panel));
+      } catch {}
+    } else if (paramName && !param) {
+      // A param this page can't show is left alone: the next page may have it.
+      writeParam?.(paramName, valueOf(panel));
+    }
     for (const p of panels) p.hidden = p !== panel;
     const select = [...group.querySelectorAll<HTMLSelectElement>("[data-nb-choice-select]")].find(own);
     if (select) select.value = valueOf(panel);
