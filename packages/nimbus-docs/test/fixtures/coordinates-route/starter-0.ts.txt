@@ -3,7 +3,7 @@
  * fetched by other sites that cite its APIs via `apiReferences[]`.
  */
 
-import { getCoordinatesManifest } from "@cloudflare/nimbus-docs/runtime";
+import { getCoordinatesManifest } from "@cloudflare/nimbus-docs";
 
 export const prerender = true;
 

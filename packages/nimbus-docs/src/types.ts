@@ -218,28 +218,59 @@ export interface RenderingConfig {
 }
 
 /**
- * The published coordinate manifest — the cross-repo citation-index contract a
- * Nimbus site serves at `/nimbus-api/coordinates.json` and a consumer folds in
- * via {@link NimbusConfig.apiReferences}. Bump `version` only on a breaking read
+ * The published coordinate index: the cross-repo citation contract a Nimbus
+ * site serves at `/nimbus-api/coordinates.json` (Nimbus serves the route; a
+ * project file at that path overrides it), and a consumer reads through
+ * {@link NimbusConfig.apiReferences}. It is small and rebuilt on every build:
+ * it names each version's {@link CoordinateDocument} and says where that
+ * version's pages are served today. Bump `version` only on a breaking read
  * change.
  */
 export interface CoordinatesManifest {
-  version: 2;
+  version: 3;
   collections: Record<string, {
     /** The family-default version id, or null for an unversioned collection. */
     defaultVersion: string | null;
-    /** Explicit bare targets; not inferred from defaultVersion. */
-    pages: CoordinatePageGroup[];
-    /** Explicit version-qualified targets, independent of bare targets. */
-    versions?: Record<string, CoordinatePageGroup[]>;
+    /** One entry per published version; an unversioned collection has one, with `version: null`. */
+    versions: CoordinateManifestVersion[];
   }>;
 }
 
-export interface CoordinatePageGroup {
-  /** Exact URL before the first #, including any query string. */
-  url: string;
-  /** null: no fragment; 0: fragment equals coordinate; string: exact fragment. */
-  entries: Record<string, null | 0 | string>;
+export interface CoordinateManifestVersion {
+  version: string | null;
+  /** The version's document, relative to the index's own URL. Never leaves its folder. */
+  file: string;
+  /** `sha256-<base64>` of the document's bytes. */
+  hash: string;
+  /** The path the version's pages mount under today, without a trailing slash. */
+  path: string;
+  /** The version's query string today (`?version=v1`), or empty. */
+  query: string;
+}
+
+/** null: no fragment; 0: the fragment is the coordinate; string: the exact fragment. */
+export type CoordinateMarker = null | 0 | string;
+
+/**
+ * A page: its slug under the version's path, its own coordinate, and the
+ * coordinates that extend it. Each key is what follows the page's coordinate,
+ * as a literal string starting with `.`; it is never split or interpreted.
+ */
+export type CoordinateDocumentPage = [
+  slug: string,
+  coordinate: string,
+  entries: Record<string, CoordinateMarker>,
+];
+
+/**
+ * One version's coordinates. Version-neutral: it holds slugs and anchors,
+ * never URLs, so it doesn't change when another version becomes the default.
+ */
+export interface CoordinateDocument {
+  version: 3;
+  pages: CoordinateDocumentPage[];
+  /** Coordinates that don't extend their page's own, whole. */
+  other?: Record<string, [slug: string, marker: CoordinateMarker]>;
 }
 
 /**
@@ -255,11 +286,17 @@ export interface ApiReference {
    */
   collection: string;
   /**
-   * The remote manifest: an `https:` URL fetched at build, or a local file path
-   * (relative to the project root) for a vendored/offline copy. The manifest
-   * shape is the `coordinates.json` this framework publishes.
+   * The remote index: an `https:` URL fetched at build, or a local file path
+   * (relative to the project root) for a checked-in copy. The index is the
+   * `coordinates.json` this framework publishes; each version's document is
+   * read from beside it.
    */
   manifest: string;
+  /**
+   * The versions cited here besides the remote's default, which is always
+   * read. A citation to a version not listed fails with the fix.
+   */
+  versions?: string[];
   /**
    * Absolute origin (e.g. `https://api.example.com`) prepended to the manifest's
    * site-absolute paths, so cross-repo citations resolve to fully-qualified

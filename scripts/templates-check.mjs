@@ -136,7 +136,7 @@ async function verifyRuntime(site, lane, port, expectedHomepageMarkdown, base = 
     ["/robots.txt", "User-agent: *"],
     ["/llms.txt", "Renamed route", 200, "Hidden runtime page"],
     ["/llms-full.txt", "Renamed route", 200, "Hidden runtime page"],
-    ["/nimbus-api/coordinates.json", '"version":2'],
+    ["/nimbus-api/coordinates.json", '"version":3'],
     ["/owned-by-slug/index.md", "This text lives in"],
     ["/owned-by-slug/index.mdx", "This text lives in"],
     ["/runtime-section/llms.txt", "Runtime section one", 200, "Hidden runtime page"],
@@ -406,7 +406,6 @@ if (LANE !== "static") {
   for (const route of [
     join(site, "src", "pages", "llms.txt.ts"),
     join(site, "src", "pages", "llms-full.txt.ts"),
-    join(site, "src", "pages", "nimbus-api", "coordinates.json.ts"),
     join(site, "src", "pages", "og.png.ts"),
     join(site, "src", "pages", "og", "[...slug].ts"),
     join(site, "src", "pages", "[...section]", "llms.txt.ts"),

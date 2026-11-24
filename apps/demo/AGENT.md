@@ -27,7 +27,6 @@ src/
 │   ├── index.astro              # home page (the empty starter uses content/docs/index.mdx)
 │   ├── llms.txt.ts
 │   ├── llms-full.txt.ts
-│   ├── nimbus-api/coordinates.json.ts  # API citation manifest
 │   ├── og.png.ts                # site-level OG card
 │   ├── og/
 │   │   ├── _card.ts             # the card's look, shared by both routes (underscore = not a route)

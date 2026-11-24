@@ -75,11 +75,6 @@ export const STARTER_ROUTE_INVENTORY: readonly StarterRouteDeclaration[] = [
     publishesAgentEndpointAssets: true,
   },
   {
-    pattern: "/nimbus-api/coordinates.json",
-    entrypoint: "pages/nimbus-api/coordinates.json.ts",
-    role: "user-owned",
-  },
-  {
     pattern: "/og/[...slug]",
     entrypoint: "pages/og/[...slug].ts",
     role: "user-owned",

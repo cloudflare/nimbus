@@ -496,8 +496,11 @@ test("a slice writes its site-wide files under its prefix, and the root slice kn
     assert.deepEqual(await readdir(path.join(site.root, "dist/.well-known")), ["security.txt"]);
     assert.match(
       es.output,
-      /partial build without the root collection: dropped \/, \/robots\.txt, \/og\.png, \/nimbus-api\/coordinates\.json, \/llms\.txt, \/llms-full\.txt, \/\.well-known\/ard\.json, \/\.well-known\/ai-catalog\.json, \/\.well-known\/api-catalog from the output; the root slice serves them\./,
+      /partial build without the root collection: dropped \/, \/robots\.txt, \/og\.png, \/llms\.txt, \/llms-full\.txt, \/\.well-known\/ard\.json, \/\.well-known\/ai-catalog\.json, \/\.well-known\/api-catalog from the output; the root slice serves them\./,
     );
+    // Nimbus serves the coordinate manifest from the root slice only, so a
+    // non-root slice never builds it.
+    assert.doesNotMatch(es.output, /nimbus-api\/coordinates\.json/);
     const esFiles = await filePaths(site);
     for (const file of [
       "/docs-es/sitemap-index.xml",

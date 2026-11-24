@@ -80,6 +80,12 @@ export interface ParsedCitation {
 export interface CitationIndex extends ReadonlyMap<string, string> {
   /** Optional on-demand keys for one historical version, never the full history. */
   keysForVersion?(scope: string): Iterable<string>;
+  /** Whether a collection is known at all, without listing its keys. */
+  hasCollection?(collection: string): boolean;
+  /** The keys worth comparing with an unknown key: those of its own scope. */
+  candidates?(key: string): Iterable<string>;
+  /** A value that changes when the index's contents do. */
+  readonly digest?: string;
 }
 
 /** The lookup key for a parsed citation. Version-bearing when a version is given. */
@@ -90,13 +96,10 @@ export function citationKey(collection: string, version: string | undefined, coo
 /** The response field with the same path as an unknown request body field
  *  (`op.id` → `op.response.201.id`), which is where a readOnly field is
  *  listed. Only searched when a citation already fails. */
-function responseFieldFor(key: string, index: CitationIndex, known: ReadonlySet<string>): string | undefined {
+function responseFieldFor(key: string, index: CitationIndex, candidates: Iterable<string>): string | undefined {
   const colon = key.indexOf(":");
   const scope = key.slice(0, colon + 1);
   const coordinate = key.slice(colon + 1);
-  const candidates = scope.includes("@")
-    ? [...known, ...(index.keysForVersion?.(scope.slice(0, -1)) ?? [])]
-    : known;
   for (let dot = coordinate.lastIndexOf("."); dot > 0; dot = coordinate.lastIndexOf(".", dot - 1)) {
     const page = index.get(`${scope}${coordinate.slice(0, dot)}`);
     if (!page || page.includes("#")) continue;
@@ -111,6 +114,26 @@ function responseFieldFor(key: string, index: CitationIndex, known: ReadonlySet<
     return undefined;
   }
   return undefined;
+}
+
+/** The keys an unknown key is compared with. An index that can name one scope's
+ *  keys does; a plain map offers all of them, plus a historical version's. */
+function candidatesFor(key: string, index: CitationIndex): string[] {
+  if (index.candidates) return [...index.candidates(key)];
+  const scope = key.slice(0, key.indexOf(":"));
+  return [...index.keys(), ...(scope.includes("@") ? (index.keysForVersion?.(scope) ?? []) : [])];
+}
+
+/** Whether the index knows a collection at all. Only asked when a citation fails. */
+function knowsCollection(collection: string, index: CitationIndex): boolean {
+  if (index.hasCollection) return index.hasCollection(collection);
+  for (const key of index.keys()) {
+    const at = key.indexOf("@");
+    const colon = key.indexOf(":");
+    const end = at === -1 ? colon : Math.min(at, colon);
+    if (end > 0 && key.slice(0, end) === collection) return true;
+  }
+  return false;
 }
 
 /**
@@ -216,17 +239,6 @@ export function hasCitation(source: string): boolean {
 export function resolveCitations(source: string, options: ResolveCitationsOptions): ResolveCitationsResult {
   const { mode, citationIndex, unpublished } = options;
   const diagnostics: CitationDiagnostic[] = [];
-  const known = new Set(citationIndex.keys());
-  // An unknown coordinate in a known collection fails an author build; a
-  // citation to an unknown collection degrades to "#" + a warning.
-  const knownCollections = new Set<string>();
-  for (const key of known) {
-    const at = key.indexOf("@");
-    const colon = key.indexOf(":");
-    const end = at === -1 ? colon : Math.min(at, colon);
-    if (end > 0) knownCollections.add(key.slice(0, end));
-  }
-
   const { code: guarded, restore } = protectCode(source);
 
   CITATION_LINK.lastIndex = 0;
@@ -271,12 +283,17 @@ export function resolveCitations(source: string, options: ResolveCitationsOption
       });
       return "#";
     }
-    const response = mode === "author" ? responseFieldFor(key, citationIndex, known) : undefined;
-    const hint = response ?? suggest(key, known, 4);
+    // An unknown coordinate in a known collection fails an author build; a
+    // citation to an unknown collection degrades to "#" + a warning. Both are
+    // worked out here, on the failure path, so a page whose citations resolve
+    // never lists the index.
+    const candidates = candidatesFor(key, citationIndex);
+    const response = mode === "author" ? responseFieldFor(key, citationIndex, candidates) : undefined;
+    const hint = response ?? suggest(key, candidates, 4);
     const detail = response
       ? ` Request field lists leave out readOnly fields; if it is readOnly, cite it under the response: "${CITATION_SENTINEL}${response}".`
       : hint ? ` Did you mean "${CITATION_SENTINEL}${hint}"?` : "";
-    const authoritative = knownCollections.has(parsed.collection);
+    const authoritative = knowsCollection(parsed.collection, citationIndex);
     if (mode === "author" && authoritative) {
       diagnostics.push({
         level: "error",

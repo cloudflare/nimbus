@@ -107,10 +107,6 @@ export const collections = {
     "src/pages/llms-full.txt.ts",
     `import { llmsFullRoute } from ${moduleUrl("../src/agent-endpoints.ts")};\nexport const prerender = true;\nexport const { GET } = llmsFullRoute();`,
   );
-  await write(
-    "src/pages/nimbus-api/coordinates.json.ts",
-    `import { getCoordinatesManifest } from ${moduleUrl("../src/runtime.ts")};\nexport const prerender = true;\nexport async function GET() { return new Response(JSON.stringify(await getCoordinatesManifest())); }`,
-  );
   let adapter: AstroIntegration | undefined;
   if (request) {
     await write(
@@ -218,8 +214,10 @@ describe("schemaPages: false, prerendered", () => {
       assert.match(await read(on, file), /\/api\/schemas\//, `${file}: control lists schema pages`);
       assert.doesNotMatch(await read(off, file), /\/api\/schemas\//, file);
     }
-    const manifest = await read(off, "nimbus-api/coordinates.json");
-    assert.match(await read(on, "nimbus-api/coordinates.json"), /"Dispute"/, "control lists schema coordinates");
+    // The index names the collection's document; the coordinates are in it.
+    assert.match(await read(off, "nimbus-api/coordinates.json"), /"file":"coordinates\/api\.json"/);
+    const manifest = await read(off, "nimbus-api/coordinates/api.json");
+    assert.match(await read(on, "nimbus-api/coordinates/api.json"), /"Dispute"/, "control lists schema coordinates");
     assert.doesNotMatch(manifest, /"(Dispute|Card|Charge)(\.[^"]*)?"/);
     assert.match(manifest, /"create"/);
   });

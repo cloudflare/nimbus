@@ -25,6 +25,8 @@ import {
 import path from "node:path";
 
 import { entryRouteUrl } from "./astro-slug.js";
+import type { CitationIndex } from "./api/citations.js";
+import { CoordinateIndex } from "./api/coordinate-document.js";
 import { isPreparedApiPage } from "./api/prepared.js";
 import { renderApiMarkdownDocument } from "./api/markdown-document.js";
 import {
@@ -1680,10 +1682,12 @@ export async function bakeAgentEndpointAssets(
   const indexPages: McpPageRecord[] = [];
   const componentRevisions = componentFingerprint(options.componentMap);
   const partialResolverRevision = options.partialResolver?.revision ?? "";
+  // An index that can say when it changed is asked; a plain map is listed.
   const citationFingerprint = digest(
-    JSON.stringify(
-      [...(options.citationIndex ?? [])].sort(([a], [b]) => compare(a, b)),
-    ),
+    (options.citationIndex as CitationIndex | undefined)?.digest ??
+      JSON.stringify(
+        [...(options.citationIndex ?? [])].sort(([a], [b]) => compare(a, b)),
+      ),
   );
   const renderers = Object.fromEntries(
     Object.entries(options.componentMap ?? {}).map(([name, value]) => [
@@ -1691,14 +1695,17 @@ export async function bakeAgentEndpointAssets(
       value.render,
     ]),
   );
-  const basedCitationIndex = options.citationIndex
-    ? new Map(
-        [...options.citationIndex].map(([coordinate, url]) => [
-          coordinate,
-          withAssetBase(base, url),
-        ]),
-      )
-    : undefined;
+  const basedCitationIndex =
+    options.citationIndex instanceof CoordinateIndex
+      ? options.citationIndex.withBase(withAssetBase(base, "/"))
+      : options.citationIndex
+        ? new Map(
+            [...options.citationIndex].map(([coordinate, url]) => [
+              coordinate,
+              withAssetBase(base, url),
+            ]),
+          )
+        : undefined;
   // Dev reuses a page's Markdown while its body, file path and the inputs every
   // page shares are unchanged. That trusts each component's and the partial
   // resolver's `revision` to change whenever its output does.

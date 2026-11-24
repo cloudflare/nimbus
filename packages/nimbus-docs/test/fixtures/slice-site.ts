@@ -333,10 +333,6 @@ export async function sliceSite(options: SliceSiteOptions): Promise<SliceSite> {
       `export const prerender = true;\nexport function GET() { return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), { headers: { "Content-Type": "image/png" } }); }\n`,
     );
     await write(
-      "src/pages/nimbus-api/coordinates.json.ts",
-      `import { getCoordinatesManifest } from ${src("runtime.ts")};\nexport const prerender = true;\nexport async function GET() { return new Response(JSON.stringify(await getCoordinatesManifest()), { headers: { "Content-Type": "application/json" } }); }\n`,
-    );
-    await write(
       "src/pages/llms-full.txt.ts",
       `import { llmsFullRoute } from ${src("agent-endpoints.ts")};\nexport const prerender = true;\nexport const { GET } = llmsFullRoute();\n`,
     );
