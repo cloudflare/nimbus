@@ -106,11 +106,11 @@ declare module "virtual:nimbus/api-build-config" {
 }
 
 declare module "virtual:nimbus/coordinates" {
-  // The coordinate-citation index, keyed `collection:coordinate` /
-  // `collection@version:coordinate` → site-absolute URL. Its own module (not
-  // `virtual:nimbus/config`) so it stays out of the runtime Worker bundle —
-  // imported only by prerendered agent-surface code. See `load-citation-index.ts`.
-  export const coordinates: Record<string, string>;
+  // The coordinate-citation index, as the compact documents it resolves
+  // against. Its own module (not `virtual:nimbus/config`) so it stays out of
+  // the runtime Worker bundle — imported only by prerendered agent-surface
+  // code. See `load-citation-index.ts`.
+  export const index: import("../_internal/api/coordinate-document.js").CoordinateIndexPayload;
   export const manifest: import("../types.js").CoordinatesManifest;
 }
 

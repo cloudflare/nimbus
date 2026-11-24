@@ -24,7 +24,7 @@ import { resolveCitations } from "../src/_internal/api/citations.ts";
 import { createAuthoredCitationResolver } from "../src/_internal/api/authored-citations.ts";
 import { parseOpenApi } from "../src/_internal/api/parse.ts";
 import { validateNimbusConfig } from "../src/_internal/validate.ts";
-import type { ApiSpec } from "../src/types.ts";
+import type { ApiSpec, CoordinateDocument } from "../src/types.ts";
 
 const SMALLCO = fileURLToPath(new URL("./fixtures/api/smallco.yaml", import.meta.url));
 const root = fileURLToPath(new URL(".", import.meta.url));
@@ -258,7 +258,12 @@ describe("schemaPages: false — citations", () => {
     assert.ok(on.index.has("api:Dispute") && on.index.has("api:Dispute.status"));
     assert.ok(!result.index.has("api:Dispute") && !result.index.has("api:Dispute.status"));
     assert.ok(result.index.has("api:create"), "operations still resolve");
-    const manifestCoords = result.manifest.collections.api!.pages.flatMap((g) => Object.keys(g.entries));
+    const document = JSON.parse(result.documents.get("coordinates/api.json")!.read()) as CoordinateDocument;
+    const manifestCoords = document.pages.flatMap(([, coordinate, entries]) => [
+      coordinate,
+      ...Object.keys(entries).map((suffix) => coordinate + suffix),
+    ]);
+    assert.ok(manifestCoords.includes("create"));
     assert.ok(!manifestCoords.some((c) => c === "Dispute" || c.startsWith("Dispute.")));
     assert.equal(on.unpublished.size, 0);
     assert.equal(result.unpublished.get("api:Dispute"), "Dispute");

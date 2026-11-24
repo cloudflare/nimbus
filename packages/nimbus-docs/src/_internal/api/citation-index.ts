@@ -1,9 +1,10 @@
 /**
- * The citation-index producer — turns the `api[]` declaration into the
- * coordinate → URL contract the citation resolver reads. One build yields
- * `index` (the flat map, consumed directly and baked into
- * `virtual:nimbus/coordinates`) and `manifest` (the published `coordinates.json`
- * payload). Version lives in the path via `mountPath`, never in the coordinate.
+ * The citation-index producer — turns the `api[]` declaration into what the
+ * citation resolver reads. One build yields `index` (a `CoordinateIndex` over
+ * one compact document per version, also what `virtual:nimbus/coordinates`
+ * carries), `manifest` (the published `coordinates.json` index) and
+ * `documents` (each published version's file). Version lives in each
+ * version's route, never in a coordinate or a document.
  */
 
 import { apiVersionQuery, targetUrlFields } from "./resolve-versions.js";
@@ -18,8 +19,15 @@ import {
 import type { ApiSpec } from "../../types.js";
 import type { Coordinate, DocsModel } from "./model.js";
 import { unwrapModel } from "./model-handle.js";
-import { createPageGroups } from "./coordinate-manifest.js";
-import { citationKey, isSafeCitationPath } from "./citations.js";
+import { readFileSync } from "node:fs";
+
+import {
+  CoordinateIndex,
+  coordinateDocumentHash as hashOf,
+  createCoordinateDocument,
+  type CoordinateRoute,
+} from "./coordinate-document.js";
+import { citationKey } from "./citations.js";
 import { resolveSpecSource } from "./resolve-spec.js";
 import {
   resolveAllApiCollections,
@@ -29,10 +37,18 @@ import {
 export type { CoordinatesManifest } from "../../types.js";
 import type { CoordinatesManifest } from "../../types.js";
 
+/** One published version's document: its hash now, its bytes when asked. */
+export interface PublishedCoordinateDocument {
+  hash: string;
+  read(): string;
+}
+
 export interface CitationIndexResult {
-  /** `collection:coordinate` / `collection@version:coordinate` → URL. */
-  index: Map<string, string>;
+  /** Resolves `collection:coordinate` and `collection@version:coordinate`. */
+  index: CoordinateIndex;
   manifest: CoordinatesManifest;
+  /** The published documents, by the file name the manifest gives each. */
+  documents: Map<string, PublishedCoordinateDocument>;
   /**
    * Citation keys that name a real schema or schema field of a collection with
    * `schemaPages: false` → the schema's name. They have no page to resolve to, so
@@ -69,24 +85,25 @@ function pagelessSchemaCoordinates(model: DocsModel): Map<Coordinate, string> {
   return out;
 }
 
-function pageUrl(
-  target: {
-    familyPath: string;
-    mountPath: string;
-    versionMode: "path" | "query";
-    versionParam: string;
-    isDefault: boolean;
-    version: string | null;
-  },
-  slug: string,
-): string {
-  // Query mode: one version-free path per operation; a non-default version's
-  // citations carry its version query (`resolveCitation` shapes only the
-  // pathname, so the query survives `toDocumentHref`).
-  const base =
-    target.versionMode === "query" ? target.familyPath : target.mountPath;
-  const path = slug === "" ? base : `${base}/${slug}`;
-  return `${path || "/"}${apiVersionQuery(target)}`;
+/** Where a version's pages are served. Query mode: one version-free path per
+ *  operation, and a non-default version's links carry its version query. */
+function routeOf(target: {
+  familyPath: string;
+  mountPath: string;
+  versionMode: "path" | "query";
+  versionParam: string;
+  isDefault: boolean;
+  version: string | null;
+}): CoordinateRoute {
+  return {
+    path: target.versionMode === "query" ? target.familyPath : target.mountPath,
+    query: apiVersionQuery(target),
+  };
+}
+
+/** The file a version's document is published as, relative to the index. */
+export function coordinateDocumentFile(collection: string, version: string | null): string {
+  return version ? `coordinates/${collection}/${version}.json` : `coordinates/${collection}.json`;
 }
 
 /** Version-neutral build artifact; never embedded in request indexes. */
@@ -128,19 +145,17 @@ export function collectApiCitationSummary(
 export interface PreparedApiCitationSource {
   /** Build-only synchronous reader; retain a filename, not all version payloads. */
   read(): ApiCitationSummary;
+  /** The version's document as preparation wrote it: the bytes to publish, and their hash. */
+  document?: { path: string; hash: string };
 }
 
 export interface BuildCitationIndexOptions {
   preparedVersions?: ReadonlyMap<string, PreparedApiCitationSource>;
 }
 
-/** Iteration deliberately exposes published citations only; authored resolution
- * can still look up exact historical versions without bundling their history. */
-class AuthoredCitationMap extends Map<string, string> {
-  constructor(
-    private readonly historical: (key: string) => string | undefined,
-    private readonly historicalKeys: (scope: string) => Iterable<string>,
-  ) {
+/** Looks up the versions read on demand as well, without listing them. */
+class UnpublishedCitationMap extends Map<string, string> {
+  constructor(private readonly historical: (key: string) => string | undefined) {
     super();
   }
   override get(key: string): string | undefined {
@@ -149,75 +164,83 @@ class AuthoredCitationMap extends Map<string, string> {
   override has(key: string): boolean {
     return super.has(key) || this.historical(key) !== undefined;
   }
-  keysForVersion(scope: string): Iterable<string> {
-    return this.historicalKeys(scope);
-  }
 }
 
 /**
- * Build the citation index + manifest for every declared collection and version.
- * Reuses `buildApiModel`'s content-addressed cache, so a spec parsed here is not
- * re-parsed by the render path. A URL that fails `isSafeCitationPath` is dropped
- * (it can never be a valid page URL) rather than baked.
+ * Build the citation index, the published index and each published version's
+ * document, for every declared collection and version. Reuses `buildApiModel`'s
+ * content-addressed cache, so a spec parsed here is not re-parsed by the render
+ * path.
+ *
+ * A prepared version that isn't the default is read on demand: its document is
+ * read when a citation first names it and one is kept at a time, so a build
+ * never holds every old version. It is published from the file preparation
+ * wrote, by name and hash, without being read at all.
  */
 export async function buildCitationIndex(
   api: ApiSpec[] | undefined,
   root: string,
   options: BuildCitationIndexOptions = {},
 ): Promise<CitationIndexResult> {
-  const historical = new Map<
-    string,
-    { target: ResolvedApiVersion; source: PreparedApiCitationSource }
-  >();
-  // Bound build-time demand reads to one historical version. Repeated citations
-  // in a document reuse it; different documents cannot retain all history.
-  let cached:
-    | {
-        key: string;
-        index: Map<string, string>;
-        unpublished: Map<string, string>;
-      }
-    | undefined;
-  const lookup = (key: string, kind: "index" | "unpublished") => {
+  const historical = new Map<string, PreparedApiCitationSource>();
+  // Bound build-time demand reads to one historical version's summary: its
+  // coordinates and its diagnostics come from the same read.
+  let cached: { key: string; summary: ApiCitationSummary } | undefined;
+  const summaryOf = (versionKey: string, prepared: PreparedApiCitationSource) => {
+    if (cached?.key !== versionKey) cached = { key: versionKey, summary: prepared.read() };
+    return cached.summary;
+  };
+  const historicalUnpublished = (key: string) => {
     const colon = key.indexOf(":");
     if (colon < 0) return undefined;
     const versionKey = key.slice(0, colon);
     const prepared = historical.get(versionKey);
     if (!prepared) return undefined;
-    if (cached?.key !== versionKey) {
-      const summary = prepared.source.read();
-      const index = new Map<string, string>();
-      const unpublished = new Map<string, string>();
-      for (const { coordinate, slug, anchor } of summary.targets) {
-        const url = `${pageUrl(prepared.target, slug)}${anchor === undefined ? "" : `#${anchor}`}`;
-        if (isSafeCitationPath(url))
-          index.set(`${versionKey}:${coordinate}`, url);
-      }
-      for (const [coordinate, schema] of Object.entries(summary.unpublished)) {
-        unpublished.set(`${versionKey}:${coordinate}`, schema);
-      }
-      cached = { key: versionKey, index, unpublished };
-    }
-    return cached[kind].get(key);
+    const { unpublished } = summaryOf(versionKey, prepared);
+    const coordinate = key.slice(colon + 1);
+    return Object.hasOwn(unpublished, coordinate) ? unpublished[coordinate] : undefined;
   };
-  const index = options.preparedVersions
-    ? new AuthoredCitationMap((key) => lookup(key, "index"), (scope) => {
-        lookup(`${scope}:`, "index");
-        return cached?.key === scope ? cached.index.keys() : [];
-      })
-    : new Map<string, string>();
+  const index = new CoordinateIndex();
   const unpublished = options.preparedVersions
-    ? new AuthoredCitationMap((key) => lookup(key, "unpublished"), () => [])
+    ? new UnpublishedCitationMap(historicalUnpublished)
     : new Map<string, string>();
+  const documents = new Map<string, PublishedCoordinateDocument>();
   // Null-prototype maps: coordinates and collection names come from arbitrary
   // (possibly third-party) specs, so keys like `__proto__` or `constructor`
   // must land as plain own properties, never mutate a prototype.
-  const manifest: CoordinatesManifest = { version: 2, collections: Object.create(null) };
+  const manifest: CoordinatesManifest = { version: 3, collections: Object.create(null) };
+  const publish = (
+    target: ResolvedApiVersion,
+    route: CoordinateRoute,
+    document: PublishedCoordinateDocument,
+  ) => {
+    if (!target.publishCoordinates) return;
+    const collection =
+      manifest.collections[target.namespace] ??
+      (manifest.collections[target.namespace] = { defaultVersion: null, versions: [] });
+    if (target.isDefault) collection.defaultVersion = target.version;
+    const file = coordinateDocumentFile(target.namespace, target.version);
+    documents.set(file, document);
+    collection.versions.push({ version: target.version, file, hash: document.hash, ...route });
+  };
 
   for (const target of resolveAllApiCollections(api, projectMountContext(root))) {
+    const route = routeOf(target);
     const prepared = options.preparedVersions?.get(target.versionKey);
     if (prepared && !target.isDefault) {
-      historical.set(target.versionKey, { target, source: prepared });
+      historical.set(target.versionKey, prepared);
+      const { document } = prepared;
+      index.add(target.versionKey, {
+        route,
+        source: document
+          ? () => JSON.parse(readFileSync(document.path, "utf8"))
+          : () => createCoordinateDocument(summaryOf(target.versionKey, prepared).targets),
+        historical: true,
+        hash: document?.hash ?? target.versionKey,
+      });
+      if (document) {
+        publish(target, route, { hash: document.hash, read: () => readFileSync(document.path, "utf8") });
+      }
       continue;
     }
     let summary: ApiCitationSummary;
@@ -257,32 +280,14 @@ export async function buildCitationIndex(
         );
     }
 
-    const targets = summary.targets.map(({ coordinate, slug, anchor }) => ({
-      coordinate,
-      url: `${pageUrl(target, slug)}${anchor === undefined ? "" : `#${anchor}`}`,
-    }));
-
-    const validTargets = targets.filter(({ url }) => isSafeCitationPath(url));
-    if (target.publishCoordinates) {
-      const collection =
-        manifest.collections[target.namespace] ??
-        (manifest.collections[target.namespace] = { defaultVersion: null, pages: [] });
-      if (target.isDefault) collection.defaultVersion = target.version;
-      const pages = createPageGroups(validTargets);
-      if (target.version) {
-        (collection.versions ??= Object.create(null))[target.version] = pages;
-      }
-      if (target.isDefault) collection.pages = pages;
-    }
-
-    for (const { coordinate, url } of validTargets) {
-      if (target.version) {
-        index.set(citationKey(target.namespace, target.version, coordinate), url);
-      }
-      if (target.isDefault) {
-        index.set(citationKey(target.namespace, undefined, coordinate), url);
-      }
-    }
+    const document = createCoordinateDocument(summary.targets);
+    const text = JSON.stringify(document);
+    const hash = hashOf(text);
+    const scope = { route, source: document, historical: false, hash };
+    // The family default answers the unversioned key too: one document, two scopes.
+    if (target.version) index.add(`${target.namespace}@${target.version}`, scope);
+    if (target.isDefault) index.add(target.namespace, scope);
+    publish(target, route, { hash, read: () => text });
   }
 
   // Stable transport bytes independent of declaration ordering.
@@ -290,11 +295,12 @@ export async function buildCitationIndex(
     Object.entries(manifest.collections).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0),
   ));
   for (const collection of Object.values(manifest.collections)) {
-    if (collection.versions) collection.versions = Object.fromEntries(
-      Object.entries(collection.versions).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0),
-    );
+    collection.versions.sort((a, b) => {
+      const [x, y] = [a.version ?? "", b.version ?? ""];
+      return x < y ? -1 : x > y ? 1 : 0;
+    });
   }
-  return { index, manifest, unpublished };
+  return { index, manifest, documents, unpublished };
 }
 
-export { ingestRemoteManifest } from "./coordinate-manifest.js";
+export { ingestRemoteReference } from "./coordinate-manifest.js";

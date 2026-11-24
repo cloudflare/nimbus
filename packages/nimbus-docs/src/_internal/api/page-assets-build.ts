@@ -61,6 +61,7 @@ import {
 import { prepareApiNav, type PreparedApiNav } from "./prepared.js";
 import { prepareApiPageCode } from "../api-loader.js";
 import { collectApiCitationSummary } from "./citation-index.js";
+import { coordinateDocumentHash, createCoordinateDocument } from "./coordinate-document.js";
 import type { ResolvedApiVersion } from "./resolve-versions.js";
 import type { ApiPageProps } from "./api-view-types.js";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -78,7 +79,7 @@ import { resolveApiAssetLinks } from "./page-assets-links.js";
 import { linkPolicy } from "../url.js";
 
 /** Bump when preparation semantics change without a package version change. */
-export const API_PAGE_PREPARATION_REVISION = 4;
+export const API_PAGE_PREPARATION_REVISION = 5;
 // The token classes the version being prepared uses, so its cache saves only
 // those styles. Shared on globalThis: two copies of this module load in one
 // process, and either may install the sink.
@@ -177,6 +178,11 @@ export interface PreparedApiAssetVersion {
   reused: boolean;
   citationSummaryPath: string;
   citationSummaryHash: string;
+  /** The version's coordinate document, as it is published: its file in the
+   *  cache, the digest that names the file, and the hash the index gives it. */
+  coordinateDocumentPath: string;
+  coordinateDocumentDigest: string;
+  coordinateDocumentHash: string;
   codeStyleCSS: string;
   /** Listed `api[].extensions` names the version never uses, so a reused
    *  version still warns. */
@@ -709,9 +715,17 @@ export async function prepareApiAssetVersion(
         typeof value.rowsHash !== "string" ||
         !value.nav ||
         !value.operationPaths ||
-        !value.summary
+        !value.summary ||
+        typeof value.coordinateDocumentDigest !== "string" ||
+        typeof value.coordinateDocumentHash !== "string"
       )
         throw new Error("Invalid version cache");
+      value.coordinateDocumentPath = path.join(
+        writer.cacheDirectory,
+        "citations",
+        `${value.coordinateDocumentDigest}.json`,
+      );
+      await access(value.coordinateDocumentPath);
       value.citationSummaryPath = path.join(
         writer.cacheDirectory,
         "citations",
@@ -821,9 +835,18 @@ export async function prepareApiAssetVersion(
     rows.forEach((row, i) => {
       row.location = writer.location(hashes[i]!);
     });
-    const citationBytes = JSON.stringify(
-      collectApiCitationSummary(model, target.schemaPages ?? false),
+    const citationSummary = collectApiCitationSummary(model, target.schemaPages ?? false);
+    const citationBytes = JSON.stringify(citationSummary);
+    // The published document is written once here, so a later build lists and
+    // copies it without reading the version's model or its summary.
+    const documentBytes = JSON.stringify(createCoordinateDocument(citationSummary.targets));
+    const coordinateDocumentDigest = pageAssetDigest(documentBytes);
+    const coordinateDocumentPath = path.join(
+      writer.cacheDirectory,
+      "citations",
+      `${coordinateDocumentDigest}.json`,
     );
+    await writeAtomic(coordinateDocumentPath, documentBytes);
     const citationSummaryHash = pageAssetDigest(citationBytes);
     const citationSummaryPath = path.join(
       writer.cacheDirectory,
@@ -843,6 +866,9 @@ export async function prepareApiAssetVersion(
       codeStyleCSS: getCodeStyleCSSFor(usedTokenClasses),
       citationSummaryPath,
       citationSummaryHash,
+      coordinateDocumentPath,
+      coordinateDocumentDigest,
+      coordinateDocumentHash: coordinateDocumentHash(documentBytes),
       nav: prepareApiNav(getApiNav(model)),
       operationPaths: operationPaths(spine),
       reused: false,
@@ -1319,6 +1345,8 @@ export async function pruneApiPageAssetCache(
       )) as Partial<PreparedApiAssetVersion>;
       if (typeof value.citationSummaryHash === "string")
         citationHashes.add(value.citationSummaryHash);
+      if (typeof value.coordinateDocumentDigest === "string")
+        citationHashes.add(value.coordinateDocumentDigest);
     } catch {
       /* Uncacheable sources have no version artifact to retain. */
     }

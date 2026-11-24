@@ -167,6 +167,7 @@ import {
   type CoordinatesManifest,
 } from "./_internal/api/citation-index.js";
 import { ingestApiReferences } from "./_internal/api/ingest-references.js";
+import { CoordinateIndex } from "./_internal/api/coordinate-document.js";
 import {
   iconVirtualPlugin,
   type IconPluginOptions,
@@ -831,7 +832,7 @@ export function nimbus(
   // Built eagerly at config:setup, reassigned by the dev re-bake; both the
   // authored-source citation resolver and virtual:nimbus/coordinates read it
   // through a getter.
-  let citationIndex = new Map<string, string>();
+  let citationIndex = new CoordinateIndex();
   const prepareCitationSources = async (
     root: string,
     warn: (message: string) => void,
@@ -850,6 +851,10 @@ export function nimbus(
         const filename = prepared.citationSummaryPath;
         preparedVersions.set(target.versionKey, {
           read: () => JSON.parse(fs.readFileSync(filename, "utf8")),
+          document: {
+            path: prepared.coordinateDocumentPath,
+            hash: prepared.coordinateDocumentHash,
+          },
         });
       }
     }
@@ -857,9 +862,14 @@ export function nimbus(
   };
   let unpublishedCitations = new Map<string, string>();
   let coordinatesManifest: CoordinatesManifest = {
-    version: 2,
+    version: 3,
     collections: {},
   };
+  // Each published version's document, by the file the index names it.
+  let coordinateDocuments = new Map<
+    string,
+    import("./_internal/api/citation-index.js").PublishedCoordinateDocument
+  >();
 
   // Memoized per version on the mtimes of every file the last bundle read, so
   // the build bundles once and dev follows edits to referenced files too.
@@ -2807,7 +2817,7 @@ export function nimbus(
         // Remote refs fold into the citation index but not the manifest (which republishes
         // only local collections).
         {
-          const { index, manifest, unpublished } = await buildCitationIndex(
+          const { index, manifest, documents, unpublished } = await buildCitationIndex(
             config.api,
             projectRoot,
             await prepareCitationSources(projectRoot, (message) =>
@@ -2823,6 +2833,7 @@ export function nimbus(
           citationIndex = index;
           unpublishedCitations = unpublished;
           coordinatesManifest = manifest;
+          coordinateDocuments = documents;
         }
 
         // The duplicate-slug validator and the `versions.others` cross-check
@@ -3195,7 +3206,7 @@ export function nimbus(
                   prepareAuthoredSource(source, filePath, "mdx"),
               }),
               virtualCoordinatesPlugin(() => ({
-                coordinates: Object.fromEntries(citationIndex),
+                index: citationIndex.toPayload(),
                 manifest: coordinatesManifest,
               })),
               agentEndpointAssets.agentEndpointHotUpdatePlugin(fileURLToPath(astroConfig.root)),
@@ -3755,6 +3766,23 @@ export function nimbus(
           res.end(getCodeStyleCSS() || "/* nimbus shiki styles */\n");
         });
 
+        // Each version's coordinate document is a file the build writes beside
+        // the index; in dev, serve it from the index just built.
+        server.middlewares.use((req, res, next) => {
+          const pathname = new URL(req.url ?? "/", "http://nimbus.local").pathname;
+          const at = pathname.indexOf("/nimbus-api/coordinates/");
+          const document =
+            at === -1 ? undefined : coordinateDocuments.get(pathname.slice(at + "/nimbus-api/".length));
+          if (!document) {
+            next();
+            return;
+          }
+          res.statusCode = 200;
+          res.setHeader("content-type", "application/json; charset=utf-8");
+          res.setHeader("cache-control", "no-store");
+          res.end(document.read());
+        });
+
         // Relative images in Markdown versions point at copies the build makes
         // (markdown-images.ts); in dev, serve them from their source files.
         server.middlewares.use((req, res, next) => {
@@ -3813,7 +3841,7 @@ export function nimbus(
           const rebakeCitationIndex = async (file: string) => {
             if (!rebakePaths.has(canonicalWatchPath(file))) return;
             try {
-              const { index, manifest, unpublished } = await buildCitationIndex(
+              const { index, manifest, documents, unpublished } = await buildCitationIndex(
                 config.api,
                 projectRootForBuild,
                 await prepareCitationSources(projectRootForBuild, (message) =>
@@ -3829,6 +3857,7 @@ export function nimbus(
               citationIndex = index;
               unpublishedCitations = unpublished;
               coordinatesManifest = manifest;
+              coordinateDocuments = documents;
               (await loadAgentEndpointAssets()).invalidateAgentEndpointAssets(
                 projectRootForBuild,
               );
@@ -4351,12 +4380,22 @@ export function nimbus(
             );
         }
 
-        materializeCoordinatesManifest(
+        // Each version's document goes beside the index a route serves. A
+        // slice without the root collection serves neither.
+        if (!sliceOutput) {
+          for (const [file, document] of coordinateDocuments) {
+            const target = path.join(distDir, "nimbus-api", ...file.split("/"));
+            fs.mkdirSync(path.dirname(target), { recursive: true });
+            fs.writeFileSync(target, document.read(), "utf8");
+          }
+        }
+        materializeCoordinates(
           projectRootForBuild,
           coordinatesManifest,
+          coordinateDocuments,
           logger,
-          // Every API opted out: remove an earlier build's file rather than
-          // leave a stale manifest behind.
+          // Every API opted out: remove an earlier build's files rather than
+          // leave stale ones behind.
           Boolean(config.api?.length) &&
             config.api!.every((entry) => entry.publishCoordinates === false),
         );
@@ -5072,28 +5111,34 @@ function collectLocalManifestPaths(
   return paths;
 }
 
-/** Best-effort write of the manifest to `<root>/.nimbus/coordinates.json`. */
-function materializeCoordinatesManifest(
+/**
+ * Best-effort copy of what the build publishes, in `<root>/.nimbus/coordinates/`:
+ * the index and each version's document beside it. It is the folder another
+ * site can check in and name in `apiReferences[].manifest`.
+ */
+function materializeCoordinates(
   projectRoot: string,
   manifest: CoordinatesManifest,
+  documents: ReadonlyMap<string, { read(): string }>,
   logger: { debug?: (msg: string) => void },
   nothingPublishes = false,
 ): void {
   try {
-    const dir = path.join(projectRoot, ".nimbus");
-    if (nothingPublishes) {
-      fs.rmSync(path.join(dir, "coordinates.json"), { force: true });
-      return;
-    }
+    const dir = path.join(projectRoot, ".nimbus", "coordinates");
+    fs.rmSync(dir, { recursive: true, force: true });
+    // The single file earlier releases wrote.
+    fs.rmSync(path.join(projectRoot, ".nimbus", "coordinates.json"), { force: true });
+    if (nothingPublishes) return;
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(
-      path.join(dir, "coordinates.json"),
-      JSON.stringify(manifest, null, 2) + "\n",
-      "utf8",
-    );
+    fs.writeFileSync(path.join(dir, "coordinates.json"), JSON.stringify(manifest) + "\n", "utf8");
+    for (const [file, document] of documents) {
+      const target = path.join(dir, ...file.split("/"));
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, document.read(), "utf8");
+    }
   } catch (err) {
     logger.debug?.(
-      `failed to write .nimbus/coordinates.json: ${(err as Error).message}`,
+      `failed to write .nimbus/coordinates: ${(err as Error).message}`,
     );
   }
 }

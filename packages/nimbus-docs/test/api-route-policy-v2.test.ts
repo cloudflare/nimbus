@@ -497,9 +497,16 @@ describe("every surface agrees on the v2 tag URL (non-/api mount, base /docs)", 
   });
 
   test("coordinates.json, llms.txt and the sitemap", async () => {
-    const manifest = await read("nimbus-api/coordinates.json");
-    assert.match(manifest, /"tags\.Locations"/);
-    assert.match(manifest, /"url":"\/zones\/tags\/locations"/);
+    // The index says where the collection is served; its document, written
+    // beside it, holds each page's slug and coordinate.
+    const index = JSON.parse(await read("nimbus-api/coordinates.json"));
+    assert.equal(index.version, 3);
+    assert.deepEqual(
+      index.collections.zones.versions.map(({ file, path, query }: Record<string, string>) => ({ file, path, query })),
+      [{ file: "coordinates/zones.json", path: "/zones", query: "" }],
+    );
+    const manifest = await read("nimbus-api/coordinates/zones.json");
+    assert.match(manifest, /\["tags\/locations","tags\.Locations",/);
     assert.doesNotMatch(manifest, /tags\/Locations/);
     assert.match(await read("llms.txt"), /\/zones\/llms\.txt/, "the root index lists the section");
     const section = await read("zones/llms.txt");
@@ -561,8 +568,8 @@ describe("every surface agrees on a hierarchical section URL", () => {
   });
 
   test("coordinates.json, llms.txt and the sitemap", async () => {
-    const manifest = await read("nimbus-api/coordinates.json");
-    assert.match(manifest, /"url":"\/tree\/zones\/dns\/records"/);
+    assert.match(await read("nimbus-api/coordinates.json"), /"file":"coordinates\/tree\.json","hash":"sha256-[^"]+","path":"\/tree"/);
+    assert.match(await read("nimbus-api/coordinates/tree.json"), /\["zones\/dns\/records",/);
     assert.match(await read("tree/llms.txt"), /\/tree\/zones\/dns\/records\//);
     assert.match(await read("sitemap-0.xml"), /https:\/\/example\.test\/docs\/tree\/zones\/dns\/records\//);
   });
