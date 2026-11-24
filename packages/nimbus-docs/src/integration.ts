@@ -3885,9 +3885,16 @@ export function nimbus(
             ),
           ].map(canonicalWatchPath),
         );
+        // A checked-in reference is an index and the version files beside it:
+        // a change to any of them re-bakes, so replacing the folder file by
+        // file settles on its final state.
+        const rebakeFolders = [
+          ...collectLocalManifestPaths(config.apiReferences, projectRootForBuild),
+        ].map((manifest) => canonicalWatchPath(path.join(path.dirname(manifest), "coordinates")) + path.sep);
         if (rebakePaths.size > 0) {
           const rebakeCitationIndex = async (file: string) => {
-            if (!rebakePaths.has(canonicalWatchPath(file))) return;
+            const changed = canonicalWatchPath(file);
+            if (!rebakePaths.has(changed) && !rebakeFolders.some((folder) => changed.startsWith(folder))) return;
             try {
               const { index, manifest, documents, unpublished } = await buildCitationIndex(
                 config.api,

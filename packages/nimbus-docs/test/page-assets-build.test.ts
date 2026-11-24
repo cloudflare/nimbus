@@ -30,6 +30,7 @@ import {
   getCodeStyleCSS,
 } from "../src/_internal/code-style-registry.js";
 import { configurePageAssetCollections } from "../src/_internal/page-assets-config.js";
+import { coordinateDocumentHash as hashOfDocument } from "../src/_internal/api/coordinate-document.js";
 import { setLinkPolicy } from "../src/_internal/url.js";
 import type { ApiSpec } from "../src/types.js";
 
@@ -170,6 +171,22 @@ test("corrupt packed cache rebuilds from the spec; restored CI caches relocate",
     });
   }));
 
+test("a prepared version carries its coordinate document, and a damaged copy is prepared again", async () =>
+  temporary(async (root) => {
+    const first = await prepareApiAssetFamily(root, family(spec()));
+    const { coordinateDocumentPath, coordinateDocumentHash } = first.versions[0]!.prepared;
+    const bytes = await readFile(coordinateDocumentPath, "utf8");
+    // The exact bytes a later build publishes, under the hash the index gives them.
+    assert.equal(coordinateDocumentHash, hashOfDocument(bytes));
+    assert.equal(JSON.parse(bytes).version, 3);
+    assert.ok(JSON.parse(bytes).pages.length > 0);
+
+    await writeFile(coordinateDocumentPath, bytes.slice(0, bytes.length >> 1));
+    const again = await prepareApiAssetFamily(root, family(spec()));
+    assert.equal(again.versions[0]!.prepared.reused, false);
+    assert.equal(await readFile(again.versions[0]!.prepared.coordinateDocumentPath, "utf8"), bytes);
+  }));
+
 test("dependency checks see escaped JSON keys, YAML aliases and token collisions", () => {
   assert.equal(
     externalReferenceReason('{"$ref":"#/components/schemas/Cat"}'),
@@ -293,6 +310,7 @@ test("successful-build pruning keeps every current family and excludes stale dep
     );
     assert.deepEqual((await readdir(inputsDirectory)).sort(), remembered);
     assert.ok(await readFile(other.versions[0]!.prepared.citationSummaryPath));
+    assert.ok(await readFile(other.versions[0]!.prepared.coordinateDocumentPath));
     const again = await prepareApiAssetFamily(root, {
       ...family(spec()),
       collection: "other",

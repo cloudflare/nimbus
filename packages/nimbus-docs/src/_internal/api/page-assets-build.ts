@@ -725,7 +725,6 @@ export async function prepareApiAssetVersion(
         "citations",
         `${value.coordinateDocumentDigest}.json`,
       );
-      await access(value.coordinateDocumentPath);
       value.citationSummaryPath = path.join(
         writer.cacheDirectory,
         "citations",
@@ -740,6 +739,17 @@ export async function prepareApiAssetVersion(
         )
           throw new Error("Damaged citation summary");
         verified.add(value.citationSummaryHash);
+        verifiedCitationSummaries.set(writer, verified);
+      }
+      // Published by name and hash without being read again, so a damaged
+      // copy is caught here, once per process, as the summary's is.
+      if (!verified.has(value.coordinateDocumentDigest)) {
+        if (
+          pageAssetDigest(await readFile(value.coordinateDocumentPath)) !==
+          value.coordinateDocumentDigest
+        )
+          throw new Error("Damaged coordinate document");
+        verified.add(value.coordinateDocumentDigest);
         verifiedCitationSummaries.set(writer, verified);
       }
       if (!(await writer.stageListed(value.rows.map((row) => row.location))))
