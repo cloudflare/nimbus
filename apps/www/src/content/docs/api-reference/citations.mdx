@@ -31,9 +31,19 @@ Pin a historical version only when the prose specifically discusses it:
 Review the [v1 operation](api.ref:api@v1:retrieveEvent).
 ```
 
-Use `/nimbus-api/coordinates.json` to inspect the exact coordinates and resolved URLs published by a built site. An API with `publishCoordinates: false` is left out of it, so other sites can't cite it; this site's own citations to it still resolve.
+A built site publishes its coordinates at `/nimbus-api/coordinates.json`. An API with `publishCoordinates: false` is left out, so other sites can't cite it; this site's own citations to it still resolve.
 
-Nimbus serves that path on every site, prerendered, with `Cache-Control: public, max-age=3600`. It lists the APIs in `api`; one registered only through `apiCollection({ spec })` isn't in it. A site without `api` serves `{"version":2,"collections":{}}`.
+That file is a small index. For each API in `api` it lists the versions, and for each version:
+
+- `file`: the version's coordinates, in a file beside the index, such as `coordinates/api/v2.json`;
+- `hash`: the hash of that file's bytes;
+- `path` and `query`: where the version's pages are served today.
+
+A version's file lists each page's slug, its own coordinate, and the coordinates on it. It holds no URLs, so it doesn't change when another version becomes the default. A page's URL is the version's `path`, a slash and the slug, then the `query`.
+
+Nimbus serves the index on every site, prerendered, with `Cache-Control: public, max-age=3600`, and writes each version's file beside it. An API registered only through `apiCollection({ spec })` isn't listed. A site without `api` serves `{"version":3,"collections":{}}`.
+
+The build also writes the same index and files to `.nimbus/coordinates/`.
 
 A file of your own at `src/pages/nimbus-api/coordinates.json.ts`, a page at that route, a redirect from it or `public/nimbus-api/coordinates.json` serves the path instead. Sites created before Nimbus served it have that file: an unmodified copy can be deleted, and `nimbus-docs check` says when yours is one.
 
@@ -51,14 +61,43 @@ apiReferences: [
 ],
 ```
 
-`collection` must match the collection key published by the remote manifest. `origin` is the absolute prefix prepended to site-relative manifest paths. Include the deployment base when the remote reference is hosted below one, for example `https://api.example.com/docs`.
+`collection` must match the collection key the remote index lists. `origin` is the absolute prefix prepended to the remote site's paths. Include the deployment base when the remote reference is hosted below one, for example `https://api.example.com/docs`.
+
+Nimbus reads the remote index, then the file of the remote's default version. To cite another version, list it:
+
+```ts
+apiReferences: [
+  {
+    collection: "api",
+    manifest: "https://api.example.com/nimbus-api/coordinates.json",
+    origin: "https://api.example.com",
+    versions: ["v1"],
+  },
+],
+```
+
+A citation to a version that isn't listed fails the build. A version the remote doesn't publish fails it too, and the message lists the ones it does.
 
 The remote collection then uses the same prose syntax: `api.ref:api:retrieveEvent`. Remote references provide citation targets only; they do not add the remote pages to local search or agent outputs.
 
-The manifest lists paths without a trailing slash. With `origin`, citations use them as listed, so a remote site that serves `/api/retrieve-event/` may redirect or 404 the link. Without `origin`, paths take this site's trailing-slash shape, which is right only when both sites match.
+Remote paths have no trailing slash. With `origin`, citations use them as they are, so a remote site that serves `/api/retrieve-event/` may redirect or 404 the link. Without `origin`, paths take this site's trailing-slash shape, which is right only when both sites match.
 
 Check a citation against the remote site before relying on it.
 
-Nimbus fetches HTTPS manifests during the build. If one is unavailable or malformed, the build warns and its citations link to `#`. For offline builds, commit the manifest and use a project path.
+Nimbus fetches an HTTPS index and the files it cites during the build. If any of them is unavailable or malformed, the build warns and that API's citations link to `#`.
 
-A local manifest that can't be read or parsed fails the build. Malformed entries in a valid manifest are skipped with a warning.
+The remote site and this one must be on Nimbus releases that share the format. An index in an older format is refused, with the same warning.
+
+### Build from a copy you control
+
+A remote API changes without this site changing. When it removes an operation this site cites, this site's next build fails. To choose when that happens, commit a copy and point at it:
+
+```ts
+apiReferences: [
+  { collection: "api", manifest: "./vendor/api/coordinates.json", origin: "https://api.example.com" },
+],
+```
+
+Copy the remote site's `.nimbus/coordinates/` folder: `coordinates.json` and the `coordinates/` folder beside it. Nimbus reads each cited version's file from beside the index. Update the copy in a pull request, and the build shows which citations the new copy breaks.
+
+A local index or file that can't be read, or that isn't valid, fails the build.

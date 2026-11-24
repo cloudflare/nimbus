@@ -146,7 +146,7 @@ Confirm that:
 2. The reference's home and one operation page render: `/api`, or `/` in a site that is only the reference.
 3. The same operation's `/index.md` route returns Markdown.
 4. The reference's `llms.txt` lists its pages: `/api/llms.txt`, or `/llms.txt` at the root.
-5. `/nimbus-api/coordinates.json` contains a known operation ID.
+5. `/nimbus-api/coordinates.json` lists the collection, and the file it names contains a known operation ID.
 6. In a site with docs, a prose `api.ref:` link resolves to the expected route.
 
 For request rendering, test the production Worker locally with Wrangler rather than relying only on Astro's development server.
