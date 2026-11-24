@@ -1107,14 +1107,32 @@ async function assertArtifactsAndSmoke(dist) {
   const manifest = JSON.parse(
     await readFile(join(dist, "nimbus-api", "coordinates.json"), "utf8"),
   );
-  assert(manifest.version === 2, "coordinate manifest version is not 2");
-  const pages = manifest.collections?.api?.pages;
-  assert(Array.isArray(pages), "coordinate manifest has no api page groups");
-  const entries = Object.fromEntries(pages.flatMap(page =>
-    Object.entries(page.entries).map(([coordinate, fragment]) => [coordinate, {
-      url: page.url + (fragment === null ? "" : "#" + (fragment === 0 ? coordinate : fragment)),
-    }]),
-  ));
+  assert(manifest.version === 3, "coordinate index version is not 3");
+  // The index names each version's file and where its pages are served; the
+  // file lists each page's slug, its own coordinate and the ones under it.
+  const api = manifest.collections?.api;
+  const published = api?.versions?.find(({ version }) => version === api.defaultVersion);
+  assert(published, "coordinate index lists no default api version");
+  const document = JSON.parse(
+    await readFile(join(dist, "nimbus-api", ...published.file.split("/")), "utf8"),
+  );
+  assert(document.version === 3 && Array.isArray(document.pages), "the api version's coordinate file has no pages");
+  const urlOf = (slug, coordinate, marker) =>
+    ((slug === "" ? published.path : `${published.path}/${slug}`) || "/") + published.query +
+    (marker === null ? "" : "#" + (marker === 0 ? coordinate : marker));
+  const entries = Object.fromEntries([
+    ...document.pages.flatMap(([slug, coordinate, fields]) => [
+      [coordinate, { url: urlOf(slug, coordinate, null) }],
+      ...Object.entries(fields).map(([suffix, marker]) => [
+        coordinate + suffix,
+        { url: urlOf(slug, coordinate + suffix, marker) },
+      ]),
+    ]),
+    ...Object.entries(document.other ?? {}).map(([coordinate, [slug, marker]]) => [
+      coordinate,
+      { url: urlOf(slug, coordinate, marker) },
+    ]),
+  ]);
   assert(
     entries && typeof entries === "object",
     "coordinate manifest has no api collection",

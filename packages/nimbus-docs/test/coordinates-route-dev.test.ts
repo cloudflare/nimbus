@@ -9,6 +9,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { dev } from "astro";
 import { discoveryFixture as fixture } from "./fixtures/agent-discovery-site.js";
+import { stopDevServer } from "./fixtures/dev-site.js";
 
 // A fixed port: the restart that hands the route over keeps it, where port 0 picks another.
 const freePort = () =>
@@ -49,7 +50,8 @@ test("in dev the route hands over when an owner appears and goes, without a rest
     rmSync(path.join(site.root, "src/pages/nimbus-api/coordinates.json.ts"));
     await until(url, (body) => body.includes('"pets"'), "Nimbus serves it again");
   } finally {
-    await server.stop();
+    // The hand-overs restart the server; wait out its last content-store write.
+    await stopDevServer(server, site.root);
     await rm(site.root, { recursive: true, force: true, maxRetries: 5 });
   }
 });

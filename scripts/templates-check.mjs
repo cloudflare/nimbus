@@ -136,7 +136,7 @@ async function verifyRuntime(site, lane, port, expectedHomepageMarkdown, base = 
     ["/robots.txt", "User-agent: *"],
     ["/llms.txt", "Renamed route", 200, "Hidden runtime page"],
     ["/llms-full.txt", "Renamed route", 200, "Hidden runtime page"],
-    ["/nimbus-api/coordinates.json", '"version":2'],
+    ["/nimbus-api/coordinates.json", '"version":3'],
     ["/owned-by-slug/index.md", "This text lives in"],
     ["/owned-by-slug/index.mdx", "This text lives in"],
     ["/runtime-section/llms.txt", "Runtime section one", 200, "Hidden runtime page"],

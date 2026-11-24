@@ -114,7 +114,7 @@ test("a redirect from the path owns it, and a custom srcDir's endpoint does too"
   const custom = await fixture();
   try {
     await build({ ...redirected.config, redirects: { "/nimbus-api/coordinates.json": "/elsewhere" } });
-    assert.doesNotMatch(await redirected.read(MANIFEST).catch(() => ""), /"version":2/);
+    assert.doesNotMatch(await redirected.read(MANIFEST).catch(() => ""), /"version":3/);
 
     // The fixture's pages move under app/, with its own manifest endpoint.
     const { cp } = await import("node:fs/promises");
