@@ -35,13 +35,13 @@
     "@changesets/changelog-github": "^1.0.1",
     "@changesets/cli": "^2.31.0",
     "@eslint/js": "^10.0.1",
-    "@playwright/test": "1.65.0",
+    "@playwright/test": "1.65.1",
     "cross-spawn": "7.0.6",
-    "eslint": "^10.14.0",
+    "eslint": "^10.15.0",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "pkg-pr-new": "^0.0.93",
+    "pkg-pr-new": "^0.0.94",
     "semver": "7.8.6",
-    "typescript-eslint": "^8.72.2",
+    "typescript-eslint": "^8.73.0",
     "yaml": "2.9.1"
   }
 }
