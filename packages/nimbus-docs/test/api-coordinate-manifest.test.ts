@@ -217,6 +217,15 @@ test("a document from elsewhere is checked whole, and a coordinate listed twice 
   for (const key of ["svc:dup", "svc:a.b.c"]) assert.equal(restored.get(key), undefined, key);
 });
 
+test("a collection whose name starts with a dash is read back from the file it is published as", async () => {
+  const result = await buildCitationIndex([{ collection: "-svc", spec }], ".");
+  const files = published(result);
+  assert.ok("coordinates/-svc.json" in files);
+  const index = new CoordinateIndex();
+  assert.deepEqual(await ingestRemoteReference(index, { collection: "-svc" }, JSON.parse(files["coordinates.json"]!), async (file) => files[file]!), []);
+  assert.deepEqual([...index].sort(), [...result.index].sort());
+});
+
 test("a version served under any path Nimbus itself would publish is accepted", async () => {
   const text = JSON.stringify({ version: 3, pages: [["op", "op", {}]] });
   const entry = { version: null, file: "coordinates/svc.json", hash: hashOf(text) };
@@ -244,6 +253,8 @@ test("an index that could reach outside its folder, or lies about a document, ad
   index.add("existing", { route: { path: "", query: "" }, source: { version: 3, pages: [["page", "page", {}]] }, historical: false, hash: "x" });
   for (const [change, fault] of [
     [{ file: "../secrets.json" }, /invalid version entry/],
+    [{ file: "coordinates/../../secrets.json" }, /invalid version entry/],
+    [{ file: "coordinates/.hidden.json" }, /invalid version entry/],
     [{ file: "https://evil.example/x.json" }, /invalid version entry/],
     [{ file: "/etc/passwd.json" }, /invalid version entry/],
     [{ path: "//evil.example" }, /invalid version entry/],

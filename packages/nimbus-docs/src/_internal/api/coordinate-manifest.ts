@@ -11,8 +11,9 @@ import { CoordinateIndex, coordinateDocumentHash, validateCoordinateDocument } f
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const versionId = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
-/** A document's file: a relative path of plain segments, so it can't leave the index's folder. */
-const documentFile = /^(?:[a-z0-9][a-z0-9._-]*\/)*[a-z0-9][a-z0-9._-]*\.json$/;
+/** A document's file: a relative path of plain segments, none starting with a
+ *  dot, so it can't leave the index's folder. A collection may start with "-". */
+const documentFile = /^(?:[a-z0-9-][a-z0-9._-]*\/)*[a-z0-9-][a-z0-9._-]*\.json$/;
 /** A version's mount path: empty, or a safe absolute path with no query, fragment or trailing slash. */
 const routePath = (value: string) =>
   value === "" || (value.startsWith("/") && !value.endsWith("/") && !/[?#]/.test(value) && isSafeCitationPath(value));

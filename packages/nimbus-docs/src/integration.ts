@@ -3892,9 +3892,13 @@ export function nimbus(
           ...collectLocalManifestPaths(config.apiReferences, projectRootForBuild),
         ].map((manifest) => canonicalWatchPath(path.join(path.dirname(manifest), "coordinates")) + path.sep);
         if (rebakePaths.size > 0) {
+          // Several files can change at once, and a re-bake can wait on a
+          // fetch: only the newest one's result is kept.
+          let newestRebake = 0;
           const rebakeCitationIndex = async (file: string) => {
             const changed = canonicalWatchPath(file);
             if (!rebakePaths.has(changed) && !rebakeFolders.some((folder) => changed.startsWith(folder))) return;
+            const rebake = ++newestRebake;
             try {
               const { index, manifest, documents, unpublished } = await buildCitationIndex(
                 config.api,
@@ -3909,6 +3913,7 @@ export function nimbus(
                 projectRootForBuild,
                 server.config.logger,
               );
+              if (rebake !== newestRebake) return;
               citationIndex = index;
               unpublishedCitations = unpublished;
               coordinatesManifest = manifest;
@@ -3918,6 +3923,7 @@ export function nimbus(
               );
               reloadDevModules!();
             } catch (err) {
+              if (rebake !== newestRebake) return;
               server.config.logger.error(
                 `nimbus-docs: failed to re-bake citation index after a spec change: ${(err as Error).message}`,
               );
