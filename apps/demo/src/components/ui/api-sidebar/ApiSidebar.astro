@@ -4,7 +4,8 @@
  * `ApiNavItem[]`. It is the docs sidebar rendered from API data: each node is an
  * `ApiSidebarItem`, which composes the shared `SidebarGroupHeader`/`SidebarLink`
  * atoms plus a method chip. The tree math (active/expanded, ordering) lives in
- * `getApiNav`; this owns only the top-level list shell.
+ * `getApiNav`; this owns only the top-level list shell. Slotted `<li>` rows,
+ * such as an overview link, come before the API's own.
  */
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
@@ -29,6 +30,7 @@ const labelId = label ? "api-nav-label" : undefined;
 >
   {label && <p id={labelId} class="mb-2 px-3 text-xs font-medium text-muted-foreground">{label}</p>}
   <ul class="flex list-none flex-col gap-0.5 p-0">
+    <slot />
     {items.map((item) => (
       <li>
         <ApiSidebarItem item={item} />

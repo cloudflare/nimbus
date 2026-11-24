@@ -1,4 +1,4 @@
-import { mount } from "@cloudflare/nimbus-docs/client";
+import { mount, onShortcut, syncShortcutHints } from "@cloudflare/nimbus-docs/client";
 
 // Warm the next page the moment its key goes down, so it's ready when the
 // press finishes. A plain prefetch link, so sites that turn off Astro's
@@ -61,23 +61,38 @@ function initPagination(root: HTMLElement): () => void {
   });
   resize.observe(root);
 
-  // [ and ] press the matching key, then go: only while focus is in this bar,
-  // so single-key shortcuts never fire from elsewhere on the page (WCAG
-  // 2.1.4), and never with a modifier held.
-  const onKey = (e: KeyboardEvent) => {
-    if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || e.defaultPrevented) return;
-    const item = items.find((i) => i.dataset.nbPaginationKey === e.key);
-    if (!item) return;
-    e.preventDefault();
+  // The previous/next keys (src/lib/shortcuts.ts) press the matching cap, then
+  // go. A bar built from `prevNext` (`data-nb-page-nav`, the first one on the
+  // page) answers them anywhere while the reader has single keys on and the
+  // page offers the switch to turn them off (WCAG 2.1.4); any bar answers them
+  // while focus is in it.
+  const press = (item: HTMLAnchorElement) => {
     warm(item.href);
     item.querySelector("[data-slot='pagination-key']")?.setAttribute("data-down", "");
     show(item);
     window.setTimeout(() => item.click(), 140);
   };
-  const listens = root.dataset.keys !== "false";
-  if (listens) {
-    for (const item of items) item.setAttribute("aria-keyshortcuts", item.dataset.nbPaginationKey ?? "");
-    root.addEventListener("keydown", onKey);
+  const keyed = items.filter((item) => item.dataset.nbShortcutFor);
+  if (root.dataset.keys === "false") {
+    // A bar with `keys={false}` names no key.
+    for (const item of keyed) {
+      item.removeAttribute("data-nb-shortcut-for");
+      item.removeAttribute("aria-keyshortcuts");
+    }
+  } else {
+    // Its keys work while focus is in it, so they're announced whenever single
+    // keys are on.
+    root.setAttribute("data-nb-shortcut-scope", "");
+    const pageWide = root === document.querySelector("[data-nb-page-nav]");
+    for (const item of keyed) {
+      const go = (e: KeyboardEvent) => {
+        e.preventDefault();
+        press(item);
+      };
+      cleanups.push(onShortcut(item.dataset.nbShortcutFor!, go, { within: root }));
+      if (pageWide) cleanups.push(onShortcut(item.dataset.nbShortcutFor!, go));
+    }
+    syncShortcutHints(root);
   }
 
   return () => {
@@ -85,7 +100,6 @@ function initPagination(root: HTMLElement): () => void {
     root.removeEventListener("pointerleave", onLeave);
     root.removeEventListener("focusout", onFocusOut);
     resize.disconnect();
-    if (listens) root.removeEventListener("keydown", onKey);
   };
 }
 

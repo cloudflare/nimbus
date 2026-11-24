@@ -32,7 +32,11 @@ const c = config[variant] ?? config.note;
   class={cn("banner-card my-4 flex w-full items-start gap-3 rounded-lg px-4 py-3 text-sm leading-normal text-foreground", className)}
   style={`--_c: ${c.color}; --_t: ${c.tint};`}
   {...(dismissible
-    ? { "data-nb-banner-dismiss": dismissible.id, "data-nb-banner-days": dismissible.days }
+    ? {
+        "data-nb-banner-dismiss": dismissible.id,
+        "data-nb-banner-days": dismissible.days,
+        "data-nb-banner-key": `nb-banner-dismissed-${dismissible.id}`,
+      }
     : {})}
   {...attrs}
 >
@@ -51,6 +55,26 @@ const c = config[variant] ?? config.note;
     </button>
   )}
 </div>
+
+{dismissible && (
+  /* Removes a dismissed banner before first paint: the banner is the script's
+     previous sibling. `data-astro-rerun` runs it again after each client-side
+     navigation, which would otherwise skip a script it has already run. */
+  <script is:inline data-astro-rerun>
+    (function () {
+      var banner = document.currentScript && document.currentScript.previousElementSibling;
+      var key = banner && banner.getAttribute("data-nb-banner-key");
+      if (!key) return;
+      try {
+        var stored = localStorage.getItem(key);
+        if (!stored) return;
+        var expiry = Number(stored);
+        if (expiry === 0 || expiry > Date.now()) banner.remove();
+        else localStorage.removeItem(key);
+      } catch (e) {}
+    })();
+  </script>
+)}
 
 <script>
   import "./banner.client";

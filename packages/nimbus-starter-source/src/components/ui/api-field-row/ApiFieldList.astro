@@ -47,14 +47,15 @@ const TitleTag = title ? HeadTag : "span";
 const flag = required === true ? "required" : required === false ? "optional" : undefined;
 ---
 
+{/* A titled section's anchor is on its heading, which then gets a "#" link. */}
 <section
-  id={anchor}
+  id={title ? undefined : anchor}
   class:list={["fl-root scroll-mt-24", className]}
   data-api-section
 >
   {(title || badge || showControls || required !== undefined) && (
     <div class="fl-head">
-      <TitleTag class="fl-title">
+      <TitleTag id={title ? anchor : undefined} class="fl-title scroll-mt-24">
         {/* Each label starts with a space so search reads "Request body JSON required";
             the title is flex, so the space takes no room. */}
         {title}

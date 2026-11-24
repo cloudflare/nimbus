@@ -87,7 +87,7 @@
   background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23a1a1aa'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='m6%209%206%206%206-6'/%3E%3C/svg%3E");
 }
 /* A hidden sample panel drops out entirely — no stray copy button, no gap. */
-[data-nb-api-coderail] [data-nb-lang-panel][hidden] {
+[data-nb-api-coderail] [data-nb-choice-panel][hidden] {
   display: none;
 }
 
@@ -182,10 +182,23 @@
 [data-nb-api-coderail] .nb-cr-respsection .nb-code-copy {
   display: none;
 }
-/* The response body scrolls tall JSON; scrollbars come from globals.css. */
+/* The response body scrolls tall and wide JSON; scrollbars come from
+   globals.css. It is the example's one Tab stop, so it scrolls both ways and
+   the code inside never scrolls on its own. */
 [data-nb-api-coderail] .nb-cr-respbody {
   max-height: 20rem;
-  overflow-y: auto;
+  overflow: auto;
+}
+[data-nb-api-coderail] .nb-cr-respbody pre.astro-code {
+  overflow: visible;
+  width: max-content;
+  min-width: 100%;
+}
+/* A line's full-width highlight bleeds by the pre's own padding (0.75rem
+   here, not the 1rem elsewhere), so code that fits never scrolls sideways. */
+[data-nb-api-coderail] .nb-cr-respbody pre.astro-code .line {
+  margin-inline: -0.75rem;
+  padding-inline: 0.75rem;
 }
 
 /* Reset the shared <Code> figure so it sits flush inside the surface. The
@@ -256,4 +269,47 @@
   top: 0.5rem;
   right: 0.5rem;
   opacity: 1;
+}
+
+/* Code you can scroll is a focus stop: give it a visible ring. */
+[data-nb-api-coderail] .nb-cr-body pre:focus-visible,
+[data-nb-api-coderail] .nb-cr-respbody:focus-visible {
+  outline: 2px solid var(--color-ring, var(--nb-cr-accent));
+  outline-offset: -2px;
+}
+
+/* Beside the page (90rem+), the rail fits the viewport: the header and the
+   response keep their size, and the request sample scrolls inside the rest,
+   one box that scrolls both ways so both scrollbars stay in view. The layout's
+   rail wrapper is a flex column at this width (ApiLayout.astro). Under 42rem
+   tall the card can't fit with a usable sample, so it keeps its own height and
+   the wrapper scrolls. */
+@media (min-width: 90rem) and (min-height: 42rem) {
+  [data-nb-api-coderail] {
+    flex: 1 1 0%;
+    min-height: 0;
+  }
+  [data-nb-api-coderail] .nb-cr-layer {
+    min-height: 0;
+  }
+  [data-nb-api-coderail] .nb-cr-head,
+  [data-nb-api-coderail] .nb-cr-respsection {
+    flex-shrink: 0;
+  }
+  [data-nb-api-coderail] .nb-cr-content {
+    flex: 1 1 auto;
+    min-height: 8rem;
+    overflow: auto;
+  }
+  [data-nb-api-coderail] .nb-cr-body pre.astro-code {
+    overflow: visible;
+    width: max-content;
+    min-width: 100%;
+  }
+  /* A line's full-width highlight bleeds by the pre's own padding (0.75rem
+     here, not the 1rem elsewhere), so code that fits never scrolls sideways. */
+  [data-nb-api-coderail] pre.astro-code .line {
+    margin-inline: -0.75rem;
+    padding-inline: 0.75rem;
+  }
 }

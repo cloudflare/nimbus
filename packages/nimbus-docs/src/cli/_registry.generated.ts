@@ -30,13 +30,19 @@ export const REGISTRY_BASE_URL = "https://nimbus-docs.com/registry";
 
 export const BUNDLED_INDEX: BundledIndex = {
   "version": 1,
-  "registryVersion": "0.19.4",
+  "registryVersion": "0.20.1",
   "items": {
     "cn": {
       "name": "cn",
       "type": "registry:lib",
       "title": "cn",
       "description": "Tailwind-aware className merger built on clsx + tailwind-merge."
+    },
+    "shortcuts": {
+      "name": "shortcuts",
+      "type": "registry:lib",
+      "title": "shortcuts",
+      "description": "The site's keyboard shortcuts in one file, src/lib/shortcuts.ts: change a key or set it to false to remove it. Ships the reader's switch that turns single-key shortcuts off (WCAG 2.1.4). An existing file is kept, so custom keys survive."
     },
     "variants": {
       "name": "variants",
@@ -55,6 +61,12 @@ export const BUNDLED_INDEX: BundledIndex = {
       "type": "registry:ui",
       "title": "Aside",
       "description": "Generic boxed callout — note, tip, caution, or danger."
+    },
+    "switch": {
+      "name": "switch",
+      "type": "registry:ui",
+      "title": "Switch",
+      "description": "On/off control: a role=\"switch\" button whose aria-checked holds the state; a click flips it and fires change."
     },
     "badge": {
       "name": "badge",
@@ -248,6 +260,12 @@ export const BUNDLED_INDEX: BundledIndex = {
       "title": "ApiCodeRail",
       "description": "An operation's code rail: a `LayerCard` of server-provided code samples with a synced language switcher, headed by the method chip (`ApiMethodChip`) and operation title, plus a status toggle that swaps between response examples. Reads an `ApiOperationPage`."
     },
+    "api-try-it": {
+      "name": "api-try-it",
+      "type": "registry:ui",
+      "title": "ApiTryIt",
+      "description": "Try it for API operation pages: a full-width button in the code rail (in the method's colour) that opens a panel to send the request, straight from the browser or through the site's proxy, with live code samples and the response. The page carries the button and the panel's stylesheet; the panel's script and the request plan load on click. Needs `tryIt` on the API entry and the api-layout's `try-it` slot."
+    },
     "api-layout": {
       "name": "api-layout",
       "type": "registry:ui",
@@ -362,6 +380,12 @@ export const BUNDLED_INDEX: BundledIndex = {
       "title": "Mermaid diagrams",
       "description": "Add lazy-loaded, theme-aware Mermaid.js diagram rendering with a skeleton loading state, safe color fallbacks, and a full-screen expand dialog."
     },
+    "migrate": {
+      "name": "migrate",
+      "type": "registry:feature",
+      "title": "Migrate a docs site to Nimbus",
+      "description": "Moves an existing docs site into a freshly scaffolded Nimbus site: pages, frontmatter, navigation, components, reusable snippets, an OpenAPI reference and redirects, with every URL kept and a report of everything it could not carry over. Run it inside the new Nimbus site."
+    },
     "new-collection": {
       "name": "new-collection",
       "type": "registry:feature",
@@ -379,6 +403,12 @@ export const BUNDLED_INDEX: BundledIndex = {
       "type": "registry:feature",
       "title": "Pagefind search",
       "description": "Add static Pagefind indexing and the Nimbus search dialog to an existing docs site."
+    },
+    "try-it": {
+      "name": "try-it",
+      "type": "registry:feature",
+      "title": "Try it",
+      "description": "Let readers send requests from API reference pages: a Try it button in each operation's code rail opens a panel that sends the request, straight from the browser or through the site's own proxy, with live code samples and the response. Needs the OpenAPI reference (`api-reference`)."
     },
     "git": {
       "name": "git",

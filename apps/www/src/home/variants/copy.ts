@@ -29,7 +29,7 @@ export const sections = {
     label: "Own",
     h1: "Nothing to fork. Nothing to wait on.",
     h2: "It's your site. All of it.",
-    body: "Scaffold once, and a complete site is yours: layouts, components, styles, routes, content. From the first commit they are ordinary files you change. The framework stays underneath as a dependency, so updates arrive without touching your work.",
+    body: "The scaffold puts the whole site in your repo. Layouts, components, styles, routes and content are plain files you edit. Nimbus stays an npm dependency underneath, so an upgrade changes the dependency and leaves your files alone.",
     shot: "A scaffolded site before and after an edit to globals.css: same content, a different house style.",
   },
   extend: {

@@ -19,7 +19,7 @@
  * object when the site is unversioned. See `version-alternates.ts`.
  */
 
-import { invalidateDevModules, type DevServerGraphs } from "./dev-invalidation.js";
+import { refreshDevRunners, type DevServerGraphs } from "./dev-invalidation.js";
 import type { NimbusConfig, RuntimeContentSource, RuntimeNimbusConfig } from "../types.js";
 import { searchIndexLayout } from "./build-slice.js";
 import { NO_ROUTES } from "./collection-mount.js";
@@ -115,7 +115,8 @@ export interface VirtualConfigExtras {
 function runtimeSources(sources: NimbusConfig["sources"]): RuntimeNimbusConfig["sources"] {
   const out: Record<string, RuntimeContentSource> = {};
   for (const [name, source] of Object.entries(sources ?? {})) {
-    if (source.editPattern) out[name] = { ref: source.ref, editPattern: source.editPattern };
+    // A URL source has no edit links.
+    if ("editPattern" in source && source.editPattern) out[name] = { ref: source.ref, editPattern: source.editPattern };
   }
   return Object.keys(out).length > 0 ? out : undefined;
 }
@@ -129,18 +130,22 @@ export function virtualConfigPlugin(
     // The page bundle gets only what `getEditUrl` reads of a source: its
     // configured `ref` and `editPattern`, never `repo` or `path`.
     sources: runtimeSources(config.sources),
+    // The page bundle never parses a spec or resolves a route: it reads the
+    // prepared pages. So it gets neither the spec nor the build-only route
+    // settings (an `operations` map can be thousands of entries per version).
+    // Model building at runtime reads the full build config instead.
     ...(config.api
       ? {
           api: config.api.map((entry) =>
             entry.versions
               ? {
-                  ...entry,
+                  ...withRuntimeRoutes(entry),
                   versions: entry.versions.map((version) => ({
-                    ...version,
+                    ...withRuntimeRoutes(version),
                     spec: {},
                   })),
                 }
-              : { ...entry, spec: {} },
+              : { ...withRuntimeRoutes(entry), spec: {} },
           ),
         }
       : {}),
@@ -183,10 +188,19 @@ export function virtualConfigPlugin(
       if (!target || file.replaceAll("\\", "/") !== target) {
         return;
       }
-      // The whole graph, not just this module: `runtime-config.ts` caches the
-      // list in module state, and an edit re-runs every loader anyway (the
-      // same rule the integration applies to content-file edits).
-      invalidateDevModules(server);
+      // Reload the runners that render pages, as Astro does for a server-only
+      // module: `runtime-config.ts` caches the collection list in module
+      // state. Astro's own reload skips this module, which the browser loads
+      // too.
+      refreshDevRunners(server);
     },
   };
+}
+
+/** A route policy keeps only what pages read (`convention`, `sections`). */
+function withRuntimeRoutes<T extends { routes?: unknown }>(item: T): T {
+  if (!item.routes || typeof item.routes !== "object") return item;
+  const { operations: _o, tagSegments: _t, stripPathPrefixes: _s, ...runtime } =
+    item.routes as Record<string, unknown>;
+  return { ...item, routes: runtime };
 }

@@ -8,9 +8,8 @@ The authoring-quality engine for MDX content.
 src/lint/
   diagnostic.ts          Diagnostic envelope + RULE_CODES registry (+ diagnostic.schema.json)
   parse.ts               Sätteri mdxToMdast → mdast + unist positions; graceful parse-error
-                         capture; findNodeAt helper (position → node) used by adapter rules
-  remark-lint-adapter.ts unified Plugin → RuleReport[] — runs remark-lint rules against
-                          Sätteri's mdast tree
+                         capture; findNodeAt helper (position → node) used by the style rules
+  detectors.ts           detectors for the 8 Markdown style rules, run on the parsed tree
   rule.ts                Rule contract (code + run(ctx))
   config.ts              severity resolution + validateLintOptions (build/lint split,
                          IMPLEMENTED_CODES gate)
@@ -41,15 +40,16 @@ pretty caret never drift on multibyte content.
 ## Build vs buy
 
 The 8 commodity rules (heading hygiene, list/emphasis style, code-block
-flags, bare URLs) delegate detection to remark-lint via the adapter.
-The 6 irreducible-core rules (anything that needs Nimbus-specific
-knowledge: frontmatter directives, sidebar truth, components registry,
-deploy URL, prompt-prefix conventions) stay hand-rolled. Tests under
-`test/lint/remark-spike-*.test.ts` verify the adapter boundary.
+flags, bare URLs) once ran remark-lint's rules through a unified adapter.
+They now use `detectors.ts`, which walks the tree the engine already
+parsed and reports what those remark-lint 4.x rules reported, with no
+second pipeline or bundled remark-lint stack.
+`test/lint/native-parity.test.ts` holds them to a snapshot captured from
+the remark-lint-backed rules, under each Markdown feature setting.
 
-The remark-lint stack (`unified`, `vfile`, every `remark-lint-*`
-package) is inlined into `dist` via tsdown's `noExternal`. Consuming
-projects get zero new transitive deps when they install `nimbus-docs`.
+The rules that need Nimbus-specific knowledge (frontmatter directives,
+sidebar truth, components registry, deploy URL, prompt-prefix
+conventions) are hand-rolled.
 
 ## Tiers
 
@@ -69,25 +69,25 @@ projects get zero new transitive deps when they install `nimbus-docs`.
 |---|---|---|---|
 | `frontmatter-shape` | authoring | YAML parser | — |
 | `description-required` | authoring | hand-rolled | — |
-| `single-h1` | authoring | remark-lint | — |
-| `heading-hierarchy` | authoring | remark-lint | — |
-| `code-block-lang` | authoring | remark-lint | — |
+| `single-h1` | authoring | style detector | — |
+| `heading-hierarchy` | authoring | style detector | — |
+| `code-block-lang` | authoring | style detector | — |
 | `code-block-prompt-prefix` | authoring | hand-rolled | — |
 | `no-self-host-url` | authoring | hand-rolled | — |
-| `heading-punctuation` | authoring | remark-lint | ✓ |
-| `duplicate-heading-text` | authoring | remark-lint | — |
-| `list-marker-style` | authoring | remark-lint | ✓ |
-| `emphasis-style` | authoring | remark-lint | ✓ |
-| `bare-url` | authoring | remark-lint | — |
+| `heading-punctuation` | authoring | style detector | ✓ |
+| `duplicate-heading-text` | authoring | style detector | — |
+| `list-marker-style` | authoring | style detector | ✓ |
+| `emphasis-style` | authoring | style detector | ✓ |
+| `bare-url` | authoring | style detector | — |
 | `internal-link` | authoring | hand-rolled | did-you-mean hint |
 | `redirected-link` | authoring | hand-rolled | destination hint |
 | `image-ref` | authoring | hand-rolled | ✓ (the site base) |
 | `duplicate-slug` | build | hand-rolled | — |
 | `mdx-syntax` | build | parser | — |
 
-remark-lint-backed rules keep the Nimbus message text and surgical-fix
-shape; the adapter recovers dynamic info (heading levels, marker chars)
-via `findNodeAt` at the reported position.
+The style rules keep the Nimbus message text and surgical-fix shape; they
+recover dynamic info (heading levels, marker chars) via `findNodeAt` at
+the reported position.
 
 ## Decision record
 

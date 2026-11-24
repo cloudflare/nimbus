@@ -61,9 +61,9 @@ function createHarness(root: string) {
   let parseCount = 0;
   const store = {
     get: (id: string) => entries.get(id),
-    entries: () => entries.entries(),
-    values: () => entries.values(),
-    keys: () => entries.keys(),
+    entries: () => [...entries.entries()],
+    values: () => [...entries.values()],
+    keys: () => [...entries.keys()],
     set: (entry: StoredEntry) => {
       if (entry.digest && entries.get(entry.id)?.digest === entry.digest)
         return false;
@@ -475,8 +475,8 @@ describe("Markdown loader preparation", () => {
         }
         context.watcher?.on("change", async () => {
           watcherCalls += 1;
-          stagedKeysAreArrays = Array.isArray(context.store.keys());
           context.store.delete("old");
+          stagedKeysAreArrays = Array.isArray(context.store.keys());
           entered?.();
           await gate;
           context.store.set({ id: "new", body: "new", data: {} });
@@ -616,6 +616,135 @@ describe("Markdown loader preparation", () => {
         ?.entries.get("sibling")?.body,
       "sibling",
     );
+  });
+
+  test("copies nothing for a watcher event that changes no entry", async () => {
+    const wrapped = prepareMarkdownLoader(
+      {
+        name: "idle-watch-loader",
+        async load(context: LoaderContext) {
+          context.store.set({ id: "entry", body: "body", data: {} });
+          context.watcher?.on("change", () => undefined);
+        },
+      },
+      { generation: 1, base: "/docs", transform: (source) => source },
+    );
+    const root = await mkdtemp(path.join(os.tmpdir(), "nimbus-registry-idle-"));
+    temporaryRoots.push(root);
+    const harness = createHarness(root);
+    await wrapped.load(harness.context);
+    const store = harness.context.store as { values: () => unknown[] };
+    const values = store.values;
+    let reads = 0;
+    store.values = () => {
+      reads += 1;
+      return values();
+    };
+
+    await harness.emit("change", "entry.md");
+
+    assert.equal(reads, 0);
+  });
+
+  test("leaves the store as it was when a watcher reads, writes, then throws", async () => {
+    const wrapped = prepareMarkdownLoader(
+      {
+        name: "read-write-throw-loader",
+        async load(context: LoaderContext) {
+          context.store.set({ id: "stable", body: "stable", data: {} });
+          context.watcher?.on("change", () => {
+            context.store.get("stable");
+            context.store.keys();
+            context.store.set({ id: "added", body: "added", data: {} });
+            context.store.delete("stable");
+            throw new Error("watch failed");
+          });
+        },
+      },
+      { generation: 1, base: "/docs", transform: (source) => source },
+    );
+    const root = await mkdtemp(
+      path.join(os.tmpdir(), "nimbus-registry-read-write-throw-"),
+    );
+    temporaryRoots.push(root);
+    const harness = createHarness(root);
+    await wrapped.load(harness.context);
+    const before = structuredClone([...harness.entries]);
+
+    await harness.emit("change", "stable.md");
+
+    assert.deepEqual([...harness.entries], before);
+    assert.deepEqual(harness.errors, [
+      "Nimbus Markdown watcher failed: watch failed",
+    ]);
+  });
+
+  test("restores the store when a watcher's commit fails after publishing", async () => {
+    const wrapped = prepareMarkdownLoader(
+      {
+        name: "failed-commit-loader",
+        async load(context: LoaderContext) {
+          context.store.set({ id: "stable", body: "stable", data: {} });
+          context.watcher?.on("change", () => {
+            context.store.delete("stable");
+            context.store.set({
+              id: "uncloneable",
+              body: "uncloneable",
+              data: { render: () => undefined },
+            });
+          });
+        },
+      },
+      { generation: 1, base: "/docs", transform: (source) => source },
+    );
+    const root = await mkdtemp(
+      path.join(os.tmpdir(), "nimbus-registry-failed-commit-"),
+    );
+    temporaryRoots.push(root);
+    const harness = createHarness(root);
+    await wrapped.load(harness.context);
+    const before = structuredClone([...harness.entries]);
+    const revision = getPreparedMarkdownSnapshot(root)?.revision;
+
+    await harness.emit("change", "stable.md");
+
+    assert.deepEqual([...harness.entries], before);
+    assert.equal(getPreparedMarkdownSnapshot(root)?.revision, revision);
+    assert.equal(harness.errors.length, 1);
+    assert.match(harness.errors[0]!, /^Nimbus Markdown watcher failed: /);
+  });
+
+  test("restores the store when a watcher's commit is refused after publishing", async () => {
+    const wrapped = prepareMarkdownLoader(
+      {
+        name: "refused-commit-loader",
+        async load(context: LoaderContext) {
+          context.store.set({ id: "stable", body: "stable", data: {} });
+          context.watcher?.on("change", () => {
+            context.store.delete("stable");
+            context.store.set({ id: "added", body: "added", data: {} });
+          });
+        },
+      },
+      { generation: 1, base: "/docs", transform: (source) => source },
+    );
+    const root = await mkdtemp(
+      path.join(os.tmpdir(), "nimbus-registry-refused-commit-"),
+    );
+    temporaryRoots.push(root);
+    const harness = createHarness(root);
+    await wrapped.load(harness.context);
+    const before = structuredClone([...harness.entries]);
+    Object.assign(harness.context, {
+      async renderMarkdown(source: string) {
+        beginPreparedMarkdownSession(root);
+        return { html: source, metadata: { headings: [], imagePaths: [] } };
+      },
+    });
+
+    await harness.emit("change", "stable.md");
+
+    assert.deepEqual([...harness.entries], before);
   });
 
   test("commits watcher mutations after a nonfatal error diagnostic", async () => {

@@ -2,7 +2,7 @@
 // for tests that edit files under a running server.
 
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
 import { after } from "node:test";
@@ -29,7 +29,9 @@ export default {
   cacheDir: "./.astro",
   vite: {
     cacheDir: "./.vite",
-    logLevel: "silent",
+    // Vite's own lines are kept: "server restarted." is how an in-place
+    // restart says its replacement server is listening.
+    logLevel: "info",
     resolve: {
       alias: [
         { find: /^@cloudflare\\/nimbus-docs$/, replacement: ${JSON.stringify(path.join(SRC, "index.ts"))} },
@@ -69,6 +71,29 @@ export async function until<T>(describe: string, read: () => T | Promise<T>, acc
 }
 
 export const settle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Stops a dev server, then waits for Astro's debounced content-store write
+ * (500 ms after the last change, and not cancelled by `stop()`), so removing
+ * the site doesn't race it.
+ */
+export async function stopDevServer(server: { stop(): Promise<void> }, root: string): Promise<void> {
+  await server.stop();
+  const store = path.join(root, ".astro", "data-store.json");
+  const written = async () =>
+    (await Promise.all([store, `${store}.tmp`].map((file) => stat(file).then((info) => info.mtimeMs, () => 0)))).join();
+  const deadline = Date.now() + 10_000;
+  let last = await written();
+  let quietSince = Date.now();
+  while (Date.now() < deadline && Date.now() - quietSince < 1_000) {
+    await settle(100);
+    const current = await written();
+    if (current !== last) {
+      last = current;
+      quietSince = Date.now();
+    }
+  }
+}
 
 export interface DevSite {
   file(relative: string): string;
@@ -113,6 +138,19 @@ export async function withDevSite(files: Record<string, string>, nimbusOptions: 
     const response = await fetch(`${origin}${route}`, { signal: AbortSignal.timeout(10_000) }).catch(() => undefined);
     return { status: response?.status ?? 0, body: (await response?.text()) ?? "" };
   };
+  // Whether `text` ends with a dev restart still in flight. A route-file
+  // change restarts the dev server in place; the restart is over once Vite
+  // reports the replacement server listening ("server restarted.") and Astro
+  // has re-synced content after it, or once a restart gave up.
+  const restartOver = (text: string) => {
+    const start = text.lastIndexOf("Restarting...");
+    if (start < 0) return true;
+    const rest = text.slice(start);
+    if (/Continuing with previous valid configuration|server restart failed/u.test(rest)) return true;
+    const listening = rest.indexOf("server restarted.");
+    return listening >= 0 && rest.indexOf("Synced content", listening) >= 0;
+  };
+  let failed = false;
   try {
     await run({
       file,
@@ -121,18 +159,33 @@ export async function withDevSite(files: Record<string, string>, nimbusOptions: 
       serves: (route, text) => until(`${route} to serve ${text}`, () => page(route), ({ status, body }) => status === 200 && body.includes(text)),
       since,
       restartsSince: (mark) => since(mark).match(/Restarting\.\.\./gu)?.length ?? 0,
-      // A restart re-syncs content once setup has run; wait for it, so the next
-      // step (or stopping the server) doesn't race it.
+      // Wait for the restart a step caused, so the next step (or stopping the
+      // server) doesn't race it.
       restarted: (mark) =>
-        until("the restart to finish", () => since(mark), (text) => {
-          const start = text.lastIndexOf("Restarting...");
-          return start >= 0 && text.indexOf("Synced content", start) > start;
-        }),
+        until("the restart to finish", () => since(mark), (text) => text.includes("Restarting...") && restartOver(text)),
       mark: () => logs.length,
     });
+  } catch (error) {
+    failed = true;
+    throw error;
   } finally {
-    await server.stop();
-    for (const [index, stream] of streams.entries()) stream.write = realWrites[index]!;
+    // Stopping the server while a restart is in flight leaves the restarted
+    // server listening, and the test process never exits. Let a pending
+    // route recheck fire, then let any restart finish before stopping.
+    await settle(300);
+    const deadline = Date.now() + 60_000;
+    while (!restartOver(since(0)) && Date.now() < deadline) await settle(100);
+    const unfinished = !restartOver(since(0));
+    try {
+      await stopDevServer(server, root);
+    } catch (error) {
+      // The body's own failure is the one to report; a stop that fails after it is noise.
+      if (!failed) throw error;
+    } finally {
+      for (const [index, stream] of streams.entries()) stream.write = realWrites[index]!;
+    }
+    if (unfinished && !failed) {
+      assert.fail("the dev server was still restarting when the test ended; its restarted server may outlive the stop");
+    }
   }
 }
-

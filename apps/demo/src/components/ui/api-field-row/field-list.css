@@ -137,9 +137,12 @@
   line-height: 1.5rem;
 }
 .fl-name {
+  min-width: 0;
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--color-foreground);
+  /* A long name wraps instead of widening the page. */
+  overflow-wrap: anywhere;
 }
 .fl-name--deprecated {
   color: var(--color-muted-foreground);
@@ -199,6 +202,8 @@
   font-size: 0.875rem;
   color: color-mix(in oklab, var(--color-foreground) 45%, var(--color-muted-foreground));
   line-height: 1.5rem;
+  /* A long token, such as inline code, wraps instead of widening the page. */
+  overflow-wrap: anywhere;
 }
 .fl-desc > :first-child { margin-top: 0; }
 .fl-desc > :last-child { margin-bottom: 0; }

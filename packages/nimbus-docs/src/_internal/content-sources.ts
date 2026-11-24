@@ -1,6 +1,13 @@
 /**
  * Content sources: git repositories whose files a collection or an API spec
- * reads at build time (`sources` in the Nimbus config).
+ * reads at build time, and single files fetched by URL that an API spec
+ * reads (`sources` in the Nimbus config).
+ *
+ * A URL source's snapshot is `.nimbus/sources/<name>/<identity>/<sha256>/`,
+ * holding the file under its URL's name. With `integrity` it is a cache hit
+ * forever; without, each build sends one conditional request with the
+ * `ETag` or `Last-Modified` the selected snapshot was fetched with. Locks,
+ * leases and pruning are the same as a repository's.
  *
  * A snapshot is identified by `(repo, ref as configured, path)` and holds one
  * resolved commit, at `.nimbus/sources/<name>/<identity>/<commit>/`, made by
@@ -30,17 +37,23 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import type { ApiSpec, ContentSource, NimbusConfig } from "../types.js";
+import type { ApiSpec, ContentSource, NimbusConfig, UrlContentSource } from "../types.js";
 import { authorError } from "./author-error.js";
 import { preparedMarkdownRootKey } from "./prepared-markdown-registry.js";
 import { SOURCES_DIR } from "./source-paths.js";
 import {
+  displayUrl,
+  hexIntegrity,
+  integrityHex,
   isCommitRef,
   isSpecFromSource,
+  isUrlSource,
   normalizeSourcePath,
   redactRepo,
   redactUrlUserinfo,
   repoCredentialFault,
+  urlFileName,
+  urlSourceFault,
 } from "./source-repo.js";
 
 export { SOURCES_DIR } from "./source-paths.js";
@@ -52,6 +65,9 @@ const execFileAsync = promisify(execFile);
 export const SOURCE_MARKER = ".nimbus-source.json";
 const MARKER_VERSION = 2;
 const COMMIT = /^[0-9a-f]{40}$/;
+const SHA256 = /^[0-9a-f]{64}$/;
+/** A snapshot folder's name: a git commit, or the SHA-256 of a URL source's file. */
+const REVISION = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const IDENTITY = /^[0-9a-f]{16}$/;
 
 const RESOLVE_TIMEOUT_ENV = "NIMBUS_SOURCES_RESOLVE_TIMEOUT";
@@ -134,24 +150,50 @@ interface SourceMarker {
   fetchedAt: string;
 }
 
-function readMarker(commitDir: string): SourceMarker | undefined {
+/** A URL source's snapshot: `file` is the fetched file, `sha256` its digest and the folder's name. */
+interface UrlSourceMarker {
+  version: number;
+  kind: "url";
+  /** The URL without its query string. */
+  url: string;
+  file: string;
+  sha256: string;
+  fetchedAt: string;
+}
+
+function readMarker(revisionDir: string): SourceMarker | UrlSourceMarker | undefined {
   try {
-    const marker = JSON.parse(fs.readFileSync(path.join(commitDir, SOURCE_MARKER), "utf8")) as SourceMarker;
-    return marker.version === MARKER_VERSION && COMMIT.test(marker.commit) ? marker : undefined;
+    const marker = JSON.parse(fs.readFileSync(path.join(revisionDir, SOURCE_MARKER), "utf8")) as
+      | SourceMarker
+      | UrlSourceMarker;
+    if (marker.version !== MARKER_VERSION) return undefined;
+    if ("kind" in marker) {
+      return marker.kind === "url" && SHA256.test(marker.sha256) && fs.existsSync(path.join(revisionDir, marker.file))
+        ? marker
+        : undefined;
+    }
+    return COMMIT.test(marker.commit) ? marker : undefined;
   } catch {
     return undefined;
   }
 }
 
 interface SelectedRecord {
+  /** The selected snapshot: a commit, or a URL source's SHA-256. */
   commit: string;
   selectedAt: string;
+  /** A URL source's validators, sent back to ask whether the file changed. */
+  etag?: string;
+  lastModified?: string;
+  /** The SHA-256 of the URL that answered with them, after redirects (its
+   * query string can hold a token, so the URL isn't kept). Only it is asked. */
+  resource?: string;
 }
 
 function readSelected(identityDir: string): SelectedRecord | undefined {
   try {
     const record = JSON.parse(fs.readFileSync(path.join(identityDir, "selected.json"), "utf8")) as SelectedRecord;
-    return COMMIT.test(record.commit) ? record : undefined;
+    return REVISION.test(record.commit) ? record : undefined;
   } catch {
     return undefined;
   }
@@ -323,8 +365,13 @@ function startLeaseRefresh(): void {
   refreshTimer.unref();
 }
 
-/** Create a lease on a snapshot. Call under the lock. */
-function createLease(projectRoot: string, commitDir: string): string {
+/**
+ * Create a lease on a snapshot, or any other file or folder in the project.
+ * Held while this process lives. `scope` groups leases for release:
+ * `releaseContentSourceLeases` releases the `sources` scope, and
+ * `releaseLeases` any other. Call under the lock.
+ */
+export function createLease(projectRoot: string, commitDir: string, scope = "sources"): string {
   const leases = `${commitDir}.leases`;
   fs.mkdirSync(leases, { recursive: true });
   const host = os.hostname();
@@ -333,7 +380,7 @@ function createLease(projectRoot: string, commitDir: string): string {
     `${host.replace(/[^A-Za-z0-9.-]/g, "_")}-${process.pid}-${randomBytes(6).toString("hex")}`,
   );
   fs.writeFileSync(file, JSON.stringify({ pid: process.pid, host } satisfies LeaseRecord));
-  const key = preparedMarkdownRootKey(projectRoot);
+  const key = leaseKey(projectRoot, scope);
   let set = heldLeases.get(key);
   if (!set) heldLeases.set(key, (set = new Set()));
   set.add(file);
@@ -354,7 +401,8 @@ function leaseIsLive(file: string): boolean {
   return Date.now() - mtime < FOREIGN_LEASE_TTL_MS;
 }
 
-function hasLiveLease(commitDir: string): boolean {
+/** Whether a live process leases this snapshot, file or folder. Call under the lock. */
+export function hasLiveLease(commitDir: string): boolean {
   let entries: string[];
   try {
     entries = fs.readdirSync(`${commitDir}.leases`);
@@ -364,17 +412,45 @@ function hasLiveLease(commitDir: string): boolean {
   return entries.some((entry) => leaseIsLive(path.join(`${commitDir}.leases`, entry)));
 }
 
-/** Release every lease this process holds in a project (a build or dev server finishing). */
+function leaseKey(projectRoot: string, scope: string): string {
+  return `${preparedMarkdownRootKey(projectRoot)}\0${scope}`;
+}
+
+/** Release every source lease this process holds in a project (a build or dev server finishing). */
 export function releaseContentSourceLeases(projectRoot: string): void {
+  releaseLeases(projectRoot, "sources");
+}
+
+/** Release these lease files of a scope (the ones a build or a dev server holds). */
+export function releaseLeaseFiles(projectRoot: string, scope: string, files: Iterable<string>): void {
+  const held = heldLeases.get(leaseKey(projectRoot, scope));
+  for (const lease of files) {
+    fs.rmSync(lease, { force: true });
+    held?.delete(lease);
+  }
+  if (held?.size === 0) heldLeases.delete(leaseKey(projectRoot, scope));
+  if (heldLeases.size === 0 && refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = undefined;
+  }
+}
+
+/** Release this process's leases in a scope, except the lease files in `keep`. */
+export function releaseLeases(projectRoot: string, scope: string, keep?: ReadonlySet<string>): void {
   if (!projectRoot) return;
   let key: string;
   try {
-    key = preparedMarkdownRootKey(projectRoot);
+    key = leaseKey(projectRoot, scope);
   } catch {
     return;
   }
-  for (const lease of heldLeases.get(key) ?? []) fs.rmSync(lease, { force: true });
-  heldLeases.delete(key);
+  const held = heldLeases.get(key);
+  for (const lease of held ?? []) {
+    if (keep?.has(lease)) continue;
+    fs.rmSync(lease, { force: true });
+    held!.delete(lease);
+  }
+  if (held?.size === 0) heldLeases.delete(key);
   if (heldLeases.size === 0 && refreshTimer) {
     clearInterval(refreshTimer);
     refreshTimer = undefined;
@@ -418,20 +494,20 @@ export async function pruneContentSources(
           let kept = 0;
           for (const entry of fs.readdirSync(identityDir)) {
             const full = path.join(identityDir, entry);
-            if (COMMIT.test(entry)) {
+            if (REVISION.test(entry)) {
               if (entry === keep || hasLiveLease(full)) {
                 kept += 1;
                 continue;
               }
               discard(full);
               if (fs.existsSync(`${full}.leases`)) discard(`${full}.leases`);
-            } else if (/^[0-9a-f]{40}\.tmp-/.test(entry)) {
+            } else if (/^(?:[0-9a-f]{40}|[0-9a-f]{64})\.tmp-/.test(entry)) {
               try {
                 if (Date.now() - fs.statSync(full).mtimeMs > TMP_STALE_MS) discard(full);
               } catch {
                 // Renamed into place meanwhile.
               }
-            } else if (/^[0-9a-f]{40}\.leases$/.test(entry)) {
+            } else if (/^(?:[0-9a-f]{40}|[0-9a-f]{64})\.leases$/.test(entry)) {
               if (!fs.existsSync(full.slice(0, -".leases".length)) && !hasLiveLease(full.slice(0, -".leases".length))) {
                 discard(full);
               }
@@ -457,14 +533,19 @@ export async function pruneContentSources(
 export interface SourceSnapshot {
   name: string;
   identity: string;
-  commit: string;
-  /** The source's `path`, normalised; `""` is the repository root. */
+  /** A git repository, or one file fetched by URL. */
+  kind: "git" | "url";
+  /** The snapshot's commit, or the SHA-256 of a URL source's file. */
+  revision: string;
+  /** The source's `path`, normalised; `""` is the repository root, and always for a URL source. */
   path: string;
   /** Absolute snapshot folder (the repository layout, sparse). */
   dir: string;
   /** Absolute folder of the source's `path` inside the snapshot. */
   contentDir: string;
-  /** The ref is a branch or tag, so the commit can change between builds. */
+  /** A URL source's file, absolute. */
+  file?: string;
+  /** The ref is a branch or tag, or the URL has no `integrity`, so the snapshot can change between builds. */
   floating: boolean;
 }
 
@@ -563,23 +644,27 @@ async function fetchSnapshot(options: {
   }
 }
 
-function snapshotOf(name: string, identity: string, identityDir: string, commit: string, sourcePath: string, floating: boolean): SourceSnapshot {
-  const dir = path.join(identityDir, commit);
+function snapshotOf(d: Declaration, revision: string): SourceSnapshot {
+  const dir = path.join(d.identityDir, revision);
   return {
-    name,
-    identity,
-    commit,
-    path: sourcePath,
+    name: d.name,
+    identity: d.identity,
+    kind: d.kind,
+    revision,
+    path: d.sourcePath,
     dir,
-    contentDir: sourcePath ? path.join(dir, sourcePath) : dir,
-    floating,
+    contentDir: d.sourcePath ? path.join(dir, d.sourcePath) : dir,
+    ...(d.fileName ? { file: path.join(dir, d.fileName) } : {}),
+    floating: !d.pinned,
   };
 }
 
-/** A declaration's snapshot folder and display, computed without git. */
+/** A declaration's snapshot folder and display, computed without git or the network. */
 interface Declaration {
   name: string;
-  declared: ContentSource;
+  kind: "git" | "url";
+  declared: ContentSource | UrlContentSource;
+  /** The git remote, or the URL. */
   repo: string;
   sourcePath: string;
   displayRepo: string;
@@ -587,9 +672,14 @@ interface Declaration {
   identityDir: string;
   label: string;
   pinned: boolean;
+  /** The snapshot a pinned declaration names: its commit, or the SHA-256 its `integrity` gives. */
+  pinnedRevision?: string;
+  /** A URL source's file name inside its snapshot. */
+  fileName?: string;
 }
 
-function declaration(name: string, declared: ContentSource, projectRoot: string): Declaration {
+function declaration(name: string, declared: ContentSource | UrlContentSource, projectRoot: string): Declaration {
+  if (isUrlSource(declared)) return urlDeclaration(name, declared, projectRoot);
   const fault = repoCredentialFault(declared.repo);
   if (fault) {
     throw authorError(
@@ -601,8 +691,10 @@ function declaration(name: string, declared: ContentSource, projectRoot: string)
   const repo = resolveSourceRepo(declared.repo, projectRoot);
   const displayRepo = redactRepo(declared.repo);
   const identity = sourceIdentity(repo, declared.ref, sourcePath);
+  const pinned = isCommitRef(declared.ref);
   return {
     name,
+    kind: "git",
     declared,
     repo,
     sourcePath,
@@ -610,7 +702,39 @@ function declaration(name: string, declared: ContentSource, projectRoot: string)
     identity,
     identityDir: path.join(sourcesRoot(projectRoot), name, identity),
     label: `source "${name}" (${displayRepo} @ ${declared.ref})`,
-    pinned: isCommitRef(declared.ref),
+    pinned,
+    ...(pinned ? { pinnedRevision: declared.ref } : {}),
+  };
+}
+
+function urlDeclaration(name: string, declared: UrlContentSource, projectRoot: string): Declaration {
+  const displayRepo = displayUrl(declared.url);
+  const fault = urlSourceFault(declared.url);
+  if (fault) {
+    throw authorError(`nimbus-docs: sources.${name}.url ${fault} (${displayRepo}).`);
+  }
+  const pinnedRevision = declared.integrity === undefined ? undefined : integrityHex(declared.integrity);
+  if (declared.integrity !== undefined && !pinnedRevision) {
+    throw authorError(
+      `nimbus-docs: sources.${name}.integrity must be "sha256-<base64>", the file's SHA-256 in the Subresource Integrity format.`,
+    );
+  }
+  // The query string is part of what is fetched, so of the identity, but is
+  // never written to a marker or a message.
+  const identity = sourceIdentity(`url:${declared.url}`, declared.integrity ?? "", "");
+  return {
+    name,
+    kind: "url",
+    declared,
+    repo: declared.url,
+    sourcePath: "",
+    displayRepo,
+    identity,
+    identityDir: path.join(sourcesRoot(projectRoot), name, identity),
+    label: `source "${name}" (${displayRepo})`,
+    pinned: pinnedRevision !== undefined,
+    ...(pinnedRevision ? { pinnedRevision } : {}),
+    fileName: urlFileName(declared.url),
   };
 }
 
@@ -620,7 +744,7 @@ function declaration(name: string, declared: ContentSource, projectRoot: string)
  * Call under the lock.
  */
 function offlineCommit(d: Declaration): string | undefined {
-  const commit = d.pinned ? d.declared.ref : readSelected(d.identityDir)?.commit;
+  const commit = d.pinned ? d.pinnedRevision : readSelected(d.identityDir)?.commit;
   return commit && readMarker(path.join(d.identityDir, commit)) ? commit : undefined;
 }
 
@@ -636,12 +760,14 @@ class SourceUnavailableError extends Error {
 
 async function resolveOne(
   name: string,
-  declared: ContentSource,
+  source: ContentSource | UrlContentSource,
   projectRoot: string,
   log: Log,
 ): Promise<SourceSnapshot> {
-  const d = declaration(name, declared, projectRoot);
-  const { sourcePath, repo, displayRepo, identity, identityDir, label, pinned } = d;
+  const d = declaration(name, source, projectRoot);
+  if (d.kind === "url") return resolveUrl(d, projectRoot, log);
+  const declared = source as ContentSource;
+  const { sourcePath, repo, displayRepo, identityDir, label, pinned } = d;
   const floatingNote = pinned ? "" : ` Ref "${declared.ref}" floats; pin a commit for reproducible builds.`;
   const level = pinned ? "info" : "warn";
   fs.mkdirSync(identityDir, { recursive: true });
@@ -692,7 +818,7 @@ async function resolveOne(
     );
     if (leased) {
       log(level, `nimbus: ${label}: ${fetched ? "fetched" : "using cached"} commit ${commit.slice(0, 12)}.${floatingNote}`);
-      return snapshotOf(name, identity, identityDir, commit, sourcePath, !pinned);
+      return snapshotOf(d, commit);
     }
   }
 
@@ -715,7 +841,245 @@ async function resolveOne(
         "warn",
         `nimbus: could not fetch ${label}: ${failure}. Building from commit ${fallback.commit.slice(0, 12)}, selected ${fallback.selectedAt}.`,
       );
-      return snapshotOf(name, identity, identityDir, fallback.commit, sourcePath, true);
+      return snapshotOf(d, fallback.commit);
+    }
+  }
+  throw new SourceUnavailableError(d, failure);
+}
+
+// ---------------------------------------------------------------------------
+// URL sources
+// ---------------------------------------------------------------------------
+
+const MAX_REDIRECTS = 10;
+
+/** What a URL request found: the selected snapshot's file unchanged, or a file. */
+type UrlFetch =
+  | { changed: false }
+  | { changed: true; bytes: Buffer; etag?: string; lastModified?: string; resource: string };
+
+/**
+ * GET a URL source's file. With validators, the request is conditional and a
+ * 304 means the selected snapshot is current. A 4xx other than 408 and 429 is
+ * the author's to fix and never falls back; anything else is transport.
+ */
+async function fetchUrl(
+  d: Declaration,
+  validators?: { etag?: string; lastModified?: string; resource?: string },
+): Promise<UrlFetch> {
+  // Validators belong to the URL that sent them, after redirects. A redirect
+  // that now leads elsewhere gets a plain request: another file can share an
+  // ETag or answer an older date with 304.
+  const conditionalHeaders: Record<string, string> = {};
+  if (validators?.etag) conditionalHeaders["if-none-match"] = validators.etag;
+  else if (validators?.lastModified) conditionalHeaders["if-modified-since"] = validators.lastModified;
+  const resourceOf = (href: string) => createHash("sha256").update(href).digest("hex");
+  // A record without one (written before it was kept) gets a plain request,
+  // which records it.
+  const resource = validators?.resource;
+  let conditional = false;
+  const timeout = timeoutMs(FETCH_TIMEOUT_ENV, DEFAULT_FETCH_TIMEOUT);
+  const signal = AbortSignal.timeout(timeout);
+  // Redirects are followed here, so each one is held to the same rule as
+  // `url`: https (http for localhost), and no user or password.
+  let url = d.repo;
+  let response: Response;
+  for (let hops = 0; ; hops++) {
+    try {
+      conditional = resource !== undefined && resourceOf(url) === resource && Object.keys(conditionalHeaders).length > 0;
+      response = await fetch(url, { headers: conditional ? conditionalHeaders : {}, redirect: "manual", signal });
+    } catch (error) {
+      throw new Error(
+        (error as Error).name === "TimeoutError"
+          ? `the request timed out after ${timeout / 1000}s`
+          : `the request failed (${failureReason(error)})`,
+      );
+    }
+    const location = response.status >= 300 && response.status < 400 && response.status !== 304
+      ? response.headers.get("location")
+      : null;
+    if (location === null) break;
+    await response.body?.cancel();
+    if (hops === MAX_REDIRECTS) throw new SourceConfigError(`it redirects more than ${MAX_REDIRECTS} times`);
+    let next: string;
+    try {
+      next = new URL(location, url).href;
+    } catch {
+      throw new SourceConfigError("it redirects to a malformed location");
+    }
+    const fault = urlSourceFault(next);
+    if (fault) throw new SourceConfigError(`it redirects to ${displayUrl(next)}, which ${fault}`);
+    url = next;
+  }
+  if (response.status === 304 && conditional) {
+    await response.body?.cancel();
+    return { changed: false };
+  }
+  if (!response.ok) {
+    await response.body?.cancel();
+    // The status only: a server's reason text could repeat the query string.
+    const status = `the server answered ${response.status}`;
+    if (response.status >= 400 && response.status < 500 && response.status !== 408 && response.status !== 429) {
+      throw new SourceConfigError(status);
+    }
+    throw new Error(status);
+  }
+  const bytes = Buffer.from(await response.arrayBuffer());
+  const etag = response.headers.get("etag");
+  const lastModified = response.headers.get("last-modified");
+  return { changed: true, bytes, resource: resourceOf(url), ...(etag ? { etag } : {}), ...(lastModified ? { lastModified } : {}) };
+}
+
+/** Why a request failed, for the message: the cause's text, else its code (a
+ * refused connection has `ECONNREFUSED` and no text), else the error's. */
+function failureReason(error: unknown): string {
+  type Failure = { message?: string; code?: string; cause?: Failure; errors?: Failure[] };
+  const failure = error as Failure;
+  const cause = failure.cause;
+  return (
+    cause?.message ||
+    cause?.code ||
+    cause?.errors?.find((e) => e.code || e.message)?.code ||
+    cause?.errors?.find((e) => e.message)?.message ||
+    failure.message ||
+    "no reason given"
+  );
+}
+
+/** Write a URL source's file into `<identityDir>/<sha256>/`: into a temporary folder, renamed into place. */
+function writeUrlSnapshot(d: Declaration, bytes: Buffer, sha256: string): void {
+  const dir = path.join(d.identityDir, sha256);
+  if (readMarker(dir)) return;
+  const tmp = `${dir}.tmp-${randomBytes(6).toString("hex")}`;
+  fs.mkdirSync(tmp, { recursive: true });
+  try {
+    fs.writeFileSync(path.join(tmp, d.fileName!), bytes);
+    const marker: UrlSourceMarker = {
+      version: MARKER_VERSION,
+      kind: "url",
+      url: d.displayRepo,
+      file: d.fileName!,
+      sha256,
+      fetchedAt: new Date().toISOString(),
+    };
+    fs.writeFileSync(path.join(tmp, SOURCE_MARKER), `${JSON.stringify(marker, null, 2)}\n`);
+    try {
+      fs.renameSync(tmp, dir);
+    } catch (error) {
+      // Another process wrote the same file first.
+      if (!readMarker(dir)) throw error;
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  } catch (error) {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+/**
+ * Resolve a URL source to a leased snapshot. A pinned one (`integrity`) is
+ * read from its snapshot with no request, or fetched once and checked. A
+ * floating one sends one conditional request; when that fails in transport,
+ * the build uses the snapshot last selected for the same declaration.
+ */
+async function resolveUrl(d: Declaration, projectRoot: string, log: Log): Promise<SourceSnapshot> {
+  fs.mkdirSync(d.identityDir, { recursive: true });
+  const floatingNote = d.pinned ? "" : " It has no integrity, so it can change between builds; set integrity to pin it.";
+  const level = d.pinned ? "info" : "warn";
+  let failure: string | undefined;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    // The selected snapshot, when it is still whole: its validators make the
+    // request conditional. A retry asks unconditionally, since a pruner
+    // removed the snapshot it found.
+    const selected =
+      d.pinned || attempt > 0
+        ? undefined
+        : await withSourcesLock(
+            projectRoot,
+            () => {
+              const record = readSelected(d.identityDir);
+              return record && readMarker(path.join(d.identityDir, record.commit)) ? record : undefined;
+            },
+            log,
+          );
+    let revision = d.pinnedRevision;
+    let validators: { etag?: string; lastModified?: string; resource?: string } = {};
+    let fetched = false;
+    if (!revision || !readMarker(path.join(d.identityDir, revision))) {
+      let result: UrlFetch;
+      try {
+        result = await fetchUrl(d, selected);
+      } catch (error) {
+        if (error instanceof SourceConfigError) {
+          throw authorError(`nimbus-docs: could not fetch ${d.label}: ${error.message}.`);
+        }
+        failure = (error as Error).message;
+        break;
+      }
+      if (!result.changed) {
+        revision = selected!.commit;
+        validators = {
+          ...(selected!.etag ? { etag: selected!.etag } : {}),
+          ...(selected!.lastModified ? { lastModified: selected!.lastModified } : {}),
+          ...(selected!.resource ? { resource: selected!.resource } : {}),
+        };
+      } else {
+        const sha256 = createHash("sha256").update(result.bytes).digest("hex");
+        if (d.pinned && sha256 !== d.pinnedRevision) {
+          throw authorError(
+            `nimbus-docs: ${d.label} does not match its integrity: expected ${(d.declared as UrlContentSource).integrity}, fetched ${hexIntegrity(sha256)}.`,
+            "Update integrity if the file changed on purpose; otherwise the URL serves a different file.",
+          );
+        }
+        writeUrlSnapshot(d, result.bytes, sha256);
+        revision = sha256;
+        validators = {
+          ...(result.etag ? { etag: result.etag } : {}),
+          ...(result.lastModified ? { lastModified: result.lastModified } : {}),
+          resource: result.resource,
+        };
+        fetched = true;
+      }
+    }
+    const dir = path.join(d.identityDir, revision);
+    const leased = await withSourcesLock(
+      projectRoot,
+      () => {
+        if (!readMarker(dir)) return false;
+        writeFileAtomic(
+          path.join(d.identityDir, "selected.json"),
+          JSON.stringify({ commit: revision!, selectedAt: new Date().toISOString(), ...validators } satisfies SelectedRecord),
+        );
+        createLease(projectRoot, dir);
+        return true;
+      },
+      log,
+    );
+    if (leased) {
+      const how = fetched ? "fetched" : selected ? "unchanged, using cached" : "using cached";
+      log(level, `nimbus: ${d.label}: ${how} sha256 ${revision.slice(0, 12)}.${floatingNote}`);
+      return snapshotOf(d, revision);
+    }
+  }
+
+  if (!d.pinned) {
+    const fallback = await withSourcesLock(
+      projectRoot,
+      () => {
+        const selected = readSelected(d.identityDir);
+        const dir = selected && path.join(d.identityDir, selected.commit);
+        if (!selected || !dir || !readMarker(dir)) return undefined;
+        createLease(projectRoot, dir);
+        return selected;
+      },
+      log,
+    );
+    if (fallback) {
+      log(
+        "warn",
+        `nimbus: could not fetch ${d.label}: ${failure}. Building from sha256 ${fallback.commit.slice(0, 12)}, selected ${fallback.selectedAt}.`,
+      );
+      return snapshotOf(d, fallback.commit);
     }
   }
   throw new SourceUnavailableError(d, failure);
@@ -725,11 +1089,12 @@ const PRIVATE_REPOSITORIES_DOCS = "https://nimbus-docs.com/content-sources/git/#
 
 function noSnapshotError(error: SourceUnavailableError, readBy: string | undefined): Error {
   const failure = (error.failure ?? "the snapshot was removed while it was being selected").replace(/\.\s*$/, "");
+  const url = error.source.kind === "url";
   return authorError(
     `nimbus-docs: could not fetch ${error.source.label}: ${failure}. ` +
-      `No snapshot of this repo, ref and path exists under ${SOURCES_DIR}/${error.source.name}/.` +
+      `No snapshot of this ${url ? "URL" : "repo, ref and path"} exists under ${SOURCES_DIR}/${error.source.name}/.` +
       (readBy ? `\n  Read by: ${readBy}.` : "") +
-      `\n  Give git a credential: ${PRIVATE_REPOSITORIES_DOCS}`,
+      (url ? "" : `\n  Give git a credential: ${PRIVATE_REPOSITORIES_DOCS}`),
   );
 }
 
@@ -790,7 +1155,8 @@ export async function resolveContentSources(
   for (const [name, source] of entries) {
     if (mode === "offline" || skip?.has(name)) {
       const d = declaration(name, source, projectRoot);
-      const lease = mode === "offline";
+      // A source skipped in preview is neither read nor leased.
+      const lease = mode === "offline" && !skip?.has(name);
       const commit = fs.existsSync(d.identityDir)
         ? await withSourcesLock(
             projectRoot,
@@ -802,11 +1168,11 @@ export async function resolveContentSources(
             log,
           )
         : undefined;
-      const snapshot = commit && snapshotOf(name, d.identity, d.identityDir, commit, d.sourcePath, !d.pinned);
+      const snapshot = commit && snapshotOf(d, commit);
       if (!lease) {
         if (snapshot) kept.set(name, snapshot);
       } else if (snapshot) {
-        log("info", `nimbus: ${d.label}: using cached commit ${commit.slice(0, 12)}.`);
+        log("info", `nimbus: ${d.label}: using cached ${d.kind === "url" ? "sha256" : "commit"} ${commit.slice(0, 12)}.`);
         snapshots.set(name, snapshot);
       } else {
         if (required?.has(name)) {
@@ -830,7 +1196,7 @@ export async function resolveContentSources(
   }
   if (mode === "offline") return { snapshots, unavailable };
   const current = new Map([...snapshots, ...kept]);
-  const declared = new Map([...current.values()].map((s) => [`${s.name}/${s.identity}`, s.commit]));
+  const declared = new Map([...current.values()].map((s) => [`${s.name}/${s.identity}`, s.revision]));
   await pruneContentSources(projectRoot, declared, log);
   writeCurrentSources(projectRoot, new Map(entries.flatMap(([name]) => (current.has(name) ? [[name, current.get(name)!]] : []))));
   return { snapshots, unavailable };
@@ -1044,7 +1410,9 @@ export function applySourceSpecs(
         `nimbus-docs: an api entry reads its spec from source "${source}", which the Nimbus config doesn't declare in sources.`,
       );
     }
-    holder.spec = path.relative(projectRoot, path.join(snapshot.dir, specPath)).split(path.sep).join("/");
+    // A URL source is one file; a repository's spec is `path` inside it.
+    const file = snapshot.file ?? path.join(snapshot.dir, specPath);
+    holder.spec = path.relative(projectRoot, file).split(path.sep).join("/");
   }
 }
 

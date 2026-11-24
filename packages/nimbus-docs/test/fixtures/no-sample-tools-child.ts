@@ -1,4 +1,4 @@
-// A process whose module loader cannot find the sample generators. Argument: the
+// A process whose module loader cannot find the sample generator. Argument: the
 // `samples.generate` list as JSON, or `null` for the default. Prints the operation
 // page's samples and Markdown twin as JSON.
 
@@ -7,7 +7,7 @@ import { register } from "node:module";
 import type { ApiSampleLang } from "../../src/types.ts";
 
 const hook = `
-  const missing = new Set(["openapi-sampler", "@readme/httpsnippet"]);
+  const missing = new Set(["openapi-sampler"]);
   export function resolve(specifier, context, next) {
     if (missing.has(specifier)) {
       throw Object.assign(new Error(\`Cannot find package '\${specifier}'\`), { code: "ERR_MODULE_NOT_FOUND" });

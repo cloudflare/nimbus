@@ -26,6 +26,8 @@ Add the same user-owned files the canonical starter ships:
 - `src/pages/robots.txt.ts`
 - `src/components/AgentDirective.astro`
 
+Each route file switches its surface on: the page Markdown versions, the `.mdx` source versions, the site index, the full document and the section indexes. The site may leave any of them out, and the build then makes nothing for that surface and links nothing to it.
+
 Then wire the layout/page props:
 
 - `src/layouts/BaseLayout.astro` imports `AgentDirective`, accepts `markdownUrl`, emits `<link rel="alternate" type="text/markdown">`, and renders `<AgentDirective />` when `markdownUrl` exists.

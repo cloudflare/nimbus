@@ -60,15 +60,25 @@ test("on server output a request-rendered page and the homepage negotiate; every
     const page = await fetch(`${origin}/docs/guide/`, { headers: markdown });
     assert.equal(page.status, 200);
     assert.match(page.headers.get("Content-Type") ?? "", /text\/markdown/);
-    assert.equal(page.headers.get("Vary"), "Cookie, Accept");
+    // Negotiation answers before the page's HTML renders, so the Markdown
+    // route's headers apply, not the page's.
+    assert.equal(page.headers.get("Vary"), "Accept");
+    assert.match(page.headers.get("ETag") ?? "", /^"sha256:/);
     assert.equal(await page.text(), await (await fetch(`${origin}/docs/guide/index.md`)).text());
+    const unchanged = await fetch(`${origin}/docs/guide/`, {
+      headers: { ...markdown, "If-None-Match": page.headers.get("ETag")! },
+    });
+    assert.equal(unchanged.status, 304, "a client holding the Markdown revalidates for free");
+    assert.equal(unchanged.headers.get("ETag"), page.headers.get("ETag"));
+    assert.equal(unchanged.headers.get("Vary"), "Accept");
     const html = await fetch(`${origin}/docs/guide/`, { headers: { Accept: "*/*" } });
     assert.match(html.headers.get("Content-Type") ?? "", /text\/html/);
     assert.match(html.headers.get("Vary") ?? "", /(^|, )Accept$/);
-    // A page's own Vary and other headers survive both forms.
+    // A page's own headers belong to its HTML, which a Markdown request never renders.
     const owned = await fetch(`${origin}/docs/guide/`, { headers: markdown });
-    assert.equal(owned.headers.get("X-Owner"), "page");
-    assert.match(owned.headers.get("Vary") ?? "", /^Cookie, Accept$/);
+    assert.equal(owned.headers.get("X-Owner"), null);
+    assert.equal(html.headers.get("X-Owner"), "page");
+    assert.match(html.headers.get("Vary") ?? "", /^Cookie, Accept$/);
     const head = await fetch(`${origin}/docs/guide/`, { method: "HEAD", headers: markdown });
     assert.match(head.headers.get("Content-Type") ?? "", /text\/markdown/);
     assert.equal(await head.text(), "");
@@ -77,8 +87,11 @@ test("on server output a request-rendered page and the homepage negotiate; every
     assert.equal(home.headers.get("Vary"), "Accept");
     assert.equal(await home.text(), await (await fetch(`${origin}/docs/index.md`)).text());
     const homeHtml = await fetch(`${origin}/docs/`);
-    assert.equal(home.headers.get("Link"), homeHtml.headers.get("Link"));
-    assert.match(home.headers.get("Link") ?? "", /rel="help".*rel="ard"/);
+    // The HTML form carries the page's own Link and the discovery links; the
+    // Markdown form, answered without rendering the page, the discovery links.
+    assert.match(homeHtml.headers.get("Link") ?? "", /rel="help".*rel="ard"/);
+    assert.equal(home.headers.get("Link"), homeHtml.headers.get("Link")!.replace(/^<[^>]*>; rel="help", /, ""));
+    assert.match(home.headers.get("Link") ?? "", /^<[^>]*>; rel="ard"/);
     // Endpoints, assets, and a URL no entry owns pass through untouched.
     for (const route of ["/docs/llms.txt", "/docs/guide/index.md", "/docs/.well-known/ard.json", "/docs/nowhere/"]) {
       const response = await fetch(origin + route, { headers: markdown });
@@ -196,7 +209,18 @@ test("production homepage Markdown reuses on-demand llms without shadowing an ow
   try {
     process.env.NODE_ENV = "production";
     await site.write("src/pages/[...slug].astro", `---\nimport { getDocsStaticPaths } from ${srcModule("index.ts")};\nexport const getStaticPaths = getDocsStaticPaths;\n---\n<html><body>Page</body></html>`);
-    await site.write("src/pages/llms.txt.ts", 'export const prerender = false;\nexport function GET() { return new Response("Owner documentation index.", { headers: { "Content-Type": "text/plain", "X-Owner": "index" } }); }\n');
+    await site.write(
+      "src/pages/llms.txt.ts",
+      [
+        "export const prerender = false;",
+        "export function GET({ request }) {",
+        '  const headers = { "Content-Type": "text/plain", "X-Owner": "index", ETag: \'"owner-index"\' };',
+        '  if (request.headers.get("If-None-Match") === \'"owner-index"\') return new Response(null, { status: 304, headers });',
+        '  return new Response("Owner documentation index.", { headers });',
+        "}",
+        "",
+      ].join("\n"),
+    );
     await site.write("server-entry.mjs", 'import { createApp } from "astro/app/entrypoint";\nexport const app = createApp();\n');
     for (const owner of [false, true]) {
       if (owner) await site.write("src/pages/index.md.ts", 'export const prerender = false;\nexport function GET() { return new Response("Owner homepage Markdown.", { headers: { "Content-Type": "text/markdown", "X-Owner": "home" } }); }\n');
@@ -210,6 +234,13 @@ test("production homepage Markdown reuses on-demand llms without shadowing an ow
         assert.match(response.headers.get("Content-Type") ?? "", /text\/markdown/);
         assert.equal(response.headers.get("X-Owner"), owner ? "home" : "index", `${method}: ${await response.clone().text()}`);
         assert.equal(await response.text(), method === "HEAD" ? "" : owner ? "Owner homepage Markdown." : "Owner documentation index.");
+      }
+      if (!owner) {
+        // The owner's index revalidates; its 304 is the homepage's answer, not a reason to render something else.
+        const unchanged = await app.render(new Request("https://example.test/docs/index.md", { headers: { "If-None-Match": '"owner-index"' } }));
+        assert.equal(unchanged.status, 304);
+        assert.equal(unchanged.headers.get("X-Owner"), "index");
+        assert.equal(unchanged.body, null);
       }
     }
   } finally {
@@ -303,7 +334,8 @@ export async function GET(context) {
         assert.equal(response.status, 200);
         assert.match(response.headers.get("Content-Type") ?? "", /text\/markdown/);
         assert.match(response.headers.get("Vary") ?? "", /Accept/);
-        if (route !== "/") assert.equal(response.headers.get("X-Owner"), "page");
+        // The Markdown form is the deployed file's; the page's headers are its HTML's.
+        assert.equal(response.headers.get("X-Owner"), null);
         const alternate = `${origin}${base}${route === "/" ? "/index.md" : `${route}index.md`}`;
         const expected = await (await fetch(alternate)).text();
         assert.equal(await response.text(), expected);

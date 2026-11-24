@@ -4,21 +4,17 @@
  * "How do I…?" is a legitimate heading. Auto-fixable: strip the trailing
  * punctuation.
  *
- * Detection is delegated to `remark-lint-no-heading-punctuation` via the
- * adapter. The plugin's default disallowed set is `.,;:!?`; we override
- * with `.,;:!` so `?` headings stay legitimate — the policy lives in the
- * plugin's options, not in a post-filter that would silently mask any
- * future detection improvement.
+ * Detection is the `headingPunctuation` detector (`../detectors.ts`), given
+ * the disallowed set `.,;:!` so `?` headings stay legitimate: the policy is
+ * the detector's input, not a post-filter that could mask a detection.
  *
  * The wrapper re-walks the tree at each reported position to recover the
  * heading node, then builds the dynamic message (which names the trailing
  * punct) and the surgical fix (which strips it).
  */
 
-import remarkLintNoHeadingPunctuation from "remark-lint-no-heading-punctuation";
-
 import { collect, findNodeAt, textOf } from "../parse.js";
-import { runRemarkLintRule } from "../remark-lint-adapter.js";
+import { headingPunctuation as trailingPunctuation } from "../detectors.js";
 import type { Rule } from "../rule.js";
 
 /** Punctuation the rule treats as offending — `?` is intentionally absent. */
@@ -32,16 +28,7 @@ const TRAILING = new RegExp(
 export const headingPunctuation: Rule = {
   code: "nimbus/heading-punctuation",
   run(ctx) {
-    const reports = runRemarkLintRule(
-      remarkLintNoHeadingPunctuation,
-      ctx.file.tree,
-      {
-        path: ctx.file.path,
-        source: ctx.file.source,
-        // Pin the disallowed set — default is `.,;:!?`; we drop `?`.
-        settings: [DISALLOWED],
-      },
-    );
+    const reports = trailingPunctuation(ctx.file.tree, new RegExp(`[${DISALLOWED}]`, "u"));
 
     for (const r of reports) {
       const heading = findNodeAt(ctx.file.tree, "heading", r.line, r.column);
@@ -64,7 +51,7 @@ export const headingPunctuation: Rule = {
       const end = last?.position?.end.offset;
 
       if (!match || typeof end !== "number") {
-        // remark-lint flagged the heading but our text walk can't find
+        // The detector flagged the heading but our text walk can't find
         // the trailing punct on the last text node — likely because the
         // heading ends with an inline node we don't peer into (a code
         // span, link text, etc.). Emit the diagnostic without a fix.

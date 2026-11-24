@@ -28,6 +28,8 @@ interface Project {
   routes?: string | null;
   /** Written as `astro.config.ts`. */
   astroConfig?: string;
+  contentConfig?: string;
+  page?: string;
 }
 
 interface Envelope {
@@ -52,8 +54,11 @@ function run(
     fs.mkdirSync(path.join(dir, "src/content/docs"), { recursive: true });
     fs.writeFileSync(
       path.join(dir, "src/content/docs/page.mdx"),
-      "---\ntitle: Page\n---\n\n# Page\n\nSee [x](/nope).\n",
+      project.page ?? "---\ntitle: Page\n---\n\n# Page\n\nSee [x](/nope).\n",
     );
+    if (project.contentConfig) {
+      fs.writeFileSync(path.join(dir, "src/content.config.ts"), project.contentConfig);
+    }
     fs.mkdirSync(path.join(dir, ".nimbus"), { recursive: true });
     if (project.rules || project.collections) {
       fs.writeFileSync(
@@ -173,6 +178,23 @@ test("usable routes.json runs the rule as configured", () => {
   assert.equal(result.json.diagnostics.length, 1);
   assert.equal(result.json.diagnostics[0]!.severity, "warn");
   assert.match(result.json.diagnostics[0]!.message, /broken link "\/nope"/);
+});
+
+test("lint applies collection rules when the collection name differs from its content folder", () => {
+  const result = lint({
+    contentConfig: `
+      import { defineCollection } from "astro:content";
+      import { docsCollection } from "@cloudflare/nimbus-docs/content";
+      export const collections = { guides: defineCollection(docsCollection({ base: "docs" })) };
+    `,
+    collections: { guides: { rules: { "nimbus/single-h1": "error" } } },
+    page: "---\ntitle: Page\n---\n\n# First heading\n\n# Second heading\n",
+  });
+
+  assert.equal(result.status, 1, JSON.stringify(result.json));
+  assert.equal(result.json.diagnostics.length, 1);
+  assert.equal(result.json.diagnostics[0]!.code, "nimbus/single-h1");
+  assert.equal(result.json.diagnostics[0]!.severity, "error");
 });
 
 test("missing lint.json exits 1: with no rules enabled, nothing would be checked", () => {

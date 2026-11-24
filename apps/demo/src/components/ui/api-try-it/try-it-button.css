@@ -1,0 +1,55 @@
+/* Try it's button in the code rail. On the page from the start; everything else loads on click. */
+/* Full width between the request sample and the response example, tinted in the
+   operation's method colour (--nb-ti-m, set on the bar). */
+[data-nb-api-coderail] .nb-ti-bar {
+  padding: 0.5rem 0.5rem 0;
+}
+[data-nb-api-coderail] .nb-ti-bar:last-child {
+  padding-bottom: 0.5rem;
+}
+/* Visible from the first paint so the rail doesn't shift; hidden without JavaScript, where it can't work. */
+@media (scripting: none) {
+  [data-nb-api-coderail] .nb-ti-bar {
+    display: none;
+  }
+}
+[data-nb-api-coderail] .nb-ti-toggle {
+  width: 100%;
+  height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 0;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--nb-ti-m) 6%, var(--color-card));
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--nb-ti-m) 40%, transparent);
+  font: inherit;
+  font-weight: 600;
+  color: var(--nb-ti-m);
+  cursor: pointer;
+  transition: background-color 150ms ease-out, box-shadow 150ms ease-out, transform 100ms ease-out;
+}
+[data-nb-api-coderail] .nb-ti-toggle::before {
+  content: "";
+  border-style: solid;
+  border-width: 4.5px 0 4.5px 7px;
+  border-color: transparent transparent transparent currentColor;
+}
+[data-nb-api-coderail] .nb-ti-toggle:hover {
+  background: color-mix(in oklab, var(--nb-ti-m) 11%, var(--color-card));
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--nb-ti-m) 62%, transparent);
+}
+[data-nb-api-coderail] .nb-ti-toggle:active {
+  transform: translateY(0.5px) scale(0.995);
+}
+[data-nb-api-coderail] .nb-ti-toggle:focus-visible {
+  outline: 2px solid var(--color-ring, var(--nb-cr-accent));
+  outline-offset: 2px;
+}
+@media (max-width: 767px) {
+  [data-nb-api-coderail] .nb-ti-toggle {
+    height: 2.75rem;
+  }
+}
+

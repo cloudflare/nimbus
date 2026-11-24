@@ -67,6 +67,67 @@ export function redactUrlUserinfo(text: string): string {
   return text.replace(URL_USERINFO, (_match, prefix: string) => `${prefix}***@`);
 }
 
+/** A `sources` entry that names a URL rather than a git repository. */
+export function isUrlSource(source: unknown): source is { url: string; integrity?: string } {
+  return typeof source === "object" && source !== null && typeof (source as { url?: unknown }).url === "string";
+}
+
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/**
+ * Why a URL source's `url` can't be used, or `undefined`. Refused: anything
+ * but `https` (`http` is allowed for `localhost`), and a user or password in
+ * the URL. A query string is allowed; messages never show it.
+ */
+export function urlSourceFault(url: string): string | undefined {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return "is not a URL";
+  }
+  if (parsed.username || parsed.password) return "has a user or password in it";
+  if (parsed.protocol === "https:") return undefined;
+  if (parsed.protocol === "http:" && LOCAL_HOSTS.has(parsed.hostname)) return undefined;
+  return parsed.protocol === "http:" ? "must use https (http is allowed only for localhost)" : "must be an https URL";
+}
+
+/** A URL for messages: origin and path, without its query string or fragment. */
+export function displayUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return "<invalid URL>";
+  }
+}
+
+const INTEGRITY = /^sha256-([A-Za-z0-9+/]{43}=)$/;
+
+/** The hex SHA-256 an `integrity` value names, or `undefined` when it isn't `sha256-<base64>`. */
+export function integrityHex(integrity: string): string | undefined {
+  const match = INTEGRITY.exec(integrity);
+  return match ? Buffer.from(match[1]!, "base64").toString("hex") : undefined;
+}
+
+/** A hex SHA-256 as an `integrity` value. */
+export function hexIntegrity(hex: string): string {
+  return `sha256-${Buffer.from(hex, "hex").toString("base64")}`;
+}
+
+/** The name a URL source's file is saved under: the URL's last path segment, made safe. */
+export function urlFileName(url: string): string {
+  let segment = "";
+  try {
+    segment = decodeURIComponent(new URL(url).pathname.split("/").pop() ?? "");
+  } catch {
+    // An undecodable or invalid path keeps the fallback.
+  }
+  // No leading dot, so it can't be the snapshot's marker file.
+  const safe = segment.replace(/[^A-Za-z0-9._-]/g, "-").replace(/^[.-]+/, "");
+  return safe || "source";
+}
+
 /** A source or spec path: forward slashes, no leading `./` or slashes, no doubled or trailing slash. */
 export function normalizeSourcePath(value: string | undefined): string {
   return (value ?? "")

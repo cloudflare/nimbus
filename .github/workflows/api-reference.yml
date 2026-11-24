@@ -61,7 +61,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Install pinned Chromium
-        run: pnpm exec playwright install --with-deps chromium
+        # Ubuntu's mirrors can be unreachable from the runners. The image already
+        # has Chromium's libraries (today only fonts come from apt), and no check
+        # depends on them.
+        run: |
+          timeout --kill-after=10 180 pnpm exec playwright install --with-deps chromium || {
+            echo "::warning::Installing Chromium with its system packages failed; retrying without them."
+            pnpm exec playwright install chromium
+          }
 
       - name: Run generated-consumer acceptance check
         run: pnpm api-reference:check

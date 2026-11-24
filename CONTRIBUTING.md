@@ -32,6 +32,8 @@ drive-by AI-generated PR is cheap to write and expensive to review.
 
 CI on a pull request from a fork waits for a maintainer to approve the run.
 
+A PR listing a [community recipe](https://nimbus-docs.com/community-recipes) merges when its author owns the repo in the recipe's URL, or the owner says yes in the PR, and the recipe isn't a copy of someone else's.
+
 ## For maintainers
 
 Before you open a PR:
@@ -39,7 +41,7 @@ Before you open a PR:
 - Put the change in the right place: framework bugs and plumbing in `nimbus-docs`, styling and layout in the starter, optional extras in the registry.
 - Edit `packages/nimbus-starter-source/`, never the `templates` branch — that's generated, and direct edits get clobbered on the next release.
 - Add a changeset for anything user-facing. Starter edits need a `create-nimbus-docs` changeset, or the freshness guard fails the PR.
-- For every intentional public API break, apply the `breaking-change` PR label and add a linked entry to the comprehensive upgrade manifest. Use `optional` only when every existing site keeps building with the same output without acting; conditional entries stay `review-required`. Every entry carries manual guidance; add a migration ID, detector, transform, bounded task, and focused fixtures only when maintainers deliberately classify the change as common, mechanical, and canonically detectable. Run `pnpm upgrades:check`. CI verifies the declaration, pending changeset, and manifest continuity. If a shipped release missed an entry, add it with that release's `introducedIn` and `"backfill": true`, as `review-required` with no migration ID, linked to a pending `@cloudflare/nimbus-docs` changeset; sites upgrading across that release then see it, and the check lists it for review.
+- For every intentional public API break, apply the `breaking-change` PR label and add a linked entry to the comprehensive upgrade manifest. Use `optional` only when every existing site keeps building with the same output without acting; conditional entries stay `review-required`. Every entry carries manual guidance; add a migration ID, detector, transform, bounded task, and focused fixtures only when maintainers deliberately classify the change as common, mechanical, and canonically detectable. An `optional` entry ships in any `@cloudflare/nimbus-docs` release; the others need a minor (a major after 1.0). The version-bump PR moves each unreleased entry to the version it releases. Run `pnpm upgrades:check`. CI verifies the declaration, pending changeset, and manifest continuity. If a shipped release missed an entry, add it with that release's `introducedIn` and `"backfill": true`, as `review-required` with no migration ID, linked to a pending `@cloudflare/nimbus-docs` changeset; sites upgrading across that release then see it, and the check lists it for review.
 - Check that `pnpm typecheck`, `pnpm -r test`, and `pnpm templates:check` pass.
 
 For Markdown pipeline changes, extend the small mixed-format fixture in
@@ -91,6 +93,8 @@ Merging the "chore: bump package versions" PR publishes to npm, then automatical
 
 If npm publishes but the www deploy fails, run the Release workflow manually from `main` (**Actions → Release → Run workflow**) while no other Release run is in progress; a manual run can cancel a queued one, so rerun any it cancels. It skips publishing, builds the newer of the two packages' npm `latest` release tags, and deploys only if both package versions at that commit match npm `latest`. Rerunning a whole push-triggered Release run does not redeploy if nothing new was published.
 
+npm can take minutes to show a version it has accepted. The release script waits up to 15 minutes per package, then logs a warning and carries on, since the publish itself succeeded; the verify workflow retries its scaffold against npm on its own.
+
 If publishing failed partway, recover any missing git tags as the release script instructs. If a package still needs publishing, rerun the push-triggered run; it deploys once publishing completes. If both packages are already on npm, use the manual run.
 
 There is no rollback to an older release: the deploy refuses a release older than npm `latest`, so fix forward with a new release. In an emergency, Cloudflare's Worker deployment rollback is the only sanctioned production change outside the Release workflow.
@@ -105,33 +109,41 @@ On npm, both `@cloudflare/nimbus-docs` and `@cloudflare/create-nimbus-docs` need
 
 If a new connection expires before it validates, delete and recreate it near the next release; keep the old connection until its replacement validates. During this cutover, the old connections still allow OIDC publishing without the environment restriction. That restriction applies to trusted-publisher connections only after the old ones are removed; npm token and manual publishing access are configured separately in npm's Publishing access settings.
 
-### Live www Previews
+### Live Previews
 
-[Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/) deploys each pushed branch, except `main`, Dependabot branches, and `templates`, to a [Worker Preview](https://developers.cloudflare.com/workers/previews/) whose name is derived from the branch name (for example, `feat/foo` becomes `feat-foo`). The Cloudflare bot comments its URL on the PR, and its dashboard link ends in `/previews/<name>` with the exact name. Test the PR's registry with `NIMBUS_REGISTRY_URL=<url>/registry`. Fork branches are not built; see [Fork PR previews](#fork-pr-previews). Closing a PR deletes its branch's Preview; Previews for branches without a PR are evicted by Cloudflare's per-Worker Preview limit.
+[Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/) deploys each pushed branch, except `main`, Dependabot branches, and `templates`, to a [Worker Preview](https://developers.cloudflare.com/workers/previews/) of both www (`nimbus-docs`) and the weather demo (`nimbus-demo-weather`). The Preview's name is derived from the branch name (for example, `feat/foo` becomes `feat-foo`). The Cloudflare bot comments each URL on the PR, and its dashboard link ends in `/previews/<name>` with the exact name. Test the PR's registry with `NIMBUS_REGISTRY_URL=<www url>/registry`. Fork branches are not built; see [Fork PR previews](#fork-pr-previews), which covers www only. Closing a PR deletes its branch's Previews; Previews for branches without a PR are evicted by Cloudflare's per-Worker Preview limit.
 
-Pushes to `main` build but never update production; only the release deploy does. The `nimbus-docs` Worker's Builds settings must keep that true:
+Pushes to `main` build but never update production; only the release deploy does. Both Workers' Builds settings must keep that true:
 
-| Setting           | Value                                                                      |
-| ----------------- | -------------------------------------------------------------------------- |
-| Root directory    | `apps/www`                                                                 |
-| Build variable    | `SKIP_DEPENDENCY_INSTALL=1`                                                |
-| Build command     | See below                                                                  |
-| Production branch | `main`                                                                     |
-| Deploy command    | `echo "Production deploys run from release.yml"` (never `wrangler deploy`) |
-| Preview builds    | Enabled                                                                    |
-| Preview command   | Default, `npx wrangler preview`                                            |
-| Preview URLs      | `<name>.nimbus-docs.com`; `workers.dev` off (`preview_urls`, next release) |
-| Build watch paths | Default (include `*`, exclude nothing)                                     |
+| Setting           | `nimbus-docs` (www)                                   | `nimbus-demo-weather` (demo)                               |
+| ----------------- | ----------------------------------------------------- | ---------------------------------------------------------- |
+| Root directory    | `apps/www`                                            | `apps/demo`                                                |
+| Build variable    | `SKIP_DEPENDENCY_INSTALL=1`                           | `SKIP_DEPENDENCY_INSTALL=1`                                |
+| Build command     | See below                                             | See below                                                  |
+| Production branch | `main`                                                | `main`                                                     |
+| Deploy command    | `echo "Production deploys run from release.yml"` (never `wrangler deploy`) | The same                          |
+| Preview builds    | Enabled                                               | Enabled                                                    |
+| Preview command   | Default, `npx wrangler preview`                       | Default, `npx wrangler preview`                            |
+| Preview URLs      | `<name>.nimbus-docs.com`; `workers.dev` off           | `<name>.demo.nimbus-docs.com` (`previews_enabled` on the custom domain); `workers.dev` off |
+| Build watch paths | Default (include `*`, exclude nothing)                | Default                                                    |
 
-Build command:
+Build command for `nimbus-docs` (www):
 
 ```sh
-case "$WORKERS_CI_BRANCH" in dependabot/*|templates|fork-*) exit 1 ;; esac && pnpm install --frozen-lockfile && pnpm run build:workers
+n=$(printf %s "$WORKERS_CI_BRANCH" | tr A-Z a-z | sed 's/[^a-z0-9-]/-/g; s/--*/-/g; s/^-//; s/-$//') && case "$WORKERS_CI_BRANCH" in dependabot/*|templates|fork-*) exit 1 ;; esac && [ "$n" != demo ] && pnpm install --frozen-lockfile && pnpm run build:workers
 ```
 
-The weather demo's `nimbus-demo-weather` Worker takes the same settings with root directory `apps/demo`; its `build:workers` marks every response `noindex`.
+Build command for `nimbus-demo-weather` (demo):
 
-The build command stops Dependabot, `templates` and `fork-*` builds before any of their code runs (`fork-*` names belong to fork PR Previews, so don't use them for branches), so those commits show a failed Workers Builds check. Keep the default watch paths: the `pr preview` label needs a Preview of the PR's latest commit, and a skipped build leaves an older one. Workers Builds runs other branches' code with its own Cloudflare API token, so anyone who can push a branch can use that token. If PR-close cleanup fails, a build still running at close recreates the Preview, or a PR doesn't target `main` or is retargeted away from it, run `pnpm exec wrangler preview delete --name <name> --skip-confirmation`, using the name from the bot's dashboard link, from `apps/www` with access to the Worker account.
+```sh
+n=$(printf %s "$WORKERS_CI_BRANCH" | tr A-Z a-z | sed 's/[^a-z0-9-]/-/g; s/--*/-/g; s/^-//; s/-$//') && case "$WORKERS_CI_BRANCH" in dependabot/*|templates|fork-*) exit 1 ;; esac && [ "$n" != api ] && pnpm install --frozen-lockfile && pnpm run build:workers
+```
+
+Both stop Dependabot, `templates` and `fork-*` builds before any of their code runs (`fork-*` names belong to fork PR Previews, so don't use them for branches), so those commits show a failed Workers Builds check. Each also refuses the one Preview name that would take an existing hostname: `demo` for www (`demo.nimbus-docs.com`) and `api` for the demo (the sandbox API at `api.demo.nimbus-docs.com`). `n` is the Preview name Workers derives from the branch, so `API_` or `api-` are refused too. The demo's `build:workers` marks every response `noindex`.
+
+Keep the default watch paths: the `pr preview` label needs a Preview of the PR's latest commit, and a skipped build leaves an older one. Workers Builds runs other branches' code with its own Cloudflare API token, so anyone who can push a branch can use that token. If PR-close cleanup fails, a build still running at close recreates a Preview, or a PR doesn't target `main` or is retargeted away from it, run `pnpm exec wrangler preview delete --name <name> --skip-confirmation`, using the name from the bot's dashboard link, from `apps/www` or `apps/demo` with access to the Worker account.
+
+Try it on a demo Preview sends to the shared sandbox API (`apps/demo/fixture-api`, Worker `nimbus-demo-api`), which each release deploys before the demo. It answers for the released specs, so an operation a PR adds gets the sandbox's 404 until it ships. It takes any key, and Try it starts on `wx_test_demo` (`tryIt.testKey`). It allows 60 requests a minute per address (an IPv6 /64 counts as one) and, as the docs state, 10 a minute per key from one address; both counts are per Cloudflare location and approximate, so a zone rate limiting rule is still the real abuse protection. After changing a spec generator or a spec, run `pnpm --filter @nimbus/demo-weather generate-spec` and `fixture-api:routes`; CI fails while either is stale.
 
 ### Preview releases
 

@@ -17,8 +17,12 @@ import {
   type MarkdownRouteRecord,
 } from "../src/_internal/markdown-routes.ts";
 import {
+  agentFactoryCall,
+  describeUnreadAgentRoute,
+  patternsMayOverlap,
   recordMarkdownRoutes,
   sharedMarkdownRouteSurface,
+  unreadAgentRoutes,
 } from "../src/_internal/markdown-routes-plugin.ts";
 import {
   agentManifest as manifest,
@@ -351,7 +355,7 @@ test("two shared files serve every collection under a base, and a changelog over
   );
   assert.doesNotMatch(site.logs, /not prerendered|did not generate/);
   const baked = await manifest(site.root);
-  assert.equal(baked.version, 6);
+  assert.equal(baked.version, 7);
 
   const outputs = await markdownOutputs(site.root);
   const api = outputs.filter((file) => file.startsWith("api/"));
@@ -490,4 +494,170 @@ export const GET = route.GET;
     globalThis.fetch = realFetch;
     console.error = realError;
   }
+});
+
+// Astro's own segment shape for a route pattern: `[...slug].md` is one segment
+// of two parts, a spread and the static `.md`, which `recordMarkdownRoutes`
+// rejects while the pattern's regex still matches every `.md` URL.
+function astroRoute(entrypoint: string, pattern: string, origin: "project" | "internal" = "project") {
+  const segments = pattern
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => {
+      const parts: Array<{ content: string; dynamic: boolean; spread: boolean }> = [];
+      for (const match of segment.matchAll(/\[(\.\.\.)?(\w+)\]|([^[\]]+)/gu)) {
+        if (match[3] !== undefined) parts.push({ content: match[3], dynamic: false, spread: false });
+        else parts.push({ content: match[2]!, dynamic: true, spread: match[1] !== undefined });
+      }
+      return parts;
+    });
+  const source = segments
+    .map((parts) =>
+      `\\/${parts
+        .map((part) => (part.spread ? "(.*?)" : part.dynamic ? "([^/]+?)" : part.content.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))
+        .join("")}`,
+    )
+    .join("");
+  return {
+    type: "endpoint" as const,
+    origin,
+    segments,
+    pattern,
+    patternRegex: new RegExp(`^${source}$`),
+    params: [],
+    entrypoint,
+    isPrerendered: false,
+  };
+}
+
+const ENDPOINTS = 'from "@cloudflare/nimbus-docs/agent-endpoints";';
+
+test("agentFactoryCall names the factory called, through every import form, with the surface derived from it", () => {
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nexport const { GET } = markdownRoute();`), "markdownRoute");
+  assert.equal(agentFactoryCall(`import { llmsRoute as index } ${ENDPOINTS}\nconst r = index();`), "llmsRoute");
+  assert.equal(agentFactoryCall(`import * as agents ${ENDPOINTS}\nexport const { GET } = agents.llmsSectionRoute();`), "llmsSectionRoute");
+  assert.equal(agentFactoryCall(`const { llmsFullRoute } = await import("@cloudflare/nimbus-docs/agent-endpoints");\nllmsFullRoute();`), "llmsFullRoute");
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\n// markdownRoute()\nexport const GET = () => new Response("x");`), undefined);
+  assert.equal(agentFactoryCall(`import { markdownRoute } from "./helper";\nmarkdownRoute();`), undefined);
+  // A factory named in response text, a template or a string is not a call.
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nexport const GET = () => new Response("Example: markdownRoute()");`), undefined);
+  assert.equal(agentFactoryCall(`import { llmsRoute } ${ENDPOINTS}\nexport const GET = () => new Response(\`see \${"llmsRoute()"} here\`);`), undefined);
+  assert.equal(agentFactoryCall(`import { llmsRoute } ${ENDPOINTS}\nconst note = 'llmsRoute()';\nexport const { GET } = llmsRoute();`), "llmsRoute");
+  // Regex literals and quotes inside template expressions neither hide a call nor make one.
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nconst quote = /"/;\nexport const { GET } = markdownRoute();`), "markdownRoute");
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nconst example = /markdownRoute()/;\nexport const GET = () => new Response("x");`), undefined);
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nconst text = \`\${"{"}\`;\nexport const { GET } = markdownRoute();`), "markdownRoute");
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nconst half = 4 / 2 / 1;\nexport const { GET } = markdownRoute();`), "markdownRoute");
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\n/* markdownRoute() */ // markdownRoute()\nexport const GET = () => new Response("x");`), undefined);
+  // A regex after a control statement's parenthesis; literals nested in template expressions.
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nif (true) /markdownRoute()/.test("x");\nexport const GET = () => new Response("x");`), undefined);
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nif (true) /"/.test("x"); export const { GET } = markdownRoute();`), "markdownRoute");
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nconst x = \`\${\`a\${"\`"}\`}\`; export const { GET } = markdownRoute();`), "markdownRoute");
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nconst y = \`\${ /* } */ markdownRoute() }\`;`), "markdownRoute");
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nconst z = \`\${ /}/.test("x") ? markdownRoute() : "x" }\`;`), "markdownRoute");
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nconst n = (a)(b) / 2 / markdownRoute();`), "markdownRoute");
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nfunction f() { return /markdownRoute()/; }`), undefined);
+  // A regex after a statement block; division after a postfix increment.
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nif (true) {} /markdownRoute()/.test("x");`), undefined);
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nif (true) {} /"/.test("x"); export const { GET } = markdownRoute();`), "markdownRoute");
+  assert.equal(agentFactoryCall(`import { markdownRoute } ${ENDPOINTS}\nlet n = 1; const m = n++ / markdownRoute() / 2;`), "markdownRoute");
+  assert.equal(sharedMarkdownRouteSurface(`import { llmsFullRoute } ${ENDPOINTS}\nllmsFullRoute();`), "llms");
+});
+
+test("patternsMayOverlap walks segments: static mismatch is disjoint, a spread absorbs the rest", () => {
+  assert.equal(patternsMayOverlap("/blog/[...slug].md", "/[...slug]/index.md"), true);
+  assert.equal(patternsMayOverlap("/[...slug].md", "/[...slug]/index.md"), true);
+  assert.equal(patternsMayOverlap("/blog/[...slug].md", "/docs/[...slug]/index.md"), false);
+  assert.equal(patternsMayOverlap("/[section]/[...rest].md", "/blog/[...slug]/index.md"), true);
+  assert.equal(patternsMayOverlap("/markdown", "/[...slug]/index.md"), false, "a static last segment that is not index.md never serves one");
+  assert.equal(patternsMayOverlap("/feed.txt", "/llms.txt"), false);
+  assert.equal(patternsMayOverlap("/a/b", "/a"), false);
+  // Static affixes on the last segment must agree; a bare spread matches nothing too.
+  assert.equal(patternsMayOverlap("/[...slug].json", "/[...slug]/index.md"), false);
+  assert.equal(patternsMayOverlap("/[...slug].md", "/[...slug]/index.md"), true);
+  assert.equal(patternsMayOverlap("/[...file].txt", "/[...section]/llms.txt"), true);
+  assert.equal(patternsMayOverlap("/a", "/a/[...rest]"), true);
+  assert.equal(patternsMayOverlap("/a/[...rest]/index.md", "/a"), false);
+  // Text before a spread constrains the first segment of its span, not the file name.
+  assert.equal(patternsMayOverlap("/raw-[...slug].md", "/[...slug]/index.md"), true);
+  assert.equal(patternsMayOverlap("/raw-[...slug].json", "/[...slug]/index.md"), false);
+  assert.equal(patternsMayOverlap("/[name].md", "/[...slug]/index.md"), true);
+});
+
+test("unreadAgentRoutes names a factory call from a shape Nimbus doesn't record, and the recorded route it may shadow", () => {
+  const sources: Record<string, string> = {
+    "src/pages/[...slug].md.ts": `import { markdownRoute } ${ENDPOINTS}\nexport const { GET } = markdownRoute();`,
+    "src/pages/blog/[...slug].md.ts": `import { markdownRoute as md } ${ENDPOINTS}\nexport const GET = md().GET;`,
+    "src/pages/redirects/[...slug].md.ts": "export const GET = (context) => context.redirect('/x', 301);",
+    "src/pages/markdown.ts": `import { llmsRoute } ${ENDPOINTS}\nexport const { GET } = llmsRoute();`,
+    "src/pages/all.txt.ts": `import { llmsFullRoute } ${ENDPOINTS}\nexport const { GET } = llmsFullRoute();`,
+    "site/pages/notes/[...slug].md.ts": `import { markdownRoute } ${ENDPOINTS}\nexport const { GET } = markdownRoute();`,
+    "src/pages/[...slug]/index.md.ts": `import { markdownRoute } ${ENDPOINTS}\nexport const { GET, getStaticPaths } = markdownRoute();`,
+    "src/pages/docs/[...slug]/index.md.ts": "export const GET = () => new Response('own');",
+    "src/pages/llms.txt.ts": `import { llmsRoute } ${ENDPOINTS}\nexport const { GET } = llmsRoute();`,
+  };
+  // Astro's priority order: the mixed spread+static segments first, then the starter's.
+  const routes = [
+    astroRoute("src/pages/blog/[...slug].md.ts", "/blog/[...slug].md"),
+    astroRoute("src/pages/redirects/[...slug].md.ts", "/redirects/[...slug].md"),
+    astroRoute("src/pages/[...slug].md.ts", "/[...slug].md"),
+    astroRoute("src/pages/markdown.ts", "/markdown"),
+    astroRoute("src/pages/all.txt.ts", "/all.txt"),
+    astroRoute("site/pages/notes/[...slug].md.ts", "/notes/[...slug].md"),
+    astroRoute("src/pages/llms.txt.ts", "/llms.txt"),
+    astroRoute("src/pages/docs/[...slug]/index.md.ts", "/docs/[...slug]/index.md"),
+    astroRoute("src/pages/[...slug]/index.md.ts", "/[...slug]/index.md"),
+    astroRoute("node_modules/pkg/[llms].txt.ts", "/pets/[llms].txt", "internal"),
+  ];
+  const read = (file: string) => sources[file];
+  const unread = unreadAgentRoutes(routes, read);
+  assert.deepEqual(
+    unread.map(({ entrypoint, factory, suggested, shadows }) => ({ entrypoint, factory, suggested, shadows })),
+    [
+      {
+        entrypoint: "src/pages/blog/[...slug].md.ts",
+        factory: "markdownRoute",
+        suggested: "src/pages/blog/[...slug]/index.md.ts",
+        shadows: "src/pages/[...slug]/index.md.ts",
+      },
+      {
+        entrypoint: "src/pages/[...slug].md.ts",
+        factory: "markdownRoute",
+        suggested: "src/pages/[...slug]/index.md.ts",
+        shadows: "src/pages/docs/[...slug]/index.md.ts",
+      },
+      { entrypoint: "src/pages/markdown.ts", factory: "llmsRoute", suggested: "src/pages/llms.txt.ts", shadows: undefined },
+      // The suggestion follows the file's own pages folder; the full document at its own name is not reported.
+      {
+        entrypoint: "site/pages/notes/[...slug].md.ts",
+        factory: "markdownRoute",
+        suggested: "site/pages/notes/[...slug]/index.md.ts",
+        shadows: "src/pages/[...slug]/index.md.ts",
+      },
+    ],
+  );
+  // A prefixed old route beside a disjoint recorded one shadows nothing.
+  assert.equal(
+    unreadAgentRoutes(
+      [astroRoute("src/pages/blog/[...slug].md.ts", "/blog/[...slug].md"), astroRoute("src/pages/docs/[...slug]/index.md.ts", "/docs/[...slug]/index.md")],
+      read,
+    )[0]?.shadows,
+    undefined,
+  );
+  // The recorded routes themselves are untouched.
+  assert.deepEqual(
+    recordMarkdownRoutes(routes, read).map((route) => route.entrypoint),
+    ["src/pages/llms.txt.ts", "src/pages/docs/[...slug]/index.md.ts", "src/pages/[...slug]/index.md.ts", "node_modules/pkg/[llms].txt.ts"],
+  );
+  const text = describeUnreadAgentRoute(unread[0]!);
+  assert.match(text, /^src\/pages\/blog\/\[\.\.\.slug\]\.md\.ts calls markdownRoute\(\), but Nimbus records an agent route only where the last segment is a static file name, so this file publishes nothing: no page's Markdown URL/);
+  assert.match(text, /Move the call to src\/pages\/blog\/\[\.\.\.slug\]\/index\.md\.ts\./);
+  assert.match(text, /Astro may send requests to this file ahead of src\/pages\/\[\.\.\.slug\]\/index\.md\.ts/);
+  assert.doesNotMatch(describeUnreadAgentRoute(unread[0]!, { shadowing: false }), /Astro may send/);
+  assert.match(describeUnreadAgentRoute(unread[2]!), /no llms\.txt or llms-full\.txt document is made for it\. Move the call to src\/pages\/llms\.txt\.ts\.$/);
+  assert.deepEqual(
+    recordMarkdownRoutes(routes, read).map((route) => route.entrypoint).includes("src/pages/all.txt.ts"),
+    false,
+    "the full-document alias is neither recorded nor reported: the build reads its call",
+  );
 });

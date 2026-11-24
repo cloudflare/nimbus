@@ -154,7 +154,7 @@ test("source-backed specs are found once and pointed at each run's snapshot", ()
   const root = "/site";
   const snapshot = (commit: string): SourceSnapshot => {
     const dir = path.join(root, ".nimbus/sources/sdk", IDENTITY, commit);
-    return { name: "sdk", identity: IDENTITY, commit, path: "", dir, contentDir: dir, floating: false };
+    return { name: "sdk", identity: IDENTITY, kind: "git", revision: commit, path: "", dir, contentDir: dir, floating: false };
   };
   applySourceSpecs(specs, new Map([["sdk", snapshot(COMMIT)]]), root);
   assert.equal(api[0]!.spec, `.nimbus/sources/sdk/${IDENTITY}/${COMMIT}/docs/openapi.json`);

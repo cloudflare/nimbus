@@ -32,20 +32,22 @@ export interface ProsePage {
   headings: { depth: number; text: string; slug: string }[];
 }
 
-export interface ApiPage {
+/** What reading an API page returns: the page and its navigation, or, for a
+ *  caller that needs only the sidebar, the navigation alone. */
+export type ApiPageRead = { page: ApiPageProps; nav: ApiNav };
+
+export type ApiPage<R extends object = ApiPageRead> = R & {
   kind: "api";
   identity: PageIdentity;
-  page: ApiPageProps;
-  nav: ApiNav;
   collection: string;
   version: string | null;
   coordinate: string;
   /** The part of the API home's list a `<home>/index/<n>/` URL names. */
   homePart?: number;
-}
+};
 
 export type PageResolution<
-  P extends ProsePage | ApiPage = ProsePage | ApiPage,
+  P extends ProsePage | ApiPage<object> = ProsePage | ApiPage,
 > =
   | { status: "found"; page: P }
   | { status: "redirect"; location: string; permanent: boolean }
@@ -82,7 +84,7 @@ interface ProseResolutionDependencies extends RouteResolutionDependencies {
 
 export type { ApiQueryRouting as ApiQueryVersionRouting } from "./api/resolve-versions.js";
 
-interface ApiResolutionDependencies extends RouteResolutionDependencies {
+interface ApiResolutionDependencies<R extends object = ApiPageRead> extends RouteResolutionDependencies {
   getApiCollections(): Promise<readonly string[]>;
   /** Query-mode routing info for a family, or `null` for path mode. */
   getApiQueryRouting?(collection: string): Promise<ApiQueryRouting | null>;
@@ -96,7 +98,7 @@ interface ApiResolutionDependencies extends RouteResolutionDependencies {
     version: string | null,
     coordinate: string,
     entry?: CollectionEntry<string>,
-  ): Promise<{ page: ApiPageProps; nav: ApiNav }>;
+  ): Promise<R>;
 }
 
 /** The same URL with 0.17's `api-version` renamed to `param`, or `null`. */
@@ -246,11 +248,11 @@ export async function resolveProsePage(
   };
 }
 
-export async function resolveApiPage(
+export async function resolveApiPage<R extends object = ApiPageRead>(
   context: PageResolutionContext,
   options: { collection?: string },
-  dependencies: ApiResolutionDependencies,
-): Promise<PageResolution<ApiPage>> {
+  dependencies: ApiResolutionDependencies<R>,
+): Promise<PageResolution<ApiPage<R>>> {
   const staticCollection =
     typeof context.props.collection === "string"
       ? context.props.collection

@@ -7,9 +7,9 @@
 
 import ts from "typescript";
 
-import { isCommitRef, redactRepo } from "../_internal/source-repo.js";
+import { displayUrl, isCommitRef, isUrlSource, redactRepo } from "../_internal/source-repo.js";
 import { literalValue } from "../_internal/parse-nimbus-config.js";
-import type { ContentSource } from "../types.js";
+import type { ContentSource, UrlContentSource } from "../types.js";
 import type { CheckFinding } from "./finding.js";
 
 export interface SourcesProbe {
@@ -93,12 +93,27 @@ export interface SourceFindingLocation {
 
 /** The findings for one validated `sources` map. */
 export function sourceFindings(
-  sources: Record<string, ContentSource> | undefined,
+  sources: Record<string, ContentSource | UrlContentSource> | undefined,
   templated: ReadonlySet<string>,
   location: SourceFindingLocation,
 ): CheckFinding[] {
   const findings: CheckFinding[] = [];
   for (const [name, source] of Object.entries(sources ?? {})) {
+    if (isUrlSource(source)) {
+      if (source.integrity === undefined && !templated.has(name)) {
+        findings.push({
+          scope: "structure",
+          code: "nimbus/source-floating-ref",
+          severity: "warn",
+          ...location,
+          message:
+            `sources.${name} fetches ${displayUrl(source.url)} with no integrity, so its file can change between builds. ` +
+            "Set integrity to the file's sha256-<base64> digest for reproducible builds.",
+          fixable: false,
+        });
+      }
+      continue;
+    }
     const repo = redactRepo(source.repo);
     if (!templated.has(name) && !isCommitRef(source.ref)) {
       findings.push({

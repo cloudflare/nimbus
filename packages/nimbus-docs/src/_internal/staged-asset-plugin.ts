@@ -62,7 +62,8 @@ export function stagedAssetPlugin(options: StagedAssetPluginOptions): Plugin {
         const asset = `_nimbus/${pathname.slice(prefix.length)}`;
         if (
           !asset.startsWith("_nimbus/pages/") &&
-          !asset.startsWith("_nimbus/agent-endpoint-assets/")
+          !asset.startsWith("_nimbus/agent-endpoint-assets/") &&
+          !asset.startsWith("_nimbus/try-it/")
         )
           return next();
         try {

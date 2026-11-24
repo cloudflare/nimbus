@@ -1,4 +1,13 @@
-import { invalidateDevModules, isDevContentFile, type DevServerGraphs } from "./dev-invalidation.js";
+import { oneLine } from "./markdown-text.js";
+import {
+  ARTIFACTS_VIRTUAL_ID,
+  HEADINGS_VIRTUAL_ID,
+  invalidateDevModules,
+  isDevContentFile,
+  isPreparedModule,
+  type DevServerGraphs,
+} from "./dev-invalidation.js";
+import { publishesAgentUrl, type AgentSurfaces } from "./agent-surfaces.js";
 import { createHash, randomUUID } from "node:crypto";
 import {
   constants,
@@ -17,6 +26,26 @@ import path from "node:path";
 
 import { entryRouteUrl } from "./astro-slug.js";
 import { isPreparedApiPage } from "./api/prepared.js";
+import { renderApiMarkdownDocument } from "./api/markdown-document.js";
+import {
+  LLMS_FULL_LIMIT_BYTES,
+  flattenLlmsGroups,
+  groupLlmsPages,
+  llmsFullBodies,
+  llmsSection,
+  mebibytes,
+  nestedCollectionLinks,
+  sectionIndexDocument,
+  servesSectionIndex,
+  siteIndexDocument,
+  utf8Length,
+  type AbsentSection,
+  type ApiVersionUrls,
+  type LlmsDocumentContext,
+  type LlmsGroup,
+  type LlmsPage,
+} from "./llms-documents.js";
+import type { RenderedMarkdownPage } from "./api/markdown-record.js";
 import { expandPreparedPartials } from "./build-partials.js";
 import {
   COLLECTION_URLS_DOCS,
@@ -29,15 +58,6 @@ import {
 } from "./collection-mount.js";
 import { collectionOwnershipErrors, type CollectionRoutes } from "./collection-routes.js";
 import { llmsAssetUrl } from "./agent-endpoint-coverage.js";
-import {
-  buildLlmsFullMarkdown,
-  llmsFullBlockBytes,
-  llmsFullHeaderBytes,
-  llmsFullUrl,
-  apiLlmsFullBlock,
-  type LlmsFullBlock,
-  type LlmsFullHeader,
-} from "./llms-full.js";
 import { isDiscoverable, isSearchable } from "./discoverability.js";
 import { mergePartialHeadings } from "./partial-headings.js";
 import {
@@ -59,12 +79,12 @@ import {
   absoluteMarkdownLinks,
   renderEntryAsMarkdown,
 } from "./transform.js";
-import { formatLabel } from "./sidebar.js";
 import {
   MCP_PAGE_INDEX_VERSION,
   type McpPageIndex,
   type McpPageRecord,
 } from "./mcp/page-index.js";
+import type { SidebarPosition } from "./llms-order.js";
 import { toDocumentHref, toRouteKey, withBase } from "./url.js";
 import type {
   GeneratedMarkdownComponentTransform,
@@ -77,40 +97,71 @@ import type {
   MarkdownEndpointReference,
 } from "../agent-endpoints.js";
 
-export const AGENT_ENDPOINT_ASSET_MANIFEST_VERSION = 6;
-export const AGENT_ENDPOINT_ASSET_GENERATION = 1;
+export const AGENT_ENDPOINT_ASSET_MANIFEST_VERSION = 7;
+export const AGENT_ENDPOINT_ASSET_GENERATION = 3;
 
 export interface MarkdownEndpointAsset extends MarkdownEndpointReference {
   url: string;
+  /** The record's fingerprint (its inputs): the file name and the cache key. */
   digest: string;
+  /** SHA-256 of the file's bytes: the response's ETag. */
+  hash: string;
   mediaType: string;
   path: string;
   contentStart: number;
   contentEnd: number;
+  /**
+   * `false` when no route of the site serves `url`: the body is kept for the
+   * MCP server, which reads pages by path, and nothing links or serves it.
+   */
+  published?: false;
 }
 
 /** Cloudflare serves static files up to 25 MiB; larger ones fail the deploy. */
-const LLMS_FULL_LIMIT_BYTES = 25 * 1024 * 1024;
 
 export type LlmsEndpointAsset = LlmsEndpointReference & {
   digest: string;
+  hash: string;
   mediaType: string;
   path: string;
 };
 
 export interface PageIndexAsset {
   digest: string;
+  hash: string;
   mediaType: string;
   path: string;
 }
 
 export interface AgentEndpointAssetManifest {
-  version: 6;
+  version: 7;
   generation: number;
   base: string;
   audience: "public";
   markdownAssets: MarkdownEndpointAsset[];
+  /** API pages that render their Markdown on request instead of baking it. */
+  rendered: RenderedMarkdownPage[];
   llmsAssets: LlmsEndpointAsset[];
+  /**
+   * The agent documents whose routes render on request. Not baked: the
+   * Worker makes them from `pages`, the discoverable page list.
+   */
+  onRequest: { llms: boolean; llmsSections: boolean; llmsFull: boolean };
+  /** The discoverable pages the indexes list, in reading order, when a document renders on request. */
+  pages?: LlmsPage[];
+  /** Sections another build slice holds, for the indexes. */
+  absentSections?: AbsentSection[];
+  /** Whether `/llms-full.txt` is one document or an index of parts (baked split, or made on request). */
+  fullSplit: boolean;
+  /** The sections an on-request `llms-full.txt` lists as parts (`/<slug>/llms-full.txt`). */
+  renderedParts?: string[];
+  /** Tests only: the part size limit the build was given, so the Worker splits at the same size. */
+  fullLimitBytes?: number;
+  /**
+   * Identifies this build's output and the inputs of what it renders on
+   * request: a cache key for documents assembled on request.
+   */
+  buildId: string;
   pageIndex?: PageIndexAsset;
   headings: PreparedHeadingRecord[];
 }
@@ -137,6 +188,16 @@ export type AgentEndpointVisibilityDecision =
   | { status: "unknown"; reason: string };
 
 export interface BakeAgentEndpointAssetsOptions {
+  /**
+   * Whether a collection's pages render on request. Such an API page's
+   * Markdown is not baked: the manifest describes the page and the Worker
+   * renders it when asked, through the same serialization.
+   */
+  requestRendered?: (collection: string) => boolean;
+  /** Versioned API families by collection, for the per-version parts of an on-request `llms-full`. */
+  apiVersions?: Readonly<Record<string, ApiVersionUrls>>;
+  /** Each page's place in the sidebar's reading order, given the pages. Without it, indexes list by URL. */
+  sidebarPosition?: (pages: ReadonlyArray<{ collection: string; url: string }>) => Promise<SidebarPosition>;
   root: URL | string;
   base: string;
   site: string;
@@ -165,8 +226,19 @@ export interface BakeAgentEndpointAssetsOptions {
   info?: (message: string) => void;
   /** Tests only: a smaller `llms-full.txt` limit than Cloudflare's. */
   llmsFullLimitBytes?: number;
-  /** Whether a route serves `/llms-full.txt`. Default true. */
+  /** Whether a route serves `/llms-full.txt`. Default true. `surfaces` wins when given. */
   fullDocument?: boolean;
+  /**
+   * The agent surfaces the site's routes serve. Without it every surface is
+   * taken as served, as a site with every starter route.
+   */
+  surfaces?: AgentSurfaces;
+  /**
+   * Keep every page's Markdown body in the build cache even when no route
+   * publishes it: Pagefind over request-rendered pages reads the text there.
+   * Such bodies are never staged into the deploy.
+   */
+  buildBodies?: boolean;
   /**
    * A partial build without the root collection: write one `llms-full.txt`
    * per named top-level section (the slice's collections, by label) instead
@@ -178,16 +250,44 @@ export interface BakeAgentEndpointAssetsOptions {
    * Page collections a partial build left empty: the site index lists each
    * one's `llms.txt`, which the slice holding it serves.
    */
-  absentSections?: ReadonlyArray<{ slug: string; label: string }>;
+  absentSections?: ReadonlyArray<{ slug: string; label: string; position?: number }>;
   /**
    * Whether the section route serves nested paths (`[...section]/llms.txt`).
    * Then each sub-folder gets its own `llms.txt`. Default false.
    */
   nestedSections?: boolean;
-  renderApiEntryMarkdown?: (
+  /** The page view model of an API entry that carries none (thin entries). */
+  projectApiEntryPage?: (
     entry: LlmsEndpointApiEntry,
-    base: string,
-  ) => Promise<string>;
+  ) => Promise<import("./api/api-view-types.js").ApiPageProps>;
+}
+
+/** Whether a route of the site serves `url`; every URL when no surfaces were given. */
+function publishes(options: BakeAgentEndpointAssetsOptions, url: string): boolean {
+  return options.surfaces ? publishesAgentUrl(options.surfaces.markdownRoutes, url) : true;
+}
+function servesLlms(options: BakeAgentEndpointAssetsOptions): boolean {
+  return options.surfaces?.llms ?? true;
+}
+function servesLlmsSections(options: BakeAgentEndpointAssetsOptions): boolean {
+  return options.surfaces?.llmsSections ?? true;
+}
+/** Which agent documents the routes render on request. */
+function onRequest(options: BakeAgentEndpointAssetsOptions): { llms: boolean; llmsSections: boolean; llmsFull: boolean } {
+  return options.surfaces?.onRequest ?? { llms: false, llmsSections: false, llmsFull: false };
+}
+
+/** A route at `/llms-full.txt`: the full document is linked from the indexes. */
+function servesLlmsFull(options: BakeAgentEndpointAssetsOptions): boolean {
+  return options.surfaces?.llmsFull ?? options.fullDocument !== false;
+}
+/**
+ * The full document is baked when a route at `/llms-full.txt` serves it, or
+ * when the integration found `llmsFullRoute()` in a route file at another
+ * path (the site's own URL for it): that route reads the same payload.
+ */
+function bakesLlmsFull(options: BakeAgentEndpointAssetsOptions): boolean {
+  return servesLlmsFull(options) || options.fullDocument === true;
 }
 
 export interface BakePreparedHeadingsOptions {
@@ -201,6 +301,16 @@ export interface LlmsEndpointApiEntry {
   id: string;
   data: Record<string, unknown>;
   hidden?: boolean;
+  /** The entry id of the sidebar group the page is listed under: its own id
+   * when it indexes a group (a product, tag or resource), else its nearest
+   * ancestor's. Absent for a top-level page, which is placed by its URL. */
+  section?: string;
+  /**
+   * A query-mode non-default version's page: no index lists it and no route
+   * serves its Markdown (its URL carries the version), but an `llms-full`
+   * part made on request holds it.
+   */
+  historical?: boolean;
 }
 
 interface AgentEndpointAssetState {
@@ -230,8 +340,14 @@ interface AgentEndpointAssetState {
       markdownAssets?: Map<string, MarkdownEndpointAsset>;
       llmsAssets?: Map<string, LlmsEndpointAsset>;
       headings?: Map<string, PreparedHeadingRecord>;
+      rendered?: RenderedPages;
     }
   >;
+}
+
+interface RenderedPages {
+  context: string;
+  pages: Map<string, { body: string; filePath?: string; expanded: string; markdown: string }>;
 }
 
 const STATE_KEY = Symbol.for(
@@ -354,13 +470,14 @@ async function writeAsset(file: string, body: string): Promise<boolean> {
         `nimbus-docs: agent-endpoint asset is not a regular file: ${file}.`,
       );
     }
-    if ((await readFile(file, "utf8")) !== body) {
-      throw new Error(
-        `nimbus-docs: content-addressed agent-endpoint asset collision at ${file}.`,
-      );
-    }
+    if ((await readFile(file, "utf8")) !== body) await writeFile(file, body, "utf8");
     return false;
   }
+}
+
+async function isInPlace(file: string, body: string): Promise<boolean> {
+  const info = await lstat(file).catch(() => undefined);
+  return !!info?.isFile() && info.size === Buffer.byteLength(body, "utf8");
 }
 
 async function writeManifest(
@@ -428,16 +545,17 @@ async function publishManifest(
   isFresh: () => boolean,
   endpointAssets: ReadonlyArray<{ path: string; body: string }>,
   onPublished: () => void | Promise<void>,
+  trustPublished: boolean,
 ): Promise<boolean> {
   const prior = agentEndpointAssetState.publications.get(root) ?? Promise.resolve();
   let published = false;
   const operation = prior.then(async () => {
     if (!isFresh()) return;
     const created: string[] = [];
+    const retained = new Set(
+      previous ? manifestAssets(previous).map((asset) => asset.path) : [],
+    );
     const removeCreated = async () => {
-      const retained = new Set(
-        previous ? manifestAssets(previous).map((asset) => asset.path) : [],
-      );
       await Promise.all(
         created
           .filter((assetPath) => !retained.has(assetPath))
@@ -449,14 +567,10 @@ async function publishManifest(
     try {
       const writes = await Promise.allSettled(
         endpointAssets.map(async (asset) => {
-          if (
-            await writeAsset(
-              path.join(directory, asset.path),
-              asset.body,
-            )
-          ) {
-            created.push(asset.path);
-          }
+          const file = path.join(directory, asset.path);
+          // This process wrote or checked it, and its name pins its body.
+          if (trustPublished && retained.has(asset.path) && (await isInPlace(file, asset.body))) return;
+          if (await writeAsset(file, asset.body)) created.push(asset.path);
         }),
       );
       const failed = writes.find(
@@ -648,10 +762,9 @@ function entryDescription(
     : undefined;
 }
 
-// API titles come from spec summaries, which can span lines; a line break in a
-// `# title` would start a new heading.
-function oneLine(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
+/** An entry's title, as the document's frontmatter carries it. */
+function oneLineTitle(entry: Pick<PreparedMarkdownEntry, "id" | "data">): string {
+  return typeof entry.data.title === "string" && entry.data.title.length > 0 ? entry.data.title : entry.id;
 }
 
 function frontmatter(
@@ -712,47 +825,28 @@ function markdownAsset(
   const prefix = [
     ...frontmatter(entry, options, { fields, description: entryDescription(entry) }),
     "",
-    "> Documentation Index",
-    `> Fetch the complete documentation index at: ${absoluteUrl(options.site, options.base, "/llms.txt")}`,
-    "> Use this file to discover all available pages before exploring further.",
-    "",
-    `# ${title}`,
+    ...llmsIndexNote(options),
+    `# ${oneLine(title)}`,
     "",
   ].join("\n");
-  const suffix = [
-    "",
-    `Source: ${absoluteUrl(options.site, options.base, urls.source)}`,
-    "",
-  ].join("\n");
+  // The source line names the `.mdx` only when a route serves it.
+  const suffix = publishes(options, urls.source)
+    ? ["", `Source: ${absoluteUrl(options.site, options.base, urls.source)}`, ""].join("\n")
+    : "";
   // A frontmatter-only page is its title and source, with no blank body between.
   if (markdown.trim() === "") return envelopedAsset(`${prefix}\n`, "", suffix.slice(1));
-  return envelopedAsset(`${prefix}\n`, markdown, `\n${suffix}`);
+  return envelopedAsset(`${prefix}\n`, markdown, suffix ? `\n${suffix}` : "\n");
 }
 
-// API pages have no authored source, so `Source:` points at the Markdown URL
-// itself. The description is left out of the frontmatter: the body prints it.
-function apiMarkdownAsset(
-  entry: LlmsEndpointApiEntry,
-  markdown: string,
-  markdownUrl: string,
-  options: BakeAgentEndpointAssetsOptions,
-): MarkdownEndpointPayloadBody {
-  const prefix = [
-    ...frontmatter(entry, options),
-    "",
+/** The "Documentation Index" note every page Markdown opens with, when a route serves `/llms.txt`. */
+function llmsIndexNote(options: BakeAgentEndpointAssetsOptions): string[] {
+  if (!servesLlms(options)) return [];
+  return [
     "> Documentation Index",
     `> Fetch the complete documentation index at: ${absoluteUrl(options.site, options.base, "/llms.txt")}`,
     "> Use this file to discover all available pages before exploring further.",
     "",
-    `# ${oneLine(typeof entry.data.title === "string" && entry.data.title.length > 0 ? entry.data.title : entry.id)}`,
-    "",
-  ].join("\n");
-  const suffix = [
-    "",
-    `Source: ${absoluteUrl(options.site, options.base, markdownUrl)}`,
-    "",
-  ].join("\n");
-  return envelopedAsset(`${prefix}\n`, markdown, `\n${suffix}`);
+  ];
 }
 
 function sourceAsset(
@@ -767,45 +861,43 @@ function sourceAsset(
   );
 }
 
-interface PreparedLlmsPage {
-  collection: string;
-  id: string;
-  title: string;
-  description?: string;
-  url: string;
-  markdownUrl: string;
+/** A page as the bake lists it, with its Markdown body for the full document. */
+interface PreparedLlmsPage extends LlmsPage {
   markdown: string;
-  /** `sidebar.group.label` on a group's index page. */
-  groupLabel?: string;
-  /** An API page: its `llms-full.txt` block has a one-line title and no
-   * description, which its Markdown already prints. */
-  api?: boolean;
 }
 
 /**
- * A section of the llms indexes: a URL path prefix. `members` are the pages
- * directly in it; `children` its sub-sections, each with its own `llms.txt`
- * (only with nested sections; otherwise every page under a top-level section
- * is a member).
+ * An estimate of an unrendered API page's Markdown bytes: the stored record's
+ * JSON bytes (a page pack row's, or the prepared page's). The Markdown made
+ * from a record is usually smaller (0.07–0.98 of the record across the
+ * Cloudflare API's pages), though a record rich in constructs the emitter
+ * expands can exceed it. A part that proves bigger than its estimate while
+ * assembling still stops at the limit; the estimate only decides what is
+ * never attempted.
  */
-interface PreparedLlmsGroup {
-  slug: string;
-  label: string;
-  kind: "primary" | "secondary" | "version";
-  members: PreparedLlmsPage[];
-  children: PreparedLlmsGroup[];
+function markdownBytesEstimate(entry: Pick<PreparedMarkdownEntry, "data">): number | undefined {
+  if (typeof entry.data.recordBytes === "number") return entry.data.recordBytes;
+  if (isPreparedApiPage(entry.data.prepared)) return utf8Length(JSON.stringify(entry.data.prepared.page));
+  return undefined;
 }
 
 function preparedLlmsPage(
-  entry: Pick<PreparedMarkdownEntry, "collection" | "id" | "data">,
-  markdown: string,
+  entry: Pick<PreparedMarkdownEntry, "collection" | "id" | "data"> & { section?: string; historical?: boolean },
+  /** The body made here, or `null` for a page the Worker renders. */
+  markdown: string | null,
   options: BakeAgentEndpointAssetsOptions,
   api = false,
+  /** An estimate of the body's bytes when it is not made here. */
+  bytesEstimate?: number,
 ): PreparedLlmsPage {
   const route = entryRouteUrl(
     collectionMountPrefix(entry.collection, mountContext(options)),
     entry.id,
   );
+  // A non-default API version's page says where it is served (`/api/v1/…`,
+  // or the version-free URL with the version in the query).
+  const ownUrl = typeof entry.data.url === "string" ? entry.data.url : undefined;
+  const apiVersion = typeof entry.data.apiVersion === "string" ? entry.data.apiVersion : undefined;
   return {
     collection: entry.collection,
     id: entry.id,
@@ -814,33 +906,47 @@ function preparedLlmsPage(
         ? entry.data.title
         : entry.id,
     description: entryDescription(entry),
-    url: toDocumentHref(route),
-    markdownUrl: route === "/" ? "/index.md" : `${route}/index.md`,
-    markdown,
+    url: ownUrl ?? toDocumentHref(route),
+    // A historical page's Markdown is served nowhere; a path-version page's
+    // is, where a route serves it, at its own version's URL.
+    ...(!entry.historical && publishes(options, route === "/" ? "/index.md" : `${route}/index.md`)
+      ? { markdownUrl: route === "/" ? "/index.md" : `${route}/index.md` }
+      : {}),
+    markdown: markdown ?? "",
+    // Exact for a body made here (an empty one included); the record's
+    // estimate for one the Worker makes.
+    ...(markdown !== null ? { bytes: utf8Length(markdown) } : bytesEstimate !== undefined ? { bytes: bytesEstimate } : {}),
     groupLabel: sidebarGroupLabel(entry.data),
     ...(api ? { api } : {}),
+    ...(entry.section !== undefined ? { section: entry.section } : {}),
+    ...(apiVersion !== undefined ? { apiVersion } : {}),
+    ...(entry.historical ? { historical: true as const } : {}),
   };
 }
 
-/**
- * A page's `llms.txt` section: a docs page's top-level group, otherwise its
- * collection's URL without the leading `/` (`products/sdk`).
- */
-function llmsSection(
-  page: Pick<PreparedLlmsPage, "collection" | "id">,
-  options: BakeAgentEndpointAssetsOptions,
-): string {
-  const mount = collectionMountPrefix(page.collection, mountContext(options));
-  return mount ? mount.slice(1) : page.id.split("/")[0]!;
-}
-
 /** Whether a page's collection is served at the root, like `docs`. */
-function atRoot(page: Pick<PreparedLlmsPage, "collection">, options: BakeAgentEndpointAssetsOptions): boolean {
-  return collectionMountPrefix(page.collection, mountContext(options)) === "";
-}
 
 function mountContext(options: BakeAgentEndpointAssetsOptions): MountContext {
   return { versions: options.versions ?? null, routes: options.routes ?? NO_ROUTES };
+}
+
+/** What the agent documents say about the site: the same context the Worker builds on request. */
+function documentContext(options: BakeAgentEndpointAssetsOptions): LlmsDocumentContext {
+  return {
+    site: options.site,
+    base: options.base,
+    title: options.title,
+    ...(options.description ? { description: options.description } : {}),
+    versions: options.versions ?? null,
+    routes: options.routes ?? NO_ROUTES,
+    nestedSections: options.nestedSections === true,
+    ...(options.mcpUrl ? { mcpUrl: options.mcpUrl } : {}),
+    ...(options.absentSections ? { absentSections: options.absentSections } : {}),
+    publishes: (url) => publishes(options, url),
+    llms: servesLlms(options),
+    llmsFull: servesLlmsFull(options),
+    ...(options.apiVersions ? { apiVersions: options.apiVersions } : {}),
+  };
 }
 
 /**
@@ -860,9 +966,10 @@ function mcpPageRecord(
     title: page.title,
     ...(page.description ? { description: page.description } : {}),
     url: absoluteUrl(options.site, options.base, page.url),
-    markdownUrl: absoluteUrl(options.site, options.base, page.markdownUrl),
-    markdownPath: page.markdownUrl,
-    section: llmsSection(page, options),
+    ...(page.markdownUrl ? { markdownUrl: absoluteUrl(options.site, options.base, page.markdownUrl) } : {}),
+    // The asset's own path, published or not: the MCP server reads bodies by it.
+    markdownPath: preparedMarkdownUrls(entry, options).markdown,
+    section: llmsSection(page, documentContext(options)),
     ...(version ? { version } : {}),
     ...(deprecated ? { deprecated: true as const } : {}),
     searchable: isSearchable(entry),
@@ -894,6 +1001,7 @@ function mcpPageIndexAsset(
   );
   return {
     digest: `sha256:${fingerprint}`,
+    hash: digest(body),
     mediaType: "application/json",
     path: `assets/${fingerprint}.json`,
     body,
@@ -906,420 +1014,17 @@ function sidebarGroupLabel(data: Record<string, unknown>): string | undefined {
   return typeof label === "string" && label.length > 0 ? label : undefined;
 }
 
-function groupPreparedLlmsPages(
-  pages: readonly PreparedLlmsPage[],
-  options: BakeAgentEndpointAssetsOptions,
-): { leaves: PreparedLlmsPage[]; groups: PreparedLlmsGroup[] } {
-  const nested = options.nestedSections === true;
-  const primary = new Map<string, PreparedLlmsPage[]>();
-  const secondary = new Map<string, PreparedLlmsPage[]>();
-  const versionSlugs = new Set(options.versions?.others ?? []);
-  for (const page of pages) {
-    const slug = llmsSection(page, options);
-    const buckets = atRoot(page, options) ? primary : secondary;
-    const bucket = buckets.get(slug);
-    if (bucket) bucket.push(page);
-    else buckets.set(slug, [page]);
-  }
-
-  const leaves: PreparedLlmsPage[] = [];
-  const groups: PreparedLlmsGroup[] = [];
-  for (const [slug, members] of primary) {
-    if (members.length === 1 && members[0]!.id === slug) {
-      leaves.push(members[0]!);
-    } else {
-      groups.push(
-        nested
-          ? nestLlmsGroup(
-              slug,
-              "primary",
-              members.map((page) => ({ page, rest: page.id.slice(slug.length + 1) })),
-            )
-          : { slug, label: groupLabel(slug, members), kind: "primary", members, children: [] },
-      );
-    }
-  }
-  for (const [slug, members] of secondary) {
-    const kind: PreparedLlmsGroup["kind"] = versionSlugs.has(slug) ? "version" : "secondary";
-    const group: PreparedLlmsGroup = nested
-      ? nestLlmsGroup(slug, kind, members.map((page) => ({ page, rest: page.id })))
-      : { slug, label: groupLabel(slug, members), kind, members, children: [] };
-    if (kind === "version") group.label = slug;
-    groups.push(group);
-  }
-  leaves.sort((a, b) => compare(a.url, b.url));
-  groups.sort((a, b) => compare(a.slug, b.slug));
-  for (const group of groups) sortLlmsGroup(group);
-  return { leaves, groups };
-}
-
-/**
- * One section and its sub-sections, by path segment. The rule is the one the
- * top level uses: a segment holding exactly one page whose path ends there is
- * a page of this section; any other segment is a sub-section, and a page whose
- * path ends at the sub-section (its index page) belongs to it. `rest` is the
- * page's path below this section.
- */
-function nestLlmsGroup(
-  slug: string,
-  kind: PreparedLlmsGroup["kind"],
-  pages: ReadonlyArray<{ page: PreparedLlmsPage; rest: string }>,
-): PreparedLlmsGroup {
-  const members: PreparedLlmsPage[] = [];
-  const buckets = new Map<string, Array<{ page: PreparedLlmsPage; rest: string }>>();
-  for (const { page, rest } of pages) {
-    if (rest === "") {
-      members.push(page);
-      continue;
-    }
-    const segment = rest.split("/")[0]!;
-    const below = { page, rest: rest.slice(segment.length + 1) };
-    const bucket = buckets.get(segment);
-    if (bucket) bucket.push(below);
-    else buckets.set(segment, [below]);
-  }
-  const children: PreparedLlmsGroup[] = [];
-  for (const [segment, bucket] of buckets) {
-    if (bucket.length === 1 && bucket[0]!.rest === "") members.push(bucket[0]!.page);
-    else children.push(nestLlmsGroup(`${slug}/${segment}`, kind, bucket));
-  }
-  return { slug, label: groupLabel(slug, members), kind, members, children };
-}
-
-function sortLlmsGroup(group: PreparedLlmsGroup): void {
-  group.members.sort((a, b) => compare(a.url, b.url));
-  group.children.sort((a, b) => compare(a.slug, b.slug));
-  for (const child of group.children) sortLlmsGroup(child);
-}
-
 /** Every section, parents before their sub-sections. */
-function flattenLlmsGroups(groups: readonly PreparedLlmsGroup[]): PreparedLlmsGroup[] {
-  return groups.flatMap((group) => [group, ...flattenLlmsGroups(group.children)]);
-}
 
 /** A section's index page: the member whose path ends at the section. */
-function groupIndex(slug: string, members: readonly PreparedLlmsPage[]): PreparedLlmsPage | undefined {
-  return members.find((page) => page.markdownUrl === `/${slug}/index.md`);
-}
 
 /** A section's name, as the sidebar names it: the index page's group label or title, else the formatted slug. */
-function groupLabel(slug: string, members: readonly PreparedLlmsPage[]): string {
-  const index = groupIndex(slug, members);
-  return index?.groupLabel ?? index?.title ?? formatLabel(slug.split("/").at(-1)!);
-}
-
-/**
- * A `[section]` route serves one-segment sections only: a section at a nested
- * URL (`products/sdk`) gets no `llms.txt`, and the site index lists its pages.
- */
-function servesSectionIndex(group: PreparedLlmsGroup, options: BakeAgentEndpointAssetsOptions): boolean {
-  return options.nestedSections === true || !group.slug.includes("/");
-}
-
-function siteIndexAsset(
-  leaves: readonly PreparedLlmsPage[],
-  groups: readonly PreparedLlmsGroup[],
-  options: BakeAgentEndpointAssetsOptions,
-  fullSplit: boolean,
-): string {
-  const served = (group: PreparedLlmsGroup) => servesSectionIndex(group, options);
-  const listed = groups.filter((group) => group.kind !== "version");
-  const rows = [
-    ...[...leaves, ...listed.filter((group) => !served(group)).flatMap((group) => group.members)].map((page) => ({
-      key: page.url,
-      line: `- [${page.title}](${absoluteUrl(options.site, options.base, page.markdownUrl)})${page.description ? ` — ${page.description}` : ""}`,
-    })),
-    ...listed
-      .filter(served)
-      .map((group) => ({
-        key: `/${group.slug}`,
-        line: `- [${group.label}](${absoluteUrl(options.site, options.base, `/${group.slug}/llms.txt`)})`,
-      })),
-    ...(options.absentSections ?? []).map((section) => ({
-      key: `/${section.slug}`,
-      // The slice holding a nested section serves its llms-full.txt, not an llms.txt.
-      line: `- [${section.label}](${absoluteUrl(options.site, options.base, `/${section.slug}/${options.nestedSections === true || !section.slug.includes("/") ? "llms.txt" : "llms-full.txt"}`)})`,
-    })),
-  ].sort((a, b) => compare(a.key, b.key));
-  return [
-    `# ${options.title}`,
-    "",
-    blockquote(options.description ?? "Documentation index for AI agents."),
-    "",
-    ...(options.fullDocument === false
-      ? []
-      : [
-          `Full documentation${options.absentSections?.length ? " of this part" : ""} (discoverable current pages, ${fullSplit ? "split by section" : "one document"}): ${absoluteUrl(options.site, options.base, "/llms-full.txt")}`,
-          ...(options.absentSections?.length
-            ? [
-                `Other parts have their own: ${options.absentSections
-                  .map((section) => absoluteUrl(options.site, options.base, `/${section.slug}/llms-full.txt`))
-                  .join(", ")}`,
-              ]
-            : []),
-          "",
-        ]),
-    ...(options.mcpUrl
-      ? [
-          `MCP server (Streamable HTTP; tools list_pages and get_page over these pages): ${options.mcpUrl}`,
-          "",
-        ]
-      : []),
-    "## Pages",
-    "",
-    ...rows.map((row) => row.line),
-    "",
-  ].join("\n");
-}
-
-/**
- * A collection at a nested URL (`products/sdk`) is a section of its own,
- * listed from the root. With nested sections, the nearest section above it
- * that isn't the root links it too, so `/products/llms.txt` still leads to
- * everything under `/products`.
- */
-function nestedCollectionLinks(
-  groups: readonly PreparedLlmsGroup[],
-  options: BakeAgentEndpointAssetsOptions,
-): Map<string, Array<{ slug: string; label: string }>> {
-  const links = new Map<string, Array<{ slug: string; label: string }>>();
-  if (options.nestedSections !== true) return links;
-  const sections = flattenLlmsGroups(groups);
-  const nested = [
-    ...groups.filter((group) => group.kind === "secondary"),
-    ...(options.absentSections ?? []),
-  ].filter((section) => section.slug.includes("/"));
-  for (const section of nested) {
-    const parent = sections
-      .filter((candidate) => section.slug.startsWith(`${candidate.slug}/`))
-      .sort((a, b) => b.slug.length - a.slug.length)[0];
-    if (!parent) continue;
-    links.set(parent.slug, [...(links.get(parent.slug) ?? []), { slug: section.slug, label: section.label }]);
-  }
-  return links;
-}
-
-function sectionIndexAsset(
-  group: PreparedLlmsGroup,
-  options: BakeAgentEndpointAssetsOptions,
-  nestedCollections: ReadonlyArray<{ slug: string; label: string }> = [],
-): string {
-  const subsections = [...group.children, ...nestedCollections].sort((a, b) => compare(a.slug, b.slug));
-  const pages =
-    group.members.length > 0 || subsections.length === 0
-      ? [
-          "## Pages",
-          "",
-          ...group.members.map(
-            (page) =>
-              `- [${page.title}](${absoluteUrl(options.site, options.base, page.markdownUrl)})${page.description ? ` — ${page.description}` : ""}`,
-          ),
-          "",
-        ]
-      : [];
-  const sections =
-    subsections.length > 0
-      ? [
-          "## Sections",
-          "",
-          ...subsections.map(
-            (child) =>
-              `- [${child.label}](${absoluteUrl(options.site, options.base, `/${child.slug}/llms.txt`)})`,
-          ),
-          "",
-        ]
-      : [];
-  const description = groupIndex(group.slug, group.members)?.description;
-  return [`# ${group.label}`, "", ...(description ? [blockquote(description), ""] : []), ...pages, ...sections].join("\n");
-}
 
 /** A `> ` summary, one marker per line. */
-function blockquote(text: string): string {
-  return text
-    .trim()
-    .split(/\r?\n/u)
-    .map((line) => (line.trim() ? `> ${line.trim()}` : ">"))
-    .join("\n");
-}
-
-function llmsFullBlock(page: PreparedLlmsPage): LlmsFullBlock {
-  const block = {
-    title: page.title,
-    description: page.description,
-    url: page.url,
-    markdownUrl: page.markdownUrl,
-    markdown: page.markdown,
-  };
-  return page.api ? apiLlmsFullBlock(block) : block;
-}
-
-const utf8 = new TextEncoder();
-function utf8Length(text: string): number {
-  return utf8.encode(text).length;
-}
-
-function mebibytes(bytes: number): string {
-  return bytes >= 1024 * 1024
-    ? `${(bytes / 1024 / 1024).toFixed(1)} MiB`
-    : `${Math.max(1, Math.round(bytes / 1024))} KiB`;
-}
-
-/**
- * `/llms-full.txt`, and when it's over the limit, one `llms-full.txt` per
- * section: a section under the limit holds its pages in full; one over it is
- * an index of its sub-sections' files and links to its own pages, and so on
- * down. Under the limit, the one document is exactly what it always was.
- */
-function llmsFullBodies(
-  pages: readonly PreparedLlmsPage[],
-  options: BakeAgentEndpointAssetsOptions,
-  base: string,
-): { bodies: Array<{ reference: LlmsEndpointReference; body: string }>; split: boolean } {
-  const limit = options.llmsFullLimitBytes ?? LLMS_FULL_LIMIT_BYTES;
-  const header: LlmsFullHeader = {
-    title: options.title,
-    description: options.description,
-    site: options.site,
-    base,
-  };
-  const blocks = new Map(pages.map((page) => [page, llmsFullBlock(page)]));
-  const blockBytes = new Map(
-    pages.map((page) => [page, llmsFullBlockBytes(blocks.get(page)!, header)]),
-  );
-  const documentBytes = (documentHeader: LlmsFullHeader, members: readonly PreparedLlmsPage[]) =>
-    llmsFullHeaderBytes(documentHeader) +
-    members.reduce((sum, page) => sum + blockBytes.get(page)!, 0) -
-    1;
-  const total = documentBytes(header, pages);
-  const sectionDocuments = options.sectionDocuments
-    ? new Set(options.sectionDocuments)
-    : null;
-  if (!sectionDocuments && total <= limit) {
-    return {
-      bodies: [
-        {
-          reference: { scope: "site", surface: "full" },
-          body: buildLlmsFullMarkdown([...blocks.values()], header),
-        },
-      ],
-      split: false,
-    };
-  }
-
-  // Sections by path at every depth, whatever the llms.txt route's shape.
-  const { leaves, groups } = groupPreparedLlmsPages(pages, { ...options, nestedSections: true });
-  const pagesUnder = (group: PreparedLlmsGroup): PreparedLlmsPage[] => [
-    ...group.members,
-    ...group.children.flatMap(pagesUnder),
-  ];
-  const sectionIndex = options.nestedSections === true;
-  const sectionHeader = (group: PreparedLlmsGroup): LlmsFullHeader => ({
-    ...header,
-    title: `${options.title} — ${group.label}`,
-    description: undefined,
-    // A section links its own llms.txt where the route serves one.
-    index: sectionIndex || !group.slug.includes("/") ? `/${group.slug}/llms.txt` : "/llms.txt",
-  });
-  const sizes = new Map<PreparedLlmsGroup, number>();
-  const sizeOf = (group: PreparedLlmsGroup) => {
-    let bytes = sizes.get(group);
-    if (bytes === undefined) {
-      bytes = documentBytes(sectionHeader(group), pagesUnder(group));
-      sizes.set(group, bytes);
-    }
-    return bytes;
-  };
-  const pageLine = (page: PreparedLlmsPage) =>
-    `- [${page.title}](${llmsFullUrl(header, page.markdownUrl)})`;
-  // A size is only given for a file served whole; an index says it's split.
-  const sectionLine = (group: PreparedLlmsGroup) => {
-    const bytes = sizeOf(group);
-    const kind = bytes <= limit ? mebibytes(bytes) : group.children.length > 0 ? "split further" : "links to its pages";
-    return `- [${group.label}](${llmsFullUrl(header, `/${group.slug}/llms-full.txt`)}) (${kind})`;
-  };
-  const indexBody = (
-    title: string,
-    note: string,
-    index: string,
-    children: readonly PreparedLlmsGroup[],
-    members: readonly PreparedLlmsPage[],
-  ) =>
-    [
-      `# ${title}`,
-      "",
-      `> ${note}`,
-      "",
-      `Index: ${llmsFullUrl(header, index)}`,
-      "",
-      ...(children.length > 0 ? ["## Sections", "", ...children.map(sectionLine), ""] : []),
-      ...(members.length > 0 ? ["## Pages", "", ...[...members].sort((a, b) => compare(a.url, b.url)).map(pageLine), ""] : []),
-    ].join("\n");
-
-  const report: string[] = [];
-  const bodies: Array<{ reference: LlmsEndpointReference; body: string }> = [];
-  if (!sectionDocuments) {
-    bodies.push({
-      reference: { scope: "site", surface: "full" },
-      body: indexBody(
-        options.title,
-        `The full documentation is over ${mebibytes(limit)}, so it's split by section. Fetch the sections you need.`,
-        "/llms.txt",
-        groups,
-        leaves,
-      ),
-    });
-    report.push(`  /llms-full.txt ${mebibytes(utf8Length(bodies[0]!.body))} (index)`);
-  }
-  const emit = (group: PreparedLlmsGroup) => {
-    const bytes = sizeOf(group);
-    const reference = { scope: "section" as const, surface: "full" as const, section: group.slug };
-    if (bytes <= limit) {
-      bodies.push({
-        reference,
-        body: buildLlmsFullMarkdown(pagesUnder(group).map((page) => blocks.get(page)!), sectionHeader(group)),
-      });
-      report.push(`  /${group.slug}/llms-full.txt ${mebibytes(bytes)}`);
-      return;
-    }
-    // Over the limit: an index of its sub-sections' files and links to its
-    // own pages. With no sub-folders it's a list of links, so no file it
-    // writes can be over the limit.
-    const header = sectionHeader(group);
-    const body = indexBody(
-      header.title,
-      group.children.length > 0
-        ? `This section is over ${mebibytes(limit)}, so it's split further. Fetch the parts you need.`
-        : `This section is over ${mebibytes(limit)} and has no sub-folders, so it links to each page's Markdown. Fetch the pages you need.`,
-      header.index!,
-      group.children,
-      group.members,
-    );
-    bodies.push({ reference, body });
-    report.push(
-      `  /${group.slug}/llms-full.txt ${mebibytes(utf8Length(body))} (index${
-        group.children.length > 0 ? "" : `; its pages total ${mebibytes(bytes)} with no sub-folders to split by`
-      })`,
-    );
-    for (const child of group.children) emit(child);
-  };
-  if (sectionDocuments) {
-    // One document per section the slice holds; only a section over the
-    // limit is worth a report.
-    for (const group of groups) if (sectionDocuments.has(group.slug)) emit(group);
-    if (report.some((line) => line.includes("(index")))
-      options.info?.(`llms-full.txt is split by section:\n${report.join("\n")}`);
-    return { bodies, split: true };
-  }
-  for (const group of groups) emit(group);
-  options.info?.(
-    `llms-full.txt would be ${mebibytes(total)}, over ${mebibytes(limit)}, so it's split by section:\n${report.join("\n")}`,
-  );
-  return { bodies, split: true };
-}
 
 function assertLlmsRouteSafety(
   pages: readonly PreparedLlmsPage[],
-  groups: readonly PreparedLlmsGroup[],
+  groups: readonly LlmsGroup<PreparedLlmsPage>[],
 ): void {
   const routes = new Set(["/llms.txt", "/llms-full.txt"]);
   for (const group of flattenLlmsGroups(groups)) {
@@ -1425,9 +1130,7 @@ export interface PreparedHeadingsPlugin {
   handleHotUpdate(context: { server: DevServerGraphs }): void;
 }
 
-const HEADINGS_VIRTUAL_ID = "virtual:nimbus/headings";
 const HEADINGS_RESOLVED_ID = `\0${HEADINGS_VIRTUAL_ID}`;
-const ARTIFACTS_VIRTUAL_ID = "virtual:nimbus/agent-endpoint-assets";
 const ARTIFACTS_RESOLVED_ID = `\0${ARTIFACTS_VIRTUAL_ID}`;
 const ASSET_LOADER_VIRTUAL_ID = "virtual:nimbus/agent-endpoint-asset-loader";
 const ASSET_LOADER_RESOLVED_ID = `\0${ASSET_LOADER_VIRTUAL_ID}`;
@@ -1552,12 +1255,7 @@ export function agentEndpointHotUpdatePlugin(root: string): AgentEndpointHotUpda
     hotUpdate(context) {
       if (context.modules.length > 0 || !isDevContentFile(root, context.file)) return undefined;
       const affected = [...this.environment.moduleGraph.idToModuleMap]
-        .filter(
-          ([id]) =>
-            id === ARTIFACTS_RESOLVED_ID ||
-            id === HEADINGS_RESOLVED_ID ||
-            id.startsWith(`\0${HEADINGS_ENTRY_PREFIX}`),
-        )
+        .filter(([id]) => isPreparedModule(id))
         .map(([, module]) => module);
       return affected.length ? affected : undefined;
     },
@@ -1584,7 +1282,13 @@ export function agentEndpointAssetLoaderPlugin(
         return (
           'import { env } from "cloudflare:workers";\n' +
           "export function fetchAgentEndpointAsset(path, request) {\n" +
-          "  return env.ASSETS?.fetch(new Request(new URL(path, request.url), { method: request.method })) ?? null;\n" +
+          "  // The conditional headers go along, so the assets binding answers 304 itself.\n" +
+          "  const headers = new Headers();\n" +
+          '  for (const name of ["If-None-Match", "If-Modified-Since"]) {\n' +
+          "    const value = request.headers.get(name);\n" +
+          "    if (value) headers.set(name, value);\n" +
+          "  }\n" +
+          "  return env.ASSETS?.fetch(new Request(new URL(path, request.url), { method: request.method, headers })) ?? null;\n" +
           "}\n"
         );
       }
@@ -1610,7 +1314,17 @@ export async function stageAgentEndpointAssets(
   limitBytes = LLMS_FULL_LIMIT_BYTES,
 ): Promise<void> {
   const projectRoot = preparedMarkdownRootKey(root);
-  const manifest = await ensureAgentEndpointAssets(projectRoot);
+  const baked = await ensureAgentEndpointAssets(projectRoot);
+  // A body no route publishes ships only when the MCP server reads it; a body
+  // kept for the build's own consumers stays in the build cache.
+  const manifest: AgentEndpointAssetManifest = {
+    ...baked,
+    // Unpublished bodies travel when something reads them by path: the MCP
+    // server, or an llms-full part assembled on request.
+    markdownAssets: baked.markdownAssets.filter(
+      (asset) => asset.published !== false || baked.pageIndex || baked.onRequest.llmsFull,
+    ),
+  };
   // Every agent endpoint reads this one file, so a server build cannot ship without it.
   const manifestBody = JSON.stringify(stagedManifest(manifest));
   const manifestBytes = utf8Length(manifestBody);
@@ -1652,6 +1366,9 @@ export async function stageAgentEndpointAssets(
       }),
     );
   }
+  // A site whose routes serve no agent file still ships the manifest, so the
+  // server knows there is nothing to serve.
+  await mkdir(targetRoot, { recursive: true });
   await writeFile(path.join(targetRoot, "manifest.json"), manifestBody, "utf8");
 }
 
@@ -1955,6 +1672,8 @@ export async function bakeAgentEndpointAssets(
   };
 
   const records: Array<MarkdownEndpointAsset & { body: string }> = [];
+
+  const renderedPages: RenderedMarkdownPage[] = [];
   const headingRecords: PreparedHeadingRecord[] = [];
   const preparedLlmsPages: PreparedLlmsPage[] = [];
   const llmsRoutePages: PreparedLlmsPage[] = [];
@@ -1980,6 +1699,31 @@ export async function bakeAgentEndpointAssets(
         ]),
       )
     : undefined;
+  // Dev reuses a page's Markdown while its body, file path and the inputs every
+  // page shares are unchanged. That trusts each component's and the partial
+  // resolver's `revision` to change whenever its output does.
+  const rendered: RenderedPages | undefined =
+    configuredAtStart?.mode === "dev"
+      ? {
+          context: digest(
+            JSON.stringify({
+              base,
+              site: options.site,
+              components: componentRevisions,
+              partialResolver: partialResolverRevision,
+              citations: citationFingerprint,
+              partials: [...(partials?.entries.values() ?? [])].map(
+                (partial) => [partial.id, partial.filePath, partial.body, partial.data],
+              ),
+            }),
+          ),
+          pages: new Map(),
+        }
+      : undefined;
+  const reusable =
+    rendered && configuredAtStart?.rendered?.context === rendered.context
+      ? configuredAtStart.rendered.pages
+      : undefined;
   for (const entry of candidates) {
     const decision = decisions.get(`${entry.collection}\0${entry.id}`)!;
     if (decision.status === "exclude") continue;
@@ -1988,22 +1732,38 @@ export async function bakeAgentEndpointAssets(
         `nimbus-docs: prepared entry "${entry.collection}:${entry.id}" has no body.`,
       );
     }
-    const expanded = await expandPreparedPartials(entry.body, {
-      sourceId: `${entry.collection}:${entry.filePath ?? entry.id}`,
-      getPartial,
-      resolvePartialId: options.partialResolver?.resolve,
+    const pageKey = `${entry.collection}\0${entry.id}`;
+    const cached = reusable?.get(pageKey);
+    const reused =
+      cached?.body === entry.body && cached.filePath === entry.filePath
+        ? cached
+        : undefined;
+    const expanded =
+      reused?.expanded ??
+      (await expandPreparedPartials(entry.body, {
+        sourceId: `${entry.collection}:${entry.filePath ?? entry.id}`,
+        getPartial,
+        resolvePartialId: options.partialResolver?.resolve,
+      }));
+    const markdown =
+      reused?.markdown ??
+      absoluteMarkdownLinks(
+        renderEntryAsMarkdown(
+          { body: expanded, filePath: entry.filePath },
+          {
+            citationIndex: basedCitationIndex,
+            componentMap: renderers,
+            base,
+          },
+        ),
+        options.site,
+      );
+    rendered?.pages.set(pageKey, {
+      body: entry.body,
+      filePath: entry.filePath,
+      expanded,
+      markdown,
     });
-    const markdown = absoluteMarkdownLinks(
-      renderEntryAsMarkdown(
-        { body: expanded, filePath: entry.filePath },
-        {
-          citationIndex: basedCitationIndex,
-          componentMap: renderers,
-          base,
-        },
-      ),
-      options.site,
-    );
     const page = preparedLlmsPage(entry, markdown, options);
     llmsRoutePages.push(page);
     if (options.mcpUrl) indexPages.push(mcpPageRecord(entry, page, options));
@@ -2047,6 +1807,15 @@ export async function bakeAgentEndpointAssets(
     const urls = preparedMarkdownUrls(entry, options);
     const fields = snapshot.collections.get(entry.collection)?.markdownFields ?? [];
     for (const surface of ["markdown", "source"] as const) {
+      // No route, no file: except the `.md` body the MCP server reads by path.
+      const published = publishes(options, urls[surface]);
+      // No route, no file: except the `.md` body the MCP server reads by
+      // path, or that an llms-full part assembled on request reads.
+      if (
+        !published &&
+        !(surface === "markdown" && (options.mcpUrl || options.buildBodies || (servesLlmsFull(options) && onRequest(options).llmsFull)))
+      )
+        continue;
       const asset =
         surface === "markdown"
           ? markdownAsset(entry, markdown, options, fields)
@@ -2073,6 +1842,7 @@ export async function bakeAgentEndpointAssets(
         surface,
         url: urls[surface],
         digest: `sha256:${fingerprint}`,
+    hash: digest(body),
         mediaType:
           surface === "markdown"
             ? "text/markdown; charset=utf-8"
@@ -2080,6 +1850,7 @@ export async function bakeAgentEndpointAssets(
         path: `assets/${fingerprint}.${extension}`,
         contentStart,
         contentEnd,
+        ...(published ? {} : { published: false as const }),
         body,
       });
     }
@@ -2087,38 +1858,92 @@ export async function bakeAgentEndpointAssets(
   for (const entry of apiEntries) {
     const decision = decisions.get(`${entry.collection}\0${entry.id}`)!;
     if (decision.status === "exclude") continue;
-    const routePage = preparedLlmsPage(entry, "", options);
-    llmsRoutePages.push(routePage);
-    if (options.mcpUrl) indexPages.push(mcpPageRecord(entry, routePage, options));
+    const routePage = preparedLlmsPage(entry, null, options);
+    // A historical page is listed by no index and no MCP record.
+    if (!entry.historical) {
+      llmsRoutePages.push(routePage);
+      if (options.mcpUrl) indexPages.push(mcpPageRecord(entry, routePage, options));
+    }
     const coordinate = entry.data.coordinate;
     if (typeof coordinate !== "string") {
       throw new Error(
         `nimbus-docs: API entry "${entry.id}" in collection "${entry.collection}" is missing its coordinate — the apiCollection() loader should have set it.`,
       );
     }
+    const url = preparedMarkdownUrls(entry, options).markdown;
+    const published = !entry.historical && publishes(options, url);
+    const rendered = options.requestRendered?.(entry.collection) === true;
+    // An on-request full document reads every page's body, the historical ones included.
+    const partsReadBodies = servesLlmsFull(options) && onRequest(options).llmsFull;
+    const meta = {
+      collection: entry.collection,
+      id: entry.id,
+      title: oneLineTitle(entry),
+      ...(typeof entry.data.version === "string" ? { version: entry.data.version } : {}),
+      ...(typeof entry.data.socialImage === "string" && entry.data.socialImage.length > 0
+        ? { image: entry.data.socialImage }
+        : {}),
+      url: routePage.url,
+    };
+    if (rendered) {
+      // The Worker renders this page's Markdown from the record it already
+      // holds; the build only describes it. Its body is made here only when a
+      // build-time document needs it.
+      renderedPages.push({
+        collection: entry.collection,
+        id: entry.id,
+        version: typeof entry.data.version === "string" ? entry.data.version : null,
+        coordinate,
+        title: meta.title,
+        ...(meta.image ? { image: meta.image } : {}),
+        url: routePage.url,
+        published,
+        ...(entry.historical ? { historical: true as const } : {}),
+        // What the record holds, without rendering it: the prepared page, or
+        // the page pack's content-addressed file.
+        fingerprint: digest(
+          typeof entry.data.fingerprint === "string"
+            ? entry.data.fingerprint
+            : JSON.stringify(isPreparedApiPage(entry.data.prepared) ? entry.data.prepared.page : entry.data),
+        ).slice(0, 16),
+      });
+      // The indexes list the page without its body; only the full document
+      // needs the body made here.
+      if (!(servesLlmsFull(options) && !onRequest(options).llmsFull && isDiscoverable(entry)) || entry.historical) {
+        if (isDiscoverable(entry)) preparedLlmsPages.push(preparedLlmsPage(entry, null, options, true, markdownBytesEstimate(entry)));
+        continue;
+      }
+    }
+    // A historical page in a build-rendered collection: its body is baked
+    // (unpublished) only for parts made on request; it is in no baked document.
+    if (entry.historical && !partsReadBodies) {
+      if (isDiscoverable(entry)) preparedLlmsPages.push(preparedLlmsPage(entry, null, options, true));
+      continue;
+    }
     const prepared = entry.data.prepared;
-    let markdown: string;
+    let page: import("./api/api-view-types.js").ApiPageProps;
     if (isPreparedApiPage(prepared)) {
-      const { renderApiPageMarkdown } = await import("./api/markdown.js");
-      markdown = renderApiPageMarkdown(prepared.page, { base });
-    } else if (options.renderApiEntryMarkdown) {
-      markdown = await options.renderApiEntryMarkdown(entry, base);
+      page = prepared.page;
+    } else if (options.projectApiEntryPage) {
+      page = await options.projectApiEntryPage(entry);
     } else {
       throw new Error(
         `nimbus-docs: API entry "${entry.id}" in collection "${entry.collection}" is missing its prepared page data — rebuild the apiCollection() index.`,
       );
     }
-    markdown = absoluteMarkdownLinks(markdown, options.site);
+    const document = renderApiMarkdownDocument(page, meta, {
+      site: options.site,
+      base,
+      ...(options.socialImage ? { socialImage: options.socialImage } : {}),
+      publishes: (candidate) => publishes(options, candidate),
+    });
+    const markdown = document.content;
     if (isDiscoverable(entry)) {
       preparedLlmsPages.push(preparedLlmsPage(entry, markdown, options, true));
     }
-    const url = preparedMarkdownUrls(entry, options).markdown;
-    const { body, contentStart, contentEnd } = apiMarkdownAsset(
-      entry,
-      markdown,
-      url,
-      options,
-    );
+    if (rendered) continue;
+    if (!published && !options.mcpUrl && !options.buildBodies && !partsReadBodies) continue;
+    const { body, contentStart, contentEnd } = document;
     const fingerprint = digest(
       JSON.stringify({
         generation: AGENT_ENDPOINT_ASSET_GENERATION,
@@ -2137,10 +1962,12 @@ export async function bakeAgentEndpointAssets(
       surface: "markdown",
       url,
       digest: `sha256:${fingerprint}`,
+    hash: digest(body),
       mediaType: "text/markdown; charset=utf-8",
       path: `assets/${fingerprint}.md`,
       contentStart,
       contentEnd,
+      ...(published ? {} : { published: false as const }),
       body,
     });
   }
@@ -2162,36 +1989,70 @@ export async function bakeAgentEndpointAssets(
     hashes.add(record.digest);
   }
 
-  const { leaves, groups } = groupPreparedLlmsPages(preparedLlmsPages, options);
+  if (options.sidebarPosition) {
+    const pages = new Set([...preparedLlmsPages, ...llmsRoutePages]);
+    const position = await options.sidebarPosition([...pages]);
+    for (const page of pages) {
+      const value = position(page);
+      if (value !== undefined) page.position = value;
+    }
+    // A section another slice builds sits where the sidebar links it.
+    const { section } = position;
+    if (section && options.absentSections) {
+      options = {
+        ...options,
+        absentSections: options.absentSections.map((absent) => {
+          const value = section(`/${absent.slug}`);
+          return value === undefined ? absent : { ...absent, position: value };
+        }),
+      };
+    }
+  }
+  const ctx = documentContext(options);
+  // The indexes and the baked full document list the pages the indexes know;
+  // historical pages travel in the page list for the parts made on request.
+  const listedPages = preparedLlmsPages.filter((page) => !page.historical);
+  const { leaves, groups } = groupLlmsPages(listedPages, ctx);
   assertLlmsRouteSafety(llmsRoutePages, groups);
   const versionSlugs = new Set(options.versions?.others ?? []);
-  const llmsFullPages = preparedLlmsPages.filter(
+  const llmsFullPages = listedPages.filter(
     (page) =>
       page.collection === PRIMARY_COLLECTION ||
       !versionSlugs.has(collectionLabel(page.collection, options.versions)),
   );
-  // Without a route, the file would only be shipped, never served.
-  const full =
-    options.fullDocument === false
-      ? { bodies: [], split: false }
-      : llmsFullBodies(llmsFullPages, options, base);
-  const nestedLinks = nestedCollectionLinks(groups, options);
+  const rendersOnRequest = onRequest(options);
+  // Without a route, the file would only be shipped, never served (a route at
+  // another path still reads the baked payload); a route that renders on
+  // request makes the document from the page list when asked.
+  const full = !bakesLlmsFull(options) || rendersOnRequest.llmsFull
+    ? { bodies: [], split: rendersOnRequest.llmsFull }
+    : llmsFullBodies(llmsFullPages, ctx, (page) => page.markdown, {
+        ...(options.llmsFullLimitBytes !== undefined ? { limit: options.llmsFullLimitBytes } : {}),
+        ...(options.sectionDocuments ? { sectionDocuments: options.sectionDocuments } : {}),
+        ...(options.info ? { info: options.info } : {}),
+      });
+  const nestedLinks = nestedCollectionLinks(groups, ctx);
   const llmsBodies: Array<{
     reference: LlmsEndpointReference;
     body: string;
   }> = [
-    {
-      reference: { scope: "site", surface: "index" },
-      body: siteIndexAsset(leaves, groups, options, full.split),
-    },
+    // Each index exists only where a route serves it.
+    ...(servesLlms(options) && !rendersOnRequest.llms
+      ? [
+          {
+            reference: { scope: "site", surface: "index" } as LlmsEndpointReference,
+            body: siteIndexDocument(leaves, groups, ctx, full.split),
+          },
+        ]
+      : []),
     ...full.bodies,
-    ...flattenLlmsGroups(groups).filter((group) => servesSectionIndex(group, options)).map((group) => ({
+    ...(rendersOnRequest.llmsSections ? [] : flattenLlmsGroups(groups).filter((group) => servesSectionIndex(group, ctx))).map((group) => ({
       reference: {
         scope: "section" as const,
         surface: "index" as const,
         section: group.slug,
       },
-      body: sectionIndexAsset(group, options, nestedLinks.get(group.slug)),
+      body: sectionIndexDocument(group, ctx, nestedLinks.get(group.slug)),
     })),
   ];
   // Every agent file is one static file on most hosts; one over the limit
@@ -2227,6 +2088,7 @@ export async function bakeAgentEndpointAssets(
       return {
         ...reference,
         digest: `sha256:${fingerprint}`,
+    hash: digest(body),
         mediaType: "text/plain; charset=utf-8",
         path: `assets/${fingerprint}.txt`,
         body,
@@ -2234,6 +2096,33 @@ export async function bakeAgentEndpointAssets(
     });
   llmsRecords.sort((a, b) => compare(preparedLlmsKey(a), preparedLlmsKey(b)));
   const pageIndexRecord = options.mcpUrl ? mcpPageIndexAsset(indexPages, base, options) : undefined;
+  if (options.surfaces) {
+    const { describeAgentSurfaces, agentRouteFiles, isSectionLlmsPattern } = await import("./agent-surfaces.js");
+    const routes = options.surfaces.markdownRoutes;
+    // Pages whose Markdown URL a route publishes, of those that could have
+    // one: a hidden version's page has none to publish.
+    const countable = llmsRoutePages.filter((page) => !page.historical);
+    options.info?.(
+      `Agent surfaces follow the site's routes: ${describeAgentSurfaces({
+        pageMarkdown: routes.some((route) => route.pattern.endsWith(".md")),
+        pages: { covered: countable.filter((page) => page.markdownUrl).length, total: countable.length },
+        source: routes.some((route) => route.pattern.endsWith(".mdx")),
+        llms: servesLlms(options),
+        llmsSections: servesLlmsSections(options),
+        llmsFull: servesLlmsFull(options),
+        mcpBodies: !!options.mcpUrl,
+        onRequest: rendersOnRequest,
+        renderedPages: renderedPages.length,
+        files: {
+          pageMarkdown: agentRouteFiles(routes, (route) => route.pattern.endsWith(".md")),
+          source: agentRouteFiles(routes, (route) => route.pattern.endsWith(".mdx")),
+          llms: agentRouteFiles(routes, (route) => route.pattern === "/llms.txt"),
+          llmsSections: agentRouteFiles(routes, (route) => isSectionLlmsPattern(route.pattern)),
+          llmsFull: agentRouteFiles(routes, (route) => route.pattern === "/llms-full.txt"),
+        },
+      }).join("; ")}.`,
+    );
+  }
   headingRecords.sort(
     (a, b) => compare(a.collection, b.collection) || compare(a.id, b.id),
   );
@@ -2268,13 +2157,56 @@ export async function bakeAgentEndpointAssets(
   await assertNoSymlink(root, directory);
   await mkdir(path.join(directory, "assets"), { recursive: true });
   await assertNoSymlink(root, path.join(directory, "assets"));
+  if (rendered && configuredAtStart) configuredAtStart.rendered = rendered;
   const manifest: AgentEndpointAssetManifest = {
     version: AGENT_ENDPOINT_ASSET_MANIFEST_VERSION,
     generation: AGENT_ENDPOINT_ASSET_GENERATION,
     base,
     audience: "public",
     markdownAssets: records.map(withoutBody),
+    rendered: renderedPages,
     llmsAssets: llmsRecords.map(withoutBody),
+    onRequest: rendersOnRequest,
+    fullSplit: full.split,
+    ...(rendersOnRequest.llmsFull && options.llmsFullLimitBytes !== undefined ? { fullLimitBytes: options.llmsFullLimitBytes } : {}),
+    ...(rendersOnRequest.llms || rendersOnRequest.llmsSections || rendersOnRequest.llmsFull
+      ? { pages: preparedLlmsPages.map(({ markdown: _markdown, ...page }) => page) }
+      : {}),
+    ...(rendersOnRequest.llmsFull
+      ? {
+          renderedParts: flattenLlmsGroups(
+            groupLlmsPages(preparedLlmsPages.filter((page) => page.collection === PRIMARY_COLLECTION || !versionSlugs.has(collectionLabel(page.collection, options.versions))), { ...ctx, nestedSections: true }, true).groups,
+          ).map((group) => group.slug),
+        }
+      : {}),
+    ...(options.absentSections ? { absentSections: [...options.absentSections] } : {}),
+    // Every input a document made on request reads: the baked bodies, the
+    // described records, the page list and the context the documents are
+    // written for. A change to any of them is a new build id.
+    buildId: digest(
+      JSON.stringify([
+        AGENT_ENDPOINT_ASSET_GENERATION,
+        options.site,
+        base,
+        options.title,
+        options.description ?? "",
+        options.nestedSections === true,
+        options.mcpUrl ?? "",
+        options.surfaces?.markdownRoutes.map((route) => route.pattern) ?? [],
+        rendersOnRequest,
+        servesLlms(options),
+        servesLlmsFull(options),
+        full.split,
+        options.absentSections ?? [],
+        options.apiVersions ?? {},
+        ...records.map((record) => record.digest),
+        ...llmsRecords.map((record) => record.digest),
+        ...renderedPages.map((page) => `${page.collection}\0${page.id}\0${page.url}\0${page.published}\0${page.fingerprint}`),
+        // Every body-free field of every listed page: a group label or a
+        // section is a document input too.
+        ...preparedLlmsPages.map(({ markdown: _markdown, ...page }) => JSON.stringify(page)),
+      ]),
+    ).slice(0, 16),
     ...(pageIndexRecord ? { pageIndex: withoutBody(pageIndexRecord) } : {}),
     headings: headingRecords,
   };
@@ -2327,6 +2259,7 @@ export async function bakeAgentEndpointAssets(
           await cleanupAssets(root, directory, manifest);
         }
       },
+      configuredAtStart?.mode === "dev",
     ))
   ) {
     return manifest;
@@ -2437,4 +2370,8 @@ export async function readLlmsEndpointPayload(
   }
 }
 
-registerAgentEndpointAssetReader(readMarkdownEndpointPayload);
+registerAgentEndpointAssetReader(readMarkdownEndpointPayload, async (root, reference) =>
+  (await ensureAgentEndpointAssets(root)).rendered.find(
+    (page) => page.collection === reference.collection && page.id === reference.id,
+  ),
+);

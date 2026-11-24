@@ -66,7 +66,7 @@ A page, content entry or public file at either path fails the build, since the s
 
 ## The tools
 
-**`list_pages`** returns pages 200 at a time, each with its `title`, `url`, `markdownUrl` and `section`, plus `description` and `version` when it has them. Pass `nextCursor` back as `cursor` for the next batch.
+**`list_pages`** returns pages 200 at a time, each with its `title`, `url` and `section`, plus `description`, `version` and `markdownUrl` when it has them (`markdownUrl` only when the site serves page Markdown; see [Serve the surfaces you want](/ai/publish-markdown#serve-the-surfaces-you-want)). Pass `nextCursor` back as `cursor` for the next batch.
 
 - **`section`** filters by the first path segment: `guide` for `/guide/install/`, or `index` for a root page.
 - **`version`** filters by one of the site's [docs versions](/reference/configuration#site-config). Pages outside the docs versions, such as an API reference, appear only unfiltered.
@@ -75,7 +75,7 @@ A page, content entry or public file at either path fails the build, since the s
 { "section": "guide" }
 ```
 
-**`get_page`** returns one page as Markdown: `{ "title", "url", "markdownUrl", "content" }`. Pass the `url` that `list_pages` returned, or a site-relative path such as `/guide/`; only the path of an absolute URL is used. Pages over about 100,000 characters are cut with `"truncated": true`; the `markdownUrl` serves the whole page.
+**`get_page`** returns one page as Markdown: `{ "title", "url", "content" }`, plus `markdownUrl` when the site serves page Markdown. Pass the `url` that `list_pages` returned, or a site-relative path such as `/guide/`; only the path of an absolute URL is used. Pages over about 100,000 characters are cut with `"truncated": true` and a `nextOffset`; pass it back as `offset` to read on, or fetch the `markdownUrl` when there is one. The MCP server reads every page's Markdown whether or not the site publishes it at a URL.
 
 ```json
 { "url": "https://docs.example.com/guide/" }

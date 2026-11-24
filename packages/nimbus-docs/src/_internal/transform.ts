@@ -23,6 +23,7 @@ import {
 } from "./api/citations.js";
 import { getTabs, isCommandType } from "../lib/pkgm.js";
 import { rewriteRelativeImages } from "./markdown-images.js";
+import { absolutizeMarkdownLinks } from "./markdown-links.js";
 import { sourceFeatures } from "./markdown-features.js";
 import { runtimeWarn } from "./runtime-warn.js";
 
@@ -86,6 +87,8 @@ interface Context {
   source: string;
   /** Inside `<Tabs>`: each `<TabsTrigger value>`'s label, for its `<TabsContent>`. */
   tabLabels?: Map<string, string>;
+  /** Inside a link, where a component's own link would nest. */
+  inLink?: boolean;
 }
 
 interface Parsers {
@@ -191,6 +194,32 @@ function textAttribute(node: JsxElement, name: string): string | undefined {
   }
   return undefined;
 }
+
+/**
+ * Where a linked component (`Card`, `LinkButton`) points: its `href` as text,
+ * unless a spread (`{...props}`) could set another one.
+ */
+function linkTarget(node: JsxElement): string | undefined {
+  if (node.attributes.some((a) => a.type === "mdxJsxExpressionAttribute")) return undefined;
+  return textAttribute(node, "href");
+}
+
+const LINKS = new Set(["link", "linkReference"]);
+// Markdown kept as written (a custom renderer's output, raw HTML) counts when
+// it looks like it holds a link: adding none is the safe side.
+const LINK_IN_SOURCE = /\[[^\]]*\]|<a[\s>]/i;
+const hasLink = (nodes: MdNode[]): boolean =>
+  nodes.some(
+    (node) =>
+      LINKS.has(node.type) ||
+      (node.type === "html" && LINK_IN_SOURCE.test(String(node.value))) ||
+      hasLink(node.children ?? []),
+  );
+
+/** `children` as a link to `url`, unless a link would nest: Markdown has no
+ * link inside a link, so the outer one would be lost. */
+const linkTo = (url: string | undefined, children: MdNode[], ctx: Context): MdNode[] =>
+  url && children.length > 0 && !ctx.inLink && !hasLink(children) ? [{ type: "link", url, title: null, children }] : children;
 
 // ── node builders ──────────────────────────────────────────────────────────
 
@@ -324,7 +353,8 @@ function transformNode(node: MdNode, ctx: Context): MdNode[] {
   // on one line) is those components.
   const components = node.type === "paragraph" ? onlyBlockComponents(node.children) : undefined;
   if (components) return renderAsBlocks(components, ctx);
-  const children = hoistEdgeSpaces(transformChildren(node.children, ctx));
+  const inner = LINKS.has(node.type) ? { ...ctx, inLink: true } : ctx;
+  const children = hoistEdgeSpaces(transformChildren(node.children, inner));
   return [{ ...node, children: TEXT_BLOCKS.has(node.type) ? trimEdges(children) : children }];
 }
 
@@ -415,7 +445,7 @@ function renderElement(node: JsxElement, ctx: Context): MdNode[] {
   if (!isComponent(node, ctx)) return htmlElement(node, children(), ctx);
   // Mid-sentence (in a table cell, a heading, a sentence), a component keeps
   // what it says, in inline form.
-  if (inline) return inlineForm(node, children());
+  if (inline) return inlineForm(node, children(), ctx);
 
   switch (node.name) {
     case "PackageManagers":
@@ -423,7 +453,15 @@ function renderElement(node: JsxElement, ctx: Context): MdNode[] {
     case "Aside":
       return [{ type: "blockquote", children: [paragraph([strong(asideTitle(node))]), ...children()] }];
     case "Card":
-      return [cardList(cardContent(strong(textAttribute(node, "title") ?? "Card"), children()))];
+      return [cardList(cardContent(cardTitle(node, ctx), children()))];
+    case "LinkButton": {
+      // One line of text becomes a link; anything richer keeps its content.
+      const content = children();
+      const [only] = content;
+      return content.length === 1 && only!.type === "paragraph"
+        ? [paragraph(linkTo(linkTarget(node), only!.children ?? [], ctx))]
+        : content;
+    }
     case "CardGrid":
       return children();
     case "LinkCard":
@@ -525,6 +563,12 @@ function steps(node: JsxElement, ctx: Context): MdNode[] {
   return asBlocks(out);
 }
 
+/** A card's bold title, linked when the card has an `href`. */
+function cardTitle(node: JsxElement, ctx: Context): MdNode {
+  const title = strong(textAttribute(node, "title") ?? "Card");
+  return linkTo(linkTarget(node), [title], ctx)[0]!;
+}
+
 function asideTitle(node: JsxElement): string {
   const type = (textAttribute(node, "type") ?? "note").toLowerCase();
   return textAttribute(node, "title") ?? type.charAt(0).toUpperCase() + type.slice(1);
@@ -539,13 +583,15 @@ function linkCardText(node: JsxElement): MdNode[] {
 }
 
 /** A component's inline form, for a table cell, a heading, or a sentence. */
-function inlineForm(node: JsxElement, content: MdNode[]): MdNode[] {
+function inlineForm(node: JsxElement, content: MdNode[], ctx: Context): MdNode[] {
   const then = (separator: string) => (content.length > 0 ? [text(separator), ...content] : []);
   switch (node.name) {
     case "Aside":
       return [strong(asideTitle(node)), ...then(" ")];
     case "Card":
-      return [strong(textAttribute(node, "title") ?? "Card"), ...then(" — ")];
+      return [cardTitle(node, ctx), ...then(" — ")];
+    case "LinkButton":
+      return linkTo(linkTarget(node), content, ctx);
     case "LinkCard":
       return linkCardText(node);
     case "PackageManagers": {
@@ -750,80 +796,12 @@ function withPublishedImages(markdown: string, filePath: string | undefined, bas
 }
 
 /**
- * Make root-relative link and image URLs in generated Markdown absolute
- * against `site`, so they resolve wherever the Markdown is read. Authored
- * links already carry the base. Fragment, relative and external URLs, and
- * anything inside code, stay as written.
+ * Make root-relative link and image URLs in authored Markdown absolute
+ * against `site`, parsing with Sätteri. See `markdown-links.ts`; API pages
+ * use the same routine with the parser that runs in a Worker.
  */
 export function absoluteMarkdownLinks(markdown: string, site: string): string {
-  if (!/\]\(|\]:/.test(markdown)) return markdown;
-  const origin = new URL(site).origin;
-  const parse = satteri().markdownToMdast;
-  // Offsets where the origin goes: the start of each destination as written,
-  // so escapes, entities and titles keep their bytes.
-  const inserts = new Set<number>();
-  walk(parse(markdown), (node) => {
-    if (node.type !== "link" && node.type !== "image" && node.type !== "definition") return;
-    const url = node.url;
-    const start = node.position?.start.offset;
-    const end = node.position?.end.offset;
-    if (typeof url !== "string" || !url.startsWith("/") || url.startsWith("//")) return;
-    if (start === undefined || end === undefined) return;
-    const at = destinationStart(markdown, start, end, node.type, url, parse);
-    if (at !== undefined) inserts.add(at);
-  });
-  let out = markdown;
-  for (const at of [...inserts].sort((a, b) => b - a)) out = out.slice(0, at) + origin + out.slice(at);
-  return out;
-}
-
-const PROBE = "https://nimbus.invalid";
-
-/**
- * Where the destination of the node at `start`–`end` begins in `markdown`.
- * Each `](` (or `]:`) inside the node is a candidate; the parser confirms the
- * one where an origin placed there becomes part of the URL, so a `](` in a
- * label, alt text, code span or title is never the one rewritten. The node's
- * own text is tried first; a node that needs its context (a link wrapped
- * inside a blockquote) is tried from the start of its line, with the
- * container markers that line carries, and then in the whole document.
- */
-function destinationStart(
-  markdown: string,
-  start: number,
-  end: number,
-  type: string,
-  url: string,
-  parse: (source: string) => MdNode,
-): number | undefined {
-  const text = markdown.slice(start, end);
-  // The node from the start of its line, so a blockquote's or list's
-  // markers come with it; the slice stays the size of the node.
-  const lineStart = markdown.lastIndexOf("\n", start - 1) + 1;
-  const context = markdown.slice(lineStart, end);
-  // `source` holds the node at `offset`; the probe goes in at `at` within it.
-  const confirms = (source: string, offset: number, at: number) => {
-    let found = false;
-    walk(parse(source.slice(0, at) + PROBE + source.slice(at)), (node) => {
-      if (node.type === type && node.position?.start.offset === offset && node.url === PROBE + url) found = true;
-    });
-    return found;
-  };
-  const candidates: number[] = [];
-  const marker = type === "definition" ? "]:" : "](";
-  for (let i = text.indexOf(marker); i >= 0; i = text.indexOf(marker, i + 1)) {
-    let at = i + 2;
-    while (" \t\r\n>".includes(text[at] ?? "x")) at++;
-    if (text[at] === "<") at++;
-    candidates.push(at);
-  }
-  for (const at of candidates) if (confirms(text, 0, at)) return start + at;
-  const offset = start - lineStart;
-  for (const at of candidates) if (confirms(context, offset, offset + at)) return start + at;
-  // Containers opened on earlier lines (a list inside a blockquote): the whole
-  // document, which only such nesting needs.
-  for (const at of candidates) if (confirms(markdown, start, start + at)) return start + at;
-  return undefined;
+  return absolutizeMarkdownLinks(markdown, site, satteri().markdownToMdast);
 }
 
 // MDX-only syntax: Markdown reads it as HTML or text, so it can't be compared.

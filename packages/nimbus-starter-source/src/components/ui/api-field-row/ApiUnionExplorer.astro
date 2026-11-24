@@ -2,7 +2,7 @@
 import ApiFieldRow from "./ApiFieldRow.astro";
 import type { ApiUnionView } from "@cloudflare/nimbus-docs/api";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
-import { contentsLabel, literalTokens, unionEntries } from "./type-display";
+import { allowedValues, contentsLabel, literalTokens, unionEntries } from "./type-display";
 import "./field-list.css";
 
 interface Props {
@@ -84,6 +84,9 @@ const entries = unionEntries(union);
             )}
           </div>
           {variant.description && <div class="fl-desc">{variant.description}</div>}
+          {allowedValues(variant.enum) && (
+            <div class="fl-constraints">Allowed values: <span class="fl-constraint-value">{allowedValues(variant.enum)}</span></div>
+          )}
         </li>
       );
     })}

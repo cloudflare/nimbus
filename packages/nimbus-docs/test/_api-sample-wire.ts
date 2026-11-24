@@ -5,10 +5,14 @@ import { promisify } from "node:util";
 
 const exec = promisify(execFile);
 
+// Locally a missing client skips its tests; in CI it fails them, so a sample
+// is never left untested because its client wasn't installed.
+const unavailable = (missing: boolean, reason: string) => (missing && !process.env.CI ? reason : false);
+
 export const sampleClientUnavailable = {
-  curl: spawnSync("curl", ["--version"]).status !== 0 ? "curl is unavailable" : false,
-  typescript: false,
-  python: spawnSync("python3", ["-c", "import requests"]).status !== 0 ? "python3 with requests is unavailable" : false,
+  curl: unavailable(spawnSync("curl", ["--version"]).status !== 0, "curl is unavailable"),
+  typescript: false as const,
+  python: unavailable(spawnSync("python3", ["-c", "import requests"]).status !== 0, "python3 with requests is unavailable"),
 };
 
 export interface CapturedSampleRequest {
@@ -38,7 +42,7 @@ export async function startSampleCapture() {
 
   return {
     origin: `http://127.0.0.1:${address.port}`,
-    async run(sample: { lang: string; source: string }, options: { cwd?: string } = {}): Promise<CapturedSampleRequest> {
+    async run(sample: { lang: string; source: string }, options: { cwd?: string; methods?: string[] } = {}): Promise<CapturedSampleRequest> {
       const before = requests.length;
       const command = sample.lang === "curl"
         ? ["bash", ["-c", sample.source]] as const
@@ -48,7 +52,7 @@ export async function startSampleCapture() {
       await exec(command[0], [...command[1]], { cwd: options.cwd, timeout: 10_000, maxBuffer: 1024 * 1024 });
       assert.equal(requests.length, before + 1, `exactly one HTTP request from ${sample.lang}`);
       const request = requests[before]!;
-      assert.ok(request.method === "POST" || request.method === "PUT", `${request.method} request`);
+      assert.ok((options.methods ?? ["POST", "PUT"]).includes(request.method ?? ""), `${request.method} request`);
       return request;
     },
     async close() {

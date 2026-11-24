@@ -461,8 +461,32 @@ async function readRouteTruthFile(projectRoot: string) {
 test("route truth records every emitted file except the final assets dir, search, internals, and platform files", async (t) => {
   // Setup sees the default `_astro`; a later integration moves assets to
   // `static/assets`, which config:done sees. A public `_astro/` file stays.
+  // The homepage's /index.md is copied only when a shared Markdown route
+  // serves page Markdown, so the fixture declares one.
+  const markdownRouteFile = "src/pages/[...slug]/index.md.ts";
   const { projectRoot } = await driveBuild(t, {
     assets: "static/assets",
+    seedProject: {
+      [markdownRouteFile]:
+        'import { markdownRoute } from "@cloudflare/nimbus-docs/agent-endpoints";\n' +
+        "export const prerender = true;\n" +
+        "export const { GET, getStaticPaths } = markdownRoute();\n",
+    },
+    routes: [
+      {
+        pattern: "/[...slug]/index.md",
+        entrypoint: markdownRouteFile,
+        type: "endpoint",
+        isPrerendered: true,
+        origin: "project",
+        segments: [
+          [{ content: "slug", dynamic: true, spread: true }],
+          [{ content: "index.md", dynamic: false, spread: false }],
+        ],
+        patternRegex: /^(?:\/(.*?))?\/index\.md$/u,
+        params: ["...slug"],
+      } as ResolvedRouteLike,
+    ],
     seedDist: {
       "index.html": "",
       "llms.txt": "",

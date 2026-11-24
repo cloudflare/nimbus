@@ -49,6 +49,42 @@ test("runtime config strips inline API specs", async () => {
   assert.match(source, /searchIndex = \{"bundle":"\/docs\/pagefind\/","merge":\[\]\}/);
 });
 
+test("runtime config leaves out build-only route settings", async () => {
+  const routes = {
+    convention: "resource-action-v2" as const,
+    sections: "hierarchical" as const,
+    operations: { listPets: "route-map-must-not-ship" },
+    tagSegments: { pets: "animals" },
+    stripPathPrefixes: ["/v1"],
+  };
+  const config = {
+    api: [
+      { collection: "one", spec: "./one.json", routes },
+      { collection: "two", versions: [{ version: "v1", spec: "./two.json", routes }] },
+    ],
+  } as unknown as NimbusConfig;
+  const plugin = virtualConfigPlugin(config, {
+    getIndexedCollections: async () => ["one", "two"],
+    requestRenderingCollections: ["one", "two"],
+    base: "/",
+    versionAlternates: {},
+    apiCollections: ["one", "two"],
+    collectionRoutes: new Map(),
+    unreadCollectionRoutes: [],
+    headDefaults: {
+      favicon: { file: "/favicon.ico", type: "image/x-icon" },
+      socialImage: "/opengraph.png",
+      ogCard: { sitePath: "/og.png", pagePrefix: "/og/", size: { width: 1200, height: 630 } },
+      imageSizes: {},
+    },
+  });
+  const source = (await plugin.load("\0virtual:nimbus/config")) ?? "";
+  assert.ok(!source.includes("route-map-must-not-ship"));
+  assert.ok(!source.includes("animals"));
+  assert.ok(!source.includes("stripPathPrefixes"));
+  assert.equal(source.match(/"convention":"resource-action-v2","sections":"hierarchical"/g)?.length, 2);
+});
+
 test("build-only API config retains specs and the project root", () => {
   const plugin = virtualApiBuildConfigPlugin(api, "/project");
   const source = plugin.load("\0virtual:nimbus/api-build-config");

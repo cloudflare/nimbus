@@ -3,19 +3,26 @@
   "oldestSupportedVersion": "0.11.0",
   "appliesTo": {
     "api": [
+      "api-auth-details",
       "api-body-request-example",
       "api-catalog-published-specs",
+      "api-code-sample-before-paint",
       "api-code-sample-ids",
       "api-collections-from-config",
+      "api-page-layout",
+      "api-page-polish",
       "api-parameter-examples-and-home-toc",
       "api-query-version-mode",
       "api-reference-polish",
       "api-request-path",
       "api-schema-pages-off-by-default",
+      "api-shapes-beside-unions",
       "api-sidebar-filter",
+      "api-sidebar-panel",
       "api-version-id-format",
       "api-version-picker",
       "api-version-url",
+      "search-unindexed-version",
       "version-switcher-keeps-query"
     ]
   },
@@ -43,7 +50,7 @@
       "mode": "optional",
       "changeset": "math-rendering",
       "summary": "Optionally typeset math with the new math() Markdown plugin.",
-      "affected": "Sites that want $…$ or $$…$$ math, or that render math with their own markdown.processor only to typeset it.",
+      "affected": "Sites that want $\u2026$ or $$\u2026$$ math, or that render math with their own markdown.processor only to typeset it.",
       "instructions": [
         "No action is needed: sites that don't add math() are unchanged.",
         "To typeset math, import math from @cloudflare/nimbus-docs/markdown, add math() to markdown.hastPlugins, and add math: true to markdown.features in the Nimbus integration.",
@@ -62,10 +69,10 @@
       "mode": "optional",
       "changeset": "markdown-features",
       "summary": "Turn on heading ids or math with markdown.features, and drop Markdown processor workarounds.",
-      "affected": "Projects that override the satteri version under @cloudflare/nimbus-docs, patch @cloudflare/nimbus-docs to parse heading ids or math, or replace markdown.processor only to turn on Sätteri features.",
+      "affected": "Projects that override the satteri version under @cloudflare/nimbus-docs, patch @cloudflare/nimbus-docs to parse heading ids or math, or replace markdown.processor only to turn on S\u00e4tteri features.",
       "instructions": [
         "No action is needed: pages render exactly as before, and generated Markdown changes only by dropping {/* comments */}.",
-        "To give headings fixed ids (## Install {#install}), add features: { headingAttributes: true } to the markdown option of the Nimbus integration, as new sites have. In .md files a heading that ends in other {…} text, such as {account_id}, is then read as attributes and loses that text, so leave it off for those sites. Add math: true for $…$ math.",
+        "To give headings fixed ids (## Install {#install}), add features: { headingAttributes: true } to the markdown option of the Nimbus integration, as new sites have. In .md files a heading that ends in other {\u2026} text, such as {account_id}, is then read as attributes and loses that text, so leave it off for those sites. Add math: true for $\u2026$ math.",
         "Remove any package-manager override that pins satteri for @cloudflare/nimbus-docs (for example '@cloudflare/nimbus-docs>satteri' in pnpm overrides), and any patch to @cloudflare/nimbus-docs that adds heading attributes or math to its internal parsing.",
         "If markdown.processor is a satteri() call that exists only to set features, replace it with markdown.features, and move its hastPlugins and mdastPlugins to markdown.hastPlugins and markdown.mdastPlugins. Keep a satteri() processor that does more than that: Nimbus reads its features for its own passes, though not its plugins. With a processor other than satteri(), Nimbus's own passes use only Astro's gfm and smartypants settings."
       ],
@@ -333,8 +340,8 @@
       "instructions": [
         "Upgrade Astro to a supported 7.x version (7.2.6 or newer) before upgrading Nimbus.",
         "Review explicit markdown.processor and mdx.processor overrides in the Nimbus integration.",
-        "Keep a compatible Sätteri processor, or remove the override to use Nimbus's default Sätteri processor.",
-        "Move Sätteri plugins to markdown.mdastPlugins or markdown.hastPlugins and use Astro's markdown.smartypants option for smart punctuation.",
+        "Keep a compatible S\u00e4tteri processor, or remove the override to use Nimbus's default S\u00e4tteri processor.",
+        "Move S\u00e4tteri plugins to markdown.mdastPlugins or markdown.hastPlugins and use Astro's markdown.smartypants option for smart punctuation.",
         "For unified or another custom processor, set admonitions: false and preserve that processor's existing callout implementation.",
         "Move admonition directives in .md files to MDX, or keep them literal and provide a separate Markdown callout implementation; native Nimbus admonitions now transform only .mdx files."
       ],
@@ -519,7 +526,7 @@
       "instructions": [
         "Existing robots.txt files keep their current output. Review the site policy before adopting the new starter defaults.",
         "For an unmodified starter route, inspect nimbus-docs diff src/pages/robots.txt.ts and apply it after reviewing the permissions. Add the Content-Signal line manually to customized routes.",
-        "The new starter allows search, AI input, and AI training. Change the yes/no values to reflect the owner’s policy; do not overwrite existing bot restrictions or sitemap URLs."
+        "The new starter allows search, AI input, and AI training. Change the yes/no values to reflect the owner\u2019s policy; do not overwrite existing bot restrictions or sitemap URLs."
       ],
       "verify": [
         "Build the site and inspect robots.txt, preserving existing directives.",
@@ -573,7 +580,7 @@
         "No action is needed: copied starter routes keep working because the policy wins over their `export const prerender`; URLs and response bytes don't change.",
         "A page's index.md and index.mdx follow its collection's mode, a section's llms.txt follows the collection it lists, llms.txt and llms-full.txt follow rendering.default, and homepage Markdown follows the root collection's mode. Mounted collections get their own agent routes at their mount unless the project already has a route file at that pattern.",
         "One behavior change: when /index.md renders on request, /llms.txt is prebuilt, and the site has no root content entry, /index.md now serves Nimbus's site llms.txt content (that combination returned 404 before). A site that wants its own homepage Markdown there adds a root content entry or its own /index.md route.",
-        "A customized root Markdown or source route keeps serving every collection that shares the root collection's rendering mode: the injected mounted route runs the project's own module behind a shim that supplies the same catch-all parameter a static build would (the full slug, mount segment included). A mounted collection in a different mode, and every per-mount llms.txt, is served by Nimbus's own route without root-route customization — add a route file at that mount (it owns the pattern and suppresses the injection) to customize there.",
+        "A customized root Markdown or source route keeps serving every collection that shares the root collection's rendering mode: the injected mounted route runs the project's own module behind a shim that supplies the same catch-all parameter a static build would (the full slug, mount segment included). A mounted collection in a different mode, and every per-mount llms.txt, is served by Nimbus's own route without root-route customization \u2014 add a route file at that mount (it owns the pattern and suppresses the injection) to customize there.",
         "Custom routes that call no Nimbus agent factory keep their own `prerender` export and are never policy-managed."
       ],
       "verify": [
@@ -593,7 +600,7 @@
         "To adopt the lighter markup, update these files together with nimbus-docs diff <file> --apply (nimbus-docs outdated lists them): src/components/ui/sidebar/*, src/layouts/DocsLayout.astro, and src/styles/globals.css. The API sidebar composes the same atoms, so a site with an API reference then reinstalls the api-sidebar and api-layout registry components, last: nimbus-docs add api-sidebar --overwrite and nimbus-docs add api-layout --overwrite. Commit first: reinstalling also replaces the components they depend on, including src/components/ui/sidebar/*, so review the change with git diff and reapply your own edits. Updating only some of these files breaks the sidebar's styling or restoring open groups across pages.",
         "Page HTML for a large sidebar drops by roughly 80%, and each page renders one sidebar tree shared by the rail and the drawer.",
         "Row styling is three classes (nb-sidebar-link, nb-sidebar-row, nb-sidebar-list) in the \"Sidebar rows\" section of src/styles/globals.css, in Tailwind's components layer, so utilities on a row still win. If you edited globals.css, copy that section in by hand. The data-nb-sidebar-* attributes are unchanged.",
-        "One visible change: a group with a landing page now lists it as the group's first child, labelled \"Overview\" — the summary row is label-only, so keyboard and screen-reader users get one disclosure control and one link.",
+        "One visible change: a group with a landing page now lists it as the group's first child, labelled \"Overview\" \u2014 the summary row is label-only, so keyboard and screen-reader users get one disclosure control and one link.",
         "Groups open and close with no animation (native details). The old Collapsible/Accordion content components are unchanged."
       ],
       "verify": [
@@ -625,7 +632,7 @@
       "affected": "Only families that set versionMode: \"query\". Path mode stays the default; see api-version-id-format for the version id rule that applies to both modes.",
       "instructions": [
         "Families that don't set versionMode keep path versions: existing routes, store ids, URLs, alternates, sitemaps, and agent files are unchanged.",
-        "To adopt query versions on a family, set versionMode: \"query\" on its api entry. It requires \"versions\" and the family's effective rendering mode to be \"request\" — a static site serves the same file whatever the query says.",
+        "To adopt query versions on a family, set versionMode: \"query\" on its api entry. It requires \"versions\" and the family's effective rendering mode to be \"request\" \u2014 a static site serves the same file whatever the query says.",
         "In query mode: /<family>/<slug> renders the default version; ?api-version=<id> selects another; an unknown or version-prefixed path URL is a 404. Every generated same-version link carries the version's query; discovery (sitemap, Markdown twins, llms indexes) covers the default version at version-free URLs; non-default pages are noindex with the default counterpart as canonical and no per-page Markdown affordance.",
         "Adopters must also update three copied files. The API catch-all route (src/pages/<family>/[...slug].astro from the api-reference recipe): derive the social image from the pathname and fall back to the shared image when the page URL carries a query; the recipe's current form is the reference. A copied BaseLayout and AgentDirective: update with nimbus-docs diff src/layouts/BaseLayout.astro --apply and nimbus-docs diff src/components/AgentDirective.astro --apply, so a page without per-page Markdown still emits an index-only agent directive."
       ],
@@ -657,7 +664,7 @@
       "mode": "review-required",
       "changeset": "api-query-version-mode",
       "summary": "The starter VersionSwitcher's active item keeps the page's API version.",
-      "affected": "Projects with a copied VersionSwitcher that adopt versionMode: \"query\" — the old copy drops ?api-version= from the active item, so clicking it would jump to the default version.",
+      "affected": "Projects with a copied VersionSwitcher that adopt versionMode: \"query\" \u2014 the old copy drops ?api-version= from the active item, so clicking it would jump to the default version.",
       "instructions": [
         "If the project doesn't use versionMode: \"query\", no change is needed; the updated component is otherwise identical.",
         "Commit first, then reinstall the version-switcher registry component with nimbus-docs add version-switcher --overwrite. It also replaces the components it depends on, so review the change with git diff and reapply your own edits.",
@@ -886,7 +893,7 @@
         "No action is needed: sites without agents.mcp are unchanged.",
         "To serve the server, add the server adapter for your host if the site has none (nimbus-docs add adapter-cloudflare, nimbus-docs add adapter-netlify, nimbus-docs add adapter-node or nimbus-docs add adapter-vercel), install @modelcontextprotocol/server@2, and set agents: { mcp: true } in the Nimbus config.",
         "To show the Copy MCP URL action, run nimbus-docs diff src/components/ConnectMcp.astro --apply and nimbus-docs diff src/components/connect-mcp.client.ts --apply. diff needs a site on a released version; on a 0.19 preview, copy both files from a site newly scaffolded with the same preview.",
-        "Then in src/layouts/DocsLayout.astro, import ConnectMcp from \"@/components/ConnectMcp.astro\" and and { capabilities } from \"virtual:nimbus/agent-capabilities\", and pass it to PageActions: <PageActions …>{capabilities.mcpUrl && <ConnectMcp />}</PageActions>, as the starter's DocsLayout.astro does (nimbus-docs diff src/layouts/DocsLayout.astro shows the change). The guard keeps its script off sites without the server. A PageActions copied before this release has no slot: update it with nimbus-docs add page-actions --overwrite, or render <ConnectMcp /> after it."
+        "Then in src/layouts/DocsLayout.astro, import ConnectMcp from \"@/components/ConnectMcp.astro\" and and { capabilities } from \"virtual:nimbus/agent-capabilities\", and pass it to PageActions: <PageActions \u2026>{capabilities.mcpUrl && <ConnectMcp />}</PageActions>, as the starter's DocsLayout.astro does (nimbus-docs diff src/layouts/DocsLayout.astro shows the change). The guard keeps its script off sites without the server. A PageActions copied before this release has no slot: update it with nimbus-docs add page-actions --overwrite, or render <ConnectMcp /> after it."
       ],
       "verify": [
         "Run astro dev, then npx @modelcontextprotocol/inspector --cli http://localhost:4321/mcp --transport http --method tools/list (with the base path, and /mcp/ under trailingSlash: \"always\"), and confirm it lists get_page and list_pages.",
@@ -1051,7 +1058,7 @@
       "affected": "Sites with the starter's Card (src/components/ui/card/Card.astro).",
       "instructions": [
         "No action is needed: Card keeps its props and look.",
-        "Update it with nimbus-docs diff src/components/ui/card/Card.astro --apply, or merge by hand if you edited it. Then <Card title=\"…\" href=\"…\"> makes the whole card a link, and its title is text rather than a heading."
+        "Update it with nimbus-docs diff src/components/ui/card/Card.astro --apply, or merge by hand if you edited it. Then <Card title=\"\u2026\" href=\"\u2026\"> makes the whole card a link, and its title is text rather than a heading."
       ],
       "verify": [
         "A card with href is one link, focusable from the keyboard, and a card without it renders as before."
@@ -1118,12 +1125,12 @@
       "introducedIn": "0.20.0",
       "mode": "optional",
       "changeset": "content-first-layouts",
-      "summary": "Optionally mark two pieces of page chrome so agents and text readers skip them: the page actions row (Updated, Copy page, View as Markdown) becomes a nav, and the API union explorer's \"View X schema →\" link, which repeats the branch name's link, is marked data-markdown-ignore.",
+      "summary": "Optionally mark two pieces of page chrome so agents and text readers skip them: the page actions row (Updated, Copy page, View as Markdown) becomes a nav, and the API union explorer's \"View X schema \u2192\" link, which repeats the branch name's link, is marked data-markdown-ignore.",
       "affected": "Sites with the starter's src/components/ui/page-actions/PageActions.astro or, with an API reference, src/components/ui/api-field-row/ApiUnionExplorer.astro.",
       "instructions": [
         "No action is needed: both components keep their props and look.",
         "Take the PageActions change with nimbus-docs diff src/components/ui/page-actions/PageActions.astro --apply. ApiUnionExplorer is part of the api-field-row registry component, which nimbus-docs diff doesn't cover: if it's unmodified, update it with nimbus-docs add api-field-row --overwrite.",
-        "To merge by hand: in PageActions, change the row's root <div data-nb-page-actions> to <nav aria-label=\"Page actions\" data-nb-page-actions>, closing it with </nav>. In ApiUnionExplorer, add data-markdown-ignore to the <div class=\"fl-desc\"> that holds the \"View … schema →\" link."
+        "To merge by hand: in PageActions, change the row's root <div data-nb-page-actions> to <nav aria-label=\"Page actions\" data-nb-page-actions>, closing it with </nav>. In ApiUnionExplorer, add data-markdown-ignore to the <div class=\"fl-desc\"> that holds the \"View \u2026 schema \u2192\" link."
       ],
       "verify": [
         "The page actions and union explorer look as before, and their buttons and links are still reached with Tab."
@@ -1165,18 +1172,286 @@
       ]
     },
     {
-      "id": "framework-coordinates-route",
+      "id": "api-auth-details",
       "introducedIn": "0.20.0",
       "mode": "optional",
-      "changeset": "framework-coordinates-route",
-      "summary": "Optionally delete src/pages/nimbus-api/coordinates.json.ts: Nimbus serves /nimbus-api/coordinates.json itself now, with the same response.",
-      "affected": "Sites with src/pages/nimbus-api/coordinates.json.ts.",
+      "changeset": "api-auth-details",
+      "summary": "Optionally show each auth scheme's header example and scopes on API pages again, with HTTP Bearer and Basic named.",
+      "affected": "Sites with the api-layout registry component.",
       "instructions": [
-        "No action is needed: your file keeps serving the path, and it wins over Nimbus's route.",
-        "If nimbus-docs check reports the file as the starter's unchanged copy, delete it, and the empty src/pages/nimbus-api/ folder. If you changed it, keep it, or move what you changed elsewhere before deleting it."
+        "Upgrade @cloudflare/nimbus-docs first: the new auth.ts reads ApiAuthView.httpScheme, which this release adds.",
+        "api-layout is a registry component, which nimbus-docs diff doesn't cover. If it is unmodified, update it with nimbus-docs add api-layout --overwrite.",
+        "If it is customized, update src/components/ui/api-layout/auth.ts from the current registry version: toField sets descriptionHtml instead of description, with the header example and each scope HTML-escaped inside <code>; authTypeLabel and authExample read httpScheme for Bearer and Basic."
       ],
       "verify": [
-        "After a build, /nimbus-api/coordinates.json returns the same JSON as before."
+        "An operation with an HTTP bearer scheme shows HTTP Bearer and Authorization: Bearer <token> in its Authorization section.",
+        "An OAuth2 operation lists its scopes."
+      ]
+    },
+    {
+      "id": "page-language",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "page-language",
+      "summary": "Optionally let a page set its language and share-image alt text, and write dir=\"rtl\" for a right-to-left language.",
+      "affected": "Sites with the starter's src/layouts/BaseLayout.astro and src/layouts/DocsLayout.astro.",
+      "instructions": [
+        "No action is needed: without these files, pages keep the site's language. og:locale changes to Open Graph's form (en_US) either way, from NimbusHead.",
+        "Take both with nimbus-docs diff src/layouts/BaseLayout.astro --apply and nimbus-docs diff src/layouts/DocsLayout.astro --apply.",
+        "If you edited them, merge by hand: BaseLayout reads locale and socialImageAlt from its props, passes both to NimbusHead, and writes <html lang={lang} dir={dir}> from await getPageLanguage(locale) (from @cloudflare/nimbus-docs/runtime); DocsLayout destructures both and passes them to BaseLayout.",
+        "With a right-to-left config.locale (Arabic, Hebrew, Persian, \u2026), every page gains dir=\"rtl\" once BaseLayout is updated."
+      ],
+      "verify": [
+        "A page given locale=\"fr\" renders <html lang=\"fr\"> and og:locale fr_FR.",
+        "A page given locale=\"ar\" renders <html lang=\"ar\" dir=\"rtl\">."
+      ]
+    },
+    {
+      "id": "starter-defects",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "starter-defects",
+      "summary": "Optionally take fixes to search, the dialog, the table of contents, the sidebar filter, the theme toggle, banners, the destructive button, Steps, page actions, image zoom and the hidden note for AI agents.",
+      "affected": "Sites with the starter's components; each file is fixed on its own.",
+      "instructions": [
+        "No action is needed: each file works as before until you take it.",
+        "List the changed files with nimbus-docs outdated, and take each with nimbus-docs diff <file> --apply. They are: src/components/ui/search/search.client.ts, src/components/ui/search/providers/pagefind.ts, src/components/ui/dialog/dialog.client.ts, src/components/ui/toc/TOC.astro, src/components/ui/toc/toc.client.ts, src/components/ui/sidebar/sidebar.client.ts, src/components/ui/theme-toggle/ThemeToggle.astro, src/components/ui/banner/Banner.astro, src/components/ui/banner/banner.client.ts, src/components/ui/button/variants.ts, src/components/ui/button/Button.astro, src/components/ui/steps/Steps.astro, src/components/ui/page-actions/page-actions.client.ts, src/components/ui/image-zoom/ImageZoom.astro, src/components/AgentDirective.astro.",
+        "Each file can be taken on its own, in any order. ThemeToggle.astro alone drives its icons from <html data-mode>, and BaseLayout's data-nb-state write stays harmless. Banner.astro alone hides a dismissed banner before paint, reading the same nb-banner-dismissed-<id> key; banner.client.ts alone still hides one rendered by an older Banner.astro.",
+        "If you edited a file, run nimbus-docs diff <file> and merge the change by hand."
+      ],
+      "verify": [
+        "Searching shows each sub-result as its own option, and the arrow keys reach it.",
+        "A dismissed banner stays gone across pages without flashing."
+      ]
+    },
+    {
+      "id": "api-page-polish",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-page-polish",
+      "summary": "Optionally take API page fixes: a code rail that fits the viewport on wide screens, an endpoint box that keeps the path, spaced description headings, a wide previous/next bar, every allowed value listed, section anchors with \"#\" links, one Tab stop per response example, and long names and code that wrap on narrow screens.",
+      "affected": "Sites with the api-layout, api-code-rail and api-field-row registry components.",
+      "instructions": [
+        "No action is needed: without these files, API pages look as before.",
+        "These are registry components, which nimbus-docs diff doesn't cover. If they are unmodified, update them with nimbus-docs add api-layout --overwrite, nimbus-docs add api-code-rail --overwrite and nimbus-docs add api-field-row --overwrite.",
+        "If they are customized, take code-rail.css and ApiLayout.astro together: the rail fits the viewport only when ApiLayout's rail wrapper is a flex column at 90rem and the CSS chain is in place. ApiEndpointCard.astro and ApiBody.astro can each be taken on their own. type-display.ts with ApiFieldRow.astro and ApiUnionExplorer.astro list long enums on an Allowed values line; ApiFieldList.astro puts a titled section's anchor on its heading.",
+        "Take ApiCodeRail.astro and code-rail.css together: the response box becomes the example's only Tab stop, its code gets no tabindex, and the box scrolls both ways at every width.",
+        "In field-list.css, .fl-name and .fl-desc wrap with overflow-wrap: anywhere, and .fl-name has min-width: 0, so long names and inline code don't widen the page on a phone."
+      ],
+      "verify": [
+        "In a window at least 1440px wide and 672px tall, a long request sample scrolls inside the code rail while its header stays in view.",
+        "A field with more than six allowed values lists them all under its description.",
+        "Tab reaches a response example once; with it focused, the arrow keys scroll it down and sideways.",
+        "At 390px wide, an API page with long field names doesn't scroll sideways."
+      ]
+    },
+    {
+      "id": "code-group-copy-first",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-page-polish",
+      "summary": "Optionally put CodeGroup's copy button before its code in Tab order.",
+      "affected": "Sites with the code-group registry component.",
+      "instructions": [
+        "No action is needed: CodeGroup works as before.",
+        "If it is unmodified, update it with nimbus-docs add code-group --overwrite.",
+        "If it is customized, in code-group.client.ts add the copy button to the row before the pre (row.append(copyBtn, pre)), and in CodeGroup.astro give [data-cg-copy] order: 1 so it stays on the right."
+      ],
+      "verify": [
+        "Tab reaches a code group's copy button before its code."
+      ]
+    },
+    {
+      "id": "keyboard-shortcuts",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-page-polish",
+      "summary": "Optionally keep every keyboard shortcut in src/lib/shortcuts.ts, let [ and ] work from anywhere on the page, and give readers a switch to turn single-key shortcuts off.",
+      "affected": "Every site.",
+      "instructions": [
+        "No action is needed: without these files, the shortcuts work as before.",
+        "Add the shortcuts file and the reader's switch with nimbus-docs add shortcuts. An existing src/lib/shortcuts.ts is kept.",
+        "Then take these together with nimbus-docs diff <file> --apply: src/components/ui/search/SearchDialog.astro, src/components/Header.astro, src/components/ui/search/SearchTrigger.astro, src/components/ui/search/search.client.ts, src/components/ui/search/search-trigger.client.ts, src/components/ui/sidebar/sidebar.client.ts, src/components/ui/sidebar/SidebarFilter.astro, src/components/ui/pagination/Pagination.astro, src/components/ui/pagination/PaginationLink.astro and src/components/ui/pagination/pagination.client.ts. Take all of them: each client reads the attributes its component now writes, so taking one without the other can leave a key without its hint or its binding.",
+        "Single keys (/, [, ]) work page-wide only on a page with the switch, which the search dialog has, or the header when search is off."
+      ],
+      "verify": [
+        "Pressing ] anywhere on a docs page goes to the next page.",
+        "Turning off Single-key shortcuts in the search dialog stops /, [ and ], and keeps the search shortcut working."
+      ]
+    },
+    {
+      "id": "api-sidebar-panel",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-nav-any-page",
+      "summary": "Optionally take ApiSidebarPanel, the API sidebar as one component: the filter, the tree, groups that load when opened, and open groups and scroll kept across pages. ApiLayout renders it, and a page of your own can render it with getApiNav.",
+      "affected": "Sites with the api-layout and api-sidebar registry components.",
+      "instructions": [
+        "No action is needed: ApiLayout keeps working as before.",
+        "These are registry components, which nimbus-docs diff doesn't cover. If they are unmodified, update them with nimbus-docs add api-layout --overwrite, which brings the new api-sidebar too.",
+        "If they are customized, copy ApiSidebarPanel.astro into src/components/ui/api-sidebar/ and export it from its index.ts, give ApiSidebar.astro a <slot /> as the first child of its <ul>, then in ApiLayout.astro replace the data-nb-api-tree block, the fade below it and its navStateScript with <ApiSidebarPanel nav={nav} version={version} /> and drop initNavSidebar and the two sidebar script imports from its script."
+      ],
+      "verify": [
+        "API pages show the same sidebar as before, and with sidebar: \"on-demand\" a collapsed group loads its rows when opened.",
+        "A page of your own that renders <ApiSidebarPanel> with getApiNav filters the whole API and loads collapsed groups."
+      ]
+    },
+    {
+      "id": "docs-layout-optional-nav",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-nav-any-page",
+      "summary": "Optionally let a page of your own use DocsLayout without passing sidebar, headings, breadcrumbs or prevNext. Pages that pass them render as before.",
+      "affected": "Sites with the starter's src/layouts/DocsLayout.astro.",
+      "instructions": [
+        "No action is needed: pages that pass all four props are unchanged.",
+        "Take the change with nimbus-docs diff src/layouts/DocsLayout.astro --apply.",
+        "If you edited DocsLayout, merge by hand: type its Props as Omit<DocsPageProps, NavProps> & Partial<Pick<DocsPageProps, NavProps>> with type NavProps = \"sidebar\" | \"headings\" | \"breadcrumbs\" | \"prevNext\", default headings = [], breadcrumbs = [] and prevNext = {} where the props are read, add && (sidebar !== undefined || Astro.slots.has(\"sidebar\")) to showSidebar, and pass items={sidebar ?? []} to the default <Sidebar>."
+      ],
+      "verify": [
+        "Docs pages look as before.",
+        "A page of your own with <DocsLayout title=\"\u2026\"> and no other props type-checks and renders with no sidebar, table of contents, breadcrumbs or previous/next links; with a sidebar slot it shows that sidebar."
+      ]
+    },
+    {
+      "id": "agent-directive-optional-index",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "agent-surfaces-follow-routes",
+      "summary": "Optionally let the agent directive and the base layout cope with a site whose routes serve no llms.txt, or none for a collection: the layout reads the new getPublishedLlmsUrl(), which returns the index a route serves (the collection's own, else the site's) or null, and the directive then names only the page's Markdown, or renders nothing.",
+      "affected": "Sites created from the starter that still have src/layouts/BaseLayout.astro or src/components/AgentDirective.astro and that delete src/pages/llms.txt.ts or src/pages/[...section]/llms.txt.ts.",
+      "instructions": [
+        "No action is needed while both src/pages/llms.txt.ts and src/pages/[...section]/llms.txt.ts exist: getPublishedLlmsUrl() returns the same path getCollectionLlmsUrl() did. Without the section route, the old layout still advertises /<collection>/llms.txt, which no route serves; take the change.",
+        "Take the change with nimbus-docs diff src/layouts/BaseLayout.astro --apply and nimbus-docs diff src/components/AgentDirective.astro --apply.",
+        "If you edited either file, merge by hand: in BaseLayout, read llmsIndexPath from getPublishedLlmsUrl(collection ?? undefined) and build basedLlmsUrl and llmsUrl only when it is not null; in AgentDirective, type llmsUrl as string | null | undefined and render the aside only when markdownUrl or llmsUrl is set, with a Markdown-only sentence when there is no index."
+      ],
+      "verify": [
+        "With src/pages/llms.txt.ts present, every page's agent directive and <link rel=\"alternate\" type=\"text/markdown\"> read as before.",
+        "Delete src/pages/llms.txt.ts and build: no page links /llms.txt, and the directive names only the page's Markdown (or is absent when the Markdown route is gone too).",
+        "Delete src/pages/[...section]/llms.txt.ts instead and build: a mounted collection's pages link /llms.txt, not /<collection>/llms.txt."
+      ]
+    },
+    {
+      "id": "api-code-sample-before-paint",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "choice-before-paint",
+      "summary": "Optionally take the registry api-code-rail update, so a reader's saved or linked code sample shows from the first paint instead of replacing the first sample after the page loads.",
+      "affected": "Sites with the api-code-rail registry component. Without the update, a reader who picked another language sees the rail resize just after the page loads.",
+      "instructions": [
+        "No action is needed: the current rail keeps working as before.",
+        "api-code-rail is a registry component, which nimbus-docs diff doesn't cover. If it is unmodified, update it with nimbus-docs add api-code-rail --overwrite.",
+        "If it is customized, merge by hand. In ApiCodeRail.astro, add data-nb-choice=\"nb-api-code-rail__lang\" and data-nb-choice-param=\"lang\" to the element with data-nb-lang-picker; replace data-nb-lang-select on the <select> with data-nb-choice-select autocomplete=\"off\"; on each panel replace data-nb-lang-panel data-nb-lang-value={id} data-nb-sample-lang={sample.lang} with data-nb-choice-panel={id} data-nb-choice-kind={sample.lang}; and when the rail has samples, render <script is:inline aria-hidden=\"true\" set:html={choiceStateScript} /> right after </aside>, importing choiceStateScript from @cloudflare/nimbus-docs/runtime. In code-rail.css, select [data-nb-choice-panel][hidden]. In code-rail.client.ts, read those attributes, take the storage key and param from the rail's data-nb-choice and data-nb-choice-param, and remove the restore that ran when the rail mounted.",
+        "Whichever way you update, rename the old attributes in your own CSS, scripts and tests too, including dataset reads such as dataset.nbSampleLang: data-nb-lang-panel and data-nb-lang-value become data-nb-choice-panel (its value is the old data-nb-lang-value), data-nb-sample-lang becomes data-nb-choice-kind, and data-nb-lang-select becomes data-nb-choice-select."
+      ],
+      "verify": [
+        "With a language other than the first chosen on one operation, another operation's rail shows that language as the page appears, with no resize.",
+        "A link with ?lang=<sample id or language> opens that sample, and choosing a sample still updates ?lang= and is remembered.",
+        "After taking the update, a search of the whole site, including scripts and tests outside src, for data-nb-lang-panel, data-nb-lang-value, data-nb-sample-lang and data-nb-lang-select, and for nbLangPanel, nbLangValue, nbSampleLang and nbLangSelect, finds nothing."
+      ]
+    },
+    {
+      "id": "api-page-layout",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-page-layout",
+      "summary": "Optionally take the new API page layout: on narrow screens the request sample comes right after the header, before the fields; on wide screens the text sits in a 40rem column beside the sample, which starts at the top; and the endpoint box shows the path, which opens the full URL in a popover.",
+      "affected": "Sites with the api-layout registry component.",
+      "instructions": [
+        "No action is needed: API pages keep their current layout until you take it.",
+        "ApiLayout, ApiBody and ApiEndpointCard are part of the api-layout registry component, which nimbus-docs diff doesn't cover. If they are unmodified, update them with nimbus-docs add api-layout --overwrite.",
+        "If they are customized, merge by hand: ApiBody renders a <slot name=\"sample\" /> after its page header and moves the description out of the header, after the page actions; ApiLayout passes its code rail into that slot (marked data-pagefind-ignore) and, from 90rem, lays the body out as a subgrid of its two-column grid with the rail in the second column, starting at row 1; ApiEndpointCard shows only the path, as a button that opens the full URL in a popover (with its script, which places the popover), and names the URL in the copy button's label."
+      ],
+      "verify": [
+        "On a phone, an operation page reads title, endpoint box, page actions, description, then the request sample and the fields.",
+        "On a screen at least 1440px wide, the request sample starts level with the breadcrumbs and stays pinned while the page scrolls.",
+        "Clicking, tapping or pressing Enter on the endpoint path shows the full URL, and Escape closes it."
+      ]
+    },
+    {
+      "id": "agent-route-shape",
+      "introducedIn": "0.20.0",
+      "mode": "review-required",
+      "changeset": "agent-route-shape-and-body",
+      "summary": "Agent surfaces follow the route files under src/pages, and a document's ETag is over the bytes Nimbus sends. Nimbus records a Markdown, source or llms route only where the file's last segment is a static file name: a .md or .mdx name such as [...slug]/index.md.ts, or llms.txt / llms-full.txt. A route file that calls markdownRoute(), markdownSourceRoute(), llmsRoute() or llmsSectionRoute() from any other shape, such as src/pages/[...slug].md.ts, publishes nothing; a custom full-document endpoint calling llmsFullRoute() is read at any file name and stays as it is. A wrapper around a factory's GET that changes the body hands out Nimbus's tag for bytes it no longer sends.",
+      "affected": "Sites with a route file that nimbus-docs check names in nimbus/agent-route-shape, sites with a route file under src/pages that calls a factory's GET and changes its body (search src/pages for .GET(; check cannot see these), and sites whose own code passes an indexed entry's or page's markdownUrl where a string is required, as route files written before the route factories do (nimbus-docs check lists them as ts/ findings). Skip if check names no file, reports no ts/ finding on markdownUrl, and no route file changes a body. A factory reached through a helper module is not named; read those files by hand.",
+      "instructions": [
+        "Run nimbus-docs check and read nimbus/agent-route-shape. For each file named, move the factory call to the file it suggests (for example [...slug]/index.md.ts for markdownRoute(), under the same folder prefix the old file had), then delete the old file, or keep it for redirects only and pass the recorded route's URLs (/<page>/index.md) on to the new route: Astro may still send them to the old file first. A file check does not name is a recorded shape and stays where it is.",
+        "Replace a wrapper that changes a document's body with the factory's body option: markdownRoute({ body: (text, context) => ... }) and the same on the other four factories. The ETag and 304 are then over the text you return. A wrapper that only adds headers can stay.",
+        "markdownUrl on an indexed entry and on a page is now string | undefined: a page has no Markdown URL when no route publishes its Markdown. Where your own code reads it, skip the entry or fall back to its page URL when it is undefined, or replace a hand-written Markdown or llms.txt route with its factory (see shared-markdown-routes and page-urls-and-llms-routes).",
+        "Build and read the Agent surfaces line: Page Markdown should say served for N of N pages with the starter route, or the part a scoped route covers."
+      ],
+      "verify": [
+        "nimbus-docs check prints no nimbus/agent-route-shape finding and no ts/ finding on markdownUrl.",
+        "A page's /<page>/index.md answers 200 with Content-Type: text/markdown and an ETag; the same request with that tag in If-None-Match answers 304.",
+        "After changing what body appends, a request with the previous tag answers 200 with the new text."
+      ]
+    },
+    {
+      "id": "api-try-it",
+      "introducedIn": "0.20.0",
+      "mode": "optional",
+      "changeset": "api-try-it",
+      "summary": "Optionally let readers send requests from API pages: turn on tryIt for an API and install the api-try-it component, which puts a Try it button in the code rail between the request sample and the response example.",
+      "affected": "Sites with the api-layout registry component.",
+      "instructions": [
+        "No action is needed: API pages are unchanged until an API sets tryIt and its route renders the panel.",
+        "To add Try it, run nimbus-docs add try-it and follow the recipe it hands your coding agent: it sets tryIt on the APIs you choose and renders <ApiTryIt slot=\"try-it\" page={result.page} /> inside ApiLayout in each API route.",
+        "ApiLayout and ApiCodeRail take the panel through a try-it slot. If they are unmodified, update them with nimbus-docs add api-layout --overwrite and nimbus-docs add api-code-rail --overwrite.",
+        "If they are customized, merge by hand: ApiLayout adds page.tryIt with a try-it slot to the rail's condition (const hasTryIt = page.kind === \"operation\" && page.tryIt !== undefined && Astro.slots.has(\"try-it\")) and forwards it with <slot name=\"try-it\" slot=\"try-it\" /> inside <ApiCodeRail>; ApiCodeRail shows its card when Astro.slots.has(\"try-it\") and renders <slot name=\"try-it\" /> between the request sample and the response section."
+      ],
+      "verify": [
+        "An operation page shows a Try it button between the request sample and the response example.",
+        "Clicking it opens the panel with the sample's values filled in, and Send shows the API's response."
+      ]
+    },
+    {
+      "id": "starter-a11y-layout",
+      "introducedIn": "0.20.1",
+      "mode": "optional",
+      "changeset": "starter-a11y-layout",
+      "summary": "Optionally take accessibility and layout fixes: the sidebar and table-of-contents rails follow --nb-header-height, the sidebar's bottom fade shows, the header's section tabs don't scroll vertically, the sidebar nav is named, an Aside with its own title keeps its type for screen readers, the mobile page menu's focus ring shows in forced colours, prose spacing applies inside tabs, and utilities apply to images inside Frame.",
+      "affected": "Sites with the starter's layout, header, Aside, mobile page menu or prose styles, and sites with the frame or api-layout registry components; each file is fixed on its own.",
+      "instructions": [
+        "No action is needed: each file works as before until you take it.",
+        "Starter files: list them with nimbus-docs outdated and take each with nimbus-docs diff <file> --apply. They are: src/layouts/DocsLayout.astro, src/components/Header.astro, src/components/ui/aside/Aside.astro, src/components/ui/toc/MobileTOC.astro, src/styles/prose.css.",
+        "Registry components, which nimbus-docs diff doesn't cover: if unmodified, update them with nimbus-docs add frame --overwrite and nimbus-docs add api-layout --overwrite.",
+        "If you edited a file, merge by hand: the rails use top-(--nb-header-height) and h-[calc(100vh-var(--nb-header-height))] instead of top-14 and h-[calc(100vh-3.5rem)] (DocsLayout and ApiLayout); the sidebar fade uses from-background; the sidebar <nav> has aria-label=\"Documentation\"; the header's section navs add overflow-y-hidden and their links leading-4; Aside prefixes its type to a custom title (\"Caution: Heads up\"); MobileTOC's select uses focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring; prose.css applies its direct-child spacing inside [data-nb-tabs-content]; Frame's media rules sit in @layer components."
+      ],
+      "verify": [
+        "The sidebar's bottom fade shows on a long sidebar.",
+        "A dark:hidden / hidden dark:block image pair in a Frame shows one image per theme."
+      ]
+    },
+    {
+      "id": "search-unindexed-version",
+      "introducedIn": "0.20.1",
+      "mode": "optional",
+      "changeset": "search-unindexed-version",
+      "summary": "Optionally fix search on a deprecated version's pages that the build doesn't index: an API that puts its version in the query indexes only its default version, so searching from an older version's page found nothing.",
+      "affected": "Sites with an API that keeps its version in the query and has a deprecated version, using src/components/ui/search/providers/pagefind.ts.",
+      "instructions": [
+        "No action is needed if no API puts its version in the query: search works as before.",
+        "If src/components/ui/search/providers/pagefind.ts is unmodified, run nimbus-docs diff src/components/ui/search/providers/pagefind.ts --apply.",
+        "If you've edited it, read the versions the index holds once after init, with Object.keys((await pagefind.filters()).version ?? {}), and filter a search to the page's version only when that list has it."
+      ],
+      "verify": [
+        "Open a deprecated version's API page whose version is in the query (?version=v1), search for a word on the current pages, and confirm results appear."
+      ]
+    },
+    {
+      "id": "theme-switch-no-fade",
+      "introducedIn": "0.20.1",
+      "mode": "optional",
+      "changeset": "theme-switch-no-fade",
+      "summary": "Optionally stop the search bar, the sidebar filter and other controls with colour transitions from fading behind the page when a reader switches between light and dark.",
+      "affected": "Sites using the starter's src/layouts/BaseLayout.astro theme script.",
+      "instructions": [
+        "If src/layouts/BaseLayout.astro is unmodified, run nimbus-docs diff src/layouts/BaseLayout.astro --apply.",
+        "If you've edited it, in applyTheme: when the mode changes (root.style.colorScheme is set and differs from the new mode), append a <style> with *,*::before,*::after{transition:none!important} before applying the theme, then remove the style two frames later: requestAnimationFrame(() => requestAnimationFrame(() => style.remove())), so the next frame is drawn with transitions off."
+      ],
+      "verify": [
+        "Switch the theme on a page with the search bar and a sidebar filter: both change colour with the page, and hovering the search bar still fades its border."
       ]
     }
   ]

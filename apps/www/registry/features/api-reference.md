@@ -94,8 +94,8 @@ Print a short, exact plan to the user **before** writing anything:
 - Install the reference layer — `nimbus-docs add api-layout` — which copies four
   owned, editable components into `src/components/ui/` (ApiLayout, ApiSidebar,
   ApiFieldRow, ApiCodeRail) with their registry deps (Badge, cn, …), and installs
-  the API engine's peer packages: `@scalar/openapi-parser` (the spec parser) plus
-  `openapi-sampler` and `@readme/httpsnippet` (the code-sample generators). These
+  the API engine's peer packages: `@scalar/openapi-parser` (the spec parser) and
+  `openapi-sampler` (the example generator for code samples). These
   stay out of the framework bundle, so they only land when you mount a spec.
 - Declare the spec **once**, as an `api` entry in the Nimbus config in
   `astro.config.ts`.
@@ -129,10 +129,10 @@ npx @cloudflare/nimbus-docs add api-layout
 ```
 
 This lands `ApiLayout`, `ApiSidebar`, `ApiFieldRow`, and `ApiCodeRail` under
-`src/components/ui/` (with their Badge/cn registry deps), and installs three
+`src/components/ui/` (with their Badge/cn registry deps), and installs two
 optional peer packages of `@cloudflare/nimbus-docs`: `@scalar/openapi-parser`
 (required to parse the spec — the build fails without it), plus `openapi-sampler`
-and `@readme/httpsnippet` (the curl/TypeScript/Python sample generators). Nimbus
+(it fills in example values for the curl/TypeScript/Python samples). Nimbus
 keeps these out of its bundle and lazy-loads them, so docs-only sites never
 install them.
 

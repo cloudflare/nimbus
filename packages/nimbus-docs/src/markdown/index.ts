@@ -15,3 +15,4 @@ export type { TableScrollOptions } from "./table-scroll";
 export { math } from "./math";
 export type { MathOptions } from "./math";
 export { renderMarkdown } from "./render";
+export type { HastPluginDefinition, HastVisitorContext } from "./types";

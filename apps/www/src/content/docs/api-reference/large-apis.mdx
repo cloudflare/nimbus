@@ -50,7 +50,7 @@ Set `sidebar` on the `api` entry in the Nimbus config. A site that passes its en
 
 Every group page lists its operations and its subsections, and the [API home](#the-api-home) lists every operation, so all pages stay reachable in every mode.
 
-`"on-demand"` needs the `api-layout` and `api-sidebar` components from your installed release; the build names outdated files. These components use the 0.19 starter's styles, so a site scaffolded before 0.19.0 adopts the redesigned starter first; `nimbus-docs migrate` lists its steps.
+`"on-demand"` needs the `api-layout` and `api-sidebar` components from your installed release; the build names outdated files. `ApiSidebarPanel` is what puts the sidebar on a page: it mounts the loader that opens groups, and a layout of your own can render it anywhere, directly or through a component of yours. The build checks only the starter's `ApiLayout.astro` for its shape from before on-demand sidebars; a layout you rewrote is yours, loader included. These components use the 0.19 starter's styles, so a site scaffolded before 0.19.0 adopts the redesigned starter first; `nimbus-docs migrate` lists its steps.
 
 ## The API home
 
@@ -100,7 +100,7 @@ Then run the Cloudflare adapter installer. It keeps an existing rendering policy
 
 The installer also updates the API route file to render on request, dropping the `getStaticPaths` Astro would ignore. After changing `rendering` yourself, run `nimbus-docs check --fix`; see [Choose build or request rendering](/reference/rendering).
 
-The recipe's API catch-all uses Nimbus runtime helpers to resolve either mode. Alternate Markdown versions and `llms.txt` indexes follow the rendering policy too, serving content prepared at build time. Coordinate data, search records, and sitemaps stay build output, and requests read prepared content entries rather than parsing the OpenAPI document.
+The recipe's API catch-all uses Nimbus runtime helpers to resolve either mode. Alternate Markdown versions and `llms.txt` indexes follow the rendering policy too: the indexes serve content prepared at build time, and a request-rendered API page makes its Markdown when asked for, from the same prepared page data as its HTML. Coordinate data, search records, and sitemaps stay build output, and requests read prepared content entries rather than parsing the OpenAPI document.
 
 ## Many versions
 
@@ -123,7 +123,9 @@ Nimbus then writes each page's data as static assets beside the site, and shares
 
 Each build also ships the previous build's page files, so a server still on the old release during a rollout keeps working. On Cloudflare, each Worker version already keeps its own files.
 
-Pages are read through an Astro live collection, which Astro only accepts from your own `src/live.config.ts`. Add it once; the build shows this snippet if it's missing:
+Nimbus prepares these pages itself, so the API needs no `apiCollection()` in `src/content.config.ts` and no `src/live.config.ts`; a site that already has them keeps working.
+
+To wrap how pages are read, register the `apiPages` live collection in `src/live.config.ts`, and Nimbus reads pages through it:
 
 ```ts title="src/live.config.ts"
 import { defineLiveCollection } from "astro:content";
@@ -134,7 +136,7 @@ export const collections = {
 };
 ```
 
-When Astro's route cache is enabled, each page is cached with the tags `nimbus-api:<collection>` and `nimbus-api:<collection>@<version>`.
+When Astro's route cache is enabled, each page is cached with the tags `nimbus-api:<collection>` and `nimbus-api:<collection>@<version>`, with or without the live collection.
 
 `bundle: false` needs the collection rendered on request, with the Cloudflare or Node adapter; otherwise the build says what to change.
 

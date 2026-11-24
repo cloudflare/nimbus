@@ -18,6 +18,7 @@ import {
   preparedMarkdownRootKey,
 } from "../src/_internal/prepared-markdown-registry.ts";
 import {
+  AGENT_ENDPOINT_ASSET_GENERATION,
   bakeAgentEndpointAssets,
   configureAgentEndpointAssetRoot,
   readMarkdownEndpointPayload,
@@ -26,7 +27,7 @@ import { docsCollection } from "../src/content.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const roots: string[] = [];
-const capability = { generation: 1, base: "/" };
+const capability = { generation: AGENT_ENDPOINT_ASSET_GENERATION, base: "/" };
 
 afterEach(async () => {
   clearPreparedMarkdownRegistry();

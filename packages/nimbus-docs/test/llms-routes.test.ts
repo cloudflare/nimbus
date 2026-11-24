@@ -82,23 +82,30 @@ test("factories rendered on request serve by URL, 404 unknown sections, and 500 
   // follow the rendering policy — so the build warns about nothing.
   assert.doesNotMatch(site.logs, /not prerendered/);
   const app = await siteApp(site);
-  const baked = await bakedLlms(site.root);
-  for (const [url, body] of baked) {
+  // The documents are made from the page list when asked: nothing is baked for them.
+  assert.deepEqual(await bakedLlms(site.root), new Map());
+  const manifest = await agentManifest(site.root);
+  assert.deepEqual(manifest.onRequest, { llms: true, llmsSections: true, llmsFull: true });
+  for (const [url, pattern] of [
+    // No Markdown route here: the index links the page itself.
+    ["llms.txt", /\[Guide\]\(https:\/\/example\.test\/docs\/guide\/\)/],
+    ["changelog/llms.txt", /\[First\]/],
+    ["llms-full.txt", /served by section/],
+  ] as const) {
     const response = await app.render(new Request(`https://example.test/docs/${url}`));
     assert.equal(response.status, 200, url);
     assert.equal(response.headers.get("content-type"), "text/plain; charset=utf-8");
-    assert.equal(await response.text(), body, url);
+    assert.match(response.headers.get("etag") ?? "", /^"sha256:/, url);
+    assert.match(await response.text(), pattern, url);
   }
 
   const unknown = await app.render(new Request("https://example.test/docs/unknown/llms.txt"));
   assert.equal(unknown.status, 404);
   assert.equal(await unknown.text(), "Not found");
 
-  const asset = (await agentManifest(site.root)).llmsAssets.find(
-    (candidate) => candidate.section === "changelog",
-  )!;
   // The server reads the manifest from its deployed assets; the bundle carries
-  // no copy (Astro's own asset list names the file, so test for the digest).
+  // no copy (Astro's own asset list names the file, so test for a digest).
+  const asset = manifest.markdownAssets.find((candidate) => candidate.collection === "changelog" && candidate.surface === "markdown")!;
   for (const file of await readdir(path.join(site.root, ".server"), { recursive: true })) {
     if (!/\.m?js$/.test(file)) continue;
     assert.ok(
@@ -106,6 +113,8 @@ test("factories rendered on request serve by URL, 404 unknown sections, and 500 
       file,
     );
   }
+  // A part whose page body can't be read is a 500 that says nothing more
+  // (its first request, so no memo answers for it).
   await rm(path.join(site.root, ".astro/nimbus/agent-endpoint-assets", asset.path));
   const realFetch = globalThis.fetch;
   const realError = console.error;
@@ -113,7 +122,7 @@ test("factories rendered on request serve by URL, 404 unknown sections, and 500 
   globalThis.fetch = async () => new Response("gone", { status: 503 });
   console.error = (error: unknown) => logged.push(error);
   try {
-    const failed = await app.render(new Request("https://example.test/docs/changelog/llms.txt"));
+    const failed = await app.render(new Request("https://example.test/docs/changelog/llms-full.txt"));
     assert.equal(failed.status, 500);
     assert.match(failed.headers.get("content-type") ?? "", /^text\/plain/);
     assert.equal(await failed.text(), "Internal Server Error");
@@ -123,3 +132,4 @@ test("factories rendered on request serve by URL, 404 unknown sections, and 500 
     console.error = realError;
   }
 });
+

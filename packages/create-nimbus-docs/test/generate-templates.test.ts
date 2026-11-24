@@ -13,6 +13,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { generateTemplates, variantNames } from "../scripts/copy-template.mjs";
 import { STARTER_MANIFEST } from "../../nimbus-starter-source/starter.manifest.mjs";
@@ -126,6 +127,21 @@ test("no generated page repeats its title as a body H1", () => {
       }
     }
   } finally {
+    fs.rmSync(out, { recursive: true, force: true });
+  }
+});
+
+test("dot-folders in the starter, such as another test's scratch site, never reach a template", () => {
+  const starter = fileURLToPath(new URL("../../nimbus-starter-source/", import.meta.url));
+  const scratch = fs.mkdtempSync(path.join(starter, ".generate-test-"));
+  fs.writeFileSync(path.join(scratch, "tsconfig.json"), "{}");
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), "nimbus-gen-"));
+  try {
+    for (const dir of generateTemplates(out)) {
+      assert.equal(fs.existsSync(path.join(dir, path.basename(scratch))), false, `${path.basename(dir)} copied the scratch folder`);
+    }
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true });
     fs.rmSync(out, { recursive: true, force: true });
   }
 });

@@ -320,7 +320,7 @@ test("internal-link accepts relative links between a content source's pages", ()
       });
       return lintFile(parsed, {
         rules: { "nimbus/internal-link": "error" },
-        sourceFolder: () => sourceFolder,
+        sourceCollection: () => sourceFolder && { folder: sourceFolder, matches: () => true },
       }).filter((d) => d.code === "nimbus/internal-link");
     };
     assert.deepEqual(

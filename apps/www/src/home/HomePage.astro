@@ -8,24 +8,50 @@ import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import WwwBody from "./www/WwwBody.astro";
 import WebMCP from "@/components/WebMCP.astro";
-import { description } from "./www/content";
+import { description, title } from "./www/content";
 
-const title = "Nimbus · The authoring tool for docs";
 const canonical = new URL("/", Astro.site).href;
 // The site card from `src/pages/og.png.ts`.
 const socialImage = new URL("/og.png", Astro.site).href;
 const socialImageAlt = "Nimbus: the authoring tool for docs.";
-// Who the site is, for agents and search engines.
+const markdownUrl = new URL("/index.md", Astro.site).href;
+// Who the site is, for agents and search engines: the site, the software it
+// documents, and the organisation behind both (LICENSE: Cloudflare, Inc.).
+const organization = { "@type": "Organization", "@id": "https://www.cloudflare.com/#organization", name: "Cloudflare", url: "https://www.cloudflare.com/" };
 const jsonLd = JSON.stringify({
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: "Nimbus",
-  description,
-  url: canonical,
-  applicationCategory: "DeveloperApplication",
-  operatingSystem: "Any",
-  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-  sameAs: ["https://github.com/cloudflare/nimbus"],
+  "@graph": [
+    organization,
+    {
+      "@type": "WebSite",
+      "@id": `${canonical}#website`,
+      name: "Nimbus",
+      alternateName: ["Nimbus Docs", "nimbus-docs"],
+      url: canonical,
+      description,
+      inLanguage: "en",
+      publisher: { "@id": organization["@id"] },
+      about: { "@id": `${canonical}#software` },
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${canonical}#software`,
+      name: "Nimbus",
+      alternateName: "@cloudflare/nimbus-docs",
+      description,
+      url: canonical,
+      image: socialImage,
+      applicationCategory: "DeveloperApplication",
+      applicationSubCategory: "Documentation framework",
+      operatingSystem: "Any",
+      license: "https://github.com/cloudflare/nimbus/blob/main/LICENSE",
+      isAccessibleForFree: true,
+      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+      author: { "@id": organization["@id"] },
+      publisher: { "@id": organization["@id"] },
+      sameAs: ["https://github.com/cloudflare/nimbus", "https://www.npmjs.com/package/@cloudflare/nimbus-docs"],
+    },
+  ],
 }).replace(/</g, "\\u003c");
 ---
 
@@ -39,6 +65,8 @@ const jsonLd = JSON.stringify({
     <meta name="is-agentic-site-type" content="content" />
     <link rel="canonical" href={canonical} />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Nimbus" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
@@ -47,10 +75,13 @@ const jsonLd = JSON.stringify({
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content={socialImageAlt} />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={socialImage} />
     <meta name="twitter:image:alt" content={socialImageAlt} />
     <meta name="theme-color" content="#ffffff" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="text/markdown" href={markdownUrl} />
     <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt" />
     <script type="application/ld+json" set:html={jsonLd} />
     <WebMCP />

@@ -1,0 +1,217 @@
+---
+/**
+ * The community recipes showcase's body (src/pages/community-recipes/showcase.astro):
+ * a hero, then one cell per recipe across the page, like the /components grid. Each cell is credited to the
+ * GitHub owner in the recipe's URL. Its top strip opens the repo; its bottom
+ * strip copies the prompt for a coding agent, through CopyPrompt's own copy
+ * script. The last cell invites authors to share theirs.
+ *
+ * Its Markdown (`/community-recipes/showcase/index.md`) comes from
+ * `src/lib/community-recipes-markdown.ts`, which reads the same listing.
+ */
+import "@fontsource-variable/bricolage-grotesque/opsz.css";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
+import { LinkButton } from "@/components/ui/link-button";
+import { communityRecipes } from "@/data/community-recipes";
+import { agentPrompt } from "@/data/parse-recipes";
+import { HERO, SHARE_HREF } from "@/lib/community-recipes-markdown";
+
+const base = import.meta.env.BASE_URL;
+const cards = communityRecipes.flatMap((owner) => owner.recipes.map((recipe) => ({ owner, recipe })));
+
+// The invite cell fills the rest of the last row, or a whole row of its own
+// when the recipes fill theirs (or there are none). Columns per breakpoint
+// match the grid's classes below.
+const columns = { md: 2, lg: 3, xl2: 4 };
+const fill = (perRow: number) => perRow - (cards.length % perRow);
+const inviteSpan = `--span-md: ${fill(columns.md)}; --span-lg: ${fill(columns.lg)}; --span-2xl: ${fill(columns.xl2)}`;
+---
+
+<div class="nb-recipes not-prose">
+  <header class="nb-recipes-hero">
+    <h1 class="nb-recipes-title">{HERO.title}</h1>
+    <div class="nb-recipes-lead">{HERO.lead}</div>
+    {/* One button, and the trust line beside it rather than hanging below. */}
+    <div class="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
+      <LinkButton href={withBase(SHARE_HREF, base)} variant="primary">Share a recipe</LinkButton>
+      <p class="nb-recipes-note" title={HERO.note}>
+        <Icon name="ph:shield-warning" class="size-4 shrink-0" />
+        {HERO.shortNote}
+        <a href={withBase("/community-recipes", base)}>How they work</a>
+      </p>
+    </div>
+  </header>
+
+  <ul class="nb-recipes-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+    {cards.map(({ owner, recipe }) => (
+      <li class="nb-recipes-card">
+        <a href={recipe.repoUrl} class="nb-recipes-link">
+          <span class="min-w-0 truncate">{recipe.name}</span>
+          <Icon name="ph:arrow-up-right" class="size-4 shrink-0 text-muted-foreground" />
+        </a>
+        <div class="nb-recipes-body">
+          {/* The credit: the owner links to their profile, the repo to where the recipe lives. */}
+          <div class="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+            <a href={owner.profileUrl} class="flex shrink-0 items-center gap-2 hover:text-foreground hover:underline underline-offset-2">
+              <img src={owner.avatarUrl} alt="" width="20" height="20" loading="lazy" class="size-5 shrink-0 rounded-full bg-muted" />
+              {recipe.owner}
+            </a>
+            <span aria-hidden="true">/</span>
+            <a href={recipe.repoUrl} class="inline-flex min-w-0 items-center gap-1 hover:text-foreground hover:underline underline-offset-2">
+              <span class="truncate">{recipe.repo}</span>
+              <Icon name="ph:github-logo" class="size-3.5 shrink-0" />
+            </a>
+          </div>
+          <div class="flex-1 text-sm leading-6 text-foreground">{recipe.description}</div>
+        </div>
+        <div data-nb-copy-prompt class="contents">
+          <span hidden data-nb-copy-prompt-text>{agentPrompt(recipe.url)}</span>
+          <button type="button" class="nb-recipes-link nb-recipes-copy" title={agentPrompt(recipe.url)}>
+            {/* Both labels share one grid cell, as in CopyPrompt, so the strip never shifts. */}
+            <span class="grid" aria-live="polite">
+              <span class="col-start-1 row-start-1 flex items-center gap-2" data-nb-copy-prompt-idle>
+                <Icon name="ph:copy" class="size-4 text-muted-foreground" />
+                Copy prompt<span class="sr-only"> for {recipe.name}</span>
+              </span>
+              <span class="invisible col-start-1 row-start-1 flex items-center gap-2" data-nb-copy-prompt-done>
+                <Icon name="ph:check" class="size-4 text-success" />
+                Copied!
+              </span>
+            </span>
+          </button>
+        </div>
+      </li>
+    ))}
+    <li class="nb-recipes-card nb-recipes-invite" style={inviteSpan}>
+      <a href={withBase(SHARE_HREF, base)} class="nb-recipes-link">
+        <span>{cards.length === 0 ? "Be the first" : "Yours next"}</span>
+        <Icon name="ph:arrow-right" class="size-4 shrink-0 text-muted-foreground" />
+      </a>
+      <div class="nb-recipes-body items-start justify-center">
+        <div class="text-sm leading-6 text-muted-foreground">
+          {cards.length === 0 ? "No recipes are listed yet. " : ""}A recipe is a Markdown file in a public GitHub repo you own. List it with a one-entry PR.
+        </div>
+        <LinkButton href={withBase(SHARE_HREF, base)} variant="secondary" size="sm" icon>Share a recipe</LinkButton>
+      </div>
+    </li>
+  </ul>
+</div>
+
+<style is:global>
+  /* A faint dot grid, fading out from the middle, frames the hero. */
+  .nb-recipes-hero {
+    padding: 4rem 1.5rem 3.5rem;
+    border-bottom: 1px solid var(--nb-border);
+    text-align: center;
+    background:
+      radial-gradient(circle at center, transparent 0, var(--nb-background) 70%),
+      radial-gradient(color-mix(in oklch, var(--nb-foreground) 14%, transparent) 1px, transparent 1px) 0 0 / 16px 16px,
+      var(--nb-background);
+  }
+  @media (min-width: 768px) {
+    .nb-recipes-hero {
+      padding: 5rem 3rem 4.5rem;
+    }
+  }
+  /* The homepage's display face: Bricolage, tight. */
+  .nb-recipes-title {
+    font-family: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+    font-size: clamp(2.25rem, 1.6rem + 2.6vw, 3.25rem);
+    line-height: 1.06;
+    font-weight: 400;
+    letter-spacing: -0.03em;
+    color: var(--nb-foreground);
+    text-wrap: balance;
+  }
+  .nb-recipes-lead {
+    margin: 1rem auto 0;
+    max-width: 48rem;
+    font-size: 1.0625rem;
+    line-height: 1.75rem;
+    color: color-mix(in oklch, var(--nb-foreground) 70%, transparent);
+    text-wrap: balance;
+  }
+  .nb-recipes-note {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+    color: var(--nb-muted-foreground);
+  }
+  .nb-recipes-note a {
+    color: var(--nb-foreground);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .nb-recipes-note a:hover {
+    text-decoration: none;
+  }
+  /* Each cell draws right + bottom so adjacent cells share a single 1px line. */
+  .nb-recipes-grid {
+    background: var(--nb-card);
+  }
+  .nb-recipes-card {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--nb-border);
+    border-bottom: 1px solid var(--nb-border);
+  }
+  .nb-recipes-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--nb-border);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--nb-foreground);
+    text-decoration: none;
+    background: var(--nb-background);
+    transition: background 0.15s ease;
+  }
+  .nb-recipes-link:hover {
+    background: color-mix(in oklch, var(--nb-muted) 60%, transparent);
+  }
+  /* The copy strip mirrors the name strip: the cell is framed by its two actions. */
+  .nb-recipes-copy {
+    width: 100%;
+    cursor: pointer;
+    border-bottom: 0;
+    border-top: 1px solid var(--nb-border);
+    text-align: start;
+  }
+  .nb-recipes-link:focus-visible {
+    outline: 2px solid var(--nb-ring);
+    outline-offset: -2px;
+  }
+  @media (min-width: 48rem) {
+    .nb-recipes-invite {
+      grid-column: span var(--span-md);
+    }
+  }
+  @media (min-width: 64rem) {
+    .nb-recipes-invite {
+      grid-column: span var(--span-lg);
+    }
+  }
+  @media (min-width: 96rem) {
+    .nb-recipes-invite {
+      grid-column: span var(--span-2xl);
+    }
+  }
+  .nb-recipes-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.25rem 1rem;
+    min-height: 12rem;
+  }
+</style>
+
+<script>
+  import "@/components/ui/copy-prompt/copy-prompt.client";
+</script>

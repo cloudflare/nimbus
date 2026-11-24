@@ -62,6 +62,7 @@ import type { ApiExtensionValues } from "../../types.js";
 import { renderMarkdown } from "../../markdown/render.js";
 import { toDocumentHref } from "../url.js";
 import { apiPrevNext } from "./nav-bounds.js";
+import { tryItInfo } from "../try-it/info.js";
 
 export * from "./api-view-types.js";
 
@@ -599,6 +600,7 @@ function authView(view: ModelView, auth: OperationFacts["auth"]): ApiAuthView[][
       const headerName = deriveHeaderName(scheme);
       if (headerName) out.headerName = headerName;
       if (scheme?.bearerFormat) out.bearerFormat = scheme.bearerFormat;
+      if (scheme?.type === "http" && typeof scheme.scheme === "string") out.httpScheme = scheme.scheme.toLowerCase();
       return out;
     }),
   );
@@ -911,6 +913,7 @@ function projectPageWithView(
       const additionalBodies = additionalBodyViews(view, node.id);
       if (additionalBodies.length > 0) page.additionalBodies = additionalBodies;
       if (f.server) page.server = f.server.replace(/\/+$/, "");
+      if (f.tryIt && view.model.tryIt) page.tryIt = tryItInfo(f.tryIt.plan, f.tryIt.file, view.model.tryIt);
       if (webhookKey !== undefined) page.isWebhook = true;
       if (f.deprecated) page.deprecated = true;
       return page;

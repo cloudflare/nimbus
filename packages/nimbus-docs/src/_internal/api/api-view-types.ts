@@ -4,6 +4,7 @@
  * The projection that produces these shapes lives in `view-model.ts`.
  */
 
+import type { TryItInfo, TryItSource } from "../try-it/plan.js";
 import type { RoutePolicy } from "./route-policy.js";
 import type { ApiExtensionValues, ApiJsonValue, ApiSamples, PrevNext } from "../../types.js";
 
@@ -13,11 +14,11 @@ export type JsonValue = ApiJsonValue;
 
 export type ApiNodeKind = "api" | "section" | "operation" | "schema";
 
-/** How an operation page's `resource-action-v1` slug was resolved: a config `override`, a
- *  method+path `derived` slug, or a `fallback` to the operation coordinate. This
+/** How an operation page's `resource-action-v1` slug was resolved: a config `override`, the
+ *  operation's own `x-nimbus-route` (`extension`), a method+path `derived` slug, or a `fallback` to the operation coordinate. This
  *  is the view-surface home of the union; the spine's `RouteProvenance` aliases
  *  it so the type never originates in the IR when it crosses the `./api` seam. */
-export type ApiRouteProvenance = "override" | "derived" | "fallback";
+export type ApiRouteProvenance = "override" | "extension" | "derived" | "fallback";
 
 export interface SpecSource {
   collection: string;
@@ -45,6 +46,8 @@ export interface SpecSource {
   samples?: ApiSamples;
   /** `x-*` extension names whose values are copied onto pages. */
   extensions?: readonly string[];
+  /** Try it: the plan's identity and how requests may travel. Absent: off. */
+  tryIt?: TryItSource;
 }
 
 declare const ApiModelBrand: unique symbol;
@@ -147,6 +150,9 @@ export interface ApiAuthView {
   in?: "header" | "query" | "cookie";
   headerName?: string;
   bearerFormat?: string;
+  /** The HTTP authentication scheme, lowercased (`bearer`, `basic`, …). Set only
+   *  for `type: "http"`. */
+  httpScheme?: string;
   scopes: string[];
 }
 
@@ -219,6 +225,8 @@ export interface ApiOperationPage extends ApiPageBase {
   samples: ApiCodeSampleView[];
   /** The listed `x-*` fields this operation declares (`api[].extensions`). */
   extensions?: ApiExtensionValues;
+  /** Try it, when the API has it on: the plan to load on click and how it can travel. */
+  tryIt?: TryItInfo;
 }
 
 export interface ApiExampleView {

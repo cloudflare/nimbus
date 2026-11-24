@@ -65,6 +65,7 @@ export type {
   JsonValue,
   SpecSource,
 } from "../_internal/api/view-model.js";
+export type { TryItInfo, PlanId, DeliveryMode } from "../_internal/try-it/plan.js";
 export { ApiBuildError } from "../_internal/api/coordinates.js";
 export type { Diagnostic } from "../_internal/api/coordinates.js";
 export { renderApiPageMarkdown } from "../_internal/api/markdown.js";
@@ -122,6 +123,7 @@ export async function buildApiModel(source: SpecSource): Promise<ApiModel> {
     routes: source.routes,
     samples: source.samples,
     extensions: source.extensions,
+    tryIt: source.tryIt,
   });
   const key = `${collectionKey(source.collection)}${options}::${specDigest(raw)}`;
   const cached = handleCache.get(key);

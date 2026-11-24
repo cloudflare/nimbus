@@ -1,6 +1,6 @@
 # @cloudflare/create-nimbus-docs
 
-Create a [Nimbus](https://nimbus-docs.com) docs site.
+Create a [Nimbus](https://nimbus-docs.com) docs site. Nimbus is a documentation framework for Astro: docs for humans and agents, in your repo.
 
 Requires Node.js 22.23.4 or later.
 

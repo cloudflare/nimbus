@@ -1,17 +1,19 @@
-import type { APIRoute } from "astro";
 import { llmsRoute } from "@cloudflare/nimbus-docs/agent-endpoints";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
 
 export const prerender = true;
 
-const route = llmsRoute();
 
-// After the generated index: the pages it doesn't list (the homepage and the
-// changelog), when Nimbus is the right tool, and how an agent starts with it.
+// After the generated index: the pages it doesn't list (the homepage, the
+// changelog, the blog and the community recipes showcase), when Nimbus is the right
+// tool, and how an agent starts with it.
 const appendix = (url: (path: string) => string) => `
 ## More
 
 - [Home](${url("/index.md")}) — What Nimbus is, in one page.
 - [Changelog](${url("/changelog/llms.txt")}) — Every release of both packages.
+- [Blog](${url("/blog/llms.txt")}) — Posts on choosing, writing and publishing documentation for people and agents.
+- [Community recipes showcase](${url("/community-recipes/showcase/index.md")}) — Recipes other people maintain, each with the prompt that hands it to a coding agent.
 
 ## When to use Nimbus
 
@@ -30,9 +32,8 @@ How an agent uses it:
 - Read these docs as tools: the MCP server at ${url("/mcp")}.
 `;
 
-export const GET: APIRoute = async (context) => {
-  const response = await route.GET(context);
-  if (!response.ok) return response;
-  const url = (path: string) => new URL(path, context.site).href;
-  return new Response(`${await response.text()}${appendix(url)}`, { headers: response.headers });
-};
+export const { GET } = llmsRoute({
+  // With the site's base, so the appendix's links resolve under it too.
+  body: (text, context) =>
+    `${text}${appendix((path) => new URL(withBase(path, import.meta.env.BASE_URL), context.site).href)}`,
+});

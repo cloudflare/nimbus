@@ -1,0 +1,65 @@
+---
+title: Specs from a URL, and transforms
+description: Read a spec published at a URL, such as a release asset, and prepare it in code before Nimbus renders it.
+aiGenerated: true
+sidebar:
+  order: 4.5
+  label: URLs and transforms
+---
+
+A spec doesn't have to live in the site's repository. Declare it as a URL source, and an `api` entry reads it like a local file. To change the spec before Nimbus reads it, give the entry a transform.
+
+## Read a spec from a URL
+
+Declare the file in `sources` with `url`, and read it with `{ source }`:
+
+```ts title="astro.config.ts"
+sources: {
+  acme: { url: "https://github.com/acme/api/releases/latest/download/openapi.json" },
+},
+api: [{ collection: "api", spec: { source: "acme" } }],
+```
+
+The build saves the file under `.nimbus/sources/acme/`. Without `integrity`, the source floats: each build sends one request with the saved file's `ETag` or `Last-Modified`, and downloads the file only when it changed. `nimbus-docs check` reports a floating source as `nimbus/source-floating-ref`.
+
+Set `integrity` to pin the file. The build then fetches it once and reuses it with no request, and a file that doesn't match fails the build:
+
+```ts title="astro.config.ts"
+acme: {
+  url: "https://github.com/acme/api/releases/download/v2.4.0/openapi.json",
+  integrity: "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+},
+```
+
+`integrity` is the file's SHA-256 in the Subresource Integrity format. To get it, run `openssl dgst -sha256 -binary openapi.json | openssl base64 -A` and prefix `sha256-`.
+
+## When the URL can't be reached
+
+- **A server error, a network failure, a 408 or a 429:** a floating source builds from the file it last saved, with a warning. A build fails only when no file was saved yet.
+- **Any other 4xx answer, such as a 404:** the build fails, even with a saved file, since the URL is wrong.
+- **`astro dev` and `astro sync`:** they fetch the same way as a build.
+- **`astro preview`:** it makes no request and reads the saved file.
+
+The URL must use `https`, or `http` for `localhost`, and so must every redirect it gives, up to 10. A URL with a user or password is refused, and build messages leave out its query string.
+
+## Transform a spec
+
+A transform gets the parsed spec and returns the one Nimbus renders. Set it per `api` entry in the integration's options:
+
+```ts title="astro.config.ts"
+nimbus(config, {
+  api: {
+    api: {
+      transform: (document) => ({ ...document, servers: [{ url: "https://api.acme.com" }] }),
+    },
+  },
+}),
+```
+
+The key is the entry's `collection`. The transform runs in Node at every build, dev start and `astro sync`, once for each spec. For a [version family](/api-reference/versions), it runs once per version, and its second argument says which: `{ collection, version }`, where `version` is the configured id, or `null` for an entry without `versions`.
+
+Each run transforms the spec as written: the local file, the inline object, or the file the source saved. It never receives an earlier run's result. Nimbus writes the result to `.nimbus/api-specs/` and reads that file.
+
+The transform never runs on request, so a large dependency it imports, such as a WebAssembly parser, stays out of the server bundle. `astro preview` doesn't run it either: it reads the result of the last successful build, and fails if the last build failed or there wasn't one.
+
+A transformed spec should be self-contained. A `$ref` to another file resolves against `.nimbus/api-specs/`, not the original file.

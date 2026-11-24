@@ -1,0 +1,41 @@
+---
+title: Community recipes
+description: Recipes other people maintain in their own GitHub repos, handed to your coding agent with nimbus-docs add <url>.
+# Listed in astro.config.ts's sidebar, beside the showcase (an Astro page).
+sidebar:
+  hidden: true
+---
+
+Community recipes are Markdown recipes other people maintain in their own public GitHub repos. They aren't part of the [registry](/registry): install one by handing its URL to `nimbus-docs add`, and your coding agent applies it as it does a registry feature.
+
+Nimbus checks who publishes a recipe, not what it says, and a recipe can change after it's listed. Read it before your agent follows it.
+
+The [showcase](/community-recipes/showcase) lists every recipe, each with a prompt to copy into your agent.
+
+## Share a recipe
+
+A recipe is a Markdown file of instructions for a coding agent, like the registry's features. To list yours:
+
+1. Put it in a public GitHub repo you own.
+2. Copy its URL: open the file on GitHub, select **Raw** and copy that URL. A recipe you publish as a release asset works too: copy the asset's link from the release.
+3. Open a PR adding an entry to [`apps/www/src/data/community-recipes.ts`](https://github.com/cloudflare/nimbus/blob/main/apps/www/src/data/community-recipes.ts):
+
+```ts title="apps/www/src/data/community-recipes.ts"
+export const communityRecipes = parseRecipes([
+  {
+    name: "MCP chat",
+    description: "A chat panel that answers from your site's MCP server.",
+    url: "https://raw.githubusercontent.com/someone/mcp-chat/main/RECIPE.md",
+  },
+]);
+```
+
+The recipe is credited to the GitHub account in its URL. A tag or commit in the URL pins a version; a branch, or a release asset under `releases/latest/download/`, follows your latest edits.
+
+## Removal
+
+A dead link, or a recipe listed by someone other than its author, is removed. To report one, [open an issue](https://github.com/cloudflare/nimbus/issues).
+
+## Adoption
+
+If Nimbus ever wants a community recipe in the registry, it asks the author first, checks the license, and credits them on the registry entry and as a co-author of the commit.

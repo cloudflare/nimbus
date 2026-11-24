@@ -66,7 +66,8 @@ jobs:
     needs: verify-release
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Each package waits up to 15 minutes for npm to show it (release.mjs).
+    timeout-minutes: 45
     environment: release
     outputs:
       published: ${{ steps.publish.outputs.published }}
@@ -279,7 +280,7 @@ jobs:
     needs: build-www
     if: ${{ !cancelled() && needs.build-www.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     environment: cloudflare
     permissions:
       contents: read
@@ -307,13 +308,24 @@ jobs:
         working-directory: apps/www
         run: |
           set -o pipefail
+          # npm can take minutes to show a release it accepted, so an older
+          # `latest` is waited for; a newer one is never replaced.
           for pkg in nimbus-docs create-nimbus-docs; do
             expected=$(jq -r .version "../../packages/$pkg/package.json")
-            latest=$(npm view "@cloudflare/$pkg" dist-tags.latest --json | jq -er '.')
-            if [ "$expected" != "$latest" ]; then
-              echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is $latest. Refusing to replace the newer site."
-              exit 1
-            fi
+            for attempt in $(seq 1 30); do
+              # A failed lookup is npm not there yet, not a reason to stop.
+              latest=$(npm view "@cloudflare/$pkg" dist-tags.latest --json | jq -er '.') || latest=""
+              [ "$expected" = "$latest" ] && break
+              if [ "$(printf '%s\n%s\n' "$expected" "$latest" | sort -V | tail -n 1)" = "$latest" ]; then
+                echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is $latest. Refusing to replace the newer site."
+                exit 1
+              fi
+              if [ "$attempt" = 30 ]; then
+                echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is still ${latest:-unavailable} after 15 minutes."
+                exit 1
+              fi
+              sleep 30
+            done
           done
           if [ -d dist/server ]; then
             # The checked-in config sits where the build's would, so `main` and
@@ -404,7 +416,7 @@ jobs:
     needs: [build-www, build-demo-weather]
     if: ${{ !cancelled() && needs.build-demo-weather.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     environment: cloudflare
     permissions:
       contents: read
@@ -457,15 +469,69 @@ jobs:
         working-directory: apps/demo
         run: |
           set -o pipefail
-          # A rerun of an older release must not replace a newer demo.
+          # A rerun of an older release must not replace a newer demo; an
+          # older `latest` is npm still catching up, and is waited for.
           for pkg in nimbus-docs create-nimbus-docs; do
             expected=$(jq -r .version "../../packages/$pkg/package.json")
-            latest=$(npm view "@cloudflare/$pkg" dist-tags.latest --json | jq -er '.')
-            if [ "$expected" != "$latest" ]; then
-              echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is $latest. Refusing to replace the newer demo."
-              exit 1
-            fi
+            for attempt in $(seq 1 30); do
+              # A failed lookup is npm not there yet, not a reason to stop.
+              latest=$(npm view "@cloudflare/$pkg" dist-tags.latest --json | jq -er '.') || latest=""
+              [ "$expected" = "$latest" ] && break
+              if [ "$(printf '%s\n%s\n' "$expected" "$latest" | sort -V | tail -n 1)" = "$latest" ]; then
+                echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is $latest. Refusing to replace the newer demo."
+                exit 1
+              fi
+              if [ "$attempt" = 30 ]; then
+                echo "::error::@cloudflare/$pkg at this commit is $expected, but npm latest is still ${latest:-unavailable} after 15 minutes."
+                exit 1
+              fi
+              sleep 30
+            done
           done
+          # The sandbox API that Try it sends to, first, so a new demo never
+          # points at an older one. A release from before it existed has none.
+          if [ -f fixture-api/wrangler.jsonc ]; then
+            pnpm exec wrangler deploy --config fixture-api/wrangler.jsonc --tsconfig "$PWD/tsconfig.json"
+            sandbox=https://api.demo.nimbus-docs.com
+            # The sandbox answers the request: London is London, Nairobi is warmer than Oslo,
+            # an empty search is empty, an unknown id is the spec's 404. The documented limit
+            # counts per key, so each version's probes use this run's own key.
+            ask() { # version, path -> "<status>\n<body>"
+              local version=$1 path=$2 key="wx_test_release_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_$1"
+              if [ "$version" = v1 ]; then
+                case "$path" in *\?*) path="$path&key=$key" ;; *) path="$path?key=$key" ;; esac
+                curl --silent --show-error --retry 5 --retry-delay 3 -w '\n%{http_code}' "$sandbox/v1$path"
+              else
+                curl --silent --show-error --retry 5 --retry-delay 3 -w '\n%{http_code}' -H "Authorization: Bearer $key" "$sandbox/$version$path"
+              fi
+            }
+            probe() { # version, path, expected status, jq test
+              local answer code body
+              answer=$(ask "$1" "$2"); code=${answer##*$'\n'}; body=${answer%$'\n'*}
+              if [ "$code" != "$3" ] || ! printf '%s' "$body" | jq -e "$4" > /dev/null; then
+                echo "::error::sandbox $1 $2 answered $code: $body"
+                exit 1
+              fi
+              printf '%s' "$body"
+            }
+            for version in v1 v2 v3-preview; do
+              probe "$version" /locations/loc_london_gb 200 '.name == "London"' > /dev/null
+              probe "$version" /locations/loc_nowhere_xx 404 '.error.code == "not_found"' > /dev/null
+              if [ "$version" = v1 ]; then
+                probe v1 '/locations/search?q=Zzz' 200 '.results == [] and .page == 1' > /dev/null
+                nairobi=$(probe v1 '/forecast?lat=-1.29&lon=36.82&days=1' 200 '.location.name == "Nairobi"' | jq '.days[0].high_f')
+                oslo=$(probe v1 '/forecast?lat=59.91&lon=10.75&days=1' 200 '.location.name == "Oslo"' | jq '.days[0].high_f')
+              else
+                probe "$version" '/locations/search?q=Zzz' 200 '.data == [] and .has_more == false and .next_cursor == null' > /dev/null
+                nairobi=$(probe "$version" '/forecasts/daily?latitude=-1.29&longitude=36.82&days=1' 200 '.location.name == "Nairobi"' | jq '.days[0].temperature_max')
+                oslo=$(probe "$version" '/forecasts/daily?latitude=59.91&longitude=10.75&days=1' 200 '.location.name == "Oslo"' | jq '.days[0].temperature_max')
+              fi
+              if [ "$nairobi" = "$oslo" ]; then
+                echo "::error::sandbox $version gives Nairobi and Oslo the same high ($nairobi)"
+                exit 1
+              fi
+            done
+          fi
           pnpm exec wrangler deploy --config dist/server/wrangler.json --tsconfig "$PWD/tsconfig.json"
           curl --fail --show-error --silent --retry 5 --retry-delay 3 -o /dev/null https://demo.nimbus-docs.com/
         env:

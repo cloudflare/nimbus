@@ -1,37 +1,69 @@
 {
-  "note": "Real production OpenAPI specs used as fixtures for the opt-in API gauntlet. The spec files themselves are gitignored (~45 MB); this manifest is the source of truth. Run `pnpm --filter nimbus-docs pull:api-fixtures` to download them into this directory. Stats captured 2026-08-13 via a structural (no-dereference) pass.",
+  "note": "Real production OpenAPI specs used as fixtures for the opt-in API gauntlet. The spec files themselves are gitignored (~45 MB); this manifest is the source of truth: each URL is pinned to a commit, and `sha256` is the file's hash, so every run reads the same bytes. Run `pnpm --filter nimbus-docs pull:api-fixtures` to download them into this directory. Stats captured 2026-08-13 via a structural (no-dereference) pass.",
   "sources": [
     {
       "name": "Cloudflare",
       "file": "cloudflare.json",
-      "url": "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.json",
+      "url": "https://raw.githubusercontent.com/cloudflare/api-schemas/97a1517ec6702bfdf37859ad65770fd50645d7d0/openapi.json",
       "openapi": "3.0.3",
-      "bytes": 23438968,
-      "stats": { "paths": 2046, "operations": 3286, "schemas": 6563, "webhooks": 0, "topLevelTags": 0, "deprecatedOps": 280 }
+      "bytes": 27863911,
+      "stats": {
+        "paths": 2046,
+        "operations": 3286,
+        "schemas": 6563,
+        "webhooks": 0,
+        "topLevelTags": 0,
+        "deprecatedOps": 280
+      },
+      "sha256": "b5c1a966a7b2674c68faa2e5bc27bf7c531b2387acce96336d7de45b521e5903"
     },
     {
       "name": "Stripe",
       "file": "stripe.json",
-      "url": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json",
+      "url": "https://raw.githubusercontent.com/stripe/openapi/bcfd59f49dcac84a84d63d304c62793dff6e5916/openapi/spec3.json",
       "openapi": "3.0.0",
-      "bytes": 7967776,
-      "stats": { "paths": 416, "operations": 589, "schemas": 1440, "webhooks": 0, "topLevelTags": 0, "deprecatedOps": 6 }
+      "bytes": 8317513,
+      "stats": {
+        "paths": 416,
+        "operations": 589,
+        "schemas": 1440,
+        "webhooks": 0,
+        "topLevelTags": 0,
+        "deprecatedOps": 6
+      },
+      "sha256": "7cff4cc46d0654101a36a3302f7544640f5f73e4f3cad6f264f0e23c19fa1776"
     },
     {
       "name": "GitHub",
       "file": "github.json",
-      "url": "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json",
+      "url": "https://raw.githubusercontent.com/github/rest-api-description/87c634bdb3ca34f57c5126a626e86ca848465bea/descriptions/api.github.com/api.github.com.json",
       "openapi": "3.0.3",
-      "bytes": 12920264,
-      "stats": { "paths": 808, "operations": 1220, "schemas": 969, "webhooks": 0, "topLevelTags": 49, "deprecatedOps": 37 }
+      "bytes": 14208260,
+      "stats": {
+        "paths": 808,
+        "operations": 1220,
+        "schemas": 969,
+        "webhooks": 0,
+        "topLevelTags": 49,
+        "deprecatedOps": 37
+      },
+      "sha256": "806d4735354a732049599a70f059811f63cfde8521436d723a3f452c606e4859"
     },
     {
       "name": "OpenAI",
       "file": "openai.yaml",
-      "url": "https://raw.githubusercontent.com/openai/openai-openapi/master/openapi.yaml",
+      "url": "https://raw.githubusercontent.com/openai/openai-openapi/c6522b4e0c48b88b95bb427e09268954d0213e31/openapi.yaml",
       "openapi": "3.1.0",
-      "bytes": 2846177,
-      "stats": { "paths": 182, "operations": 288, "schemas": 1394, "webhooks": 16, "topLevelTags": 16, "deprecatedOps": 5 }
+      "bytes": 4333622,
+      "stats": {
+        "paths": 182,
+        "operations": 288,
+        "schemas": 1394,
+        "webhooks": 16,
+        "topLevelTags": 16,
+        "deprecatedOps": 5
+      },
+      "sha256": "474789d5faa06f88242b49300f99f7afa06db12c1fcbe17642e69e6e0f72859c"
     }
   ]
 }

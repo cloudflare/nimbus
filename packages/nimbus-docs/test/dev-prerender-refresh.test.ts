@@ -201,7 +201,7 @@ if(page instanceof Response)return page;
       await serves("/guide/index.md", `## ${section}`);
       await serves("/guide/index.mdx", `## ${section}`);
       await serves("/llms.txt", title);
-      await serves("/guide/", `data-heading="${slug}">${section}`);
+      await serves("/guide/", `data-heading="${slug}"`);
     }
 
     // content.config.ts edits that change the Markdown, with no content edit:

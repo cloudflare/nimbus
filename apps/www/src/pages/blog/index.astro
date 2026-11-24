@@ -1,0 +1,36 @@
+---
+/**
+ * /blog: a landing page, not a doc. The docs layout in custom mode, with the
+ * homepage's header in its header slot; the page is
+ * the blog, then the homepage's get-started section and footer. Its Markdown
+ * version is ./index.md.ts.
+ */
+import DocsLayout from "@/layouts/DocsLayout.astro";
+import BlogIndex from "@/components/blog/BlogIndex.astro";
+import ExpStart from "@/home/www/story/exp/ExpStart.astro";
+import SiteFooter from "@/home/www/SiteFooter.astro";
+import SiteHeader from "@/home/www/SiteHeader.astro";
+import { BLOG, feedLink, getPosts } from "@/lib/blog";
+
+export const prerender = true;
+
+const posts = await getPosts();
+---
+
+<DocsLayout
+  title={BLOG.title}
+  description={BLOG.description}
+  markdownUrl="/blog/index.md"
+  socialImage="/og/blog.png"
+  mode="custom"
+  sidebar={false}
+  headings={false}
+  breadcrumbs={[]}
+  prevNext={{}}
+  head={[feedLink()]}
+>
+  <SiteHeader slot="header" current="Blog" />
+  <BlogIndex posts={posts} />
+  <section id="start" class="mt-16 border-t border-border px-6 py-10 md:mt-24"><ExpStart /></section>
+  <SiteFooter />
+</DocsLayout>

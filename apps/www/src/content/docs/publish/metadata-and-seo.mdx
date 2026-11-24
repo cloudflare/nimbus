@@ -59,6 +59,30 @@ Image paths are logical paths without Astro's deployment base. For a site deploy
 <NimbusHead title={title} socialImage="/diagrams/cover.png" socialImageSize={{ width: 1600, height: 900 }} />
 ```
 
+A route that sets a page's image can describe it with `socialImageAlt`, which wins over the config's.
+
+## Page language
+
+Every page announces `config.locale` (`"en"` by default). A page in another language says so with `locale`, a BCP 47 tag, on the starter's `DocsLayout` or `BaseLayout`:
+
+```astro
+<BaseLayout title="Démarrage" locale="fr" socialImageAlt="Carte : Démarrage" />
+```
+
+The page's `<html lang>`, JSON-LD `inLanguage` and `og:locale` follow it. `og:locale` takes Open Graph's form, the language and its region (`fr_FR`); pass the region in the tag for another (`ar-SA`). A right-to-left language, in `locale` or in `config.locale`, also sets `dir="rtl"`.
+
+`NimbusHead` takes `locale` too, but it can't change the `<html>` element around it. A layout of your own sets that from the same value:
+
+```astro
+---
+import { getPageLanguage } from "@cloudflare/nimbus-docs/runtime";
+const { lang, dir } = await getPageLanguage(Astro.props.locale);
+---
+<html lang={lang} dir={dir}>
+```
+
+Search indexes a prerendered page under its `<html lang>`, so it's searched with other pages in that language. A request-rendered page is still indexed under `config.locale`.
+
 ## Sitemap and robots
 
 When `site` is set, the sitemap integration and `/robots.txt` are wired automatically. Disable the sitemap with `sitemap: false` in the integration options.

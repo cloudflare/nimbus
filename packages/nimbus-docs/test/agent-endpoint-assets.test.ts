@@ -22,6 +22,7 @@ import {
   runPreparedMarkdownTransaction,
 } from "../src/_internal/prepared-markdown-registry.ts";
 import {
+  AGENT_ENDPOINT_ASSET_GENERATION,
   bakePreparedHeadings,
   bakeAgentEndpointAssets,
   configureAgentEndpointAssetRoot,
@@ -42,7 +43,7 @@ import { renderApiPageMarkdown } from "../src/_internal/api/markdown.ts";
 import { fromMarkdown } from "mdast-util-from-markdown";
 
 const roots: string[] = [];
-const capability = { generation: 1, base: "/docs" };
+const capability = { generation: AGENT_ENDPOINT_ASSET_GENERATION, base: "/docs" };
 
 afterEach(async () => {
   clearPreparedMarkdownRegistry();
@@ -122,6 +123,18 @@ const apiPage = (title: string) => ({
   },
 });
 
+/** The smallest API page view model: an overview whose body is its description. */
+const thinPage = (description: string) =>
+  ({
+    kind: "api",
+    deprecated: false,
+    breadcrumbs: [],
+    description,
+    version: null,
+    servers: [],
+    sections: [],
+  }) as unknown as Parameters<typeof renderApiPageMarkdown>[0];
+
 test("bakes API discovery from thin entries through the projection callback", async () => {
   const projectRoot = await root();
   const entry = {
@@ -140,16 +153,16 @@ test("bakes API discovery from thin entries through the projection callback", as
     site: "https://example.test",
     title: "Test",
     apiEntries: [entry],
-    renderApiEntryMarkdown: async (candidate: typeof entry, base: string) => {
-      calls.push(`${candidate.collection}:${candidate.id}:${base}`);
-      return "# Create charge\n\nCreates a charge.\n";
+    projectApiEntryPage: async (candidate: typeof entry) => {
+      calls.push(`${candidate.collection}:${candidate.id}`);
+      return thinPage("Creates a charge.");
     },
   };
 
   configure(projectRoot, options);
   await bakeAgentEndpointAssets(options);
 
-  assert.deepEqual(calls, ["api:charges/create:/docs"]);
+  assert.deepEqual(calls, ["api:charges/create"]);
   const full = await readLlmsEndpointPayload(projectRoot, {
     scope: "site",
     surface: "full",
@@ -621,6 +634,19 @@ test("agent-endpoint asset loader uses the Cloudflare assets binding only on Clo
   );
   assert.match(cloudflareSource ?? "", /cloudflare:workers/);
   assert.match(cloudflareSource ?? "", /env\.ASSETS/);
+  // The conditional headers go along, so the binding answers 304 itself; nothing else does.
+  const loader = new Function(
+    "env",
+    `${(cloudflareSource as string).replace(/^import .*$/m, "").replace("export function", "return function")}`,
+  )({ ASSETS: { fetch: (request: Request) => request } }) as (path: string, request: Request) => Request;
+  const forwarded = loader(
+    "/guide/index.md",
+    new Request("https://site.test/guide/", {
+      headers: { "If-None-Match": '"abc"', "If-Modified-Since": "Mon, 10 Nov 2026 00:00:00 GMT", Cookie: "secret", Accept: "text/markdown" },
+    }),
+  );
+  assert.equal(forwarded.url, "https://site.test/guide/index.md");
+  assert.deepEqual([...forwarded.headers], [["if-modified-since", "Mon, 10 Nov 2026 00:00:00 GMT"], ["if-none-match", '"abc"']]);
   const prerenderSource = await cloudflare.load.call(
     { environment: { name: "prerender" } },
     cloudflareId,
@@ -980,7 +1006,7 @@ test("rejects stale collection capabilities", async () => {
     key,
     "docs",
     epoch,
-    { generation: 1, base: "/wrong" },
+    { generation: AGENT_ENDPOINT_ASSET_GENERATION, base: "/wrong" },
     [{ id: "guide", body: "Guide", data: { title: "Guide" } }] as never,
   );
   await assert.rejects(
@@ -1133,6 +1159,149 @@ test("queues a follow-up bake when invalidated during in-flight work", async () 
   assert.equal(calls, 2);
 });
 
+function countingSite(projectRoot: string, mode: "build" | "dev") {
+  const counter = { renders: 0 };
+  const options = {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+    componentMap: {
+      Count: {
+        revision: "v1",
+        render: () => {
+          counter.renders += 1;
+          return "counted";
+        },
+      },
+    },
+  };
+  configureAgentEndpointAssetRoot(projectRoot, mode, () => bakeAgentEndpointAssets(options));
+  const rebake = () => {
+    invalidateAgentEndpointAssets(projectRoot);
+    return ensureAgentEndpointAssets(projectRoot);
+  };
+  return { counter, options, rebake };
+}
+
+const countedPages = (bodyOfB = "B") => [
+  { id: "a", body: '<Count />\n\n<Render file="note" />', data: { title: "A" } },
+  { id: "b", body: `<Count />\n\n${bodyOfB}`, data: { title: "B" } },
+  { id: "c", body: "<Count />\n\nC", data: { title: "C" } },
+];
+
+test("dev reuses an unchanged page's Markdown, byte-identical to a build", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", countedPages());
+  commit(projectRoot, "partials", [{ id: "note", body: "Note.", data: {} }]);
+  const { counter, options, rebake } = countingSite(projectRoot, "dev");
+  await ensureAgentEndpointAssets(projectRoot);
+  await rebake();
+  assert.equal(counter.renders, 3);
+
+  commit(projectRoot, "docs", countedPages("B, edited"));
+  const edited = await rebake();
+  assert.equal(counter.renders, 4);
+  configureAgentEndpointAssetRoot(projectRoot, "build", () => bakeAgentEndpointAssets(options));
+  assert.deepEqual(await bakeAgentEndpointAssets(options), edited);
+});
+
+test("dev renders every page again when a partial or a component revision changes", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", countedPages());
+  commit(projectRoot, "partials", [{ id: "note", body: "Note.", filePath: "note.mdx", data: {} }]);
+  const { counter, options, rebake } = countingSite(projectRoot, "dev");
+  const renders = async () => {
+    const before = counter.renders;
+    await rebake();
+    return counter.renders - before;
+  };
+  await ensureAgentEndpointAssets(projectRoot);
+
+  commit(projectRoot, "partials", [{ id: "note", body: "Note, edited.", filePath: "note.mdx", data: {} }]);
+  assert.equal(await renders(), 3);
+  commit(projectRoot, "partials", [{ id: "note", body: "Note, edited.", filePath: "note.md", data: {} }]);
+  assert.equal(await renders(), 3);
+  options.componentMap.Count.revision = "v2";
+  assert.equal(await renders(), 3);
+  assert.equal(await renders(), 0);
+});
+
+test("dev still rejects a page whose partial stopped being public", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", countedPages());
+  commit(projectRoot, "partials", [{ id: "note", body: "Note.", data: {} }]);
+  const { rebake } = countingSite(projectRoot, "dev");
+  await ensureAgentEndpointAssets(projectRoot);
+  commit(projectRoot, "partials", [{ id: "note", body: "Note.", data: { draft: true } }]);
+  await assert.rejects(rebake(), /partial "partials:note"/);
+});
+
+test("a build renders every page on every bake", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", countedPages());
+  commit(projectRoot, "partials", [{ id: "note", body: "Note.", data: {} }]);
+  const { counter, options } = countingSite(projectRoot, "build");
+  await bakeAgentEndpointAssets(options);
+  await bakeAgentEndpointAssets(options);
+  assert.equal(counter.renders, 6);
+});
+
+test("dev doesn't re-read files it published, and rewrites one that went missing", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", countedPages());
+  commit(projectRoot, "partials", [{ id: "note", body: "Note.", data: {} }]);
+  const { rebake } = countingSite(projectRoot, "dev");
+  const manifest = await ensureAgentEndpointAssets(projectRoot);
+  const directory = path.join(projectRoot, ".astro/nimbus/agent-endpoint-assets");
+  const [kept, removed] = manifest.markdownAssets.map((asset) => path.join(directory, asset.path));
+  const body = await readFile(removed!, "utf8");
+  const tampered = "x".repeat(Buffer.byteLength(await readFile(kept!, "utf8")));
+  await writeFile(kept!, tampered);
+  await rm(removed!);
+
+  await rebake();
+  assert.equal(await readFile(kept!, "utf8"), tampered);
+  assert.equal(await readFile(removed!, "utf8"), body);
+});
+
+test("a build still reads back every file it would keep, and repairs one that changed", async () => {
+  const projectRoot = await root();
+  commit(projectRoot, "docs", countedPages());
+  commit(projectRoot, "partials", [{ id: "note", body: "Note.", data: {} }]);
+  const { rebake } = countingSite(projectRoot, "build");
+  const manifest = await ensureAgentEndpointAssets(projectRoot);
+  const kept = path.join(projectRoot, ".astro/nimbus/agent-endpoint-assets", manifest.markdownAssets[0]!.path);
+  const body = await readFile(kept, "utf8");
+  await writeFile(kept, "x".repeat(Buffer.byteLength(body)));
+  await rebake();
+  assert.equal(await readFile(kept, "utf8"), body);
+});
+
+
+for (const mode of ["dev", "build"] as const) {
+  test(`${mode} replaces a short or empty asset file and the bake succeeds`, async () => {
+    const projectRoot = await root();
+    commit(projectRoot, "docs", [
+      { id: "a", body: "Page A", data: { title: "A" } },
+      { id: "b", body: "Page B", data: { title: "B" } },
+    ]);
+    const options = { root: projectRoot, base: "/docs", site: "https://example.test", title: "Test" };
+    configureAgentEndpointAssetRoot(projectRoot, mode, () => bakeAgentEndpointAssets(options));
+    const manifest = await ensureAgentEndpointAssets(projectRoot);
+    const directory = path.join(projectRoot, ".astro/nimbus/agent-endpoint-assets");
+    const files = manifest.markdownAssets.slice(0, 2).map((asset) => path.join(directory, asset.path));
+    assert.equal(files.length, 2);
+    const bodies = await Promise.all(files.map((file) => readFile(file, "utf8")));
+    await writeFile(files[0]!, bodies[0]!.slice(0, 3));
+    await writeFile(files[1]!, "");
+
+    invalidateAgentEndpointAssets(projectRoot);
+    await ensureAgentEndpointAssets(projectRoot);
+    assert.deepEqual(await Promise.all(files.map((file) => readFile(file, "utf8"))), bodies);
+  });
+}
+
 test("removes assets made obsolete by edits and deletions", async () => {
   const projectRoot = await root();
   commit(projectRoot, "docs", [
@@ -1217,7 +1386,7 @@ test("bakes every Markdown asset at its public URL, API pages included, hidden A
   configure(projectRoot, options);
   const manifest = await bakeAgentEndpointAssets(options);
 
-  assert.equal(manifest.version, 6);
+  assert.equal(manifest.version, 7);
   assert.deepEqual(
     manifest.markdownAssets.map((asset) => `${asset.surface} ${asset.url}`).sort(),
     [
@@ -1464,6 +1633,70 @@ test("nested sections: a collection in another slice is linked from the section 
   const body = (await readLlmsEndpointPayload(projectRoot, { scope: "section", surface: "index", section: "reference" })).body;
   assert.match(body, /## Sections\n\n- \[SDK\]\(https:\/\/example\.test\/docs\/reference\/sdk\/llms\.txt\)\n$/);
   assert.doesNotMatch(body, /cli/);
+});
+
+test("nested sections: collection links follow the sidebar with the section's other sub-sections", async () => {
+  const projectRoot = await root();
+  const routes = new Map([
+    ["sdk", { mount: "/reference/sdk", file: "src/pages/reference/sdk/[...slug].astro", aliases: [] }],
+    ["cli", { mount: "/reference/cli", file: "src/pages/reference/cli/[...slug].astro", aliases: [] }],
+  ]);
+  const urls = collectionUrlsKey({ versions: null, routes });
+  commit(projectRoot, "docs", [
+    { id: "reference", body: "Reference", data: { title: "Reference" } },
+    { id: "reference/basics/a", body: "A", data: { title: "A" } },
+    { id: "reference/basics/b", body: "B", data: { title: "B" } },
+  ], urls);
+  commit(projectRoot, "sdk", [{ id: "start", body: "SDK", data: { title: "SDK start" } }], urls);
+  commit(projectRoot, "cli", [{ id: "start", body: "CLI", data: { title: "CLI start" } }], urls);
+  // The sidebar reads Reference, then SDK, CLI, Basics.
+  const order = ["/reference", "/reference/sdk/start", "/reference/cli/start", "/reference/basics/a", "/reference/basics/b"];
+  const options = {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+    nestedSections: true,
+    routes,
+    sidebarPosition: async () => (page: { url: string }) => {
+      const index = order.indexOf(page.url.replace(/\/$/, ""));
+      return index === -1 ? undefined : index;
+    },
+  };
+  configure(projectRoot, options);
+  await bakeAgentEndpointAssets(options);
+  const body = (await readLlmsEndpointPayload(projectRoot, { scope: "section", surface: "index", section: "reference" })).body;
+  const sections = [...body.matchAll(/\/(reference\/[a-z]+)\/llms\.txt/g)].map((match) => match[1]);
+  assert.deepEqual(sections, ["reference/sdk", "reference/cli", "reference/basics"]);
+});
+
+test("a section another slice builds is listed where the sidebar links it", async () => {
+  const { llmsSidebarPosition } = await import("../src/_internal/llms-order.ts");
+  const projectRoot = await root();
+  commit(projectRoot, "docs", [
+    { id: "guide", body: "Guide", data: { title: "Guide" } },
+    { id: "zeta", body: "Zeta", data: { title: "Zeta" } },
+  ]);
+  const link = (label: string, href: string) => ({ type: "link" as const, label, href, order: 0 });
+  const options = {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+    absentSections: [{ slug: "api", label: "API" }],
+    // The sidebar reads Zeta, API, Guide.
+    sidebarPosition: async () =>
+      llmsSidebarPosition({
+        tree: [link("Zeta", "/zeta/"), link("API", "/api/"), link("Guide", "/guide/")],
+        apiMounts: new Map(),
+        apiNavOrder: () => undefined,
+      }),
+  };
+  configure(projectRoot, options);
+  await bakeAgentEndpointAssets(options);
+  const body = (await readLlmsEndpointPayload(projectRoot, { scope: "site", surface: "index" })).body;
+  const rows = [...body.matchAll(/^- \[([^\]]+)\]/gm)].map((match) => match[1]);
+  assert.deepEqual(rows, ["Zeta", "API", "Guide"]);
 });
 
 test("without nested sections, a top-level section lists every page under it", async () => {
@@ -1737,4 +1970,85 @@ test("spec text can't add a page heading to an API page's Markdown or llms-full.
   const apiBlock = body.slice(body.indexOf("# Title # Forged"), body.indexOf("# Guide"));
   assert.ok(apiBlock.includes("### Foo"));
   assert.doesNotMatch(apiBlock, /Starts a registration/);
+});
+
+// An API page is listed in its sidebar group's index (`section`), not by URL
+// folder: a route convention's `methods/` folder is no section.
+const thinApi = (id: string, title: string, section?: string) => ({
+  collection: "api",
+  id,
+  data: { title, coordinate: id },
+  ...(section ? { section } : {}),
+});
+const renderThin = async (candidate: { data: Record<string, unknown> }) => thinPage(String(candidate.data.title));
+
+test("nested sections: API operations are listed under their resource, with no methods section", async () => {
+  const projectRoot = await root();
+  const options = {
+    root: projectRoot,
+    base: "/docs",
+    site: "https://example.test",
+    title: "Test",
+    nestedSections: true,
+    apiEntries: [
+      thinApi("zero-trust", "Zero Trust", "zero-trust"),
+      thinApi("zero-trust/ip-profiles", "IP Profiles", "zero-trust/ip-profiles"),
+      thinApi("zero-trust/ip-profiles/methods/create", "Create IP profile", "zero-trust/ip-profiles"),
+      thinApi("zero-trust/ip-profiles/methods/delete", "Delete IP profile", "zero-trust/ip-profiles"),
+      // A resource with one operation is a group of two, not a lone `methods` index.
+      thinApi("zero-trust/seats", "Seats", "zero-trust/seats"),
+      thinApi("zero-trust/seats/methods/edit", "Edit seats", "zero-trust/seats"),
+      // A resource with no operations is a page of its parent.
+      thinApi("zero-trust/settings", "Settings", "zero-trust"),
+    ],
+    projectApiEntryPage: renderThin,
+  };
+  configure(projectRoot, options);
+  const manifest = await bakeAgentEndpointAssets(options);
+  assert.deepEqual(
+    manifest.llmsAssets.filter((asset) => asset.scope === "section").map((asset) => asset.section).sort(),
+    ["api", "api/zero-trust", "api/zero-trust/ip-profiles", "api/zero-trust/seats"],
+  );
+  const section = async (name: string) =>
+    (await readLlmsEndpointPayload(projectRoot, { scope: "section", surface: "index", section: name })).body;
+  assert.equal(
+    await section("api/zero-trust/ip-profiles"),
+    [
+      "# IP Profiles",
+      "",
+      "## Pages",
+      "",
+      "- [IP Profiles](https://example.test/docs/api/zero-trust/ip-profiles/index.md)",
+      "- [Create IP profile](https://example.test/docs/api/zero-trust/ip-profiles/methods/create/index.md)",
+      "- [Delete IP profile](https://example.test/docs/api/zero-trust/ip-profiles/methods/delete/index.md)",
+      "",
+    ].join("\n"),
+  );
+  assert.match(await section("api/zero-trust"), /\[Settings\][\s\S]*## Sections[\s\S]*ip-profiles\/llms\.txt[\s\S]*seats\/llms\.txt/);
+});
+
+test("nested sections: an API mounted at the root lists each operation in its tag's index", async () => {
+  const projectRoot = await root();
+  const options = {
+    root: projectRoot,
+    base: "/",
+    site: "https://example.test",
+    title: "Test",
+    nestedSections: true,
+    routes: new Map([["api", { mount: "", file: "src/pages/[...slug].astro", aliases: [] }]]),
+    apiEntries: [
+      thinApi("tags/user-management", "User management", "tags/user-management"),
+      thinApi("users/list", "List users", "tags/user-management"),
+      thinApi("users/create", "Create user", "tags/user-management"),
+    ],
+    projectApiEntryPage: renderThin,
+  };
+  configure(projectRoot, options);
+  const manifest = await bakeAgentEndpointAssets(options);
+  assert.deepEqual(
+    manifest.llmsAssets.filter((asset) => asset.scope === "section").map((asset) => asset.section).sort(),
+    ["tags", "tags/user-management"],
+  );
+  const body = (await readLlmsEndpointPayload(projectRoot, { scope: "section", surface: "index", section: "tags/user-management" })).body;
+  assert.match(body, /\[User management\][\s\S]*\[Create user\]\(https:\/\/example\.test\/users\/create\/index\.md\)[\s\S]*\[List users\]/);
 });

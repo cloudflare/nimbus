@@ -1,5 +1,5 @@
 // Parser externality. The heavy OpenAPI tooling (`@scalar/openapi-parser`,
-// `@readme/httpsnippet`, `openapi-sampler`) is optional: a prose-only site must
+// `openapi-sampler`) is optional: a prose-only site must
 // never resolve or install it. Two things enforce that, and this suite asserts
 // both so a regression can't quietly pull the parser into the static graph:
 //
@@ -18,7 +18,6 @@ import { fileURLToPath } from "node:url";
 
 const OPTIONAL_TOOLING = [
   "@scalar/openapi-parser",
-  "@readme/httpsnippet",
   "openapi-sampler",
 ] as const;
 
@@ -111,7 +110,6 @@ describe("api parser externality", () => {
   const LAZY_SITES = [
     { file: "../src/_internal/api/parse.ts", specifierVar: "specifier", packageName: "@scalar/openapi-parser" },
     { file: "../src/_internal/api/samples.ts", specifierVar: "samplerSpec", packageName: "openapi-sampler" },
-    { file: "../src/_internal/api/samples.ts", specifierVar: "snippetSpec", packageName: "@readme/httpsnippet" },
   ] as const;
 
   for (const { file, specifierVar, packageName } of LAZY_SITES) {

@@ -42,6 +42,14 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      - name: Install Chromium
+        # Ubuntu's mirrors can be unreachable from the runners. The image already
+        # has Chromium's libraries (today only fonts come from apt), and no check
+        # depends on them.
+        run: |
+          timeout --kill-after=10 180 pnpm exec playwright install --with-deps chromium || {
+            echo "::warning::Installing Chromium with its system packages failed; retrying without them."
+            pnpm exec playwright install chromium
+          }
       - run: pnpm --filter @cloudflare/nimbus-docs build
       - run: pnpm webmcp:check

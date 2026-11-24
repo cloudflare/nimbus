@@ -19,8 +19,9 @@ function initToc(root: HTMLElement): () => void {
   const scrollHost = root.closest<HTMLElement>("[data-nb-toc-scroll-host]") ?? root;
   const slugs = Array.from(links).map((l) => l.dataset.nbSlug!);
   // Observe only resolvable headings, each carrying its original index, so
-  // scroll-spy stays aligned with the full-length links/segments even when a
-  // heading slugs to "" (e.g. emoji-only `## 🎉`) and has no DOM target.
+  // scroll-spy stays aligned with the links/segments even when a heading's
+  // target is missing from the page. (The TOC leaves out headings that slug
+  // to "", such as an emoji-only `## 🎉`.)
   const observed = slugs
     .map((slug, index) => ({ el: document.getElementById(slug), index }))
     .filter((o): o is { el: HTMLElement; index: number } => o.el !== null);
@@ -168,7 +169,9 @@ function initToc(root: HTMLElement): () => void {
       setActive(pinnedIndex);
       return;
     }
-    setActive(atBottom ? links.length - 1 : observedIndex);
+    // At the bottom, the last heading on the page, not the last link: a link
+    // whose heading has no target can't be the one being read.
+    setActive(atBottom ? observed.at(-1)!.index : observedIndex);
   }
 
   // rootMargin collapses the root to the top band; deepest in-band heading wins.

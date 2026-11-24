@@ -3,26 +3,20 @@
  * H2 straight to an H4 breaks the document outline (and screen-reader
  * navigation). Reports the heading that does the skipping.
  *
- * Detection is delegated to `remark-lint-heading-increment` via the
- * adapter. The wrapper re-walks the tree at each reported position to
+ * Detection is the `headingIncrement` detector (`../detectors.ts`).
+ * The wrapper re-walks the tree at each reported position to
  * find the offending heading and its predecessor, then constructs a
  * dynamic message ("h2 to h4 — use h3 instead").
  */
 
-import remarkLintHeadingIncrement from "remark-lint-heading-increment";
-
 import { collect } from "../parse.js";
-import { runRemarkLintRule } from "../remark-lint-adapter.js";
+import { headingIncrement } from "../detectors.js";
 import type { Rule } from "../rule.js";
 
 export const headingHierarchy: Rule = {
   code: "nimbus/heading-hierarchy",
   run(ctx) {
-    const reports = runRemarkLintRule(
-      remarkLintHeadingIncrement,
-      ctx.file.tree,
-      { path: ctx.file.path, source: ctx.file.source },
-    );
+    const reports = headingIncrement(ctx.file.tree);
 
     if (reports.length === 0) return;
 

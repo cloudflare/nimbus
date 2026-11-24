@@ -9,6 +9,7 @@
  */
 import type { APIRoute, GetStaticPaths } from "astro";
 import { getLlmsPayload, getLlmsStaticPaths } from "../agent-endpoints.js";
+import { notModified } from "./conditional-request.js";
 
 /** "/blog/[...section]/llms.txt" → "blog". */
 function mountOf(routePattern: string): string {
@@ -36,9 +37,12 @@ export const GET: APIRoute = async (context) => {
         )
       : null;
     if (!payload) return new Response("Not found", { status: 404 });
-    return new Response(payload.body, {
-      headers: { "Content-Type": payload.mediaType },
-    });
+    const etag = `"${payload.digest}"`;
+    if (!context.isPrerendered) {
+      const unchanged = notModified(context.request, etag);
+      if (unchanged) return unchanged;
+    }
+    return new Response(payload.body, { headers: { "Content-Type": payload.mediaType, ETag: etag } });
   } catch (error) {
     if (context.isPrerendered) throw error;
     console.error(error);

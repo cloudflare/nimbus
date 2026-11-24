@@ -29,9 +29,11 @@ import {
   type AdapterRecipe,
   type RequestRenderingEdit,
   type WranglerInputs,
+  supportedRangeOf,
   workersCompatibilityDate,
 } from "../_internal/adapters.js";
-import { isRangeSubset, satisfies } from "../_internal/semver-lite.js";
+import { readInstalledVersion } from "../_internal/installed-version.js";
+import { isRangeSubset, isValidVersion, rangesIntersect, satisfies } from "../_internal/semver-lite.js";
 import { declineBuildScript, pnpmWorkspaceFile } from "../_internal/pnpm-build-scripts.js";
 import { detectPackageManager, invocation, quoteForDisplay } from "./pm.js";
 import { writeFileAtomic } from "./fs-atomic.js";
@@ -746,7 +748,7 @@ async function installMissingDeps(
   const dependencyGroups = [dependencies, devDependencies];
   for (const wantedSpec of wanted) {
     const name = depName(wantedSpec);
-    const expectedRange = wantedSpec.slice(name.length + 1).trim();
+    const expectedRange = supportedRangeOf(recipe, wantedSpec);
     for (const declared of dependencyGroups) {
       if (!Object.prototype.hasOwnProperty.call(declared, name)) continue;
       const declaredRange = declared[name];
@@ -756,14 +758,14 @@ async function installMissingDeps(
           : null;
       if (
         !resolvedRange ||
-        !isSupportedDeclaredRange(resolvedRange, expectedRange)
+        !isSupportedDeclaredRange(cwd, name, resolvedRange, expectedRange)
       ) {
         return {
           ok: false,
           installed: [],
           message:
-            `Found ${name}@${String(declaredRange)}, but Nimbus currently requires ` +
-            `${wantedSpec}. Update that dependency and re-run.`,
+            `Found ${name}@${String(declaredRange)}, but Nimbus supports ${expectedRange}. ` +
+            `Install \`${wantedSpec}\` or another supported version and re-run.`,
         };
       }
     }
@@ -857,7 +859,7 @@ function detectIncompatibleAdapterVersions(recipe: AdapterRecipe, cwd: string): 
   const warnings: string[] = [];
   for (const spec of [recipe.installSpec, ...recipe.extraDeps]) {
     const name = depName(spec);
-    const range = spec.slice(name.length + 1).trim();
+    const range = supportedRangeOf(recipe, spec);
     if (!range) continue;
     const installed = readInstalledVersion(cwd, name);
     if (installed && !satisfies(installed, range)) {
@@ -871,19 +873,25 @@ function detectIncompatibleAdapterVersions(recipe: AdapterRecipe, cwd: string): 
   return warnings;
 }
 
-function readInstalledVersion(cwd: string, name: string): string | null {
-  const path = join(cwd, "node_modules", name, "package.json");
-  if (!existsSync(path)) return null;
-  try {
-    const version = (JSON.parse(readFileSync(path, "utf8")) as { version?: string }).version;
-    return typeof version === "string" ? version : null;
-  } catch {
-    return null;
-  }
-}
 
-function isSupportedDeclaredRange(spec: string, expectedRange: string): boolean {
-  return isRangeSubset(spec, expectedRange);
+// A declared range within the supported one is fine. One wider, such as the
+// caret `pnpm add` saves, is fine while the version installed from it is
+// supported; check warns if a later install leaves the range.
+function isSupportedDeclaredRange(
+  cwd: string,
+  name: string,
+  declaredRange: string,
+  expectedRange: string,
+): boolean {
+  if (isRangeSubset(declaredRange, expectedRange)) return true;
+  const installed = readInstalledVersion(cwd, name);
+  return (
+    installed !== null &&
+    isValidVersion(installed) &&
+    satisfies(installed, expectedRange) &&
+    satisfies(installed, declaredRange) &&
+    rangesIntersect(declaredRange, expectedRange)
+  );
 }
 
 function readWranglerJsonc(path: string): unknown {

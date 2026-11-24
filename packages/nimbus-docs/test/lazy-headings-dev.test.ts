@@ -7,6 +7,7 @@ import { test } from "node:test";
 import { dev } from "astro";
 import { JSDOM } from "jsdom";
 
+import { stopDevServer } from "./fixtures/dev-site.ts";
 import { paritySite, src } from "./fixtures/parity-site.ts";
 
 test("dev resolves page headings per request and follows edits", async () => {
@@ -46,7 +47,7 @@ test("dev resolves page headings per request and follows edits", async () => {
       }
       assert.equal(seen, '["renamed"]');
     } finally {
-      await server.stop();
+      await stopDevServer(server, site.root);
     }
   } finally {
     await site.remove();

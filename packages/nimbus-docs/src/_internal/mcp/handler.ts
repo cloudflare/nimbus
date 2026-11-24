@@ -10,6 +10,7 @@ import {
 import { CfWorkerJsonSchemaValidator } from "@modelcontextprotocol/server/validators/cf-worker";
 import type { McpServerIdentity } from "./identity.js";
 import type { McpPageIndex, McpPageRecord } from "./page-index.js";
+import { createRequestClaims } from "../request-claims.js";
 import { stripBase, toRouteKey, withoutHtmlExtension } from "../url.js";
 
 /** Bodies over this are answered `413` before anything is parsed. */
@@ -28,16 +29,21 @@ export interface McpToolError {
 export interface GetPageResult {
   title: string;
   url: string;
-  markdownUrl: string;
+  /** The page's Markdown URL, when a route of the site serves one. */
+  markdownUrl?: string;
   content: string;
+  /** The character offset `content` starts at, when not 0. */
+  offset?: number;
   truncated?: true;
+  /** Where the next `get_page` call should start, when `truncated`. */
+  nextOffset?: number;
 }
 
 export interface ListPagesResult {
   pages: Array<{
     title: string;
     url: string;
-    markdownUrl: string;
+    markdownUrl?: string;
     description?: string;
     section: string;
     version?: string;
@@ -70,13 +76,14 @@ export const GET_PAGE_TOOL = {
   description:
     "Return one documentation page as Markdown. Pass the page's URL as list_pages returns it (an absolute URL), " +
     `or a site-relative path such as /guide/. Long pages are cut near ${MCP_PAGE_CONTENT_LIMIT.toLocaleString("en-US")} characters with truncated: true; ` +
-    "the markdownUrl serves the whole page.",
+    "pass offset (a character count) to read on from there, or fetch the markdownUrl when the page has one.",
   inputSchema: {
     type: "object",
     required: ["url"],
     additionalProperties: false,
     properties: {
       url: { type: "string", minLength: 1, maxLength: 2048 },
+      offset: { type: "integer", minimum: 0 },
     },
   },
 } as const;
@@ -85,7 +92,7 @@ export const LIST_PAGES_TOOL = {
   name: "list_pages",
   title: "List documentation pages",
   description:
-    "List published documentation pages: title, URL, Markdown URL, description, section and version. " +
+    "List published documentation pages: title, URL, description, section and version, plus the Markdown URL when the site serves one. " +
     "By default the list matches site search: pages marked noindex and deprecated versions are left out. " +
     `Filter by section (a top-level path segment; the home page is index) or by one version; pass nextCursor back as cursor for the next ${MCP_LIST_PAGE_SIZE}.`,
   inputSchema: {
@@ -108,19 +115,27 @@ interface ListPagesInput {
 /**
  * Caches the read for the most recent origin only. Where the asset reader
  * falls back to fetching the site's own URL, a request's Host must not
- * decide what requests from another origin read.
+ * decide what requests from another origin read. Concurrent first requests
+ * read once and share the finished value; see createRequestClaims.
  */
 export function cachedPerOrigin<T>(read: (request: Request) => Promise<T>): (request: Request) => Promise<T> {
-  let cached: { origin: string; value: Promise<T> } | undefined;
-  return (request) => {
+  let cached: { origin: string; value: T } | undefined;
+  const reading = createRequestClaims(30_000);
+  return async (request) => {
     const origin = new URL(request.url).origin;
-    if (cached?.origin === origin) return cached.value;
-    const value = read(request).catch((error: unknown) => {
-      if (cached?.value === value) cached = undefined;
-      throw error;
-    });
-    cached = { origin, value };
-    return value;
+    for (;;) {
+      if (cached?.origin === origin) return cached.value;
+      if (!reading.has(origin)) break;
+      await reading.released();
+    }
+    const claim = reading.claim(origin);
+    try {
+      const value = await read(request);
+      cached = { origin, value };
+      return value;
+    } finally {
+      claim.release();
+    }
   };
 }
 
@@ -195,7 +210,7 @@ export function listPages(input: ListPagesInput, index: McpPageIndex): ListPages
     pages: matches.slice(offset, next).map((page) => ({
       title: page.title,
       url: page.url,
-      markdownUrl: page.markdownUrl,
+      ...(page.markdownUrl ? { markdownUrl: page.markdownUrl } : {}),
       ...(page.description ? { description: page.description } : {}),
       section: page.section,
       ...(page.version ? { version: page.version } : {}),
@@ -204,13 +219,19 @@ export function listPages(input: ListPagesInput, index: McpPageIndex): ListPages
   };
 }
 
-export function pageResult(record: McpPageRecord, content: string): GetPageResult {
-  const result = { title: record.title, url: record.url, markdownUrl: record.markdownUrl };
+export function pageResult(record: McpPageRecord, content: string, offset = 0): GetPageResult {
+  const result = {
+    title: record.title,
+    url: record.url,
+    ...(record.markdownUrl ? { markdownUrl: record.markdownUrl } : {}),
+  };
   // UTF-16 length bounds the code-point count, so short pages skip the spread.
-  if (content.length <= MCP_PAGE_CONTENT_LIMIT) return { ...result, content };
+  if (offset === 0 && content.length <= MCP_PAGE_CONTENT_LIMIT) return { ...result, content };
   const points = [...content];
-  if (points.length <= MCP_PAGE_CONTENT_LIMIT) return { ...result, content };
-  return { ...result, content: points.slice(0, MCP_PAGE_CONTENT_LIMIT).join(""), truncated: true };
+  if (offset === 0 && points.length <= MCP_PAGE_CONTENT_LIMIT) return { ...result, content };
+  const slice = points.slice(offset, offset + MCP_PAGE_CONTENT_LIMIT).join("");
+  if (offset + MCP_PAGE_CONTENT_LIMIT >= points.length) return { ...result, content: slice, ...(offset ? { offset } : {}) };
+  return { ...result, content: slice, ...(offset ? { offset } : {}), truncated: true, nextOffset: offset + MCP_PAGE_CONTENT_LIMIT };
 }
 
 /**
@@ -315,7 +336,7 @@ function unavailable(error: unknown) {
 export function createDocsMcpHandler(options: DocsMcpHandlerOptions): DocsMcpHandler {
   const { identity, base, source } = options;
   const validator = new CfWorkerJsonSchemaValidator();
-  const getPageSchema = fromJsonSchema<{ url: string }>(GET_PAGE_TOOL.inputSchema, validator);
+  const getPageSchema = fromJsonSchema<{ url: string; offset?: number }>(GET_PAGE_TOOL.inputSchema, validator);
   const listPagesSchema = fromJsonSchema<ListPagesInput>(LIST_PAGES_TOOL.inputSchema, validator);
   const annotations = { readOnlyHint: true, idempotentHint: true, openWorldHint: false };
 
@@ -339,7 +360,7 @@ export function createDocsMcpHandler(options: DocsMcpHandlerOptions): DocsMcpHan
     server.registerTool(
       GET_PAGE_TOOL.name,
       { title: GET_PAGE_TOOL.title, description: GET_PAGE_TOOL.description, inputSchema: getPageSchema, annotations },
-      async ({ url }) => {
+      async ({ url, offset }) => {
         let record: McpPageRecord | undefined;
         let content: string | null;
         try {
@@ -352,9 +373,15 @@ export function createDocsMcpHandler(options: DocsMcpHandlerOptions): DocsMcpHan
           return unavailable(error);
         }
         if (content === null) {
-          return toolResult(toolError("not_found", `No Markdown for ${record.url}; read ${record.markdownUrl} directly.`), true);
+          return toolResult(
+            toolError(
+              "not_found",
+              record.markdownUrl ? `No Markdown for ${record.url}; read ${record.markdownUrl} directly.` : `No Markdown for ${record.url}.`,
+            ),
+            true,
+          );
         }
-        return toolResult(pageResult(record, content));
+        return toolResult(pageResult(record, content, typeof offset === "number" ? offset : 0));
       },
     );
     server.registerTool(

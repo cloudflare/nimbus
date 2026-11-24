@@ -36,7 +36,9 @@ From `@cloudflare/nimbus-docs`. The starter's `src/pages/[...slug].astro` uses t
 | `getEditUrl(entry)` | The page's edit link, from `editPattern`, or `undefined`. |
 | `getLastUpdated(entry)` | The page's last git commit date, or `undefined` when git can't say. |
 | `getVersionStatus(key)` | Whether a version is current, deprecated or hidden, for banners. |
+| `getPageLanguage(locale?)` | The page's language, `locale` or `config.locale`, and `dir: "rtl"` when it's written right to left: `{ lang, dir }` for `<html lang dir>`. |
 | `getCollectionLlmsUrl(collection)` | The `llms.txt` that indexes a collection. |
+| `getPublishedLlmsUrl(collection?)` | The `llms.txt` a route of the site serves for a collection: its own, else the site's, else `null`. |
 
 ## URLs
 
@@ -89,13 +91,14 @@ const socialImage = entry.data.socialImage ?? ogImageUrl;
 
 ## API reference pages
 
-From `@cloudflare/nimbus-docs/runtime`. [Add an OpenAPI reference](/api-reference/openapi/setup) shows them in the API route.
+From `@cloudflare/nimbus-docs/runtime`. [Set up an OpenAPI reference](/api-reference/openapi/setup) shows them in the API route.
 
 | Helper | What it does |
 | --- | --- |
 | `getApiStaticPaths(collection)` | `getStaticPaths` for an API reference route, across its versions. |
 | `getApiRoute(Astro)` | The page and sidebar for an API route, or a redirect or `404` `Response`. |
 | `getApiRoot(Astro, { collection, version })` | A version's root page, with its index of every endpoint, from any route. |
+| `getApiNav(Astro, { collection, href })` | The API sidebar opened at one API page, from any route, and that page's version. |
 | `getApiVersions(collection)` | The versions of an API, for a picker. |
 | `getVersionSwitchUrl({ collection, sourceVersion, id, targetVersion })` | The same page in another version, or that version's landing page. |
 | `getApiVersionHead(collection, version, coordinate, request)` | The canonical link and alternate versions, for a custom API head. |
@@ -119,6 +122,34 @@ const rows = root ? apiIndexRows(root.index) : [];
   ))}
 </ul>
 ```
+
+### Show the API sidebar on your own pages
+
+A page of your own can show the same sidebar as the API pages. `getApiNav` returns it opened at the API page `href` names, with that page and its parents expanded and nothing marked current:
+
+```astro title="src/pages/cli.astro"
+---
+import DocsLayout from "@/layouts/DocsLayout.astro";
+import { ApiSidebarPanel } from "@/components/ui/api-sidebar";
+import { getApiNav } from "@cloudflare/nimbus-docs/runtime";
+
+const result = await getApiNav(Astro, { collection: "api", href: "/api/d1/" });
+if (!result) return Astro.redirect("/404");
+---
+
+<DocsLayout title="D1 CLI">
+  <ApiSidebarPanel slot="sidebar" nav={result.nav} version={result.version} />
+  <!-- the page -->
+</DocsLayout>
+```
+
+`ApiSidebarPanel` is the sidebar `ApiLayout` renders: the filter, which searches the whole API when groups load on demand, groups that load when opened, and open groups and scroll kept across pages. `<li>` rows you put inside it, such as an overview link, come before the API's rows.
+
+Write `href` as the sidebar writes its own links: the API's mount path and, in query-version mode, its `?version=`, without the site base. `result.version` is the version it resolved to.
+
+It returns `null` when the collection or page doesn't exist, or the `href` redirects. It reads only the sidebar, never the page, so it's cheap on any route, including with `bundle: false`.
+
+It throws when the build is broken. With `bundle: false`, it also throws when the server is at its read limit, with an error named `PageAssetReadOverloadError`. API pages answer that with a `503` and `Retry-After: 1`; a page of your own can do the same.
 
 ### Link to the same page in another version
 
@@ -155,6 +186,10 @@ From `@cloudflare/nimbus-docs/client`, in component scripts.
 | `mount(selector, init)` | Runs `init` for every matching element on each page, including after client-side navigation, and its cleanup when the page goes. See [Custom components](/styling/custom-components). |
 | `initTabs(config)` | Tab-list keyboard and selection behaviour. |
 | `makeDisclosure(options)` | Open-and-close behaviour for a disclosure. |
+| `onShortcut(key, handler, { within? })` | Runs `handler` when `key` is pressed anywhere on the page, or only while focus is inside `within`: a character such as `"/"`, or a combo such as `"Mod+K"` (⌘ on macOS, Ctrl elsewhere). Returns a function that unbinds it. See [Keyboard shortcuts](/styling/layouts#keyboard-shortcuts). |
+| `syncShortcutHints(root?)` | Writes each `data-nb-shortcut-hint` as this platform shows its key, and each `data-nb-shortcut-for` control's `aria-keyshortcuts`; both then follow the reader's switch. |
+| `shortcutLabel(key)`, `ariaKeyShortcuts(key)` | A key as a reader sees it (`⌘K`, `Ctrl K`, `[`) and as `aria-keyshortcuts` names it. |
+| `singleKeyShortcutsEnabled()`, `setSingleKeyShortcutsEnabled(on)` | The reader's choice to turn single-key shortcuts off. |
 
 ## Markdown plugins
 
@@ -167,10 +202,12 @@ From `@cloudflare/nimbus-docs/markdown`, in `markdown.hastPlugins` in the integr
 | `titleFigure(options)` | Turns an image with a title into a figure with a caption. |
 | `math(options)` | Renders math as MathML at build time; turn on `features: { math: true }` too. |
 
+Type your own plugins with `HastPluginDefinition` and `HastVisitorContext` from the same entry.
+
 ## Components
 
 | Component | What it does |
 | --- | --- |
 | `@cloudflare/nimbus-docs/components/Icon.astro` | Renders an icon by name, such as `ph:check`. |
-| `@cloudflare/nimbus-docs/components/NimbusHead.astro` | The page's head: title, description, canonical, share card and agent discovery tags. |
+| `@cloudflare/nimbus-docs/components/NimbusHead.astro` | The page's head: title, description, canonical, share card and agent discovery tags. `locale` and `socialImageAlt` set a page's language and share-image alt. |
 | `@cloudflare/nimbus-docs/components/NestedContent.astro` | Shows another page's content inside this one, such as a release on a changelog list: its `h1` and `h2` become `headingLevel` and drop their ids, and links to its sections go to `sourceUrl`. |

@@ -1,0 +1,44 @@
+---
+/**
+ * ShortcutsToggle — lets a reader turn single-key shortcuts (`/`, `[`, `]`) off,
+ * as WCAG 2.1.4 asks of page-wide single keys. Single keys bind page-wide only
+ * while a page has this switch. Renders nothing when `src/lib/shortcuts.ts`
+ * has no single-key shortcut. `compact` keeps the name for screen readers and
+ * the tooltip, for a crowded bar such as the header.
+ */
+import { isSingleKey, shortcutLabel } from "@cloudflare/nimbus-docs/client";
+import { cn } from "@/lib/cn";
+import { shortcuts } from "@/lib/shortcuts";
+import { Switch } from "@/components/ui/switch";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"button"> {
+  /** Show only the switch, and its keys from `md` up. */
+  compact?: boolean;
+}
+
+const { class: className, compact = false, ...attrs } = Astro.props;
+const singles = Object.values(shortcuts).filter(isSingleKey).map(shortcutLabel);
+---
+
+{singles.length > 0 && (
+  <Switch
+    size="sm"
+    checked
+    data-nb-shortcuts-toggle
+    data-slot="shortcuts-toggle"
+    title={compact ? "Single-key shortcuts" : undefined}
+    class={cn(
+      "rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground",
+      className,
+    )}
+    {...attrs}
+  >
+    <span class={compact ? "sr-only" : undefined}>Single-key shortcuts</span>
+    <span class={cn("font-mono", compact && "hidden md:inline")} dir="ltr" aria-hidden="true">{singles.join(" ")}</span>
+  </Switch>
+)}
+
+<script>
+  import "./shortcuts-toggle.client";
+</script>

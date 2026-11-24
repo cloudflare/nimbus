@@ -52,11 +52,13 @@ export function navBuildId(
 
 /**
  * `sidebar: "on-demand"` relies on two starter components: `ApiSidebarItem`
- * renders collapsed groups as loadable, and `ApiLayout` mounts the loader.
- * With older copies, collapsed groups never open and page-less categories
- * link nowhere, so the integration fails the build with this message. Sites
- * that replaced these components (no file at the starter's path) are not
- * checked.
+ * renders collapsed groups as loadable, and `ApiSidebarPanel` mounts the
+ * loader. With the starter's older copies, collapsed groups never open and
+ * page-less categories link nowhere, so the integration fails the build with
+ * this message. Only the starter's own outdated shapes are recognised: a
+ * layout the site rewrote (its own panel, a wrapper around the panel, the
+ * sidebar rendered elsewhere) is the site's, and so is its loader. Sites that
+ * replaced these components (no file at the starter's path) are not checked.
  */
 export function outdatedApiSidebarError(
   api: readonly { collection: string; sidebar?: string }[],
@@ -65,17 +67,20 @@ export function outdatedApiSidebarError(
 ): string | undefined {
   const onDemand = api.filter((entry) => entry.sidebar === "on-demand");
   if (onDemand.length === 0) return undefined;
-  const expected: Array<[file: string, marker: string]> = [
-    ["components/ui/api-sidebar/ApiSidebarItem.astro", "childrenHref"],
-    ["components/ui/api-layout/ApiLayout.astro", "data-nb-nav-build"],
-  ];
-  const outdated = expected.flatMap(([file, marker]) => {
+  const read = (file: string): string | undefined => {
     try {
-      return fs.readFileSync(path.join(srcDir, file), "utf8").includes(marker) ? [] : [file];
+      return fs.readFileSync(path.join(srcDir, file), "utf8");
     } catch {
-      return [];
+      return undefined;
     }
-  });
+  };
+  const outdated: string[] = [];
+  const item = "components/ui/api-sidebar/ApiSidebarItem.astro";
+  const itemSource = read(item);
+  if (itemSource !== undefined && !itemSource.includes("childrenHref")) outdated.push(item);
+  const layout = "components/ui/api-layout/ApiLayout.astro";
+  const layoutSource = read(layout);
+  if (layoutSource !== undefined && isPreOnDemandLayout(layoutSource)) outdated.push(layout);
   if (outdated.length === 0) return undefined;
   const collections = onDemand.map((e) => `"${e.collection}"`).join(", ");
   return (
@@ -87,4 +92,15 @@ export function outdatedApiSidebarError(
     `If it warns that the registry is older than this project, the new components aren't published yet; ` +
     `keep \`sidebar: "full"\` until they are.`
   );
+}
+
+// The starter's layout before on-demand sidebars imported the plain tree from
+// the api-sidebar barrel and rendered `<ApiSidebar items={nav.items} />`; the
+// current one renders `ApiSidebarPanel`, which mounts the loader. Only that
+// historical shape is flagged, by its own two lines: the singleton import (an
+// alias or a longer specifier list is a site's edit) and the invocation, with
+// no panel tag anywhere in the file.
+const OLD_SIDEBAR_IMPORT = /^\s*import\s*\{\s*ApiSidebar\s*\}\s*from\s*["']@\/components\/ui\/api-sidebar["']/m;
+function isPreOnDemandLayout(source: string): boolean {
+  return OLD_SIDEBAR_IMPORT.test(source) && source.includes("<ApiSidebar items={") && !/<ApiSidebarPanel[\s/>]/.test(source);
 }

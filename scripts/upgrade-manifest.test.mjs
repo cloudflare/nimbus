@@ -8,6 +8,7 @@ import { test } from "node:test";
 import {
   loadPreviousManifest,
   resolveUpgradeBaseRef,
+  settleUnreleasedEntries,
   validateBreakingDeclaration,
   validateManifestContinuity,
   validateUpgradeManifest,
@@ -259,6 +260,67 @@ test("breaking declarations require a new entry linked to a Nimbus changeset", (
         currentVersion: "0.13.1",
       }),
     /introducedIn 0.14.0/,
+  );
+});
+
+test("an optional entry ships in any Nimbus release; one that asks sites to act needs a breaking bump", () => {
+  const declare = (mode, bump, { breaking = false, introducedIn = "0.13.2" } = {}) =>
+    validateBreakingDeclaration({
+      breaking,
+      previousEntries: [entry("existing")],
+      currentEntries: [entry("existing"), entry("fix", { mode, introducedIn, changeset: "fix" })],
+      changesets: new Map([["fix", `---\n"@cloudflare/nimbus-docs": ${bump}\n---\n`]]),
+      currentVersion: "0.13.1",
+    });
+  assert.doesNotThrow(() => declare("optional", "patch"));
+  assert.doesNotThrow(() => declare("optional", "minor", { introducedIn: "0.14.0" }));
+  assert.throws(() => declare("optional", "patch", { introducedIn: "0.14.0" }), /introducedIn 0.13.2/);
+  assert.throws(() => declare("review-required", "patch"), /breaking-compatible bump \(minor\)/);
+  assert.throws(() => declare("optional", "patch", { breaking: true }), /breaking-compatible bump/);
+  assert.throws(
+    () =>
+      validateBreakingDeclaration({
+        breaking: false,
+        previousEntries: [],
+        currentEntries: [entry("fix", { mode: "optional", changeset: "fix" })],
+        changesets: new Map([["fix", '---\n"another-package": patch\n---\n']]),
+        currentVersion: "0.13.1",
+      }),
+    /must release @cloudflare\/nimbus-docs/,
+  );
+});
+
+test("a release moves unreleased entries to the version it makes", () => {
+  const text = JSON.stringify({
+    entries: [
+      { id: "shipped", introducedIn: "0.20.0" },
+      { id: "patch-entry", introducedIn: "0.20.1" },
+      { id: "minor-entry", introducedIn: "0.21.0" },
+    ],
+  }, null, 2);
+  const settled = JSON.parse(settleUnreleasedEntries(text, "0.20.0", "0.21.0"));
+  assert.deepEqual(settled.entries.map((entry) => entry.introducedIn), ["0.20.0", "0.21.0", "0.21.0"]);
+  assert.equal(settleUnreleasedEntries(text, "0.20.0", "0.20.1"), text);
+});
+
+test("only the version-bump PR may move an unreleased entry, and only to its release", () => {
+  const manifest = (introducedIn) => ({
+    schemaVersion: 1,
+    oldestSupportedVersion: "0.11.0",
+    entries: [entry("pending", { introducedIn, changeset: "pending" })],
+  });
+  assert.doesNotThrow(() => validateManifestContinuity(manifest("0.20.1"), manifest("0.21.0"), "0.21.0", "0.20.0"));
+  assert.throws(
+    () => validateManifestContinuity(manifest("0.20.1"), manifest("0.22.0"), "0.21.0", "0.20.0"),
+    /cannot be changed/,
+  );
+  assert.throws(
+    () => validateManifestContinuity(manifest("0.20.1"), manifest("0.20.0"), "0.20.0", "0.20.0"),
+    /cannot be changed/,
+  );
+  assert.throws(
+    () => validateManifestContinuity(manifest("0.20.0"), manifest("0.21.0"), "0.21.0", "0.20.0"),
+    /cannot be changed/,
   );
 });
 

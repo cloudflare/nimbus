@@ -32,3 +32,58 @@ export { headingAnchors } from "./heading-anchors";
 export { readUrlParam, writeUrlParam } from "./url-param";
 export { mergeSearchIndexes } from "./search-indexes";
 export type { MergeablePagefind } from "./search-indexes";
+export {
+  onShortcut,
+  shortcutLabel,
+  ariaKeyShortcuts,
+  isSingleKey,
+  singleKeyShortcutsEnabled,
+  setSingleKeyShortcutsEnabled,
+  singleKeyShortcutsActive,
+  syncShortcutHints,
+  SHORTCUTS_CHANGE,
+} from "./shortcuts";
+export type { Shortcuts, ShortcutKey, ShortcutOptions } from "./shortcuts";
+export {
+  loadRequestPlan,
+  serializeRequest,
+  parseExactJson,
+  resolveServer,
+  renderSample,
+  maskText,
+  sendRequest,
+  sameOrigin,
+  isTextMedia,
+  validateValues,
+  checkParam,
+  paramKey,
+  jsonEntries,
+  jsonObject,
+} from "./try-it";
+export type {
+  Credential,
+  DeliveryMode,
+  FormValues,
+  HttpBody,
+  HttpPart,
+  HttpRequest,
+  Issue,
+  JsonEntry,
+  JsonValue as TryItJsonValue,
+  PlanAuth,
+  PlanAuthAlternative,
+  PlanBody,
+  PlanBodyField,
+  PlanId,
+  PlanMedia,
+  PlanParam,
+  PlanSchema,
+  PlanServer,
+  RequestPlan,
+  RequestValues,
+  SampleLang,
+  SendFailure,
+  SendOptions,
+  SendOutcome,
+  TryItInfo,
+} from "./try-it";

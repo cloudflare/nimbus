@@ -148,20 +148,23 @@ export interface NimbusConfig {
    * imports this list and maps it through `apiCollection()`, and the render
    * side reads it back to re-derive the model. Absent means no API reference.
    *
-   * `spec` is a **local file path** (resolved from the project root) or an
-   * **inline OpenAPI object**. Remote URLs are out of scope in v1 (builds stay
-   * hermetic/offline-safe).
+   * `spec` is a **local file path** (resolved from the project root), a
+   * file in a declared source (a git repository, or a URL), or an **inline
+   * OpenAPI object**. A URL is never read directly: declare it in `sources`,
+   * where `integrity` pins it.
    */
   api?: ApiSpec[];
   /**
-   * Git repositories whose files this site reads at build time, by name.
-   * A collection reads one with `docsCollection({ source: "<name>" })` and
-   * an API spec with `api[].spec: { source: "<name>", path }`. Each resolves
-   * before content sync to a snapshot under `.nimbus/sources/`: a pinned
-   * commit is fetched once and reused with no network call; a branch or tag
-   * is resolved at every build. The name: lowercase letters, digits, dashes.
+   * Git repositories, and single files fetched by URL, that this site reads
+   * at build time, by name. A collection reads a repository with
+   * `docsCollection({ source: "<name>" })`; an API spec reads a file in one
+   * with `api[].spec: { source: "<name>", path }`, or a URL source with
+   * `{ source: "<name>" }`. Each resolves before content sync to a snapshot
+   * under `.nimbus/sources/`: a pinned commit or `integrity` is fetched once
+   * and reused with no network call; a branch, tag or unpinned URL is
+   * checked at every build. The name: lowercase letters, digits, dashes.
    */
-  sources?: Record<string, ContentSource>;
+  sources?: Record<string, ContentSource | UrlContentSource>;
   /**
    * Remote API references this site only *cites* — it does not build or publish
    * them. Each entry names a `collection` and points at another Nimbus site's
@@ -338,6 +341,28 @@ export interface ContentSource {
 }
 
 /**
+ * One file fetched over HTTP at build time, such as an OpenAPI spec published
+ * as a release asset. Declared by name in {@link NimbusConfig.sources}; an
+ * `api[].spec` reads it as `{ source: "<name>" }`.
+ */
+export interface UrlContentSource {
+  /**
+   * An `https` URL (`http` only for `localhost`). Redirects are followed.
+   * Never a credential: a URL with a user or password is refused, and
+   * messages leave out its query string.
+   */
+  url: string;
+  /**
+   * The file's digest, as `sha256-<base64>` (the Subresource Integrity
+   * format). With it, the file is fetched once and reused with no network
+   * call, and a file that doesn't match fails the build. Without it, the
+   * source floats: each build asks the server whether the file changed
+   * (`ETag`, else `Last-Modified`), and `nimbus-docs check` reports it.
+   */
+  integrity?: string;
+}
+
+/**
  * What the page bundle (`virtual:nimbus/config`) carries of a content source:
  * the inputs of `getEditUrl`, never `repo` or `path`.
  */
@@ -355,9 +380,28 @@ export type RuntimeNimbusConfig = Omit<NimbusConfig, "sources"> & {
 export type ApiSpecSource = {
   /** A key of {@link NimbusConfig.sources}. */
   source: string;
-  /** The spec file, relative to the repository root, inside the source's `path`. */
-  path: string;
+  /**
+   * The spec file, relative to the repository root, inside the source's
+   * `path`. Omitted for a URL source, which is the file.
+   */
+  path?: string;
 };
+
+/**
+ * Prepares an API spec before Nimbus reads it: gets the parsed document and
+ * returns the one Nimbus renders. Set per collection in the integration's
+ * `api` option. It runs in Node once per spec (each version of a family) on
+ * every build, dev start and `astro sync`, never at request time.
+ */
+export type ApiSpecTransform = (
+  document: Record<string, unknown>,
+  context: {
+    /** The `api` entry's collection. */
+    collection: string;
+    /** The configured version id, or `null` for an entry without `versions`. */
+    version: string | null;
+  },
+) => Record<string, unknown> | Promise<Record<string, unknown>>;
 
 /**
  * One OpenAPI reference spec, mounted as a content collection named
@@ -373,10 +417,10 @@ export interface ApiSpec {
   /** Collection name + base URL prefix, e.g. `"api"` → routes under `/api`. */
   collection: string;
   /**
-   * Local file path (relative to the project root), a file inside a declared
-   * content source (`{ source, path }`, `path` relative to that repository's
-   * root), or an inline OpenAPI document object. Not a remote URL in v1.
-   * Omit when `versions` is set.
+   * Local file path (relative to the project root), a declared content
+   * source (`{ source, path }` for a file in a repository, `{ source }` for a
+   * URL source), or an inline OpenAPI document object. Omit when `versions`
+   * is set.
    */
   spec?: string | ApiSpecSource | Record<string, unknown>;
   /** Human label for build diagnostics (falls back to `collection`). */
@@ -410,6 +454,16 @@ export interface ApiSpec {
   /** Code sample policy. Applies to every version of a family. */
   samples?: ApiSamples;
   /**
+   * Let readers send requests from this API's pages with the `api-try-it`
+   * panel. `true` turns it on with the defaults; an object loosens them.
+   * Applies to every version of a family. Default off: pages are unchanged.
+   *
+   * On an adapter that serves on-request routes, requests can also go through
+   * the site's own proxy at `/_nimbus/try`, for APIs that don't answer browser
+   * (CORS) requests. Set `proxy: false` to send directly from the browser only.
+   */
+  tryIt?: boolean | ApiTryIt;
+  /**
    * OpenAPI specification extensions (`x-*` fields) to keep, by name, such as
    * `["x-acme-plans"]`. Each listed field's value is copied unchanged onto the
    * operation or field that declares it (`page.extensions`,
@@ -425,6 +479,13 @@ export interface ApiSpec {
    * Opting out keeps the catalog entry with documentation links only.
    */
   publishSpec?: boolean;
+  /**
+   * List this API in the published coordinate manifest
+   * (`/nimbus-api/coordinates.json`), which other sites read to cite it through
+   * `apiReferences`. Default `true`. Applies to every version. This site's own
+   * `api.ref:` citations work either way.
+   */
+  publishCoordinates?: boolean;
   /**
    * Bundle this API's page data into the server. Default `true`.
    *
@@ -500,6 +561,45 @@ export type ApiJsonValue =
  *  declared in {@link ApiExtensions}, and JSON for any other name. */
 export type ApiExtensionValues = { [K in keyof ApiExtensions]?: ApiExtensions[K] } & Record<string, ApiJsonValue>;
 
+/** Try it's settings for one API. Each loosens a conservative default. See {@link ApiSpec.tryIt}. */
+export interface ApiTryIt {
+  /**
+   * `"spec"` (default): requests go to the spec's servers. `"editable"`: the
+   * reader may enter another origin (direct: any; through the proxy: one it
+   * allows). The spec server's path is always kept.
+   */
+  servers?: "spec" | "editable";
+  /**
+   * Whether direct requests carry the browser's cookies for the API.
+   * `"omit"` (default) or `"include"`, for an API on the docs' own site that
+   * uses a session cookie. With `"include"`, direct is the default delivery.
+   * The proxy never carries browser cookies.
+   */
+  credentials?: "omit" | "include";
+  /**
+   * A public test key the API key and bearer token fields start with, so a
+   * reader can send at once. It is published with each operation's request
+   * plan: never a secret.
+   */
+  testKey?: string;
+  /** Bounds on both delivery modes. Host limits still apply on top. */
+  limits?: {
+    /** Seconds for the whole exchange, body included. Default 30. */
+    timeout?: number;
+    /** Bytes of response body kept. Default 2,000,000. */
+    responseBytes?: number;
+    /** Bytes of request body sent. Default 4,000,000. */
+    uploadBytes?: number;
+  };
+  /**
+   * The site's proxy route for this API: on by default wherever the site
+   * serves on-request routes. `false` turns it off. `extraOrigins` adds
+   * origins it may reach beyond the spec's servers; one leading wildcard label
+   * is allowed (`https://*.api.example.com`), never a bare `*`.
+   */
+  proxy?: boolean | { extraOrigins?: string[] };
+}
+
 /** A language Nimbus generates code samples for. */
 export type ApiSampleLang = "curl" | "typescript" | "python";
 
@@ -548,8 +648,9 @@ export interface ApiVersionSpec {
    */
   version: string;
   /**
-   * Local file path (relative to the project root), a file inside a declared
-   * content source (`{ source, path }`), or an inline OpenAPI object.
+   * Local file path (relative to the project root), a declared content
+   * source (`{ source, path }`, or `{ source }` for a URL source), or an
+   * inline OpenAPI object.
    */
   spec: string | ApiSpecSource | Record<string, unknown>;
   /**
@@ -1070,6 +1171,14 @@ export interface BasePageProps {
    * cards and files in `public/` referenced by the config are sized already.
    */
   socialImageSize?: { width: number; height: number };
+  /** Alt text for `socialImage`. Falls back to `config.socialImageAlt`. */
+  socialImageAlt?: string;
+  /**
+   * The page's language as a BCP 47 tag (`fr`, `ar-SA`), when it differs from
+   * `config.locale`. Sets `<html lang>`, `dir` for a right-to-left language,
+   * `og:locale` and JSON-LD `inLanguage`.
+   */
+  locale?: string;
   /**
    * ISO date for `article:modified_time`. Today this is sourced from
    * frontmatter `lastUpdated`; a future git-based source can populate the

@@ -3,6 +3,7 @@ import { unusedExtensions, warnUnusedExtensions } from "./extensions.js";
 import { collectionMountPrefix } from "../collection-mount.js";
 import { projectMountContext } from "../project-mount-context.js";
 import {
+  access,
   readFile,
   writeFile,
   readdir,
@@ -40,6 +41,10 @@ import {
   getApiRouteProvenance,
 } from "../../api/index.js";
 import { resolveSpecSource } from "./resolve-spec.js";
+import type { SpecSource } from "./view-model.js";
+// Static: a dynamic import would wrap protocol's namespace with the Node runtime
+// helper, and protocol is in the browser bundle too.
+import { apiKey } from "../try-it/protocol.js";
 import { unwrapModel } from "./model-handle.js";
 import {
   operationPaths,
@@ -73,7 +78,7 @@ import { resolveApiAssetLinks } from "./page-assets-links.js";
 import { linkPolicy } from "../url.js";
 
 /** Bump when preparation semantics change without a package version change. */
-export const API_PAGE_PREPARATION_REVISION = 2;
+export const API_PAGE_PREPARATION_REVISION = 4;
 // The token classes the version being prepared uses, so its cache saves only
 // those styles. Shared on globalThis: two copies of this module load in one
 // process, and either may install the sink.
@@ -101,10 +106,18 @@ const BUILD_PREPARATIONS = Symbol.for(
 const REBUILD_REASONS = Symbol.for(
   "@cloudflare/nimbus-docs/api-rebuild-reasons/v1",
 );
+// A spec file's content digest, keyed by its path and remembered with the stat
+// it was read at (`ctime` moves on any write, even one that restores `mtime`),
+// so a repeated preparation this process (config setup, then
+// the content loader, then a dev config restart) skips reading it again.
+const SPEC_DIGESTS = Symbol.for("@cloudflare/nimbus-docs/api-spec-digests/v1");
+type SpecDigest = { mtimeMs: number; ctimeMs: number; size: number; ino: number; digest: string };
 const preparationGlobals = globalThis as typeof globalThis & {
   [BUILD_PREPARATIONS]?: Map<string, PreparedApiAssetVersion>;
   [REBUILD_REASONS]?: Map<string, { inputHash: string; rebuilt: RebuildReason }>;
+  [SPEC_DIGESTS]?: Map<string, SpecDigest>;
 };
+const specDigests = (preparationGlobals[SPEC_DIGESTS] ??= new Map<string, SpecDigest>());
 // Once per API per process: the cause is the same for every version.
 const externalReferenceWarnings = new Set<string>();
 const buildPreparations: Map<string, PreparedApiAssetVersion> =
@@ -112,13 +125,15 @@ const buildPreparations: Map<string, PreparedApiAssetVersion> =
 const rebuildReasons = (preparationGlobals[REBUILD_REASONS] ??= new Map());
 const preparedRecordMemos = new WeakMap<
   PageAssetWriter,
-  Map<string, { hash: string; classes: string[] }>
+  Map<string, { hash: string; classes: string[]; bytes: number }>
 >();
 const PREPARED_RECORD_MEMO_BYTES = 8 * 1024 * 1024;
 // Two 64-character digests, UTF-16 strings plus conservative Map-entry overhead,
 // and a few token-class names.
 const PREPARED_RECORD_MEMO_ENTRY_BYTES = 64 * 4 + 96 + 256;
 const preparationMetrics = {
+  /** Times a spec was read from its source (file or inline object). */
+  specReads: 0,
   modelPreparations: 0,
   pageProjections: 0,
   pagePreparations: 0,
@@ -135,6 +150,7 @@ export function resetApiAssetPreparationMetrics(): void {
     preparationMetrics.pagePreparations =
       0;
   preparationMetrics.preparedRecordCacheHits = 0;
+  preparationMetrics.specReads = 0;
   preparationMetrics.versionCacheHits =
     preparationMetrics.versionCacheMisses = 0;
 }
@@ -167,6 +183,9 @@ export interface PreparedApiAssetVersion {
   unusedExtensions?: string[];
   /** Why this process prepared the version instead of reusing it. */
   rebuilt?: RebuildReason;
+  /** Try it: each operation's plan file (kept in the cache under `try-it/`) and
+   *  the origins its servers resolve to, staged on every run. */
+  tryIt?: { plans: string[]; origins: string[] };
 }
 /** The inputs that differ from the last preparation of this version, none
  *  when its cache entry had gone missing, `first` when it was never prepared here. */
@@ -261,7 +280,6 @@ const PREPARATION_PACKAGES = [
   "@scalar/openapi-parser",
   "@scalar/json-magic",
   "openapi-sampler",
-  "@readme/httpsnippet",
   "shiki",
   "@shikijs/transformers",
   "yaml",
@@ -274,7 +292,6 @@ const PREPARATION_PACKAGES = [
 const OPTIONAL_PACKAGES = new Set([
   "@scalar/openapi-parser",
   "openapi-sampler",
-  "@readme/httpsnippet",
 ]);
 
 /** Node's package lookup, which also finds packages whose exports hide
@@ -568,36 +585,85 @@ export async function prepareApiAssetVersion(
   writer: PageAssetWriter,
   environment: string,
   warn: (message: string) => void = () => {},
+  proxyRuns = false,
 ): Promise<PreparedApiAssetVersion> {
   await writer.initialize();
-  const source = await resolveSpecSource(
-    {
-      collection: target.namespace,
-      spec: target.spec,
-      // Labels and deployment URLs are context, never part of a shared page.
-      requireOperationId: target.requireOperationId,
-      schemaPages: target.schemaPages,
-      routes: target.routes,
-      samples: target.samples,
-      extensions: target.extensions,
-    },
-    root,
-  );
-  const raw =
-    typeof source.spec === "string" ? source.spec : JSON.stringify(source.spec);
-  if (raw.includes("nimbus-ref:"))
-    throw new Error(
-      `API ${target.family}: authored input contains reserved nimbus-ref: prefix.`,
+  // As the bundled loader builds it: the request plans each operation page carries.
+  const tryIt = target.tryIt
+    ? {
+        family: target.family,
+        ...(target.version ? { version: target.version } : {}),
+        proxy: target.tryIt.proxy !== false && proxyRuns,
+        credentials: target.tryIt.credentials,
+        servers: target.tryIt.servers,
+        ...(target.tryIt.testKey ? { testKey: target.tryIt.testKey } : {}),
+        limits: target.tryIt.limits,
+      }
+    : undefined;
+  // Read the spec only when its digest isn't already known for this exact
+  // file, or when the version has to be prepared.
+  let loaded: { source: SpecSource; raw: string } | undefined;
+  const load = async () => {
+    if (loaded) return loaded;
+    preparationMetrics.specReads++;
+    const source = await resolveSpecSource(
+      {
+        collection: target.namespace,
+        spec: target.spec,
+        // Labels and deployment URLs are context, never part of a shared page.
+        requireOperationId: target.requireOperationId,
+        schemaPages: target.schemaPages,
+        routes: target.routes,
+        samples: target.samples,
+        extensions: target.extensions,
+        ...(tryIt ? { tryIt } : {}),
+      },
+      root,
     );
+    const raw =
+      typeof source.spec === "string" ? source.spec : JSON.stringify(source.spec);
+    if (raw.includes("nimbus-ref:"))
+      throw new Error(
+        `API ${target.family}: authored input contains reserved nimbus-ref: prefix.`,
+      );
+    loaded = { source, raw };
+    return loaded;
+  };
+  let specDigest: string | undefined;
+  const specFile = typeof target.spec === "string" ? path.resolve(root, target.spec) : undefined;
+  const fileStat = specFile ? await stat(specFile, { bigint: false }).catch(() => undefined) : undefined;
+  const known = specFile ? specDigests.get(specFile) : undefined;
+  if (
+    fileStat &&
+    known &&
+    known.mtimeMs === fileStat.mtimeMs &&
+    known.ctimeMs === fileStat.ctimeMs &&
+    known.size === fileStat.size &&
+    known.ino === fileStat.ino
+  ) {
+    specDigest = known.digest;
+  } else {
+    specDigest = pageAssetDigest((await load()).raw);
+    if (specFile && fileStat)
+      specDigests.set(specFile, {
+        mtimeMs: fileStat.mtimeMs,
+        ctimeMs: fileStat.ctimeMs,
+        size: fileStat.size,
+        ino: fileStat.ino,
+        digest: specDigest,
+      });
+  }
   const inputs = {
     environment,
     collection: target.namespace,
-    spec: pageAssetDigest(raw),
+    spec: specDigest,
     requireOperationId: target.requireOperationId,
     schemaPages: target.schemaPages,
     routes: target.routes,
     samples: target.samples,
     extensions: target.extensions,
+    // Only when on, so a site without Try it keeps its cache.
+    ...(tryIt ? { tryIt } : {}),
   };
   const inputHash = pageAssetDigest(JSON.stringify(inputs));
   const components = Object.fromEntries(
@@ -666,6 +732,8 @@ export async function prepareApiAssetVersion(
         throw new Error("Missing prepared asset");
       if (typeof value.codeStyleCSS !== "string")
         throw new Error("Missing cached syntax highlighting CSS");
+      if (tryIt && !value.tryIt) throw new Error("Missing Try it plans");
+      for (const plan of value.tryIt?.plans ?? []) await readFile(tryItPlanCache(writer, plan));
       restoreCodeStyleCSS(value.codeStyleCSS);
       preparationMetrics.versionCacheHits++;
       await rememberPreparationInputs(inputsFile, { inputHash, components }, previousInputs);
@@ -675,6 +743,7 @@ export async function prepareApiAssetVersion(
     }
   }
   await loadSavedHighlights(writer.cacheDirectory, environment);
+  const { source, raw } = await load();
   const bypass = externalReferenceReason(raw);
   const warnKey = `${preparedMarkdownRootKey(root)}\0${target.family}`;
   if (bypass && !externalReferenceWarnings.has(warnKey)) {
@@ -711,7 +780,7 @@ export async function prepareApiAssetVersion(
       );
       const recordMemo =
         preparedRecordMemos.get(writer) ??
-        new Map<string, { hash: string; classes: string[] }>();
+        new Map<string, { hash: string; classes: string[]; bytes: number }>();
       preparedRecordMemos.set(writer, recordMemo);
       let memo = recordMemo.get(projectedHash);
       if (memo) {
@@ -725,10 +794,11 @@ export async function prepareApiAssetVersion(
           prepareApiPageCode(pageProps),
         );
         for (const name of pageClasses) usedTokenClasses.add(name);
-        memo = { hash: await writer.add(prepared), classes: [...pageClasses] };
+        const { hash, bytes } = await writer.addRecord(prepared);
+        memo = { hash, classes: [...pageClasses], bytes };
       }
       recordMemo.set(projectedHash, memo);
-      const recordHash = memo.hash;
+      const { hash: recordHash, bytes: recordBytes } = memo;
       while (
         recordMemo.size * PREPARED_RECORD_MEMO_ENTRY_BYTES >
         PREPARED_RECORD_MEMO_BYTES
@@ -743,6 +813,7 @@ export async function prepareApiAssetVersion(
           ? {}
           : { description: page.description }),
         location: { filename: "" },
+        bytes: recordBytes,
       });
     }
     });
@@ -785,6 +856,7 @@ export async function prepareApiAssetVersion(
     };
     const unused = unusedExtensions(model, target.extensions);
     if (unused.length > 0) value.unusedExtensions = unused;
+    if (tryIt) value.tryIt = await cacheTryItPlans(writer, spine, warn);
     if (!bypass) {
       await writeVersionCache(filename, value);
       await rememberPreparationInputs(inputsFile, { inputHash, components }, previousInputs);
@@ -927,16 +999,67 @@ const queueGlobals = globalThis as typeof globalThis & {
 const familyQueues = (queueGlobals[FAMILY_QUEUES] ??= new Map());
 
 /** Serialize content-loader and citation-watcher rebuilds without hiding input changes. */
+/** Where a version's Try it plan files are kept between builds. */
+const tryItPlanCache = (writer: PageAssetWriter, file: string) => path.join(writer.cacheDirectory, "try-it", file);
+
+/** Write each operation's plan into the cache (named by content); the origins its servers reach. */
+async function cacheTryItPlans(
+  writer: PageAssetWriter,
+  spine: ReturnType<typeof unwrapModel>,
+  warn: (message: string) => void,
+): Promise<{ plans: string[]; origins: string[] }> {
+  const { planOrigins, MAX_SERVER_ORIGINS } = await import("../try-it/stage.js");
+  const plans: string[] = [];
+  const origins = new Set<string>();
+  const crowded = new Map<string, number>();
+  for (const node of spine.nodes.values()) {
+    const tryIt = node.kind === "operation" ? (node.facts as import("./model.js").OperationFacts).tryIt : undefined;
+    if (!tryIt) continue;
+    const file = tryItPlanCache(writer, tryIt.file);
+    try {
+      await access(file);
+    } catch {
+      await writeAtomic(file, JSON.stringify(tryIt.plan));
+    }
+    plans.push(tryIt.file);
+    for (const origin of planOrigins(tryIt.plan, (server, count) => crowded.set(server, count))) origins.add(origin);
+  }
+  for (const [server, count] of crowded) warn(`Try it's relay won't carry ${server}: its server variables spell ${count.toLocaleString("en")} origins, over ${MAX_SERVER_ORIGINS.toLocaleString("en")}. List fewer enum values, or send direct.`);
+  return { plans, origins: [...origins].sort() };
+}
+
+/** Stage a version's plans and the relay's policy for it, prepared or reused. */
+async function stageTryItVersion(
+  root: string,
+  writer: PageAssetWriter,
+  target: ResolvedApiVersion,
+  prepared: PreparedApiAssetVersion,
+  proxyRuns: boolean,
+  warn: (message: string) => void,
+): Promise<void> {
+  const { stageTryItPlan, stageTryItPolicy } = await import("../try-it/stage.js");
+  for (const plan of prepared.tryIt?.plans ?? []) await stageTryItPlan(root, plan, await readFile(tryItPlanCache(writer, plan), "utf8"));
+  const key = apiKey({ family: target.family, ...(target.version ? { version: target.version } : {}) });
+  const proxy = prepared.tryIt && target.tryIt && target.tryIt.proxy !== false && proxyRuns ? target.tryIt.proxy : null;
+  await stageTryItPolicy(
+    root,
+    key,
+    proxy ? { origins: prepared.tryIt!.origins, extraOrigins: proxy.extraOrigins, limits: target.tryIt!.limits } : null,
+    warn,
+  );
+}
+
 export async function prepareApiAssetFamily(
   root: string,
   entry: import("../../types.js").ApiSpec,
   warn: (message: string) => void = () => {},
+  options: { proxyRuns?: boolean } = {},
 ): Promise<ApiFamilyPreparation> {
   const key = `${preparedMarkdownRootKey(root)}\0${entry.collection}`;
   const prior = familyQueues.get(key);
   const pending = (
     prior ? prior.catch(() => undefined) : Promise.resolve()
-  ).then(() => prepareApiAssetFamilyNow(root, entry, warn));
+  ).then(() => prepareApiAssetFamilyNow(root, entry, warn, options.proxyRuns ?? false));
   familyQueues.set(key, pending);
   try {
     return await pending;
@@ -950,6 +1073,7 @@ async function prepareApiAssetFamilyNow(
   root: string,
   entry: import("../../types.js").ApiSpec,
   warn: (message: string) => void = () => {},
+  proxyRuns = false,
 ): Promise<{
   versions: Array<{
     target: ResolvedApiVersion;
@@ -967,8 +1091,9 @@ async function prepareApiAssetFamilyNow(
     prepared: PreparedApiAssetVersion;
   }> = [];
   for (const target of resolveApiFamily(entry, collectionMountPrefix(entry.collection, projectMountContext(root)))) {
-    const prepared = await prepareApiAssetVersion(target, root, writer, environment, warn);
+    const prepared = await prepareApiAssetVersion(target, root, writer, environment, warn, proxyRuns);
     warnUnusedExtensions(target.family, target.version, prepared.unusedExtensions ?? [], warn);
+    await stageTryItVersion(root, writer, target, prepared, proxyRuns, warn);
     versions.push({ target, prepared });
   }
   const matchKey = pageAssetDigest(

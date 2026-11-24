@@ -569,6 +569,8 @@ export class CoordinateRegistry {
       const kinds = [prior, coordinate].map((c) => this.slugProvenance.get(c));
       const advice = kinds.includes("override")
         ? `Adjust the \`routes.operations\` override target for one of them so their URLs stay distinct.`
+        : kinds.includes("extension")
+          ? `Change the \`x-nimbus-route\` of one of them so their URLs stay distinct.`
         : kinds.includes("derived")
           ? `Pin an explicit \`routes.operations\` override for one of them so their URLs stay distinct — ` +
             `a derived slug comes from the operation's method and path, so renaming the operationId will not change it.`

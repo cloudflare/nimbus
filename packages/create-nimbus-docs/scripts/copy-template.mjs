@@ -196,7 +196,10 @@ function copyStarterTo(targetDir) {
 
       if (segments.some((seg) => EXCLUDED_DIRS.has(seg))) return false;
       if (source.endsWith(".tmp")) return false;
-      if (source.endsWith(".DS_Store")) return false;
+      // The starter ships no dotfiles. Skipping them keeps out OS litter
+      // (.DS_Store) and scratch sites other tests create in the starter so
+      // its dependencies resolve, which can vanish mid-copy.
+      if (segments.some((seg) => seg.startsWith("."))) return false;
 
       // Strip registry-only UI components. Match both the folder root
       // (`src/components/ui/<name>`) and any descendant.

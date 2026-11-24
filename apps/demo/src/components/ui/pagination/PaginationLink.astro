@@ -6,6 +6,8 @@
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 import PaginationKey from "./PaginationKey.astro";
+import { shortcutLabel } from "@cloudflare/nimbus-docs/client";
+import { shortcuts } from "@/lib/shortcuts";
 
 interface Props extends Omit<HTMLAttributes<"a">, "rel"> {
   rel: "prev" | "next";
@@ -17,13 +19,15 @@ interface Props extends Omit<HTMLAttributes<"a">, "rel"> {
 const { rel, href, label, class: className, ...attrs } = Astro.props;
 const isNext = rel === "next";
 const caption = label ?? (isNext ? "Next" : "Previous");
+// The key that reaches this page; `false` in src/lib/shortcuts.ts means none.
+const key = isNext ? shortcuts.nextPage : shortcuts.previousPage;
 ---
 
 <a
   href={href}
   rel={rel}
   data-nb-pagination-item
-  data-nb-pagination-key={isNext ? "]" : "["}
+  data-nb-shortcut-for={key || undefined}
   data-slot="pagination-link"
   class={cn(
     "nb-pagination-link relative flex min-w-0 flex-1 items-center gap-3 rounded-full py-1 no-underline",
@@ -33,12 +37,12 @@ const caption = label ?? (isNext ? "Next" : "Previous");
   )}
   {...attrs}
 >
-  {!isNext && <PaginationKey>[</PaginationKey>}
+  {!isNext && key && <PaginationKey data-nb-shortcut-hint={key}>{shortcutLabel(key)}</PaginationKey>}
   <span class="min-w-0">
     <span data-slot="pagination-label" class="block text-[0.6875rem] leading-4 text-muted-foreground">{caption}</span>
     <span data-slot="pagination-title" class="nb-pagination-title block text-sm leading-5 font-medium text-foreground"><slot /></span>
   </span>
-  {isNext && <PaginationKey>]</PaginationKey>}
+  {isNext && key && <PaginationKey data-nb-shortcut-hint={key}>{shortcutLabel(key)}</PaginationKey>}
 </a>
 
 <style>

@@ -10,6 +10,7 @@
  */
 import { getCollection } from "astro:content";
 import DocsLayout from "@/layouts/DocsLayout.astro";
+import { breadcrumbListJsonLd } from "@/lib/breadcrumb-json-ld";
 import ComponentGrid from "@/components/showcase/ComponentGrid.astro";
 import { components } from "../../components";
 import { componentName } from "@/lib/component-install";
@@ -77,6 +78,7 @@ const breadcrumbs = [
   sidebar={sidebar}
   headings={headings}
   breadcrumbs={breadcrumbs}
+  head={breadcrumbListJsonLd(breadcrumbs, Astro.site, import.meta.env.BASE_URL, `/components/${slug}`)}
   prevNext={prevNext}
   collection="components"
   entryId={slug}

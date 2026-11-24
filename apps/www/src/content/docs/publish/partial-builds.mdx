@@ -109,7 +109,7 @@ With `base: "/docs"` in `astro.config`, a slice writes the same files, and every
 
 Deploy each slice the way the whole site deploys under the base: its origin serves the output under `/docs`, and the router passes the path through unchanged. Astro leaves the base out of `dist/`, so a slice's pages are at `dist/sdk/…` and are served at `/docs/sdk/…`.
 
-**Cloudflare:** add `@astrojs/cloudflare` (`~14.3.0`, with `wrangler` `^4.127.1`) and keep `output: "static"`. The adapter nests the output under the base (`dist/client/docs/…`) and keeps `_headers` and `_redirects` at `dist/client`, where Workers reads them; `404.html` stays under the base, where Workers' `404-page` handling still finds it. Install it by hand: `nimbus-docs add adapter-cloudflare` also switches the site to `output: "server"`.
+**Cloudflare:** add `@astrojs/cloudflare` (`~14.3.0`, or `~14.4.0` on Astro 7.4 and later, with `wrangler` `^4.127.1`) and keep `output: "static"`. The adapter nests the output under the base (`dist/client/docs/…`) and keeps `_headers` and `_redirects` at `dist/client`, where Workers reads them; `404.html` stays under the base, where Workers' `404-page` handling still finds it. Install it by hand: `nimbus-docs add adapter-cloudflare` also switches the site to `output: "server"`.
 
 ```js title="astro.config.mjs"
 import cloudflare from "@astrojs/cloudflare";

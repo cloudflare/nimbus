@@ -158,7 +158,7 @@ async function applyFixes(
         collectionOf: lintScope.collectionOf,
         displayPath: lintScope.displayPath,
         readOnlySource: lintScope.readOnlySource,
-        sourceFolder: lintScope.sourceFolder,
+        sourceCollection: lintScope.sourceCollection,
         signal: ctx.signal,
       });
       if (run.fixed > 0) {
@@ -293,7 +293,10 @@ async function fixInstallDep(
       `Ran the installer for ${pkg}, but it isn't resolvable here — run \`${cmd}\` from your project root.`,
     );
   } else {
-    spin?.stop(`Failed to install ${pkg} — run \`${cmd}\` manually.`);
+    const message = `Failed to install ${pkg} — run \`${cmd}\` manually.`;
+    // `--json` reports the failure in the payload and keeps stdout for it.
+    if (spin) spin.error(message);
+    else if (!ctx.wantJson) p.log.error(message);
   }
 }
 

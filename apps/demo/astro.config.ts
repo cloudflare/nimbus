@@ -36,6 +36,7 @@ const nimbusConfig = defineNimbusConfig({
       collection: "api",
       label: "API reference",
       versionUrl: { in: "query" },
+      tryIt: { testKey: "wx_test_demo" },
       requireOperationId: true,
       schemaPages: true,
       versions: [

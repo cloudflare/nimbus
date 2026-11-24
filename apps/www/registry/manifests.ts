@@ -70,6 +70,20 @@ export const MANIFESTS = {
     dependencies: ["clsx", "tailwind-merge"],
   },
 
+  shortcuts: {
+    type: "registry:lib",
+    title: "shortcuts",
+    description:
+      "The site's keyboard shortcuts in one file, src/lib/shortcuts.ts: change a key or set it to false to remove it. Ships the reader's switch that turns single-key shortcuts off (WCAG 2.1.4). An existing file is kept, so custom keys survive.",
+    paths: [
+      "lib/shortcuts.ts",
+      "components/ui/shortcuts/ShortcutsToggle.astro",
+      "components/ui/shortcuts/shortcuts-toggle.client.ts",
+      "components/ui/shortcuts/index.ts",
+    ],
+    registryDependencies: ["cn", "switch"],
+  },
+
   variants: {
     type: "registry:lib",
     title: "variants",
@@ -100,6 +114,13 @@ export const MANIFESTS = {
     title: "Aside",
     description: "Generic boxed callout — note, tip, caution, or danger.",
     registryDependencies: ["cn"],
+  },
+
+  switch: {
+    type: "registry:ui",
+    title: "Switch",
+    description: "On/off control: a role=\"switch\" button whose aria-checked holds the state; a click flips it and fires change.",
+    registryDependencies: ["cn", "variants"],
   },
 
   badge: {
@@ -240,7 +261,7 @@ export const MANIFESTS = {
     type: "registry:ui",
     title: "Pagination",
     description: "Prev / next page navigation.",
-    registryDependencies: ["cn"],
+    registryDependencies: ["cn", "shortcuts"],
   },
 
   popover: {
@@ -254,7 +275,7 @@ export const MANIFESTS = {
     type: "registry:ui",
     title: "Search",
     description: "Command-palette search dialog with a provider seam. Defaults to Pagefind.",
-    registryDependencies: ["dialog", "cn"],
+    registryDependencies: ["dialog", "cn", "shortcuts"],
     dependencies: ["pagefind"],
   },
 
@@ -262,7 +283,7 @@ export const MANIFESTS = {
     type: "registry:ui",
     title: "Sidebar",
     description: "Docs sidebar with nested groups and active-link tracking.",
-    registryDependencies: ["badge", "collapsible", "cn"],
+    registryDependencies: ["badge", "collapsible", "cn", "shortcuts"],
   },
 
   steps: {
@@ -337,6 +358,15 @@ export const MANIFESTS = {
     registryDependencies: ["api-sidebar", "layer-card", "cn"],
   },
 
+  "api-try-it": {
+    type: "registry:ui",
+    title: "ApiTryIt",
+    description:
+      "Try it for API operation pages: a full-width button in the code rail (in the method's colour) that opens a panel to send the request, straight from the browser or through the site's proxy, with live code samples and the response. The page carries the button and the panel's stylesheet; the panel's script and the request plan load on click. Needs `tryIt` on the API entry and the api-layout's `try-it` slot.",
+    registryDependencies: ["api-layout", "api-code-rail", "api-sidebar", "layer-card"],
+    docs: "Set it up with `nimbus-docs add try-it`, which wires every API route and turns on `tryIt`. See https://nimbus-docs.com/api-reference/try-it/",
+  },
+
   "api-layout": {
     type: "registry:ui",
     title: "ApiLayout",
@@ -349,7 +379,6 @@ export const MANIFESTS = {
     dependencies: [
       "@scalar/openapi-parser@0.28.12",
       "openapi-sampler@1.7.4",
-      "@readme/httpsnippet@11.4.0",
     ],
   },
 

@@ -1,0 +1,89 @@
+---
+title: Switch
+tagline: "On/off control for a setting that applies at once."
+props:
+  - name: checked
+    type: boolean
+    defaultValue: "false"
+    description: Whether the switch starts on. The current state is the button's `aria-checked`.
+  - name: size
+    type: '"sm" | "base" | "lg"'
+    defaultValue: '"base"'
+    description: Track size. `sm` sits beside small text, such as a dialog footer.
+  - name: disabled
+    type: boolean
+    defaultValue: "false"
+    description: Dims the switch and stops it flipping.
+---
+import Showcase from "@/components/showcase/Showcase.astro";
+import Example from "@/components/showcase/Example.astro";
+import { Switch } from "@/components/ui/switch";
+import ComponentInstall from "@/components/showcase/ComponentInstall.astro";
+import ComponentProps from "@/components/showcase/ComponentProps.astro";
+
+## Installation
+
+<ComponentInstall slug="switch" />
+
+## Preview
+
+<Showcase code={`<Switch checked>Email notifications</Switch>`}>
+  <div class="flex items-center justify-center text-sm">
+    <Switch checked>Email notifications</Switch>
+  </div>
+</Showcase>
+
+## Examples
+
+### States
+
+Off, on and disabled. The label is the slotted content, inside the same button, so clicking it flips the switch.
+
+<Example code={`<Switch>Off</Switch>
+<Switch checked>On</Switch>
+<Switch disabled>Disabled</Switch>`} minHeight="6rem">
+  <div class="flex flex-wrap items-center justify-center gap-6 text-sm">
+    <Switch>Off</Switch>
+    <Switch checked>On</Switch>
+    <Switch disabled>Disabled</Switch>
+  </div>
+</Example>
+
+### Sizes
+
+<Example code={`<Switch size="sm" checked>Small</Switch>
+<Switch checked>Base</Switch>
+<Switch size="lg" checked>Large</Switch>`} minHeight="6rem">
+  <div class="flex flex-wrap items-center justify-center gap-6 text-sm">
+    <Switch size="sm" checked>Small</Switch>
+    <Switch checked>Base</Switch>
+    <Switch size="lg" checked>Large</Switch>
+  </div>
+</Example>
+
+### React to a change
+
+A click flips `aria-checked` and fires a bubbling `change` event. A script that owns the state elsewhere sets `aria-checked` itself.
+
+```astro
+<Switch id="compact-mode">Compact mode</Switch>
+
+<script>
+  const toggle = document.getElementById("compact-mode")!;
+  toggle.addEventListener("change", () => {
+    document.documentElement.dataset.compact = toggle.getAttribute("aria-checked")!;
+  });
+</script>
+```
+
+## Accessibility
+
+- It's a `<button role="switch">` with `aria-checked`, so screen readers announce "switch, on" or "switch, off".
+- Space and Enter flip it, as with any button.
+- Without a visible label, give it an `aria-label`.
+
+## API reference
+
+Every prop the component accepts, sourced from a single declaration.
+
+<ComponentProps slug="switch" />

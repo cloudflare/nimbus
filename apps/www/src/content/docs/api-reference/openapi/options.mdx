@@ -7,14 +7,14 @@ sidebar:
   label: Options
 ---
 
-Each `api` entry in the Nimbus config declares one API reference. To set one up, see [Add an OpenAPI reference](/api-reference/openapi/setup).
+Each `api` entry in the Nimbus config declares one API reference. To set one up, see [Set up an OpenAPI reference](/api-reference/openapi/setup).
 
 ## `api` entry
 
 | Key | Type | Default | What it does |
 | --- | --- | --- | --- |
 | `collection` | `string` | — | **Required.** The content collection key, matched by `apiCollection()` in `src/content.config.ts`. |
-| `spec` | `string` \| `{ source, path }` \| object | — | The OpenAPI 3.x document: a project-relative path, a file in a [content source](/content-sources/git#api-specs-from-a-source), or an inline object. Omit when `versions` is set. |
+| `spec` | `string` \| `{ source, path? }` \| object | — | The OpenAPI 3.x document: a project-relative path, a file in a [content source](/content-sources/git#api-specs-from-a-source), a [URL source](/api-reference/openapi/spec-sources), or an inline object. Omit when `versions` is set. |
 | `versions` | `ApiVersion[]` | — | A version family instead of one `spec`. See [API versions](/api-reference/versions). |
 | `versionUrl` | `{ in: "path" }` \| `{ in: "query", param? }` | `{ in: "path" }` | Where the version sits in URLs. Query mode needs request rendering. |
 | `label` | `string` | `collection` | The API's name in build messages. |
@@ -23,8 +23,10 @@ Each `api` entry in the Nimbus config declares one API reference. To set one up,
 | `sidebar` | `"full"` \| `"on-demand"` | `"full"` | How much of the navigation each page includes. See [Large APIs](/api-reference/large-apis). |
 | `schemaPages` | `boolean` | `false` | Publish a page for every schema, and make schemas citable. |
 | `samples` | `{ generate?, keepGenerated? }` | all three languages | Which code samples Nimbus generates. See [Code samples](/api-reference/openapi/code-samples). |
+| `tryIt` | `boolean \| { servers?, credentials?, testKey?, limits?, proxy? }` | off | Let readers send requests from operation pages. See [Try it](/api-reference/try-it). |
 | `extensions` | `string[]` | — | The `x-*` fields to copy onto pages. See [Vendor extensions](/api-reference/openapi/extensions). |
 | `publishSpec` | `boolean` | `true` | Publish the spec as JSON and list it in the API catalog. |
+| `publishCoordinates` | `boolean` | `true` | List the API in `/nimbus-api/coordinates.json`, which other sites read to cite it. This site's own `api.ref:` citations work either way. |
 | `bundle` | `boolean` | `true` | `false` stores page data as static assets, read on request. Needs request rendering and the Cloudflare or Node adapter. See [Large APIs](/api-reference/large-apis#many-versions). |
 
 ## API version
@@ -34,7 +36,7 @@ Each item in `versions`:
 | Key | Type | Default | What it does |
 | --- | --- | --- | --- |
 | `version` | `string` | — | **Required.** The version id: lowercase letters, digits, dots and dashes, starting and ending with a letter or digit. Part of every non-default URL. |
-| `spec` | `string` \| `{ source, path }` \| object | — | **Required.** This version's document. |
+| `spec` | `string` \| `{ source, path? }` \| object | — | **Required.** This version's document. |
 | `default` | `boolean` | first version | Serves this version at the family's own path. The default can't be `hidden`. |
 | `status` | `"ga"` \| `"beta"` \| `"deprecated"` | — | `deprecated` shows a banner on every page of the version. |
 | `hidden` | `boolean` | `false` | Leaves the version out of the picker, search and sitemap. Its pages still load. |

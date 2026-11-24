@@ -99,8 +99,8 @@ export const internalLink: Rule = {
 
       if (isRelativeUrl(url)) {
         if (allowRelative) continue;
-        const sourceLink = ctx.sourceFolder ? sourcePageLink(url, ctx.file.absPath) : undefined;
-        if (sourceLink && isSourcePage(ctx.sourceFolder!, sourceLink.target)) continue;
+        const sourceLink = ctx.sourceCollection ? sourcePageLink(url, ctx.file.absPath) : undefined;
+        if (sourceLink && isSourcePage(ctx.sourceCollection!, sourceLink.target)) continue;
         if (sourceLink) {
           ctx.report({
             message: `relative link "${url}" isn't a page of this collection; the build leaves it as written.`,

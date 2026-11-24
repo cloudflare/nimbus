@@ -1,0 +1,13 @@
+{
+  // The demo's fixture API: `pnpm fixture-api:dev` locally, deployed with the demo.
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "nimbus-demo-api",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-09",
+  "routes": [{ "pattern": "api.demo.nimbus-docs.com", "custom_domain": true }],
+  // 60 a minute per address, for abuse; 10 a minute per key from one address, the limit the docs state.
+  "ratelimits": [
+    { "name": "ADDRESS_LIMITER", "namespace_id": "1036", "simple": { "limit": 60, "period": 60 } },
+    { "name": "KEY_LIMITER", "namespace_id": "1035", "simple": { "limit": 10, "period": 60 } }
+  ]
+}

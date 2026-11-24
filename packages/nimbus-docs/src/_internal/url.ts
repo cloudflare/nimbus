@@ -210,3 +210,11 @@ export function toDocumentHref(href: string): string {
   if (pathname.endsWith("/")) return href;
   return `${pathname}/${suffix}`;
 }
+
+/** A site-relative path as an absolute URL under `site` and Astro's `base`; an absolute URL stays as it is. */
+export function absoluteSiteUrl(site: string, base: string, pathname: string): string {
+  if (/^[a-z][a-z0-9+.-]*:/iu.test(pathname)) return pathname;
+  const prefix = base === "/" ? "" : base.replace(/\/+$/u, "");
+  const normalized = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  return new URL(`${prefix}${normalized}`, site).href;
+}

@@ -34,6 +34,7 @@ export default defineConfig({
       "src/_internal/request-route-inventory.ts",
     "_internal/version-switch-route": "src/_internal/version-switch-route.ts",
     "_internal/mcp/route": "src/_internal/mcp/route.ts",
+    "_internal/try-it-route": "src/_internal/try-it-route.ts",
     "_internal/mcp/card-route": "src/_internal/mcp/card-route.ts",
     "_internal/git-last-updated": "src/_internal/git-last-updated.ts",
     "_internal/agent-endpoint-assets":
@@ -72,7 +73,6 @@ export default defineConfig({
     // engine through a computed specifier. Kept external so a prose-only build
     // never resolves or bundles them.
     "@scalar/openapi-parser",
-    "@readme/httpsnippet",
     // Share cards' renderer and rasterizer are optional peers, loaded by
     // `./og` on first use.
     "satori",
@@ -81,7 +81,7 @@ export default defineConfig({
     // imports it, and only a site with agents.mcp injects that route.
     /^@modelcontextprotocol\//,
   ],
-  // Bundle the remark-lint stack, the Markdown serializer, and github-slugger
+  // Bundle the Markdown serializer and github-slugger
   // into dist so consuming projects don't gain new transitive deps. Their
   // logic is inlined into the published artifacts via `noExternal`.
   // `github-slugger` is used by the `nimbus/duplicate-slug` pre-build check
@@ -89,9 +89,6 @@ export default defineConfig({
   // `mdast-util-*` serializers write generated Markdown.
   noExternal: [
     "github-slugger",
-    "unified",
-    "vfile",
-    /^remark-lint-/,
     /^mdast-util-/,
   ],
   // Transitive deps of the `noExternal` packages (e.g. `mdast-util-phrasing`,

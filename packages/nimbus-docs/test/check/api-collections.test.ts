@@ -253,6 +253,27 @@ test("the inline recipe shape is statically evaluated and still reports a placeh
   assert.deepEqual(apiFindings(json), []);
 });
 
+test("a bundle: false entry may have no collection key; one under another loader is still an error", async () => {
+  const nimbusConfig = `defineNimbusConfig({
+  site: "https://docs.acme.test",
+  title: "Acme",
+  search: false,
+  rendering: { collections: { api: "request" } },
+  api: [{ collection: "api", spec: "./src/api/a.yaml", bundle: false }],
+})`;
+  const valid = (json: Json) => {
+    assert.deepEqual(json.findings.filter((finding) => finding.code === "nimbus/config-invalid"), []);
+    return apiFindings(json);
+  };
+  const dir = site({ nimbusConfig, contentConfig: contentConfig("") });
+  assert.deepEqual(valid(await check(dir)), []);
+  const wrong = site({
+    nimbusConfig,
+    contentConfig: contentConfig(`  api: defineCollection(docsCollection({ base: "billing" })),`),
+  });
+  assert.deepEqual(valid(await check(wrong)).map((finding) => finding.code), ["nimbus/api-collection-missing"]);
+});
+
 test("an api entry whose key uses another loader is an error", async () => {
   for (const collection of [
     `  api: defineCollection(docsCollection({ base: "billing" })),`,

@@ -18,6 +18,7 @@
  *   })),
  */
 
+import { apiKey } from "./_internal/try-it/protocol.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -94,7 +95,7 @@ export type {
 } from "./schemas.js";
 
 export interface DocsCollectionOptions<
-  TFields extends Record<string, z.ZodTypeAny> = Record<string, never>,
+  TFields extends Record<string, z.ZodTypeAny> = Record<never, never>,
 > {
   /**
    * Directory under `src/content/` to load docs from. Default: `"docs"`.
@@ -143,7 +144,7 @@ export interface DocsCollectionOptions<
 }
 
 export interface PartialsCollectionOptions<
-  TFields extends Record<string, z.ZodTypeAny> = Record<string, never>,
+  TFields extends Record<string, z.ZodTypeAny> = Record<never, never>,
 > {
   /**
    * Directory under `src/content/` to load partials from.
@@ -168,7 +169,9 @@ const DEFAULT_PATTERN = "**/*.{md,mdx}";
 /** A quarter of the 64 MiB Workers script limit (uncompressed; there is no
  * compressed limit): developers.cloudflare.com/workers/platform/limits. */
 const BUNDLE_HINT_BYTES = 16 * 1024 * 1024;
-const NIMBUS_MARKDOWN_GENERATION = 1;
+// Bump with AGENT_ENDPOINT_ASSET_GENERATION when prepared bodies change, so
+// cached entries are prepared again; the bake refuses a mismatch.
+const NIMBUS_MARKDOWN_GENERATION = 3;
 // One cache across roles: wrapping an already-wrapped loader must return it
 // unchanged (whatever role it was wrapped with), or the nested wrappers would
 // queue the same collection transaction inside itself and deadlock the load.
@@ -341,7 +344,7 @@ function wrapNimbusMarkdown<T extends Loader>(
  * docs collection. Pass to `defineCollection()`.
  */
 export function docsCollection<
-  TFields extends Record<string, z.ZodTypeAny> = Record<string, never>,
+  TFields extends Record<string, z.ZodTypeAny> = Record<never, never>,
 >(options: DocsCollectionOptions<TFields> = {}) {
   const base = `./src/content/${options.base ?? "docs"}`;
   const pattern = options.pattern ?? DEFAULT_PATTERN;
@@ -460,6 +463,13 @@ function sourceGlob(source: string, rawBase: string | undefined, pattern: string
             : `Add sources: { ${JSON.stringify(source)}: { repo, ref, path } } to the Nimbus config.`,
         );
       }
+      if (snapshot.kind === "url") {
+        throw authorError(
+          `nimbus-docs: collection "${context.collection}" in src/content.config.ts sets source: ${JSON.stringify(source)}, ` +
+            "which is a URL source: one file, which only an api entry's spec can read.",
+          `Give the collection a git source, or read the file with api[].spec: { source: ${JSON.stringify(source)} }.`,
+        );
+      }
       const folder = path.join(snapshot.contentDir, sourceBase);
       let empty: boolean;
       try {
@@ -470,7 +480,7 @@ function sourceGlob(source: string, rawBase: string | undefined, pattern: string
       if (empty) {
         const where = [snapshot.path, sourceBase].filter(Boolean).join("/");
         throw authorError(
-          `nimbus-docs: collection "${context.collection}" reads source "${source}" at commit ${snapshot.commit.slice(0, 12)}, ` +
+          `nimbus-docs: collection "${context.collection}" reads source "${source}" at commit ${snapshot.revision.slice(0, 12)}, ` +
             `but ${where ? `the folder "${where}"` : "the repository"} is missing or empty there.`,
           `Check sources.${source}.path, the collection's base, and the ref.`,
         );
@@ -479,14 +489,14 @@ function sourceGlob(source: string, rawBase: string | undefined, pattern: string
       // file's digest is unchanged, so a new snapshot folder would leave
       // unchanged pages pointing at the previous one. Start from an empty
       // store whenever the snapshot or folder changes.
-      const stamp = `${snapshot.identity}:${snapshot.commit}:${sourceBase}`;
+      const stamp = `${snapshot.identity}:${snapshot.revision}:${sourceBase}`;
       if (context.meta.get(META_KEY) !== stamp) {
         context.store.clear();
         context.meta.set(META_KEY, stamp);
       }
       const rootDir = fileURLToPath(context.config.root);
       const relative = path.relative(rootDir, folder).split(path.sep).join("/");
-      registerSourceCollectionFolder({ collection: context.collection, folder, root: context.config.root });
+      registerSourceCollectionFolder({ collection: context.collection, folder, pattern, root: context.config.root });
       // A repository's docs often have no frontmatter: a page without a
       // `title` takes its first heading, else its file name.
       const parseData = Reflect.get(context, "parseData", context) as typeof context.parseData;
@@ -522,14 +532,22 @@ function sourceGlob(source: string, rawBase: string | undefined, pattern: string
  * `schemaFields` extends the default partials schema with extra
  * frontmatter — same shape as `docsCollection({ schemaFields })`.
  */
-export function partialsCollection<
-  TFields extends Record<string, z.ZodTypeAny> = Record<string, never>,
->(options: PartialsCollectionOptions<TFields> = {}) {
+export function partialsCollection<TFields extends Record<string, z.ZodTypeAny>>(
+  options: PartialsCollectionOptions<TFields> & { schemaFields: TFields },
+): { loader: Loader; schema: ReturnType<typeof definePartialsSchema<TFields>> };
+export function partialsCollection(
+  options?: PartialsCollectionOptions & { schemaFields?: undefined },
+): { loader: Loader; schema: typeof partialsSchema };
+export function partialsCollection<TFields extends Record<string, z.ZodTypeAny> = Record<never, never>>(
+  options?: PartialsCollectionOptions<TFields>,
+): { loader: Loader; schema: ReturnType<typeof definePartialsSchema<TFields>> | typeof partialsSchema };
+export function partialsCollection(options: PartialsCollectionOptions<Record<string, z.ZodTypeAny>> = {}) {
   const base = `./src/content/${options.base ?? "partials"}`;
   const pattern = options.pattern ?? DEFAULT_PATTERN;
   // Avoid re-deriving the schema when no fields were declared — keeps the
   // default behaviour (`partialsSchema` with its `.default({})`) exact for
-  // existing users who don't opt in.
+  // existing users who don't opt in. The overloads type each case, so
+  // declared fields stay typed (a union with the default would hide them).
   const schema = options.schemaFields
     ? definePartialsSchema({ fields: options.schemaFields })
     : partialsSchema;
@@ -749,6 +767,7 @@ export function apiCollection(options?: ApiCollectionOptions): {
         resolveApiFamily,
         resolveSpecSource,
         stageApiModelNavList,
+        stageApiTryItPlans,
         targetUrlFields,
       } = await loadApiLoader();
 
@@ -793,7 +812,10 @@ export function apiCollection(options?: ApiCollectionOptions): {
         extensions,
         routes,
         sidebar,
+        ...(entry?.tryIt !== undefined ? { tryIt: entry.tryIt } : {}),
       }, collectionMountPrefix(collection, getMountContext(context.config.root)));
+      // The proxy runs wherever the site serves on-request routes: with a server adapter.
+      const proxyRuns = Boolean(astroConfig.adapter);
 
       // M4: a non-default version id must not collide with a top-level page
       // slug of the default version (both would claim `/<collection>/<id>`).
@@ -826,8 +848,10 @@ export function apiCollection(options?: ApiCollectionOptions): {
               extensions,
               routes,
               sidebar,
+              ...(entry?.tryIt !== undefined ? { tryIt: entry.tryIt } : {}),
             },
             (message) => logger.warn(message),
+            { proxyRuns },
           );
           preparationNote = describeRebuilds(prepared.versions);
           const after = getApiAssetPreparationMetrics();
@@ -872,6 +896,19 @@ export function apiCollection(options?: ApiCollectionOptions): {
                 routes: target.routes,
                 samples: target.samples,
                 extensions: target.extensions,
+                ...(target.tryIt
+                  ? {
+                      tryIt: {
+                        family: collection,
+                        ...(target.version ? { version: target.version } : {}),
+                        proxy: target.tryIt.proxy !== false && proxyRuns,
+                        credentials: target.tryIt.credentials,
+                        servers: target.tryIt.servers,
+                        ...(target.tryIt.testKey ? { testKey: target.tryIt.testKey } : {}),
+                        limits: target.tryIt.limits,
+                      },
+                    }
+                  : {}),
               },
               rootDir,
             );
@@ -899,6 +936,13 @@ export function apiCollection(options?: ApiCollectionOptions): {
               model,
               target.sidebar === "on-demand",
             );
+            {
+              const key = apiKey({ family: collection, ...(target.version ? { version: target.version } : {}) });
+              const proxy = target.tryIt && target.tryIt.proxy !== false && proxyRuns
+                ? { key, extraOrigins: target.tryIt.proxy.extraOrigins, limits: target.tryIt.limits }
+                : null;
+              await stageApiTryItPlans(rootDir, model, proxy, key, (message) => logger.warn(message));
+            }
           } catch (err) {
             // `ApiBuildError` already formats a pointed diagnostic list; fail
             // with it (plus which spec failed) as the author's error, no stack.
@@ -977,6 +1021,8 @@ export function apiCollection(options?: ApiCollectionOptions): {
             // neither an override slug (pinned) nor a derived one (method+path).
             const fix = kinds.has("override")
               ? `Rename the version, or adjust the \`routes.operations\` override target for the colliding page, `
+              : kinds.has("extension")
+                ? `Rename the version, or change the colliding page's \`x-nimbus-route\`, `
               : kinds.has("derived")
                 ? `Rename the version, or pin a \`routes.operations\` override for the colliding operation ` +
                   `(a derived slug comes from method and path, so renaming the operationId will not change it), `

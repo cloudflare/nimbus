@@ -4,6 +4,10 @@
  *
  * Named slots for overrides (all optional, defaults render otherwise):
  *   header, sidebar, toc, page-title, content-footer, pagination
+ *
+ * A page of your own can leave out `sidebar`, `headings`, `breadcrumbs` and
+ * `prevNext`: it then gets no sidebar (unless it fills the `sidebar` slot),
+ * no table of contents, no breadcrumbs and no previous/next links.
  */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import BaseLayout from "./BaseLayout.astro";
@@ -23,9 +27,10 @@ import { Badge } from "@/components/ui/badge";
 import type { DocsPageProps } from "@cloudflare/nimbus-docs/types";
 import { getVersionStatus, getVersionAlternates, withBase } from "@cloudflare/nimbus-docs/runtime";
 
-type Props = DocsPageProps & { audience?: "human" };
+type NavProps = "sidebar" | "headings" | "breadcrumbs" | "prevNext";
+type Props = Omit<DocsPageProps, NavProps> & Partial<Pick<DocsPageProps, NavProps>> & { audience?: "human" };
 
-const { title, description, sidebar, headings, breadcrumbs, prevNext, mode = "doc", banner, head = [], searchable, noindex, markdownUrl, socialImage, lastUpdated, editUrl, draft, audience, collection, entryId } = Astro.props;
+const { title, description, sidebar, headings = [], breadcrumbs = [], prevNext = {}, mode = "doc", banner, head = [], searchable, noindex, markdownUrl, socialImage, socialImageAlt, locale, lastUpdated, editUrl, draft, audience, collection, entryId } = Astro.props;
 
 // `searchable` derives from `noindex` when omitted: a non-crawlable page is
 // by default not in the site search either. Explicit `searchable: true`
@@ -36,8 +41,9 @@ const isCustom = mode === "custom";
 // `sidebar: false` / `tableOfContents: false` in frontmatter come through
 // from the route as literal `false` (not coerced to `[]`). They drive
 // per-column suppression — chrome, mobile dialog, header menu button.
-// Custom pages render no sidebar, so they get no drawer or menu button.
-const showSidebar = sidebar !== false && !isCustom;
+// Custom pages render no sidebar, so they get no drawer or menu button. With
+// no `sidebar` at all, only a filled `sidebar` slot renders one.
+const showSidebar = sidebar !== false && !isCustom && (sidebar !== undefined || Astro.slots.has("sidebar"));
 
 // Versioning: per-page status drives Pagefind faceting, deprecation
 // banner, and the data-pagefind-ignore exclusion for hidden versions.
@@ -92,7 +98,7 @@ const hasPagination = Astro.slots.has("pagination");
 const showToc = headings !== false && (hasToc || headings.length > 0);
 ---
 
-<BaseLayout title={title} description={description} noindex={noindex || draft} markdownUrl={markdownUrl} socialImage={socialImage} lastUpdated={lastUpdated} head={head} collection={collection} entryId={entryId}>
+<BaseLayout title={title} description={description} noindex={noindex || draft} markdownUrl={markdownUrl} socialImage={socialImage} socialImageAlt={socialImageAlt} locale={locale} lastUpdated={lastUpdated} head={head} collection={collection} entryId={entryId}>
   <div class="flex flex-col min-h-screen">
     {hasHeader ? <slot name="header" /> : <Header collection={collection} entryId={entryId} showSidebar={showSidebar} />}
 
@@ -177,7 +183,7 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
           </main>
 
           {showSidebar && (
-            <aside id="desktop-sidebar" aria-label="Sidebar" data-nb-desktop-sidebar class="order-first hidden md:flex w-60 lg:w-(--nb-sidebar-width) shrink-0 border-e border-border bg-background sticky top-14 h-[calc(100vh-3.5rem)] flex-col relative">
+            <aside id="desktop-sidebar" aria-label="Sidebar" data-nb-desktop-sidebar class="order-first hidden md:flex w-60 lg:w-(--nb-sidebar-width) shrink-0 border-e border-border bg-background sticky top-(--nb-header-height) h-[calc(100vh-var(--nb-header-height))] flex-col relative">
               {/* One tree per page: this node moves into the mobile drawer
                   while it is open and comes back on close. It owns the
                   scroll, so open-group and scroll state follow it. */}
@@ -187,7 +193,7 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
                 ) : (
                   <nav class="px-4 pb-12 pt-5">
                     {showFilter && <SidebarFilter />}
-                    <Sidebar items={sidebar} persist />
+                    <Sidebar items={sidebar ?? []} persist />
                   </nav>
                 )}
               </div>
@@ -273,7 +279,7 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
 
 
           {showToc && (
-            <aside aria-label="On this page" data-nb-toc-scroll-host class="hidden xl:block w-(--nb-toc-width) shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
+            <aside aria-label="On this page" data-nb-toc-scroll-host class="hidden xl:block w-(--nb-toc-width) shrink-0 sticky top-(--nb-header-height) h-[calc(100vh-var(--nb-header-height))] overflow-y-auto">
               <div class="pt-6 pb-8 ps-8 pe-6">
                 {hasToc ? <slot name="toc" /> : <TOC headings={headings} />}
               </div>

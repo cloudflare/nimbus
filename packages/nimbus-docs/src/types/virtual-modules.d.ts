@@ -84,6 +84,11 @@ declare module "virtual:nimbus/agent-endpoint-assets" {
     | null;
 }
 
+declare module "virtual:nimbus/live-collections" {
+  /** The site's `src/live.config.*` collections, or none. */
+  export const collections: Record<string, unknown>;
+}
+
 declare module "virtual:nimbus/markdown-routes" {
   export const routes: import("../_internal/markdown-routes.js").MarkdownRouteRecord[];
 }
@@ -187,4 +192,8 @@ declare module "virtual:nimbus/staged-asset-loader" {
     request: Request,
   ): Promise<Response | null> | Response | null;
   export function readStagedAssetFile(path: string): Promise<string | null>;
+}
+
+declare module "virtual:nimbus/try-it-policy" {
+  export const table: import("../_internal/try-it/proxy.js").ProxyTable;
 }

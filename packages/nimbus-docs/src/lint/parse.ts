@@ -113,7 +113,7 @@ export function textOf(node: MdNode): string {
 
 /**
  * Find the first node of a given `type` whose start position matches the
- * given 1-based (line, column). Used by remark-lint wrappers to recover
+ * given 1-based (line, column). Used by the style rules to recover
  * the AST node from the rule's reported position so we can compute
  * surgical fixes or dynamic messages.
  *

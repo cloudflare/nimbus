@@ -18,6 +18,9 @@ function initPageActions(root: HTMLElement): () => void {
       checkIcon.classList.remove("hidden");
       label.textContent = "Copied";
     } else {
+      // An error after a recent success shows the copy icon again, not the check.
+      copyIcon.classList.remove("hidden");
+      checkIcon.classList.add("hidden");
       label.textContent = "Couldn't copy";
     }
     if (resetTimer) window.clearTimeout(resetTimer);

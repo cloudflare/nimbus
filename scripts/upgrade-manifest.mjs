@@ -6,7 +6,7 @@ import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { fileURLToPath } from "node:url";
 
-import { inc, lt, lte, major, valid } from "semver";
+import { gt, inc, lt, lte, major, rcompare, valid } from "semver";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST = path.join(
@@ -124,8 +124,15 @@ export function validateBreakingDeclaration({
         );
       continue;
     }
+    // An optional entry changes nothing until a site takes it, so any release
+    // can carry it. Entries that ask sites to act need a breaking bump.
     const requiredBump = currentVersion && major(currentVersion) > 0 ? "major" : "minor";
-    if (bump !== requiredBump) {
+    if (entry.mode === "optional" && !breaking) {
+      if (!bump)
+        throw new Error(
+          `${entry.id}'s changeset must release @cloudflare/nimbus-docs.`,
+        );
+    } else if (bump !== requiredBump) {
       throw new Error(
         `${entry.id}'s changeset must give @cloudflare/nimbus-docs a breaking-compatible bump (${requiredBump}).`,
       );
@@ -142,7 +149,12 @@ export function validateBreakingDeclaration({
   return added.filter((entry) => entry.backfill).map((entry) => entry.id);
 }
 
-export function validateManifestContinuity(previousManifest, currentManifest, currentVersion) {
+/**
+ * `baseVersion` is the Nimbus version the PR started from. It differs from
+ * `currentVersion` only on the version-bump PR, which may move each unreleased
+ * entry to the version it is released in (see `settleUnreleasedEntries`).
+ */
+export function validateManifestContinuity(previousManifest, currentManifest, currentVersion, baseVersion = currentVersion) {
   if (previousManifest.oldestSupportedVersion !== currentManifest.oldestSupportedVersion) {
     throw new Error("Upgrade manifest oldestSupportedVersion cannot be changed.");
   }
@@ -155,9 +167,12 @@ export function validateManifestContinuity(previousManifest, currentManifest, cu
       );
     // Unreleased entries may still be refined, but never moved to another
     // release or relinked to another changeset.
-    const unreleased = Boolean(currentVersion) && lt(currentVersion, previous.introducedIn);
+    const unreleased = Boolean(baseVersion) && lt(baseVersion, previous.introducedIn);
+    const settled =
+      entry.introducedIn === previous.introducedIn ||
+      (currentVersion !== baseVersion && entry.introducedIn === currentVersion);
     const changed = unreleased
-      ? entry.introducedIn !== previous.introducedIn || entry.changeset !== previous.changeset
+      ? !settled || entry.changeset !== previous.changeset
       : !isDeepStrictEqual(entry, previous);
     if (changed)
       throw new Error(
@@ -196,7 +211,18 @@ function loadManifest(file = MANIFEST) {
  * A base with no shared history reads the base tip; an unknown base fails.
  */
 export function loadPreviousManifest(base, cwd = ROOT) {
-  const relative = path.relative(ROOT, MANIFEST).split(path.sep).join("/");
+  const text = readAtBase(base, path.relative(ROOT, MANIFEST), cwd);
+  return text === null ? null : validateUpgradeManifest(JSON.parse(text));
+}
+
+/** The Nimbus version at the same commit as `loadPreviousManifest`. */
+function loadPreviousVersion(base, cwd = ROOT) {
+  const text = readAtBase(base, "packages/nimbus-docs/package.json", cwd);
+  return text === null ? undefined : JSON.parse(text).version;
+}
+
+function readAtBase(base, file, cwd) {
+  const relative = file.split(path.sep).join("/");
   const git = (args, stderr = "ignore") =>
     execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", stderr] }).trim();
   const refs = [`origin/${base}`, base];
@@ -218,7 +244,21 @@ export function loadPreviousManifest(base, cwd = ROOT) {
   } catch {
     return null;
   }
-  return validateUpgradeManifest(JSON.parse(git(["show", `${commit}:${relative}`], "inherit")));
+  return git(["show", `${commit}:${relative}`], "inherit");
+}
+
+/**
+ * Run when the version-bump PR applies the pending changesets. An entry's
+ * `introducedIn` names the release its own changeset makes; when another
+ * changeset raises the release further (a patch entry in a minor), the entry
+ * moves to the version actually released, so upgrades select it.
+ */
+export function settleUnreleasedEntries(text, previousVersion, version) {
+  return text.replace(
+    /("introducedIn": ")([^"]+)(")/g,
+    (match, open, introducedIn, close) =>
+      gt(introducedIn, previousVersion) && lt(introducedIn, version) ? `${open}${version}${close}` : match,
+  );
 }
 
 function pendingChangesets() {
@@ -249,7 +289,8 @@ export function runUpgradeManifestCheck({
       "utf8",
     ),
   ).version;
-  if (previous) validateManifestContinuity(previous, manifest, currentVersion);
+  if (previous)
+    validateManifestContinuity(previous, manifest, currentVersion, loadPreviousVersion(baseRef) ?? currentVersion);
   return validateBreakingDeclaration({
     breaking,
     previousEntries: previous?.entries ?? null,
@@ -264,6 +305,19 @@ if (
   process.argv[1] &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
+  if (process.argv.includes("--settle")) {
+    const version = JSON.parse(
+      fs.readFileSync(path.join(ROOT, "packages/nimbus-docs/package.json"), "utf8"),
+    ).version;
+    const previousVersion = [...releasedVersions()]
+      .filter((released) => valid(released) && lt(released, version))
+      .sort(rcompare)[0];
+    if (previousVersion) {
+      fs.writeFileSync(MANIFEST, settleUnreleasedEntries(fs.readFileSync(MANIFEST, "utf8"), previousVersion, version));
+    }
+    console.log("[upgrade-manifest] settled");
+    process.exit(0);
+  }
   try {
     const backfills = runUpgradeManifestCheck({
       breaking:

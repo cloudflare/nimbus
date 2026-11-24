@@ -155,3 +155,16 @@ describe("api version config — rejected", () => {
     });
   }
 });
+
+describe("api tryIt.testKey", () => {
+  const withKey = (testKey: unknown) => withApi([{ collection: "api", spec: "./openapi.yaml", tryIt: { testKey } }]);
+
+  test("a printable key is accepted", () => {
+    assert.doesNotThrow(() => validateNimbusConfig(withKey("test_123")));
+  });
+
+  test("an empty key or one with a space is refused", () => {
+    assert.throws(() => validateNimbusConfig(withKey("")), /testKey/);
+    assert.throws(() => validateNimbusConfig(withKey("test 123")), /testKey/);
+  });
+});

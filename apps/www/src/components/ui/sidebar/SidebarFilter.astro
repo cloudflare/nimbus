@@ -1,6 +1,9 @@
 ---
-/** SidebarFilter — text input that filters the adjacent Sidebar. Press "/" to focus. */
+/** SidebarFilter — text input that filters the adjacent Sidebar. Its key
+ *  (`filterSidebar` in src/lib/shortcuts.ts, "/" by default) focuses it. */
+import { shortcutLabel } from "@cloudflare/nimbus-docs/client";
 import { cn } from "@/lib/cn";
+import { shortcuts } from "@/lib/shortcuts";
 import type { HTMLAttributes } from "astro/types";
 
 interface Props extends HTMLAttributes<"div"> {
@@ -8,6 +11,7 @@ interface Props extends HTMLAttributes<"div"> {
 }
 
 const { class: className, placeholder = "Filter…", ...attrs } = Astro.props;
+const key = shortcuts.filterSidebar;
 ---
 
 <div data-slot="sidebar-filter" class={cn("relative mb-3", className)} {...attrs}>
@@ -15,16 +19,18 @@ const { class: className, placeholder = "Filter…", ...attrs } = Astro.props;
     data-nb-sidebar-filter-input
     type="search"
     placeholder={placeholder}
-    class="peer w-full rounded-md border border-border bg-card py-1.5 ps-3 pe-9 text-sm text-foreground placeholder:text-muted-foreground transition-colors focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-ring [&:not(:placeholder-shown)]:pe-2"
+    class:list={["peer w-full rounded-md border border-border bg-card py-1.5 ps-3 text-sm text-foreground placeholder:text-muted-foreground transition-colors focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-ring", key ? "pe-9 [&:not(:placeholder-shown)]:pe-2" : "pe-2"]}
     aria-label="Filter navigation"
+    data-nb-shortcut-for={key || undefined}
     autocomplete="off"
   />
-  {/* Shortcut hint — press "/" to focus. Hidden once the input is focused or has a value. */}
-  <kbd
+  {/* The key's hint. Hidden once the input is focused or has a value. */}
+  {key && <kbd
     aria-hidden="true"
+    data-nb-shortcut-hint={key}
     class="pointer-events-none absolute end-2 top-1/2 flex h-5 min-w-5 -translate-y-1/2 items-center justify-center rounded border border-border bg-muted px-1 font-mono text-[0.6875rem] font-medium leading-none text-muted-foreground transition-opacity duration-150 peer-focus:opacity-0 peer-[:not(:placeholder-shown)]:opacity-0 motion-reduce:transition-none"
-    >/</kbd
-  >
+    >{shortcutLabel(key)}</kbd
+  >}
 </div>
 
 <style is:global>

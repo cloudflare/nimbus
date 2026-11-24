@@ -1,6 +1,6 @@
 # Nimbus
 
-Nimbus is an authoring tool for docs, built on [Astro](https://astro.build). It creates a docs site in your repo, checks the content you and your agents write, and publishes it as HTML for people and Markdown for agents.
+Nimbus is a documentation framework for Astro: docs for humans and agents, in your repo. It scaffolds the site into your repository, checks the content you and your agents write, and publishes it as HTML for people and Markdown for agents.
 
 Docs: [nimbus-docs.com](https://nimbus-docs.com)
 
@@ -54,7 +54,7 @@ Sites are static by default: `npm run build`, then host the output anywhere. Ren
 
 ## Status
 
-Pre-1.0. The public API can change between minor releases. Pin your versions and read each package's changelog ([nimbus-docs](./packages/nimbus-docs/CHANGELOG.md), [create-nimbus-docs](./packages/create-nimbus-docs/CHANGELOG.md)) before upgrading.
+Pre-1.0. The public API can change between minor releases. Pin your versions and read each package's changelog ([nimbus-docs](./packages/nimbus-docs/CHANGELOG.md), [create-nimbus-docs](./packages/create-nimbus-docs/CHANGELOG.md)) before upgrading. [Upgrade a Nimbus site](https://nimbus-docs.com/publish/upgrading/) walks through one.
 
 ## Contributing
 

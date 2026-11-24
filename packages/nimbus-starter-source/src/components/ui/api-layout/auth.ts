@@ -2,10 +2,9 @@ import type { ApiAuthView, ApiFieldView } from "@cloudflare/nimbus-docs/api";
 
 function authTypeLabel(a: ApiAuthView): string {
   if (a.type === "http") {
-    // `ApiAuthView` doesn't carry the HTTP sub-scheme (basic vs bearer), and a
-    // bearer token needn't declare a format — so only claim Bearer when a
-    // `bearerFormat` proves it; otherwise stay generic rather than mislabel.
-    return a.bearerFormat ? `HTTP Bearer (${a.bearerFormat})` : "HTTP";
+    if (a.httpScheme === "bearer") return a.bearerFormat ? `HTTP Bearer (${a.bearerFormat})` : "HTTP Bearer";
+    if (a.httpScheme === "basic") return "HTTP Basic";
+    return "HTTP";
   }
   if (a.type === "apiKey") return `API key${a.in ? ` in ${a.in}` : ""}`;
   if (a.type === "oauth2") return "OAuth 2.0";
@@ -16,9 +15,17 @@ function authTypeLabel(a: ApiAuthView): string {
 
 function authExample(a: ApiAuthView): string | null {
   if (!a.headerName) return null;
-  const prefix = a.type === "http" && a.bearerFormat ? "Bearer " : "";
-  return `${a.headerName}: ${prefix}<token>`;
+  if (a.type === "http" && a.httpScheme === "bearer") return `${a.headerName}: Bearer <token>`;
+  if (a.type === "http" && a.httpScheme === "basic") return `${a.headerName}: Basic <credentials>`;
+  return `${a.headerName}: <token>`;
 }
+
+/** `value` as text in HTML. The row renders `descriptionHtml` as is, and a
+ *  scope or header name is the spec's text, not markup. */
+const escapeHtml = (value: string): string =>
+  value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+const code = (value: string): string => `<code>${escapeHtml(value)}</code>`;
 
 // OpenAPI restricts scheme keys to [A-Za-z0-9._-]; belt-and-braces for a
 // non-conformant spec.
@@ -35,9 +42,11 @@ function toField(agg: AuthAgg): ApiFieldView {
   const a = agg.view;
   const scopes = [...agg.scopes];
   const example = authExample(a);
+  // Built as HTML here rather than rendered from Markdown: this file runs where
+  // the page renders, which on a request-rendered site is the server bundle.
   const parts = [
-    example ? `\`${example}\`` : "",
-    scopes.length > 0 ? `Scopes: ${scopes.map((s) => `\`${s}\``).join(", ")}` : "",
+    example ? code(example) : "",
+    scopes.length > 0 ? `Scopes: ${scopes.map(code).join(", ")}` : "",
   ].filter(Boolean);
   return {
     coordinate: `auth:${a.scheme}`,
@@ -48,7 +57,7 @@ function toField(agg: AuthAgg): ApiFieldView {
     children: [],
     childCount: 0,
     truncated: false,
-    description: parts.length > 0 ? parts.join(" · ") : undefined,
+    descriptionHtml: parts.length > 0 ? `<p>${parts.join(" · ")}</p>` : undefined,
   };
 }
 

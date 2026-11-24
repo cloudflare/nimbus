@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 
+import { findNodeAtLocation, parseTree } from "jsonc-parser";
+
 import { compare, valid } from "semver";
 
 import {
@@ -665,12 +667,35 @@ function recordUpgradeBaseline(projectRoot: string, targetVersion: string, expec
     const current = readNimbusJson(projectRoot) ?? {
       $schema: "https://nimbus-docs.com/schema/nimbus.json",
     };
-    const next = `${JSON.stringify({ ...current, lastReviewedNimbusVersion: targetVersion }, null, 2)}\n`;
+    const rewritten = `${JSON.stringify({ ...current, lastReviewedNimbusVersion: targetVersion }, null, 2)}\n`;
+    // Only the one value changes, so the file keeps the site's own formatting.
+    // A file this can't edit in place, such as one with the key twice, is
+    // rewritten whole.
+    const edited = before === null ? undefined : withBaseline(before, targetVersion);
+    const next = edited !== undefined && JSON.parse(edited).lastReviewedNimbusVersion === targetVersion ? edited : rewritten;
     writeFileAtomic(file, next, { overwrite: exists });
     return [];
   } catch (error) {
     return [{ code: "completion-failed", file: NIMBUS_JSON, message: errorMessage(error) }];
   }
+}
+
+/**
+ * `source` with `lastReviewedNimbusVersion` set to `version`, every other byte
+ * kept: the value is replaced where it is, or the key goes in first, indented
+ * like the line after the opening brace.
+ */
+function withBaseline(source: string, version: string): string | undefined {
+  const root = parseTree(source);
+  if (root?.type !== "object") return undefined;
+  const existing = findNodeAtLocation(root, ["lastReviewedNimbusVersion"]);
+  if (existing) {
+    return `${source.slice(0, existing.offset)}${JSON.stringify(version)}${source.slice(existing.offset + existing.length)}`;
+  }
+  const first = root.children?.[0];
+  if (!first) return undefined;
+  const lead = source.slice(root.offset + 1, first.offset);
+  return `${source.slice(0, first.offset)}"lastReviewedNimbusVersion": ${JSON.stringify(version)},${lead}${source.slice(first.offset)}`;
 }
 
 function printUpgradeReviews(reviews: UpgradeEntry[], baseline: Pick<UpgradeBaseline, "fromVersion" | "targetVersion">): void {
