@@ -150,30 +150,36 @@ export function validateCoordinateDocument(
 
 /** A document ready to answer lookups: pages by their coordinate. */
 class LoadedDocument {
-  private readonly pages = new Map<string, CoordinateDocumentPage>();
+  /** Pages by their own coordinate. A build's own document never repeats one;
+   *  a document from elsewhere can, and each page's entries still count. */
+  private readonly pages = new Map<string, CoordinateDocumentPage[]>();
 
   constructor(
     private readonly document: CoordinateDocument,
     /** Coordinates the document lists twice; they resolve to nothing. */
     private readonly blocked?: ReadonlySet<string>,
   ) {
-    // A build's own document never repeats a page coordinate; in one from
-    // elsewhere, `blocked` covers it, so the first is as good as any.
-    for (const page of document.pages) if (!this.pages.has(page[1])) this.pages.set(page[1], page);
+    for (const page of document.pages) {
+      const same = this.pages.get(page[1]);
+      if (same) same.push(page);
+      else this.pages.set(page[1], [page]);
+    }
   }
 
   /** The slug and anchor of a coordinate, or undefined. No anchor: the page itself. */
   find(coordinate: string): { slug: string; anchor: string | undefined } | undefined {
     if (this.blocked?.has(coordinate)) return undefined;
     const own = this.pages.get(coordinate);
-    if (own) return { slug: own[0], anchor: undefined };
+    if (own) return { slug: own[0]![0], anchor: undefined };
     // The owning page's coordinate is a prefix that ends before a ".". Several
     // pages can match (`a` and `a.b`); only one lists the rest as an entry.
     for (let dot = coordinate.lastIndexOf("."); dot > 0; dot = coordinate.lastIndexOf(".", dot - 1)) {
-      const page = this.pages.get(coordinate.slice(0, dot));
-      if (!page) continue;
+      const pages = this.pages.get(coordinate.slice(0, dot));
+      if (!pages) continue;
       const suffix = coordinate.slice(dot);
-      if (Object.hasOwn(page[2], suffix)) return { slug: page[0], anchor: anchorOf(page[2][suffix]!, coordinate) };
+      for (const page of pages) {
+        if (Object.hasOwn(page[2], suffix)) return { slug: page[0], anchor: anchorOf(page[2][suffix]!, coordinate) };
+      }
     }
     const other = this.document.other;
     if (other && Object.hasOwn(other, coordinate)) {
@@ -185,9 +191,11 @@ class LoadedDocument {
 
   *coordinates(): Iterable<string> {
     const blocked = this.blocked;
-    for (const [, coordinate, entries] of this.pages.values()) {
+    for (const [coordinate, pages] of this.pages) {
       if (!blocked?.has(coordinate)) yield coordinate;
-      for (const suffix of Object.keys(entries)) if (!blocked?.has(coordinate + suffix)) yield coordinate + suffix;
+      for (const [, , entries] of pages) {
+        for (const suffix of Object.keys(entries)) if (!blocked?.has(coordinate + suffix)) yield coordinate + suffix;
+      }
     }
     for (const coordinate of Object.keys(this.document.other ?? {})) if (!blocked?.has(coordinate)) yield coordinate;
   }
@@ -223,7 +231,7 @@ interface Scope {
 
 /** What `virtual:nimbus/coordinates` carries: the documents, not a table. */
 export interface CoordinateIndexPayload {
-  scopes: Array<{ scope: string; route: CoordinateRoute; document: number; hash: string }>;
+  scopes: Array<{ scope: string; route: CoordinateRoute; document: number; hash: string; blocked?: string[] }>;
   /** Each document once, as JSON text: the default version is two scopes over one document. */
   documents: string[];
 }
@@ -315,11 +323,11 @@ export class CoordinateIndex implements CitationIndex {
   toPayload(): CoordinateIndexPayload {
     const documents: CoordinateDocument[] = [];
     const scopes: CoordinateIndexPayload["scopes"] = [];
-    for (const [scope, { source, historical, route, hash }] of this.scopes) {
+    for (const [scope, { source, historical, route, hash, blocked }] of this.scopes) {
       if (historical || typeof source === "function") continue;
       let document = documents.indexOf(source);
       if (document < 0) document = documents.push(source) - 1;
-      scopes.push({ scope, route, document, hash });
+      scopes.push({ scope, route, document, hash, ...(blocked?.size ? { blocked: [...blocked] } : {}) });
     }
     return { scopes, documents: documents.map((document) => JSON.stringify(document)) };
   }
@@ -327,8 +335,17 @@ export class CoordinateIndex implements CitationIndex {
   static fromPayload(payload: CoordinateIndexPayload): CoordinateIndex {
     const index = new CoordinateIndex();
     const documents = payload.documents.map((text) => JSON.parse(text) as CoordinateDocument);
-    for (const { scope, route, document, hash } of payload.scopes) {
-      index.add(scope, { route, source: documents[document]!, historical: false, hash });
+    // One set per document, so the scopes that share a document share its loaded form.
+    const blockedOf = new Map<number, ReadonlySet<string>>();
+    for (const { scope, route, document, hash, blocked } of payload.scopes) {
+      if (blocked && !blockedOf.has(document)) blockedOf.set(document, new Set(blocked));
+      index.add(scope, {
+        route,
+        source: documents[document]!,
+        historical: false,
+        hash,
+        ...(blockedOf.has(document) ? { blocked: blockedOf.get(document)! } : {}),
+      });
     }
     return index;
   }

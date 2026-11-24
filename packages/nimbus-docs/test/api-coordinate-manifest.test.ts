@@ -199,7 +199,7 @@ test("a document from elsewhere is checked whole, and a coordinate listed twice 
     const checked = validateCoordinateDocument(document);
     assert.ok("fault" in checked && fault.test(checked.fault), JSON.stringify(document));
   }
-  const document = { version: 3, pages: [["one", "dup", { ".kept": 0 }], ["two", "dup", {}], ["a", "a", { ".b.c": 0 }], ["a-b", "a.b", { ".c": 0 }]] };
+  const document = { version: 3, pages: [["one", "dup", { ".kept": 0 }], ["two", "dup", { ".also": 0 }], ["a", "a", { ".b.c": 0 }], ["a-b", "a.b", { ".c": 0 }]] };
   const text = JSON.stringify(document);
   const manifest: CoordinatesManifest = { version: 3, collections: { svc: { defaultVersion: null, versions: [
     { version: null, file: "coordinates/svc.json", hash: hashOf(text), path: "/api", query: "" },
@@ -207,7 +207,34 @@ test("a document from elsewhere is checked whole, and a coordinate listed twice 
   const index = new CoordinateIndex();
   const warnings = await ingestRemoteReference(index, { collection: "svc" }, manifest, async () => text);
   assert.equal(warnings.length, 2);
-  assert.deepEqual([...index].sort(), [["svc:a", "/api/a"], ["svc:a.b", "/api/a-b"], ["svc:dup.kept", "/api/one#dup.kept"]]);
+  // "dup" and "a.b.c" are each claimed twice; every coordinate claimed once still resolves.
+  const expected = [["svc:a", "/api/a"], ["svc:a.b", "/api/a-b"], ["svc:dup.also", "/api/two#dup.also"], ["svc:dup.kept", "/api/one#dup.kept"]];
+  assert.deepEqual([...index].sort(), expected);
+  for (const key of ["svc:dup", "svc:a.b.c"]) assert.equal(index.get(key), undefined, key);
+  // The build's own module resolves the same, duplicates still refused.
+  const restored = CoordinateIndex.fromPayload(JSON.parse(JSON.stringify(index.toPayload())));
+  assert.deepEqual([...restored].sort(), expected);
+  for (const key of ["svc:dup", "svc:a.b.c"]) assert.equal(restored.get(key), undefined, key);
+});
+
+test("a version served under any path Nimbus itself would publish is accepted", async () => {
+  const text = JSON.stringify({ version: 3, pages: [["op", "op", {}]] });
+  const entry = { version: null, file: "coordinates/svc.json", hash: hashOf(text) };
+  for (const [path, query, url] of [
+    ["/api+sdk", "", "/api+sdk/op"],
+    ["/réf/v1", "", "/réf/v1/op"],
+    ["", "?version=2026-11-30.air", "/op?version=2026-11-30.air"],
+    ["/a", "?api-version=v1%2Fx", "/a/op?api-version=v1%2Fx"],
+  ] as const) {
+    const index = new CoordinateIndex();
+    const manifest = { version: 3, collections: { svc: { defaultVersion: null, versions: [{ ...entry, path, query }] } } };
+    assert.deepEqual(await ingestRemoteReference(index, { collection: "svc" }, manifest, async () => text), []);
+    assert.equal(index.get("svc:op"), url);
+  }
+  for (const [path, query] of [["/api/", ""], ["api", ""], ["/a b", ""], ["/a\\b", ""], ["/a", "version=1"], ["/a", "?v=1#x"], ["/a", "? v=1"]] as const) {
+    const manifest = { version: 3, collections: { svc: { defaultVersion: null, versions: [{ ...entry, path, query }] } } };
+    await assert.rejects(ingestRemoteReference(new CoordinateIndex(), { collection: "svc" }, manifest, async () => text), /invalid version entry/, `${path} ${query}`);
+  }
 });
 
 test("an index that could reach outside its folder, or lies about a document, adds nothing", async () => {
@@ -221,7 +248,6 @@ test("an index that could reach outside its folder, or lies about a document, ad
     [{ file: "/etc/passwd.json" }, /invalid version entry/],
     [{ path: "//evil.example" }, /invalid version entry/],
     [{ path: "/api#x" }, /invalid version entry/],
-    [{ query: "?a=1&b=2" }, /invalid version entry/],
     [{ hash: hashOf("something else") }, /doesn't match the hash/],
     [{ hash: "md5-abc" }, /invalid version entry/],
   ] as const) {

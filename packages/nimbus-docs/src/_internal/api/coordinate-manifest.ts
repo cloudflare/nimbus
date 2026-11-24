@@ -5,6 +5,7 @@
  */
 
 import type { ApiReference, CoordinateDocument, CoordinatesManifest } from "../../types.js";
+import { isSafeCitationPath } from "./citations.js";
 import { CoordinateIndex, coordinateDocumentHash, validateCoordinateDocument } from "./coordinate-document.js";
 
 const record = (value: unknown): value is Record<string, unknown> =>
@@ -12,8 +13,12 @@ const record = (value: unknown): value is Record<string, unknown> =>
 const versionId = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
 /** A document's file: a relative path of plain segments, so it can't leave the index's folder. */
 const documentFile = /^(?:[a-z0-9][a-z0-9._-]*\/)*[a-z0-9][a-z0-9._-]*\.json$/;
-const routePath = /^(?:\/[A-Za-z0-9._~-]+)*$/;
-const routeQuery = /^(?:\?[A-Za-z0-9._~-]+=[A-Za-z0-9._~-]+)?$/;
+/** A version's mount path: empty, or a safe absolute path with no query, fragment or trailing slash. */
+const routePath = (value: string) =>
+  value === "" || (value.startsWith("/") && !value.endsWith("/") && !/[?#]/.test(value) && isSafeCitationPath(value));
+/** A version's query: empty, or a safe `?…` with no fragment. */
+const routeQuery = (value: string) =>
+  value === "" || (value.startsWith("?") && !value.includes("#") && isSafeCitationPath(`/${value}`));
 
 /** What went wrong with a reference, in the words the build prints. */
 export class CoordinateReferenceError extends Error {}
@@ -61,8 +66,8 @@ export async function ingestRemoteReference(
       (version.version !== null && (typeof version.version !== "string" || !versionId.test(version.version))) ||
       typeof version.file !== "string" || !documentFile.test(version.file) ||
       typeof version.hash !== "string" || !version.hash.startsWith("sha256-") ||
-      typeof version.path !== "string" || !routePath.test(version.path) ||
-      typeof version.query !== "string" || !routeQuery.test(version.query)
+      typeof version.path !== "string" || !routePath(version.path) ||
+      typeof version.query !== "string" || !routeQuery(version.query)
     ) {
       return invalid("invalid version entry");
     }
