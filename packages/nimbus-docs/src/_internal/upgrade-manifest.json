@@ -1453,6 +1453,43 @@
       "verify": [
         "Switch the theme on a page with the search bar and a sidebar filter: both change colour with the page, and hovering the search bar still fades its border."
       ]
+    },
+    {
+      "id": "framework-coordinates-route",
+      "introducedIn": "0.21.0",
+      "mode": "optional",
+      "changeset": "framework-coordinates-route",
+      "summary": "Optionally delete src/pages/nimbus-api/coordinates.json.ts: Nimbus serves /nimbus-api/coordinates.json itself now.",
+      "affected": "Sites with src/pages/nimbus-api/coordinates.json.ts.",
+      "instructions": [
+        "No action is needed: your file keeps serving the path, and it wins over Nimbus's route. Nimbus writes each version's coordinate file beside it either way.",
+        "If nimbus-docs check reports the file as the starter's unchanged copy, delete it, and the empty src/pages/nimbus-api/ folder. If you changed it, keep it, or move what you changed elsewhere and delete it."
+      ],
+      "verify": [
+        "After a build, /nimbus-api/coordinates.json returns the same JSON as before the file was deleted."
+      ]
+    },
+    {
+      "id": "coordinate-documents",
+      "introducedIn": "0.21.0",
+      "mode": "review-required",
+      "changeset": "coordinate-documents",
+      "summary": "Upgrade sites that publish API coordinates and the sites that cite them together: coordinates.json is now a small index, with one file per version beside it.",
+      "affected": "Sites with apiReferences, sites whose API another site cites, checked-in copies of coordinates.json, and custom tools reading CoordinatesManifest.",
+      "instructions": [
+        "No action is needed if no other site cites this site's API and this site has no apiReferences.",
+        "Upgrade the publishing site and every site that cites it to this release together. An older Nimbus can't read format 3: it builds with a warning and renders its links to that API as #. This release doesn't read format 2: a local copy fails the build, and a remote one warns and is skipped.",
+        "A citing site reads the publisher's default version. To cite another version (api.ref:<collection>@<version>:...), list it in apiReferences[].versions; a citation to a version not listed fails the build and names the option.",
+        "Replace a checked-in coordinates.json with the publisher's .nimbus/coordinates/ folder after it builds on this release: coordinates.json and the coordinates/ folder beside it. Keep apiReferences[].manifest pointing at the coordinates.json inside it. Do not edit the old file's version number.",
+        "The build no longer writes .nimbus/coordinates.json; it writes the .nimbus/coordinates/ folder, and removes the old file.",
+        "Update custom CoordinatesManifest readers: each collection lists versions, each with a file, a hash, and the path and query its pages are served under. A file is a CoordinateDocument: per page its slug, its own coordinate, and the coordinates that extend it, keyed by what follows the page's coordinate. A page's URL is the version's path, a slash and the slug, then the version's query.",
+        "getCoordinatesManifest() returns the index. A route file of your own that serves it keeps working, and Nimbus writes each version's file beside it.",
+        "To roll back, restore the previous Nimbus release on publishers and citing sites together."
+      ],
+      "verify": [
+        "The publisher's /nimbus-api/coordinates.json reports version 3 and each file it names loads.",
+        "Build each citing site and check an operation link, a field link and a link to another version, with no warning about the manifest."
+      ]
     }
   ]
 }

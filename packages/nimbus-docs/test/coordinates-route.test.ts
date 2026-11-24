@@ -31,20 +31,27 @@ export async function GET() {
 const OWNED = 'export const prerender = true;\nexport function GET() { return new Response("owned"); }\n';
 const MANIFEST = "dist/nimbus-api/coordinates.json";
 
-test("Nimbus serves the manifest on a site without api, and with one the same bytes as the starter's file", async () => {
+test("Nimbus serves the index on a site without api, and with one the same bytes as the starter's file, with each version's file beside it", async () => {
   const empty = await fixture();
   const api = await fixture(undefined, "docs", true);
   try {
     await build(empty.config);
-    assert.equal(await empty.read(MANIFEST), '{"version":2,"collections":{}}');
+    assert.equal(await empty.read(MANIFEST), '{"version":3,"collections":{}}');
     assert.doesNotMatch(await empty.read("dist/.well-known/ard.json"), /coordinates/, "no discovery link");
 
     await build(api.config);
     const served = await api.read(MANIFEST);
-    assert.match(served, /"pets"/);
+    const [version] = JSON.parse(served).collections.pets.versions;
+    assert.equal(version.file, "coordinates/pets.json");
+    const document = await api.read(`dist/nimbus-api/${version.file}`);
+    assert.equal(JSON.parse(document).version, 3);
+    // The index holds no coordinate; the version's file holds them all.
+    const [, coordinate] = JSON.parse(document).pages.at(-1);
+    assert.ok(coordinate.length > 0 && !served.includes(`"${coordinate}"`));
     await api.write("src/pages/nimbus-api/coordinates.json.ts", starterRoute);
     await build(api.config);
     assert.equal(await api.read(MANIFEST), served, "byte-identical to the starter file's output");
+    assert.equal(await api.read(`dist/nimbus-api/${version.file}`), document, "written beside a project's own route too");
   } finally {
     await rm(empty.root, { recursive: true, force: true });
     await rm(api.root, { recursive: true, force: true });
