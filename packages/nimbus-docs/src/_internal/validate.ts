@@ -850,6 +850,17 @@ const apiReferenceSchema = z.object({
           '"apiReferences[].manifest" must be an https URL or a local file path — http:// (and other network schemes) are rejected, since the manifest is fetched at build and a plaintext transport lets a network attacker forge the coordinate contract',
       },
     ),
+  versions: z
+    .array(
+      z
+        .string({ error: '"apiReferences[].versions" must be a list of version ids' })
+        .regex(
+          /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/,
+          '"apiReferences[].versions" entries must be version ids: lowercase letters and digits separated by "." or "-"',
+        ),
+      { error: '"apiReferences[].versions" must be a list of version ids' },
+    )
+    .optional(),
   origin: z
     .string()
     .refine(isAbsoluteHttpUrl, {

@@ -12,22 +12,25 @@ import {
   COORDINATES_RESOLVED_ID,
   type CoordinatesPayload,
 } from "../src/_internal/virtual-coordinates.ts";
+import { CoordinateIndex, type CoordinateIndexPayload } from "../src/_internal/api/coordinate-document.ts";
 
-function evalModule(code: string): { coordinates: unknown; manifest: unknown } {
+function evalModule(code: string): { index: CoordinateIndexPayload; manifest: unknown } {
   const exports: Record<string, unknown> = {};
   const body = code.replace(/export const (\w+) =/g, "exports.$1 =");
   new Function("exports", body)(exports);
-  return exports as { coordinates: unknown; manifest: unknown };
+  return exports as { index: CoordinateIndexPayload; manifest: unknown };
 }
 
 describe("virtualCoordinatesPlugin: hostile keys survive as own properties", () => {
-  test("emits via JSON.parse; a `__proto__` coordinate key does not pollute", () => {
-    // Build the payload's entries via JSON.parse so `__proto__` is a genuine
-    // OWN data property (a literal would set the prototype in the test itself).
-    const entries = JSON.parse('{"__proto__":0,"createZone":null}');
+  const scope = { scope: "zones", route: { path: "/zones", query: "" }, document: 0, hash: "x" };
+
+  test("emits via JSON.parse; a `__proto__` coordinate does not pollute", () => {
     const payload: CoordinatesPayload = {
-      coordinates: { "zones:createZone": "/zones/create" },
-      manifest: { version: 2, collections: { zones: { defaultVersion: null, pages: [{ url: "/zones/create", entries }] } } },
+      index: {
+        scopes: [scope],
+        documents: ['{"version":3,"pages":[["create","createZone",{}]],"other":{"__proto__":["create",0]}}'],
+      },
+      manifest: { version: 3, collections: JSON.parse('{"__proto__":{"defaultVersion":null,"versions":[]}}') },
     };
 
     const code = virtualCoordinatesPlugin(() => payload).load(COORDINATES_RESOLVED_ID);
@@ -36,30 +39,32 @@ describe("virtualCoordinatesPlugin: hostile keys survive as own properties", () 
     assert.doesNotMatch(code, /export const manifest = \{/, "must not emit a raw object literal");
 
     const mod = evalModule(code);
-    const baked = (mod.manifest as { collections: { zones: { pages: { entries: object }[] } } }).collections.zones.pages[0]!.entries;
+    const baked = (mod.manifest as { collections: object }).collections;
     assert.ok(
       Object.getOwnPropertyNames(baked).includes("__proto__"),
-      "`__proto__` is an own property of the baked entries",
+      "`__proto__` is an own property of the baked collections",
     );
     assert.equal(Object.getPrototypeOf(baked), Object.prototype, "the prototype was not hijacked");
+    const index = CoordinateIndex.fromPayload(mod.index);
+    assert.equal(index.get("zones:__proto__"), "/zones/create#__proto__");
+    assert.equal(index.get("zones:createZone"), "/zones/create");
+    assert.equal(index.get("zones:constructor"), undefined);
     // Global integrity: nothing leaked onto Object.prototype.
     assert.equal(({} as Record<string, unknown>).url, undefined);
   });
 
   test("U+2028/U+2029 in a value are escaped, not emitted raw (valid JS everywhere)", () => {
+    const document = JSON.stringify({ version: 3, pages: [["a", "weird\u2028coord", { ".f": "a\u2029b" }]] });
     const payload: CoordinatesPayload = {
-      coordinates: { "zones:weird\u2028coord": "/zones/a\u2029b" },
-      manifest: { version: 2, collections: {} },
+      index: { scopes: [scope], documents: [document] },
+      manifest: { version: 3, collections: {} },
     };
     const code = virtualCoordinatesPlugin(() => payload).load(COORDINATES_RESOLVED_ID);
     assert.ok(typeof code === "string");
     assert.doesNotMatch(code, /[\u2028\u2029]/, "no raw line separators in the emitted source");
     assert.match(code, /\\u2028/);
     const mod = evalModule(code);
-    assert.equal(
-      (mod.coordinates as Record<string, string>)["zones:weird\u2028coord"],
-      "/zones/a\u2029b",
-      "round-trips the exact characters",
-    );
+    assert.equal(mod.index.documents[0], document, "round-trips the exact characters");
+    assert.equal(CoordinateIndex.fromPayload(mod.index).get("zones:weird\u2028coord.f"), "/zones/a#a\u2029b");
   });
 });

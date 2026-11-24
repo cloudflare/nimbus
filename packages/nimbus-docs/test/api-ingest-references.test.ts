@@ -1,13 +1,14 @@
-// The build-time I/O orchestrator over the pure `ingestRemoteManifest` fold.
+// The build-time I/O orchestrator over `ingestRemoteReference`.
 // Its contract is best-effort: a missing, unparseable, or wrong-shaped manifest
 // is warned and skipped so a remote reference can never wedge the build.
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { CoordinateIndex, coordinateDocumentHash } from "../src/_internal/api/coordinate-document.js";
 import { ingestApiReferences } from "../src/_internal/api/ingest-references.js";
 import type { ApiReference } from "../src/types.js";
 
@@ -25,13 +26,18 @@ function writeManifest(name: string, value: unknown): string {
 
 describe("ingestApiReferences", () => {
   test("folds a local manifest into the citation index, prefixing origin", async () => {
+    const document = JSON.stringify({ version: 3, pages: [["get-invoice", "getInvoice", {}]] });
+    mkdirSync(path.join(root, "coordinates"), { recursive: true });
+    writeFileSync(path.join(root, "coordinates", "billing.json"), document, "utf8");
     const manifestFile = writeManifest("good.json", {
-      version: 2,
+      version: 3,
       collections: {
-        billing: { defaultVersion: null, pages: [{ url: "/billing/get-invoice", entries: { getInvoice: null } }] },
+        billing: { defaultVersion: null, versions: [
+          { version: null, file: "coordinates/billing.json", hash: coordinateDocumentHash(document), path: "/billing", query: "" },
+        ] },
       },
     });
-    const index = new Map<string, string>();
+    const index = new CoordinateIndex();
     const refs: ApiReference[] = [
       { collection: "billing", manifest: manifestFile, origin: "https://api.example.com" },
     ];
@@ -44,7 +50,7 @@ describe("ingestApiReferences", () => {
   });
 
   test("a missing LOCAL manifest fails loud (author mistake)", async () => {
-    const index = new Map<string, string>();
+    const index = new CoordinateIndex();
     const { logger } = collectWarnings();
 
     await assert.rejects(
@@ -62,12 +68,12 @@ describe("ingestApiReferences", () => {
 
   test("a wrong-shaped LOCAL manifest fails loud", async () => {
     const bad = writeManifest("bad.json", { version: 99, notCollections: {} });
-    const index = new Map<string, string>();
+    const index = new CoordinateIndex();
     const { logger } = collectWarnings();
 
     await assert.rejects(
       () => ingestApiReferences([{ collection: "weird", manifest: bad }], index, root, logger),
-      /not a valid coordinates\.json/,
+      /invalid coordinates\.json: expected version 3 and collections/,
     );
     assert.equal(index.size, 0);
   });
@@ -78,7 +84,7 @@ describe("ingestApiReferences", () => {
       throw new Error("ECONNREFUSED");
     };
     try {
-      const index = new Map<string, string>();
+      const index = new CoordinateIndex();
       const { logger, messages } = collectWarnings();
       await ingestApiReferences(
         [{ collection: "remote", manifest: "https://down.example.com/coordinates.json" }],
@@ -99,7 +105,7 @@ describe("ingestApiReferences", () => {
     globalThis.fetch = async () =>
       new Response("nope", { status: 404, statusText: "Not Found" });
     try {
-      const index = new Map<string, string>();
+      const index = new CoordinateIndex();
       const { logger, messages } = collectWarnings();
       await ingestApiReferences(
         [{ collection: "remote", manifest: "https://x.example.com/coordinates.json" }],
@@ -115,7 +121,7 @@ describe("ingestApiReferences", () => {
   });
 
   test("undefined references is a no-op", async () => {
-    const index = new Map<string, string>();
+    const index = new CoordinateIndex();
     const { logger, messages } = collectWarnings();
     await ingestApiReferences(undefined, index, root, logger);
     assert.equal(index.size, 0);

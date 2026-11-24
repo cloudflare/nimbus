@@ -11,6 +11,7 @@
  */
 
 import type { CitationIndex } from "./citations.js";
+import { CoordinateIndex } from "./coordinate-document.js";
 import type { CoordinatesManifest } from "./citation-index.js";
 
 let _cached: CitationIndex | null = null;
@@ -18,7 +19,7 @@ let _cached: CitationIndex | null = null;
 export async function loadCitationIndex(): Promise<CitationIndex> {
   if (_cached) return _cached;
   const mod = await import("virtual:nimbus/coordinates");
-  const value: CitationIndex = new Map(Object.entries(mod.coordinates ?? {}));
+  const value: CitationIndex = CoordinateIndex.fromPayload(mod.index);
   _cached = value;
   return value;
 }

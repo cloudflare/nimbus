@@ -9,7 +9,9 @@ import { mkdtemp } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { buildCitationIndex, ingestRemoteManifest, type CoordinatesManifest } from "../src/_internal/api/citation-index.ts";
+import { buildCitationIndex, type CitationIndexResult } from "../src/_internal/api/citation-index.ts";
+import { CoordinateIndex } from "../src/_internal/api/coordinate-document.ts";
+import { ingestRemoteReference } from "../src/_internal/api/coordinate-manifest.ts";
 import { resolveCitations } from "../src/_internal/api/citations.ts";
 import { setMountContext } from "../src/_internal/collection-mount.ts";
 import type { ApiSpec } from "../src/types.ts";
@@ -33,19 +35,21 @@ describe("buildCitationIndex: unversioned collection", () => {
     for (const [, url] of index) assert.match(url, /^\/smallco(\/.*)?$/);
   });
 
-  test("manifest carries the collection with a null defaultVersion", async () => {
-    const { manifest } = await buildCitationIndex(api, root);
-    assert.equal(manifest.version, 2);
+  test("manifest carries the collection with a null defaultVersion and one document", async () => {
+    const result = await buildCitationIndex(api, root);
+    const { manifest } = result;
+    assert.equal(manifest.version, 3);
     assert.equal(manifest.collections.smallco?.defaultVersion, null);
-    assert.ok(manifest.collections.smallco!.pages.length > 0);
-    assert.equal(manifest.collections.smallco!.versions, undefined);
-    assert.deepEqual(read(manifest), (await buildCitationIndex(api, root)).index);
+    assert.deepEqual(manifest.collections.smallco!.versions.map(({ version, file }) => ({ version, file })), [
+      { version: null, file: "coordinates/smallco.json" },
+    ]);
+    assert.ok(JSON.parse(result.documents.get("coordinates/smallco.json")!.read()).pages.length > 0);
+    assert.deepEqual([...(await read(result))].sort(), [...result.index].sort());
   });
 
-  test("manifest maps are null-prototype (a '__proto__'/'constructor' key can never pollute)", async () => {
+  test("the index's collections are null-prototype (a '__proto__'/'constructor' key can never pollute)", async () => {
     const { manifest } = await buildCitationIndex(api, root);
     assert.equal(Object.getPrototypeOf(manifest.collections), null);
-    assert.equal(Object.getPrototypeOf(manifest.collections.smallco!.pages[0]!.entries), null);
   });
 });
 
@@ -126,8 +130,7 @@ describe("buildCitationIndex: field coordinates resolve to <page>#<anchor>", () 
   });
 
   test("field coordinates are published in the manifest alongside pages", async () => {
-    const { manifest } = await buildCitationIndex(api, root);
-    assert.match(read(manifest).get("smallco:create.amount")!, /#create\.amount$/);
+    assert.match((await read(await buildCitationIndex(api, root))).get("smallco:create.amount")!, /#create\.amount$/);
   });
 });
 
@@ -135,13 +138,14 @@ describe("buildCitationIndex: response coordinates resolve to rendered anchors",
   const api: ApiSpec[] = [{ collection: "smallco", spec: fixturePath("smallco.yaml"), schemaPages: true }];
 
   test("bare responses are addressable in the index and manifest", async () => {
-    const { index, manifest } = await buildCitationIndex(api, root);
+    const result = await buildCitationIndex(api, root);
+    const { index } = result;
     assert.equal(
       index.get("smallco:create.response.200"),
       `${index.get("smallco:create")}#response-200`,
     );
     assert.equal(
-      read(manifest).get("smallco:create.response.200"),
+      (await read(result)).get("smallco:create.response.200"),
       `${index.get("smallco:create")}#response-200`,
     );
   });
@@ -182,10 +186,19 @@ describe("buildCitationIndex: response coordinates resolve to rendered anchors",
 });
 
 
-function read(manifest: CoordinatesManifest) {
-  const index = new Map<string, string>();
-  for (const name of Object.keys(manifest.collections)) {
-    assert.deepEqual(ingestRemoteManifest(index, name, JSON.parse(JSON.stringify(manifest))), []);
+/** What another site resolves from everything this build publishes. */
+async function read({ manifest, documents }: CitationIndexResult) {
+  const index = new CoordinateIndex();
+  for (const [collection, { versions }] of Object.entries(manifest.collections)) {
+    assert.deepEqual(
+      await ingestRemoteReference(
+        index,
+        { collection, versions: versions.flatMap(({ version }) => (version === null ? [] : [version])) },
+        JSON.parse(JSON.stringify(manifest)),
+        async (file) => documents.get(file)!.read(),
+      ),
+      [],
+    );
   }
   return index;
 }
@@ -276,14 +289,15 @@ describe("prepared API citations: historical authored lookup without published h
     assert.equal(reads.get("v2"), 2, "cache retains one historical version");
     assert.equal(index.get("svc@missing:operation-v2"), undefined);
     assert.equal(index.get("svc@v2:missing"), undefined);
-    assert.deepEqual(Object.keys(manifest.collections.svc!.versions!), ["v3"]);
+    // A version with no prepared document is resolved here but not published.
+    assert.deepEqual(manifest.collections.svc!.versions.map(({ version }) => version), ["v3"]);
     assert.ok(
       [...index.keys()].every(
         (key) => !key.includes("@v1:") && !key.includes("@v2:"),
       ),
     );
     assert.doesNotMatch(
-      JSON.stringify(Object.fromEntries(index)),
+      JSON.stringify(index.toPayload()),
       /operation-v[12]/,
       "virtual module contains published default only even after authored reads",
     );
