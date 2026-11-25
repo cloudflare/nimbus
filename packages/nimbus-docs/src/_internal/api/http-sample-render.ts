@@ -315,12 +315,14 @@ type JsNode =
 const code = (text: string): JsNode => ({ kind: "code", text: () => text });
 
 
-// A string as the options object writes it: single quotes, `\n` and `\r`
-// escaped, and `'` escaped together with a backslash before it.
+// Text inside a single-quoted string in the options object: `\`, `'`, `\n`
+// and `\r` escaped, so the string holds exactly the text.
+function optionText(text: string): string {
+  return text.replace(/[\\'\r\n]/g, (x) => (x === "\n" ? "\\n" : x === "\r" ? "\\r" : `\\${x}`));
+}
+
 function optionString(value: SampleValue): JsNode {
-  const escape = (text: string) => text.replace(/[\r\n]/g, (x) => (x === "\n" ? "\\n" : "\\r")).replace(/\\?'/g, "\\'");
-  const literal = `'${inLiteral(value, "node", escape)}'`;
-  return code(literal);
+  return code(`'${inLiteral(value, "node", optionText)}'`);
 }
 
 /** A node on one line, or `undefined` when it can't be written on one. */
@@ -359,12 +361,14 @@ function renderJsNode(node: JsNode, pad: string, before: number, after: number):
     .join(",\n")}\n${pad}}`;
 }
 
+// `__proto__` is computed, so it stays an ordinary key.
 function optionKey(key: string): string {
+  if (key === "__proto__") return `['__proto__']`;
   return /^[a-z$_][a-z$_0-9]*$/i.test(key) ? key : jsOptionKey(key);
 }
 
 function jsOptionKey(key: string): string {
-  return `'${key.replace(/[\r\n]/g, (x) => (x === "\n" ? "\\n" : "\\r")).replace(/\\?'/g, "\\'")}'`;
+  return `'${optionText(key)}'`;
 }
 
 // A JSON value as a JavaScript literal: single-quoted strings, bare keys where

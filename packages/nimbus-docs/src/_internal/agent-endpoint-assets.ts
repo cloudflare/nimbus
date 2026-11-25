@@ -1,3 +1,4 @@
+import { oneLine } from "./markdown-text.js";
 import {
   ARTIFACTS_VIRTUAL_ID,
   HEADINGS_VIRTUAL_ID,
@@ -825,7 +826,7 @@ function markdownAsset(
     ...frontmatter(entry, options, { fields, description: entryDescription(entry) }),
     "",
     ...llmsIndexNote(options),
-    `# ${title}`,
+    `# ${oneLine(title)}`,
     "",
   ].join("\n");
   // The source line names the `.mdx` only when a route serves it.

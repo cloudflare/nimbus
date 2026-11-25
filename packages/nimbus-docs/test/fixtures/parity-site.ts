@@ -53,7 +53,11 @@ export interface ParitySite {
   root: string;
   config: AstroInlineConfig;
   /** A fresh config with other `sources` or Nimbus fields (each build gets its own integration). */
-  configure: (patch?: { sources?: Record<string, unknown>; nimbus?: Record<string, unknown> }) => AstroInlineConfig;
+  configure: (patch?: {
+    sources?: Record<string, unknown>;
+    nimbus?: Record<string, unknown>;
+    integration?: Record<string, unknown>;
+  }) => AstroInlineConfig;
   write: (file: string, body: string) => Promise<void>;
   read: (file: string) => Promise<string>;
   remove: () => Promise<void>;
@@ -170,7 +174,9 @@ export async function paritySite(options: ParitySiteOptions = {}): Promise<Parit
 
   for (const [file, body] of Object.entries(options.routes ?? {})) await write(file, body);
 
-  const configure = (patch: { sources?: Record<string, unknown>; nimbus?: Record<string, unknown> } = {}): AstroInlineConfig => ({
+  const configure = (
+    patch: { sources?: Record<string, unknown>; nimbus?: Record<string, unknown>; integration?: Record<string, unknown> } = {},
+  ): AstroInlineConfig => ({
     root: `${root}${path.sep}`,
     configFile: false,
     cacheDir: path.join(root, ".astro"),
@@ -201,6 +207,7 @@ export async function paritySite(options: ParitySiteOptions = {}): Promise<Parit
           icons: false,
           validateMdx: false,
           ...options.integration,
+          ...patch.integration,
         } as Parameters<typeof nimbus>[1],
       ),
     ],
