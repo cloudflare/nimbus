@@ -14,12 +14,6 @@ import { runningNimbusVersion } from "../../src/_internal/upgrades.ts";
 import { TEST_TMP } from "./temp-root.js";
 import { writeFileAtomic } from "./write-file.js";
 
-// Outside CI, `astro dev` asks npm for Astro's latest version and records the
-// time in `.astro/settings.json`, a file whose changes restart the server.
-// That restart can begin before the server is listening; the restarted server
-// then listens on another port, and requests to the test's port are refused.
-process.env.ASTRO_DISABLE_UPDATE_CHECK ??= "true";
-
 const roots: string[] = [];
 after(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true, maxRetries: 10 })));
