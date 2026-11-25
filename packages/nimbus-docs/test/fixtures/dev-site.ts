@@ -2,7 +2,7 @@
 // for tests that edit files under a running server.
 
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, stat, symlink } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
 import { after } from "node:test";
@@ -12,6 +12,13 @@ import { dev } from "astro";
 
 import { runningNimbusVersion } from "../../src/_internal/upgrades.ts";
 import { TEST_TMP } from "./temp-root.js";
+import { writeFileAtomic } from "./write-file.js";
+
+// Outside CI, `astro dev` asks npm for Astro's latest version and records the
+// time in `.astro/settings.json`, a file whose changes restart the server.
+// That restart can begin before the server is listening; the restarted server
+// then listens on another port, and requests to the test's port are refused.
+process.env.ASTRO_DISABLE_UPDATE_CHECK ??= "true";
 
 const roots: string[] = [];
 after(async () => {
@@ -95,6 +102,65 @@ export async function stopDevServer(server: { stop(): Promise<void> }, root: str
   }
 }
 
+/** What the process has printed since `start()`, the dev server's log included. */
+export interface CapturedOutput {
+  mark(): number;
+  since(mark: number): string;
+  release(): void;
+}
+
+/** Records stdout and stderr while still printing them. Call `release()` when done. */
+export function captureOutput(): CapturedOutput {
+  const chunks: string[] = [];
+  const streams = [process.stdout, process.stderr] as const;
+  const realWrites = streams.map((stream) => stream.write);
+  for (const [index, stream] of streams.entries()) {
+    const realWrite = realWrites[index]!.bind(stream) as (...args: unknown[]) => boolean;
+    stream.write = ((chunk: string | Uint8Array, ...rest: unknown[]) => {
+      chunks.push(String(chunk));
+      return realWrite(chunk, ...rest);
+    }) as typeof stream.write;
+  }
+  return {
+    mark: () => chunks.length,
+    since: (mark) => chunks.slice(mark).join(""),
+    release: () => {
+      for (const [index, stream] of streams.entries()) stream.write = realWrites[index]!;
+    },
+  };
+}
+
+/**
+ * Whether `log` ends with no dev restart in flight. A config or route-file
+ * change restarts the dev server in place; the restart is over once Vite
+ * reports the replacement server listening ("server restarted.") and Astro
+ * has re-synced content after it, or once a restart gave up. Needs Astro's
+ * and Vite's `logLevel: "info"`.
+ */
+export function restartOver(log: string): boolean {
+  const start = log.lastIndexOf("Restarting...");
+  if (start < 0) return true;
+  const rest = log.slice(start);
+  if (/Continuing with previous valid configuration|server restart failed/u.test(rest)) return true;
+  const listening = rest.indexOf("server restarted.");
+  return listening >= 0 && rest.indexOf("Synced content", listening) >= 0;
+}
+
+/**
+ * Stops a dev server once no restart is in flight. Stopping during a restart
+ * leaves the restarted server listening, and the test process never exits.
+ * Lets a pending route recheck fire first. Returns whether a restart was
+ * still unfinished after a minute.
+ */
+export async function stopAfterRestarts(server: { stop(): Promise<void> }, root: string, output: CapturedOutput): Promise<boolean> {
+  await settle(300);
+  const deadline = Date.now() + 60_000;
+  while (!restartOver(output.since(0)) && Date.now() < deadline) await settle(100);
+  const unfinished = !restartOver(output.since(0));
+  await stopDevServer(server, root);
+  return unfinished;
+}
+
 export interface DevSite {
   file(relative: string): string;
   write(relative: string, contents: string): Promise<void>;
@@ -111,25 +177,15 @@ export async function withDevSite(files: Record<string, string>, nimbusOptions: 
   roots.push(root);
   const file = (relative: string) => path.join(root, relative);
   const write = async (relative: string, contents: string) => {
-    await mkdir(path.dirname(file(relative)), { recursive: true });
-    await writeFile(file(relative), contents, "utf8");
+    await writeFileAtomic(file(relative), contents);
   };
   await symlink(path.resolve(import.meta.dirname, "../../node_modules"), file("node_modules"), process.platform === "win32" ? "junction" : "dir");
   await write("nimbus.json", `${JSON.stringify({ lastReviewedNimbusVersion: runningNimbusVersion() })}\n`);
   await write("astro.config.mjs", astroConfig(nimbusOptions));
   for (const [relative, contents] of Object.entries(files)) await write(relative, contents);
 
-  const logs: string[] = [];
-  const streams = [process.stdout, process.stderr] as const;
-  const realWrites = streams.map((stream) => stream.write);
-  for (const [index, stream] of streams.entries()) {
-    const realWrite = realWrites[index]!.bind(stream) as (...args: unknown[]) => boolean;
-    stream.write = ((chunk: string | Uint8Array, ...rest: unknown[]) => {
-      logs.push(String(chunk));
-      return realWrite(chunk, ...rest);
-    }) as typeof stream.write;
-  }
-  const since = (mark: number) => logs.slice(mark).join("");
+  const output = captureOutput();
+  const since = output.since;
 
   const port = await freePort();
   const origin = `http://127.0.0.1:${port}`;
@@ -137,18 +193,6 @@ export async function withDevSite(files: Record<string, string>, nimbusOptions: 
   const page = async (route: string) => {
     const response = await fetch(`${origin}${route}`, { signal: AbortSignal.timeout(10_000) }).catch(() => undefined);
     return { status: response?.status ?? 0, body: (await response?.text()) ?? "" };
-  };
-  // Whether `text` ends with a dev restart still in flight. A route-file
-  // change restarts the dev server in place; the restart is over once Vite
-  // reports the replacement server listening ("server restarted.") and Astro
-  // has re-synced content after it, or once a restart gave up.
-  const restartOver = (text: string) => {
-    const start = text.lastIndexOf("Restarting...");
-    if (start < 0) return true;
-    const rest = text.slice(start);
-    if (/Continuing with previous valid configuration|server restart failed/u.test(rest)) return true;
-    const listening = rest.indexOf("server restarted.");
-    return listening >= 0 && rest.indexOf("Synced content", listening) >= 0;
   };
   let failed = false;
   try {
@@ -163,26 +207,20 @@ export async function withDevSite(files: Record<string, string>, nimbusOptions: 
       // server) doesn't race it.
       restarted: (mark) =>
         until("the restart to finish", () => since(mark), (text) => text.includes("Restarting...") && restartOver(text)),
-      mark: () => logs.length,
+      mark: output.mark,
     });
   } catch (error) {
     failed = true;
     throw error;
   } finally {
-    // Stopping the server while a restart is in flight leaves the restarted
-    // server listening, and the test process never exits. Let a pending
-    // route recheck fire, then let any restart finish before stopping.
-    await settle(300);
-    const deadline = Date.now() + 60_000;
-    while (!restartOver(since(0)) && Date.now() < deadline) await settle(100);
-    const unfinished = !restartOver(since(0));
+    let unfinished = false;
     try {
-      await stopDevServer(server, root);
+      unfinished = await stopAfterRestarts(server, root, output);
     } catch (error) {
       // The body's own failure is the one to report; a stop that fails after it is noise.
       if (!failed) throw error;
     } finally {
-      for (const [index, stream] of streams.entries()) stream.write = realWrites[index]!;
+      output.release();
     }
     if (unfinished && !failed) {
       assert.fail("the dev server was still restarting when the test ended; its restarted server may outlive the stop");

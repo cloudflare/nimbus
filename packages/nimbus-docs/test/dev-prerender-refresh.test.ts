@@ -7,7 +7,7 @@
  * in the process, which later builds in the same process would read. */
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
-import { mkdir, mkdtemp, readdir, realpath, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, realpath, symlink } from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -15,6 +15,7 @@ import { dev } from "astro";
 import nimbus from "../src/index.ts";
 import { runningNimbusVersion } from "../src/_internal/upgrades.ts";
 import { TEST_TMP } from "./fixtures/temp-root.js";
+import { writeFileAtomic } from "./fixtures/write-file.js";
 
 const adapterRoot = process.env.NIMBUS_TEST_ADAPTER_ROOT;
 const SRC = path.resolve(import.meta.dirname, "../src");
@@ -52,8 +53,7 @@ test(
     if (!process.env.NIMBUS_TEST_KEEP) process.once("exit", () => rmSync(root, { recursive: true, force: true }));
     await dependencies(root);
     const write = async (name: string, contents: string) => {
-      await mkdir(path.dirname(path.join(root, name)), { recursive: true });
-      await writeFile(path.join(root, name), contents);
+      await writeFileAtomic(path.join(root, name), contents);
     };
     const config = (owner: string, fields: string) =>
       `import {defineCollection} from "astro:content";

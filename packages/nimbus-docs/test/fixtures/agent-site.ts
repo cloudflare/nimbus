@@ -2,7 +2,7 @@
 // tests that need real route resolution, prerendering, and baked
 // agent-endpoint assets.
 
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -11,6 +11,7 @@ import { build, type AstroIntegration } from "astro";
 import nimbus from "../../src/index.ts";
 import { runningNimbusVersion } from "../../src/_internal/upgrades.ts";
 import { TEST_TMP } from "./temp-root.js";
+import { writeFileAtomic } from "./write-file.js";
 
 export interface AgentSite {
   root: string;
@@ -79,8 +80,7 @@ export function agentSites() {
   ): Promise<AgentSite> {
     const root = options.root ?? (await mkdtemp(path.join(TEST_TMP, "nimbus-agent-site-")));
     const write = async (relative: string, contents: string) => {
-      await mkdir(path.dirname(path.join(root, relative)), { recursive: true });
-      await writeFile(path.join(root, relative), contents, "utf8");
+      await writeFileAtomic(path.join(root, relative), contents);
     };
     if (!options.root) {
       roots.push(root);

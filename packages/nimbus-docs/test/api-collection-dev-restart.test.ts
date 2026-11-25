@@ -5,7 +5,7 @@
 
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, symlink } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
 import { test } from "node:test";
@@ -16,8 +16,9 @@ import { dev } from "astro";
 import { lazyPreparedHeadingRecord } from "../src/_internal/lazy-headings.ts";
 import { getPreparedMarkdownSnapshot } from "../src/_internal/prepared-markdown-registry.ts";
 import { runningNimbusVersion } from "../src/_internal/upgrades.ts";
-import { stopDevServer } from "./fixtures/dev-site.ts";
+import { captureOutput, stopAfterRestarts, until } from "./fixtures/dev-site.ts";
 import { TEST_TMP } from "./fixtures/temp-root.js";
+import { writeFileAtomic } from "./fixtures/write-file.js";
 
 // Astro's content sync can outlive server.stop() and write to the root after
 // the test; remove it at exit, once nothing writes to it.
@@ -54,7 +55,8 @@ function astroConfig(specPath: string): string {
 
 export default {
   cacheDir: "./.astro",
-  vite: { cacheDir: "./.vite", logLevel: "silent" },
+  // Astro and Vite log at "info": "Restarting..." and "server restarted." say when a restart is over.
+  vite: { cacheDir: "./.vite", logLevel: "info" },
   integrations: [
     nimbus(
       {
@@ -92,29 +94,11 @@ async function freePort(): Promise<number> {
   });
 }
 
-async function until<T>(
-  describe: string,
-  read: () => T | Promise<T>,
-  accept: (value: T) => boolean,
-  timeoutMs = 60_000,
-): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  let last: T;
-  do {
-    last = await read();
-    if (accept(last)) return last;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  } while (Date.now() < deadline);
-  assert.fail(`timed out waiting for ${describe}; last value: ${JSON.stringify(last)}`);
-}
-
 test("dev restart after an api entry edit keeps prose prepared and spec watching alive", async () => {
   const root = await mkdtemp(path.join(TEST_TMP, "nimbus-api-dev-restart-"));
   roots.push(root);
-  const write = async (relative: string, contents: string) => {
-    await mkdir(path.dirname(path.join(root, relative)), { recursive: true });
-    await writeFile(path.join(root, relative), contents, "utf8");
-  };
+  // Atomic: the edits below land under a running server (see write-file.ts).
+  const write = (relative: string, contents: string) => writeFileAtomic(path.join(root, relative), contents);
   await symlink(
     path.resolve(import.meta.dirname, "../node_modules"),
     path.join(root, "node_modules"),
@@ -176,9 +160,16 @@ export function GET() {
 
   const port = await freePort();
   const origin = `http://127.0.0.1:${port}`;
+  const output = captureOutput();
+  // The dev server's output from the latest edit on, for a failure's message.
+  let lastEdit = output.mark();
+  const edit = async (relative: string, contents: string) => {
+    lastEdit = output.mark();
+    await write(relative, contents);
+  };
   const server = await dev({
     root: pathToFileURL(`${root}${path.sep}`),
-    logLevel: "silent",
+    logLevel: "info",
     server: { host: "127.0.0.1", port },
   });
 
@@ -221,7 +212,7 @@ export function GET() {
     await assertProsePrepared("before restart");
 
     // Edit the `api` entry in the Astro config: Astro restarts the dev server.
-    await write("astro.config.mjs", astroConfig("./specs/b.json"));
+    await edit("astro.config.mjs", astroConfig("./specs/b.json"));
     // Wait until the restarted server serves requests. The refresh runs
     // before it starts listening, so the API collection must already be
     // re-indexed and every prose collection prepared again by then.
@@ -235,14 +226,14 @@ export function GET() {
 
     // The loader's own watcher is closed by the restart; spec edits must still
     // re-index.
-    await write("specs/b.json", spec("Ping B edited"));
+    await edit("specs/b.json", spec("Ping B edited"));
     await until("the spec edit to re-index", apiTitle, (title) => title === "Ping B edited");
     await assertProsePrepared("after spec edit");
 
     // A second restart: Astro's content layer still holds the first server's
     // (closed) watcher, and re-running loaders against it must not leave the
     // process unable to exit once the server stops.
-    await write("astro.config.mjs", astroConfig("./specs/a.json"));
+    await edit("astro.config.mjs", astroConfig("./specs/a.json"));
     await until(
       "the second restart",
       async () => (await fetchText("/configured-spec.txt").catch(() => ({ body: "" }))).body,
@@ -258,7 +249,15 @@ export function GET() {
       () => readFile(path.join(root, ".astro", "data-store.json"), "utf8").catch(() => ""),
       (store) => store.includes("Ping A") && !store.includes("Ping B edited"),
     );
+  } catch (error) {
+    // The error page a failed request returns says only "Error"; the cause is in the server's output.
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${message}\n\nDev server output since the last edit:\n${output.since(lastEdit)}`, { cause: error });
   } finally {
-    await stopDevServer(server, root);
+    try {
+      await stopAfterRestarts(server, root, output);
+    } finally {
+      output.release();
+    }
   }
 });
