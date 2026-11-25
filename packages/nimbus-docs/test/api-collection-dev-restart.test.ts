@@ -199,6 +199,7 @@ export function GET() {
     assert.match(llms.body, /\[Guide\]/, `${phase}: llms.txt lists the guide`);
   };
 
+  let failed = false;
   try {
     await until(
       "the initial content sync",
@@ -250,14 +251,19 @@ export function GET() {
       (store) => store.includes("Ping A") && !store.includes("Ping B edited"),
     );
   } catch (error) {
+    failed = true;
     // The error page a failed request returns says only "Error"; the cause is in the server's output.
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`${message}\n\nDev server output since the last edit:\n${output.since(lastEdit)}`, { cause: error });
   } finally {
+    let unfinished = false;
     try {
-      await stopAfterRestarts(server, root, output);
+      unfinished = await stopAfterRestarts(server, root, output);
     } finally {
       output.release();
+    }
+    if (unfinished && !failed) {
+      assert.fail("the dev server was still restarting when the test ended; its restarted server may outlive the stop");
     }
   }
 });
