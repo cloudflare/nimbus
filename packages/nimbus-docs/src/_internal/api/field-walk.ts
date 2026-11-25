@@ -222,6 +222,9 @@ export function addField(
     enum: folded.enum ?? items?.enum,
     example: folded.example,
   };
+  // Every field coordinate is its parent's plus its own name, which may have dots.
+  const name = coord.slice(parent.length + 1);
+  if (kind === "field" && name.includes(".") && coord.startsWith(`${parent}.`)) (facts as FieldFacts).name = name;
   if (union) facts.union = union;
   if (mapRef) facts.typeRef = mapRef;
   // A field typed as a named union, or one where the walk stops at a repeat,

@@ -2010,3 +2010,55 @@ test("an HTTP auth scheme carries its scheme lowercased; other types carry none"
   assert.match(md, /`basic`, http basic, header `Authorization`/);
   assert.match(md, /`key`, apiKey, in header, header `X-Key`/);
 });
+
+describe("a dotted name is the field's whole name", () => {
+  const spec = {
+    openapi: "3.1.0",
+    info: { title: "Dotted", version: "1" },
+    paths: {
+      "/records": {
+        post: {
+          operationId: "recordsCreate",
+          parameters: [
+            { name: "name.exact", in: "query", schema: { type: "string" } },
+            { name: "name", in: "query", schema: { type: "string" } },
+          ],
+          requestBody: {
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    "meta.tag": { type: "string" },
+                    settings: { type: "object", properties: { enabled: { type: "boolean" } } },
+                  },
+                },
+              },
+            },
+          },
+          responses: { "200": { description: "ok" } },
+        },
+      },
+    },
+  } as Record<string, never>;
+
+  let page: ApiOperationPage;
+  before(async () => {
+    const model = await buildApiModel({ collection: "dotted", spec, label: "dotted" });
+    page = getApiPageProps(model, "recordsCreate") as ApiOperationPage;
+  });
+
+  test("parameters and body properties keep their dots; nested fields stay short", () => {
+    const query = page.parameters.find((g) => g.location === "query")!.fields.map((f) => f.name);
+    assert.deepEqual(query, ["name.exact", "name"]);
+    assert.deepEqual(page.body.map((f) => f.name), ["meta.tag", "settings"]);
+    assert.deepEqual(page.body[1]!.children.map((f) => f.name), ["enabled"]);
+  });
+
+  test("the Markdown names them the same way", () => {
+    const markdown = renderApiPageMarkdown(page);
+    assert.match(markdown, /`name\.exact`/);
+    assert.match(markdown, /`meta\.tag`/);
+    assert.doesNotMatch(markdown, /`exact`/);
+  });
+});
