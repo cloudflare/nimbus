@@ -1,5 +1,11 @@
 # @cloudflare/nimbus-docs
 
+## 0.20.2
+
+### Patch Changes
+
+- [#436](https://github.com/cloudflare/nimbus/pull/436) [`e6b2674`](https://github.com/cloudflare/nimbus/commit/e6b26741978e851b940c5fb9d301897c56c36977) Thanks [@MohamedH1998](https://github.com/MohamedH1998)! - - API pages and their Markdown show a parameter or property with a dot in its name, like `name.exact`, by its whole name.
+
 ## 0.20.1
 
 ### Patch Changes
