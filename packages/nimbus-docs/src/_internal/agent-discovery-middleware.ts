@@ -222,7 +222,10 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
     }
   }
   const response = await next();
-  if (options.output === "server" && isMissingPage(response)) {
+  // A prerendered 404 is built once, with no request to negotiate: reading
+  // its headers only earns Astro's warning. Missing pages served on request
+  // still negotiate.
+  if (options.output === "server" && !context.isPrerendered && isMissingPage(response)) {
     // Both forms vary on Accept, so a cache never serves one for the other.
     return prefersMarkdown(context.request.headers.get("Accept"))
       ? notFoundMarkdown(context, response)

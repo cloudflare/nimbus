@@ -146,6 +146,41 @@ test("on server output a missing page answers Markdown with its 404 when Markdow
   }
 });
 
+test("on server output a prerendered 404 builds without reading request headers", async () => {
+  const site = await fixture("---\ntitle: Root entry\n---\nHome body.", "docs", false, undefined, {
+    rendering: { default: "request" },
+  });
+  await site.write(
+    "src/pages/[...slug].astro",
+    `---\nimport { getDocsPage, getDocsStaticPaths } from ${srcModule("runtime.ts")};\nexport const getStaticPaths = getDocsStaticPaths;\nconst page = await getDocsPage(Astro);\nif (page instanceof Response) return page;\n---\n<html><body>Page</body></html>`,
+  );
+  await site.write("src/pages/404.astro", "---\nexport const prerender = true;\n---\n<html><body>Not here</body></html>");
+  await site.write("server-entry.mjs", 'import { createApp } from "astro/app/entrypoint";\nexport const app = createApp();\n');
+  const log: string[] = [];
+  const writes = { out: process.stdout.write, err: process.stderr.write };
+  const capture = (chunk: unknown) => (log.push(String(chunk)), true);
+  process.stdout.write = capture as typeof process.stdout.write;
+  process.stderr.write = capture as typeof process.stderr.write;
+  try {
+    await build({
+      ...site.config,
+      logLevel: "warn",
+      output: "server",
+      adapter: testAdapter(path.join(site.root, "server-entry.mjs")),
+      build: { client: path.join(site.root, "dist"), server: path.join(site.root, ".server") },
+    });
+  } finally {
+    process.stdout.write = writes.out;
+    process.stderr.write = writes.err;
+  }
+  try {
+    assert.match(await site.read("dist/404.html"), /Not here/);
+    assert.doesNotMatch(log.join(""), /Astro\.request\.headers/);
+  } finally {
+    await rm(site.root, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
+
 test("under server output, build-rendered pages and the homepage of an all-build site stay HTML", async () => {
   const site = await fixture("---\ntitle: Root entry\n---\nHome body.", "docs", false, undefined, {
     rendering: { collections: { docs: "build" } },
