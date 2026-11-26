@@ -222,7 +222,11 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
     }
   }
   const response = await next();
-  if (options.output === "server" && isMissingPage(response)) {
+  // Building a prerendered 404 has no request to negotiate: reading its
+  // headers only earns Astro's warning. Deployed, the built file is served
+  // without this middleware; in dev the page renders per request and still
+  // negotiates, as missing pages rendered on request do.
+  const building = context.isPrerendered && !import.meta.env.DEV;  if (options.output === "server" && !building && isMissingPage(response)) {
     // Both forms vary on Accept, so a cache never serves one for the other.
     return prefersMarkdown(context.request.headers.get("Accept"))
       ? notFoundMarkdown(context, response)
