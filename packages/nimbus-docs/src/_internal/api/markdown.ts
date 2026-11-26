@@ -594,7 +594,8 @@ function renderAuth(alternatives: ApiAuthView[][], out: string[]): void {
   if (alternatives.length === 0) return;
   out.push("## Authentication", "");
   const describe = (a: ApiAuthView): string => {
-    const bits: string[] = [inlineCode(a.scheme)];
+    // A scheme with a display name reads by it, its key beside it.
+    const bits: string[] = [a.label ? `**${plainText(a.label)}** (${inlineCode(a.scheme)})` : inlineCode(a.scheme)];
     if (a.type) bits.push(inlineText(a.httpScheme ? `${a.type} ${a.httpScheme}` : a.type));
     if (a.in) bits.push(`in ${inlineText(a.in)}`);
     if (a.headerName) bits.push(`header ${inlineCode(a.headerName)}`);
@@ -602,7 +603,8 @@ function renderAuth(alternatives: ApiAuthView[][], out: string[]): void {
     if (a.scopes.length > 0) {
       bits.push(`scopes: ${a.scopes.map(inlineCode).join(", ")}`);
     }
-    return bits.join(", ");
+    const line = bits.join(", ");
+    return a.description ? `${line} — ${inlineText(a.description)}` : line;
   };
   if (alternatives.length === 1) {
     for (const scheme of alternatives[0] ?? []) out.push(`- ${describe(scheme)}`);

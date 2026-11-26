@@ -591,7 +591,9 @@ function addParameter(
     type: typeLabel(schema),
     required: param.required ?? location === "path",
     description: asString(param.description) ?? asString(schema?.description),
-    deprecated: param.deprecated,
+    // A spec may mark the parameter or only its schema; the parameter's own
+    // flag, `false` included, wins.
+    deprecated: param.deprecated ?? (schema?.deprecated === true ? true : undefined),
     constraints: constraintsOf(schema),
     default: schema?.default,
     enum: schema?.enum,

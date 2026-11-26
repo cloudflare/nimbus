@@ -63,10 +63,23 @@ const knownTags = new Set([...(defaultSchema.tagNames ?? []), ...(defaultSchema.
 type Node = ReturnType<typeof fromHtml>["children"][number];
 type Span = { start: { offset?: number }; end: { offset?: number } };
 
+/** An `<img>` the sanitizer would leave without a `src`, such as one with a
+ *  `cid:` or `data:` source. It is a description quoting HTML, like "e.g.
+ *  `<img src="cid:logo">`", so it reads better as the text that was written.
+ *  Asks the sanitizer itself, so the two never disagree. */
+function imageWithoutSource(node: Node): boolean {
+  if (node.type !== "element" || node.tagName !== "img") return false;
+  const root = sanitize({ type: "root", children: [{ ...node, children: [] }] }, defaultSchema);
+  const kept = root.type === "root" ? root.children[0] : undefined;
+  return !(kept?.type === "element" && typeof kept.properties?.src === "string" && kept.properties.src !== "");
+}
+
 function unknownTagsAsText(nodes: Node[], raw: string): Node[] {
   return nodes.flatMap((node): Node[] => {
     if (node.type !== "element") return [node];
-    if (knownTags.has(node.tagName)) return [{ ...node, children: unknownTagsAsText(node.children, raw) } as Node];
+    if (knownTags.has(node.tagName) && !imageWithoutSource(node)) {
+      return [{ ...node, children: unknownTagsAsText(node.children, raw) } as Node];
+    }
     const children = unknownTagsAsText(node.content?.children ?? node.children, raw);
     const { opening, closing } = (node.data as { position?: { opening?: Span; closing?: Span } } | undefined)
       ?.position ?? {};

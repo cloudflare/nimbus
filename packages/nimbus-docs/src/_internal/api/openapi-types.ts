@@ -33,6 +33,7 @@ export interface OpenApiSecurityScheme {
   bearerFormat?: string;
   flows?: Record<string, { scopes?: Record<string, string> }>;
   openIdConnectUrl?: string;
+  "x-displayName"?: unknown;
 }
 
 export interface OpenApiInfo {

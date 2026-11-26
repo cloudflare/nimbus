@@ -48,16 +48,18 @@ function toField(agg: AuthAgg): ApiFieldView {
     example ? code(example) : "",
     scopes.length > 0 ? `Scopes: ${scopes.map(code).join(", ")}` : "",
   ].filter(Boolean);
+  const html = [parts.length > 0 ? `<p>${parts.join(" · ")}</p>` : "", a.descriptionHtml ?? ""].join("");
   return {
     coordinate: `auth:${a.scheme}`,
-    name: a.scheme,
+    // The scheme's display name when the spec gives one ("API Token"), else its key.
+    name: a.label ?? a.scheme,
     type: authTypeLabel(a),
     required: agg.required,
     anchor: authAnchor(a.scheme),
     children: [],
     childCount: 0,
     truncated: false,
-    descriptionHtml: parts.length > 0 ? `<p>${parts.join(" · ")}</p>` : undefined,
+    descriptionHtml: html || undefined,
   };
 }
 
