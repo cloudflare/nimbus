@@ -597,6 +597,7 @@ function addParameter(
     enum: schema?.enum,
     example: parameterExample(param),
   };
+  if (param.name.includes(".")) facts.name = param.name;
   const rawSchema = ctx.resolver.rawParameterSchema(rawOp?.parameters, rawSharedParams, param.name, location);
   const union = schema
     ? ctx.resolver.unionPreferRaw(rawSchema, schema, itemsOf(schema), coord)

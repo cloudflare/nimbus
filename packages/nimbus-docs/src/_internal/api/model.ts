@@ -184,6 +184,9 @@ export type ParameterLocation = "path" | "query" | "header" | "cookie";
 
 export interface FieldFacts {
   kind: "field";
+  /** The property or parameter name, set only when it contains a dot: the
+   *  coordinate's last segment is the name otherwise (`name.exact`, not `exact`). */
+  name?: string;
   type: string;
   required: boolean;
   description?: string;

@@ -507,7 +507,7 @@ function fieldView(
 
   const out: ApiFieldView = {
     coordinate: node.id,
-    name: leafName(node.id),
+    name: f.name ?? leafName(node.id),
     type: f.type,
     required: f.required,
     anchor: coordinateAnchor(node.id),
