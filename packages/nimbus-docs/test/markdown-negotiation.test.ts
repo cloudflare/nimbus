@@ -158,6 +158,10 @@ test("on server output a prerendered 404 builds without reading request headers"
   await site.write("server-entry.mjs", 'import { createApp } from "astro/app/entrypoint";\nexport const app = createApp();\n');
   const log: string[] = [];
   const writes = { out: process.stdout.write, err: process.stderr.write };
+  // Build as `astro build` does, whatever an earlier dev server left, and put
+  // NODE_ENV back for the dev servers after it.
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
   const capture = (chunk: unknown) => (log.push(String(chunk)), true);
   process.stdout.write = capture as typeof process.stdout.write;
   process.stderr.write = capture as typeof process.stderr.write;
@@ -176,6 +180,34 @@ test("on server output a prerendered 404 builds without reading request headers"
   } finally {
     process.stdout.write = writes.out;
     process.stderr.write = writes.err;
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    await rm(site.root, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
+
+test("in dev a prerendered 404 still answers Markdown when Markdown is preferred", async () => {
+  const site = await fixture("---\ntitle: Root entry\n---\nHome body.", "docs", false, undefined, {
+    rendering: { default: "request" },
+  });
+  await site.write(
+    "src/pages/[...slug].astro",
+    `---\nimport { getDocsPage, getDocsStaticPaths } from ${srcModule("runtime.ts")};\nexport const getStaticPaths = getDocsStaticPaths;\nconst page = await getDocsPage(Astro);\nif (page instanceof Response) return page;\n---\n<html><body>Page</body></html>`,
+  );
+  await site.write("src/pages/404.astro", "---\nexport const prerender = true;\n---\n<html><body>Not here</body></html>");
+  const server = await dev({ ...site.config, output: "server", server: { host: "127.0.0.1", port: 0 } });
+  try {
+    const origin = `http://127.0.0.1:${server.address.port}`;
+    const missing = await fetch(`${origin}/docs/nowhere/`, { headers: { Accept: "text/markdown" } });
+    assert.equal(missing.status, 404);
+    assert.match(missing.headers.get("Content-Type") ?? "", /text\/markdown/);
+    assert.match(await missing.text(), /^# Not found/);
+    const html = await fetch(`${origin}/docs/nowhere/`);
+    assert.equal(html.status, 404);
+    assert.match(await html.text(), /Not here/);
+    assert.match(html.headers.get("Vary") ?? "", /Accept/);
+  } finally {
+    await server.stop();
     await rm(site.root, { recursive: true, force: true, maxRetries: 5 });
   }
 });
