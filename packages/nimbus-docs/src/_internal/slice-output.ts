@@ -60,11 +60,22 @@ export function removeRootArtifacts(distDir: string): string[] {
 
 const SITEMAP_FILE = /^sitemap-(?:index|\d+)\.xml$/u;
 
+/** A path as a sitemap `<loc>` holds it: URL-escaped where a path can't
+ * hold the character as is (`#`, `?`, spaces, controls, non-ASCII; existing
+ * `%XX` kept), then entity-escaped, as the sitemap protocol asks. */
+function locPath(path: string): string {
+  return path
+    .replace(/%(?![0-9A-Fa-f]{2})|[^A-Za-z0-9\-._~!$&'()*+,;=:@/%]/gu, (c) =>
+      [...new TextEncoder().encode(c)].map((byte) => `%${byte.toString(16).toUpperCase().padStart(2, "0")}`).join(""),
+    )
+    .replace(/[&<>]/g, (c) => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;"));
+}
+
 /** A sitemap index whose file entries point under the prefix. */
 export function sitemapIndexUnderPrefix(xml: string, prefix: string): string {
   return xml.replace(
     /<loc>([^<]*?)\/(sitemap-\d+\.xml)<\/loc>/gu,
-    (_match, origin: string, file: string) => `<loc>${origin}${prefix}/${file}</loc>`,
+    (_match, origin: string, file: string) => `<loc>${origin}${locPath(prefix)}/${file}</loc>`,
   );
 }
 
