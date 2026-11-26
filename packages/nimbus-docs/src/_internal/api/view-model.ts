@@ -601,6 +601,11 @@ function authView(view: ModelView, auth: OperationFacts["auth"]): ApiAuthView[][
       if (headerName) out.headerName = headerName;
       if (scheme?.bearerFormat) out.bearerFormat = scheme.bearerFormat;
       if (scheme?.type === "http" && typeof scheme.scheme === "string") out.httpScheme = scheme.scheme.toLowerCase();
+      if (scheme?.displayName) out.label = scheme.displayName;
+      if (scheme?.description) {
+        out.description = scheme.description;
+        out.descriptionHtml = renderMarkdown(scheme.description);
+      }
       return out;
     }),
   );

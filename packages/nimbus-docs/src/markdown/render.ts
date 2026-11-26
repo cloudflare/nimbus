@@ -63,10 +63,25 @@ const knownTags = new Set([...(defaultSchema.tagNames ?? []), ...(defaultSchema.
 type Node = ReturnType<typeof fromHtml>["children"][number];
 type Span = { start: { offset?: number }; end: { offset?: number } };
 
+const srcProtocols = new Set((defaultSchema.protocols?.src ?? []).map((p) => p.toLowerCase()));
+
+/** An `<img>` the sanitizer would empty: no `src`, or one with a protocol it
+ *  drops (`cid:`, `data:`). It is a description quoting HTML, such as "e.g.
+ *  `<img src="cid:logo">`", so it reads better as the text that was written. */
+function imageWithoutSource(node: Node): boolean {
+  if (node.type !== "element" || node.tagName !== "img") return false;
+  const src = node.properties?.src;
+  if (typeof src !== "string" || !src.trim()) return true;
+  const protocol = /^([a-z][a-z0-9+.-]*):/i.exec(src.trim())?.[1];
+  return protocol !== undefined && !srcProtocols.has(protocol.toLowerCase());
+}
+
 function unknownTagsAsText(nodes: Node[], raw: string): Node[] {
   return nodes.flatMap((node): Node[] => {
     if (node.type !== "element") return [node];
-    if (knownTags.has(node.tagName)) return [{ ...node, children: unknownTagsAsText(node.children, raw) } as Node];
+    if (knownTags.has(node.tagName) && !imageWithoutSource(node)) {
+      return [{ ...node, children: unknownTagsAsText(node.children, raw) } as Node];
+    }
     const children = unknownTagsAsText(node.content?.children ?? node.children, raw);
     const { opening, closing } = (node.data as { position?: { opening?: Span; closing?: Span } } | undefined)
       ?.position ?? {};

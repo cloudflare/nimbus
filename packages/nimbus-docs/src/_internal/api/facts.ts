@@ -67,6 +67,9 @@ export function collectSecuritySchemes(
     if (typeof scheme.name === "string") fact.name = scheme.name;
     if (typeof scheme.scheme === "string") fact.scheme = scheme.scheme;
     if (typeof scheme.bearerFormat === "string") fact.bearerFormat = scheme.bearerFormat;
+    const displayName = scheme["x-displayName"];
+    if (typeof displayName === "string" && displayName.trim()) fact.displayName = displayName.trim();
+    if (typeof scheme.description === "string" && scheme.description.trim()) fact.description = scheme.description;
     out[name] = fact;
   }
   return out;

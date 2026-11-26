@@ -154,6 +154,11 @@ export interface ApiAuthView {
    *  for `type: "http"`. */
   httpScheme?: string;
   scopes: string[];
+  /** What readers call the scheme, from its `x-displayName` ("API Token"). */
+  label?: string;
+  /** The scheme's `description`, as Markdown and as sanitized HTML. */
+  description?: string;
+  descriptionHtml?: string;
 }
 
 export interface ApiResponseView {

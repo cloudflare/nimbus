@@ -110,6 +110,10 @@ export interface SecuritySchemeFacts {
   /** http scheme, e.g. `bearer` / `basic`. */
   scheme?: string;
   bearerFormat?: string;
+  /** The scheme's `x-displayName`: what readers call it ("API Token"). */
+  displayName?: string;
+  /** The scheme's Markdown `description`. */
+  description?: string;
 }
 
 export interface SectionFacts {
