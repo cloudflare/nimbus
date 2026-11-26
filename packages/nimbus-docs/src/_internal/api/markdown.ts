@@ -595,7 +595,7 @@ function renderAuth(alternatives: ApiAuthView[][], out: string[]): void {
   out.push("## Authentication", "");
   const describe = (a: ApiAuthView): string => {
     // A scheme with a display name reads by it, its key beside it.
-    const bits: string[] = [a.label ? `**${inlineText(a.label)}** (${inlineCode(a.scheme)})` : inlineCode(a.scheme)];
+    const bits: string[] = [a.label ? `**${plainText(a.label)}** (${inlineCode(a.scheme)})` : inlineCode(a.scheme)];
     if (a.type) bits.push(inlineText(a.httpScheme ? `${a.type} ${a.httpScheme}` : a.type));
     if (a.in) bits.push(`in ${inlineText(a.in)}`);
     if (a.headerName) bits.push(`header ${inlineCode(a.headerName)}`);

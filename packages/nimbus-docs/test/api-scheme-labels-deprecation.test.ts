@@ -64,6 +64,14 @@ describe("security schemes carry their display name and description", () => {
     assert.match(md, /- `api_key`, apiKey, in header, header `X-Auth-Key`$/m);
   });
 
+  test("a label's Markdown punctuation is escaped, so it can't break the line", () => {
+    const md = renderApiPageMarkdown({
+      ...page,
+      auth: [[{ ...page.auth[0]![0]!, label: "Token **spoof** `x`", description: "Line one.\n\nLine two." }]],
+    });
+    assert.match(md, /^- \*\*Token \\\*\\\*spoof\\\*\\\* \\`x\\`\*\* \(`api_token`\), http bearer, header `Authorization` — Line one\. Line two\.$/m);
+  });
+
   test("a parameter deprecated only on its schema is deprecated; its own false wins", () => {
     const query = page.parameters.find((g) => g.location === "query")!;
     const byName = new Map(query.fields.map((f) => [f.name, f]));
@@ -82,6 +90,18 @@ describe("an image quoted in a description", () => {
 
   test("without a source, it reads as text too", () => {
     assert.doesNotMatch(renderMarkdown("An empty <img> tag."), /<img/);
+  });
+
+  test("whatever the sanitizer would empty reads as text: odd case, leading space, a digit-led scheme", () => {
+    for (const src of ["HTTPS://example.com/a.png", " https://example.com/a.png", "1abc:foo"]) {
+      const html = renderMarkdown(`<img src="${src}">`);
+      assert.doesNotMatch(html, /<img/, src);
+    }
+  });
+
+  test("relative and protocol-relative sources stay images", () => {
+    assert.match(renderMarkdown('<img src="/logo.png">'), /<img src="\/logo\.png">/);
+    assert.match(renderMarkdown('<img src="//cdn.example.com/a.png">'), /<img src="\/\/cdn\.example\.com\/a\.png">/);
   });
 
   test("with an http source, it stays an image", () => {

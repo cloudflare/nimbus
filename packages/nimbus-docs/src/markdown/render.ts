@@ -63,17 +63,15 @@ const knownTags = new Set([...(defaultSchema.tagNames ?? []), ...(defaultSchema.
 type Node = ReturnType<typeof fromHtml>["children"][number];
 type Span = { start: { offset?: number }; end: { offset?: number } };
 
-const srcProtocols = new Set((defaultSchema.protocols?.src ?? []).map((p) => p.toLowerCase()));
-
-/** An `<img>` the sanitizer would empty: no `src`, or one with a protocol it
- *  drops (`cid:`, `data:`). It is a description quoting HTML, such as "e.g.
- *  `<img src="cid:logo">`", so it reads better as the text that was written. */
+/** An `<img>` the sanitizer would leave without a `src`, such as one with a
+ *  `cid:` or `data:` source. It is a description quoting HTML, like "e.g.
+ *  `<img src="cid:logo">`", so it reads better as the text that was written.
+ *  Asks the sanitizer itself, so the two never disagree. */
 function imageWithoutSource(node: Node): boolean {
   if (node.type !== "element" || node.tagName !== "img") return false;
-  const src = node.properties?.src;
-  if (typeof src !== "string" || !src.trim()) return true;
-  const protocol = /^([a-z][a-z0-9+.-]*):/i.exec(src.trim())?.[1];
-  return protocol !== undefined && !srcProtocols.has(protocol.toLowerCase());
+  const root = sanitize({ type: "root", children: [{ ...node, children: [] }] }, defaultSchema);
+  const kept = root.type === "root" ? root.children[0] : undefined;
+  return !(kept?.type === "element" && typeof kept.properties?.src === "string" && kept.properties.src !== "");
 }
 
 function unknownTagsAsText(nodes: Node[], raw: string): Node[] {
