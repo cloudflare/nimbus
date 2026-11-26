@@ -169,14 +169,13 @@ test("on server output a prerendered 404 builds without reading request headers"
       adapter: testAdapter(path.join(site.root, "server-entry.mjs")),
       build: { client: path.join(site.root, "dist"), server: path.join(site.root, ".server") },
     });
-  } finally {
     process.stdout.write = writes.out;
     process.stderr.write = writes.err;
-  }
-  try {
     assert.match(await site.read("dist/404.html"), /Not here/);
     assert.doesNotMatch(log.join(""), /Astro\.request\.headers/);
   } finally {
+    process.stdout.write = writes.out;
+    process.stderr.write = writes.err;
     await rm(site.root, { recursive: true, force: true, maxRetries: 5 });
   }
 });
