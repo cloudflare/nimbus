@@ -23,6 +23,7 @@
       "api-version-picker",
       "api-version-url",
       "search-unindexed-version",
+      "union-option-description-html",
       "version-switcher-keeps-query"
     ]
   },
@@ -1452,6 +1453,21 @@
       ],
       "verify": [
         "Switch the theme on a page with the search bar and a sidebar filter: both change colour with the page, and hovering the search bar still fades its border."
+      ]
+    },
+    {
+      "id": "union-option-description-html",
+      "introducedIn": "0.20.3",
+      "mode": "optional",
+      "changeset": "union-option-description-html",
+      "summary": "Optionally render a union option's description as Markdown, as field descriptions are: it showed its backticks and links as text.",
+      "affected": "Sites with an API reference using the starter's src/components/ui/api-field-row/ApiUnionExplorer.astro.",
+      "instructions": [
+        "ApiUnionExplorer is part of the api-field-row registry component, which nimbus-docs diff doesn't cover: if the component is unmodified, update it with nimbus-docs add api-field-row --overwrite.",
+        "If you've edited it, where a scalar option prints {variant.description}, render <div class=\"fl-desc\" set:html={variant.descriptionHtml} /> when variant.descriptionHtml is set, and keep {variant.description} otherwise."
+      ],
+      "verify": [
+        "Open an operation with a union of scalar types whose description has inline code, and confirm the code shows as code."
       ]
     }
   ]

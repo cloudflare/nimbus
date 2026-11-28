@@ -91,6 +91,7 @@ test("only universally skippable entries are optional", () => {
       "starter-component-fixes",
       "starter-defects",
       "theme-switch-no-fade",
+      "union-option-description-html",
       "version-switcher-collections",
     ],
   );

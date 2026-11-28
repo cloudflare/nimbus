@@ -371,7 +371,10 @@ function variantLink(view: ModelView, v: VariantRef): ApiVariant {
   if (v.title) out.title = v.title;
   const enumValues = jsonArrayOrOmit(v.enum);
   if (enumValues) out.enum = enumValues;
-  if (v.description) out.description = v.description;
+  if (v.description) {
+    out.description = v.description;
+    out.descriptionHtml = renderMarkdown(v.description);
+  }
   if (resolved && view.hasPage(resolved)) out.href = view.href(resolved);
   return out;
 }
