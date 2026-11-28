@@ -319,6 +319,7 @@ export interface ApiVariant {
   enum?: JsonValue[];
   /** An inline scalar branch's description. */
   description?: string;
+  descriptionHtml?: string;
   /**
    * The variant's own properties, inlined so a field union renders an in-place
    * explorer instead of only a link. Present for an inline object branch

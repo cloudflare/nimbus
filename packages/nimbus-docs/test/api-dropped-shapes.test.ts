@@ -123,3 +123,38 @@ test("every field the page now shows is citable", async () => {
     assert.ok(cited.has(c), `${c} is citable`);
   }
 });
+
+test("a scalar union option's description is prepared as HTML, like a field's", async () => {
+  const model = await buildApiModel({
+    collection: "s",
+    spec: JSON.stringify({
+      openapi: "3.1.0",
+      info: { title: "t", version: "1" },
+      paths: {
+        "/logs": {
+          get: {
+            operationId: "listLogs",
+            parameters: [
+              {
+                name: "since",
+                in: "query",
+                schema: {
+                  anyOf: [
+                    { type: "string", format: "date", description: "A `full-date` that conforms to RFC3339." },
+                    { type: "string", format: "date-time", description: "A `date-time`." },
+                  ],
+                },
+              },
+            ],
+            responses: { "200": { description: "OK" } },
+          },
+        },
+      },
+    }),
+  });
+  const page = getApiPageProps(model, "listLogs") as ApiOperationPage;
+  const since = page.parameters.find((g) => g.location === "query")!.fields.find((f) => f.name === "since")!;
+  const variant = since.union!.variants[0]!;
+  assert.equal(variant.description, "A `full-date` that conforms to RFC3339.");
+  assert.match(variant.descriptionHtml ?? "", /^<p>A <code>full-date<\/code> that conforms to RFC3339\.<\/p>/);
+});

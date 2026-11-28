@@ -83,7 +83,11 @@ const entries = unionEntries(union);
               </div>
             )}
           </div>
-          {variant.description && <div class="fl-desc">{variant.description}</div>}
+          {variant.descriptionHtml ? (
+            <div class="fl-desc" set:html={variant.descriptionHtml} />
+          ) : (
+            variant.description && <div class="fl-desc">{variant.description}</div>
+          )}
           {allowedValues(variant.enum) && (
             <div class="fl-constraints">Allowed values: <span class="fl-constraint-value">{allowedValues(variant.enum)}</span></div>
           )}
